@@ -156,3 +156,6 @@ _backups/
 PROJECT_REVIEW_REPORT.html
 THESIS_DEFENSE_REPORT.html
 _recovery/
+
+# State-migration archive (contains credentials -- never commit)
+newsletter_state.zip
