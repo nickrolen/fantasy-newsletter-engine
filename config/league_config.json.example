@@ -1,0 +1,60 @@
+{
+    "league_name": "Your League Name",
+    "league_name_short": "Your League",
+    "brand_colors": {
+        "primary": "#1F4E79",
+        "accent": "#C9A227"
+    },
+    "managers": ["Manager1", "Manager2", "Manager3", "Manager4"],
+    "manager_to_team": {
+        "Manager1": "Team Name 1",
+        "Manager2": "Team Name 2",
+        "Manager3": "Team Name 3",
+        "Manager4": "Team Name 4"
+    },
+    "manager_aliases": {
+        "manager1": "Manager1",
+        "manager2": "Manager2",
+        "manager3": "Manager3",
+        "manager4": "Manager4"
+    },
+    "manager_colors": {
+        "Manager1": "#1F4E79",
+        "Manager2": "#C9A227",
+        "Manager3": "#5B8C5A",
+        "Manager4": "#B85C38"
+    },
+    "yahoo": {
+        "game_code": "nba",
+        "current_league_key": "YOUR_YAHOO_LEAGUE_KEY",
+        "historical_league_keys": {}
+    },
+    "league_structure": {
+        "num_teams": 4,
+        "roster_size": 17,
+        "starters": 10,
+        "bench": 5,
+        "il_slots": 2,
+        "keepers_per_team": 6,
+        "historical_draft_rounds": 7,
+        "total_draft_rounds": 9,
+        "keeper_era_start": "YYYY-YY"
+    },
+    "tiebreaker_rules": {
+        "standings": "h2h_regular_season",
+        "fallback": "total_points"
+    },
+    "pre_data_era": {
+        "first_place_finishes": {},
+        "titles": {}
+    },
+    "season": {
+        "current": "YYYY-YY",
+        "current_long": "YYYY-YYYY",
+        "season_number": 1,
+        "regular_season_weeks": 21,
+        "playoff_start_week": 22,
+        "total_weeks": 23,
+        "nba_schedule_file": "data/nba_schedule_YYYY-YY.json"
+    }
+}

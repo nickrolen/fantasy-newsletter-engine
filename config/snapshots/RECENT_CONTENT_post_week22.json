@@ -1,0 +1,1076 @@
+{
+  "fun_facts": {
+    "career_milestone:hayden:100": {
+      "fact_key": "career_milestone:hayden:100",
+      "subcategory": "career_milestone",
+      "last_shown_week": 14,
+      "last_value": 1,
+      "times_shown": 2
+    },
+    "loss_streak:hayden": {
+      "fact_key": "loss_streak:hayden",
+      "subcategory": "loss_streak",
+      "last_shown_week": 14,
+      "last_value": 6,
+      "times_shown": 2
+    },
+    "win_streak:nick": {
+      "fact_key": "win_streak:nick",
+      "subcategory": "win_streak",
+      "last_shown_week": 15,
+      "last_value": 7,
+      "times_shown": 2
+    },
+    "positional_dominance:nick:hayden:forward": {
+      "fact_key": "positional_dominance:nick:hayden:forward",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 13,
+      "last_value": 296.90000000000003,
+      "times_shown": 1
+    },
+    "positional_dominance:benton:garrett:forward": {
+      "fact_key": "positional_dominance:benton:garrett:forward",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 19,
+      "last_value": 210.45000000000005,
+      "times_shown": 3
+    },
+    "positional_dominance:garrett:benton:center": {
+      "fact_key": "positional_dominance:garrett:benton:center",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 22,
+      "last_value": 273.5,
+      "times_shown": 3
+    },
+    "career_dominance": {
+      "fact_key": "career_dominance",
+      "subcategory": "career_dominance",
+      "last_shown_week": 22,
+      "last_value": 60.9,
+      "times_shown": 17
+    },
+    "positional_dominance:nick:garrett:guard": {
+      "fact_key": "positional_dominance:nick:garrett:guard",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 14,
+      "last_value": 317.3499999999999,
+      "times_shown": 1
+    },
+    "positional_dominance:nick:garrett:forward": {
+      "fact_key": "positional_dominance:nick:garrett:forward",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 20,
+      "last_value": 217.79999999999995,
+      "times_shown": 3
+    },
+    "positional_dominance:garrett:nick:center": {
+      "fact_key": "positional_dominance:garrett:nick:center",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 14,
+      "last_value": 423.0,
+      "times_shown": 1
+    },
+    "h2h_upset": {
+      "fact_key": "h2h_upset",
+      "subcategory": "h2h_upset",
+      "last_shown_week": 17,
+      "last_value": "",
+      "times_shown": 3
+    },
+    "monster_game:nick:luka_doncic": {
+      "fact_key": "monster_game:nick:luka_doncic",
+      "subcategory": "monster_game",
+      "last_shown_week": 23,
+      "last_value": 80.3,
+      "times_shown": 5
+    },
+    "positional_dominance:benton:nick:guard": {
+      "fact_key": "positional_dominance:benton:nick:guard",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 15,
+      "last_value": 260.25,
+      "times_shown": 1
+    },
+    "positional_dominance:nick:benton:forward": {
+      "fact_key": "positional_dominance:nick:benton:forward",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 15,
+      "last_value": 356.3499999999999,
+      "times_shown": 1
+    },
+    "injury_burden_gap": {
+      "fact_key": "injury_burden_gap",
+      "subcategory": "injury_burden_gap",
+      "last_shown_week": 22,
+      "last_value": 363,
+      "times_shown": 8
+    },
+    "injury_burden_leader:hayden": {
+      "fact_key": "injury_burden_leader:hayden",
+      "subcategory": "injury_burden_leader",
+      "last_shown_week": 19,
+      "last_value": 26.6046511627907,
+      "times_shown": 5
+    },
+    "trade_history": {
+      "fact_key": "trade_history",
+      "subcategory": "trade_history",
+      "last_shown_week": 15,
+      "last_value": 12,
+      "times_shown": 2
+    },
+    "positional_dominance:hayden:garrett:guard": {
+      "fact_key": "positional_dominance:hayden:garrett:guard",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 15,
+      "last_value": 179.7,
+      "times_shown": 1
+    },
+    "positional_dominance:garrett:hayden:forward": {
+      "fact_key": "positional_dominance:garrett:hayden:forward",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 23,
+      "last_value": 160.2500000000001,
+      "times_shown": 2
+    },
+    "blowout": {
+      "fact_key": "blowout",
+      "subcategory": "blowout",
+      "last_shown_week": 22,
+      "last_value": 665.0500000000002,
+      "times_shown": 5
+    },
+    "luck_very_unlucky:hayden": {
+      "fact_key": "luck_very_unlucky:hayden",
+      "subcategory": "luck_very_unlucky",
+      "last_shown_week": 22,
+      "last_value": -4.4,
+      "times_shown": 9
+    },
+    "luck_very_lucky:nick": {
+      "fact_key": "luck_very_lucky:nick",
+      "subcategory": "luck_very_lucky",
+      "last_shown_week": 22,
+      "last_value": 5.4,
+      "times_shown": 4
+    },
+    "monster_game:hayden:nikola_jokic": {
+      "fact_key": "monster_game:hayden:nikola_jokic",
+      "subcategory": "monster_game",
+      "last_shown_week": 22,
+      "last_value": 85.95,
+      "times_shown": 4
+    },
+    "monster_game:benton:trey_murphy_iii": {
+      "fact_key": "monster_game:benton:trey_murphy_iii",
+      "subcategory": "monster_game",
+      "last_shown_week": 16,
+      "last_value": 82.9,
+      "times_shown": 1
+    },
+    "positional_dominance:nick:hayden:guard": {
+      "fact_key": "positional_dominance:nick:hayden:guard",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 19,
+      "last_value": 357.4999999999998,
+      "times_shown": 3
+    },
+    "positional_dominance:garrett:benton:guard": {
+      "fact_key": "positional_dominance:garrett:benton:guard",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 22,
+      "last_value": 454.05000000000007,
+      "times_shown": 4
+    },
+    "career_race:garrett": {
+      "fact_key": "career_race:garrett",
+      "subcategory": "career_race",
+      "last_shown_week": 21,
+      "last_value": 1,
+      "times_shown": 7
+    },
+    "positional_dominance:benton:nick:forward": {
+      "fact_key": "positional_dominance:benton:nick:forward",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 23,
+      "last_value": 264.3999999999999,
+      "times_shown": 3
+    },
+    "positional_dominance:nick:benton:center": {
+      "fact_key": "positional_dominance:nick:benton:center",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 18,
+      "last_value": 174.0,
+      "times_shown": 1
+    },
+    "positional_dominance:garrett:hayden:center": {
+      "fact_key": "positional_dominance:garrett:hayden:center",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 18,
+      "last_value": 289.0999999999999,
+      "times_shown": 1
+    },
+    "boom_bust:garrett": {
+      "fact_key": "boom_bust:garrett",
+      "subcategory": "boom_bust",
+      "last_shown_week": 18,
+      "last_value": 70.0,
+      "times_shown": 1
+    },
+    "close_game:nick_vs_benton": {
+      "fact_key": "close_game:nick_vs_benton",
+      "subcategory": "close_game",
+      "last_shown_week": 18,
+      "last_value": 15.049999999999955,
+      "times_shown": 1
+    },
+    "weekly_fppg:luka_doncic": {
+      "fact_key": "weekly_fppg:luka_doncic",
+      "subcategory": "weekly_fppg",
+      "last_shown_week": 18,
+      "last_value": 59.099999999999994,
+      "times_shown": 1
+    },
+    "schedule_advantage:garrett:hayden": {
+      "fact_key": "schedule_advantage:garrett:hayden",
+      "subcategory": "schedule_advantage",
+      "last_shown_week": 18,
+      "last_value": 12,
+      "times_shown": 1
+    },
+    "elite_consistency:luka_doncic:nick": {
+      "fact_key": "elite_consistency:luka_doncic:nick",
+      "subcategory": "elite_consistency",
+      "last_shown_week": 22,
+      "last_value": 49.45,
+      "times_shown": 2
+    },
+    "luck_gap": {
+      "fact_key": "luck_gap",
+      "subcategory": "luck_gap",
+      "last_shown_week": 22,
+      "last_value": 9.8,
+      "times_shown": 2
+    },
+    "injury_burden_il_heavy:hayden": {
+      "fact_key": "injury_burden_il_heavy:hayden",
+      "subcategory": "injury_burden_il_heavy",
+      "last_shown_week": 22,
+      "last_value": 150,
+      "times_shown": 2
+    },
+    "win_streak:garrett": {
+      "fact_key": "win_streak:garrett",
+      "subcategory": "win_streak",
+      "last_shown_week": 19,
+      "last_value": 4,
+      "times_shown": 1
+    },
+    "boom_bust:nick": {
+      "fact_key": "boom_bust:nick",
+      "subcategory": "boom_bust",
+      "last_shown_week": 19,
+      "last_value": 83.45,
+      "times_shown": 1
+    },
+    "h2h_dominance:nick": {
+      "fact_key": "h2h_dominance:nick",
+      "subcategory": "h2h_dominance",
+      "last_shown_week": 20,
+      "last_value": "46-20",
+      "times_shown": 1
+    },
+    "h2h_dominance:hayden": {
+      "fact_key": "h2h_dominance:hayden",
+      "subcategory": "h2h_dominance",
+      "last_shown_week": 20,
+      "last_value": "40-26",
+      "times_shown": 1
+    },
+    "loss_streak:benton": {
+      "fact_key": "loss_streak:benton",
+      "subcategory": "loss_streak",
+      "last_shown_week": 22,
+      "last_value": 5,
+      "times_shown": 2
+    },
+    "positional_dominance:nick:benton:guard": {
+      "fact_key": "positional_dominance:nick:benton:guard",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 21,
+      "last_value": 276.69999999999993,
+      "times_shown": 1
+    },
+    "monster_game:garrett:alperen_sengun": {
+      "fact_key": "monster_game:garrett:alperen_sengun",
+      "subcategory": "monster_game",
+      "last_shown_week": 22,
+      "last_value": 87.15,
+      "times_shown": 2
+    },
+    "positional_dominance:hayden:nick:guard": {
+      "fact_key": "positional_dominance:hayden:nick:guard",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 22,
+      "last_value": 287.45000000000005,
+      "times_shown": 1
+    },
+    "weekly_fppg:nikola_jokic": {
+      "fact_key": "weekly_fppg:nikola_jokic",
+      "subcategory": "weekly_fppg",
+      "last_shown_week": 22,
+      "last_value": 70.1375,
+      "times_shown": 1
+    },
+    "schedule_advantage:garrett:benton": {
+      "fact_key": "schedule_advantage:garrett:benton",
+      "subcategory": "schedule_advantage",
+      "last_shown_week": 22,
+      "last_value": 13,
+      "times_shown": 1
+    },
+    "injury_burden_leader:benton": {
+      "fact_key": "injury_burden_leader:benton",
+      "subcategory": "injury_burden_leader",
+      "last_shown_week": 22,
+      "last_value": 27.02903946388682,
+      "times_shown": 1
+    },
+    "monster_game:garrett:victor_wembanyama": {
+      "fact_key": "monster_game:garrett:victor_wembanyama",
+      "subcategory": "monster_game",
+      "last_shown_week": 23,
+      "last_value": 83.6,
+      "times_shown": 1
+    },
+    "elite_consistency:jalen_johnson:nick": {
+      "fact_key": "elite_consistency:jalen_johnson:nick",
+      "subcategory": "elite_consistency",
+      "last_shown_week": 22,
+      "last_value": 47.4,
+      "times_shown": 1
+    },
+    "elite_consistency:scottie_barnes:hayden": {
+      "fact_key": "elite_consistency:scottie_barnes:hayden",
+      "subcategory": "elite_consistency",
+      "last_shown_week": 22,
+      "last_value": 45.75,
+      "times_shown": 1
+    },
+    "elite_consistency:nikola_jokic:hayden": {
+      "fact_key": "elite_consistency:nikola_jokic:hayden",
+      "subcategory": "elite_consistency",
+      "last_shown_week": 22,
+      "last_value": 62.8,
+      "times_shown": 1
+    },
+    "elite_consistency:victor_wembanyama:garrett": {
+      "fact_key": "elite_consistency:victor_wembanyama:garrett",
+      "subcategory": "elite_consistency",
+      "last_shown_week": 22,
+      "last_value": 48.05,
+      "times_shown": 1
+    },
+    "injury_burden_il_heavy:benton": {
+      "fact_key": "injury_burden_il_heavy:benton",
+      "subcategory": "injury_burden_il_heavy",
+      "last_shown_week": 22,
+      "last_value": 153,
+      "times_shown": 1
+    },
+    "consistency:jayson_tatum:benton": {
+      "fact_key": "consistency:jayson_tatum:benton",
+      "subcategory": "consistency",
+      "last_shown_week": 22,
+      "last_value": 40.7,
+      "times_shown": 1
+    },
+    "high_efficiency:garrett": {
+      "fact_key": "high_efficiency:garrett",
+      "subcategory": "high_efficiency",
+      "last_shown_week": 22,
+      "last_value": 112.08116297706101,
+      "times_shown": 1
+    },
+    "injury_burden_il_heavy:garrett": {
+      "fact_key": "injury_burden_il_heavy:garrett",
+      "subcategory": "injury_burden_il_heavy",
+      "last_shown_week": 22,
+      "last_value": 147,
+      "times_shown": 1
+    },
+    "injury_burden_il_heavy:nick": {
+      "fact_key": "injury_burden_il_heavy:nick",
+      "subcategory": "injury_burden_il_heavy",
+      "last_shown_week": 22,
+      "last_value": 103,
+      "times_shown": 1
+    },
+    "points_leader": {
+      "fact_key": "points_leader",
+      "subcategory": "points_leader",
+      "last_shown_week": 22,
+      "last_value": 1552.6500000000015,
+      "times_shown": 1
+    },
+    "injury_woes:benton": {
+      "fact_key": "injury_woes:benton",
+      "subcategory": "injury_woes",
+      "last_shown_week": 22,
+      "last_value": 15,
+      "times_shown": 1
+    }
+  },
+  "trade_ideas": {
+    "benton:nick:james_harden:karl-anthony_towns": {
+      "times_shown": 1,
+      "last_shown_week": 13
+    },
+    "hayden:nick:nikola_jokic:deni_avdija": {
+      "times_shown": 1,
+      "last_shown_week": 13
+    },
+    "benton:nick:cade_cunningham:chet_holmgren": {
+      "times_shown": 1,
+      "last_shown_week": 13
+    },
+    "garrett:hayden:giannis_antetokounmpo:alperen_sengun": {
+      "times_shown": 1,
+      "last_shown_week": 13
+    },
+    "benton:hayden:cade_cunningham:nikola_jokic": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "benton:hayden:josh_giddey:alperen_sengun": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "garrett:nick:stephen_curry:miles_bridges": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "hayden:nick:shai_gilgeous-alexander:deni_avdija": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "garrett:hayden:kawhi_leonard:keyonte_george": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "benton:hayden:trey_murphy_iii:nikola_jokic": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "garrett:nick:kevin_durant:anthony_edwards": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "garrett:hayden:stephen_curry:pascal_siakam": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "benton:garrett:derrick_white:victor_wembanyama": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "benton:nick:alex_sarr:jalen_johnson": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "benton:nick:tyrese_maxey:karl-anthony_towns": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "benton:garrett:trae_young:josh_hart": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "garrett:hayden:giannis_antetokounmpo:mikal_bridges": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "benton:nick:tyrese_maxey:anthony_edwards": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "benton:nick:derrick_white:tari_eason": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "benton:nick:donovan_mitchell:deni_avdija": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "garrett:hayden:domantas_sabonis:jalen_williams": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "garrett:nick:kawhi_leonard:brandon_miller": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "garrett:hayden:jalen_brunson:scottie_barnes": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "garrett:nick:kevin_durant:deni_avdija": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "garrett:hayden:donovan_clingan:mikal_bridges": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "hayden:nick:nikola_jokic:amen_thompson": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "benton:nick:derrick_white:brandon_miller": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "benton:hayden:jaylen_brown:paolo_banchero": {
+      "times_shown": 2,
+      "last_shown_week": 19
+    },
+    "benton:hayden:derrick_white:nikola_jokic": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "garrett:nick:kevin_durant:amen_thompson": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "garrett:hayden:victor_wembanyama:scottie_barnes": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "garrett:hayden:alperen_sengun:vj_edgecombe": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "garrett:nick:victor_wembanyama:karl-anthony_towns": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "garrett:hayden:kawhi_leonard:scottie_barnes": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "garrett:hayden:giannis_antetokounmpo:pascal_siakam": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "benton:garrett:lebron_james:nikola_vucevic": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "benton:garrett:desmond_bane:domantas_sabonis": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "garrett:nick:victor_wembanyama:chet_holmgren": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "hayden:nick:nikola_jokic:brandon_miller": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "benton:garrett:bam_adebayo:giannis_antetokounmpo": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "benton:garrett:lebron_james:rudy_gobert": {
+      "times_shown": 2,
+      "last_shown_week": 19
+    },
+    "benton:hayden:trey_murphy_iii:paolo_banchero": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "hayden:nick:shai_gilgeous-alexander:karl-anthony_towns": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "benton:garrett:donovan_mitchell:jalen_brunson": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "garrett:hayden:kyle_filipowski:matas_buzelis": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "benton:garrett:trey_murphy_iii:jamal_murray": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "garrett:hayden:giannis_antetokounmpo:tyrese_haliburton": {
+      "times_shown": 1,
+      "last_shown_week": 20
+    },
+    "garrett:nick:victor_wembanyama:amen_thompson": {
+      "times_shown": 1,
+      "last_shown_week": 20
+    },
+    "benton:hayden:jayson_tatum:scottie_barnes": {
+      "times_shown": 1,
+      "last_shown_week": 20
+    },
+    "garrett:nick:donovan_clingan:karl-anthony_towns": {
+      "times_shown": 1,
+      "last_shown_week": 20
+    },
+    "garrett:hayden:victor_wembanyama:kon_knueppel": {
+      "times_shown": 1,
+      "last_shown_week": 21
+    },
+    "garrett:nick:giannis_antetokounmpo:amen_thompson": {
+      "times_shown": 3,
+      "last_shown_week": 22
+    },
+    "garrett:hayden:cooper_flagg:scottie_barnes": {
+      "times_shown": 1,
+      "last_shown_week": 21
+    },
+    "benton:hayden:donovan_mitchell:nikola_jokic": {
+      "times_shown": 1,
+      "last_shown_week": 21
+    },
+    "hayden:nick:scottie_barnes:karl-anthony_towns": {
+      "times_shown": 2,
+      "last_shown_week": 22
+    },
+    "garrett:nick:jalen_brunson:jalen_johnson": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "garrett:hayden:jalen_green:nikola_jokic": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "benton:nick:evan_mobley:donovan_clingan": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "garrett:hayden:victor_wembanyama:stephon_castle": {
+      "times_shown": 2,
+      "last_shown_week": 22
+    },
+    "benton:garrett:derrick_white:jalen_green": {
+      "times_shown": 2,
+      "last_shown_week": 22
+    },
+    "hayden:nick:kon_knueppel:jalen_johnson": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "garrett:hayden:jalen_brunson:matas_buzelis": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "garrett:hayden:jalen_brunson:nikola_jokic": {
+      "times_shown": 1,
+      "last_shown_week": 23
+    },
+    "garrett:nick:dyson_daniels:anthony_edwards": {
+      "times_shown": 1,
+      "last_shown_week": 23
+    },
+    "garrett:nick:cooper_flagg:amen_thompson": {
+      "times_shown": 1,
+      "last_shown_week": 23
+    },
+    "benton:nick:jaylen_brown:donovan_clingan": {
+      "times_shown": 1,
+      "last_shown_week": 23
+    },
+    "benton:garrett:trey_murphy_iii:dyson_daniels": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "benton:nick:donovan_mitchell:brandon_miller": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "hayden:nick:de'aaron_fox:ace_bailey": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "benton:nick:jaylen_brown:amen_thompson": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "benton:garrett:evan_mobley:giannis_antetokounmpo": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "benton:garrett:trey_murphy_iii:jalen_green": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "benton:nick:derrick_white:domantas_sabonis": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    }
+  },
+  "free_agent_recs": {
+    "Payton Pritchard:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 13
+    },
+    "Jimmy Butler III:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 13
+    },
+    "Jusuf Nurkic:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 13
+    },
+    "Jalen Duren:Nick": {
+      "times_shown": 6,
+      "last_shown_week": 22
+    },
+    "Kyshawn George:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 13
+    },
+    "drop:Domantas Sabonis:Garrett": {
+      "times_shown": 8,
+      "last_shown_week": 18
+    },
+    "drop:Miles Bridges:Nick": {
+      "times_shown": 3,
+      "last_shown_week": 21
+    },
+    "drop:Alperen Sengun:Hayden": {
+      "times_shown": 2,
+      "last_shown_week": 14
+    },
+    "drop:Giannis Antetokounmpo:Garrett": {
+      "times_shown": 12,
+      "last_shown_week": 22
+    },
+    "Donte DiVincenzo:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "Paul George:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "Coby White:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "Andrew Nembhard:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "Zion Williamson:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "drop:Jalen Duren:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 14
+    },
+    "drop:Josh Giddey:Benton": {
+      "times_shown": 3,
+      "last_shown_week": 15
+    },
+    "drop:Ivica Zubac:Hayden": {
+      "times_shown": 3,
+      "last_shown_week": 15
+    },
+    "Jaren Jackson Jr.:Benton": {
+      "times_shown": 2,
+      "last_shown_week": 15
+    },
+    "Jalen Suggs:Garrett": {
+      "times_shown": 2,
+      "last_shown_week": 15
+    },
+    "Russell Westbrook:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "Desmond Bane:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "Miles Bridges:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "drop:Nikola Jokic:Hayden": {
+      "times_shown": 2,
+      "last_shown_week": 15
+    },
+    "drop:Stephen Curry:Garrett": {
+      "times_shown": 7,
+      "last_shown_week": 18
+    },
+    "drop:Jalen Williams:Hayden": {
+      "times_shown": 3,
+      "last_shown_week": 16
+    },
+    "OG Anunoby:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "Rudy Gobert:Nick": {
+      "times_shown": 2,
+      "last_shown_week": 19
+    },
+    "Jalen Duren:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 15
+    },
+    "Jarrett Allen:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "Desmond Bane:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "Nic Claxton:Hayden": {
+      "times_shown": 2,
+      "last_shown_week": 19
+    },
+    "Isaiah Hartenstein:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "Jalen Suggs:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "drop:Andrew Nembhard:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "drop:Josh Hart:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 16
+    },
+    "drop:Derrick White:Benton": {
+      "times_shown": 2,
+      "last_shown_week": 22
+    },
+    "Deandre Ayton:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "Derik Queen:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "Jrue Holiday:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "Onyeka Okongwu:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "Stephon Castle:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "drop:Tari Eason:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "drop:Deni Avdija:Nick": {
+      "times_shown": 4,
+      "last_shown_week": 18
+    },
+    "drop:LeBron James:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 17
+    },
+    "drop:Austin Reaves:Garrett": {
+      "times_shown": 7,
+      "last_shown_week": 19
+    },
+    "Kyle Filipowski:Nick": {
+      "times_shown": 4,
+      "last_shown_week": 21
+    },
+    "Nickeil Alexander-Walker:Hayden": {
+      "times_shown": 3,
+      "last_shown_week": 18
+    },
+    "Ace Bailey:Garrett": {
+      "times_shown": 2,
+      "last_shown_week": 18
+    },
+    "Rudy Gobert:Hayden": {
+      "times_shown": 2,
+      "last_shown_week": 18
+    },
+    "Immanuel Quickley:Benton": {
+      "times_shown": 2,
+      "last_shown_week": 18
+    },
+    "drop:Amen Thompson:Nick": {
+      "times_shown": 6,
+      "last_shown_week": 19
+    },
+    "Onyeka Okongwu:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "P.J. Washington:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 18
+    },
+    "Al Horford:Garrett": {
+      "times_shown": 2,
+      "last_shown_week": 22
+    },
+    "Grayson Allen:Hayden": {
+      "times_shown": 2,
+      "last_shown_week": 19
+    },
+    "Gui Santos:Garrett": {
+      "times_shown": 2,
+      "last_shown_week": 19
+    },
+    "Alex Sarr:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "Keegan Murray:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "drop:Keyonte George:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "drop:Darius Garland:Nick": {
+      "times_shown": 3,
+      "last_shown_week": 19
+    },
+    "Alex Sarr:Nick": {
+      "times_shown": 2,
+      "last_shown_week": 19
+    },
+    "Naz Reid:Garrett": {
+      "times_shown": 2,
+      "last_shown_week": 19
+    },
+    "Al Horford:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "Keegan Murray:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "Nickeil Alexander-Walker:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 19
+    },
+    "Darius Garland:Hayden": {
+      "times_shown": 5,
+      "last_shown_week": 22
+    },
+    "Zion Williamson:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 20
+    },
+    "Dylan Cardwell:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 20
+    },
+    "Draymond Green:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 20
+    },
+    "Jrue Holiday:Nick": {
+      "times_shown": 5,
+      "last_shown_week": 22
+    },
+    "drop:Rudy Gobert:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 20
+    },
+    "drop:Alperen Sengun:Garrett": {
+      "times_shown": 2,
+      "last_shown_week": 21
+    },
+    "drop:Scottie Barnes:Hayden": {
+      "times_shown": 2,
+      "last_shown_week": 21
+    },
+    "drop:Julius Randle:Benton": {
+      "times_shown": 6,
+      "last_shown_week": 22
+    },
+    "Jalen Williams:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 21
+    },
+    "Reed Sheppard:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 21
+    },
+    "Payton Pritchard:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 21
+    },
+    "Jakob Poeltl:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 21
+    },
+    "drop:RJ Barrett:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 21
+    },
+    "Reed Sheppard:Benton": {
+      "times_shown": 5,
+      "last_shown_week": 22
+    },
+    "Jalen Williams:Hayden": {
+      "times_shown": 4,
+      "last_shown_week": 22
+    },
+    "Kyle Filipowski:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "drop:Donovan Clingan:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "drop:Anthony Edwards:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "drop:Payton Pritchard:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "drop:Chet Holmgren:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "Zion Williamson:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 22
+    },
+    "drop:Jarrett Allen:Benton": {
+      "times_shown": 4,
+      "last_shown_week": 22
+    },
+    "drop:Wendell Carter Jr.:Nick": {
+      "times_shown": 4,
+      "last_shown_week": 22
+    }
+  }
+}

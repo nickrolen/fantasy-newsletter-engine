@@ -1,0 +1,115 @@
+======================================================================
+HISTORICAL_PLAYERLOG.json SUMMARY
+======================================================================
+
+Total rows: 76,098
+Type: list
+
+--- SCHEMA (keys in first row) ---
+  season_year: str = '2017-2018'
+  season_key: str = '2017-18'
+  week: int = 1
+  date: str = '2017-10-17'
+  manager: str = 'Benton'
+  fantasy_team: str = 'The Austin River'
+  player_name: str = 'Russell Westbrook'
+  player_id: int = 4390
+  positions: str = 'PG'
+  slot: str = 'PG'
+  fantasy_points: float = 0.0
+  started: bool = True
+  nba_team: str = 'OKC'
+  nba_opponent: str = ''
+  had_game: bool = False
+  is_injured: bool = False
+
+All rows have identical key sets. Schema is consistent.
+
+--- SEASONS ---
+  2017-2018: 9,167 rows
+  2018-2019: 9,480 rows
+  2019-2020: 7,952 rows
+  2020-2021: 7,754 rows
+  2021-2022: 10,034 rows
+  2022-2023: 10,489 rows
+  2023-2024: 10,282 rows
+  2024-2025: 10,940 rows
+  Total unique seasons: 8
+
+--- PLAYERS ---
+  Unique players: 229
+  Players with 2+ seasons: 165
+  Longest tenures (by # seasons):
+    Kyrie Irving: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Giannis Antetokounmpo: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Nikola Jokic: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Devin Booker: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Kawhi Leonard: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Bradley Beal: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Anthony Davis: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Joel Embiid: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Rudy Gobert: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+    Stephen Curry: 8 seasons (2017-2018, 2018-2019, 2019-2020, 2020-2021, 2021-2022, 2022-2023, 2023-2024, 2024-2025)
+
+--- MANAGERS ---
+  Benton: 19,210 rows
+  Hayden: 19,070 rows
+  Garrett: 18,959 rows
+  Nick: 18,859 rows
+
+--- FANTASY POINTS ---
+  Non-null values: 76,098
+  Null/empty: 0
+  Zeros: 46,624
+  Min: -4.55
+  Max: 111.05
+  Mean: 14.79
+  Median: 0.00
+
+--- STARTED / SLOT FIELDS ---
+  'started' values: {'True': 50251, 'False': 25847}
+  'slot' values (top 10): {'BN': 15481, 'Util': 10075, 'C': 10028, 'IL': 6689, 'PG': 5032, 'SG': 5032, 'G': 5032, 'PF': 5031, 'SF': 5013, 'F': 5008}
+
+--- DATE RANGE ---
+  Earliest: 2017-10-17
+  Latest: 2025-04-13
+
+--- WEEKS PER SEASON ---
+  2017-2018: weeks 1-23 (23 unique weeks)
+  2018-2019: weeks 1-23 (23 unique weeks)
+  2019-2020: weeks 1-19 (19 unique weeks)
+  2020-2021: weeks 1-18 (18 unique weeks)
+  2021-2022: weeks 1-22 (22 unique weeks)
+  2022-2023: weeks 1-23 (23 unique weeks)
+  2023-2024: weeks 1-23 (23 unique weeks)
+  2024-2025: weeks 1-23 (23 unique weeks)
+
+--- SAMPLE ROWS ---
+First 3 rows:
+  [0] {"season_year": "2017-2018", "season_key": "2017-18", "week": 1, "date": "2017-10-17", "manager": "Benton", "fantasy_team": "The Austin River", "player_name": "Russell Westbrook", "player_id": 4390, "
+  [1] {"season_year": "2017-2018", "season_key": "2017-18", "week": 1, "date": "2017-10-17", "manager": "Benton", "fantasy_team": "The Austin River", "player_name": "Kyrie Irving", "player_id": 4840, "posit
+  [2] {"season_year": "2017-2018", "season_key": "2017-18", "week": 1, "date": "2017-10-17", "manager": "Benton", "fantasy_team": "The Austin River", "player_name": "Kyle Lowry", "player_id": 4152, "positio
+
+Last 2 rows:
+  [76096] {"season_year": "2024-2025", "season_key": "2024-25", "week": 23, "date": "2025-04-13", "manager": "Benton", "fantasy_team": "Serge I-Cock-Ya", "player_name": "Tyrese Maxey", "player_id": 6413, "posit
+  [76097] {"season_year": "2024-2025", "season_key": "2024-25", "week": 23, "date": "2025-04-13", "manager": "Benton", "fantasy_team": "Serge I-Cock-Ya", "player_name": "Cade Cunningham", "player_id": 6512, "po
+
+--- PLAYER CARD READINESS CHECK ---
+  player_name              :   76,098 / 76,098 (100.0%) [OK]
+  manager                  :   76,098 / 76,098 (100.0%) [OK]
+  season_year              :   76,098 / 76,098 (100.0%) [OK]
+  week                     :   76,098 / 76,098 (100.0%) [OK]
+  date                     :   76,098 / 76,098 (100.0%) [OK]
+  fantasy_points           :   76,098 / 76,098 (100.0%) [OK]
+  started                  :   76,098 / 76,098 (100.0%) [OK]
+  slot                     :   76,098 / 76,098 (100.0%) [OK]
+  nba_team                 :   75,629 / 76,098 (99.4%) [OK]
+  nba_opponent             :   36,824 / 76,098 (48.4%) [MISSING]
+  positions                :   76,098 / 76,098 (100.0%) [OK]
+  is_injured               :   76,098 / 76,098 (100.0%) [OK]
+
+File size: 25.4 MB
+
+======================================================================
+END OF SUMMARY
+======================================================================

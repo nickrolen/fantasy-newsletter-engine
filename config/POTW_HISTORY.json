@@ -1,0 +1,152 @@
+{
+    "_comment": "All-time Player of the Week history. The formatter reads this at startup and appends the current week's winner after each run. Organized by NBA season.",
+    "seasons": {
+        "2025-26": [
+            {
+                "week": 1,
+                "player": "Victor Wembanyama",
+                "manager": "Garrett"
+            },
+            {
+                "week": 2,
+                "player": "Tyrese Maxey",
+                "manager": "Benton"
+            },
+            {
+                "week": 3,
+                "player": "Nikola Jokic",
+                "manager": "Hayden"
+            },
+            {
+                "week": 4,
+                "player": "James Harden",
+                "manager": "Benton"
+            },
+            {
+                "week": 5,
+                "player": "Nikola Jokic",
+                "manager": "Hayden"
+            },
+            {
+                "week": 6,
+                "player": "Luka Doncic",
+                "manager": "Nick"
+            },
+            {
+                "week": 7,
+                "player": "Jalen Johnson",
+                "manager": "Nick"
+            },
+            {
+                "week": 8,
+                "player": "Stephen Curry",
+                "manager": "Garrett"
+            },
+            {
+                "week": 9,
+                "player": "Josh Giddey",
+                "manager": "Benton"
+            },
+            {
+                "week": 10,
+                "player": "Nikola Jokic",
+                "manager": "Hayden"
+            },
+            {
+                "week": 11,
+                "player": "Paolo Banchero",
+                "manager": "Hayden"
+            },
+            {
+                "week": 12,
+                "player": "Tyrese Maxey",
+                "manager": "Benton"
+            },
+            {
+                "week": 13,
+                "player": "LeBron James",
+                "manager": "Benton"
+            },
+            {
+                "week": 14,
+                "player": "Immanuel Quickley",
+                "manager": "Nick",
+                "total_fp": 215.7,
+                "games": 4,
+                "fppg": 53.92
+            },
+            {
+                "week": 15,
+                "player": "Luka Doncic",
+                "manager": "Nick",
+                "total_fp": 261.7,
+                "games": 4,
+                "fppg": 65.42
+            },
+            {
+                "week": 16,
+                "player": "Nikola Jokic",
+                "manager": "Hayden",
+                "total_fp": 192.65,
+                "games": 3,
+                "fppg": 64.22
+            },
+            {
+                "week": 17,
+                "player": "Nikola Jokic",
+                "manager": "Hayden",
+                "total_fp": 278.05,
+                "games": 5,
+                "fppg": 55.61
+            },
+            {
+                "week": 18,
+                "player": "Luka Doncic",
+                "manager": "Nick",
+                "total_fp": 236.4,
+                "games": 4,
+                "fppg": 59.1
+            },
+            {
+                "week": 19,
+                "player": "Victor Wembanyama",
+                "manager": "Garrett",
+                "total_fp": 241.65,
+                "games": 4,
+                "fppg": 60.41
+            },
+            {
+                "week": 20,
+                "player": "Nikola Jokic",
+                "manager": "Hayden",
+                "total_fp": 304.35,
+                "games": 4,
+                "fppg": 76.09
+            },
+            {
+                "week": 21,
+                "player": "Luka Doncic",
+                "manager": "Nick",
+                "total_fp": 257.35,
+                "games": 4,
+                "fppg": 64.34
+            },
+            {
+                "week": 22,
+                "player": "Nikola Jokic",
+                "manager": "Hayden",
+                "total_fp": 280.55,
+                "games": 4,
+                "fppg": 70.14
+            },
+            {
+                "week": 23,
+                "player": "Victor Wembanyama",
+                "manager": "Garrett",
+                "total_fp": 234.55,
+                "games": 3,
+                "fppg": 78.18
+            }
+        ]
+    }
+}

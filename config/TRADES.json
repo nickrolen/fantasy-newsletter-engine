@@ -1,0 +1,150 @@
+{
+  "_description": "Trade log and draft pick ownership tracker for the CHS Alumni Fantasy Basketball League. Updated after each trade. The draft_pick_ownership section tracks the current owner of every pick across a rolling 3-year window (currently 2026-2028). Next season, shift the window to 2027-2029.",
+  "_usage": "Used by the newsletter generator to: (1) accurately reference trade history in Around the NBA sections, (2) grade trades with correct pick context, (3) track draft pick ownership for Rumor Mill and Power Rankings commentary, (4) prevent hallucinated trade narratives.",
+  "_rolling_window_rule": "League rules allow trading picks up to 3 years into the future. Each offseason, drop the oldest year and add a new year to the end. E.g., after the 2026 draft, shift from [2026,2027,2028] to [2027,2028,2029].",
+  "trades": [
+    {
+      "trade_id": 1,
+      "week": 7,
+      "date": "2025-12-08",
+      "side_a": {
+        "manager": "Nick",
+        "sent_players": [
+          "Austin Reaves"
+        ],
+        "sent_picks": [
+          "2026 2nd (Nick)"
+        ]
+      },
+      "side_b": {
+        "manager": "Garrett",
+        "sent_players": [
+          "Karl-Anthony Towns"
+        ],
+        "sent_picks": [
+          "2026 7th (Garrett)"
+        ]
+      }
+    },
+    {
+      "trade_id": 2,
+      "week": 8,
+      "date": "2025-12-15",
+      "side_a": {
+        "manager": "Nick",
+        "sent_players": [
+          "Trey Murphy III"
+        ],
+        "sent_picks": [
+          "2026 1st (Nick)"
+        ]
+      },
+      "side_b": {
+        "manager": "Benton",
+        "sent_players": [
+          "Devin Booker"
+        ],
+        "sent_picks": [
+          "2026 2nd (Benton)"
+        ]
+      }
+    },
+    {
+      "trade_id": 3,
+      "week": 14,
+      "date": "2026-01-23",
+      "side_a": {
+        "manager": "Hayden",
+        "sent_players": [
+          "Stephen Curry"
+        ],
+        "sent_picks": [
+          "2026 7th (Hayden)",
+          "2026 8th (Hayden)"
+        ]
+      },
+      "side_b": {
+        "manager": "Garrett",
+        "sent_players": [
+          "VJ Edgecombe"
+        ],
+        "sent_picks": [
+          "2026 1st (Garrett)",
+          "2026 5th (Garrett)"
+        ]
+      }
+    },
+    {
+      "trade_id": 4,
+      "week": 15,
+      "date": "2026-01-27",
+      "side_a": {
+        "manager": "Hayden",
+        "sent_players": [
+          "Michael Porter Jr."
+        ],
+        "sent_picks": [
+          "2027 2nd (Hayden)"
+        ]
+      },
+      "side_b": {
+        "manager": "Benton",
+        "sent_players": [
+          "Lauri Markkanen"
+        ],
+        "sent_picks": [
+          "2026 5th (Benton)",
+          "2027 5th (Benton)"
+        ]
+      }
+    },
+    {
+      "trade_id": 5,
+      "week": 16,
+      "date": "Feb 2 - Feb 8",
+      "side_a": {
+        "manager": "Hayden",
+        "sent_players": [
+          "Alperen Sengun"
+        ],
+        "sent_picks": [
+          "2026 4th (Hayden)",
+          "2027 3rd (Hayden)"
+        ]
+      },
+      "side_b": {
+        "manager": "Garrett",
+        "sent_players": [
+          "Scottie Barnes"
+        ],
+        "sent_picks": [
+          "2026 8th (Garrett)",
+          "2027 8th (Garrett)"
+        ]
+      }
+    }
+  ],
+  "draft_pick_ownership": {
+    "_note": "Format: 'Round_OriginalOwner': 'CurrentOwner'. If a pick is not listed, it is owned by the original team (default). Only non-default ownership is shown for clarity.",
+    "2026": {
+      "1_Nick": "Benton",
+      "1_Garrett": "Hayden",
+      "2_Nick": "Garrett",
+      "2_Benton": "Nick",
+      "5_Garrett": "Hayden",
+      "5_Benton": "Hayden",
+      "7_Garrett": "Nick",
+      "7_Hayden": "Garrett",
+      "8_Hayden": "Garrett",
+      "4_Hayden": "Garrett",
+      "8_Garrett": "Hayden"
+    },
+    "2027": {
+      "2_Hayden": "Benton",
+      "5_Benton": "Hayden",
+      "3_Hayden": "Garrett",
+      "8_Garrett": "Hayden"
+    },
+    "2028": {}
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "season_year": "2025-2026",
+  "week": 11,
+  "total_weeks": 21,
+  "date_range": "Dec 29 - Jan 4",
+  "trades": [
+    {
+      "manager_a": "Hayden",
+      "sends_a": ["Player Name", "2027 2nd round pick"],
+      "manager_b": "Benton",
+      "sends_b": ["Player Name", "2026 5th round pick", "2027 5th round pick"]
+    }
+  ],
+  "notes": "Add any relevant context here. Injuries, storylines, etc. The trades array above is optional — only include it when a trade happens that week. Draft picks in trades MUST go here since sync_transactions cannot detect them."
+}

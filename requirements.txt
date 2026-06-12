@@ -1,0 +1,102 @@
+# ============================================
+# CHS Alumni Fantasy Basketball Newsletter
+# requirements.txt
+# ============================================
+# Python 3.10+ required
+# Install with: pip install -r requirements.txt
+# ============================================
+
+# --------------------------------------------
+# Data Processing & Analysis
+# --------------------------------------------
+pandas>=2.0.0
+numpy>=1.24.0
+openpyxl>=3.1.0          # Excel file support for pandas
+
+# --------------------------------------------
+# Yahoo Fantasy API
+# --------------------------------------------
+yahoo-oauth>=2.0
+yahoo-fantasy-api>=2.0
+
+# --------------------------------------------
+# NBA Statistics API
+# --------------------------------------------
+nba_api>=1.2.0
+
+# --------------------------------------------
+# Web Scraping (Basketball Reference lookups)
+# --------------------------------------------
+beautifulsoup4>=4.12.0
+
+# --------------------------------------------
+# HTTP Requests (dependency for APIs)
+# --------------------------------------------
+requests>=2.28.0
+
+# --------------------------------------------
+# Optional: Development Tools
+# --------------------------------------------
+# Uncomment if needed for development
+
+# Testing
+# pytest>=7.0.0
+# pytest-cov>=4.0.0
+
+# Code formatting
+# black>=23.0.0
+# isort>=5.12.0
+
+# Linting
+# flake8>=6.0.0
+# pylint>=2.17.0
+
+# Type checking
+# mypy>=1.0.0
+
+# --------------------------------------------
+# Version Pins (for reproducibility)
+# --------------------------------------------
+# These are the versions tested with this project.
+# You can remove version pins if you want latest.
+
+# Core data processing
+# pandas==2.1.4
+# numpy==1.26.3
+# openpyxl==3.1.2
+
+# Yahoo API
+# yahoo-oauth==2.0
+# yahoo-fantasy-api==2.3.1
+
+# NBA API
+# nba_api==1.4.1
+
+# Web scraping
+# beautifulsoup4==4.12.3
+
+# HTTP
+# requests==2.31.0
+
+# --------------------------------------------
+# Notes
+# --------------------------------------------
+# 
+# 1. Yahoo OAuth Setup:
+#    - Create app at https://developer.yahoo.com/
+#    - Save credentials as oauth2.json in project root
+#    - First run will open browser for authentication
+#
+# 2. NBA API:
+#    - No API key required
+#    - Rate limited - includes delays in code
+#
+# 3. Newsletter Generation:
+#    - HTML: newsletter_html_generator.py
+#      - Uses only Python standard library
+#      - Produces self-contained HTML with embedded images
+#      - Professional styling, responsive design
+#
+# 4. Python Version:
+#    - Python 3.10+ required
+#

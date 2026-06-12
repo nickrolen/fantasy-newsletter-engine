@@ -1,0 +1,383 @@
+{
+  "season_year": "2025-2026",
+  "total_weeks": 23,
+  "regular_season_weeks": 21,
+  "playoff_start_week": 22,
+  "managers": [
+    "Nick",
+    "Hayden",
+    "Benton",
+    "Garrett"
+  ],
+  "weeks": [
+    {
+      "week": 1,
+      "start_date": "2025-10-20",
+      "end_date": "2025-10-26",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Benton",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 2,
+      "start_date": "2025-10-27",
+      "end_date": "2025-11-02",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Garrett"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Benton"
+        }
+      ]
+    },
+    {
+      "week": 3,
+      "start_date": "2025-11-03",
+      "end_date": "2025-11-09",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 4,
+      "start_date": "2025-11-10",
+      "end_date": "2025-11-16",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Benton",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 5,
+      "start_date": "2025-11-17",
+      "end_date": "2025-11-23",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Garrett"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Benton"
+        }
+      ]
+    },
+    {
+      "week": 6,
+      "start_date": "2025-11-24",
+      "end_date": "2025-11-30",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 7,
+      "start_date": "2025-12-01",
+      "end_date": "2025-12-07",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Benton",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 8,
+      "start_date": "2025-12-08",
+      "end_date": "2025-12-14",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Garrett"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Benton"
+        }
+      ]
+    },
+    {
+      "week": 9,
+      "start_date": "2025-12-15",
+      "end_date": "2025-12-21",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 10,
+      "start_date": "2025-12-22",
+      "end_date": "2025-12-28",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Benton",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 11,
+      "start_date": "2025-12-29",
+      "end_date": "2026-01-04",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Garrett"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Benton"
+        }
+      ]
+    },
+    {
+      "week": 12,
+      "start_date": "2026-01-05",
+      "end_date": "2026-01-11",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 13,
+      "start_date": "2026-01-12",
+      "end_date": "2026-01-18",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Benton",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 14,
+      "start_date": "2026-01-19",
+      "end_date": "2026-01-25",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Garrett"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Benton"
+        }
+      ]
+    },
+    {
+      "week": 15,
+      "start_date": "2026-01-26",
+      "end_date": "2026-02-01",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 16,
+      "start_date": "2026-02-02",
+      "end_date": "2026-02-08",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Benton",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 17,
+      "start_date": "2026-02-09",
+      "end_date": "2026-02-22",
+      "days": 14,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Garrett"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Benton"
+        }
+      ],
+      "notes": "All-Star Break - 2 week period"
+    },
+    {
+      "week": 18,
+      "start_date": "2026-02-23",
+      "end_date": "2026-03-01",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 19,
+      "start_date": "2026-03-02",
+      "end_date": "2026-03-08",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Benton",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 20,
+      "start_date": "2026-03-09",
+      "end_date": "2026-03-15",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Garrett"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Benton"
+        }
+      ]
+    },
+    {
+      "week": 21,
+      "start_date": "2026-03-16",
+      "end_date": "2026-03-22",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 22,
+      "start_date": "2026-03-23",
+      "end_date": "2026-03-29",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Benton",
+          "manager_b": "Garrett"
+        }
+      ]
+    },
+    {
+      "week": 23,
+      "start_date": "2026-03-30",
+      "end_date": "2026-04-05",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        },
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        }
+      ]
+    }
+  ]
+}

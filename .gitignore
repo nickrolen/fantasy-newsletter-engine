@@ -1,0 +1,157 @@
+# ============================================
+# CHS Alumni Fantasy Basketball Newsletter
+# .gitignore
+# ============================================
+
+# --------------------------------------------
+# Python
+# --------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# --------------------------------------------
+# IDE / Editor
+# --------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# --------------------------------------------
+# OS Generated
+# --------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# --------------------------------------------
+# Yahoo OAuth Credentials (SENSITIVE)
+# --------------------------------------------
+oauth2.json
+oauth2_backup.json
+*.oauth
+private.json
+
+# --------------------------------------------
+# Output Files (Generated) -- keep one sample newsletter (output/WEEK21_NEWSLETTER.html)
+# referenced by the README; everything else is regenerable.
+# --------------------------------------------
+output/stats_report_week*.json
+output/stats_report_week*.md
+output/looking_ahead_week*.json
+output/WEEK*_NEWSLETTER.pdf
+output/player_card_preview.html
+
+# --------------------------------------------
+# Assets - Weekly Drafts
+# --------------------------------------------
+assets/WEEK*_DRAFT.md
+
+# --------------------------------------------
+# Data Files - Weekly Inputs
+# --------------------------------------------
+data/waivers_week*.txt
+data/weeklycontextinput_week*.json
+
+# --------------------------------------------
+# Data Files - Excel (Large)
+# --------------------------------------------
+data/PLAYERLOG.xlsx
+data/LINEUPS.xlsx
+data/LEAGUEHISTORY.xlsx
+
+# --------------------------------------------
+# Config Files - Dynamic State
+# --------------------------------------------
+config/ROSTERS.json
+config/RECORDS.json
+
+# --------------------------------------------
+# Integrity baseline (machine-specific)
+# --------------------------------------------
+config/.file_baselines.json
+
+# --------------------------------------------
+# Historical Data (Can be regenerated)
+# --------------------------------------------
+data/historical/all_matchups.json
+data/historical/all_standings.json
+data/historical/all_trades.json
+data/historical/all_drafts.json
+data/historical/all_teams.json
+data/historical/historical_summary.json
+
+# Large historical data file (regenerable; uncomment to keep repo lightweight)
+data/historical/HISTORICAL_PLAYERLOG.json
+
+# --------------------------------------------
+# Keep These in Repo (Templates/Config)
+# --------------------------------------------
+# !data/PLAYERLIST.xlsx        # Player projections - keep if sharing
+# !config/SCHEDULE.json        # League schedule structure - keep
+# !config/INJURY_OVERRIDES.json # Can keep as example
+# !data/nba_schedule_*.json    # NBA schedule - keep
+# !templates/newsletter_template.md # Template - definitely keep
+# !*.example                   # Example files - keep
+
+# --------------------------------------------
+# Logs and Temp Files
+# --------------------------------------------
+*.log
+*.tmp
+*.temp
+*.cache
+.cache/
+
+# --------------------------------------------
+# Jupyter Notebooks (if any)
+
+# --------------------------------------------
+# Large backup files
+# --------------------------------------------
+data/historical/*_BACKUP.json
+data/historical/*_BACKUP.xlsx
+
+# --------------------------------------------
+# Cowork backup directory
+# --------------------------------------------
+_backups/
+
+# Review/repair artifacts (not part of the engine)
+PROJECT_REVIEW_REPORT.html
+_recovery/

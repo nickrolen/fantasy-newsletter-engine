@@ -1,0 +1,305 @@
+{
+  "players": [
+    {
+      "player_name": "Tyrese Haliburton",
+      "out_weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Walker Kessler",
+      "out_weeks": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Domantas Sabonis",
+      "out_weeks": [16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Nikola Vucevic",
+      "out_weeks": [18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Kyshawn George",
+      "out_weeks": [18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Cade Cunningham",
+      "out_weeks": [20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Kyrie Irving",
+      "out_weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Franz Wagner",
+      "out_weeks": [16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out indefinitely",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Tyrese Maxey",
+      "out_weeks": [19, 20, 21, 22],
+      "notes": "Finger injury - out ~4 weeks starting week 19",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Trae Young",
+      "out_weeks": [20, 21, 22],
+      "notes": "Quad injury - out ~3 weeks starting week 20",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Giannis Antetokounmpo",
+      "out_weeks": [20, 21, 22],
+      "notes": "Knee injury - out ~3 weeks starting week 20",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Jarrett Allen",
+      "out_weeks": [19, 20, 21, 22],
+      "notes": "Knee injury - out ~4 weeks starting week 19",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Michael Porter Jr.",
+      "out_weeks": [19, 20, 21, 22],
+      "notes": "Ankle injury - out ~2 weeks starting week 19",
+      "return_week": 21,
+      "return_games": 3,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from ankle injury on 3/18",
+      "return_date": "2026-03-18"
+    },
+    {
+      "player_name": "Jalen Johnson",
+      "out_weeks": [21],
+      "notes": "Shoulder injury - out ~1 week starting week 21",
+      "return_week": 22,
+      "return_games": 3,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from shoulder injury on 3/25",
+      "return_date": "2026-03-25"
+    },
+    {
+      "player_name": "Brandon Ingram",
+      "out_weeks": [21],
+      "notes": "Heel injury - out ~1 weeks starting week 21",
+      "return_week": 22,
+      "return_games": 3,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from heel injury on 3/25",
+      "return_date": "2026-03-25"
+    },
+    {
+      "player_name": "Anthony Edwards",
+      "out_weeks": [20, 21],
+      "notes": "Knee injury - out ~2 weeks starting week 20",
+      "return_week": 22,
+      "return_games": 1,
+      "total_week_games": 2,
+      "return_notes": "Possibly returning from knee injury on 3/28",
+      "return_date": "2026-03-28"
+    },
+    {
+      "player_name": "Kevin Porter Jr.",
+      "out_weeks": [20, 21],
+      "notes": "Knee injury - out ~2 weeks starting week 20",
+      "return_week": 22,
+      "return_games": 3,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from knee injury on 3/25",
+      "return_date": "2026-03-25"
+    },
+    {
+      "player_name": "Immanuel Quickley",
+      "out_weeks": [21],
+      "notes": "Foot injury - out ~1 weeks starting week 21",
+      "return_week": 22,
+      "return_games": 3,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from foot injury on 3/25",
+      "return_date": "2026-03-25"
+    },
+    {
+      "player_name": "Jalen Suggs",
+      "out_weeks": [21],
+      "notes": "Illness - out ~1 weeks starting week 21",
+      "return_week": 22,
+      "return_games": 2,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning illness on 3/26",
+      "return_date": "2026-03-26"
+    },
+    {
+      "player_name": "Alex Sarr",
+      "out_weeks": [19, 20, 21],
+      "notes": "Toe injury - out ~3 weeks starting week 19",
+      "return_week": 22,
+      "return_games": 2,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning toe injury on 3/27",
+      "return_date": "2026-03-27"
+    },
+    {
+      "player_name": "Grayson Allen",
+      "out_weeks": [20, 21],
+      "notes": "Knee injury - out ~2 weeks starting week 20",
+      "return_week": 22,
+      "return_games": 1,
+      "total_week_games": 2,
+      "return_notes": "Possibly returning knee injury on 3/28",
+      "return_date": "2026-03-28"
+    },
+    {
+      "player_name": "Joel Embiid",
+      "out_weeks": [18, 19, 20, 21, 22],
+      "notes": "Oblique injury - out ~5 weeks starting week 18",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Lauri Markkanen",
+      "out_weeks": [17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Stephen Curry",
+      "out_weeks": [16, 17, 18, 19, 20, 21, 22],
+      "notes": "Knee injury - out ~7 weeks starting week 16",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Santi Aldama",
+      "out_weeks": [15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Jusuf Nurkic",
+      "out_weeks": [17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Anthony Davis",
+      "out_weeks": [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Keyonte George",
+      "out_weeks": [19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Ja Morant",
+      "out_weeks": [14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "Zach Edey",
+      "out_weeks": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22 ,23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    }
+  ],
+  "last_updated": "2026-03-23"
+}

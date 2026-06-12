@@ -1,0 +1,48 @@
+name: CI
+
+# Runs on every push and pull request.
+# Catches: syntax errors on any supported Python (the C1 class of bug),
+# file truncation / broken imports / config drift (verify_project_integrity),
+# and dead CLI entry points (--help smoke tests).
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile every Python file
+        run: |
+          python -m compileall -q modules/ scripts/ check_all.py
+          echo "All files compile on ${{ matrix.python-version }}"
+
+      - name: Import the package
+        run: python -c "import modules; print('import modules OK')"
+
+      - name: Project integrity check
+        run: python scripts/verify_project_integrity.py
+
+      - name: CLI smoke tests (--help must not crash)
+        run: |
+          python scripts/generate_stats_report.py --help > /dev/null
+          python scripts/format_stats_report.py --help > /dev/null
+          python scripts/newsletter_html_generator.py --help > /dev/null
+          python scripts/start_new_season.py --help > /dev/null
+          echo "All CLI entry points respond"

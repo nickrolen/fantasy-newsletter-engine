@@ -1,0 +1,4699 @@
+{
+  "_description": "Season FPPG for every draft pick across all seasons. Used to compute data-driven draft pick values.",
+  "_generated_by": "scripts/extract_draft_fppg.py",
+  "seasons": [
+    "2017-18",
+    "2018-19",
+    "2019-20",
+    "2020-21",
+    "2021-22",
+    "2022-23",
+    "2023-24",
+    "2024-25",
+    "2025-26"
+  ],
+  "total_picks": 468,
+  "matched_picks": 462,
+  "picks": [
+    {
+      "season": "2017-18",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "Kevin Durant",
+      "manager": "Hayden",
+      "gp": 58,
+      "total_fp": 2776.5,
+      "fppg": 47.87
+    },
+    {
+      "season": "2017-18",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "James Harden",
+      "manager": "Garrett",
+      "gp": 64,
+      "total_fp": 3316.5,
+      "fppg": 51.82
+    },
+    {
+      "season": "2017-18",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "Stephen Curry",
+      "manager": "Nick",
+      "gp": 48,
+      "total_fp": 2231.75,
+      "fppg": 46.49
+    },
+    {
+      "season": "2017-18",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "Russell Westbrook",
+      "manager": "Benton",
+      "gp": 70,
+      "total_fp": 3386.15,
+      "fppg": 48.37
+    },
+    {
+      "season": "2017-18",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Benton",
+      "gp": 67,
+      "total_fp": 3018.7,
+      "fppg": 45.06
+    },
+    {
+      "season": "2017-18",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Nick",
+      "gp": 76,
+      "total_fp": 3246.3,
+      "fppg": 42.71
+    },
+    {
+      "season": "2017-18",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "LeBron James",
+      "manager": "Garrett",
+      "gp": 67,
+      "total_fp": 3344.9,
+      "fppg": 49.92
+    },
+    {
+      "season": "2017-18",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Anthony Davis",
+      "manager": "Hayden",
+      "gp": 68,
+      "total_fp": 3234.3,
+      "fppg": 47.56
+    },
+    {
+      "season": "2017-18",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "Kawhi Leonard",
+      "manager": "Hayden",
+      "gp": 6,
+      "total_fp": 177.4,
+      "fppg": 29.57
+    },
+    {
+      "season": "2017-18",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "Jimmy Butler III",
+      "manager": "Garrett",
+      "gp": 52,
+      "total_fp": 1946.65,
+      "fppg": 37.44
+    },
+    {
+      "season": "2017-18",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "John Wall",
+      "manager": "Nick",
+      "gp": 34,
+      "total_fp": 1268.4,
+      "fppg": 37.31
+    },
+    {
+      "season": "2017-18",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Nikola Jokic",
+      "manager": "Benton",
+      "gp": 64,
+      "total_fp": 2725.35,
+      "fppg": 42.58
+    },
+    {
+      "season": "2017-18",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Kyrie Irving",
+      "manager": "Benton",
+      "gp": 56,
+      "total_fp": 2104.65,
+      "fppg": 37.58
+    },
+    {
+      "season": "2017-18",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Damian Lillard",
+      "manager": "Nick",
+      "gp": 64,
+      "total_fp": 2664.1,
+      "fppg": 41.63
+    },
+    {
+      "season": "2017-18",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "Paul George",
+      "manager": "Garrett",
+      "gp": 67,
+      "total_fp": 2542.85,
+      "fppg": 37.95
+    },
+    {
+      "season": "2017-18",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "Chris Paul",
+      "manager": "Hayden",
+      "gp": 49,
+      "total_fp": 2092.25,
+      "fppg": 42.7
+    },
+    {
+      "season": "2017-18",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "Rudy Gobert",
+      "manager": "Hayden",
+      "gp": 49,
+      "total_fp": 1601.8,
+      "fppg": 32.69
+    },
+    {
+      "season": "2017-18",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "Kristaps Porzingis",
+      "manager": "Garrett",
+      "gp": 47,
+      "total_fp": 1638.75,
+      "fppg": 34.87
+    },
+    {
+      "season": "2017-18",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Hassan Whiteside",
+      "manager": "Nick",
+      "gp": 41,
+      "total_fp": 1277.45,
+      "fppg": 31.16
+    },
+    {
+      "season": "2017-18",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "DeMarcus Cousins",
+      "manager": "Benton",
+      "gp": 45,
+      "total_fp": 2255.3,
+      "fppg": 50.12
+    },
+    {
+      "season": "2017-18",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "Kyle Lowry",
+      "manager": "Benton",
+      "gp": 64,
+      "total_fp": 2548.85,
+      "fppg": 39.83
+    },
+    {
+      "season": "2017-18",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "CJ McCollum",
+      "manager": "Nick",
+      "gp": 66,
+      "total_fp": 2083.05,
+      "fppg": 31.56
+    },
+    {
+      "season": "2017-18",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Kemba Walker",
+      "manager": "Garrett",
+      "gp": 68,
+      "total_fp": 2541.35,
+      "fppg": 37.37
+    },
+    {
+      "season": "2017-18",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Bradley Beal",
+      "manager": "Hayden",
+      "gp": 73,
+      "total_fp": 2546.45,
+      "fppg": 34.88
+    },
+    {
+      "season": "2017-18",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "Joel Embiid",
+      "manager": "Hayden",
+      "gp": 59,
+      "total_fp": 2179.2,
+      "fppg": 36.94
+    },
+    {
+      "season": "2017-18",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "Draymond Green",
+      "manager": "Garrett",
+      "gp": 62,
+      "total_fp": 2413.0,
+      "fppg": 38.92
+    },
+    {
+      "season": "2017-18",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Gordon Hayward",
+      "manager": "Nick",
+      "gp": 1,
+      "total_fp": 2.6,
+      "fppg": 2.6
+    },
+    {
+      "season": "2017-18",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "DeAndre Jordan",
+      "manager": "Benton",
+      "gp": 66,
+      "total_fp": 2235.2,
+      "fppg": 33.87
+    },
+    {
+      "season": "2017-18",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "Andre Drummond",
+      "manager": "Benton",
+      "gp": 70,
+      "total_fp": 3001.4,
+      "fppg": 42.88
+    },
+    {
+      "season": "2017-18",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Klay Thompson",
+      "manager": "Nick",
+      "gp": 57,
+      "total_fp": 1775.4,
+      "fppg": 31.15
+    },
+    {
+      "season": "2017-18",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "Myles Turner",
+      "manager": "Garrett",
+      "gp": 49,
+      "total_fp": 1314.3,
+      "fppg": 26.82
+    },
+    {
+      "season": "2017-18",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "Blake Griffin",
+      "manager": "Hayden",
+      "gp": 57,
+      "total_fp": 2084.45,
+      "fppg": 36.57
+    },
+    {
+      "season": "2017-18",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "Marc Gasol",
+      "manager": "Hayden",
+      "gp": 66,
+      "total_fp": 2274.75,
+      "fppg": 34.47
+    },
+    {
+      "season": "2017-18",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "DeMar DeRozan",
+      "manager": "Garrett",
+      "gp": 69,
+      "total_fp": 2219.65,
+      "fppg": 32.17
+    },
+    {
+      "season": "2017-18",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "Kevin Love",
+      "manager": "Nick",
+      "gp": 43,
+      "total_fp": 1540.8,
+      "fppg": 35.83
+    },
+    {
+      "season": "2017-18",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "Eric Bledsoe",
+      "manager": "Benton",
+      "gp": 64,
+      "total_fp": 2024.1,
+      "fppg": 31.63
+    },
+    {
+      "season": "2017-18",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "Mike Conley",
+      "manager": "Benton",
+      "gp": 12,
+      "total_fp": 313.9,
+      "fppg": 26.16
+    },
+    {
+      "season": "2017-18",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "Khris Middleton",
+      "manager": "Nick",
+      "gp": 69,
+      "total_fp": 2284.5,
+      "fppg": 33.11
+    },
+    {
+      "season": "2017-18",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "Lonzo Ball",
+      "manager": "Garrett",
+      "gp": 39,
+      "total_fp": 1371.55,
+      "fppg": 35.17
+    },
+    {
+      "season": "2017-18",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "Paul Millsap",
+      "manager": "Hayden",
+      "gp": 17,
+      "total_fp": 485.2,
+      "fppg": 28.54
+    },
+    {
+      "season": "2017-18",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Goran Dragic",
+      "manager": "Hayden",
+      "gp": 66,
+      "total_fp": 1827.2,
+      "fppg": 27.68
+    },
+    {
+      "season": "2017-18",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "Al Horford",
+      "manager": "Garrett",
+      "gp": 68,
+      "total_fp": 2228.75,
+      "fppg": 32.78
+    },
+    {
+      "season": "2017-18",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "LaMarcus Aldridge",
+      "manager": "Nick",
+      "gp": 59,
+      "total_fp": 1970.0,
+      "fppg": 33.39
+    },
+    {
+      "season": "2017-18",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Brook Lopez",
+      "manager": "Benton",
+      "gp": 4,
+      "total_fp": 122.8,
+      "fppg": 30.7
+    },
+    {
+      "season": "2017-18",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "Devin Booker",
+      "manager": "Benton",
+      "gp": 47,
+      "total_fp": 1563.9,
+      "fppg": 33.27
+    },
+    {
+      "season": "2017-18",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "Ricky Rubio",
+      "manager": "Nick",
+      "gp": 17,
+      "total_fp": 539.05,
+      "fppg": 31.71
+    },
+    {
+      "season": "2017-18",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "Trevor Ariza",
+      "manager": "Garrett",
+      "gp": 17,
+      "total_fp": 467.45,
+      "fppg": 27.5
+    },
+    {
+      "season": "2017-18",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "D'Angelo Russell",
+      "manager": "Hayden",
+      "gp": 17,
+      "total_fp": 476.15,
+      "fppg": 28.01
+    },
+    {
+      "season": "2017-18",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "Ben Simmons",
+      "manager": "Hayden",
+      "gp": 73,
+      "total_fp": 2728.7,
+      "fppg": 37.38
+    },
+    {
+      "season": "2017-18",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "Otto Porter Jr.",
+      "manager": "Garrett",
+      "gp": 59,
+      "total_fp": 1906.9,
+      "fppg": 32.32
+    },
+    {
+      "season": "2017-18",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "Carmelo Anthony",
+      "manager": "Nick",
+      "gp": 23,
+      "total_fp": 689.05,
+      "fppg": 29.96
+    },
+    {
+      "season": "2017-18",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "Andrew Wiggins",
+      "manager": "Benton",
+      "gp": 9,
+      "total_fp": 243.35,
+      "fppg": 27.04
+    },
+    {
+      "season": "2018-19",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "James Harden",
+      "manager": "Garrett",
+      "gp": 72,
+      "total_fp": 4174.0,
+      "fppg": 57.97
+    },
+    {
+      "season": "2018-19",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "Russell Westbrook",
+      "manager": "Nick",
+      "gp": 67,
+      "total_fp": 3496.1,
+      "fppg": 52.18
+    },
+    {
+      "season": "2018-19",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "Anthony Davis",
+      "manager": "Benton",
+      "gp": 55,
+      "total_fp": 2814.0,
+      "fppg": 51.16
+    },
+    {
+      "season": "2018-19",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "LeBron James",
+      "manager": "Hayden",
+      "gp": 55,
+      "total_fp": 2641.75,
+      "fppg": 48.03
+    },
+    {
+      "season": "2018-19",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Hayden",
+      "gp": 67,
+      "total_fp": 3322.0,
+      "fppg": 49.58
+    },
+    {
+      "season": "2018-19",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Benton",
+      "gp": 73,
+      "total_fp": 3450.0,
+      "fppg": 47.26
+    },
+    {
+      "season": "2018-19",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "Kevin Durant",
+      "manager": "Nick",
+      "gp": 72,
+      "total_fp": 3074.15,
+      "fppg": 42.7
+    },
+    {
+      "season": "2018-19",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Nikola Jokic",
+      "manager": "Garrett",
+      "gp": 75,
+      "total_fp": 3524.95,
+      "fppg": 47.0
+    },
+    {
+      "season": "2018-19",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "Stephen Curry",
+      "manager": "Garrett",
+      "gp": 64,
+      "total_fp": 3138.0,
+      "fppg": 49.03
+    },
+    {
+      "season": "2018-19",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "Damian Lillard",
+      "manager": "Nick",
+      "gp": 70,
+      "total_fp": 3011.55,
+      "fppg": 43.02
+    },
+    {
+      "season": "2018-19",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "Ben Simmons",
+      "manager": "Benton",
+      "gp": 74,
+      "total_fp": 2833.55,
+      "fppg": 38.29
+    },
+    {
+      "season": "2018-19",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Andre Drummond",
+      "manager": "Hayden",
+      "gp": 73,
+      "total_fp": 3063.6,
+      "fppg": 41.97
+    },
+    {
+      "season": "2018-19",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Kawhi Leonard",
+      "manager": "Hayden",
+      "gp": 54,
+      "total_fp": 2230.7,
+      "fppg": 41.31
+    },
+    {
+      "season": "2018-19",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Chris Paul",
+      "manager": "Benton",
+      "gp": 51,
+      "total_fp": 2016.35,
+      "fppg": 39.54
+    },
+    {
+      "season": "2018-19",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "Joel Embiid",
+      "manager": "Nick",
+      "gp": 61,
+      "total_fp": 2934.55,
+      "fppg": 48.11
+    },
+    {
+      "season": "2018-19",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "Paul George",
+      "manager": "Nick",
+      "gp": 72,
+      "total_fp": 3569.55,
+      "fppg": 49.58
+    },
+    {
+      "season": "2018-19",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "Kevin Love",
+      "manager": "Garrett",
+      "gp": 16,
+      "total_fp": 594.85,
+      "fppg": 37.18
+    },
+    {
+      "season": "2018-19",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "Victor Oladipo",
+      "manager": "Nick",
+      "gp": 31,
+      "total_fp": 1113.85,
+      "fppg": 35.93
+    },
+    {
+      "season": "2018-19",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Kyrie Irving",
+      "manager": "Benton",
+      "gp": 63,
+      "total_fp": 2767.25,
+      "fppg": 43.92
+    },
+    {
+      "season": "2018-19",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "Kyle Lowry",
+      "manager": "Hayden",
+      "gp": 61,
+      "total_fp": 2427.05,
+      "fppg": 39.79
+    },
+    {
+      "season": "2018-19",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "John Wall",
+      "manager": "Hayden",
+      "gp": 32,
+      "total_fp": 1240.85,
+      "fppg": 38.78
+    },
+    {
+      "season": "2018-19",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "Draymond Green",
+      "manager": "Benton",
+      "gp": 57,
+      "total_fp": 1957.75,
+      "fppg": 34.35
+    },
+    {
+      "season": "2018-19",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Kemba Walker",
+      "manager": "Garrett",
+      "gp": 75,
+      "total_fp": 3094.55,
+      "fppg": 41.26
+    },
+    {
+      "season": "2018-19",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Aaron Gordon",
+      "manager": "Garrett",
+      "gp": 64,
+      "total_fp": 2000.6,
+      "fppg": 31.26
+    },
+    {
+      "season": "2018-19",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "Jimmy Butler III",
+      "manager": "Garrett",
+      "gp": 60,
+      "total_fp": 2077.2,
+      "fppg": 34.62
+    },
+    {
+      "season": "2018-19",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "Donovan Mitchell",
+      "manager": "Nick",
+      "gp": 41,
+      "total_fp": 1367.85,
+      "fppg": 33.36
+    },
+    {
+      "season": "2018-19",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Devin Booker",
+      "manager": "Benton",
+      "gp": 58,
+      "total_fp": 2165.9,
+      "fppg": 37.34
+    },
+    {
+      "season": "2018-19",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "DeAndre Jordan",
+      "manager": "Hayden",
+      "gp": 60,
+      "total_fp": 1939.25,
+      "fppg": 32.32
+    },
+    {
+      "season": "2018-19",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "Bradley Beal",
+      "manager": "Hayden",
+      "gp": 76,
+      "total_fp": 3212.8,
+      "fppg": 42.27
+    },
+    {
+      "season": "2018-19",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Jrue Holiday",
+      "manager": "Benton",
+      "gp": 66,
+      "total_fp": 2683.05,
+      "fppg": 40.65
+    },
+    {
+      "season": "2018-19",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "Marc Gasol",
+      "manager": "Nick",
+      "gp": 73,
+      "total_fp": 2497.1,
+      "fppg": 34.21
+    },
+    {
+      "season": "2018-19",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "Rudy Gobert",
+      "manager": "Garrett",
+      "gp": 75,
+      "total_fp": 2931.95,
+      "fppg": 39.09
+    },
+    {
+      "season": "2018-19",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "Khris Middleton",
+      "manager": "Garrett",
+      "gp": 68,
+      "total_fp": 2210.2,
+      "fppg": 32.5
+    },
+    {
+      "season": "2018-19",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "Clint Capela",
+      "manager": "Nick",
+      "gp": 58,
+      "total_fp": 2071.35,
+      "fppg": 35.71
+    },
+    {
+      "season": "2018-19",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "CJ McCollum",
+      "manager": "Benton",
+      "gp": 37,
+      "total_fp": 1180.2,
+      "fppg": 31.9
+    },
+    {
+      "season": "2018-19",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "Otto Porter Jr.",
+      "manager": "Hayden",
+      "gp": 20,
+      "total_fp": 556.55,
+      "fppg": 27.83
+    },
+    {
+      "season": "2018-19",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "Blake Griffin",
+      "manager": "Hayden",
+      "gp": 72,
+      "total_fp": 2897.65,
+      "fppg": 40.25
+    },
+    {
+      "season": "2018-19",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "Tobias Harris",
+      "manager": "Benton",
+      "gp": 72,
+      "total_fp": 2511.85,
+      "fppg": 34.89
+    },
+    {
+      "season": "2018-19",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "Lonzo Ball",
+      "manager": "Nick",
+      "gp": 10,
+      "total_fp": 265.15,
+      "fppg": 26.52
+    },
+    {
+      "season": "2018-19",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "DeMar DeRozan",
+      "manager": "Garrett",
+      "gp": 63,
+      "total_fp": 2133.9,
+      "fppg": 33.87
+    },
+    {
+      "season": "2018-19",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Klay Thompson",
+      "manager": "Garrett",
+      "gp": 46,
+      "total_fp": 1530.8,
+      "fppg": 33.28
+    },
+    {
+      "season": "2018-19",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "Nikola Vucevic",
+      "manager": "Nick",
+      "gp": 74,
+      "total_fp": 3211.85,
+      "fppg": 43.4
+    },
+    {
+      "season": "2018-19",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "Myles Turner",
+      "manager": "Benton",
+      "gp": 53,
+      "total_fp": 1649.05,
+      "fppg": 31.11
+    },
+    {
+      "season": "2018-19",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Eric Bledsoe",
+      "manager": "Hayden",
+      "gp": 71,
+      "total_fp": 2252.5,
+      "fppg": 31.73
+    },
+    {
+      "season": "2018-19",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "Mike Conley",
+      "manager": "Hayden",
+      "gp": 62,
+      "total_fp": 2340.4,
+      "fppg": 37.75
+    },
+    {
+      "season": "2018-19",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "John Collins",
+      "manager": "Benton",
+      "gp": 49,
+      "total_fp": 1511.7,
+      "fppg": 30.85
+    },
+    {
+      "season": "2018-19",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "Gordon Hayward",
+      "manager": "Nick",
+      "gp": 5,
+      "total_fp": 108.95,
+      "fppg": 21.79
+    },
+    {
+      "season": "2018-19",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "Al Horford",
+      "manager": "Garrett",
+      "gp": 47,
+      "total_fp": 1526.8,
+      "fppg": 32.49
+    },
+    {
+      "season": "2018-19",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "LaMarcus Aldridge",
+      "manager": "Garrett",
+      "gp": 64,
+      "total_fp": 2110.65,
+      "fppg": 32.98
+    },
+    {
+      "season": "2018-19",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "Tyreke Evans",
+      "manager": "Nick",
+      "gp": 4,
+      "total_fp": 84.45,
+      "fppg": 21.11
+    },
+    {
+      "season": "2018-19",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "Paul Millsap",
+      "manager": "Benton",
+      "gp": 19,
+      "total_fp": 472.2,
+      "fppg": 24.85
+    },
+    {
+      "season": "2018-19",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "Deandre Ayton",
+      "manager": "Hayden",
+      "gp": 40,
+      "total_fp": 1192.85,
+      "fppg": 29.82
+    },
+    {
+      "season": "2019-20",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Hayden",
+      "gp": 56,
+      "total_fp": 2872.1,
+      "fppg": 51.29
+    },
+    {
+      "season": "2019-20",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "Anthony Davis",
+      "manager": "Garrett",
+      "gp": 54,
+      "total_fp": 2464.95,
+      "fppg": 45.65
+    },
+    {
+      "season": "2019-20",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "James Harden",
+      "manager": "Benton",
+      "gp": 59,
+      "total_fp": 3241.2,
+      "fppg": 54.94
+    },
+    {
+      "season": "2019-20",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "Nikola Jokic",
+      "manager": "Garrett",
+      "gp": 62,
+      "total_fp": 2692.1,
+      "fppg": 43.42
+    },
+    {
+      "season": "2019-20",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Nick",
+      "gp": 33,
+      "total_fp": 1743.5,
+      "fppg": 52.83
+    },
+    {
+      "season": "2019-20",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "Stephen Curry",
+      "manager": "Benton",
+      "gp": 4,
+      "total_fp": 147.3,
+      "fppg": 36.83
+    },
+    {
+      "season": "2019-20",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "LeBron James",
+      "manager": "Garrett",
+      "gp": 56,
+      "total_fp": 2830.85,
+      "fppg": 50.55
+    },
+    {
+      "season": "2019-20",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Joel Embiid",
+      "manager": "Nick",
+      "gp": 39,
+      "total_fp": 1679.35,
+      "fppg": 43.06
+    },
+    {
+      "season": "2019-20",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "Damian Lillard",
+      "manager": "Nick",
+      "gp": 55,
+      "total_fp": 2631.4,
+      "fppg": 47.84
+    },
+    {
+      "season": "2019-20",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "Russell Westbrook",
+      "manager": "Garrett",
+      "gp": 51,
+      "total_fp": 2178.3,
+      "fppg": 42.71
+    },
+    {
+      "season": "2019-20",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "Paul George",
+      "manager": "Garrett",
+      "gp": 27,
+      "total_fp": 1045.2,
+      "fppg": 38.71
+    },
+    {
+      "season": "2019-20",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Bradley Beal",
+      "manager": "Garrett",
+      "gp": 53,
+      "total_fp": 2278.4,
+      "fppg": 42.99
+    },
+    {
+      "season": "2019-20",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Kyrie Irving",
+      "manager": "Hayden",
+      "gp": 20,
+      "total_fp": 888.8,
+      "fppg": 44.44
+    },
+    {
+      "season": "2019-20",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Andre Drummond",
+      "manager": "Benton",
+      "gp": 54,
+      "total_fp": 2326.05,
+      "fppg": 43.07
+    },
+    {
+      "season": "2019-20",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "Jimmy Butler III",
+      "manager": "Hayden",
+      "gp": 53,
+      "total_fp": 1975.75,
+      "fppg": 37.28
+    },
+    {
+      "season": "2019-20",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "Luka Doncic",
+      "manager": "Hayden",
+      "gp": 52,
+      "total_fp": 2639.9,
+      "fppg": 50.77
+    },
+    {
+      "season": "2019-20",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "Nikola Vucevic",
+      "manager": "Hayden",
+      "gp": 52,
+      "total_fp": 2149.0,
+      "fppg": 41.33
+    },
+    {
+      "season": "2019-20",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "Kawhi Leonard",
+      "manager": "Hayden",
+      "gp": 48,
+      "total_fp": 2095.85,
+      "fppg": 43.66
+    },
+    {
+      "season": "2019-20",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Jrue Holiday",
+      "manager": "Benton",
+      "gp": 48,
+      "total_fp": 1870.25,
+      "fppg": 38.96
+    },
+    {
+      "season": "2019-20",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "Kemba Walker",
+      "manager": "Benton",
+      "gp": 46,
+      "total_fp": 1740.1,
+      "fppg": 37.83
+    },
+    {
+      "season": "2019-20",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "Rudy Gobert",
+      "manager": "Benton",
+      "gp": 60,
+      "total_fp": 2297.25,
+      "fppg": 38.29
+    },
+    {
+      "season": "2019-20",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "Ben Simmons",
+      "manager": "Benton",
+      "gp": 50,
+      "total_fp": 1983.25,
+      "fppg": 39.66
+    },
+    {
+      "season": "2019-20",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Trae Young",
+      "manager": "Garrett",
+      "gp": 55,
+      "total_fp": 2467.6,
+      "fppg": 44.87
+    },
+    {
+      "season": "2019-20",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Deandre Ayton",
+      "manager": "Nick",
+      "gp": 27,
+      "total_fp": 982.9,
+      "fppg": 36.4
+    },
+    {
+      "season": "2019-20",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "Pascal Siakam",
+      "manager": "Hayden",
+      "gp": 52,
+      "total_fp": 1997.1,
+      "fppg": 38.41
+    },
+    {
+      "season": "2019-20",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "John Collins",
+      "manager": "Garrett",
+      "gp": 37,
+      "total_fp": 1436.0,
+      "fppg": 38.81
+    },
+    {
+      "season": "2019-20",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Devin Booker",
+      "manager": "Nick",
+      "gp": 59,
+      "total_fp": 2152.6,
+      "fppg": 36.48
+    },
+    {
+      "season": "2019-20",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "Donovan Mitchell",
+      "manager": "Nick",
+      "gp": 59,
+      "total_fp": 2036.65,
+      "fppg": 34.52
+    },
+    {
+      "season": "2019-20",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "D'Angelo Russell",
+      "manager": "Nick",
+      "gp": 36,
+      "total_fp": 1430.75,
+      "fppg": 39.74
+    },
+    {
+      "season": "2019-20",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Myles Turner",
+      "manager": "Benton",
+      "gp": 10,
+      "total_fp": 254.65,
+      "fppg": 25.46
+    },
+    {
+      "season": "2019-20",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "Khris Middleton",
+      "manager": "Garrett",
+      "gp": 43,
+      "total_fp": 1586.45,
+      "fppg": 36.89
+    },
+    {
+      "season": "2019-20",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "Kristaps Porzingis",
+      "manager": "Hayden",
+      "gp": 49,
+      "total_fp": 1982.55,
+      "fppg": 40.46
+    },
+    {
+      "season": "2019-20",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "De'Aaron Fox",
+      "manager": "Hayden",
+      "gp": 42,
+      "total_fp": 1399.7,
+      "fppg": 33.33
+    },
+    {
+      "season": "2019-20",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "Draymond Green",
+      "manager": "Garrett",
+      "gp": 39,
+      "total_fp": 1263.0,
+      "fppg": 32.38
+    },
+    {
+      "season": "2019-20",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "Jayson Tatum",
+      "manager": "Garrett",
+      "gp": 58,
+      "total_fp": 2318.3,
+      "fppg": 39.97
+    },
+    {
+      "season": "2019-20",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "CJ McCollum",
+      "manager": "Garrett",
+      "gp": 58,
+      "total_fp": 2019.3,
+      "fppg": 34.82
+    },
+    {
+      "season": "2019-20",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "Zion Williamson",
+      "manager": "Nick",
+      "gp": 8,
+      "total_fp": 196.2,
+      "fppg": 24.52
+    },
+    {
+      "season": "2019-20",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "Chris Paul",
+      "manager": "Benton",
+      "gp": 63,
+      "total_fp": 2318.25,
+      "fppg": 36.8
+    },
+    {
+      "season": "2019-20",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "Tobias Harris",
+      "manager": "Nick",
+      "gp": 50,
+      "total_fp": 1611.05,
+      "fppg": 32.22
+    },
+    {
+      "season": "2019-20",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "Buddy Hield",
+      "manager": "Garrett",
+      "gp": 52,
+      "total_fp": 1700.25,
+      "fppg": 32.7
+    },
+    {
+      "season": "2019-20",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Blake Griffin",
+      "manager": "Hayden",
+      "gp": 14,
+      "total_fp": 322.05,
+      "fppg": 23.0
+    },
+    {
+      "season": "2019-20",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "Julius Randle",
+      "manager": "Nick",
+      "gp": 22,
+      "total_fp": 631.5,
+      "fppg": 28.7
+    },
+    {
+      "season": "2019-20",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "Aaron Gordon",
+      "manager": "Hayden",
+      "gp": 20,
+      "total_fp": 678.7,
+      "fppg": 33.94
+    },
+    {
+      "season": "2019-20",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Clint Capela",
+      "manager": "Nick",
+      "gp": 38,
+      "total_fp": 1386.5,
+      "fppg": 36.49
+    },
+    {
+      "season": "2019-20",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "DeMar DeRozan",
+      "manager": "Nick",
+      "gp": 40,
+      "total_fp": 1316.75,
+      "fppg": 32.92
+    },
+    {
+      "season": "2019-20",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "Lauri Markkanen",
+      "manager": "Benton",
+      "gp": 10,
+      "total_fp": 254.05,
+      "fppg": 25.4
+    },
+    {
+      "season": "2019-20",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "Kevin Love",
+      "manager": "Benton",
+      "gp": 53,
+      "total_fp": 1920.75,
+      "fppg": 36.24
+    },
+    {
+      "season": "2019-20",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "Bam Adebayo",
+      "manager": "Hayden",
+      "gp": 63,
+      "total_fp": 2347.5,
+      "fppg": 37.26
+    },
+    {
+      "season": "2019-20",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "Terry Rozier",
+      "manager": "Hayden",
+      "gp": 7,
+      "total_fp": 177.75,
+      "fppg": 25.39
+    },
+    {
+      "season": "2019-20",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "Danilo Gallinari",
+      "manager": "Benton",
+      "gp": 14,
+      "total_fp": 395.15,
+      "fppg": 28.22
+    },
+    {
+      "season": "2019-20",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "Ja Morant",
+      "manager": "Benton",
+      "gp": 1,
+      "total_fp": 15.95,
+      "fppg": 15.95
+    },
+    {
+      "season": "2019-20",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "LaMarcus Aldridge",
+      "manager": "Nick",
+      "gp": 31,
+      "total_fp": 1030.8,
+      "fppg": 33.25
+    },
+    {
+      "season": "2020-21",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "Luka Doncic",
+      "manager": "Nick",
+      "gp": 58,
+      "total_fp": 2878.2,
+      "fppg": 49.62
+    },
+    {
+      "season": "2020-21",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Garrett",
+      "gp": 52,
+      "total_fp": 2518.5,
+      "fppg": 48.43
+    },
+    {
+      "season": "2020-21",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Benton",
+      "gp": 41,
+      "total_fp": 1899.25,
+      "fppg": 46.32
+    },
+    {
+      "season": "2020-21",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "gp": 64,
+      "total_fp": 3416.1,
+      "fppg": 53.38
+    },
+    {
+      "season": "2020-21",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "Trae Young",
+      "manager": "Hayden",
+      "gp": 55,
+      "total_fp": 2211.3,
+      "fppg": 40.21
+    },
+    {
+      "season": "2020-21",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "Anthony Davis",
+      "manager": "Benton",
+      "gp": 27,
+      "total_fp": 1049.15,
+      "fppg": 38.86
+    },
+    {
+      "season": "2020-21",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "James Harden",
+      "manager": "Garrett",
+      "gp": 42,
+      "total_fp": 2237.1,
+      "fppg": 53.26
+    },
+    {
+      "season": "2020-21",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Jayson Tatum",
+      "manager": "Nick",
+      "gp": 56,
+      "total_fp": 2344.9,
+      "fppg": 41.87
+    },
+    {
+      "season": "2020-21",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "Joel Embiid",
+      "manager": "Nick",
+      "gp": 41,
+      "total_fp": 1798.35,
+      "fppg": 43.86
+    },
+    {
+      "season": "2020-21",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "Kawhi Leonard",
+      "manager": "Garrett",
+      "gp": 45,
+      "total_fp": 1928.15,
+      "fppg": 42.85
+    },
+    {
+      "season": "2020-21",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "Bam Adebayo",
+      "manager": "Benton",
+      "gp": 57,
+      "total_fp": 2094.55,
+      "fppg": 36.75
+    },
+    {
+      "season": "2020-21",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Devin Booker",
+      "manager": "Hayden",
+      "gp": 58,
+      "total_fp": 1873.2,
+      "fppg": 32.3
+    },
+    {
+      "season": "2020-21",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Damian Lillard",
+      "manager": "Hayden",
+      "gp": 58,
+      "total_fp": 2659.35,
+      "fppg": 45.85
+    },
+    {
+      "season": "2020-21",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Ben Simmons",
+      "manager": "Benton",
+      "gp": 52,
+      "total_fp": 1733.5,
+      "fppg": 33.34
+    },
+    {
+      "season": "2020-21",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "Donovan Mitchell",
+      "manager": "Garrett",
+      "gp": 53,
+      "total_fp": 2065.05,
+      "fppg": 38.96
+    },
+    {
+      "season": "2020-21",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "Bradley Beal",
+      "manager": "Nick",
+      "gp": 55,
+      "total_fp": 2093.95,
+      "fppg": 38.07
+    },
+    {
+      "season": "2020-21",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "Zion Williamson",
+      "manager": "Nick",
+      "gp": 55,
+      "total_fp": 1841.3,
+      "fppg": 33.48
+    },
+    {
+      "season": "2020-21",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "Deandre Ayton",
+      "manager": "Garrett",
+      "gp": 63,
+      "total_fp": 1891.05,
+      "fppg": 30.02
+    },
+    {
+      "season": "2020-21",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Shai Gilgeous-Alexander",
+      "manager": "Benton",
+      "gp": 34,
+      "total_fp": 1239.9,
+      "fppg": 36.47
+    },
+    {
+      "season": "2020-21",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "Ja Morant",
+      "manager": "Hayden",
+      "gp": 51,
+      "total_fp": 1561.6,
+      "fppg": 30.62
+    },
+    {
+      "season": "2020-21",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "Zach LaVine",
+      "manager": "Hayden",
+      "gp": 53,
+      "total_fp": 2126.5,
+      "fppg": 40.12
+    },
+    {
+      "season": "2020-21",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "Fred VanVleet",
+      "manager": "Benton",
+      "gp": 47,
+      "total_fp": 1949.0,
+      "fppg": 41.47
+    },
+    {
+      "season": "2020-21",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Pascal Siakam",
+      "manager": "Garrett",
+      "gp": 52,
+      "total_fp": 1876.35,
+      "fppg": 36.08
+    },
+    {
+      "season": "2020-21",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Stephen Curry",
+      "manager": "Nick",
+      "gp": 54,
+      "total_fp": 2713.55,
+      "fppg": 50.25
+    },
+    {
+      "season": "2020-21",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "LeBron James",
+      "manager": "Nick",
+      "gp": 40,
+      "total_fp": 1856.15,
+      "fppg": 46.4
+    },
+    {
+      "season": "2020-21",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "Kevin Durant",
+      "manager": "Garrett",
+      "gp": 25,
+      "total_fp": 1094.1,
+      "fppg": 43.76
+    },
+    {
+      "season": "2020-21",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Kyrie Irving",
+      "manager": "Benton",
+      "gp": 48,
+      "total_fp": 2102.3,
+      "fppg": 43.8
+    },
+    {
+      "season": "2020-21",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "Russell Westbrook",
+      "manager": "Hayden",
+      "gp": 55,
+      "total_fp": 2669.85,
+      "fppg": 48.54
+    },
+    {
+      "season": "2020-21",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "Brandon Ingram",
+      "manager": "Hayden",
+      "gp": 58,
+      "total_fp": 2096.7,
+      "fppg": 36.15
+    },
+    {
+      "season": "2020-21",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Paul George",
+      "manager": "Benton",
+      "gp": 45,
+      "total_fp": 1882.05,
+      "fppg": 41.82
+    },
+    {
+      "season": "2020-21",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "Domantas Sabonis",
+      "manager": "Garrett",
+      "gp": 51,
+      "total_fp": 2076.95,
+      "fppg": 40.72
+    },
+    {
+      "season": "2020-21",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "John Collins",
+      "manager": "Nick",
+      "gp": 52,
+      "total_fp": 1569.15,
+      "fppg": 30.18
+    },
+    {
+      "season": "2020-21",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "Nikola Vucevic",
+      "manager": "Nick",
+      "gp": 62,
+      "total_fp": 2880.2,
+      "fppg": 46.45
+    },
+    {
+      "season": "2020-21",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "Jamal Murray",
+      "manager": "Garrett",
+      "gp": 31,
+      "total_fp": 1056.25,
+      "fppg": 34.07
+    },
+    {
+      "season": "2020-21",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "Kristaps Porzingis",
+      "manager": "Benton",
+      "gp": 40,
+      "total_fp": 1492.75,
+      "fppg": 37.32
+    },
+    {
+      "season": "2020-21",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "Andre Drummond",
+      "manager": "Hayden",
+      "gp": 29,
+      "total_fp": 988.1,
+      "fppg": 34.07
+    },
+    {
+      "season": "2020-21",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "D'Angelo Russell",
+      "manager": "Hayden",
+      "gp": 17,
+      "total_fp": 584.05,
+      "fppg": 34.36
+    },
+    {
+      "season": "2020-21",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "De'Aaron Fox",
+      "manager": "Benton",
+      "gp": 58,
+      "total_fp": 2188.75,
+      "fppg": 37.74
+    },
+    {
+      "season": "2020-21",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "Jimmy Butler III",
+      "manager": "Garrett",
+      "gp": 46,
+      "total_fp": 1907.7,
+      "fppg": 41.47
+    },
+    {
+      "season": "2020-21",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "Rudy Gobert",
+      "manager": "Nick",
+      "gp": 62,
+      "total_fp": 2353.9,
+      "fppg": 37.97
+    },
+    {
+      "season": "2020-21",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Kyle Lowry",
+      "manager": "Nick",
+      "gp": 43,
+      "total_fp": 1633.55,
+      "fppg": 37.99
+    },
+    {
+      "season": "2020-21",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "CJ McCollum",
+      "manager": "Garrett",
+      "gp": 33,
+      "total_fp": 1405.35,
+      "fppg": 42.59
+    },
+    {
+      "season": "2020-21",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "Jusuf Nurkic",
+      "manager": "Benton",
+      "gp": 10,
+      "total_fp": 256.3,
+      "fppg": 25.63
+    },
+    {
+      "season": "2020-21",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Clint Capela",
+      "manager": "Hayden",
+      "gp": 56,
+      "total_fp": 2144.8,
+      "fppg": 38.3
+    },
+    {
+      "season": "2020-21",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "Khris Middleton",
+      "manager": "Hayden",
+      "gp": 62,
+      "total_fp": 2253.1,
+      "fppg": 36.34
+    },
+    {
+      "season": "2020-21",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "Lonzo Ball",
+      "manager": "Benton",
+      "gp": 35,
+      "total_fp": 1278.0,
+      "fppg": 36.51
+    },
+    {
+      "season": "2020-21",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "Jaylen Brown",
+      "manager": "Garrett",
+      "gp": 58,
+      "total_fp": 2152.05,
+      "fppg": 37.1
+    },
+    {
+      "season": "2020-21",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "Tobias Harris",
+      "manager": "Nick",
+      "gp": 31,
+      "total_fp": 1096.15,
+      "fppg": 35.36
+    },
+    {
+      "season": "2020-21",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "Chris Paul",
+      "manager": "Nick",
+      "gp": 53,
+      "total_fp": 1995.35,
+      "fppg": 37.65
+    },
+    {
+      "season": "2020-21",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "Christian Wood",
+      "manager": "Garrett",
+      "gp": 41,
+      "total_fp": 1499.0,
+      "fppg": 36.56
+    },
+    {
+      "season": "2020-21",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "Gordon Hayward",
+      "manager": "Benton",
+      "gp": 39,
+      "total_fp": 1296.35,
+      "fppg": 33.24
+    },
+    {
+      "season": "2020-21",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "Michael Porter Jr.",
+      "manager": "Hayden",
+      "gp": 52,
+      "total_fp": 1807.75,
+      "fppg": 34.76
+    },
+    {
+      "season": "2021-22",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "Paul George",
+      "manager": "Benton",
+      "gp": 26,
+      "total_fp": 1062.05,
+      "fppg": 40.85
+    },
+    {
+      "season": "2021-22",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "Bam Adebayo",
+      "manager": "Hayden",
+      "gp": 49,
+      "total_fp": 1691.25,
+      "fppg": 34.52
+    },
+    {
+      "season": "2021-22",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "LeBron James",
+      "manager": "Garrett",
+      "gp": 46,
+      "total_fp": 2361.4,
+      "fppg": 51.33
+    },
+    {
+      "season": "2021-22",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "Jimmy Butler III",
+      "manager": "Benton",
+      "gp": 48,
+      "total_fp": 1708.05,
+      "fppg": 35.58
+    },
+    {
+      "season": "2021-22",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "De'Aaron Fox",
+      "manager": "Benton",
+      "gp": 43,
+      "total_fp": 1321.45,
+      "fppg": 30.73
+    },
+    {
+      "season": "2021-22",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "Jaylen Brown",
+      "manager": "Hayden",
+      "gp": 57,
+      "total_fp": 1959.75,
+      "fppg": 34.38
+    },
+    {
+      "season": "2021-22",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "Rudy Gobert",
+      "manager": "Garrett",
+      "gp": 57,
+      "total_fp": 2171.05,
+      "fppg": 38.09
+    },
+    {
+      "season": "2021-22",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Khris Middleton",
+      "manager": "Nick",
+      "gp": 53,
+      "total_fp": 1871.15,
+      "fppg": 35.3
+    },
+    {
+      "season": "2021-22",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "CJ McCollum",
+      "manager": "Benton",
+      "gp": 52,
+      "total_fp": 1978.1,
+      "fppg": 38.04
+    },
+    {
+      "season": "2021-22",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "Deandre Ayton",
+      "manager": "Hayden",
+      "gp": 50,
+      "total_fp": 1481.05,
+      "fppg": 29.62
+    },
+    {
+      "season": "2021-22",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "Kyrie Irving",
+      "manager": "Garrett",
+      "gp": 21,
+      "total_fp": 904.5,
+      "fppg": 43.07
+    },
+    {
+      "season": "2021-22",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Ja Morant",
+      "manager": "Nick",
+      "gp": 54,
+      "total_fp": 2118.7,
+      "fppg": 39.24
+    },
+    {
+      "season": "2021-22",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Kristaps Porzingis",
+      "manager": "Benton",
+      "gp": 41,
+      "total_fp": 1459.3,
+      "fppg": 35.59
+    },
+    {
+      "season": "2021-22",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Brandon Ingram",
+      "manager": "Garrett",
+      "gp": 50,
+      "total_fp": 1691.3,
+      "fppg": 33.83
+    },
+    {
+      "season": "2021-22",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "Chris Paul",
+      "manager": "Garrett",
+      "gp": 58,
+      "total_fp": 2388.95,
+      "fppg": 41.19
+    },
+    {
+      "season": "2021-22",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "Tobias Harris",
+      "manager": "Nick",
+      "gp": 58,
+      "total_fp": 1805.55,
+      "fppg": 31.13
+    },
+    {
+      "season": "2021-22",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "Dejounte Murray",
+      "manager": "Nick",
+      "gp": 64,
+      "total_fp": 3062.05,
+      "fppg": 47.84
+    },
+    {
+      "season": "2021-22",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "Devin Booker",
+      "manager": "Hayden",
+      "gp": 62,
+      "total_fp": 2395.4,
+      "fppg": 38.64
+    },
+    {
+      "season": "2021-22",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Christian Wood",
+      "manager": "Benton",
+      "gp": 67,
+      "total_fp": 2449.2,
+      "fppg": 36.56
+    },
+    {
+      "season": "2021-22",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "Clint Capela",
+      "manager": "Nick",
+      "gp": 47,
+      "total_fp": 1412.05,
+      "fppg": 30.04
+    },
+    {
+      "season": "2021-22",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "John Collins",
+      "manager": "Hayden",
+      "gp": 50,
+      "total_fp": 1594.75,
+      "fppg": 31.9
+    },
+    {
+      "season": "2021-22",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "Ben Simmons",
+      "manager": "Hayden",
+      "gp": 0,
+      "total_fp": 0.0,
+      "fppg": null
+    },
+    {
+      "season": "2021-22",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Malcolm Brogdon",
+      "manager": "Garrett",
+      "gp": 32,
+      "total_fp": 1101.35,
+      "fppg": 34.42
+    },
+    {
+      "season": "2021-22",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Jrue Holiday",
+      "manager": "Nick",
+      "gp": 48,
+      "total_fp": 1798.8,
+      "fppg": 37.47
+    },
+    {
+      "season": "2021-22",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "Pascal Siakam",
+      "manager": "Benton",
+      "gp": 60,
+      "total_fp": 2286.4,
+      "fppg": 38.11
+    },
+    {
+      "season": "2021-22",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "OG Anunoby",
+      "manager": "Hayden",
+      "gp": 41,
+      "total_fp": 1288.05,
+      "fppg": 31.42
+    },
+    {
+      "season": "2021-22",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Kawhi Leonard",
+      "manager": "Garrett",
+      "gp": 0,
+      "total_fp": 0.0,
+      "fppg": null
+    },
+    {
+      "season": "2021-22",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "Anthony Edwards",
+      "manager": "Nick",
+      "gp": 63,
+      "total_fp": 2195.65,
+      "fppg": 34.85
+    },
+    {
+      "season": "2021-22",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "Nikola Vucevic",
+      "manager": "Nick",
+      "gp": 64,
+      "total_fp": 2540.3,
+      "fppg": 39.69
+    },
+    {
+      "season": "2021-22",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Julius Randle",
+      "manager": "Garrett",
+      "gp": 68,
+      "total_fp": 2489.65,
+      "fppg": 36.61
+    },
+    {
+      "season": "2021-22",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "LaMelo Ball",
+      "manager": "Hayden",
+      "gp": 65,
+      "total_fp": 2812.4,
+      "fppg": 43.27
+    },
+    {
+      "season": "2021-22",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "Zion Williamson",
+      "manager": "Benton",
+      "gp": 0,
+      "total_fp": 0.0,
+      "fppg": null
+    },
+    {
+      "season": "2021-22",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "Michael Porter Jr.",
+      "manager": "Benton",
+      "gp": 9,
+      "total_fp": 197.9,
+      "fppg": 21.99
+    },
+    {
+      "season": "2021-22",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "Shai Gilgeous-Alexander",
+      "manager": "Hayden",
+      "gp": 53,
+      "total_fp": 1964.4,
+      "fppg": 37.06
+    },
+    {
+      "season": "2021-22",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "Donovan Mitchell",
+      "manager": "Garrett",
+      "gp": 62,
+      "total_fp": 2490.2,
+      "fppg": 40.16
+    },
+    {
+      "season": "2021-22",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "Bradley Beal",
+      "manager": "Nick",
+      "gp": 40,
+      "total_fp": 1367.3,
+      "fppg": 34.18
+    },
+    {
+      "season": "2021-22",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "Jayson Tatum",
+      "manager": "Nick",
+      "gp": 69,
+      "total_fp": 2996.25,
+      "fppg": 43.42
+    },
+    {
+      "season": "2021-22",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "Domantas Sabonis",
+      "manager": "Garrett",
+      "gp": 59,
+      "total_fp": 2295.3,
+      "fppg": 38.9
+    },
+    {
+      "season": "2021-22",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "Zach LaVine",
+      "manager": "Hayden",
+      "gp": 57,
+      "total_fp": 2083.7,
+      "fppg": 36.56
+    },
+    {
+      "season": "2021-22",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "Anthony Davis",
+      "manager": "Benton",
+      "gp": 36,
+      "total_fp": 1469.25,
+      "fppg": 40.81
+    },
+    {
+      "season": "2021-22",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Trae Young",
+      "manager": "Benton",
+      "gp": 68,
+      "total_fp": 3023.9,
+      "fppg": 44.47
+    },
+    {
+      "season": "2021-22",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "Damian Lillard",
+      "manager": "Hayden",
+      "gp": 29,
+      "total_fp": 1142.35,
+      "fppg": 39.39
+    },
+    {
+      "season": "2021-22",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "Kevin Durant",
+      "manager": "Garrett",
+      "gp": 47,
+      "total_fp": 2110.0,
+      "fppg": 44.89
+    },
+    {
+      "season": "2021-22",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Joel Embiid",
+      "manager": "Nick",
+      "gp": 61,
+      "total_fp": 2916.65,
+      "fppg": 47.81
+    },
+    {
+      "season": "2021-22",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "Stephen Curry",
+      "manager": "Nick",
+      "gp": 63,
+      "total_fp": 2861.1,
+      "fppg": 45.41
+    },
+    {
+      "season": "2021-22",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "James Harden",
+      "manager": "Garrett",
+      "gp": 56,
+      "total_fp": 2652.8,
+      "fppg": 47.37
+    },
+    {
+      "season": "2021-22",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "Russell Westbrook",
+      "manager": "Hayden",
+      "gp": 69,
+      "total_fp": 2284.05,
+      "fppg": 33.1
+    },
+    {
+      "season": "2021-22",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "Fred VanVleet",
+      "manager": "Benton",
+      "gp": 57,
+      "total_fp": 2455.8,
+      "fppg": 43.08
+    },
+    {
+      "season": "2021-22",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Benton",
+      "gp": 69,
+      "total_fp": 2922.0,
+      "fppg": 42.35
+    },
+    {
+      "season": "2021-22",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "gp": 68,
+      "total_fp": 3768.4,
+      "fppg": 55.42
+    },
+    {
+      "season": "2021-22",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Garrett",
+      "gp": 59,
+      "total_fp": 2930.8,
+      "fppg": 49.67
+    },
+    {
+      "season": "2021-22",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "Luka Doncic",
+      "manager": "Nick",
+      "gp": 57,
+      "total_fp": 2829.45,
+      "fppg": 49.64
+    },
+    {
+      "season": "2022-23",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "Kyrie Irving",
+      "manager": "Hayden",
+      "gp": 56,
+      "total_fp": 2482.55,
+      "fppg": 44.33
+    },
+    {
+      "season": "2022-23",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "Paul George",
+      "manager": "Nick",
+      "gp": 56,
+      "total_fp": 2228.7,
+      "fppg": 39.8
+    },
+    {
+      "season": "2022-23",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "Devin Booker",
+      "manager": "Garrett",
+      "gp": 50,
+      "total_fp": 1913.6,
+      "fppg": 38.27
+    },
+    {
+      "season": "2022-23",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "Ja Morant",
+      "manager": "Benton",
+      "gp": 45,
+      "total_fp": 1814.05,
+      "fppg": 40.31
+    },
+    {
+      "season": "2022-23",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "Pascal Siakam",
+      "manager": "Hayden",
+      "gp": 68,
+      "total_fp": 2689.5,
+      "fppg": 39.55
+    },
+    {
+      "season": "2022-23",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "Cade Cunningham",
+      "manager": "Nick",
+      "gp": 12,
+      "total_fp": 394.45,
+      "fppg": 32.87
+    },
+    {
+      "season": "2022-23",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "Kawhi Leonard",
+      "manager": "Garrett",
+      "gp": 39,
+      "total_fp": 1623.35,
+      "fppg": 41.62
+    },
+    {
+      "season": "2022-23",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Nikola Vucevic",
+      "manager": "Benton",
+      "gp": 78,
+      "total_fp": 3014.6,
+      "fppg": 38.65
+    },
+    {
+      "season": "2022-23",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "Bam Adebayo",
+      "manager": "Hayden",
+      "gp": 71,
+      "total_fp": 2373.7,
+      "fppg": 33.43
+    },
+    {
+      "season": "2022-23",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "Rudy Gobert",
+      "manager": "Nick",
+      "gp": 58,
+      "total_fp": 1744.6,
+      "fppg": 30.08
+    },
+    {
+      "season": "2022-23",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "Jimmy Butler III",
+      "manager": "Garrett",
+      "gp": 53,
+      "total_fp": 1973.55,
+      "fppg": 37.24
+    },
+    {
+      "season": "2022-23",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Chris Paul",
+      "manager": "Benton",
+      "gp": 50,
+      "total_fp": 1905.15,
+      "fppg": 38.1
+    },
+    {
+      "season": "2022-23",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Zach LaVine",
+      "manager": "Hayden",
+      "gp": 72,
+      "total_fp": 2560.3,
+      "fppg": 35.56
+    },
+    {
+      "season": "2022-23",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Bradley Beal",
+      "manager": "Nick",
+      "gp": 44,
+      "total_fp": 1464.7,
+      "fppg": 33.29
+    },
+    {
+      "season": "2022-23",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "Jaylen Brown",
+      "manager": "Garrett",
+      "gp": 59,
+      "total_fp": 2249.25,
+      "fppg": 38.12
+    },
+    {
+      "season": "2022-23",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "DeMar DeRozan",
+      "manager": "Benton",
+      "gp": 65,
+      "total_fp": 2262.3,
+      "fppg": 34.8
+    },
+    {
+      "season": "2022-23",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "CJ McCollum",
+      "manager": "Hayden",
+      "gp": 68,
+      "total_fp": 2466.6,
+      "fppg": 36.27
+    },
+    {
+      "season": "2022-23",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "De'Aaron Fox",
+      "manager": "Hayden",
+      "gp": 69,
+      "total_fp": 2561.6,
+      "fppg": 37.12
+    },
+    {
+      "season": "2022-23",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Jrue Holiday",
+      "manager": "Garrett",
+      "gp": 56,
+      "total_fp": 2199.95,
+      "fppg": 39.28
+    },
+    {
+      "season": "2022-23",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "Julius Randle",
+      "manager": "Benton",
+      "gp": 75,
+      "total_fp": 3112.85,
+      "fppg": 41.5
+    },
+    {
+      "season": "2022-23",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "Scottie Barnes",
+      "manager": "Hayden",
+      "gp": 69,
+      "total_fp": 2236.65,
+      "fppg": 32.42
+    },
+    {
+      "season": "2022-23",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "Desmond Bane",
+      "manager": "Nick",
+      "gp": 48,
+      "total_fp": 1794.4,
+      "fppg": 37.38
+    },
+    {
+      "season": "2022-23",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Kristaps Porzingis",
+      "manager": "Garrett",
+      "gp": 62,
+      "total_fp": 2496.9,
+      "fppg": 40.27
+    },
+    {
+      "season": "2022-23",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Deandre Ayton",
+      "manager": "Benton",
+      "gp": 23,
+      "total_fp": 729.35,
+      "fppg": 31.71
+    },
+    {
+      "season": "2022-23",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "Terry Rozier",
+      "manager": "Nick",
+      "gp": 40,
+      "total_fp": 1293.9,
+      "fppg": 32.35
+    },
+    {
+      "season": "2022-23",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "Khris Middleton",
+      "manager": "Nick",
+      "gp": 8,
+      "total_fp": 184.3,
+      "fppg": 23.04
+    },
+    {
+      "season": "2022-23",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Paolo Banchero",
+      "manager": "Garrett",
+      "gp": 65,
+      "total_fp": 1943.5,
+      "fppg": 29.9
+    },
+    {
+      "season": "2022-23",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "Michael Porter Jr.",
+      "manager": "Benton",
+      "gp": 17,
+      "total_fp": 459.5,
+      "fppg": 27.03
+    },
+    {
+      "season": "2022-23",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "gp": 67,
+      "total_fp": 3655.7,
+      "fppg": 54.56
+    },
+    {
+      "season": "2022-23",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Joel Embiid",
+      "manager": "Nick",
+      "gp": 60,
+      "total_fp": 2855.45,
+      "fppg": 47.59
+    },
+    {
+      "season": "2022-23",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "Kevin Durant",
+      "manager": "Garrett",
+      "gp": 39,
+      "total_fp": 1726.2,
+      "fppg": 44.26
+    },
+    {
+      "season": "2022-23",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "Jayson Tatum",
+      "manager": "Benton",
+      "gp": 70,
+      "total_fp": 3372.6,
+      "fppg": 48.18
+    },
+    {
+      "season": "2022-23",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "LaMelo Ball",
+      "manager": "Hayden",
+      "gp": 35,
+      "total_fp": 1651.65,
+      "fppg": 47.19
+    },
+    {
+      "season": "2022-23",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "Luka Doncic",
+      "manager": "Nick",
+      "gp": 61,
+      "total_fp": 3303.6,
+      "fppg": 54.16
+    },
+    {
+      "season": "2022-23",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Garrett",
+      "gp": 48,
+      "total_fp": 2166.8,
+      "fppg": 45.14
+    },
+    {
+      "season": "2022-23",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Benton",
+      "gp": 19,
+      "total_fp": 722.5,
+      "fppg": 38.03
+    },
+    {
+      "season": "2022-23",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "Tyrese Haliburton",
+      "manager": "Hayden",
+      "gp": 53,
+      "total_fp": 2486.95,
+      "fppg": 46.92
+    },
+    {
+      "season": "2022-23",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "Stephen Curry",
+      "manager": "Nick",
+      "gp": 49,
+      "total_fp": 2467.3,
+      "fppg": 50.35
+    },
+    {
+      "season": "2022-23",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "James Harden",
+      "manager": "Garrett",
+      "gp": 51,
+      "total_fp": 2533.9,
+      "fppg": 49.68
+    },
+    {
+      "season": "2022-23",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "Trae Young",
+      "manager": "Benton",
+      "gp": 65,
+      "total_fp": 2601.6,
+      "fppg": 40.02
+    },
+    {
+      "season": "2022-23",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Zion Williamson",
+      "manager": "Hayden",
+      "gp": 29,
+      "total_fp": 977.95,
+      "fppg": 33.72
+    },
+    {
+      "season": "2022-23",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "Anthony Davis",
+      "manager": "Nick",
+      "gp": 51,
+      "total_fp": 2297.0,
+      "fppg": 45.04
+    },
+    {
+      "season": "2022-23",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "LeBron James",
+      "manager": "Garrett",
+      "gp": 39,
+      "total_fp": 1840.85,
+      "fppg": 47.2
+    },
+    {
+      "season": "2022-23",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Fred VanVleet",
+      "manager": "Benton",
+      "gp": 57,
+      "total_fp": 2391.65,
+      "fppg": 41.96
+    },
+    {
+      "season": "2022-23",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "Evan Mobley",
+      "manager": "Hayden",
+      "gp": 52,
+      "total_fp": 1751.85,
+      "fppg": 33.69
+    },
+    {
+      "season": "2022-23",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "Damian Lillard",
+      "manager": "Nick",
+      "gp": 57,
+      "total_fp": 2798.65,
+      "fppg": 49.1
+    },
+    {
+      "season": "2022-23",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "Domantas Sabonis",
+      "manager": "Garrett",
+      "gp": 75,
+      "total_fp": 3275.5,
+      "fppg": 43.67
+    },
+    {
+      "season": "2022-23",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "Dejounte Murray",
+      "manager": "Benton",
+      "gp": 65,
+      "total_fp": 2453.5,
+      "fppg": 37.75
+    },
+    {
+      "season": "2022-23",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "Shai Gilgeous-Alexander",
+      "manager": "Hayden",
+      "gp": 63,
+      "total_fp": 2601.75,
+      "fppg": 41.3
+    },
+    {
+      "season": "2022-23",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "Anthony Edwards",
+      "manager": "Nick",
+      "gp": 67,
+      "total_fp": 2558.55,
+      "fppg": 38.19
+    },
+    {
+      "season": "2022-23",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "Donovan Mitchell",
+      "manager": "Garrett",
+      "gp": 65,
+      "total_fp": 2696.05,
+      "fppg": 41.48
+    },
+    {
+      "season": "2022-23",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "Darius Garland",
+      "manager": "Benton",
+      "gp": 53,
+      "total_fp": 2042.95,
+      "fppg": 38.55
+    },
+    {
+      "season": "2023-24",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "Mikal Bridges",
+      "manager": "Nick",
+      "gp": 75,
+      "total_fp": 2414.5,
+      "fppg": 32.19
+    },
+    {
+      "season": "2023-24",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "Jaren Jackson Jr.",
+      "manager": "Garrett",
+      "gp": 45,
+      "total_fp": 1525.75,
+      "fppg": 33.91
+    },
+    {
+      "season": "2023-24",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "Pascal Siakam",
+      "manager": "Hayden",
+      "gp": 76,
+      "total_fp": 2611.65,
+      "fppg": 34.36
+    },
+    {
+      "season": "2023-24",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "Lauri Markkanen",
+      "manager": "Benton",
+      "gp": 52,
+      "total_fp": 2076.15,
+      "fppg": 39.93
+    },
+    {
+      "season": "2023-24",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "Bam Adebayo",
+      "manager": "Nick",
+      "gp": 61,
+      "total_fp": 2238.9,
+      "fppg": 36.7
+    },
+    {
+      "season": "2023-24",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "Paul George",
+      "manager": "Garrett",
+      "gp": 68,
+      "total_fp": 2649.2,
+      "fppg": 38.96
+    },
+    {
+      "season": "2023-24",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "LeBron James",
+      "manager": "Hayden",
+      "gp": 61,
+      "total_fp": 2825.95,
+      "fppg": 46.33
+    },
+    {
+      "season": "2023-24",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Kristaps Porzingis",
+      "manager": "Benton",
+      "gp": 49,
+      "total_fp": 1787.2,
+      "fppg": 36.47
+    },
+    {
+      "season": "2023-24",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "Darius Garland",
+      "manager": "Nick",
+      "gp": 3,
+      "total_fp": 74.0,
+      "fppg": 24.67
+    },
+    {
+      "season": "2023-24",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "Victor Wembanyama",
+      "manager": "Garrett",
+      "gp": 68,
+      "total_fp": 3208.2,
+      "fppg": 47.18
+    },
+    {
+      "season": "2023-24",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "Cade Cunningham",
+      "manager": "Hayden",
+      "gp": 57,
+      "total_fp": 2010.85,
+      "fppg": 35.28
+    },
+    {
+      "season": "2023-24",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Dejounte Murray",
+      "manager": "Benton",
+      "gp": 68,
+      "total_fp": 2764.65,
+      "fppg": 40.66
+    },
+    {
+      "season": "2023-24",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Jamal Murray",
+      "manager": "Nick",
+      "gp": 54,
+      "total_fp": 2066.1,
+      "fppg": 38.26
+    },
+    {
+      "season": "2023-24",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Jalen Brunson",
+      "manager": "Garrett",
+      "gp": 67,
+      "total_fp": 2791.65,
+      "fppg": 41.67
+    },
+    {
+      "season": "2023-24",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "Jrue Holiday",
+      "manager": "Hayden",
+      "gp": 28,
+      "total_fp": 796.9,
+      "fppg": 28.46
+    },
+    {
+      "season": "2023-24",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "Zach LaVine",
+      "manager": "Benton",
+      "gp": 13,
+      "total_fp": 400.5,
+      "fppg": 30.81
+    },
+    {
+      "season": "2023-24",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "Scottie Barnes",
+      "manager": "Nick",
+      "gp": 60,
+      "total_fp": 2555.35,
+      "fppg": 42.59
+    },
+    {
+      "season": "2023-24",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "Brandon Ingram",
+      "manager": "Garrett",
+      "gp": 41,
+      "total_fp": 1471.35,
+      "fppg": 35.89
+    },
+    {
+      "season": "2023-24",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Alperen Sengun",
+      "manager": "Hayden",
+      "gp": 63,
+      "total_fp": 2379.1,
+      "fppg": 37.76
+    },
+    {
+      "season": "2023-24",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "Josh Giddey",
+      "manager": "Benton",
+      "gp": 7,
+      "total_fp": 167.05,
+      "fppg": 23.86
+    },
+    {
+      "season": "2023-24",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "Nikola Vucevic",
+      "manager": "Nick",
+      "gp": 70,
+      "total_fp": 2572.8,
+      "fppg": 36.75
+    },
+    {
+      "season": "2023-24",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "Bradley Beal",
+      "manager": "Garrett",
+      "gp": 13,
+      "total_fp": 444.45,
+      "fppg": 34.19
+    },
+    {
+      "season": "2023-24",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Kyle Kuzma",
+      "manager": "Hayden",
+      "gp": 40,
+      "total_fp": 1343.0,
+      "fppg": 33.58
+    },
+    {
+      "season": "2023-24",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Scoot Henderson",
+      "manager": "Benton",
+      "gp": 0,
+      "total_fp": 0.0,
+      "fppg": null
+    },
+    {
+      "season": "2023-24",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "Anfernee Simons",
+      "manager": "Nick",
+      "gp": 32,
+      "total_fp": 1191.45,
+      "fppg": 37.23
+    },
+    {
+      "season": "2023-24",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "Jaylen Brown",
+      "manager": "Garrett",
+      "gp": 55,
+      "total_fp": 1845.7,
+      "fppg": 33.56
+    },
+    {
+      "season": "2023-24",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Jimmy Butler III",
+      "manager": "Hayden",
+      "gp": 54,
+      "total_fp": 1841.0,
+      "fppg": 34.09
+    },
+    {
+      "season": "2023-24",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "Nic Claxton",
+      "manager": "Benton",
+      "gp": 3,
+      "total_fp": 86.8,
+      "fppg": 28.93
+    },
+    {
+      "season": "2023-24",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "Luka Doncic",
+      "manager": "Nick",
+      "gp": 65,
+      "total_fp": 3973.4,
+      "fppg": 61.13
+    },
+    {
+      "season": "2023-24",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Garrett",
+      "gp": 65,
+      "total_fp": 3230.1,
+      "fppg": 49.69
+    },
+    {
+      "season": "2023-24",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "gp": 73,
+      "total_fp": 4064.35,
+      "fppg": 55.68
+    },
+    {
+      "season": "2023-24",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "Jayson Tatum",
+      "manager": "Benton",
+      "gp": 68,
+      "total_fp": 3127.95,
+      "fppg": 46.0
+    },
+    {
+      "season": "2023-24",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "Joel Embiid",
+      "manager": "Nick",
+      "gp": 33,
+      "total_fp": 1766.85,
+      "fppg": 53.54
+    },
+    {
+      "season": "2023-24",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "Kevin Durant",
+      "manager": "Garrett",
+      "gp": 69,
+      "total_fp": 2964.4,
+      "fppg": 42.96
+    },
+    {
+      "season": "2023-24",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "Shai Gilgeous-Alexander",
+      "manager": "Hayden",
+      "gp": 71,
+      "total_fp": 3360.3,
+      "fppg": 47.33
+    },
+    {
+      "season": "2023-24",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "Trae Young",
+      "manager": "Benton",
+      "gp": 47,
+      "total_fp": 2159.3,
+      "fppg": 45.94
+    },
+    {
+      "season": "2023-24",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "Stephen Curry",
+      "manager": "Nick",
+      "gp": 69,
+      "total_fp": 2941.55,
+      "fppg": 42.63
+    },
+    {
+      "season": "2023-24",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "Domantas Sabonis",
+      "manager": "Garrett",
+      "gp": 75,
+      "total_fp": 3583.05,
+      "fppg": 47.77
+    },
+    {
+      "season": "2023-24",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "Tyrese Haliburton",
+      "manager": "Hayden",
+      "gp": 65,
+      "total_fp": 3155.1,
+      "fppg": 48.54
+    },
+    {
+      "season": "2023-24",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "Desmond Bane",
+      "manager": "Benton",
+      "gp": 35,
+      "total_fp": 1366.55,
+      "fppg": 39.04
+    },
+    {
+      "season": "2023-24",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Damian Lillard",
+      "manager": "Nick",
+      "gp": 70,
+      "total_fp": 2895.15,
+      "fppg": 41.36
+    },
+    {
+      "season": "2023-24",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "Devin Booker",
+      "manager": "Garrett",
+      "gp": 61,
+      "total_fp": 2534.15,
+      "fppg": 41.54
+    },
+    {
+      "season": "2023-24",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "Kyrie Irving",
+      "manager": "Hayden",
+      "gp": 56,
+      "total_fp": 2372.3,
+      "fppg": 42.36
+    },
+    {
+      "season": "2023-24",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Fred VanVleet",
+      "manager": "Benton",
+      "gp": 70,
+      "total_fp": 2936.45,
+      "fppg": 41.95
+    },
+    {
+      "season": "2023-24",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "Anthony Davis",
+      "manager": "Nick",
+      "gp": 72,
+      "total_fp": 3422.8,
+      "fppg": 47.54
+    },
+    {
+      "season": "2023-24",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "Donovan Mitchell",
+      "manager": "Garrett",
+      "gp": 45,
+      "total_fp": 2083.8,
+      "fppg": 46.31
+    },
+    {
+      "season": "2023-24",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "LaMelo Ball",
+      "manager": "Hayden",
+      "gp": 21,
+      "total_fp": 925.3,
+      "fppg": 44.06
+    },
+    {
+      "season": "2023-24",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Benton",
+      "gp": 58,
+      "total_fp": 2098.15,
+      "fppg": 36.17
+    },
+    {
+      "season": "2023-24",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "Anthony Edwards",
+      "manager": "Nick",
+      "gp": 72,
+      "total_fp": 2822.05,
+      "fppg": 39.2
+    },
+    {
+      "season": "2023-24",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "James Harden",
+      "manager": "Garrett",
+      "gp": 68,
+      "total_fp": 2860.1,
+      "fppg": 42.06
+    },
+    {
+      "season": "2023-24",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "De'Aaron Fox",
+      "manager": "Hayden",
+      "gp": 69,
+      "total_fp": 2910.75,
+      "fppg": 42.18
+    },
+    {
+      "season": "2023-24",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "Julius Randle",
+      "manager": "Benton",
+      "gp": 45,
+      "total_fp": 1666.05,
+      "fppg": 37.02
+    },
+    {
+      "season": "2024-25",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "James Harden",
+      "manager": "Benton",
+      "gp": 78,
+      "total_fp": 3458.05,
+      "fppg": 44.33
+    },
+    {
+      "season": "2024-25",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Garrett",
+      "gp": 69,
+      "total_fp": 3074.7,
+      "fppg": 44.56
+    },
+    {
+      "season": "2024-25",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "Paolo Banchero",
+      "manager": "Hayden",
+      "gp": 45,
+      "total_fp": 1675.05,
+      "fppg": 37.22
+    },
+    {
+      "season": "2024-25",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "Kevin Durant",
+      "manager": "Benton",
+      "gp": 61,
+      "total_fp": 2461.1,
+      "fppg": 40.35
+    },
+    {
+      "season": "2024-25",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "Cade Cunningham",
+      "manager": "Benton",
+      "gp": 64,
+      "total_fp": 2818.3,
+      "fppg": 44.04
+    },
+    {
+      "season": "2024-25",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "LeBron James",
+      "manager": "Garrett",
+      "gp": 69,
+      "total_fp": 3129.9,
+      "fppg": 45.36
+    },
+    {
+      "season": "2024-25",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "Jalen Williams",
+      "manager": "Hayden",
+      "gp": 63,
+      "total_fp": 2401.8,
+      "fppg": 38.12
+    },
+    {
+      "season": "2024-25",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Damian Lillard",
+      "manager": "Nick",
+      "gp": 58,
+      "total_fp": 2523.35,
+      "fppg": 43.51
+    },
+    {
+      "season": "2024-25",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "Fred VanVleet",
+      "manager": "Nick",
+      "gp": 58,
+      "total_fp": 1988.4,
+      "fppg": 34.28
+    },
+    {
+      "season": "2024-25",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "Ja Morant",
+      "manager": "Garrett",
+      "gp": 42,
+      "total_fp": 1509.5,
+      "fppg": 35.94
+    },
+    {
+      "season": "2024-25",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "Kyrie Irving",
+      "manager": "Hayden",
+      "gp": 48,
+      "total_fp": 1911.4,
+      "fppg": 39.82
+    },
+    {
+      "season": "2024-25",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Nikola Vucevic",
+      "manager": "Nick",
+      "gp": 72,
+      "total_fp": 2843.75,
+      "fppg": 39.5
+    },
+    {
+      "season": "2024-25",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Desmond Bane",
+      "manager": "Benton",
+      "gp": 65,
+      "total_fp": 2417.15,
+      "fppg": 37.19
+    },
+    {
+      "season": "2024-25",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Paul George",
+      "manager": "Garrett",
+      "gp": 37,
+      "total_fp": 1266.35,
+      "fppg": 34.23
+    },
+    {
+      "season": "2024-25",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "Jalen Johnson",
+      "manager": "Hayden",
+      "gp": 35,
+      "total_fp": 1420.3,
+      "fppg": 40.58
+    },
+    {
+      "season": "2024-25",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "Mikal Bridges",
+      "manager": "Nick",
+      "gp": 7,
+      "total_fp": 217.85,
+      "fppg": 31.12
+    },
+    {
+      "season": "2024-25",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "Evan Mobley",
+      "manager": "Benton",
+      "gp": 65,
+      "total_fp": 2443.2,
+      "fppg": 37.59
+    },
+    {
+      "season": "2024-25",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "Jamal Murray",
+      "manager": "Garrett",
+      "gp": 53,
+      "total_fp": 2042.25,
+      "fppg": 38.53
+    },
+    {
+      "season": "2024-25",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Franz Wagner",
+      "manager": "Hayden",
+      "gp": 58,
+      "total_fp": 2148.95,
+      "fppg": 37.05
+    },
+    {
+      "season": "2024-25",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "Michael Porter Jr.",
+      "manager": "Nick",
+      "gp": 34,
+      "total_fp": 1054.9,
+      "fppg": 31.03
+    },
+    {
+      "season": "2024-25",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "Bam Adebayo",
+      "manager": "Benton",
+      "gp": 74,
+      "total_fp": 2751.15,
+      "fppg": 37.18
+    },
+    {
+      "season": "2024-25",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "Miles Bridges",
+      "manager": "Garrett",
+      "gp": 37,
+      "total_fp": 1426.35,
+      "fppg": 38.55
+    },
+    {
+      "season": "2024-25",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Jaren Jackson Jr.",
+      "manager": "Hayden",
+      "gp": 66,
+      "total_fp": 2350.65,
+      "fppg": 35.62
+    },
+    {
+      "season": "2024-25",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Rudy Gobert",
+      "manager": "Nick",
+      "gp": 16,
+      "total_fp": 535.15,
+      "fppg": 33.45
+    },
+    {
+      "season": "2024-25",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "Jaylen Brown",
+      "manager": "Benton",
+      "gp": 44,
+      "total_fp": 1563.15,
+      "fppg": 35.53
+    },
+    {
+      "season": "2024-25",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "Anfernee Simons",
+      "manager": "Garrett",
+      "gp": 22,
+      "total_fp": 611.15,
+      "fppg": 27.78
+    },
+    {
+      "season": "2024-25",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Immanuel Quickley",
+      "manager": "Hayden",
+      "gp": 1,
+      "total_fp": 22.45,
+      "fppg": 22.45
+    },
+    {
+      "season": "2024-25",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "Jabari Smith Jr.",
+      "manager": "Nick",
+      "gp": 3,
+      "total_fp": 78.75,
+      "fppg": 26.25
+    },
+    {
+      "season": "2024-25",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "Dejounte Murray",
+      "manager": "Benton",
+      "gp": 23,
+      "total_fp": 870.0,
+      "fppg": 37.83
+    },
+    {
+      "season": "2024-25",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Jalen Brunson",
+      "manager": "Garrett",
+      "gp": 61,
+      "total_fp": 2350.95,
+      "fppg": 38.54
+    },
+    {
+      "season": "2024-25",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "Alperen Sengun",
+      "manager": "Hayden",
+      "gp": 74,
+      "total_fp": 2697.35,
+      "fppg": 36.45
+    },
+    {
+      "season": "2024-25",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "Chet Holmgren",
+      "manager": "Nick",
+      "gp": 31,
+      "total_fp": 1053.7,
+      "fppg": 33.99
+    },
+    {
+      "season": "2024-25",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "Lauri Markkanen",
+      "manager": "Benton",
+      "gp": 36,
+      "total_fp": 1144.4,
+      "fppg": 31.79
+    },
+    {
+      "season": "2024-25",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "Domantas Sabonis",
+      "manager": "Garrett",
+      "gp": 68,
+      "total_fp": 3057.35,
+      "fppg": 44.96
+    },
+    {
+      "season": "2024-25",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "De'Aaron Fox",
+      "manager": "Hayden",
+      "gp": 62,
+      "total_fp": 2354.65,
+      "fppg": 37.98
+    },
+    {
+      "season": "2024-25",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "Scottie Barnes",
+      "manager": "Nick",
+      "gp": 63,
+      "total_fp": 2374.7,
+      "fppg": 37.69
+    },
+    {
+      "season": "2024-25",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "Tyrese Maxey",
+      "manager": "Benton",
+      "gp": 49,
+      "total_fp": 2065.4,
+      "fppg": 42.15
+    },
+    {
+      "season": "2024-25",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "Devin Booker",
+      "manager": "Garrett",
+      "gp": 72,
+      "total_fp": 2827.15,
+      "fppg": 39.27
+    },
+    {
+      "season": "2024-25",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "LaMelo Ball",
+      "manager": "Hayden",
+      "gp": 45,
+      "total_fp": 1925.05,
+      "fppg": 42.78
+    },
+    {
+      "season": "2024-25",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "Joel Embiid",
+      "manager": "Nick",
+      "gp": 18,
+      "total_fp": 649.8,
+      "fppg": 36.1
+    },
+    {
+      "season": "2024-25",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Stephen Curry",
+      "manager": "Benton",
+      "gp": 67,
+      "total_fp": 2946.55,
+      "fppg": 43.98
+    },
+    {
+      "season": "2024-25",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "Donovan Mitchell",
+      "manager": "Garrett",
+      "gp": 71,
+      "total_fp": 2796.0,
+      "fppg": 39.38
+    },
+    {
+      "season": "2024-25",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "Tyrese Haliburton",
+      "manager": "Hayden",
+      "gp": 71,
+      "total_fp": 3205.15,
+      "fppg": 45.14
+    },
+    {
+      "season": "2024-25",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Anthony Edwards",
+      "manager": "Nick",
+      "gp": 79,
+      "total_fp": 3408.1,
+      "fppg": 43.14
+    },
+    {
+      "season": "2024-25",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "Trae Young",
+      "manager": "Benton",
+      "gp": 70,
+      "total_fp": 3093.0,
+      "fppg": 44.19
+    },
+    {
+      "season": "2024-25",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Garrett",
+      "gp": 63,
+      "total_fp": 3037.15,
+      "fppg": 48.21
+    },
+    {
+      "season": "2024-25",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "Shai Gilgeous-Alexander",
+      "manager": "Hayden",
+      "gp": 75,
+      "total_fp": 3673.4,
+      "fppg": 48.98
+    },
+    {
+      "season": "2024-25",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "Anthony Davis",
+      "manager": "Nick",
+      "gp": 51,
+      "total_fp": 2333.25,
+      "fppg": 45.75
+    },
+    {
+      "season": "2024-25",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "Jayson Tatum",
+      "manager": "Benton",
+      "gp": 69,
+      "total_fp": 3340.35,
+      "fppg": 48.41
+    },
+    {
+      "season": "2024-25",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "Victor Wembanyama",
+      "manager": "Garrett",
+      "gp": 44,
+      "total_fp": 2402.75,
+      "fppg": 54.61
+    },
+    {
+      "season": "2024-25",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "gp": 67,
+      "total_fp": 4287.75,
+      "fppg": 64.0
+    },
+    {
+      "season": "2024-25",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "Luka Doncic",
+      "manager": "Nick",
+      "gp": 48,
+      "total_fp": 2548.9,
+      "fppg": 53.1
+    },
+    {
+      "season": "2025-26",
+      "round": 1,
+      "pick_number": 1,
+      "player_name": "Cooper Flagg",
+      "manager": "Garrett",
+      "gp": 48,
+      "total_fp": 1632.5,
+      "fppg": 34.01
+    },
+    {
+      "season": "2025-26",
+      "round": 1,
+      "pick_number": 2,
+      "player_name": "Devin Booker",
+      "manager": "Benton",
+      "gp": 38,
+      "total_fp": 1269.65,
+      "fppg": 33.41
+    },
+    {
+      "season": "2025-26",
+      "round": 1,
+      "pick_number": 3,
+      "player_name": "Stephen Curry",
+      "manager": "Hayden",
+      "gp": 38,
+      "total_fp": 1612.0,
+      "fppg": 42.42
+    },
+    {
+      "season": "2025-26",
+      "round": 1,
+      "pick_number": 4,
+      "player_name": "James Harden",
+      "manager": "Benton",
+      "gp": 44,
+      "total_fp": 1925.55,
+      "fppg": 43.76
+    },
+    {
+      "season": "2025-26",
+      "round": 2,
+      "pick_number": 5,
+      "player_name": "Kevin Durant",
+      "manager": "Garrett",
+      "gp": 48,
+      "total_fp": 1799.85,
+      "fppg": 37.5
+    },
+    {
+      "season": "2025-26",
+      "round": 2,
+      "pick_number": 6,
+      "player_name": "Josh Giddey",
+      "manager": "Benton",
+      "gp": 30,
+      "total_fp": 1259.55,
+      "fppg": 41.99
+    },
+    {
+      "season": "2025-26",
+      "round": 2,
+      "pick_number": 7,
+      "player_name": "Alperen Sengun",
+      "manager": "Hayden",
+      "gp": 43,
+      "total_fp": 1727.85,
+      "fppg": 40.18
+    },
+    {
+      "season": "2025-26",
+      "round": 2,
+      "pick_number": 8,
+      "player_name": "Jaylen Brown",
+      "manager": "Benton",
+      "gp": 39,
+      "total_fp": 1520.5,
+      "fppg": 38.99
+    },
+    {
+      "season": "2025-26",
+      "round": 3,
+      "pick_number": 9,
+      "player_name": "Tyler Herro",
+      "manager": "Garrett",
+      "gp": 11,
+      "total_fp": 359.3,
+      "fppg": 32.66
+    },
+    {
+      "season": "2025-26",
+      "round": 3,
+      "pick_number": 10,
+      "player_name": "LeBron James",
+      "manager": "Benton",
+      "gp": 34,
+      "total_fp": 1264.05,
+      "fppg": 37.18
+    },
+    {
+      "season": "2025-26",
+      "round": 3,
+      "pick_number": 11,
+      "player_name": "Pascal Siakam",
+      "manager": "Hayden",
+      "gp": 47,
+      "total_fp": 1676.35,
+      "fppg": 35.67
+    },
+    {
+      "season": "2025-26",
+      "round": 3,
+      "pick_number": 12,
+      "player_name": "Josh Hart",
+      "manager": "Garrett",
+      "gp": 15,
+      "total_fp": 466.45,
+      "fppg": 31.1
+    },
+    {
+      "season": "2025-26",
+      "round": 4,
+      "pick_number": 13,
+      "player_name": "Jamal Murray",
+      "manager": "Garrett",
+      "gp": 45,
+      "total_fp": 2045.75,
+      "fppg": 45.46
+    },
+    {
+      "season": "2025-26",
+      "round": 4,
+      "pick_number": 14,
+      "player_name": "Bam Adebayo",
+      "manager": "Benton",
+      "gp": 38,
+      "total_fp": 1334.8,
+      "fppg": 35.13
+    },
+    {
+      "season": "2025-26",
+      "round": 4,
+      "pick_number": 15,
+      "player_name": "De'Aaron Fox",
+      "manager": "Hayden",
+      "gp": 41,
+      "total_fp": 1431.85,
+      "fppg": 34.92
+    },
+    {
+      "season": "2025-26",
+      "round": 4,
+      "pick_number": 16,
+      "player_name": "Trey Murphy III",
+      "manager": "Nick",
+      "gp": 50,
+      "total_fp": 1985.4,
+      "fppg": 39.71
+    },
+    {
+      "season": "2025-26",
+      "round": 5,
+      "pick_number": 17,
+      "player_name": "Brandon Miller",
+      "manager": "Nick",
+      "gp": 31,
+      "total_fp": 1096.2,
+      "fppg": 35.36
+    },
+    {
+      "season": "2025-26",
+      "round": 5,
+      "pick_number": 18,
+      "player_name": "Derrick White",
+      "manager": "Benton",
+      "gp": 49,
+      "total_fp": 1879.15,
+      "fppg": 38.35
+    },
+    {
+      "season": "2025-26",
+      "round": 5,
+      "pick_number": 19,
+      "player_name": "Ja Morant",
+      "manager": "Hayden",
+      "gp": 18,
+      "total_fp": 513.7,
+      "fppg": 28.54
+    },
+    {
+      "season": "2025-26",
+      "round": 5,
+      "pick_number": 20,
+      "player_name": "Ivica Zubac",
+      "manager": "Nick",
+      "gp": 28,
+      "total_fp": 843.6,
+      "fppg": 30.13
+    },
+    {
+      "season": "2025-26",
+      "round": 6,
+      "pick_number": 21,
+      "player_name": "Desmond Bane",
+      "manager": "Garrett",
+      "gp": 27,
+      "total_fp": 826.7,
+      "fppg": 30.62
+    },
+    {
+      "season": "2025-26",
+      "round": 6,
+      "pick_number": 22,
+      "player_name": "Joel Embiid",
+      "manager": "Nick",
+      "gp": 26,
+      "total_fp": 973.1,
+      "fppg": 37.43
+    },
+    {
+      "season": "2025-26",
+      "round": 6,
+      "pick_number": 23,
+      "player_name": "Franz Wagner",
+      "manager": "Hayden",
+      "gp": 25,
+      "total_fp": 846.75,
+      "fppg": 33.87
+    },
+    {
+      "season": "2025-26",
+      "round": 6,
+      "pick_number": 24,
+      "player_name": "Austin Reaves",
+      "manager": "Nick",
+      "gp": 26,
+      "total_fp": 1028.7,
+      "fppg": 39.57
+    },
+    {
+      "season": "2025-26",
+      "round": 7,
+      "pick_number": 25,
+      "player_name": "Darius Garland",
+      "manager": "Garrett",
+      "gp": 4,
+      "total_fp": 142.2,
+      "fppg": 35.55
+    },
+    {
+      "season": "2025-26",
+      "round": 7,
+      "pick_number": 26,
+      "player_name": "Walker Kessler",
+      "manager": "Nick",
+      "gp": 3,
+      "total_fp": 114.95,
+      "fppg": 38.32
+    },
+    {
+      "season": "2025-26",
+      "round": 7,
+      "pick_number": 27,
+      "player_name": "Zion Williamson",
+      "manager": "Hayden",
+      "gp": 28,
+      "total_fp": 854.05,
+      "fppg": 30.5
+    },
+    {
+      "season": "2025-26",
+      "round": 7,
+      "pick_number": 28,
+      "player_name": "Deni Avdija",
+      "manager": "Nick",
+      "gp": 44,
+      "total_fp": 1797.05,
+      "fppg": 40.84
+    },
+    {
+      "season": "2025-26",
+      "round": 8,
+      "pick_number": 29,
+      "player_name": "Victor Wembanyama",
+      "manager": "Garrett",
+      "gp": 34,
+      "total_fp": 1536.95,
+      "fppg": 45.2
+    },
+    {
+      "season": "2025-26",
+      "round": 8,
+      "pick_number": 30,
+      "player_name": "Cade Cunningham",
+      "manager": "Benton",
+      "gp": 45,
+      "total_fp": 2057.5,
+      "fppg": 45.72
+    },
+    {
+      "season": "2025-26",
+      "round": 8,
+      "pick_number": 31,
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "gp": 37,
+      "total_fp": 2335.9,
+      "fppg": 63.13
+    },
+    {
+      "season": "2025-26",
+      "round": 8,
+      "pick_number": 32,
+      "player_name": "Luka Doncic",
+      "manager": "Nick",
+      "gp": 42,
+      "total_fp": 2267.65,
+      "fppg": 53.99
+    },
+    {
+      "season": "2025-26",
+      "round": 9,
+      "pick_number": 33,
+      "player_name": "Giannis Antetokounmpo",
+      "manager": "Garrett",
+      "gp": 29,
+      "total_fp": 1232.55,
+      "fppg": 42.5
+    },
+    {
+      "season": "2025-26",
+      "round": 9,
+      "pick_number": 34,
+      "player_name": "Trae Young",
+      "manager": "Benton",
+      "gp": 8,
+      "total_fp": 261.5,
+      "fppg": 32.69
+    },
+    {
+      "season": "2025-26",
+      "round": 9,
+      "pick_number": 35,
+      "player_name": "Shai Gilgeous-Alexander",
+      "manager": "Hayden",
+      "gp": 49,
+      "total_fp": 2259.2,
+      "fppg": 46.11
+    },
+    {
+      "season": "2025-26",
+      "round": 9,
+      "pick_number": 36,
+      "player_name": "Anthony Davis",
+      "manager": "Nick",
+      "gp": 17,
+      "total_fp": 678.3,
+      "fppg": 39.9
+    },
+    {
+      "season": "2025-26",
+      "round": 10,
+      "pick_number": 37,
+      "player_name": "Karl-Anthony Towns",
+      "manager": "Garrett",
+      "gp": 47,
+      "total_fp": 1841.7,
+      "fppg": 39.19
+    },
+    {
+      "season": "2025-26",
+      "round": 10,
+      "pick_number": 38,
+      "player_name": "Tyrese Maxey",
+      "manager": "Benton",
+      "gp": 47,
+      "total_fp": 2315.15,
+      "fppg": 49.26
+    },
+    {
+      "season": "2025-26",
+      "round": 10,
+      "pick_number": 39,
+      "player_name": "LaMelo Ball",
+      "manager": "Hayden",
+      "gp": 41,
+      "total_fp": 1597.15,
+      "fppg": 38.95
+    },
+    {
+      "season": "2025-26",
+      "round": 10,
+      "pick_number": 40,
+      "player_name": "Anthony Edwards",
+      "manager": "Nick",
+      "gp": 44,
+      "total_fp": 1862.7,
+      "fppg": 42.33
+    },
+    {
+      "season": "2025-26",
+      "round": 11,
+      "pick_number": 41,
+      "player_name": "Jalen Brunson",
+      "manager": "Garrett",
+      "gp": 46,
+      "total_fp": 1763.2,
+      "fppg": 38.33
+    },
+    {
+      "season": "2025-26",
+      "round": 11,
+      "pick_number": 42,
+      "player_name": "Donovan Mitchell",
+      "manager": "Benton",
+      "gp": 47,
+      "total_fp": 2090.15,
+      "fppg": 44.47
+    },
+    {
+      "season": "2025-26",
+      "round": 11,
+      "pick_number": 43,
+      "player_name": "Jalen Williams",
+      "manager": "Hayden",
+      "gp": 21,
+      "total_fp": 650.95,
+      "fppg": 31.0
+    },
+    {
+      "season": "2025-26",
+      "round": 11,
+      "pick_number": 44,
+      "player_name": "Amen Thompson",
+      "manager": "Nick",
+      "gp": 47,
+      "total_fp": 1630.25,
+      "fppg": 34.69
+    },
+    {
+      "season": "2025-26",
+      "round": 12,
+      "pick_number": 45,
+      "player_name": "Domantas Sabonis",
+      "manager": "Garrett",
+      "gp": 19,
+      "total_fp": 628.3,
+      "fppg": 33.07
+    },
+    {
+      "season": "2025-26",
+      "round": 12,
+      "pick_number": 46,
+      "player_name": "Evan Mobley",
+      "manager": "Benton",
+      "gp": 41,
+      "total_fp": 1584.0,
+      "fppg": 38.63
+    },
+    {
+      "season": "2025-26",
+      "round": 12,
+      "pick_number": 47,
+      "player_name": "Tyrese Haliburton",
+      "manager": "Hayden",
+      "gp": 0,
+      "total_fp": 0.0,
+      "fppg": null
+    },
+    {
+      "season": "2025-26",
+      "round": 12,
+      "pick_number": 48,
+      "player_name": "Jalen Johnson",
+      "manager": "Nick",
+      "gp": 44,
+      "total_fp": 2074.3,
+      "fppg": 47.14
+    },
+    {
+      "season": "2025-26",
+      "round": 13,
+      "pick_number": 49,
+      "player_name": "Scottie Barnes",
+      "manager": "Garrett",
+      "gp": 50,
+      "total_fp": 2006.25,
+      "fppg": 40.12
+    },
+    {
+      "season": "2025-26",
+      "round": 13,
+      "pick_number": 50,
+      "player_name": "Jayson Tatum",
+      "manager": "Benton",
+      "gp": 0,
+      "total_fp": 0.0,
+      "fppg": null
+    },
+    {
+      "season": "2025-26",
+      "round": 13,
+      "pick_number": 51,
+      "player_name": "Paolo Banchero",
+      "manager": "Hayden",
+      "gp": 40,
+      "total_fp": 1436.3,
+      "fppg": 35.91
+    },
+    {
+      "season": "2025-26",
+      "round": 13,
+      "pick_number": 52,
+      "player_name": "Chet Holmgren",
+      "manager": "Nick",
+      "gp": 44,
+      "total_fp": 1525.0,
+      "fppg": 34.66
+    }
+  ]
+}
