@@ -44,11 +44,17 @@ from .data_loader import FantasyData, MANAGERS, CURRENT_SEASON
 # CONFIGURATION
 # =============================================================================
 
-# Luck rating thresholds for all-play in a ~20-game regular season.
-# Standard deviation of luck under a random schedule is meaningfully smaller
-# than under the old Pythagorean model, so the bands are tightened.
-LUCK_THRESHOLD = 1.0
-VERY_LUCK_THRESHOLD = 2.0
+# Luck rating thresholds, calibrated to the null distribution of all-play luck.
+#
+# Monte Carlo null experiment (4 equal teams, random schedules): the SD of
+# (actual wins - all-play expected wins) is ~= 1.49 wins over a 20-week season,
+# i.e. ~= 0.333 * sqrt(weeks). Fixed +/-1.0 / +/-2.0 bands sat at 0.67 / 1.34
+# sigma, so a perfectly average team drew a "Lucky/Unlucky" label ~50% of the
+# time. Labels now fire at z >= 1.5 ("Lucky"/"Unlucky", ~2.2 wins at week 20)
+# and z >= 2.0 ("Very", ~3.0 wins at week 20), scaling with weeks played.
+LUCK_NULL_SD_PER_SQRT_WEEK = 0.333
+LUCK_Z_THRESHOLD = 1.5
+VERY_LUCK_Z_THRESHOLD = 2.0
 
 
 # =============================================================================
@@ -216,15 +222,23 @@ def _reconstruct_matchup_results(weekly_scores, schedule, through_week):
     return results
 
 
-def _classify_luck(luck):
-    """Classify luck index into a rating string."""
-    if luck >= VERY_LUCK_THRESHOLD:
+def _classify_luck(luck, games_played=20):
+    """
+    Classify a luck index into a rating string, scaled to sample size.
+
+    The label thresholds are z-scores against the null distribution of
+    all-play luck (sigma ~= 0.333 * sqrt(games_played)), so early-season
+    noise does not earn a luck narrative.
+    """
+    import math
+    sigma = LUCK_NULL_SD_PER_SQRT_WEEK * math.sqrt(max(games_played, 1))
+    if luck >= VERY_LUCK_Z_THRESHOLD * sigma:
         return "Very Lucky"
-    elif luck >= LUCK_THRESHOLD:
+    elif luck >= LUCK_Z_THRESHOLD * sigma:
         return "Lucky"
-    elif luck <= -VERY_LUCK_THRESHOLD:
+    elif luck <= -VERY_LUCK_Z_THRESHOLD * sigma:
         return "Very Unlucky"
-    elif luck <= -LUCK_THRESHOLD:
+    elif luck <= -LUCK_Z_THRESHOLD * sigma:
         return "Unlucky"
     return "Fair"
 
@@ -317,7 +331,7 @@ def compute_luck_index(records, schedule, through_week):
         actual_pct = (actual_wins / games * 100) if games > 0 else 0.0
 
         luck = actual_wins - expected_wins
-        luck_rating = _classify_luck(luck)
+        luck_rating = _classify_luck(luck, games)
 
         avg_pf = pf / games
         avg_pa = pa / games
@@ -560,7 +574,7 @@ def compute_historical_luck(all_matchups, current_season_data=None):
                 actual_losses=losses,
                 expected_wins=exp_wins,
                 luck_index=luck,
-                luck_rating=_classify_luck(luck),
+                luck_rating=_classify_luck(luck, games),
                 points_for=pf,
                 points_against=pa,
                 scoring_margin=margin,

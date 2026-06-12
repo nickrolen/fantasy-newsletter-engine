@@ -180,7 +180,7 @@ def _greedy_assign(
     
     for slot_idx, slot in sorted_indexed_slots:
         best_player = None
-        best_fp = -1
+        best_fp = float("-inf")  # -1 sentinel silently dropped legitimate negative-FP games
         
         for player in players:
             if player.name in used_players:

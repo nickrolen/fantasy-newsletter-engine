@@ -128,7 +128,6 @@ newsletter/
 +-- README.md                         # Showcase overview + setup
 +-- WEEKLY_WORKFLOW.md                # Step-by-step weekly run sequence
 +-- SEASON_RESET.md                   # Season rollover runbook
-+-- REPACKAGING_AUDIT.md              # Full hardcoded-value audit (repackaging reference)
 +-- PROJECTSTRUCTURE.md               # This file
 \-- .gitignore
 ```

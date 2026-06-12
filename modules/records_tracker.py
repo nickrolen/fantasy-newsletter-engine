@@ -841,6 +841,10 @@ def update_top10_list(
     _DEDUP_FIELDS = (
         "player_name", "date", "season", "week",
         "manager", "manager_a", "manager_b",
+        # winner/loser identify team-matchup entries (blowout/closest game);
+        # without them, two different matchups in the same (season, week)
+        # collided and evicted each other from the top-10.
+        "winner", "loser",
     )
     new_identity = tuple(new_entry.get(f) for f in _DEDUP_FIELDS)
 

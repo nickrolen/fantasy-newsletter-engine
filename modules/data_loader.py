@@ -570,10 +570,25 @@ def load_all_data(
     return data
 
 
+def atomic_write_json(path, data, indent: int = 2) -> None:
+    """
+    Write JSON atomically: dump to a .tmp file in the same directory, then
+    os.replace() it over the target. A crash mid-write leaves the original
+    file intact instead of corrupting it. (Pattern promoted from
+    pull_historical_data._save_json so all cumulative state can share it.)
+    """
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=indent)
+    tmp.replace(p)
+
+
 def save_records(records: dict, path: Path) -> None:
-    """Save updated RECORDS.json."""
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(records, f, indent=2)
+    """Save updated RECORDS.json (atomically -- this is the project's only
+    cumulative season history; a partial write here is unrecoverable)."""
+    atomic_write_json(path, records)
 
 
 # =============================================================================

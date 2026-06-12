@@ -182,10 +182,17 @@ def main():
     
     if args.ignore_rosters_config:
         print("Ignoring config/ROSTERS.json - using LINEUPS for rosters")
-        # Temporarily rename the file if it exists
+        # Temporarily rename the file if it exists.
+        # Self-healing: if a stale .bak survives from a previous crashed run,
+        # restore it FIRST -- otherwise the rename below would fail on Windows
+        # (target exists) and the live roster file could be lost permanently.
         import os
+        _bak = str(ROSTERS_FILE) + ".bak"
+        if Path(_bak).exists():
+            os.replace(_bak, ROSTERS_FILE)
+            print(f"  (Recovered stale {_bak} from a previous interrupted run)")
         if ROSTERS_FILE.exists():
-            os.rename(ROSTERS_FILE, str(ROSTERS_FILE) + ".bak")
+            os.rename(ROSTERS_FILE, _bak)
             print(f"  (Temporarily moved {ROSTERS_FILE} to {ROSTERS_FILE}.bak)")
     else:
         # Check if ROSTERS.json exists and report
@@ -466,9 +473,13 @@ def main():
         # Set wins/losses from current standings (which are already updated)
         for standing in report.get("current_standings", []):
             manager = standing["manager"]
-            record_parts = standing["record"].split("-")
+            # Records are "W-L" (ties are not counted as wins or losses per the
+            # project-wide tie convention in data_loader.py, but a "W-L-T" string
+            # from any source must not crash the parser).
+            record_parts = standing["record"].strip("()").split("-")
             wins = int(record_parts[0])
             losses = int(record_parts[1])
+            # record_parts[2] (ties), if present, is intentionally ignored
             
             if manager not in data.records["manager_season_totals"]:
                 data.records["manager_season_totals"][manager] = {"wins": 0, "losses": 0, "total_points": 0.0}
@@ -493,7 +504,7 @@ def main():
         backup_path = str(ROSTERS_FILE) + ".bak"
         if Path(backup_path).exists():
             import os
-            os.rename(backup_path, ROSTERS_FILE)
+            os.replace(backup_path, ROSTERS_FILE)
             print(f"Restored {ROSTERS_FILE}")
 
     print()

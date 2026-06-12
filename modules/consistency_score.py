@@ -469,14 +469,18 @@ def compute_player_consistency(
         ]
 
         fps = player_games["fantasy_points"].tolist()
-        # Filter out injury zeros (fp == 0.0 is likely DNP/injury, not a real game)
-        # Also drop any non-finite values (NaN/inf) to avoid poisoning downstream stats.
+        # Exclude exact 0.0 (injury/DNP per the project's game-counting
+        # convention: a started slot with an opponent and 0.0 FP is an injury
+        # game, not a played game). NEGATIVE scores are legitimate played
+        # games and are included -- filtering fp > 0 biased the mean up and
+        # the CV down (see projections.py on why clamping creates bias).
+        # Non-finite values (NaN/inf) are dropped to protect downstream stats.
         active_fps = []
         for fp in fps:
             if not _is_finite_number(fp):
                 continue
             fp_f = float(fp)
-            if fp_f > 0.0:
+            if fp_f != 0.0:
                 active_fps.append(fp_f)
 
         if len(active_fps) < min_games:
@@ -726,12 +730,14 @@ def get_player_consistency_cv(data: FantasyData, week: int) -> dict:
     
     playerlog = data.playerlog
     
-    # Filter to started games with FP > 0
+    # Filter to started games that were actually played: exact 0.0 means an
+    # injury/DNP game per the project convention; negative scores are real
+    # played games and are included.
     started = playerlog[
         (playerlog["started"] == True)
         & (playerlog["week"] <= week)
         & (playerlog["fantasy_points"].notna())
-        & (playerlog["fantasy_points"] > 0)
+        & (playerlog["fantasy_points"] != 0)
     ]
     
     player_cvs = {}
@@ -747,7 +753,10 @@ def get_player_consistency_cv(data: FantasyData, week: int) -> dict:
         if mean_fp == 0:
             continue
         
-        std_fp = statistics.stdev(fps)
+        # Population SD (ddof=0) to match _compute_stats elsewhere in this
+        # module -- previously this path used the sample SD (ddof=1), giving
+        # the same player two different CVs depending on the consumer.
+        std_fp = statistics.pstdev(fps)
         cv = (std_fp / mean_fp) * 100  # As percentage
         
         player_cvs[player_name] = cv

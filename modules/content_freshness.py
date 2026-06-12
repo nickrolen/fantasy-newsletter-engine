@@ -173,8 +173,12 @@ class FreshnessTracker:
             "free_agent_recs": self.free_agent_recs,
         }
         
-        with open(self.filepath, 'w') as f:
+        # Atomic write (tmp + replace) so a crash can't corrupt freshness state;
+        # explicit utf-8 so player names survive non-UTF8 default locales.
+        tmp = self.filepath.with_suffix(self.filepath.suffix + ".tmp")
+        with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
+        tmp.replace(self.filepath)
     
     def set_current_week(self, week: int):
         """Set current week for freshness calculations."""

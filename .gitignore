@@ -154,4 +154,5 @@ _backups/
 
 # Review/repair artifacts (not part of the engine)
 PROJECT_REVIEW_REPORT.html
+THESIS_DEFENSE_REPORT.html
 _recovery/

@@ -768,6 +768,49 @@ def simulate_full_season(
 # MAIN SIMULATION
 # =============================================================================
 
+def compute_magic_numbers(
+    current_records: dict,
+    remaining_games: int,
+    title_odds: dict,
+    managers: list[str],
+) -> dict:
+    """
+    Compute magic numbers for the current leader(s).
+
+    Magic number = remaining_games - lead_over_best_rival + 1, i.e. the number
+    of (own wins + best rival losses) that guarantees first place on wins.
+
+    FIXED (co-leader bug): the best rival for each leader is the highest win
+    total among all OTHER managers. For co-leaders that is the other co-leader
+    (lead = 0), NOT the best team strictly below the lead -- the old logic
+    measured tied leaders against 3rd place and understated their magic number.
+
+    Trailing managers get None (they cannot clinch on their own wins alone),
+    as do managers who are essentially eliminated (< 0.1% title odds).
+    """
+    magic_numbers = {}
+    max_wins = max(r[0] for r in current_records.values())
+
+    for manager in managers:
+        current_wins, _current_losses = current_records[manager]
+
+        if title_odds.get(manager, 0.0) < 0.1:  # Essentially eliminated
+            magic_numbers[manager] = None
+        elif current_wins == max_wins:
+            # Best rival = highest win total among all OTHER managers
+            best_rival_wins = max(
+                (w for m2, (w, _l) in current_records.items() if m2 != manager),
+                default=0,
+            )
+            lead_over_rival = current_wins - best_rival_wins
+            magic = remaining_games - lead_over_rival + 1
+            magic_numbers[manager] = max(0, min(magic, remaining_games + 1))
+        else:
+            magic_numbers[manager] = None
+
+    return magic_numbers
+
+
 def run_title_odds_simulation(
     data: FantasyData,
     num_simulations: int = DEFAULT_NUM_SIMULATIONS,
@@ -893,38 +936,10 @@ def run_title_odds_simulation(
     }
     
     # Compute magic numbers
-    # FIXED: Magic number only makes sense for leaders/co-leaders
-    # For trailing managers, they can't "clinch" just by winning - they need the leader to lose
     remaining_games = sum(len(w["matchups"]) // 2 for w in remaining_weeks)  # games per manager
-    magic_numbers = {}
-    
-    # Find current leader(s)
-    max_wins = max(r[0] for r in current_records.values())
-    
-    # Find the best second-place wins (excluding ties for first)
-    second_place_wins = 0
-    for m, (w, l) in current_records.items():
-        if w < max_wins and w > second_place_wins:
-            second_place_wins = w
-    
-    for manager in MANAGERS:
-        current_wins, current_losses = current_records[manager]
-        
-        # Can this manager still win?
-        if title_odds[manager] < 0.1:  # Essentially eliminated
-            magic_numbers[manager] = None
-        elif current_wins == max_wins:
-            # Current leader (or tied for lead)
-            # Magic number = remaining games - lead + 1
-            # This is: wins needed such that even if 2nd place wins all remaining, they can't catch you
-            lead_over_second = max_wins - second_place_wins
-            magic = remaining_games - lead_over_second + 1
-            magic_numbers[manager] = max(0, min(magic, remaining_games + 1))
-        else:
-            # FIXED: Trailing managers don't have a "magic number"
-            # They can't clinch just by winning - they need leader to lose
-            # Instead, show "games back" or None
-            magic_numbers[manager] = None
+    magic_numbers = compute_magic_numbers(
+        current_records, remaining_games, title_odds, MANAGERS
+    )
     
     # Get delta from last week (if available)
     title_odds_delta = {}

@@ -1,8 +1,10 @@
 # Fantasy Basketball Newsletter Engine
 
+[![CI](https://github.com/nickrolen/fantasy-newsletter-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/nickrolen/fantasy-newsletter-engine/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 *A data pipeline that turns a season of Yahoo Fantasy Basketball into a polished, sportsbook-style weekly newsletter.*
 
-This project pulls a fantasy league's raw data from the Yahoo Fantasy API, runs it through a 20+ module statistics engine and tens of thousands of Monte Carlo simulations, and emits a single HTML newsletter every week (one file with CSS/JS/data inline; Google Fonts are loaded from the web with system-sans/serif fallbacks). The interesting part is the architecture: a deterministic Python formatter does all the number-crunching and cross-referencing before any prose is written, so the language model that drafts the copy never has to invent a statistic. Nearly the entire engine is driven by **one config file** -- point it at your own league and the bulk of the work happens automatically; a small number of visualization constants and narrative strings may still need manual adjustment (see `REPACKAGING_AUDIT.md` for the full list of config survivors).
+This project pulls a fantasy league's raw data from the Yahoo Fantasy API, runs it through a 20+ module statistics engine and tens of thousands of Monte Carlo simulations, and emits a single HTML newsletter every week (one file with CSS/JS/data inline; Google Fonts are loaded from the web with system-sans/serif fallbacks). The interesting part is the architecture: a deterministic Python formatter does all the number-crunching and cross-referencing before any prose is written, so the language model that drafts the copy never has to invent a statistic. Nearly the entire engine is driven by **one config file** -- point it at your own league and the bulk of the work happens automatically; a small number of visualization constants and narrative strings may still need manual adjustment.
 
 It was built and tested for a real four-team keeper league (the CHS Alumni league, running since 2017), which serves as the reference implementation throughout. The regular-season analytics scale to N teams; the playoff bracket and a few visualizations currently assume a four-team structure.
 
@@ -38,8 +40,8 @@ You'll need Python 3.10+ and a Yahoo Fantasy league.
 **1. Clone the repo and install dependencies.**
 
 ```bash
-git clone <your-fork-url>
-cd newsletter
+git clone https://github.com/nickrolen/fantasy-newsletter-engine.git
+cd fantasy-newsletter-engine
 pip install -r requirements.txt
 ```
 
@@ -58,12 +60,12 @@ cp oauth2.json.example oauth2.json
 cp config/league_config.json.example config/league_config.json
 ```
 
-Set your managers, team names, Yahoo league key, brand/manager colors, league structure (teams, roster size, keepers), and the current season block. Nearly every downstream module reads from here. A small handful of visualization constants and narrative strings may still need a one-time edit for a new league -- see `REPACKAGING_AUDIT.md` for the survivors.
+Set your managers, team names, Yahoo league key, brand/manager colors, league structure (teams, roster size, keepers), and the current season block. Nearly every downstream module reads from here. A small handful of visualization constants and narrative strings may still need a one-time edit for a new league.
 
 **4. Fetch your NBA schedule** for the season you're covering:
 
 ```bash
-py scripts/fetch_nba_schedule.py --season <your-season> --output data/nba_schedule_<your-season>.json
+python scripts/fetch_nba_schedule.py --season <your-season> --output data/nba_schedule_<your-season>.json
 ```
 
 (e.g. `--season 2025-26 --output data/nba_schedule_2025-26.json`)
@@ -150,7 +152,7 @@ For a file-by-file map of the engine, see [`PROJECTSTRUCTURE.md`](PROJECTSTRUCTU
 <summary><strong>Statistical &amp; analytical features</strong></summary>
 
 - **Monte Carlo simulators** -- Three engines run thousands of iterations each. `simulator_title_odds.py` projects regular-season finish distributions and magic numbers; `simulator_playoff_odds.py` simulates the two-week playoff bracket (semifinals into a dynamically built finals); `simulator_betting.py` produces spreads, over/unders, and moneylines with an injury discount applied to scoring totals.
-- **Luck Index** -- A Pythagorean expected record (PF^2 / (PF^2 + PA^2)) compared against actual wins, quantifying how much each manager has over- or under-performed their scoring.
+- **Luck Index** -- All-play expected wins (each week, the fraction of the league you outscored) compared against actual wins, isolating schedule luck from skill. Labels are z-scored against the metric's null distribution so early-season noise doesn't earn a luck narrative.
 - **Consistency / volatility scoring** -- Coefficient of variation and interquartile range at both the team and player level, with boom/bust counts and recent-trend detection.
 - **Draft value tracker** -- Grades every drafted pick against a pick-level expected-value model (P1-P36), labeling each Steal, Fair, or Bust, with player-status detection (rostered/traded/claimed/dropped).
 - **Waiver-wire ROI** -- Season-long return on every pickup: fantasy points gained in starter slots versus points lost on dropped players, with best-add and biggest-regret callouts.
@@ -166,10 +168,10 @@ For a file-by-file map of the engine, see [`PROJECTSTRUCTURE.md`](PROJECTSTRUCTU
 - **Deterministic formatter** -- `format_stats_report.py` cross-references 15+ JSON sections plus six additional data sources and emits ~650 lines of pre-organized, pre-cited Markdown. The LLM never extracts numbers itself, which eliminates an entire class of hallucinated statistics.
 - **Anti-hallucination template** -- The newsletter template encodes explicit verification rules (superlative claims, magic numbers, elimination math, trade-grade direction) plus a per-section final checklist, hardening the manual drafting step against common model errors.
 - **Content freshness** -- `content_freshness.py` tracks recently used headlines and openers so week-to-week newsletters don't repeat themselves.
-- **Reproducibility mode** -- A `--repro` flag re-runs any week against pre-week snapshots and frozen betting lines, so you can iterate on newsletter copy without contaminating continuity state or changing the odds.
+- **Reproducibility mode** -- A `--repro` flag re-runs any week against pre-week snapshots and frozen betting lines, so you can iterate on newsletter copy without contaminating continuity state or changing the odds. (Boundary note: repro freezes betting lines and freshness state, but season-cumulative stats are recomputed from the current game logs -- regenerating an old week after later weeks were logged will reflect the newer cumulative totals.)
 - **Integrity checker** -- `verify_project_integrity.py` catches silent file truncation, syntax breakage, broken imports, config drift, and encoding corruption after any batch of edits, with an optional golden-master comparison.
 - **ASCII-only source policy** -- `check_file_health.py` enforces pure-ASCII `.py` and `.md` files (Unicode via escape sequences), preventing mojibake when files pass through download/upload cycles.
-- **Single source of configuration** -- One `league_config.json` feeds the bulk of the engine: manager and team names, league keys, and most colors flow from this file. A small number of visualization constants and narrative strings are still hardcoded; `REPACKAGING_AUDIT.md` enumerates the survivors.
+- **Single source of configuration** -- One `league_config.json` feeds the bulk of the engine: manager and team names, league keys, and most colors flow from this file. A small number of visualization constants and narrative strings are still hardcoded.
 
 </details>
 

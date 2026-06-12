@@ -369,31 +369,39 @@ def track_add_performance(
     add: WaiverAdd,
     lineups: pd.DataFrame,
     through_week: int,
+    end_week: int = None,
 ) -> WaiverAdd:
     """
     Track a waiver add's performance AFTER being added.
     
     Uses LINEUPS data (not PLAYERLOG) because LINEUPS has slot assignments,
     which lets us distinguish starter FP from bench FP.
+
+    end_week bounds the stint at the player's NEXT drop by this manager
+    (inclusive of the drop week itself, since pre-drop days that week are
+    legitimate). Without it, an add -> drop -> re-add sequence counted the
+    second stint's production under BOTH WaiverAdd records.
     """
-    # Filter to this player, this manager, weeks >= add week
+    upper = through_week if end_week is None else min(through_week, end_week)
+    # Filter to this player, this manager, weeks within this stint
     player_rows = lineups[
         (lineups["player_name"] == add.player_name) &
         (lineups["manager"] == add.manager) &
         (lineups["week"] >= add.week) &
-        (lineups["week"] <= through_week)
+        (lineups["week"] <= upper)
     ]
     
     if player_rows.empty:
         return add
     
     # Only count rows where the player had a game (nba_opponent present)
-    # AND actually played (fantasy_points > 0) - excludes injury DNPs
+    # AND actually played. Exact 0.0 = injury/DNP per the project convention;
+    # negative scores are legitimate played games and are included.
     game_rows = player_rows[
         player_rows["nba_opponent"].notna() &
         (player_rows["nba_opponent"].astype(str).str.strip() != "") &
         (player_rows["fantasy_points"].notna()) &
-        (player_rows["fantasy_points"] > 0)
+        (player_rows["fantasy_points"] != 0)
     ]
     
     for _, row in game_rows.iterrows():
@@ -417,28 +425,33 @@ def track_add_performance(
 
 def track_drop_performance(
     drop: DroppedPlayer,
-    playerlog: pd.DataFrame,
+    lineups: pd.DataFrame,
     through_week: int,
 ) -> DroppedPlayer:
     """
     Track a dropped player's performance AFTER being dropped.
-    
-    Uses PLAYERLOG to find games the player played on other managers' teams.
+
+    Uses LINEUPS (starter slots only) so the "FP lost" side of Net ROI is
+    measured the same way as the "FP gained" side -- starter-slot production.
+    Previously this used PLAYERLOG (all slots, no horizon symmetry), which
+    counted bench production the new owner never started and made Net ROI
+    structurally biased negative.
     """
-    # Find this player's games on OTHER managers' teams after the drop
-    post_drop_games = playerlog[
-        (playerlog["player_name"] == drop.player_name) &
-        (playerlog["week"] >= drop.week) &
-        (playerlog["week"] <= through_week) &
-        (playerlog["manager"] != drop.manager)
+    # Find this player's rows on OTHER managers' teams after the drop
+    post_drop_games = lineups[
+        (lineups["player_name"] == drop.player_name) &
+        (lineups["week"] >= drop.week) &
+        (lineups["week"] <= through_week) &
+        (lineups["manager"] != drop.manager)
     ]
     
     if post_drop_games.empty:
         drop.picked_up_by = "FA"
         return drop
     
-    # Sum FP -- only count games where they produced something
+    # Starter-slot games only, played (0.0 = injury/DNP; negatives count)
     scored_games = post_drop_games[
+        post_drop_games["slot"].astype(str).str.upper().isin(_STARTER_SLOTS) &
         post_drop_games["fantasy_points"].notna() &
         (post_drop_games["fantasy_points"] != 0)
     ]
@@ -521,11 +534,20 @@ def compute_waiver_roi(
     
     # Track performance for each add
     for add in waiver_adds:
-        track_add_performance(add, data.lineups, through_week)
+        # Bound each add's window at the player's next drop by the same
+        # manager (prevents double-counting re-added players' second stints)
+        later_drops = [
+            d.week for d in drops
+            if d.manager == add.manager
+            and d.player_name == add.player_name
+            and d.week >= add.week
+        ]
+        stint_end = min(later_drops) if later_drops else None
+        track_add_performance(add, data.lineups, through_week, end_week=stint_end)
     
     # Track performance for each drop
     for drop in drops:
-        track_drop_performance(drop, data.playerlog, through_week)
+        track_drop_performance(drop, data.lineups, through_week)
     
     # Build per-manager summaries
     report = WaiverROIReport(weeks_analyzed=through_week)
