@@ -439,7 +439,7 @@ def main():
             "applies_to": "picks 1-28 (R1-R7)",
             "note": (
                 "50/50 blend of raw mean and regression to smooth small-sample variance. "
-                "Additionally capped at ±1.5 FPPG from regression to prevent outlier picks "
+                "Additionally capped at \u00b11.5 FPPG from regression to prevent outlier picks "
                 "from having unrealistic expectations."
             ),
         },

@@ -38,8 +38,23 @@ COOLDOWN_PERIODS = {
     "h2h_milestone": 0,  # Milestones are one-time anyway (40th, 50th meeting, etc.)
     
     # Season stats
-    "season_points_leader": 3,
-    "season_efficiency": 3,
+    "points_leader": 3,
+    "efficiency_leader": 3,
+    "points_race_tight": 2,
+    "season_high": 0,         # one-time event, value-keyed
+    "season_sweep": 0,        # schedule naturally spaces matchups
+    
+    # Career / luck narratives
+    "career_dominance": 4,
+    "luck_gap": 2,
+    "luck_very_lucky": 2,
+    "luck_very_unlucky": 2,
+    "luck_margin_contradiction": 2,
+    "trade_history": 3,
+    
+    # Record events (one-time, keyed by value)
+    "record_broken": 0,
+    "near_record": 0,
     
     # Injury burden facts - cooldown of 2 weeks
     "injury_burden_leader": 2,
@@ -56,10 +71,10 @@ COOLDOWN_PERIODS = {
     "season_series": 0,     # Schedule naturally spaces matchups
     
     # Weekly facts - always fresh (inherently different each week)
-    "weekly_explosion": 0,
+    "monster_game": 0,
+    "big_game": 0,
     "weekly_fppg": 0,
     "carry_job": 0,
-    "waiver_success": 0,
     "injury_disparity": 0,
     "injury_woes": 0,
     "high_efficiency": 0,
@@ -89,6 +104,25 @@ CHANGE_THRESHOLDS = {
     "loss_streak": 1,           # Streak must extend
     "season_points_gap": 50,    # Points gap must change by 50+
     "season_series": 1,         # Series record must change
+    
+    # Drifting metrics: without a threshold, ANY weekly drift re-triggered
+    # these facts, making their cooldowns decorative.
+    "injury_burden_gap": 3,         # percentage points
+    "injury_burden_leader": 3,
+    "injury_burden_healthiest": 3,
+    "injury_burden_il_heavy": 3,
+    "injury_disparity": 3,          # games
+    "injury_woes": 3,
+    "luck_gap": 1.0,                # wins
+    "luck_very_lucky": 0.5,
+    "luck_very_unlucky": 0.5,
+    "luck_margin_contradiction": 1.0,
+    "points_race_tight": 50,        # points
+    "high_efficiency": 5,           # percentage points
+    "low_efficiency": 5,
+    "career_dominance": 2,          # wins
+    "positional_dominance": 30,     # FP gap
+    "schedule_advantage": 2,        # games gap
 }
 
 
@@ -475,13 +509,31 @@ def make_fact_key(subcategory: str, **kwargs) -> str:
     elif subcategory == "career_win_pct":
         parts.append(kwargs.get("manager", "").lower())
     
-    elif subcategory in ["h2h_dominance", "h2h_milestone", "h2h_upset"]:
+    elif subcategory == "h2h_dominance":
         # Alphabetize managers for consistent keys
         managers = sorted([
             kwargs.get("manager_a", kwargs.get("dominant", "")).lower(),
             kwargs.get("manager_b", kwargs.get("dominated", "")).lower(),
         ])
         parts.extend(managers)
+    
+    elif subcategory == "h2h_upset":
+        # Emitted with {underdog, favorite}; alphabetize so the pair is stable
+        managers = sorted([
+            kwargs.get("underdog", "").lower(),
+            kwargs.get("favorite", "").lower(),
+        ])
+        parts.extend(managers)
+    
+    elif subcategory == "h2h_milestone":
+        # Emitted with {matchup, total}; the milestone number makes it one-time
+        parts.append(str(kwargs.get("matchup", "")).lower())
+        parts.append(str(kwargs.get("total", "")))
+    
+    elif subcategory == "season_sweep":
+        # Direction matters: A sweeping B is a different fact than B sweeping A
+        parts.append(kwargs.get("sweeper", "").lower())
+        parts.append(kwargs.get("swept", "").lower())
     
     elif subcategory == "season_series":
         managers = sorted([
@@ -512,8 +564,13 @@ def make_fact_key(subcategory: str, **kwargs) -> str:
     elif subcategory == "boom_bust":
         parts.append(kwargs.get("manager", "").lower())
     
-    elif subcategory in ["close_game", "blowout"]:
+    elif subcategory == "close_game":
         parts.append(kwargs.get("matchup", "").lower())
+    
+    elif subcategory == "blowout":
+        # Emitted with {winner, loser, margin}
+        parts.append(kwargs.get("winner", "").lower())
+        parts.append(kwargs.get("loser", "").lower())
     
     elif subcategory in ["near_record_close", "near_record_blowout"]:
         parts.append(kwargs.get("matchup", str(kwargs.get("this_week", ""))).lower())

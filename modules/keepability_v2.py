@@ -13,7 +13,7 @@ CORE SCORE (0-100), weighted sum of normalized components:
   - Consistency:          10%  (low volatility bonus)
 
 AGE MULTIPLIER (applied to core_score to produce final_score):
-  - ≤23:    1.15  (dynasty premium)
+  - <=23:    1.15  (dynasty premium)
   - 24-29:  1.00  (prime)
   - 30-33:  0.95  (late prime)
   - 34+:    0.85  (aging)
@@ -75,7 +75,7 @@ SEASON_WEIGHTS = {
 
 # Age factor multipliers (applied as final multiplier after core score)
 # See _get_age_factor() for the actual implementation.
-# ≤23: 1.15 (dynasty premium) | 24-29: 1.00 (prime)
+# <=23: 1.15 (dynasty premium) | 24-29: 1.00 (prime)
 # 30-33: 0.95 (late prime) | 34+: 0.85 (aging)
 
 # Position scarcity multipliers -- REMOVED in v2.2
@@ -432,7 +432,7 @@ def _get_age_factor(age: int) -> float:
     """Get age multiplier (applied after core score).
     
     Brackets (v2.2):
-        ≤23:  1.15 (dynasty premium)
+        <=23:  1.15 (dynasty premium)
         24-29: 1.00 (prime)
         30-33: 0.95 (late prime / veteran)
         34+:   0.85 (aging)
@@ -503,7 +503,7 @@ def compute_keepability_v2(
       - Consistency: 10% (low volatility bonus)
     
     Then apply age multiplier:
-      ≤23: 1.15x | 24-29: 1.00x | 30-33: 0.95x | 34+: 0.85x
+      <=23: 1.15x | 24-29: 1.00x | 30-33: 0.95x | 34+: 0.85x
     
     LOW-DATA FALLBACK: When a player has no valid seasons (all < 10 GP),
     weighted_fppg and peak_fppg would be 0.0. Use proj_fppg as floor
@@ -597,18 +597,18 @@ def assign_keeper_tiers(players: List[dict]) -> List[dict]:
     are checked first (these don't consume fixed-tier slots):
     
     OVERRIDES:
-      - OFS (out for season) → always "Stash"
-      - Age ≤ 23 → always "Dynasty Stash"
-      - Age ≥ 33 AND within top-33 range → "Sell High"
+      - OFS (out for season) -> always "Stash"
+      - Age <= 23 -> always "Dynasty Stash"
+      - Age >= 33 AND within top-33 range -> "Sell High"
     
     FIXED SLOTS (non-overridden players fill in order):
-      - First 9  → Lock
-      - Next 12  → Strong Hold
-      - Next 12  → On the Bubble
+      - First 9  -> Lock
+      - Next 12  -> Strong Hold
+      - Next 12  -> On the Bubble
     
     REMAINING (after 33 fixed slots filled):
-      - Age ≥ 33 → "Sell High"
-      - Otherwise → "Waiver Wire"
+      - Age >= 33 -> "Sell High"
+      - Otherwise -> "Waiver Wire"
     
     Section capped at KEEPER_WATCH_PLAYER_CAP (45) players total.
     """
@@ -728,7 +728,7 @@ def build_keepability_report(
     module_dir = Path(__file__).resolve().parent
     project_root = module_dir.parent if module_dir.name == "modules" else module_dir
     
-    all_matchups_path = project_root / "all_matchups.json"
+    all_matchups_path = project_root / "data" / "historical" / "all_matchups.json"
     if all_matchups_path.exists():
         with open(all_matchups_path, 'r') as f:
             all_matchups = json.load(f)

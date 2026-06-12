@@ -40,7 +40,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .data_loader import CURRENT_SEASON, CURRENT_SEASON_LONG
+from .data_loader import CURRENT_SEASON, CURRENT_SEASON_LONG, LEAGUE_NAME_SHORT
 
 
 # =============================================================================
@@ -148,7 +148,7 @@ def classify_archetype(stats: dict) -> str:
         return "Small Sample"
 
     # =================================================================
-    # TIER 1: ELITE (FPPG >= 50) — Superstars
+    # TIER 1: ELITE (FPPG >= 50) -- Superstars
     # =================================================================
     if fppg >= 50:
         if std <= 14 and bust <= 3:
@@ -160,7 +160,7 @@ def classify_archetype(stats: dict) -> str:
         return "Alpha Scorer"
 
     # =================================================================
-    # TIER 2: ALL-STAR (FPPG >= 42) — Star caliber
+    # TIER 2: ALL-STAR (FPPG >= 42) -- Star caliber
     # =================================================================
     if fppg >= 42:
         # Iron Man: consistent + high GP
@@ -193,7 +193,7 @@ def classify_archetype(stats: dict) -> str:
         return "All-Star Caliber"
 
     # =================================================================
-    # TIER 3: STARTER-LEVEL (FPPG >= 36) — Solid starters
+    # TIER 3: STARTER-LEVEL (FPPG >= 36) -- Solid starters
     # =================================================================
     if fppg >= 36:
         # Young + productive = dynasty gold
@@ -237,7 +237,7 @@ def classify_archetype(stats: dict) -> str:
         return "Quality Starter"
 
     # =================================================================
-    # TIER 4: ROTATION PLAYER (FPPG >= 30) — Role players
+    # TIER 4: ROTATION PLAYER (FPPG >= 30) -- Role players
     # =================================================================
     if fppg >= 30:
         if age <= 22:
@@ -1027,11 +1027,11 @@ def _build_ownership_timeline(
             acquired_via = None
 
             if stint_idx == 0:
-                # First manager of the season — how did they get the player?
+                # First manager of the season -- how did they get the player?
                 if draft_info and draft_info["manager"] == mgr:
                     # Draft record exists for this manager this season
                     if draft_info["is_keeper"]:
-                        # Marked as keeper — but validate they actually owned player last season
+                        # Marked as keeper -- but validate they actually owned player last season
                         if prev_season_last_manager == mgr:
                             acquired_via = "keeper"
                         elif prev_season_last_manager is None:
@@ -1046,7 +1046,7 @@ def _build_ownership_timeline(
                     else:
                         acquired_via = "draft"
                 elif prev_season_last_manager and prev_season_last_manager == mgr:
-                    # Same manager as end of last season — could be:
+                    # Same manager as end of last season -- could be:
                     # 1. Keeper (if draft_info shows is_keeper=True)
                     # 2. Re-drafted (if draft_info shows is_keeper=False)
                     # 3. Mid-season waiver re-pickup (if no draft_info AND first game is late)
@@ -1055,14 +1055,14 @@ def _build_ownership_timeline(
                         # Explicit draft/keeper record exists
                         acquired_via = "keeper" if draft_info["is_keeper"] else "draft"
                     else:
-                        # No draft record for this season — was player dropped then re-picked?
+                        # No draft record for this season -- was player dropped then re-picked?
                         # Check if first game is well after season start (mid-season pickup)
                         if _is_mid_season_pickup(first_date, sk):
                             acquired_via = "waiver"
                         else:
                             acquired_via = "keeper"
                 else:
-                    # New manager, not drafted by them — check trades or waiver
+                    # New manager, not drafted by them -- check trades or waiver
                     traded_in = False
                     for t in season_trades:
                         if t.get("to_manager") == mgr:
@@ -1070,7 +1070,7 @@ def _build_ownership_timeline(
                             break
                     acquired_via = "trade" if traded_in else "waiver"
             else:
-                # Mid-season manager change — was there a trade?
+                # Mid-season manager change -- was there a trade?
                 traded_in = False
                 for t in season_trades:
                     if t.get("to_manager") == mgr:
@@ -1226,7 +1226,7 @@ def _compute_injury_profile(
       - The player was marked injured (is_injured=True, even if started=False,
         because IL slot games still represent missed NBA games).
     A game is "missed" if is_injured=True.
-    Bench rows (started=False, is_injured=False) are skipped — they're just
+    Bench rows (started=False, is_injured=False) are skipped -- they're just
     off-days where the manager benched a healthy player.
     """
     season_injury = defaultdict(lambda: {"scheduled": 0, "missed": 0})
@@ -1349,7 +1349,7 @@ def _build_season_comps(career: dict) -> dict:
 
     description = f"{delta:+.1f} FPPG vs last season ({previous[0]})"
     if current[1] >= best[1]:
-        description += f" | Best CHS season ever"
+        description += f" | Best {LEAGUE_NAME_SHORT} season ever"
     elif consecutive_decline >= 2:
         description += f" | {consecutive_decline} consecutive seasons of decline"
     elif consecutive_improve >= 2:

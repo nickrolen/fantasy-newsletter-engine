@@ -155,7 +155,7 @@ def generate_historical_h2h_facts(
         
         # Milestone meetings (40th, 50th, 60th, etc.)
         for milestone in [40, 50, 60, 70]:
-            if total == milestone - 1:  # This game was the milestone
+            if total == milestone:  # records already include this week's game
                 facts.append(FunFact(
                     category="historical",
                     subcategory="h2h_milestone",
@@ -174,14 +174,14 @@ def generate_historical_h2h_facts(
                     subcategory="h2h_dominance",
                     text=f"{dominant} has now won {dom_wins} of {total} all-time meetings against {dominated} ({win_pct:.0f}%).",
                     interestingness=72,
-                    details={"dominant": dominant, "record": f"{dom_wins}-{sub_wins}"},
+                    details={"dominant": dominant, "dominated": dominated, "record": f"{dom_wins}-{sub_wins}"},
                 ))
             elif matchup.winner == dominated:
                 # Upset!
                 facts.append(FunFact(
                     category="historical",
                     subcategory="h2h_upset",
-                    text=f"{dominated} got some revenge against {dominant}, who still leads their all-time series {dom_wins}-{sub_wins + 1}.",
+                    text=f"{dominated} got some revenge against {dominant}, who still leads their all-time series {dom_wins}-{sub_wins}.",
                     interestingness=76,
                     details={"underdog": dominated, "favorite": dominant},
                 ))
@@ -212,9 +212,12 @@ def generate_all_time_record_facts(
             facts.append(FunFact(
                 category="historical",
                 subcategory="record_broken",
-                text=f"NEW ALL-TIME RECORD! {top_manager}'s {top_score:.1f} points breaks the previous mark of {all_time_score:.1f}.",
+                # Records are updated before fact generation, so on a record
+                # week all_time_score already equals top_score -- the previous
+                # mark is no longer available here, so don't claim to cite it.
+                text=f"NEW ALL-TIME RECORD! {top_manager}'s {top_score:.1f} points is the highest weekly team score in league history.",
                 interestingness=98,
-                details={"score": top_score, "previous": all_time_score},
+                details={"score": top_score},
             ))
         elif top_score >= all_time_score * 0.90:
             gap = all_time_score - top_score
@@ -401,9 +404,11 @@ def generate_season_record_facts(
     for manager, stats in report.manager_stats.items():
         score = stats.total_fp
         
-        # Approaching season high
+        # New season high: records update before fact generation, so this
+        # week's score EQUALS the stored high when it was just set (a strict
+        # > comparison could never fire).
         if highest and score >= highest.get("score", 0) * 0.95:
-            if score > highest.get("score", 0):
+            if score >= highest.get("score", 0):
                 facts.append(FunFact(
                     category="season",
                     subcategory="season_high",

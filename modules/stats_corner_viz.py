@@ -158,8 +158,8 @@ def render_positional_breakdown(data: dict) -> str:
             <div class="sc-donut-team-total">{team_fppg:.1f} FPPG &middot; {total_gp}g</div>
           </div>
           <div class="sc-donut-right">
-            <div class="sc-donut-mgr">{mgr}</div>
-            <div class="sc-donut-team">{team}</div>
+            <div class="sc-donut-mgr">{_html(mgr)}</div>
+            <div class="sc-donut-team">{_html(team)}</div>
             <div class="sc-donut-stats">{stat_rows}
             </div>
           </div>
@@ -262,7 +262,7 @@ def render_draft_value_tracker(data: dict) -> str:
           <div class="sc-draft-entry">
             <div class="sc-de-top">
               <div>
-                <div class="sc-de-player">{p["player_name"]}</div>
+                <div class="sc-de-player">{_html(p["player_name"])}</div>
                 <div class="sc-de-pick">R{p["round"]} Pick {p["pick"]}</div>
               </div>
               <div class="sc-de-tags">
@@ -368,7 +368,7 @@ def render_waiver_roi(data: dict) -> str:
             v_cls = "sc-good" if verdict == "Hit" else ("sc-bad" if verdict == "Bust" else "")
             pickup_rows += f'''
             <tr>
-              <td class="sc-player-name">{a.get("player_name", "")}</td>
+              <td class="sc-player-name">{_html(a.get("player_name", ""))}</td>
               <td class="{v_cls}">{a.get("total_fp", 0):,.0f}</td>
               <td>{afppg:.1f}</td>
               <td>{a.get("total_games", 0)}</td>
@@ -384,7 +384,7 @@ def render_waiver_roi(data: dict) -> str:
             best_html = f'''
           <div class="sc-callout-card sc-best">
             <div class="sc-tcc-label">Best Pickup</div>
-            <div class="sc-tcc-player">{best.get("player_name", "N/A")}</div>
+            <div class="sc-tcc-player">{_html(best.get("player_name", "N/A"))}</div>
             <div class="sc-tcc-detail">{best.get("total_fp", 0):,.0f} FP &middot; {best.get("fppg", 0):.1f} FPPG across {best.get("total_games", 0)} games</div>
           </div>'''
 
@@ -393,7 +393,7 @@ def render_waiver_roi(data: dict) -> str:
             regret_html = f'''
           <div class="sc-callout-card sc-regret">
             <div class="sc-tcc-label">Biggest Regret</div>
-            <div class="sc-tcc-player">{regret.get("player_name", "N/A")}</div>
+            <div class="sc-tcc-player">{_html(regret.get("player_name", "N/A"))}</div>
             <div class="sc-tcc-detail">Dropped &rarr; {regret.get("picked_up_by", "?")} &middot; {regret.get("new_team_fp", 0):,.0f} FP, {regret.get("new_team_fppg", 0):.1f} FPPG since</div>
           </div>'''
 
@@ -562,12 +562,12 @@ def render_keeper_watch(data: dict, player_cards: list = None) -> str:
             if pc:
                 archetype = pc.get("archetype", "")
                 if archetype:
-                    arch_html = f'<div class="sc-kw-chip-arch">{archetype}</div>'
+                    arch_html = f'<div class="sc-kw-chip-arch">{_html(archetype)}</div>'
 
             chips.append(f'''
           <div class="sc-kw-chip" data-manager="{p["manager"]}" style="border-left: 4px solid {color}; cursor:pointer;" onclick="pcOpen('{name_js}')">
             <div class="sc-kw-chip-top">
-              <div class="sc-kw-chip-name">{p["player_name"]}{ofs_badge}{inj_badge}</div>
+              <div class="sc-kw-chip-name">{_html(p["player_name"])}{ofs_badge}{inj_badge}</div>
             </div>
             <div class="sc-kw-chip-meta">{p.get("pos_group", "?")} &middot; Age {age_str}</div>
             <div class="sc-kw-chip-stats">
@@ -632,8 +632,6 @@ def _load_matchups() -> list:
     paths_to_try = [
         # Correct path per PROJECTSTRUCTURE.md: data/historical/all_matchups.json
         os.path.join(project_root, 'data', 'historical', 'all_matchups.json'),
-        # Claude Projects shows files flat, so also check root
-        '/mnt/project/all_matchups.json',
     ]
     for path in paths_to_try:
         if os.path.exists(path):
@@ -937,12 +935,13 @@ def _render_luck_index_grid(historical_luck: dict) -> str:
     mgr_colors = MGR_COLORS_HIST
 
     def luck_class(val):
-        # Thresholds calibrated to the all-play expected-wins scale.
-        # Season luck typically ranges ~-3 to +4; Pythagorean used ~-5 to +5.
-        if val <= -2: return "sc-luck-very-bad"
-        elif val <= -1: return "sc-luck-bad"
-        elif val < 1: return "sc-luck-neutral"
-        elif val < 2: return "sc-luck-good"
+        # Color bands aligned with luck_index._classify_luck: z-scored against
+        # the all-play null (sigma ~= 0.333*sqrt(weeks)). For a ~20-21 week
+        # season, z=1.5 ~= 2.25 wins and z=2.0 ~= 3.0 wins.
+        if val <= -3.0: return "sc-luck-very-bad"
+        elif val <= -2.25: return "sc-luck-bad"
+        elif val < 2.25: return "sc-luck-neutral"
+        elif val < 3.0: return "sc-luck-good"
         else: return "sc-luck-very-good"
 
     def short_season(s):

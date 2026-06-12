@@ -2721,7 +2721,7 @@ def build_keeper_watch(data: FantasyData, week: int) -> dict:
         week=week,
         current_season=CURRENT_SEASON,
     )
-    print(f"  ✓ Keepability v2 complete ({len(report['players'])} players scored)")
+    print(f"  \u2713 Keepability v2 complete ({len(report['players'])} players scored)")
     return report
 
 
