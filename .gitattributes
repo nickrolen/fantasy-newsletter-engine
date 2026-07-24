@@ -1,3 +1,7 @@
 # Newsletter HTML files are generated artifacts, not source code.
 # This keeps GitHub's language statistics focused on the engine (Python).
 output/*.html linguist-generated=true
+
+# Normalize line endings: LF in the repo, native in the working tree.
+# Keeps diffs content-only instead of whole-file CRLF churn.
+* text=auto eol=lf
