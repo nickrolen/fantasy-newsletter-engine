@@ -5,7 +5,6 @@ Loads and validates all input files for the fantasy basketball newsletter system
 Provides a centralized data access layer for all other modules.
 """
 
-import json as _json_mod
 import json
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -28,7 +27,7 @@ def _load_league_config():
             f"Copy config/league_config.json.example and fill in your league details."
         )
     with open(config_path, "r", encoding="utf-8") as f:
-        return _json_mod.load(f)
+        return json.load(f)
 
 _LEAGUE_CONFIG = _load_league_config()
 

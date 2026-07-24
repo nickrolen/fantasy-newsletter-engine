@@ -175,7 +175,7 @@ For a file-by-file map of the engine, see [`PROJECTSTRUCTURE.md`](PROJECTSTRUCTU
 - **Reproducibility mode** -- A `--repro` flag re-runs any week against pre-week snapshots and frozen betting lines, so you can iterate on newsletter copy without contaminating continuity state or changing the odds. (Boundary note: repro freezes betting lines and freshness state, but season-cumulative stats are recomputed from the current game logs -- regenerating an old week after later weeks were logged will reflect the newer cumulative totals.)
 - **Integrity checker** -- `verify_project_integrity.py` catches silent file truncation, syntax breakage, broken imports, config drift, and encoding corruption after any batch of edits, with an optional golden-master comparison.
 - **ASCII-only source policy** -- `check_file_health.py` enforces pure-ASCII `.py` and `.md` files (Unicode via escape sequences), preventing mojibake when files pass through download/upload cycles.
-- **Single source of configuration** -- One `league_config.json` feeds the bulk of the engine: manager and team names, league keys, and most colors flow from this file. A small number of visualization constants and narrative strings are still hardcoded.
+- **Single source of configuration** -- One `league_config.json` feeds the bulk of the engine: manager and team names, league keys, and most colors flow from this file.
 
 </details>
 
@@ -195,10 +195,10 @@ This engine was built for the **CHS Alumni Fantasy Basketball League**, a four-t
 
 | Manager | Team Name |
 |---------|-----------|
-| N | Luka my Balls |
-| H | Big Nik Energy |
-| B | Smaxey |
-| G | Saboner |
+| Nick | Luka my Balls |
+| Hayden | Big Nik Energy |
+| Benton | Smaxey |
+| Garrett | Saboner |
 
 ---
 
