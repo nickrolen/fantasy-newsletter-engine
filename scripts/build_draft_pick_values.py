@@ -6,11 +6,13 @@ Generates config/DRAFT_PICK_VALUES.json from historical draft performance data.
 
 PICK-LEVEL GRANULARITY WITH BLENDED VALUES:
     Expected values are computed per individual pick number (1-36) using a
-    70/30 blend of raw historical average and regression-fitted value.
+    50/50 blend of raw historical average and regression-fitted value.
     This preserves pick-level personality (some picks historically hit harder)
-    while reining in outliers from small sample sizes.
+    while reining in outliers from small sample sizes. (The blend was changed
+    from 70/30 to 50/50 on 2026-02-16 to further smooth small-sample variance;
+    see RAW_WEIGHT / REG_WEIGHT below.)
 
-    Blend formula: expected = 0.70 * raw_mean + 0.30 * regression_fitted
+    Blend formula: expected = 0.50 * raw_mean + 0.50 * regression_fitted
 
 EXPANSION ROUND DECAY (R8-R9, picks 29-36):
     R8-R9 picks cannot use the R1-R7 regression or 2025-26 raw data because:
@@ -30,7 +32,7 @@ KEEPER ERA ONLY (2021-22 onward):
     (first year of the system), so the draft pool was still fully open.
     2021-22 was the first draft where keepers were actually held off the board.
 
-Picks 1-28 (R1-R7): 70/30 blend from keeper-era draft data (5 seasons).
+Picks 1-28 (R1-R7): 50/50 blend from keeper-era draft data (5 seasons).
 Picks 29-36 (R8-R9): Cliff decay from R7 average.
 
 Two value metrics per pick:

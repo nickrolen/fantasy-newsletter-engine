@@ -190,9 +190,12 @@ def check_file_baselines(verbose=False):
     if baseline is None:
         return {
             "label": "[2/6] File Size Baseline",
-            "status": "NO BASELINE (run with --baseline to create)",
+            "status": "NO BASELINE -- truncation guard DISABLED (run with --baseline)",
             "failures": [],
-            "warnings": [],
+            "warnings": [
+                "[SIZE] No readable baseline found; the file-size truncation "
+                "guard is DISABLED. Run with --baseline to (re)create it."
+            ],
             "info": [f"{len(current)} files tracked in current scan."],
             "current_sizes": current,
         }

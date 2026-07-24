@@ -109,11 +109,16 @@ def fetch_injury_statuses(
             print("Cannot fetch real-time injury statuses.")
         return {}
     
-    # Authenticate
+    # Authenticate (fail-fast, never prompts; injury data is optional so we
+    # degrade gracefully to an empty mapping if creds are unusable).
     try:
-        oauth = OAuth2(None, None, from_file=oauth_file)
-        if not oauth.token_is_valid():
-            oauth.refresh_access_token()
+        from .yahoo_auth import build_oauth, YahooAuthError
+        try:
+            oauth = build_oauth(oauth_file, OAuth2=OAuth2)
+        except YahooAuthError as e:
+            if verbose:
+                print(f"Skipping injury fetch (Yahoo auth unavailable): {e}")
+            return {}
     except Exception as e:
         if verbose:
             print(f"Warning: OAuth authentication failed: {e}")

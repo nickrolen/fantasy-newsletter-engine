@@ -2,7 +2,7 @@ import ast, pathlib, sys
 
 ok, fail = 0, 0
 for f in sorted(pathlib.Path(".").rglob("*.py")):
-    if "archive" in str(f) or "__pycache__" in str(f):
+    if "archive" in str(f) or "__pycache__" in str(f) or "_backups" in str(f):
         continue
     size = f.stat().st_size
     try:

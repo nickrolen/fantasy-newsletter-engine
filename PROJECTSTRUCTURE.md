@@ -59,7 +59,7 @@ newsletter/
 |   +-- schedule_strength.py          # Schedule Strength Index (NBA games per roster)
 |   +-- lineup_optimizer.py           # Optimal daily lineup solver
 |   +-- consistency_score.py          # Consistency/Volatility (team + player CV, IQR, boom/bust)
-|   +-- luck_index.py                 # Luck Index (Pythagorean expected record)
+|   +-- luck_index.py                 # Luck Index (all-play expected wins)
 |   +-- keepability_v2.py             # Keeper scoring (5 components + age multiplier)
 |   +-- records_tracker.py            # Records, H2H streaks, blunders, top-10 leaderboards
 |   +-- report_builder.py             # Orchestrator -- assembles the full JSON report

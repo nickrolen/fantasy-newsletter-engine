@@ -22,7 +22,7 @@ LOW-DATA FALLBACK: If no valid prior seasons (all <10 GP), proj_fppg is used
 as the floor for the weighted_fppg and peak_fppg components so recently
 acquired players are not zeroed out.
 
-Tier assignment is FIXED-SLOT (see assign_keeper_tiers): top-9 Lock, next 12
+Tier assignment is FIXED-SLOT (see assign_keeper_tiers): top-12 Lock, next 12
 Strong Hold, next 12 On the Bubble, with OFS / age / score overrides.
 
 Usage:
@@ -599,18 +599,18 @@ def assign_keeper_tiers(players: List[dict]) -> List[dict]:
     OVERRIDES:
       - OFS (out for season) -> always "Stash"
       - Age <= 23 -> always "Dynasty Stash"
-      - Age >= 33 AND within top-33 range -> "Sell High"
-    
+      - Age >= 33 AND within top-36 range -> "Sell High"
+
     FIXED SLOTS (non-overridden players fill in order):
-      - First 9  -> Lock
+      - First 12 -> Lock
       - Next 12  -> Strong Hold
       - Next 12  -> On the Bubble
-    
-    REMAINING (after 33 fixed slots filled):
+
+    REMAINING (after 36 fixed slots filled):
       - Age >= 33 -> "Sell High"
       - Otherwise -> "Waiver Wire"
-    
-    Section capped at KEEPER_WATCH_PLAYER_CAP (45) players total.
+
+    Section capped at KEEPER_WATCH_PLAYER_CAP (48) players total.
     """
     # Cap to top 45
     players = players[:KEEPER_WATCH_PLAYER_CAP]

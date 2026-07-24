@@ -62,9 +62,8 @@ def get_yahoo_league(base_path: Path) -> "yfa.League":
     """Initialize Yahoo Fantasy API connection."""
     _ensure_yahoo_imports()
     oauth_file = base_path / 'oauth2.json'
-    oauth = OAuth2(None, None, from_file=str(oauth_file))
-    if not oauth.token_is_valid():
-        oauth.refresh_access_token()
+    from .yahoo_auth import build_oauth  # fail-fast: never prompts interactively
+    oauth = build_oauth(oauth_file, OAuth2=OAuth2)
     return yfa.League(oauth, LEAGUE_KEY)
 
 

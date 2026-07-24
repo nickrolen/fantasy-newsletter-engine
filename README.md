@@ -10,7 +10,11 @@ It was built and tested for a real four-team keeper league (the CHS Alumni leagu
 
 ### Sample output
 
-A finished newsletter for Week 21 lives at [`output/WEEK21_NEWSLETTER.html`](output/WEEK21_NEWSLETTER.html) -- open it in a browser to see the end product (matchup recaps, power rankings, betting lines, interactive Stats Corner visualizations, and a 50-table record book). Fresh output is generated weekly during the season; the `output/` folder keeps the most recent weeks on hand.
+**[View a live newsletter ->](https://nickrolen.github.io/fantasy-newsletter-engine/)** (rendered via GitHub Pages -- no download needed)
+
+A finished newsletter for Week 21 lives at [`output/WEEK21_NEWSLETTER.html`](output/WEEK21_NEWSLETTER.html) -- view it live at the link above, or open the file in a browser to see the end product (matchup recaps, power rankings, betting lines, interactive Stats Corner visualizations, and a 50-table record book). Fresh output is generated weekly during the season; the `output/` folder keeps the most recent weeks on hand.
+
+> Note: GitHub renders the `.html` file as source. The live link above serves the rendered page.
 
 ---
 
