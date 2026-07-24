@@ -195,10 +195,10 @@ This engine was built for the **CHS Alumni Fantasy Basketball League**, a four-t
 
 | Manager | Team Name |
 |---------|-----------|
-| Nick | Luka my Balls |
-| Hayden | Big Nik Energy |
-| Benton | Smaxey |
-| Garrett | Saboner |
+| N | Luka my Balls |
+| H | Big Nik Energy |
+| B | Smaxey |
+| G | Saboner |
 
 ---
 
