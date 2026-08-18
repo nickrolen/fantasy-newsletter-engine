@@ -48,4 +48,6 @@ jobs:
           python scripts/format_stats_report.py --help > /dev/null
           python scripts/newsletter_html_generator.py --help > /dev/null
           python scripts/start_new_season.py --help > /dev/null
+          python scripts/backtest_extract.py --help > /dev/null
+          python scripts/backtest_report.py --help > /dev/null
           echo "All CLI entry points respond"

@@ -12,6 +12,7 @@
 pandas>=2.0.0
 numpy>=1.24.0
 openpyxl>=3.1.0          # Excel file support for pandas
+matplotlib>=3.7.0        # backtest calibration figure (scripts/backtest_report.py --plot)
 
 # --------------------------------------------
 # Yahoo Fantasy API
