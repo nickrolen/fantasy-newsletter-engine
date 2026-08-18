@@ -37,6 +37,68 @@ Headline features:
 
 ---
 
+## Model Validation
+
+The newsletter publishes betting lines every week, so the obvious question is
+whether they are any good. This section reports the answer, including the parts
+that are unflattering.
+
+**Method.** Lines are read back out of the published newsletter HTML rather than
+the stored JSON. `output/looking_ahead_week*.json` is regenerated whenever a past
+week is re-run, and a re-run uses today's rosters and injuries -- three of the
+2025-26 files no longer match what was actually published (week 21 now reads
++419.5 / 6.6% where the newsletter printed +118.5 / 34.62%). The HTML is the
+immutable record, and the only copy committed here, so
+[`scripts/backtest_extract.py`](scripts/backtest_extract.py) reproduces the
+dataset from a fresh clone. Lines for week N come from week N-1's newsletter, so
+every prediction is scored against a result that had not happened yet.
+
+**Sample: 12 lines across weeks 17-22, and the 24 team-score projections behind
+them.** That is small. The two matchups in a given week share a scoring
+environment, so the effective sample is smaller still. Every interval below is
+wide, and the significance test on the team-score bias treats team-weeks as
+independent when they are not -- read its direction, not its p-value.
+
+![Betting-line backtest: projected vs actual](assets/backtest_calibration.png)
+
+| Question | Answer |
+|---|---|
+| Are the team-score projections right on average? | **No.** Mean error -120.8 FP (-7.3%); 18 of 24 landed below projection. |
+| Is the projected margin right on average? | Close enough. Mean error -77.8 FP, t = -1.1, not significant. |
+| Is the stated uncertainty honest? | As far as this sample can tell, yes. rms(z) = 0.99, 95% CI [0.71, 1.63]. |
+| Do the win probabilities carry information? | **Not detectably.** Brier 0.2485 against 0.2500 for a coin flip; the favourite went 6-6. |
+
+**Reading it.** The simulator is better at ranking teams than at scoring them.
+Both sides of a matchup get over-projected by a similar amount, so the error
+largely cancels in the spread and accumulates in the total: totals ran 242 FP
+high and only 2 of 12 went OVER. The most likely cause is that projections
+assume rostered players play, while real weeks lose games to injury, rest and
+late scratches.
+
+The moneyline line in that table is the one that matters most and the one this
+sample can say least about. At n=12 a Brier score of 0.2485 is indistinguishable
+from no skill and equally indistinguishable from useful skill. The honest
+statement is that these win probabilities have not been shown to beat a coin
+flip. It is also worth knowing that the published lines were generated with
+between 200 and 5,000 simulations depending on the week, so some of them carry
+several points of Monte Carlo noise on their own.
+
+**What it changes.** A level correction is the obvious first fix, and the
+backtest predicts what it should do: scale the projections down and the totals
+should move while the spreads stay put. Re-running this report after any change
+to the simulator is one command:
+
+```bash
+python scripts/backtest_extract.py          # rebuild the dataset
+python scripts/backtest_report.py --plot    # score it and redraw the figure
+```
+
+The scoring rules themselves live in
+[`modules/backtest_metrics.py`](modules/backtest_metrics.py) and are unit-tested
+in [`tests/test_backtest_metrics.py`](tests/test_backtest_metrics.py).
+
+---
+
 ## Quick Start
 
 You'll need Python 3.10+ and a Yahoo Fantasy league.
