@@ -129,6 +129,11 @@ def get_archive_files() -> list[Path]:
         "data/PLAYERLOG.xlsx",          # daily player stat lines
         "data/LINEUPS.xlsx",            # slot-level lineup history (bench/injury metrics)
         "data/PLAYERLIST.xlsx",         # projection snapshot for the season
+        # Per-season state that used to survive the reset and leak into the
+        # next season. Archived here, reset in Phase 2.
+        "config/DRAFT_PICKS_CURRENT.json",          # last season's picks + keeper flags
+        "config/LAST_WEEK_RECAP.md",                # final week's reporter's-notebook entry
+        "config/.leaguehistory_applied_weeks.json", # per-season applied-weeks ledger
     ]
 
     files = []
@@ -323,6 +328,73 @@ def reset_records(execute: bool) -> None:
         print(f"    WARNING -- Unknown keys preserved for manual review: {', '.join(sorted(unknown_keys))}")
 
 
+def reset_draft_picks_current(execute: bool) -> None:
+    """Reset DRAFT_PICKS_CURRENT.json to an empty pick list.
+
+    No script writes this file -- it is maintained by hand after the draft
+    (pull_current_draft.py patches all_drafts.json, not this). Leaving last
+    season's 52 picks in place would silently feed the wrong draft into
+    report_builder and player_card_builder all year, so it is emptied here
+    and flagged in the manual checklist.
+    """
+    path = PROJECT_ROOT / "config" / "DRAFT_PICKS_CURRENT.json"
+    empty = {
+        "_comment": "Current season draft picks. Keepers occupy the rounds after the drafted rounds (2025-26: rounds 1-7 drafted, 8-13 keepers). Rebuilt by hand after each draft; merged into all_drafts.json via pull_historical_data.py at season end.",
+        "season": "",
+        "league_key": "",
+        "picks": []
+    }
+    if execute:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(empty, f, indent=2)
+        print(f"    OK  {rel(path)}")
+    else:
+        print(f"    {rel(path)} -> empty picks list (REBUILD BY HAND after the draft)")
+
+
+def reset_last_week_recap(execute: bool) -> None:
+    """Reset LAST_WEEK_RECAP.md to an empty placeholder.
+
+    The formatter passes this to the drafting session as narrative context.
+    A stale recap from last season's final week would seed the Week 1
+    newsletter with dead storylines.
+    """
+    path = PROJECT_ROOT / "config" / "LAST_WEEK_RECAP.md"
+    placeholder = (
+        "# Last Week Recap\n"
+        "\n"
+        "*No prior week yet -- this is the first week of the season.*\n"
+        "\n"
+        "Rewritten after every newsletter (WEEKLY_WORKFLOW.md Step 10a) so the\n"
+        "next drafting session has narrative continuity.\n"
+    )
+    if execute:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(placeholder)
+        print(f"    OK  {rel(path)}")
+    else:
+        print(f"    {rel(path)} -> empty placeholder")
+
+
+def reset_applied_weeks_ledger(execute: bool) -> None:
+    """Reset the LEAGUEHISTORY applied-weeks ledger.
+
+    update_leaguehistory.py uses this to avoid double-counting a week. Carrying
+    last season's entries forward would make it silently skip the new season's
+    weeks if the season keys ever collide.
+    """
+    path = PROJECT_ROOT / "config" / ".leaguehistory_applied_weeks.json"
+    if not path.exists():
+        print(f"    SKIP {rel(path)} -- file not found")
+        return
+    if execute:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({}, f, indent=2)
+        print(f"    OK  {rel(path)}")
+    else:
+        print(f"    {rel(path)} -> empty ledger")
+
+
 def reset_excel(filename: str, headers: list[str], execute: bool) -> None:
     """Clear data rows from an Excel file, keeping only the header row."""
     path = PROJECT_ROOT / "data" / filename
@@ -357,6 +429,9 @@ def reset_phase(execute: bool) -> None:
     reset_rosters(execute)
     reset_trades(execute)
     reset_records(execute)
+    reset_draft_picks_current(execute)
+    reset_last_week_recap(execute)
+    reset_applied_weeks_ledger(execute)
 
     playerlog_headers = [
         "season_year", "week", "date", "manager", "fantasy_team",
@@ -452,6 +527,11 @@ def print_manual_checklist(season: str) -> None:
 
     7. Run the draft pull once the draft happens:
        py scripts/pull_current_draft.py
+
+       NOTE: that script patches data/historical/all_drafts.json only. Nothing
+       writes config/DRAFT_PICKS_CURRENT.json -- Phase 2 emptied it, so rebuild
+       it by hand from the Yahoo draft results, including the is_keeper flags.
+       report_builder and player_card_builder read it all season.
 """)
 
 

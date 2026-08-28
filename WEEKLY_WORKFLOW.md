@@ -397,7 +397,13 @@ Fill in the `[FILL IN]` placeholders in the prompts.
 
 ## Step 8: Verify the Draft (Recommended)
 
-Upload the draft and stats report together and reference `templates\VERIFICATION_TEMPLATE.md`.
+Run this in a **fresh chat** -- not the drafting chat. A chat that just argued
+itself into a claim is the worst possible auditor of it.
+
+Upload `assets\WEEK{N}_DRAFT.md`, `output\stats_report_week{N}.md`, and
+`templates\VERIFICATION_TEMPLATE.md`, then paste the prompt from that file.
+It sorts findings into P0 (factual errors), P1 (template rule violations) and
+P2 (format), and ends with a publish/fix verdict.
 
 **What verification catches:**
 - Wrong superlatives ("highest score of the season" when it wasn't)

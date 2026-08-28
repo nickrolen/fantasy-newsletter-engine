@@ -81,6 +81,7 @@ Copies the following into `archive/<season>/`, preserving subfolder structure:
 - `config/snapshots/*`
 - `data/waivers_week*.txt`
 - `config/POTW_HISTORY.json`, `RECENT_CONTENT.json`, `ROSTERS.json`, `TRADES.json`, `INJURY_OVERRIDES.json`, `RECORDS.json`
+- `config/DRAFT_PICKS_CURRENT.json`, `LAST_WEEK_RECAP.md`, `.leaguehistory_applied_weeks.json`
 - `config/league_config.json` (snapshot — original is not modified)
 - `data/LEAGUEHISTORY.xlsx` (snapshot — original is not modified)
 - `data/PLAYERLOG.xlsx`, `data/LINEUPS.xlsx`, `data/PLAYERLIST.xlsx` (full season data — archived before Phase 2 wipes them)
@@ -97,6 +98,9 @@ Resets per-season working files to empty defaults matching their existing schema
 - `config/ROSTERS.json` → empty `{rosters: {}}`
 - `config/TRADES.json` → empty `{trades: [], draft_pick_ownership: {}}`
 - `config/RECORDS.json` → preserves `all_time` and `team_name_history`, resets all current-season sections to empty. Unknown keys are preserved with a warning.
+- `config/DRAFT_PICKS_CURRENT.json` → empty `{season: "", league_key: "", picks: []}`
+- `config/LAST_WEEK_RECAP.md` → empty placeholder (no stale storylines)
+- `config/.leaguehistory_applied_weeks.json` → empty `{}` (skipped if absent)
 - `data/PLAYERLOG.xlsx` → header row only (0 data rows)
 - `data/LINEUPS.xlsx` → header row only (0 data rows)
 
@@ -144,6 +148,13 @@ Phase 2 truncates `PLAYERLOG.xlsx` and `LINEUPS.xlsx` to header-only. The archiv
    ```
    py scripts/pull_current_draft.py
    ```
+
+6. **Rebuild `config/DRAFT_PICKS_CURRENT.json` by hand.** Nothing writes this
+   file — `pull_current_draft.py` patches `data/historical/all_drafts.json`
+   only. Phase 2 emptied it, so recreate it from the Yahoo draft results,
+   including the `is_keeper` flag (2025-26: rounds 1-7 drafted, 8-13 keepers).
+   `report_builder.py` and `player_card_builder.py` read it all season; an
+   empty file degrades gracefully but silently loses the Draft Value Tracker.
 
 ---
 

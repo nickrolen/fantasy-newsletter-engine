@@ -163,18 +163,28 @@ py scripts\start_new_season.py --execute
 py scripts\verify_project_integrity.py
 ```
 
-### Known gaps in the reset script
+### Gaps in the reset script  [FIXED Aug 28, 2026]
 
-`start_new_season.py` does not archive or reset these, so 2025-26 state leaks
-into the new season unless you handle them by hand:
+`start_new_season.py` used to leave three per-season files untouched, so
+2025-26 state would have leaked into the new season. All three are now
+archived in Phase 1 and reset in Phase 2:
 
-| File | Why it matters | Action |
-|------|----------------|--------|
-| `config\DRAFT_PICKS_CURRENT.json` | Holds all 36 of last year's picks. Its own `_comment` says it merges into `all_drafts.json` at season end | Copy to `archive\2025-26\config\`, then let `pull_current_draft.py` overwrite it after the new draft |
-| `config\LAST_WEEK_RECAP.md` | Week 23 recap; feeds the Reporter's Notebook | Copy to archive, then blank it |
-| `config\.leaguehistory_applied_weeks.json` | Applied-weeks ledger, if it exists by then | Delete or reset to `{}` so new-season weeks apply cleanly |
+| File | Why it mattered |
+|------|-----------------|
+| `config\DRAFT_PICKS_CURRENT.json` | All 52 of last season's picks and keeper flags, read by `report_builder` and `player_card_builder` all season |
+| `config\LAST_WEEK_RECAP.md` | Final-week recap fed to the drafting chat as narrative context -- would have seeded Week 1 with dead storylines |
+| `config\.leaguehistory_applied_weeks.json` | Applied-weeks ledger; stale entries can make `update_leaguehistory.py` skip weeks |
 
-Worth patching into the script itself so next year is one command.
+`tests/test_start_new_season.py` guards this now: one test fails if a
+per-season `config/` file is missing from the archive list, another fails if
+any file in `config/` is unclassified -- so the next file added mid-season
+forces a decision instead of being silently forgotten.
+
+**One thing the script cannot fix:** nothing writes
+`config\DRAFT_PICKS_CURRENT.json`. `pull_current_draft.py` patches
+`all_drafts.json` only. After the draft, rebuild it by hand with the
+`is_keeper` flags -- the reset's manual checklist now says so explicitly, and
+Phase 5 below covers it.
 
 ---
 
@@ -261,16 +271,17 @@ plus refreshed `DRAFT_PICK_VALUES.json` is the tooling. Deliver keeper
 recommendations to the league **before whatever the keeper deadline is** --
 that date is not recorded anywhere in the repo. Find it and write it here.
 
-### 4.2 Restore the missing verification template
+### 4.2 Verification template  [DONE Aug 28, 2026]
 
-`WEEKLY_WORKFLOW.md` Step 8 says to verify the draft with
-`VERIFICATION_TEMPLATE.md`. **That file does not exist anywhere in the repo.**
-`templates\NEWSLETTER_PROMPTS.md` is present and fine; the verification
-template is simply gone. Either rebuild it or cut Step 8 from the workflow --
-discovering this in Week 1 is worse than discovering it now.
+`templates\VERIFICATION_TEMPLATE.md` was referenced by `WEEKLY_WORKFLOW.md`
+Step 8 and by its File Reference table, but did not exist. Rebuilt as a
+three-tier audit (P0 factual errors, P1 template-rule violations, P2 format)
+keyed to the CRITICAL RULES in `newsletter_template.md`, with a
+section-by-section sweep. Run it in a fresh chat -- the drafting chat cannot
+audit itself.
 
-While you are in `templates\`: `NEWSLETTER_PROMPTS_WEEK18-21.md` are
-2025-26 one-offs the reset script does not touch. Archive them or delete them.
+Still open: `templates\NEWSLETTER_PROMPTS_WEEK18-21.md` are 2025-26 one-offs
+the reset script does not touch. Archive or delete them when convenient.
 
 ### 4.3 Preseason newsletter (optional but the obvious win)
 
