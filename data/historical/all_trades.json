@@ -1,0 +1,984 @@
+[
+  {
+    "season": "2017-18",
+    "timestamp": "1519757906",
+    "date": "2018-02-27",
+    "trader_team": "DAME TIME",
+    "tradee_team": "The G league",
+    "trader_manager": "Nick",
+    "tradee_manager": "Hayden",
+    "players": [
+      {
+        "player_name": "Hassan Whiteside",
+        "from_team": "DAME TIME",
+        "to_team": "The G league",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Rudy Gobert",
+        "from_team": "The G league",
+        "to_team": "DAME TIME",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2017-18",
+    "timestamp": "1509515911",
+    "date": "2017-10-31",
+    "trader_team": "DAME TIME",
+    "tradee_team": "Big Ballers",
+    "trader_manager": "Nick",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Kevin Love",
+        "from_team": "DAME TIME",
+        "to_team": "Big Ballers",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "LaMarcus Aldridge",
+        "from_team": "DAME TIME",
+        "to_team": "Big Ballers",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Trevor Ariza",
+        "from_team": "Big Ballers",
+        "to_team": "DAME TIME",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Draymond Green",
+        "from_team": "Big Ballers",
+        "to_team": "DAME TIME",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2017-18",
+    "timestamp": "1509506708",
+    "date": "2017-10-31",
+    "trader_team": "DAME TIME",
+    "tradee_team": "The Austin River",
+    "trader_manager": "Nick",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "John Wall",
+        "from_team": "DAME TIME",
+        "to_team": "The Austin River",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Kyrie Irving",
+        "from_team": "The Austin River",
+        "to_team": "DAME TIME",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1550907694",
+    "date": "2019-02-23",
+    "trader_team": "The G league",
+    "tradee_team": "The Austin River",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Clint Capela",
+        "from_team": "The G league",
+        "to_team": "The Austin River",
+        "from_manager": "Hayden",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Devin Booker",
+        "from_team": "The Austin River",
+        "to_team": "The G league",
+        "from_manager": "Benton",
+        "to_manager": "Hayden"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1547626687",
+    "date": "2019-01-16",
+    "trader_team": "The G league",
+    "tradee_team": "Russell Eastbrook",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Nick",
+    "players": [
+      {
+        "player_name": "Karl-Anthony Towns",
+        "from_team": "The G league",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Damian Lillard",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The G league",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1547597947",
+    "date": "2019-01-15",
+    "trader_team": "The Austin River",
+    "tradee_team": "The G league",
+    "trader_manager": "Benton",
+    "tradee_manager": "Hayden",
+    "players": [
+      {
+        "player_name": "Nikola Vucevic",
+        "from_team": "The Austin River",
+        "to_team": "The G league",
+        "from_manager": "Benton",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Kawhi Leonard",
+        "from_team": "The G league",
+        "to_team": "The Austin River",
+        "from_manager": "Hayden",
+        "to_manager": "Benton"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1547597409",
+    "date": "2019-01-15",
+    "trader_team": "Art of the Beal",
+    "tradee_team": "Russell Eastbrook",
+    "trader_manager": "Garrett",
+    "tradee_manager": "Nick",
+    "players": [
+      {
+        "player_name": "James Harden",
+        "from_team": "Art of the Beal",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Mike Conley",
+        "from_team": "Russell Eastbrook",
+        "to_team": "Art of the Beal",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1547595949",
+    "date": "2019-01-15",
+    "trader_team": "Russell Eastbrook",
+    "tradee_team": "The G league",
+    "trader_manager": "Nick",
+    "tradee_manager": "Hayden",
+    "players": [
+      {
+        "player_name": "Andre Drummond",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The G league",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Kawhi Leonard",
+        "from_team": "The G league",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1546807427",
+    "date": "2019-01-06",
+    "trader_team": "Russell Eastbrook",
+    "tradee_team": "The G league",
+    "trader_manager": "Nick",
+    "tradee_manager": "Hayden",
+    "players": [
+      {
+        "player_name": "Kevin Durant",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The G league",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Jusuf Nurkic",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The G league",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Mike Conley",
+        "from_team": "The G league",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Kyrie Irving",
+        "from_team": "The G league",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1545639538",
+    "date": "2018-12-24",
+    "trader_team": "The Austin River",
+    "tradee_team": "Art of the Beal",
+    "trader_manager": "Benton",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Jimmy Butler III",
+        "from_team": "The Austin River",
+        "to_team": "Art of the Beal",
+        "from_manager": "Benton",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Rudy Gobert",
+        "from_team": "The Austin River",
+        "to_team": "Art of the Beal",
+        "from_manager": "Benton",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Nikola Vucevic",
+        "from_team": "Art of the Beal",
+        "to_team": "The Austin River",
+        "from_manager": "Garrett",
+        "to_manager": "Benton"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1545113578",
+    "date": "2018-12-17",
+    "trader_team": "The G league",
+    "tradee_team": "Art of the Beal",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Otto Porter Jr.",
+        "from_team": "The G league",
+        "to_team": "Art of the Beal",
+        "from_manager": "Hayden",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Aaron Gordon",
+        "from_team": "Art of the Beal",
+        "to_team": "The G league",
+        "from_manager": "Garrett",
+        "to_manager": "Hayden"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1544993351",
+    "date": "2018-12-16",
+    "trader_team": "Russell Eastbrook",
+    "tradee_team": "The Austin River",
+    "trader_manager": "Nick",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Devin Booker",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The Austin River",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Nikola Mirotic",
+        "from_team": "The Austin River",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1544835078",
+    "date": "2018-12-14",
+    "trader_team": "Russell Eastbrook",
+    "tradee_team": "The G league",
+    "trader_manager": "Nick",
+    "tradee_manager": "Hayden",
+    "players": [
+      {
+        "player_name": "Hassan Whiteside",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The G league",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Kyle Lowry",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The G league",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Jrue Holiday",
+        "from_team": "The G league",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "DeMar DeRozan",
+        "from_team": "The G league",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1544515902",
+    "date": "2018-12-11",
+    "trader_team": "The Austin River",
+    "tradee_team": "Russell Eastbrook",
+    "trader_manager": "Benton",
+    "tradee_manager": "Nick",
+    "players": [
+      {
+        "player_name": "Devin Booker",
+        "from_team": "The Austin River",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Nikola Mirotic",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The Austin River",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1542269727",
+    "date": "2018-11-15",
+    "trader_team": "The Austin River",
+    "tradee_team": "Russell Eastbrook",
+    "trader_manager": "Benton",
+    "tradee_manager": "Nick",
+    "players": [
+      {
+        "player_name": "Nikola Mirotic",
+        "from_team": "The Austin River",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "De'Aaron Fox",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The Austin River",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1542012500",
+    "date": "2018-11-12",
+    "trader_team": "Russell Eastbrook",
+    "tradee_team": "The G league",
+    "trader_manager": "Nick",
+    "tradee_manager": "Hayden",
+    "players": [
+      {
+        "player_name": "DeMar DeRozan",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The G league",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Draymond Green",
+        "from_team": "The G league",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1542011301",
+    "date": "2018-11-12",
+    "trader_team": "Russell Eastbrook",
+    "tradee_team": "Art of the Beal",
+    "trader_manager": "Nick",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Marc Gasol",
+        "from_team": "Russell Eastbrook",
+        "to_team": "Art of the Beal",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Nikola Vucevic",
+        "from_team": "Russell Eastbrook",
+        "to_team": "Art of the Beal",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "DeMar DeRozan",
+        "from_team": "Art of the Beal",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Damian Lillard",
+        "from_team": "Art of the Beal",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2018-19",
+    "timestamp": "1540537705",
+    "date": "2018-10-26",
+    "trader_team": "Russell Eastbrook",
+    "tradee_team": "The Austin River",
+    "trader_manager": "Nick",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Victor Oladipo",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The Austin River",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Paul George",
+        "from_team": "Russell Eastbrook",
+        "to_team": "The Austin River",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Kyle Lowry",
+        "from_team": "The Austin River",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Eric Bledsoe",
+        "from_team": "The Austin River",
+        "to_team": "Russell Eastbrook",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2020-21",
+    "timestamp": "1616196059",
+    "date": "2021-03-19",
+    "trader_team": "The Bad Boys",
+    "tradee_team": "Wood",
+    "trader_manager": "Nick",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Zion Williamson",
+        "from_team": "The Bad Boys",
+        "to_team": "Wood",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Terry Rozier",
+        "from_team": "The Bad Boys",
+        "to_team": "Wood",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Jerami Grant",
+        "from_team": "The Bad Boys",
+        "to_team": "Wood",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Pascal Siakam",
+        "from_team": "Wood",
+        "to_team": "The Bad Boys",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Bam Adebayo",
+        "from_team": "Wood",
+        "to_team": "The Bad Boys",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2020-21",
+    "timestamp": "1614672774",
+    "date": "2021-03-02",
+    "trader_team": "Wood",
+    "tradee_team": "2011 Giannissan Leaf",
+    "trader_manager": "Benton",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Jamal Murray",
+        "from_team": "Wood",
+        "to_team": "2011 Giannissan Leaf",
+        "from_manager": "Benton",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Pascal Siakam",
+        "from_team": "2011 Giannissan Leaf",
+        "to_team": "Wood",
+        "from_manager": "Garrett",
+        "to_manager": "Benton"
+      }
+    ]
+  },
+  {
+    "season": "2020-21",
+    "timestamp": "1614385164",
+    "date": "2021-02-26",
+    "trader_team": "Wood",
+    "tradee_team": "2011 Giannissan Leaf",
+    "trader_manager": "Benton",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Paul George",
+        "from_team": "Wood",
+        "to_team": "2011 Giannissan Leaf",
+        "from_manager": "Benton",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Christian Wood",
+        "from_team": "2011 Giannissan Leaf",
+        "to_team": "Wood",
+        "from_manager": "Garrett",
+        "to_manager": "Benton"
+      }
+    ]
+  },
+  {
+    "season": "2020-21",
+    "timestamp": "1613983133",
+    "date": "2021-02-22",
+    "trader_team": "Wood",
+    "tradee_team": "The Bad Boys",
+    "trader_manager": "Benton",
+    "tradee_manager": "Nick",
+    "players": [
+      {
+        "player_name": "Malcolm Brogdon",
+        "from_team": "Wood",
+        "to_team": "The Bad Boys",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "John Collins",
+        "from_team": "The Bad Boys",
+        "to_team": "Wood",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      }
+    ]
+  },
+  {
+    "season": "2020-21",
+    "timestamp": "1611130044",
+    "date": "2021-01-20",
+    "trader_team": "Wet Like I'm Book",
+    "tradee_team": "Wood",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Trae Young",
+        "from_team": "Wet Like I'm Book",
+        "to_team": "Wood",
+        "from_manager": "Hayden",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Shai Gilgeous-Alexander",
+        "from_team": "Wood",
+        "to_team": "Wet Like I'm Book",
+        "from_manager": "Benton",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Kyrie Irving",
+        "from_team": "Wood",
+        "to_team": "Wet Like I'm Book",
+        "from_manager": "Benton",
+        "to_manager": "Hayden"
+      }
+    ]
+  },
+  {
+    "season": "2020-21",
+    "timestamp": "1609878898",
+    "date": "2021-01-05",
+    "trader_team": "2011 Giannissan Leaf",
+    "tradee_team": "Wood",
+    "trader_manager": "Garrett",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Malcolm Brogdon",
+        "from_team": "2011 Giannissan Leaf",
+        "to_team": "Wood",
+        "from_manager": "Garrett",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Deandre Ayton",
+        "from_team": "2011 Giannissan Leaf",
+        "to_team": "Wood",
+        "from_manager": "Garrett",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Julius Randle",
+        "from_team": "Wood",
+        "to_team": "2011 Giannissan Leaf",
+        "from_manager": "Benton",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "De'Aaron Fox",
+        "from_team": "Wood",
+        "to_team": "2011 Giannissan Leaf",
+        "from_manager": "Benton",
+        "to_manager": "Garrett"
+      }
+    ]
+  },
+  {
+    "season": "2021-22",
+    "timestamp": "1638899343",
+    "date": "2021-12-07",
+    "trader_team": "Big Nik Energy",
+    "tradee_team": "Serge I-Block-Ya",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Russell Westbrook",
+        "from_team": "Big Nik Energy",
+        "to_team": "Serge I-Block-Ya",
+        "from_manager": "Hayden",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Evan Mobley",
+        "from_team": "Serge I-Block-Ya",
+        "to_team": "Big Nik Energy",
+        "from_manager": "Benton",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Zion Williamson",
+        "from_team": "Serge I-Block-Ya",
+        "to_team": "Big Nik Energy",
+        "from_manager": "Benton",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Pascal Siakam",
+        "from_team": "Serge I-Block-Ya",
+        "to_team": "Big Nik Energy",
+        "from_manager": "Benton",
+        "to_manager": "Hayden"
+      }
+    ]
+  },
+  {
+    "season": "2021-22",
+    "timestamp": "1637427252",
+    "date": "2021-11-20",
+    "trader_team": "Big Nik Energy",
+    "tradee_team": "The Bad Boys",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Nick",
+    "players": [
+      {
+        "player_name": "Damian Lillard",
+        "from_team": "Big Nik Energy",
+        "to_team": "The Bad Boys",
+        "from_manager": "Hayden",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Cole Anthony",
+        "from_team": "The Bad Boys",
+        "to_team": "Big Nik Energy",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      },
+      {
+        "player_name": "Jerami Grant",
+        "from_team": "The Bad Boys",
+        "to_team": "Big Nik Energy",
+        "from_manager": "Nick",
+        "to_manager": "Hayden"
+      }
+    ]
+  },
+  {
+    "season": "2021-22",
+    "timestamp": "1636119664",
+    "date": "2021-11-05",
+    "trader_team": "The Bad Boys",
+    "tradee_team": "Serge I-Block-Ya",
+    "trader_manager": "Nick",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Dejounte Murray",
+        "from_team": "The Bad Boys",
+        "to_team": "Serge I-Block-Ya",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Jayson Tatum",
+        "from_team": "The Bad Boys",
+        "to_team": "Serge I-Block-Ya",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Anthony Davis",
+        "from_team": "Serge I-Block-Ya",
+        "to_team": "The Bad Boys",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "CJ McCollum",
+        "from_team": "Serge I-Block-Ya",
+        "to_team": "The Bad Boys",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2023-24",
+    "timestamp": "1709874671",
+    "date": "2024-03-07",
+    "trader_team": "Luka my Balls",
+    "tradee_team": "Saboner",
+    "trader_manager": "Nick",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "CJ McCollum",
+        "from_team": "Luka my Balls",
+        "to_team": "Saboner",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Miles Bridges",
+        "from_team": "Saboner",
+        "to_team": "Luka my Balls",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2023-24",
+    "timestamp": "1708967779",
+    "date": "2024-02-26",
+    "trader_team": "Serge I-Cock-Ya",
+    "tradee_team": "Luka my Balls",
+    "trader_manager": "Benton",
+    "tradee_manager": "Nick",
+    "players": [
+      {
+        "player_name": "Jarrett Allen",
+        "from_team": "Serge I-Cock-Ya",
+        "to_team": "Luka my Balls",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Brandon Ingram",
+        "from_team": "Luka my Balls",
+        "to_team": "Serge I-Cock-Ya",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      }
+    ]
+  },
+  {
+    "season": "2023-24",
+    "timestamp": "1705340130",
+    "date": "2024-01-15",
+    "trader_team": "Luka my Balls",
+    "tradee_team": "Serge I-Cock-Ya",
+    "trader_manager": "Nick",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Stephen Curry",
+        "from_team": "Luka my Balls",
+        "to_team": "Serge I-Cock-Ya",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "CJ McCollum",
+        "from_team": "Serge I-Cock-Ya",
+        "to_team": "Luka my Balls",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Kawhi Leonard",
+        "from_team": "Serge I-Cock-Ya",
+        "to_team": "Luka my Balls",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2024-25",
+    "timestamp": "1739387168",
+    "date": "2025-02-12",
+    "trader_team": "Luka my Balls",
+    "tradee_team": "Serge I-Cock-Ya",
+    "trader_manager": "Nick",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Donovan Mitchell",
+        "from_team": "Luka my Balls",
+        "to_team": "Serge I-Cock-Ya",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "James Harden",
+        "from_team": "Serge I-Cock-Ya",
+        "to_team": "Luka my Balls",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Stephen Curry",
+        "from_team": "Serge I-Cock-Ya",
+        "to_team": "Luka my Balls",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      }
+    ]
+  },
+  {
+    "season": "2024-25",
+    "timestamp": "1730318724",
+    "date": "2024-10-30",
+    "trader_team": "Luka my Balls",
+    "tradee_team": "Saboner",
+    "trader_manager": "Nick",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Scottie Barnes",
+        "from_team": "Luka my Balls",
+        "to_team": "Saboner",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Fred VanVleet",
+        "from_team": "Luka my Balls",
+        "to_team": "Saboner",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "LeBron James",
+        "from_team": "Saboner",
+        "to_team": "Luka my Balls",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      },
+      {
+        "player_name": "Donovan Mitchell",
+        "from_team": "Saboner",
+        "to_team": "Luka my Balls",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      }
+    ]
+  }
+]

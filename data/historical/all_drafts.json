@@ -1,0 +1,3746 @@
+[
+  {
+    "season": "2017-18",
+    "pick_number": 1,
+    "round": 1,
+    "manager": "Hayden",
+    "player_key": "4244",
+    "player_name": "Kevin Durant",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 2,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "4563",
+    "player_name": "James Harden",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 3,
+    "round": 1,
+    "manager": "Nick",
+    "player_key": "4612",
+    "player_name": "Stephen Curry",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 4,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "4390",
+    "player_name": "Russell Westbrook",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 5,
+    "round": 2,
+    "manager": "Benton",
+    "player_key": "5185",
+    "player_name": "Giannis Antetokounmpo",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 6,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "5432",
+    "player_name": "Karl-Anthony Towns",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 7,
+    "round": 2,
+    "manager": "Garrett",
+    "player_key": "3704",
+    "player_name": "LeBron James",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 8,
+    "round": 2,
+    "manager": "Hayden",
+    "player_key": "5007",
+    "player_name": "Anthony Davis",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 9,
+    "round": 3,
+    "manager": "Hayden",
+    "player_key": "4896",
+    "player_name": "Kawhi Leonard",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 10,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "4912",
+    "player_name": "Jimmy Butler III",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 11,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "4716",
+    "player_name": "John Wall",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 12,
+    "round": 3,
+    "manager": "Benton",
+    "player_key": "5352",
+    "player_name": "Nikola Jokic",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 13,
+    "round": 4,
+    "manager": "Benton",
+    "player_key": "4840",
+    "player_name": "Kyrie Irving",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 14,
+    "round": 4,
+    "manager": "Nick",
+    "player_key": "5012",
+    "player_name": "Damian Lillard",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 15,
+    "round": 4,
+    "manager": "Garrett",
+    "player_key": "4725",
+    "player_name": "Paul George",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 16,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "3930",
+    "player_name": "Chris Paul",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 17,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "5197",
+    "player_name": "Rudy Gobert",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 18,
+    "round": 5,
+    "manager": "Garrett",
+    "player_key": "5464",
+    "player_name": "Kristaps Porzingis",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 19,
+    "round": 5,
+    "manager": "Nick",
+    "player_key": "4764",
+    "player_name": "Hassan Whiteside",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 20,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "4720",
+    "player_name": "DeMarcus Cousins",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 21,
+    "round": 6,
+    "manager": "Benton",
+    "player_key": "4152",
+    "player_name": "Kyle Lowry",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 22,
+    "round": 6,
+    "manager": "Nick",
+    "player_key": "5161",
+    "player_name": "CJ McCollum",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 23,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "4890",
+    "player_name": "Kemba Walker",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 24,
+    "round": 6,
+    "manager": "Hayden",
+    "player_key": "5009",
+    "player_name": "Bradley Beal",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 25,
+    "round": 7,
+    "manager": "Hayden",
+    "player_key": "5294",
+    "player_name": "Joel Embiid",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 26,
+    "round": 7,
+    "manager": "Garrett",
+    "player_key": "5069",
+    "player_name": "Draymond Green",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 27,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "4724",
+    "player_name": "Gordon Hayward",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 28,
+    "round": 7,
+    "manager": "Benton",
+    "player_key": "4497",
+    "player_name": "DeAndre Jordan",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 29,
+    "round": 8,
+    "manager": "Benton",
+    "player_key": "5015",
+    "player_name": "Andre Drummond",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 30,
+    "round": 8,
+    "manager": "Nick",
+    "player_key": "4892",
+    "player_name": "Klay Thompson",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 31,
+    "round": 8,
+    "manager": "Garrett",
+    "player_key": "5471",
+    "player_name": "Myles Turner",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 32,
+    "round": 8,
+    "manager": "Hayden",
+    "player_key": "4561",
+    "player_name": "Blake Griffin",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 33,
+    "round": 9,
+    "manager": "Hayden",
+    "player_key": "4325",
+    "player_name": "Marc Gasol",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 34,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "4614",
+    "player_name": "DeMar DeRozan",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 35,
+    "round": 9,
+    "manager": "Nick",
+    "player_key": "4391",
+    "player_name": "Kevin Love",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 36,
+    "round": 9,
+    "manager": "Benton",
+    "player_key": "4749",
+    "player_name": "Eric Bledsoe",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 37,
+    "round": 10,
+    "manager": "Benton",
+    "player_key": "4246",
+    "player_name": "Mike Conley",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 38,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "5073",
+    "player_name": "Khris Middleton",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 39,
+    "round": 10,
+    "manager": "Garrett",
+    "player_key": "5764",
+    "player_name": "Lonzo Ball",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 40,
+    "round": 10,
+    "manager": "Hayden",
+    "player_key": "4175",
+    "player_name": "Paul Millsap",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 41,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "4507",
+    "player_name": "Goran Dragic",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 42,
+    "round": 11,
+    "manager": "Garrett",
+    "player_key": "4245",
+    "player_name": "Al Horford",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 43,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "4130",
+    "player_name": "LaMarcus Aldridge",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 44,
+    "round": 11,
+    "manager": "Benton",
+    "player_key": "4472",
+    "player_name": "Brook Lopez",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 45,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "5473",
+    "player_name": "Devin Booker",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 46,
+    "round": 12,
+    "manager": "Nick",
+    "player_key": "4610",
+    "player_name": "Ricky Rubio",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 47,
+    "round": 12,
+    "manager": "Garrett",
+    "player_key": "3860",
+    "player_name": "Trevor Ariza",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 48,
+    "round": 12,
+    "manager": "Hayden",
+    "player_key": "5433",
+    "player_name": "D'Angelo Russell",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 49,
+    "round": 13,
+    "manager": "Hayden",
+    "player_key": "5600",
+    "player_name": "Ben Simmons",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 50,
+    "round": 13,
+    "manager": "Garrett",
+    "player_key": "5154",
+    "player_name": "Otto Porter Jr.",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 51,
+    "round": 13,
+    "manager": "Nick",
+    "player_key": "3706",
+    "player_name": "Carmelo Anthony",
+    "is_keeper": false
+  },
+  {
+    "season": "2017-18",
+    "pick_number": 52,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "5292",
+    "player_name": "Andrew Wiggins",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 1,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "4563",
+    "player_name": "James Harden",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 2,
+    "round": 1,
+    "manager": "Nick",
+    "player_key": "4390",
+    "player_name": "Russell Westbrook",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 3,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "5007",
+    "player_name": "Anthony Davis",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 4,
+    "round": 1,
+    "manager": "Hayden",
+    "player_key": "3704",
+    "player_name": "LeBron James",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 5,
+    "round": 2,
+    "manager": "Hayden",
+    "player_key": "5185",
+    "player_name": "Giannis Antetokounmpo",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 6,
+    "round": 2,
+    "manager": "Benton",
+    "player_key": "5432",
+    "player_name": "Karl-Anthony Towns",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 7,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "4244",
+    "player_name": "Kevin Durant",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 8,
+    "round": 2,
+    "manager": "Garrett",
+    "player_key": "5352",
+    "player_name": "Nikola Jokic",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 9,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "4612",
+    "player_name": "Stephen Curry",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 10,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "5012",
+    "player_name": "Damian Lillard",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 11,
+    "round": 3,
+    "manager": "Benton",
+    "player_key": "5600",
+    "player_name": "Ben Simmons",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 12,
+    "round": 3,
+    "manager": "Hayden",
+    "player_key": "5015",
+    "player_name": "Andre Drummond",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 13,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "4896",
+    "player_name": "Kawhi Leonard",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 14,
+    "round": 4,
+    "manager": "Benton",
+    "player_key": "3930",
+    "player_name": "Chris Paul",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 15,
+    "round": 4,
+    "manager": "Nick",
+    "player_key": "5294",
+    "player_name": "Joel Embiid",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 16,
+    "round": 4,
+    "manager": "Nick",
+    "player_key": "4725",
+    "player_name": "Paul George",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 17,
+    "round": 5,
+    "manager": "Garrett",
+    "player_key": "4391",
+    "player_name": "Kevin Love",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 18,
+    "round": 5,
+    "manager": "Nick",
+    "player_key": "5153",
+    "player_name": "Victor Oladipo",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 19,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "4840",
+    "player_name": "Kyrie Irving",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 20,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "4152",
+    "player_name": "Kyle Lowry",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 21,
+    "round": 6,
+    "manager": "Hayden",
+    "player_key": "4716",
+    "player_name": "John Wall",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 22,
+    "round": 6,
+    "manager": "Benton",
+    "player_key": "5069",
+    "player_name": "Draymond Green",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 23,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "4890",
+    "player_name": "Kemba Walker",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 24,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "5295",
+    "player_name": "Aaron Gordon",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 25,
+    "round": 7,
+    "manager": "Garrett",
+    "player_key": "4912",
+    "player_name": "Jimmy Butler III",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 26,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "5826",
+    "player_name": "Donovan Mitchell",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 27,
+    "round": 7,
+    "manager": "Benton",
+    "player_key": "5473",
+    "player_name": "Devin Booker",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 28,
+    "round": 7,
+    "manager": "Hayden",
+    "player_key": "4497",
+    "player_name": "DeAndre Jordan",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 29,
+    "round": 8,
+    "manager": "Hayden",
+    "player_key": "5009",
+    "player_name": "Bradley Beal",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 30,
+    "round": 8,
+    "manager": "Benton",
+    "player_key": "4622",
+    "player_name": "Jrue Holiday",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 31,
+    "round": 8,
+    "manager": "Nick",
+    "player_key": "4325",
+    "player_name": "Marc Gasol",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 32,
+    "round": 8,
+    "manager": "Garrett",
+    "player_key": "5197",
+    "player_name": "Rudy Gobert",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 33,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "5073",
+    "player_name": "Khris Middleton",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 34,
+    "round": 9,
+    "manager": "Nick",
+    "player_key": "5336",
+    "player_name": "Clint Capela",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 35,
+    "round": 9,
+    "manager": "Benton",
+    "player_key": "5161",
+    "player_name": "CJ McCollum",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 36,
+    "round": 9,
+    "manager": "Hayden",
+    "player_key": "5154",
+    "player_name": "Otto Porter Jr.",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 37,
+    "round": 10,
+    "manager": "Hayden",
+    "player_key": "4561",
+    "player_name": "Blake Griffin",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 38,
+    "round": 10,
+    "manager": "Benton",
+    "player_key": "4901",
+    "player_name": "Tobias Harris",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 39,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "5764",
+    "player_name": "Lonzo Ball",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 40,
+    "round": 10,
+    "manager": "Garrett",
+    "player_key": "4614",
+    "player_name": "DeMar DeRozan",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 41,
+    "round": 11,
+    "manager": "Garrett",
+    "player_key": "4892",
+    "player_name": "Klay Thompson",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 42,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "4897",
+    "player_name": "Nikola Vucevic",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 43,
+    "round": 11,
+    "manager": "Benton",
+    "player_key": "5471",
+    "player_name": "Myles Turner",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 44,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "4749",
+    "player_name": "Eric Bledsoe",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 45,
+    "round": 12,
+    "manager": "Hayden",
+    "player_key": "4246",
+    "player_name": "Mike Conley",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 46,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "5832",
+    "player_name": "John Collins",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 47,
+    "round": 12,
+    "manager": "Nick",
+    "player_key": "4724",
+    "player_name": "Gordon Hayward",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 48,
+    "round": 12,
+    "manager": "Garrett",
+    "player_key": "4245",
+    "player_name": "Al Horford",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 49,
+    "round": 13,
+    "manager": "Garrett",
+    "player_key": "4130",
+    "player_name": "LaMarcus Aldridge",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 50,
+    "round": 13,
+    "manager": "Nick",
+    "player_key": "4564",
+    "player_name": "Tyreke Evans",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 51,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "4175",
+    "player_name": "Paul Millsap",
+    "is_keeper": false
+  },
+  {
+    "season": "2018-19",
+    "pick_number": 52,
+    "round": 13,
+    "manager": "Hayden",
+    "player_key": "5958",
+    "player_name": "Deandre Ayton",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 1,
+    "round": 1,
+    "manager": "Hayden",
+    "player_key": "5185",
+    "player_name": "Giannis Antetokounmpo",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 2,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "5007",
+    "player_name": "Anthony Davis",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 3,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "4563",
+    "player_name": "James Harden",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 4,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "5352",
+    "player_name": "Nikola Jokic",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 5,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "5432",
+    "player_name": "Karl-Anthony Towns",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 6,
+    "round": 2,
+    "manager": "Benton",
+    "player_key": "4612",
+    "player_name": "Stephen Curry",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 7,
+    "round": 2,
+    "manager": "Garrett",
+    "player_key": "3704",
+    "player_name": "LeBron James",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 8,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "5294",
+    "player_name": "Joel Embiid",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 9,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "5012",
+    "player_name": "Damian Lillard",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 10,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "4390",
+    "player_name": "Russell Westbrook",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 11,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "4725",
+    "player_name": "Paul George",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 12,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "5009",
+    "player_name": "Bradley Beal",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 13,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "4840",
+    "player_name": "Kyrie Irving",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 14,
+    "round": 4,
+    "manager": "Benton",
+    "player_key": "5015",
+    "player_name": "Andre Drummond",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 15,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "4912",
+    "player_name": "Jimmy Butler III",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 16,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "6014",
+    "player_name": "Luka Doncic",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 17,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "4897",
+    "player_name": "Nikola Vucevic",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 18,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "4896",
+    "player_name": "Kawhi Leonard",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 19,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "4622",
+    "player_name": "Jrue Holiday",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 20,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "4890",
+    "player_name": "Kemba Walker",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 21,
+    "round": 6,
+    "manager": "Benton",
+    "player_key": "5197",
+    "player_name": "Rudy Gobert",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 22,
+    "round": 6,
+    "manager": "Benton",
+    "player_key": "5600",
+    "player_name": "Ben Simmons",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 23,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "6016",
+    "player_name": "Trae Young",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 24,
+    "round": 6,
+    "manager": "Nick",
+    "player_key": "5958",
+    "player_name": "Deandre Ayton",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 25,
+    "round": 7,
+    "manager": "Hayden",
+    "player_key": "5658",
+    "player_name": "Pascal Siakam",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 26,
+    "round": 7,
+    "manager": "Garrett",
+    "player_key": "5832",
+    "player_name": "John Collins",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 27,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "5473",
+    "player_name": "Devin Booker",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 28,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "5826",
+    "player_name": "Donovan Mitchell",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 29,
+    "round": 8,
+    "manager": "Nick",
+    "player_key": "5433",
+    "player_name": "D'Angelo Russell",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 30,
+    "round": 8,
+    "manager": "Benton",
+    "player_key": "5471",
+    "player_name": "Myles Turner",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 31,
+    "round": 8,
+    "manager": "Garrett",
+    "player_key": "5073",
+    "player_name": "Khris Middleton",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 32,
+    "round": 8,
+    "manager": "Hayden",
+    "player_key": "5464",
+    "player_name": "Kristaps Porzingis",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 33,
+    "round": 9,
+    "manager": "Hayden",
+    "player_key": "5767",
+    "player_name": "De'Aaron Fox",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 34,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "5069",
+    "player_name": "Draymond Green",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 35,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "5765",
+    "player_name": "Jayson Tatum",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 36,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "5161",
+    "player_name": "CJ McCollum",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 37,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "6163",
+    "player_name": "Zion Williamson",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 38,
+    "round": 10,
+    "manager": "Benton",
+    "player_key": "3930",
+    "player_name": "Chris Paul",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 39,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "4901",
+    "player_name": "Tobias Harris",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 40,
+    "round": 10,
+    "manager": "Garrett",
+    "player_key": "5637",
+    "player_name": "Buddy Hield",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 41,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "4561",
+    "player_name": "Blake Griffin",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 42,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "5318",
+    "player_name": "Julius Randle",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 43,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "5295",
+    "player_name": "Aaron Gordon",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 44,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "5336",
+    "player_name": "Clint Capela",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 45,
+    "round": 12,
+    "manager": "Nick",
+    "player_key": "4614",
+    "player_name": "DeMar DeRozan",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 46,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "5769",
+    "player_name": "Lauri Markkanen",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 47,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "4391",
+    "player_name": "Kevin Love",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 48,
+    "round": 12,
+    "manager": "Hayden",
+    "player_key": "5827",
+    "player_name": "Bam Adebayo",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 49,
+    "round": 13,
+    "manager": "Hayden",
+    "player_key": "5476",
+    "player_name": "Terry Rozier",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 50,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "4468",
+    "player_name": "Danilo Gallinari",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 51,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "6164",
+    "player_name": "Ja Morant",
+    "is_keeper": false
+  },
+  {
+    "season": "2019-20",
+    "pick_number": 52,
+    "round": 13,
+    "manager": "Nick",
+    "player_key": "4130",
+    "player_name": "LaMarcus Aldridge",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 1,
+    "round": 1,
+    "manager": "Nick",
+    "player_key": "6014",
+    "player_name": "Luka Doncic",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 2,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "5185",
+    "player_name": "Giannis Antetokounmpo",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 3,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "5432",
+    "player_name": "Karl-Anthony Towns",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 4,
+    "round": 1,
+    "manager": "Hayden",
+    "player_key": "5352",
+    "player_name": "Nikola Jokic",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 5,
+    "round": 2,
+    "manager": "Hayden",
+    "player_key": "6016",
+    "player_name": "Trae Young",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 6,
+    "round": 2,
+    "manager": "Benton",
+    "player_key": "5007",
+    "player_name": "Anthony Davis",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 7,
+    "round": 2,
+    "manager": "Garrett",
+    "player_key": "4563",
+    "player_name": "James Harden",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 8,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "5765",
+    "player_name": "Jayson Tatum",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 9,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "5294",
+    "player_name": "Joel Embiid",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 10,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "4896",
+    "player_name": "Kawhi Leonard",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 11,
+    "round": 3,
+    "manager": "Benton",
+    "player_key": "5827",
+    "player_name": "Bam Adebayo",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 12,
+    "round": 3,
+    "manager": "Hayden",
+    "player_key": "5473",
+    "player_name": "Devin Booker",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 13,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "5012",
+    "player_name": "Damian Lillard",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 14,
+    "round": 4,
+    "manager": "Benton",
+    "player_key": "5600",
+    "player_name": "Ben Simmons",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 15,
+    "round": 4,
+    "manager": "Garrett",
+    "player_key": "5826",
+    "player_name": "Donovan Mitchell",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 16,
+    "round": 4,
+    "manager": "Nick",
+    "player_key": "5009",
+    "player_name": "Bradley Beal",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 17,
+    "round": 5,
+    "manager": "Nick",
+    "player_key": "6163",
+    "player_name": "Zion Williamson",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 18,
+    "round": 5,
+    "manager": "Garrett",
+    "player_key": "5958",
+    "player_name": "Deandre Ayton",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 19,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "6022",
+    "player_name": "Shai Gilgeous-Alexander",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 20,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "6164",
+    "player_name": "Ja Morant",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 21,
+    "round": 6,
+    "manager": "Hayden",
+    "player_key": "5324",
+    "player_name": "Zach LaVine",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 22,
+    "round": 6,
+    "manager": "Benton",
+    "player_key": "5727",
+    "player_name": "Fred VanVleet",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 23,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "5658",
+    "player_name": "Pascal Siakam",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 24,
+    "round": 6,
+    "manager": "Nick",
+    "player_key": "4612",
+    "player_name": "Stephen Curry",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 25,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "3704",
+    "player_name": "LeBron James",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 26,
+    "round": 7,
+    "manager": "Garrett",
+    "player_key": "4244",
+    "player_name": "Kevin Durant",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 27,
+    "round": 7,
+    "manager": "Benton",
+    "player_key": "4840",
+    "player_name": "Kyrie Irving",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 28,
+    "round": 7,
+    "manager": "Hayden",
+    "player_key": "4390",
+    "player_name": "Russell Westbrook",
+    "is_keeper": false
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 29,
+    "round": 8,
+    "manager": "Hayden",
+    "player_key": "5601",
+    "player_name": "Brandon Ingram",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 30,
+    "round": 8,
+    "manager": "Benton",
+    "player_key": "4725",
+    "player_name": "Paul George",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 31,
+    "round": 8,
+    "manager": "Garrett",
+    "player_key": "5642",
+    "player_name": "Domantas Sabonis",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 32,
+    "round": 8,
+    "manager": "Nick",
+    "player_key": "5832",
+    "player_name": "John Collins",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 33,
+    "round": 9,
+    "manager": "Nick",
+    "player_key": "4897",
+    "player_name": "Nikola Vucevic",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 34,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "5638",
+    "player_name": "Jamal Murray",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 35,
+    "round": 9,
+    "manager": "Benton",
+    "player_key": "5464",
+    "player_name": "Kristaps Porzingis",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 36,
+    "round": 9,
+    "manager": "Hayden",
+    "player_key": "5015",
+    "player_name": "Andre Drummond",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 37,
+    "round": 10,
+    "manager": "Hayden",
+    "player_key": "5433",
+    "player_name": "D'Angelo Russell",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 38,
+    "round": 10,
+    "manager": "Benton",
+    "player_key": "5767",
+    "player_name": "De'Aaron Fox",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 39,
+    "round": 10,
+    "manager": "Garrett",
+    "player_key": "4912",
+    "player_name": "Jimmy Butler III",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 40,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "5197",
+    "player_name": "Rudy Gobert",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 41,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "4152",
+    "player_name": "Kyle Lowry",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 42,
+    "round": 11,
+    "manager": "Garrett",
+    "player_key": "5161",
+    "player_name": "CJ McCollum",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 43,
+    "round": 11,
+    "manager": "Benton",
+    "player_key": "5327",
+    "player_name": "Jusuf Nurkic",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 44,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "5336",
+    "player_name": "Clint Capela",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 45,
+    "round": 12,
+    "manager": "Hayden",
+    "player_key": "5073",
+    "player_name": "Khris Middleton",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 46,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "5764",
+    "player_name": "Lonzo Ball",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 47,
+    "round": 12,
+    "manager": "Garrett",
+    "player_key": "5602",
+    "player_name": "Jaylen Brown",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 48,
+    "round": 12,
+    "manager": "Nick",
+    "player_key": "4901",
+    "player_name": "Tobias Harris",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 49,
+    "round": 13,
+    "manager": "Nick",
+    "player_key": "3930",
+    "player_name": "Chris Paul",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 50,
+    "round": 13,
+    "manager": "Garrett",
+    "player_key": "5583",
+    "player_name": "Christian Wood",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 51,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "4724",
+    "player_name": "Gordon Hayward",
+    "is_keeper": true
+  },
+  {
+    "season": "2020-21",
+    "pick_number": 52,
+    "round": 13,
+    "manager": "Hayden",
+    "player_key": "6025",
+    "player_name": "Michael Porter Jr.",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 1,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "4725",
+    "player_name": "Paul George",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 2,
+    "round": 1,
+    "manager": "Hayden",
+    "player_key": "5827",
+    "player_name": "Bam Adebayo",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 3,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "3704",
+    "player_name": "LeBron James",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 4,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "4912",
+    "player_name": "Jimmy Butler III",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 5,
+    "round": 2,
+    "manager": "Benton",
+    "player_key": "5767",
+    "player_name": "De'Aaron Fox",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 6,
+    "round": 2,
+    "manager": "Hayden",
+    "player_key": "5602",
+    "player_name": "Jaylen Brown",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 7,
+    "round": 2,
+    "manager": "Garrett",
+    "player_key": "5197",
+    "player_name": "Rudy Gobert",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 8,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "5073",
+    "player_name": "Khris Middleton",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 9,
+    "round": 3,
+    "manager": "Benton",
+    "player_key": "5161",
+    "player_name": "CJ McCollum",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 10,
+    "round": 3,
+    "manager": "Hayden",
+    "player_key": "5958",
+    "player_name": "Deandre Ayton",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 11,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "4840",
+    "player_name": "Kyrie Irving",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 12,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "6164",
+    "player_name": "Ja Morant",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 13,
+    "round": 4,
+    "manager": "Benton",
+    "player_key": "5464",
+    "player_name": "Kristaps Porzingis",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 14,
+    "round": 4,
+    "manager": "Garrett",
+    "player_key": "5601",
+    "player_name": "Brandon Ingram",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 15,
+    "round": 4,
+    "manager": "Garrett",
+    "player_key": "3930",
+    "player_name": "Chris Paul",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 16,
+    "round": 4,
+    "manager": "Nick",
+    "player_key": "4901",
+    "player_name": "Tobias Harris",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 17,
+    "round": 5,
+    "manager": "Nick",
+    "player_key": "5660",
+    "player_name": "Dejounte Murray",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 18,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "5473",
+    "player_name": "Devin Booker",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 19,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "5583",
+    "player_name": "Christian Wood",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 20,
+    "round": 5,
+    "manager": "Nick",
+    "player_key": "5336",
+    "player_name": "Clint Capela",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 21,
+    "round": 6,
+    "manager": "Hayden",
+    "player_key": "5832",
+    "player_name": "John Collins",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 22,
+    "round": 6,
+    "manager": "Hayden",
+    "player_key": "5600",
+    "player_name": "Ben Simmons",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 23,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "5667",
+    "player_name": "Malcolm Brogdon",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 24,
+    "round": 6,
+    "manager": "Nick",
+    "player_key": "4622",
+    "player_name": "Jrue Holiday",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 25,
+    "round": 7,
+    "manager": "Benton",
+    "player_key": "5658",
+    "player_name": "Pascal Siakam",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 26,
+    "round": 7,
+    "manager": "Hayden",
+    "player_key": "5836",
+    "player_name": "OG Anunoby",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 27,
+    "round": 7,
+    "manager": "Garrett",
+    "player_key": "4896",
+    "player_name": "Kawhi Leonard",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 28,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "6355",
+    "player_name": "Anthony Edwards",
+    "is_keeper": false
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 29,
+    "round": 8,
+    "manager": "Nick",
+    "player_key": "4897",
+    "player_name": "Nikola Vucevic",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 30,
+    "round": 8,
+    "manager": "Garrett",
+    "player_key": "5318",
+    "player_name": "Julius Randle",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 31,
+    "round": 8,
+    "manager": "Hayden",
+    "player_key": "6395",
+    "player_name": "LaMelo Ball",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 32,
+    "round": 8,
+    "manager": "Benton",
+    "player_key": "6163",
+    "player_name": "Zion Williamson",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 33,
+    "round": 9,
+    "manager": "Benton",
+    "player_key": "6025",
+    "player_name": "Michael Porter Jr.",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 34,
+    "round": 9,
+    "manager": "Hayden",
+    "player_key": "6022",
+    "player_name": "Shai Gilgeous-Alexander",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 35,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "5826",
+    "player_name": "Donovan Mitchell",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 36,
+    "round": 9,
+    "manager": "Nick",
+    "player_key": "5009",
+    "player_name": "Bradley Beal",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 37,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "5765",
+    "player_name": "Jayson Tatum",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 38,
+    "round": 10,
+    "manager": "Garrett",
+    "player_key": "5642",
+    "player_name": "Domantas Sabonis",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 39,
+    "round": 10,
+    "manager": "Hayden",
+    "player_key": "5324",
+    "player_name": "Zach LaVine",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 40,
+    "round": 10,
+    "manager": "Benton",
+    "player_key": "5007",
+    "player_name": "Anthony Davis",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 41,
+    "round": 11,
+    "manager": "Benton",
+    "player_key": "6016",
+    "player_name": "Trae Young",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 42,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "5012",
+    "player_name": "Damian Lillard",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 43,
+    "round": 11,
+    "manager": "Garrett",
+    "player_key": "4244",
+    "player_name": "Kevin Durant",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 44,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "5294",
+    "player_name": "Joel Embiid",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 45,
+    "round": 12,
+    "manager": "Nick",
+    "player_key": "4612",
+    "player_name": "Stephen Curry",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 46,
+    "round": 12,
+    "manager": "Garrett",
+    "player_key": "4563",
+    "player_name": "James Harden",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 47,
+    "round": 12,
+    "manager": "Hayden",
+    "player_key": "4390",
+    "player_name": "Russell Westbrook",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 48,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "5727",
+    "player_name": "Fred VanVleet",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 49,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "5432",
+    "player_name": "Karl-Anthony Towns",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 50,
+    "round": 13,
+    "manager": "Hayden",
+    "player_key": "5352",
+    "player_name": "Nikola Jokic",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 51,
+    "round": 13,
+    "manager": "Garrett",
+    "player_key": "5185",
+    "player_name": "Giannis Antetokounmpo",
+    "is_keeper": true
+  },
+  {
+    "season": "2021-22",
+    "pick_number": 52,
+    "round": 13,
+    "manager": "Nick",
+    "player_key": "6014",
+    "player_name": "Luka Doncic",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 1,
+    "round": 1,
+    "manager": "Hayden",
+    "player_key": "4840",
+    "player_name": "Kyrie Irving",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 2,
+    "round": 1,
+    "manager": "Nick",
+    "player_key": "4725",
+    "player_name": "Paul George",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 3,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "5473",
+    "player_name": "Devin Booker",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 4,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "6164",
+    "player_name": "Ja Morant",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 5,
+    "round": 2,
+    "manager": "Hayden",
+    "player_key": "5658",
+    "player_name": "Pascal Siakam",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 6,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "6512",
+    "player_name": "Cade Cunningham",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 7,
+    "round": 2,
+    "manager": "Garrett",
+    "player_key": "4896",
+    "player_name": "Kawhi Leonard",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 8,
+    "round": 2,
+    "manager": "Benton",
+    "player_key": "4897",
+    "player_name": "Nikola Vucevic",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 9,
+    "round": 3,
+    "manager": "Hayden",
+    "player_key": "5827",
+    "player_name": "Bam Adebayo",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 10,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "5197",
+    "player_name": "Rudy Gobert",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 11,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "4912",
+    "player_name": "Jimmy Butler III",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 12,
+    "round": 3,
+    "manager": "Benton",
+    "player_key": "3930",
+    "player_name": "Chris Paul",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 13,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "5324",
+    "player_name": "Zach LaVine",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 14,
+    "round": 4,
+    "manager": "Nick",
+    "player_key": "5009",
+    "player_name": "Bradley Beal",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 15,
+    "round": 4,
+    "manager": "Garrett",
+    "player_key": "5602",
+    "player_name": "Jaylen Brown",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 16,
+    "round": 4,
+    "manager": "Benton",
+    "player_key": "4614",
+    "player_name": "DeMar DeRozan",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 17,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "5161",
+    "player_name": "CJ McCollum",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 18,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "5767",
+    "player_name": "De'Aaron Fox",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 19,
+    "round": 5,
+    "manager": "Garrett",
+    "player_key": "4622",
+    "player_name": "Jrue Holiday",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 20,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "5318",
+    "player_name": "Julius Randle",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 21,
+    "round": 6,
+    "manager": "Hayden",
+    "player_key": "6515",
+    "player_name": "Scottie Barnes",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 22,
+    "round": 6,
+    "manager": "Nick",
+    "player_key": "6422",
+    "player_name": "Desmond Bane",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 23,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "5464",
+    "player_name": "Kristaps Porzingis",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 24,
+    "round": 6,
+    "manager": "Benton",
+    "player_key": "5958",
+    "player_name": "Deandre Ayton",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 25,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "5476",
+    "player_name": "Terry Rozier",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 26,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "5073",
+    "player_name": "Khris Middleton",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 27,
+    "round": 7,
+    "manager": "Garrett",
+    "player_key": "6691",
+    "player_name": "Paolo Banchero",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 28,
+    "round": 7,
+    "manager": "Benton",
+    "player_key": "6025",
+    "player_name": "Michael Porter Jr.",
+    "is_keeper": false
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 29,
+    "round": 8,
+    "manager": "Hayden",
+    "player_key": "5352",
+    "player_name": "Nikola Jokic",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 30,
+    "round": 8,
+    "manager": "Nick",
+    "player_key": "5294",
+    "player_name": "Joel Embiid",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 31,
+    "round": 8,
+    "manager": "Garrett",
+    "player_key": "4244",
+    "player_name": "Kevin Durant",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 32,
+    "round": 8,
+    "manager": "Benton",
+    "player_key": "5765",
+    "player_name": "Jayson Tatum",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 33,
+    "round": 9,
+    "manager": "Hayden",
+    "player_key": "6395",
+    "player_name": "LaMelo Ball",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 34,
+    "round": 9,
+    "manager": "Nick",
+    "player_key": "6014",
+    "player_name": "Luka Doncic",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 35,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "5185",
+    "player_name": "Giannis Antetokounmpo",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 36,
+    "round": 9,
+    "manager": "Benton",
+    "player_key": "5432",
+    "player_name": "Karl-Anthony Towns",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 37,
+    "round": 10,
+    "manager": "Hayden",
+    "player_key": "6404",
+    "player_name": "Tyrese Haliburton",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 38,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "4612",
+    "player_name": "Stephen Curry",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 39,
+    "round": 10,
+    "manager": "Garrett",
+    "player_key": "4563",
+    "player_name": "James Harden",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 40,
+    "round": 10,
+    "manager": "Benton",
+    "player_key": "6016",
+    "player_name": "Trae Young",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 41,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "6163",
+    "player_name": "Zion Williamson",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 42,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "5007",
+    "player_name": "Anthony Davis",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 43,
+    "round": 11,
+    "manager": "Garrett",
+    "player_key": "3704",
+    "player_name": "LeBron James",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 44,
+    "round": 11,
+    "manager": "Benton",
+    "player_key": "5727",
+    "player_name": "Fred VanVleet",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 45,
+    "round": 12,
+    "manager": "Hayden",
+    "player_key": "6514",
+    "player_name": "Evan Mobley",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 46,
+    "round": 12,
+    "manager": "Nick",
+    "player_key": "5012",
+    "player_name": "Damian Lillard",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 47,
+    "round": 12,
+    "manager": "Garrett",
+    "player_key": "5642",
+    "player_name": "Domantas Sabonis",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 48,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "5660",
+    "player_name": "Dejounte Murray",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 49,
+    "round": 13,
+    "manager": "Hayden",
+    "player_key": "6022",
+    "player_name": "Shai Gilgeous-Alexander",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 50,
+    "round": 13,
+    "manager": "Nick",
+    "player_key": "6355",
+    "player_name": "Anthony Edwards",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 51,
+    "round": 13,
+    "manager": "Garrett",
+    "player_key": "5826",
+    "player_name": "Donovan Mitchell",
+    "is_keeper": true
+  },
+  {
+    "season": "2022-23",
+    "pick_number": 52,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "6167",
+    "player_name": "Darius Garland",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 1,
+    "round": 1,
+    "manager": "Nick",
+    "player_key": "6021",
+    "player_name": "Mikal Bridges",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 2,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "6015",
+    "player_name": "Jaren Jackson Jr.",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 3,
+    "round": 1,
+    "manager": "Hayden",
+    "player_key": "5658",
+    "player_name": "Pascal Siakam",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 4,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "5769",
+    "player_name": "Lauri Markkanen",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 5,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "5827",
+    "player_name": "Bam Adebayo",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 6,
+    "round": 2,
+    "manager": "Garrett",
+    "player_key": "4725",
+    "player_name": "Paul George",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 7,
+    "round": 2,
+    "manager": "Hayden",
+    "player_key": "3704",
+    "player_name": "LeBron James",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 8,
+    "round": 2,
+    "manager": "Benton",
+    "player_key": "5464",
+    "player_name": "Kristaps Porzingis",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 9,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "6167",
+    "player_name": "Darius Garland",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 10,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "10094",
+    "player_name": "Victor Wembanyama",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 11,
+    "round": 3,
+    "manager": "Hayden",
+    "player_key": "6512",
+    "player_name": "Cade Cunningham",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 12,
+    "round": 3,
+    "manager": "Benton",
+    "player_key": "5660",
+    "player_name": "Dejounte Murray",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 13,
+    "round": 4,
+    "manager": "Nick",
+    "player_key": "5638",
+    "player_name": "Jamal Murray",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 14,
+    "round": 4,
+    "manager": "Garrett",
+    "player_key": "6044",
+    "player_name": "Jalen Brunson",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 15,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "4622",
+    "player_name": "Jrue Holiday",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 16,
+    "round": 4,
+    "manager": "Benton",
+    "player_key": "5324",
+    "player_name": "Zach LaVine",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 17,
+    "round": 5,
+    "manager": "Nick",
+    "player_key": "6515",
+    "player_name": "Scottie Barnes",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 18,
+    "round": 5,
+    "manager": "Garrett",
+    "player_key": "5601",
+    "player_name": "Brandon Ingram",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 19,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "6558",
+    "player_name": "Alperen Sengun",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 20,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "6548",
+    "player_name": "Josh Giddey",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 21,
+    "round": 6,
+    "manager": "Nick",
+    "player_key": "4897",
+    "player_name": "Nikola Vucevic",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 22,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "5009",
+    "player_name": "Bradley Beal",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 23,
+    "round": 6,
+    "manager": "Hayden",
+    "player_key": "5840",
+    "player_name": "Kyle Kuzma",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 24,
+    "round": 6,
+    "manager": "Benton",
+    "player_key": "10048",
+    "player_name": "Scoot Henderson",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 25,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "6035",
+    "player_name": "Anfernee Simons",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 26,
+    "round": 7,
+    "manager": "Garrett",
+    "player_key": "5602",
+    "player_name": "Jaylen Brown",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 27,
+    "round": 7,
+    "manager": "Hayden",
+    "player_key": "4912",
+    "player_name": "Jimmy Butler III",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 28,
+    "round": 7,
+    "manager": "Benton",
+    "player_key": "6219",
+    "player_name": "Nic Claxton",
+    "is_keeper": false
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 29,
+    "round": 8,
+    "manager": "Nick",
+    "player_key": "6014",
+    "player_name": "Luka Doncic",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 30,
+    "round": 8,
+    "manager": "Garrett",
+    "player_key": "5185",
+    "player_name": "Giannis Antetokounmpo",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 31,
+    "round": 8,
+    "manager": "Hayden",
+    "player_key": "5352",
+    "player_name": "Nikola Jokic",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 32,
+    "round": 8,
+    "manager": "Benton",
+    "player_key": "5765",
+    "player_name": "Jayson Tatum",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 33,
+    "round": 9,
+    "manager": "Nick",
+    "player_key": "5294",
+    "player_name": "Joel Embiid",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 34,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "4244",
+    "player_name": "Kevin Durant",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 35,
+    "round": 9,
+    "manager": "Hayden",
+    "player_key": "6022",
+    "player_name": "Shai Gilgeous-Alexander",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 36,
+    "round": 9,
+    "manager": "Benton",
+    "player_key": "6016",
+    "player_name": "Trae Young",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 37,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "4612",
+    "player_name": "Stephen Curry",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 38,
+    "round": 10,
+    "manager": "Garrett",
+    "player_key": "5642",
+    "player_name": "Domantas Sabonis",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 39,
+    "round": 10,
+    "manager": "Hayden",
+    "player_key": "6404",
+    "player_name": "Tyrese Haliburton",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 40,
+    "round": 10,
+    "manager": "Benton",
+    "player_key": "6422",
+    "player_name": "Desmond Bane",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 41,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "5012",
+    "player_name": "Damian Lillard",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 42,
+    "round": 11,
+    "manager": "Garrett",
+    "player_key": "5473",
+    "player_name": "Devin Booker",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 43,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "4840",
+    "player_name": "Kyrie Irving",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 44,
+    "round": 11,
+    "manager": "Benton",
+    "player_key": "5727",
+    "player_name": "Fred VanVleet",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 45,
+    "round": 12,
+    "manager": "Nick",
+    "player_key": "5007",
+    "player_name": "Anthony Davis",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 46,
+    "round": 12,
+    "manager": "Garrett",
+    "player_key": "5826",
+    "player_name": "Donovan Mitchell",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 47,
+    "round": 12,
+    "manager": "Hayden",
+    "player_key": "6395",
+    "player_name": "LaMelo Ball",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 48,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "5432",
+    "player_name": "Karl-Anthony Towns",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 49,
+    "round": 13,
+    "manager": "Nick",
+    "player_key": "6355",
+    "player_name": "Anthony Edwards",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 50,
+    "round": 13,
+    "manager": "Garrett",
+    "player_key": "4563",
+    "player_name": "James Harden",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 51,
+    "round": 13,
+    "manager": "Hayden",
+    "player_key": "5767",
+    "player_name": "De'Aaron Fox",
+    "is_keeper": true
+  },
+  {
+    "season": "2023-24",
+    "pick_number": 52,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "5318",
+    "player_name": "Julius Randle",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 1,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "4563",
+    "player_name": "James Harden",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 2,
+    "round": 1,
+    "manager": "Garrett",
+    "player_key": "5432",
+    "player_name": "Karl-Anthony Towns",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 3,
+    "round": 1,
+    "manager": "Hayden",
+    "player_key": "6691",
+    "player_name": "Paolo Banchero",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 4,
+    "round": 1,
+    "manager": "Benton",
+    "player_key": "4244",
+    "player_name": "Kevin Durant",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 5,
+    "round": 2,
+    "manager": "Benton",
+    "player_key": "6512",
+    "player_name": "Cade Cunningham",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 6,
+    "round": 2,
+    "manager": "Garrett",
+    "player_key": "3704",
+    "player_name": "LeBron James",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 7,
+    "round": 2,
+    "manager": "Hayden",
+    "player_key": "6702",
+    "player_name": "Jalen Williams",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 8,
+    "round": 2,
+    "manager": "Nick",
+    "player_key": "5012",
+    "player_name": "Damian Lillard",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 9,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "5727",
+    "player_name": "Fred VanVleet",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 10,
+    "round": 3,
+    "manager": "Garrett",
+    "player_key": "6164",
+    "player_name": "Ja Morant",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 11,
+    "round": 3,
+    "manager": "Hayden",
+    "player_key": "4840",
+    "player_name": "Kyrie Irving",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 12,
+    "round": 3,
+    "manager": "Nick",
+    "player_key": "4897",
+    "player_name": "Nikola Vucevic",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 13,
+    "round": 4,
+    "manager": "Benton",
+    "player_key": "6422",
+    "player_name": "Desmond Bane",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 14,
+    "round": 4,
+    "manager": "Garrett",
+    "player_key": "4725",
+    "player_name": "Paul George",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 15,
+    "round": 4,
+    "manager": "Hayden",
+    "player_key": "6562",
+    "player_name": "Jalen Johnson",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 16,
+    "round": 4,
+    "manager": "Nick",
+    "player_key": "6021",
+    "player_name": "Mikal Bridges",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 17,
+    "round": 5,
+    "manager": "Benton",
+    "player_key": "6514",
+    "player_name": "Evan Mobley",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 18,
+    "round": 5,
+    "manager": "Garrett",
+    "player_key": "5638",
+    "player_name": "Jamal Murray",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 19,
+    "round": 5,
+    "manager": "Hayden",
+    "player_key": "6550",
+    "player_name": "Franz Wagner",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 20,
+    "round": 5,
+    "manager": "Nick",
+    "player_key": "6025",
+    "player_name": "Michael Porter Jr.",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 21,
+    "round": 6,
+    "manager": "Benton",
+    "player_key": "5827",
+    "player_name": "Bam Adebayo",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 22,
+    "round": 6,
+    "manager": "Garrett",
+    "player_key": "6023",
+    "player_name": "Miles Bridges",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 23,
+    "round": 6,
+    "manager": "Hayden",
+    "player_key": "6015",
+    "player_name": "Jaren Jackson Jr.",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 24,
+    "round": 6,
+    "manager": "Nick",
+    "player_key": "5197",
+    "player_name": "Rudy Gobert",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 25,
+    "round": 7,
+    "manager": "Benton",
+    "player_key": "5602",
+    "player_name": "Jaylen Brown",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 26,
+    "round": 7,
+    "manager": "Garrett",
+    "player_key": "6035",
+    "player_name": "Anfernee Simons",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 27,
+    "round": 7,
+    "manager": "Hayden",
+    "player_key": "6417",
+    "player_name": "Immanuel Quickley",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 28,
+    "round": 7,
+    "manager": "Nick",
+    "player_key": "6693",
+    "player_name": "Jabari Smith Jr.",
+    "is_keeper": false
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 29,
+    "round": 8,
+    "manager": "Benton",
+    "player_key": "5660",
+    "player_name": "Dejounte Murray",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 30,
+    "round": 8,
+    "manager": "Garrett",
+    "player_key": "6044",
+    "player_name": "Jalen Brunson",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 31,
+    "round": 8,
+    "manager": "Hayden",
+    "player_key": "6558",
+    "player_name": "Alperen Sengun",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 32,
+    "round": 8,
+    "manager": "Nick",
+    "player_key": "6692",
+    "player_name": "Chet Holmgren",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 33,
+    "round": 9,
+    "manager": "Benton",
+    "player_key": "5769",
+    "player_name": "Lauri Markkanen",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 34,
+    "round": 9,
+    "manager": "Garrett",
+    "player_key": "5642",
+    "player_name": "Domantas Sabonis",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 35,
+    "round": 9,
+    "manager": "Hayden",
+    "player_key": "5767",
+    "player_name": "De'Aaron Fox",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 36,
+    "round": 9,
+    "manager": "Nick",
+    "player_key": "6515",
+    "player_name": "Scottie Barnes",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 37,
+    "round": 10,
+    "manager": "Benton",
+    "player_key": "6413",
+    "player_name": "Tyrese Maxey",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 38,
+    "round": 10,
+    "manager": "Garrett",
+    "player_key": "5473",
+    "player_name": "Devin Booker",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 39,
+    "round": 10,
+    "manager": "Hayden",
+    "player_key": "6395",
+    "player_name": "LaMelo Ball",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 40,
+    "round": 10,
+    "manager": "Nick",
+    "player_key": "5294",
+    "player_name": "Joel Embiid",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 41,
+    "round": 11,
+    "manager": "Benton",
+    "player_key": "4612",
+    "player_name": "Stephen Curry",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 42,
+    "round": 11,
+    "manager": "Garrett",
+    "player_key": "5826",
+    "player_name": "Donovan Mitchell",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 43,
+    "round": 11,
+    "manager": "Hayden",
+    "player_key": "6404",
+    "player_name": "Tyrese Haliburton",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 44,
+    "round": 11,
+    "manager": "Nick",
+    "player_key": "6355",
+    "player_name": "Anthony Edwards",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 45,
+    "round": 12,
+    "manager": "Benton",
+    "player_key": "6016",
+    "player_name": "Trae Young",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 46,
+    "round": 12,
+    "manager": "Garrett",
+    "player_key": "5185",
+    "player_name": "Giannis Antetokounmpo",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 47,
+    "round": 12,
+    "manager": "Hayden",
+    "player_key": "6022",
+    "player_name": "Shai Gilgeous-Alexander",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 48,
+    "round": 12,
+    "manager": "Nick",
+    "player_key": "5007",
+    "player_name": "Anthony Davis",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 49,
+    "round": 13,
+    "manager": "Benton",
+    "player_key": "5765",
+    "player_name": "Jayson Tatum",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 50,
+    "round": 13,
+    "manager": "Garrett",
+    "player_key": "10094",
+    "player_name": "Victor Wembanyama",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 51,
+    "round": 13,
+    "manager": "Hayden",
+    "player_key": "5352",
+    "player_name": "Nikola Jokic",
+    "is_keeper": true
+  },
+  {
+    "season": "2024-25",
+    "pick_number": 52,
+    "round": 13,
+    "manager": "Nick",
+    "player_key": "6014",
+    "player_name": "Luka Doncic",
+    "is_keeper": true
+  }
+]

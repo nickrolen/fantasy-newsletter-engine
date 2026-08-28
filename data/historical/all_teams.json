@@ -1,0 +1,146 @@
+{
+  "2017-18": {
+    "375.l.132631.t.5": {
+      "manager": "Benton",
+      "team_name": "The Austin River"
+    },
+    "375.l.132631.t.2": {
+      "manager": "Hayden",
+      "team_name": "The G league"
+    },
+    "375.l.132631.t.1": {
+      "manager": "Nick",
+      "team_name": "DAME TIME"
+    },
+    "375.l.132631.t.6": {
+      "manager": "Garrett",
+      "team_name": "Big Ballers"
+    }
+  },
+  "2018-19": {
+    "385.l.90986.t.1": {
+      "manager": "Nick",
+      "team_name": "Russell Eastbrook"
+    },
+    "385.l.90986.t.3": {
+      "manager": "Benton",
+      "team_name": "The Austin River"
+    },
+    "385.l.90986.t.2": {
+      "manager": "Hayden",
+      "team_name": "The G league"
+    },
+    "385.l.90986.t.4": {
+      "manager": "Garrett",
+      "team_name": "Art of the Beal"
+    }
+  },
+  "2019-20": {
+    "395.l.98181.t.2": {
+      "manager": "Hayden",
+      "team_name": "Kawhi Me a River"
+    },
+    "395.l.98181.t.3": {
+      "manager": "Benton",
+      "team_name": "The Austin River"
+    },
+    "395.l.98181.t.4": {
+      "manager": "Garrett",
+      "team_name": "Art of the Beal"
+    },
+    "395.l.98181.t.1": {
+      "manager": "Nick",
+      "team_name": "The Bad Boys"
+    }
+  },
+  "2020-21": {
+    "402.l.120068.t.2": {
+      "manager": "Hayden",
+      "team_name": "Wet Like I'm Book"
+    },
+    "402.l.120068.t.1": {
+      "manager": "Nick",
+      "team_name": "The Bad Boys"
+    },
+    "402.l.120068.t.4": {
+      "manager": "Garrett",
+      "team_name": "2011 Giannissan Leaf"
+    },
+    "402.l.120068.t.3": {
+      "manager": "Benton",
+      "team_name": "Wood"
+    }
+  },
+  "2021-22": {
+    "410.l.22742.t.4": {
+      "manager": "Benton",
+      "team_name": "Serge I-Block-Ya"
+    },
+    "410.l.22742.t.2": {
+      "manager": "Garrett",
+      "team_name": "2012 Giannissan Leaf"
+    },
+    "410.l.22742.t.3": {
+      "manager": "Hayden",
+      "team_name": "Big Nik Energy"
+    },
+    "410.l.22742.t.1": {
+      "manager": "Nick",
+      "team_name": "The Bad Boys"
+    }
+  },
+  "2022-23": {
+    "418.l.78463.t.3": {
+      "manager": "Hayden",
+      "team_name": "Big Nik Energy"
+    },
+    "418.l.78463.t.4": {
+      "manager": "Benton",
+      "team_name": "Serge I-Block-Ya"
+    },
+    "418.l.78463.t.2": {
+      "manager": "Garrett",
+      "team_name": "Jimmy Gutler"
+    },
+    "418.l.78463.t.1": {
+      "manager": "Nick",
+      "team_name": "Luka my Balls"
+    }
+  },
+  "2023-24": {
+    "428.l.83508.t.2": {
+      "manager": "Garrett",
+      "team_name": "Saboner"
+    },
+    "428.l.83508.t.1": {
+      "manager": "Nick",
+      "team_name": "Luka my Balls"
+    },
+    "428.l.83508.t.3": {
+      "manager": "Hayden",
+      "team_name": "Big Nik Energy"
+    },
+    "428.l.83508.t.4": {
+      "manager": "Benton",
+      "team_name": "Serge I-Cock-Ya"
+    }
+  },
+  "2024-25": {
+    "454.l.100725.t.1": {
+      "manager": "Nick",
+      "team_name": "Luka my Balls"
+    },
+    "454.l.100725.t.3": {
+      "manager": "Hayden",
+      "team_name": "Big Nik Energy"
+    },
+    "454.l.100725.t.2": {
+      "manager": "Garrett",
+      "team_name": "Saboner"
+    },
+    "454.l.100725.t.4": {
+      "manager": "Benton",
+      "team_name": "Serge I-Cock-Ya"
+    }
+  }
+}

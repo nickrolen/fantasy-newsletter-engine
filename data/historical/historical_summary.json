@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-01-12T17:17:37.698528",
+  "seasons_processed": [
+    "2017-18",
+    "2018-19",
+    "2019-20",
+    "2020-21",
+    "2021-22",
+    "2022-23",
+    "2023-24",
+    "2024-25"
+  ],
+  "total_matchups": 348,
+  "total_trades": 32,
+  "total_draft_picks": 416,
+  "all_time_biggest_blowout": {
+    "season": "2020-21",
+    "week": 11,
+    "manager_a": "Benton",
+    "manager_b": "Garrett",
+    "score_a": 1366.6,
+    "score_b": 2129.8,
+    "winner": "Garrett",
+    "loser": "Benton",
+    "margin": 763.2000000000003
+  },
+  "all_time_closest_game": {
+    "season": "2020-21",
+    "week": 2,
+    "manager_a": "Benton",
+    "manager_b": "Garrett",
+    "score_a": 1575.2,
+    "score_b": 1575.6,
+    "winner": "Garrett",
+    "loser": "Benton",
+    "margin": 0.3999999999998636
+  },
+  "all_time_highest_weekly_score": {
+    "score": 2773.1,
+    "manager": "Nick",
+    "season": "2024-25",
+    "week": 7
+  },
+  "notes": "Historical data (2017-18 through 2024-25). Current season (2025-26) tracked in RECORDS.json. Standings computed from matchups."
+}

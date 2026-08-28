@@ -1,0 +1,290 @@
+[
+  {
+    "season": "2017-18",
+    "manager": "Benton",
+    "rank": 1,
+    "wins": 16,
+    "losses": 7,
+    "ties": 0,
+    "points_for": 34524.8
+  },
+  {
+    "season": "2017-18",
+    "manager": "Nick",
+    "rank": 2,
+    "wins": 13,
+    "losses": 10,
+    "ties": 0,
+    "points_for": 31944.3
+  },
+  {
+    "season": "2017-18",
+    "manager": "Hayden",
+    "rank": 3,
+    "wins": 11,
+    "losses": 12,
+    "ties": 0,
+    "points_for": 32548.9
+  },
+  {
+    "season": "2017-18",
+    "manager": "Garrett",
+    "rank": 4,
+    "wins": 6,
+    "losses": 17,
+    "ties": 0,
+    "points_for": 29869.7
+  },
+  {
+    "season": "2018-19",
+    "manager": "Nick",
+    "rank": 1,
+    "wins": 15,
+    "losses": 8,
+    "ties": 0,
+    "points_for": 36587.15
+  },
+  {
+    "season": "2018-19",
+    "manager": "Benton",
+    "rank": 2,
+    "wins": 14,
+    "losses": 9,
+    "ties": 0,
+    "points_for": 36534.65
+  },
+  {
+    "season": "2018-19",
+    "manager": "Garrett",
+    "rank": 3,
+    "wins": 9,
+    "losses": 14,
+    "ties": 0,
+    "points_for": 34242.1
+  },
+  {
+    "season": "2018-19",
+    "manager": "Hayden",
+    "rank": 4,
+    "wins": 8,
+    "losses": 15,
+    "ties": 0,
+    "points_for": 33978.05
+  },
+  {
+    "season": "2019-20",
+    "manager": "Hayden",
+    "rank": 1,
+    "wins": 12,
+    "losses": 7,
+    "ties": 0,
+    "points_for": 29151.25
+  },
+  {
+    "season": "2019-20",
+    "manager": "Benton",
+    "rank": 2,
+    "wins": 10,
+    "losses": 9,
+    "ties": 0,
+    "points_for": 28343.2
+  },
+  {
+    "season": "2019-20",
+    "manager": "Garrett",
+    "rank": 3,
+    "wins": 9,
+    "losses": 10,
+    "ties": 0,
+    "points_for": 27506.75
+  },
+  {
+    "season": "2019-20",
+    "manager": "Nick",
+    "rank": 4,
+    "wins": 7,
+    "losses": 12,
+    "ties": 0,
+    "points_for": 27344.6
+  },
+  {
+    "season": "2020-21",
+    "manager": "Nick",
+    "rank": 1,
+    "wins": 14,
+    "losses": 4,
+    "ties": 0,
+    "points_for": 31346.75
+  },
+  {
+    "season": "2020-21",
+    "manager": "Hayden",
+    "rank": 2,
+    "wins": 11,
+    "losses": 7,
+    "ties": 0,
+    "points_for": 29873.6
+  },
+  {
+    "season": "2020-21",
+    "manager": "Garrett",
+    "rank": 3,
+    "wins": 11,
+    "losses": 7,
+    "ties": 0,
+    "points_for": 29209.55
+  },
+  {
+    "season": "2020-21",
+    "manager": "Benton",
+    "rank": 4,
+    "wins": 0,
+    "losses": 18,
+    "ties": 0,
+    "points_for": 25900.9
+  },
+  {
+    "season": "2021-22",
+    "manager": "Benton",
+    "rank": 1,
+    "wins": 15,
+    "losses": 7,
+    "ties": 0,
+    "points_for": 34164.2
+  },
+  {
+    "season": "2021-22",
+    "manager": "Garrett",
+    "rank": 2,
+    "wins": 11,
+    "losses": 11,
+    "ties": 0,
+    "points_for": 31599.75
+  },
+  {
+    "season": "2021-22",
+    "manager": "Nick",
+    "rank": 3,
+    "wins": 10,
+    "losses": 12,
+    "ties": 0,
+    "points_for": 33955.1
+  },
+  {
+    "season": "2021-22",
+    "manager": "Hayden",
+    "rank": 4,
+    "wins": 8,
+    "losses": 14,
+    "ties": 0,
+    "points_for": 31339.05
+  },
+  {
+    "season": "2022-23",
+    "manager": "Hayden",
+    "rank": 1,
+    "wins": 18,
+    "losses": 5,
+    "ties": 0,
+    "points_for": 37483.15
+  },
+  {
+    "season": "2022-23",
+    "manager": "Benton",
+    "rank": 2,
+    "wins": 10,
+    "losses": 13,
+    "ties": 0,
+    "points_for": 33947.45
+  },
+  {
+    "season": "2022-23",
+    "manager": "Nick",
+    "rank": 3,
+    "wins": 9,
+    "losses": 14,
+    "ties": 0,
+    "points_for": 34925.1
+  },
+  {
+    "season": "2022-23",
+    "manager": "Garrett",
+    "rank": 4,
+    "wins": 9,
+    "losses": 14,
+    "ties": 0,
+    "points_for": 34145.55
+  },
+  {
+    "season": "2023-24",
+    "manager": "Nick",
+    "rank": 1,
+    "wins": 16,
+    "losses": 7,
+    "ties": 0,
+    "points_for": 39818.6
+  },
+  {
+    "season": "2023-24",
+    "manager": "Hayden",
+    "rank": 2,
+    "wins": 13,
+    "losses": 10,
+    "ties": 0,
+    "points_for": 39053.0
+  },
+  {
+    "season": "2023-24",
+    "manager": "Garrett",
+    "rank": 3,
+    "wins": 13,
+    "losses": 10,
+    "ties": 0,
+    "points_for": 38955.85
+  },
+  {
+    "season": "2023-24",
+    "manager": "Benton",
+    "rank": 4,
+    "wins": 4,
+    "losses": 19,
+    "ties": 0,
+    "points_for": 35748.55
+  },
+  {
+    "season": "2024-25",
+    "manager": "Nick",
+    "rank": 1,
+    "wins": 19,
+    "losses": 4,
+    "ties": 0,
+    "points_for": 40510.05
+  },
+  {
+    "season": "2024-25",
+    "manager": "Hayden",
+    "rank": 2,
+    "wins": 15,
+    "losses": 8,
+    "ties": 0,
+    "points_for": 40479.7
+  },
+  {
+    "season": "2024-25",
+    "manager": "Garrett",
+    "rank": 3,
+    "wins": 6,
+    "losses": 17,
+    "ties": 0,
+    "points_for": 37769.15
+  },
+  {
+    "season": "2024-25",
+    "manager": "Benton",
+    "rank": 4,
+    "wins": 6,
+    "losses": 17,
+    "ties": 0,
+    "points_for": 37013.75
+  }
+]

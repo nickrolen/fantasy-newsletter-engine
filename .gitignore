@@ -68,8 +68,9 @@ oauth2_backup.json
 private.json
 
 # --------------------------------------------
-# Output Files (Generated) -- keep one sample newsletter (output/WEEK21_NEWSLETTER.html)
-# referenced by the README; everything else is regenerable.
+# Output Files (Generated) -- the six sample newsletters in output/ are tracked
+# on purpose: index.html links all of them as the GitHub Pages showcase, and
+# the README points at WEEK21. Reports, drafts and previews are regenerable.
 # --------------------------------------------
 output/stats_report_week*.json
 output/stats_report_week*.md
@@ -107,17 +108,16 @@ config/RECORDS.json
 config/.file_baselines.json
 
 # --------------------------------------------
-# Historical Data (Can be regenerated)
+# Historical Data -- TRACKED ON PURPOSE
 # --------------------------------------------
-data/historical/all_matchups.json
-data/historical/all_standings.json
-data/historical/all_trades.json
-data/historical/all_drafts.json
-data/historical/all_teams.json
-data/historical/historical_summary.json
-
-# Large historical data file (regenerable; uncomment to keep repo lightweight)
-data/historical/HISTORICAL_PLAYERLOG.json
+# data/historical/ is the permanent, append-only record: nine-plus seasons of
+# standings, matchups, drafts, trades, and per-game player logs. It is NOT
+# regenerable in practice -- Yahoo's API is the only upstream source, old
+# league keys go stale, and the season reset truncates the working PLAYERLOG.
+# These files are committed so the record has offsite, versioned backup.
+# Do not re-ignore them without arranging another backup first.
+#
+# (Rolling backups are still ignored -- see "Large backup files" below.)
 
 # --------------------------------------------
 # Keep These in Repo (Templates/Config)
@@ -137,6 +137,8 @@ data/historical/HISTORICAL_PLAYERLOG.json
 *.temp
 *.cache
 .cache/
+.pytest_cache/
+pytest-cache-files-*/
 
 # --------------------------------------------
 # Jupyter Notebooks (if any)
