@@ -31,19 +31,38 @@ before the draft happens.
 Verified against the working tree:
 
 - [x] 2025-26 season is complete -- outputs run through Week 23 (playoffs end at Week 23 per `league_config.json`)
-- [ ] **2025-26 is NOT in the historical record.** `all_standings.json`, `all_matchups.json`, `all_drafts.json`, `all_trades.json`, and `HISTORICAL_PLAYERLOG.json` all stop at **2024-25**
+- [x] Phase 0 housekeeping done -- see below
+- [ ] **2025-26 is NOT in the historical record.** `all_standings.json`, `all_matchups.json`, `all_drafts.json`, `all_trades.json`, and `HISTORICAL_PLAYERLOG.json` all stop at **2024-25**. *This is by design* -- the current season is deliberately kept out of the historical files and rolled in between seasons. That roll-in is Phase 1.
 - [ ] Season reset has not been run -- no `archive/` folder; `output/`, `config/snapshots/`, `data/waivers_week*.txt` still hold 2025-26 artifacts
 - [ ] `league_config.json` still says `season.current = "2025-26"`
-- [ ] Integrity check fails 9 checks -- all stale baseline entries for a deleted `_recovery/` folder (see Phase 0)
-- [ ] `data/backtest/backtest_summary.json` is untracked in git
 
 Nothing here is broken. It is just a season that was never formally closed out.
 
 ---
 
-## Phase 0 -- Clear the Decks (this week, Aug 31 - Sep 4)
+## Phase 0 -- Clear the Decks  [DONE Aug 28, 2026]
 
-Do this before touching anything else, so later checks are trustworthy.
+Done before anything else, so later checks are trustworthy.
+
+**What was done:**
+
+- Cleared a stale `.git/index.lock` that was blocking all git writes
+- Deleted build cruft: `__pycache__` (root/modules/scripts, holding stale
+  `.pyc` for both Python 3.10 and 3.14), `.pytest_cache`, an empty stray
+  `pytest-cache-files-*` dir, and `_backups/` (7 module copies git already has)
+- Deleted `data/historical/HISTORICAL_PLAYERLOG_BACKUP.json` (25MB stale
+  pre-enrichment copy; `enrich_historical_playerlog.py` regenerates it)
+- **Un-ignored `data/historical/*.json` and committed it.** Nine seasons of
+  records now have offsite, versioned backup instead of living on one disk
+- Fixed two stale `.gitignore` comments and added pytest cache patterns
+- Rebuilt the integrity baseline from a clean tree
+
+**Result:** 74MB -> 48MB on disk. Integrity check 6/6 including golden master,
+0 warnings / 0 failures. 59 tests pass. Working tree clean.
+
+The original instructions are kept below for next season.
+
+---
 
 ### 0.1 Refresh the integrity baseline
 
@@ -339,7 +358,9 @@ Watch these in the Week 1 draft rather than assuming a bug.
 Everything else can slip. These cannot:
 
 1. **LEAGUEHISTORY + HISTORICAL_PLAYERLOG rollup before the reset** -- the only
-   genuinely irreversible step in the whole sequence
+   genuinely irreversible step in the whole sequence. (As of Phase 0 the
+   historical files are committed to git, so a bad rollup is now recoverable
+   with `git checkout` -- commit before and after the append.)
 2. **Yahoo league created + league key in config** -- blocks all of Phase 3
 3. **Yahoo OAuth working** -- blocks the draft pull on draft night
 4. **`SCHEDULE.json` for 2026-27** -- blocks every weekly run
