@@ -124,7 +124,13 @@ The following require manual action. The script prints this checklist at the end
 Phase 2 truncates `PLAYERLOG.xlsx` and `LINEUPS.xlsx` to header-only. The archive copies them, but the *permanent* historical record lives elsewhere and must be updated by hand first:
 
 1. **Roll into permanent history:**
-   - Append PLAYERLOG data to `data/historical/HISTORICAL_PLAYERLOG.json`
+   - Append PLAYERLOG data to `data/historical/HISTORICAL_PLAYERLOG.json`:
+     ```
+     py scripts/rollup_season_to_history.py             # preview
+     py scripts/rollup_season_to_history.py --execute
+     ```
+     Dry-run by default; backs up, verifies, and refuses to append a season
+     that is already present.
    - Append final standings to `data/historical/all_standings.json`
    - Update `data/LEAGUEHISTORY.xlsx` with final records/titles
 

@@ -188,15 +188,24 @@ So split the rollup in two:
    trusting the ledger.
 
 2. Append 2025-26 rows from `data\PLAYERLOG.xlsx` into
-   `data\historical\HISTORICAL_PLAYERLOG.json`.
-   **There is no script for this.** Every script that touches that file only
-   reads it (`build_rookie_seasons.py`, `backfill_player_records.py`,
-   `extract_draft_fppg.py`); `enrich_historical_playerlog.py` overwrites it.
-   Match the existing schema exactly:
-   `season_year, season_key, week, date, manager, fantasy_team, player_name,`
-   `player_id, positions, slot, fantasy_points, started, ...`
-   Back up `HISTORICAL_PLAYERLOG.json` first, then verify the row count grew by
-   the number of 2025-26 rows and that `2025-26` appears in the season keys.
+   `data\historical\HISTORICAL_PLAYERLOG.json`:
+
+   ```cmd
+   py scripts\rollup_season_to_history.py             :: preview
+   py scripts\rollup_season_to_history.py --execute
+   ```
+
+   Dry-run by default. It derives the four fields PLAYERLOG.xlsx does not
+   carry (`season_key`, `slot` from LINEUPS, `had_game`, `player_id`), drops
+   the three workflow-only columns, backs up before writing, and re-reads the
+   file afterward to verify row count and schema. It refuses to append a
+   season already in the record, so a double-run cannot duplicate rows.
+
+   **Read its report before passing `--execute`.** On the 2025-26 data it
+   flags one row with no LINEUPS match (De'Aaron Fox, 2025-11-05), 23 players
+   new to the record, and one name correction -- `Lebron James` -> `LeBron
+   James`, a single misspelled row that would otherwise have appended as a
+   separate player and split LeBron's career totals across two names.
 
 **Can happen AFTER the config bump** (pulled fresh from Yahoo):
 
@@ -427,9 +436,11 @@ Watch these in the Week 1 draft rather than assuming a bug.
 Everything else can slip. These cannot:
 
 1. **LEAGUEHISTORY + HISTORICAL_PLAYERLOG rollup before the reset** -- the only
-   genuinely irreversible step in the whole sequence. (As of Phase 0 the
-   historical files are committed to git, so a bad rollup is now recoverable
-   with `git checkout` -- commit before and after the append.)
+   genuinely irreversible step in the whole sequence. Now scripted
+   (`rollup_season_to_history.py`) with a dry run, a backup and a post-write
+   verify; the LEAGUEHISTORY.xlsx update is still manual. The historical files
+   are committed to git as of Phase 0, so a bad rollup is recoverable with
+   `git checkout` -- commit before and after the append.
 2. **Yahoo league created + league key in config** -- blocks all of Phase 3
 3. **Yahoo OAuth working** -- blocks the draft pull on draft night
 4. **`SCHEDULE.json` for 2026-27** -- blocks every weekly run
