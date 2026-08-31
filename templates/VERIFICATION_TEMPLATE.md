@@ -188,7 +188,7 @@ A final pass, one section at a time. Each has a characteristic failure:
 | 5 | Fun Facts | Superlatives -- highest concentration of unverified claims |
 | 6 | What If? | Counterfactual uses real bench numbers, not invented lineups |
 | 7 | Power Rankings | Movement claims match last week's actual positions |
-| 8 | Stats Corner | Table count matches the template; figures match the report |
+| 8 | Stats Corner | Table count matches the template; figures match the report. 2026-27: Draft Value Tracker should cover rounds 1-9, not 1-7 |
 | 9 | Around the NBA | Real, correctly dated Week N news; trade grade direction |
 | 10 | Rumor Mill | Speculation is clearly framed as speculation, not fact |
 

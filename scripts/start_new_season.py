@@ -339,7 +339,7 @@ def reset_draft_picks_current(execute: bool) -> None:
     """
     path = PROJECT_ROOT / "config" / "DRAFT_PICKS_CURRENT.json"
     empty = {
-        "_comment": "Current season draft picks. Keepers occupy the rounds after the drafted rounds (2025-26: rounds 1-7 drafted, 8-13 keepers). Rebuilt by hand after each draft; merged into all_drafts.json via pull_historical_data.py at season end.",
+        "_comment": "Current season draft picks. Keepers occupy the rounds after the drafted rounds -- 2026-27: rounds 1-9 drafted, 10-15 keepers (was 1-7 drafted, 8-13 keepers through 2025-26). Set is_keeper per pick; downstream code splits on that flag, not on a round number. Rebuilt by hand after each draft; merged into all_drafts.json via pull_historical_data.py at season end.",
         "season": "",
         "league_key": "",
         "picks": []

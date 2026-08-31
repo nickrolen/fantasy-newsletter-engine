@@ -26,6 +26,54 @@ before the draft happens.
 
 ---
 
+## The Roster Rule Change
+
+The league converted its two IL+ slots into two bench slots. The lineup data
+pins when: through Week 15 of 2025-26 every manager carried 3 BN + 2 IL +
+2 IL+, and from Week 16 (starting 2026-02-02) it was 5 BN + 2 IL with no IL+
+rows at all.
+
+Roster stayed at 17. What changed is how many spots you draft into:
+
+| | Through 2025-26 | From 2026-27 |
+|---|---|---|
+| Roster | 10 starters + 3 BN + 2 IL + 2 IL+ | 10 starters + 5 BN + 2 IL |
+| Non-IL spots | 13 | 15 |
+| Draft | 13 rounds: 1-7 drafted, 8-13 keepers | **15 rounds: 1-9 drafted, 10-15 keepers** |
+| Picks | 52 | **60** (36 drafted, 24 keepers) |
+
+First time the league has drafted more than 7 rounds.
+
+**`config/league_config.json` already reflects this** -- `bench: 5`,
+`il_slots: 2`, `total_draft_rounds: 9`, `keepers_per_team: 6`. No edits
+needed there. `historical_draft_rounds: 7` stays as-is; it describes past
+seasons.
+
+**Three places hardcoded the old boundary and are now fixed** (Aug 28, 2026):
+
+| Where | Was | Impact if left |
+|-------|-----|----------------|
+| `report_builder.py` Draft Value Tracker | `if round_num >= 8: continue` | Would have dropped 8 of 36 drafted picks from the newsletter every week |
+| `build_draft_pick_values.py` regression fit | `if r <= 7` | Would keep ignoring rounds 8-9 once 2026-27 has real results for them |
+| `data_loader.ROSTER_SLOTS`, `lineup_optimizer` docstring | old 3 BN / 2 IL+ shape | Wrong reference description of the roster |
+
+All three now split on the `is_keeper` flag rather than a round number, so
+the next roster change does not silently break them.
+`tests/test_keeper_round_agnostic.py` fails if a hardcoded round boundary
+comes back, and if the roster/round arithmetic stops agreeing.
+
+**Two things IL+ still matters for, deliberately left alone:**
+
+- Every season through 2025-26 Week 15 has IL+ rows in its lineup data, so
+  `IL_SLOTS`, `SLOT_ELIGIBILITY`, and the bench-slot filters in
+  `weekly_stats.py` and `consistency_score.py` must keep handling IL+
+- **2025-26 is a split season.** Any comparison of IL games, total injury
+  games, or games left on bench that spans the Week 15/16 boundary crosses
+  a rule change. Worth remembering when the newsletter makes a
+  season-over-season or career superlative claim about injury burden.
+
+---
+
 ## Current State (as of Aug 28, 2026)
 
 Verified against the working tree:
@@ -202,6 +250,7 @@ first, then grab the league key.
 | `season.season_number` | `10` |
 | `season.nba_schedule_file` | `"data/nba_schedule_2026-27.json"` |
 | `season.regular_season_weeks` / `playoff_start_week` / `total_weeks` | Re-derive from the Yahoo schedule -- 2025-26 was 21 / 22 / 23 |
+| `league_structure` | **No change needed** -- already correct for the 15-round draft (see The Roster Rule Change above) |
 | `yahoo.current_league_key` | New 2026-27 key |
 | `yahoo.historical_league_keys` | Add `"2026-27": "<new key>"` (2025-26 is already listed) |
 | `manager_to_team` | Update any renamed teams |
@@ -259,6 +308,13 @@ py scripts\backfill_player_records.py            :: refresh all-time record book
 `DRAFT_PICK_VALUES.json` currently says it was built from "131 qualifying data
 points across 5 keeper-era seasons" -- adding 2025-26 makes it 6, which is the
 single biggest accuracy improvement available before the draft.
+
+Caveat worth carrying into draft night: **rounds 8 and 9 have never existed.**
+Their pick values are cliff-decay extrapolations from the round-7 average, not
+observed results, because no keeper-era season drafted past round 7. Treat the
+grades on picks 29-36 as modeled rather than measured until 2026-27 is in the
+books. (Once it is, the regression will pick them up automatically -- that is
+what the `is_keeper` fix bought.)
 
 ---
 
@@ -321,8 +377,10 @@ py scripts\generate_rosters.py
 
 Then:
 
-- Verify `config\DRAFT_PICKS_CURRENT.json` has all picks with real player names
-  and correct `is_keeper` flags for rounds 8-13
+- Verify `config\DRAFT_PICKS_CURRENT.json` has **60 picks** (15 rounds x 4
+  teams) with real player names, and `is_keeper` set true for rounds 10-15.
+  The engine now trusts that flag rather than inferring from the round number,
+  so getting it right matters more than it used to.
 - Verify `config\ROSTERS.json` has 4 teams x 17 players
 - Update `data\PLAYERLIST.xlsx` for the new season (`WEEKLY_WORKFLOW.md` Step 2.5)
 - Reset `config\TRADES.json` `draft_pick_ownership` for 2027-28 picks if your

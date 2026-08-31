@@ -4,10 +4,15 @@ lineup_optimizer.py
 Solves optimal daily lineups respecting position eligibility constraints.
 Used for betting lines simulation (high fidelity) and What-If analysis.
 
-Roster structure:
+Roster structure (2026-27):
     PG, SG, G, SF, PF, F, C, C, UTIL, UTIL (10 starters)
-    BN, BN, BN (3 bench)
-    IL, IL, IL+, IL+ (4 injured reserve)
+    BN x5 (5 bench)
+    IL, IL (2 injured reserve)
+
+Through Week 15 of 2025-26 the bench was 3 BN and there were 2 extra IL+
+slots; those became bench slots effective Week 16 (2026-02-02). Only the
+10 starter slots are hardcoded here -- bench size does not affect
+optimization, which fills starters from whoever is available.
 """
 
 from dataclasses import dataclass, field

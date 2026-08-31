@@ -52,6 +52,7 @@ def load_drafts() -> list[dict]:
                 "pick_number": int(p["pick_number"]),
                 "player_name": p["player_name"],
                 "manager": p["manager"],
+                "is_keeper": bool(p.get("is_keeper", False)),
             })
         print(f"Loaded {len(historical)} picks from all_drafts.json")
     else:
@@ -68,6 +69,7 @@ def load_drafts() -> list[dict]:
                 "pick_number": int(p["pick_number"]),
                 "player_name": p["player_name"],
                 "manager": p["manager"],
+                "is_keeper": bool(p.get("is_keeper", False)),
             })
         print(f"Loaded {len(current.get('picks', []))} picks from DRAFT_PICKS_CURRENT.json")
     else:
@@ -200,6 +202,11 @@ def main():
             "pick_number": pick["pick_number"],
             "player_name": pick["player_name"],
             "manager": pick["manager"],
+            # Carried through so downstream consumers can tell drafted picks
+            # from keepers without guessing at a round number. Keeper rounds
+            # are not fixed: they were 8-13 through 2025-26 and became 10-15
+            # in 2026-27 when two IL+ slots became bench slots.
+            "is_keeper": pick.get("is_keeper", False),
         }
 
         if stats:

@@ -104,8 +104,16 @@ SLOT_ELIGIBILITY = {
     "IL+": ["PG", "SG", "SF", "PF", "C"],
 }
 
+# Current roster shape (2026-27): 10 starters + 5 bench + 2 IL = 17.
+# Through Week 15 of 2025-26 it was 10 starters + 3 BN + 2 IL + 2 IL+; the
+# league converted the two IL+ slots to bench slots effective Week 16
+# (2026-02-02), which is also why the draft grew from 13 rounds to 15.
+#
+# IL+ is intentionally still handled elsewhere (IL_SLOTS, SLOT_ELIGIBILITY,
+# the bench-slot filters in weekly_stats and consistency_score) because every
+# season through 2025-26 Week 15 has IL+ rows in its lineup data.
 ROSTER_SLOTS = ["PG", "SG", "G", "SF", "PF", "F", "C", "C", "UTIL", "UTIL",
-                "BN", "BN", "BN", "IL", "IL", "IL+", "IL+"]
+                "BN", "BN", "BN", "BN", "BN", "IL", "IL"]
 
 
 @dataclass

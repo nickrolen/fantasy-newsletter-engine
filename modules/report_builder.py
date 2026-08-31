@@ -12,7 +12,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional, Any
 
-from .data_loader import FantasyData, MANAGERS, MANAGER_TO_TEAM, CURRENT_SEASON, classify_position_group
+from .data_loader import FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM, CURRENT_SEASON, classify_position_group
 from .weekly_stats import (
     WeeklyReport,
     compute_weekly_report,
@@ -2911,6 +2911,20 @@ DRAFT_FAIR_LOW = -3.0          # actual >= mid - 3 -> Fair
                                 # actual < mid - 3  -> Bust
 
 
+def _pick_is_keeper(pick: dict, round_num: int) -> bool:
+    """True if a draft pick is a keeper rather than a drafted selection.
+
+    Prefers the explicit is_keeper flag written into DRAFT_PICKS_CURRENT.json
+    and all_drafts.json. Falls back to a round threshold read from
+    league_config (total_draft_rounds) only when the flag is absent, so a
+    hand-built or legacy picks file still classifies correctly.
+    """
+    if "is_keeper" in pick:
+        return bool(pick["is_keeper"])
+    drafted_rounds = LEAGUE_STRUCTURE.get("total_draft_rounds", 9)
+    return round_num > drafted_rounds
+
+
 def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
     """
     Build draft value tracker comparing drafted players' actual production
@@ -2921,8 +2935,10 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
         - config/DRAFT_PICK_VALUES.json for expected FPPG per round
         - PLAYERLOG for actual season stats
 
-    Only grades drafted players (rounds 1-7). Keepers (rounds 8-13) are
-    listed separately without a value label.
+    Only grades drafted players. Keepers are listed separately without a
+    value label. Drafted-vs-keeper is decided by the is_keeper flag, since
+    the keeper rounds shift when the roster changes (8-13 through 2025-26,
+    10-15 from 2026-27).
 
     Returns:
         {
@@ -3033,8 +3049,14 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
         round_num = pick.get("round", 0)
         pick_num = pick.get("pick_number", 0)
 
-        # Skip keepers (R8-13) -- only grade drafted players
-        if round_num >= 8:
+        # Skip keepers -- only drafted players get a value grade.
+        #
+        # Split on the is_keeper flag, not a round number. Keeper rounds moved
+        # from 8-13 to 10-15 in 2026-27 when two IL+ slots became bench slots
+        # and the draft grew from 13 rounds to 15; the old "round_num >= 8"
+        # check would have silently dropped both new drafted rounds -- 8 of 36
+        # picks -- out of the tracker every week.
+        if _pick_is_keeper(pick, round_num):
             continue
 
         season = player_season.get(pname, {})

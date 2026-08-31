@@ -243,11 +243,23 @@ def main():
             skipped += 1
             continue
 
-        # Only use R1-R7 draft picks for regression fitting
-        if r <= 7:
-            is_draft = True
+        # Fit the regression on DRAFTED picks only -- keepers are not draft
+        # outcomes and would drag the curve down.
+        #
+        # Split on the is_keeper flag rather than a round threshold. Keeper
+        # rounds are not fixed: they were 8-13 through 2025-26 and became
+        # 10-15 in 2026-27, when the league converted two IL+ slots to bench
+        # slots and the draft grew from 13 rounds to 15. A hardcoded "r <= 7"
+        # would keep ignoring rounds 8-9 once 2026-27 enters the historical
+        # record -- the first season those picks have real results instead of
+        # extrapolated cliff-decay values.
+        #
+        # Older DRAFT_PERFORMANCE.json files predate the flag; fall back to
+        # the historical round count for those.
+        if "is_keeper" in p:
+            is_draft = not p["is_keeper"]
         else:
-            is_draft = False
+            is_draft = r <= HISTORICAL_DRAFT_ROUNDS
 
         if is_draft and p["fppg"] is not None and p["gp"] >= MIN_GP:
             fppg_x.append(pn)
