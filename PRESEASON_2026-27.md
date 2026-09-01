@@ -10,14 +10,29 @@ what order to do things in, and what has to be true before each step.
 
 ## Calendar Anchors
 
-| Anchor | Date | Source |
-|--------|------|--------|
-| Plan written | Fri Aug 28, 2026 | -- |
-| Draft | ~Fri Oct 16, 2026 | **CONFIRM** -- "7 weeks out" as of Aug 28 |
-| NBA opening night | Tue Oct 20, 2026 | NBA.com schedule release |
-| Fantasy Week 1 | Mon Oct 19 -- Sun Oct 25, 2026 | **CONFIRM in Yahoo.** Mirrors 2025-26, where Week 1 was Mon Oct 20 with opening night Tue Oct 21 |
-| First newsletter drafted | Week of Mon Oct 26, 2026 | Week 1 workflow runs after Week 1 closes |
-| NBA regular season ends | Sun Apr 11, 2027 | NBA.com |
+Confirmed with the league (Sep 1, 2026). These are dates, not estimates.
+
+| Anchor | Date | Days out |
+|--------|------|----------|
+| **Keeper deadline** | **Sun Oct 4, 2026** | 33 |
+| Draft | Sun Oct 11, 2026 | 40 |
+| NBA opening night | Tue Oct 20, 2026 | 49 |
+| **Week 1 starts** | **Tue Oct 20, 2026** | 49 |
+| First newsletter drafted | week of Oct 26 | 55+ |
+
+League: `https://basketball.fantasysports.yahoo.com/nba/16778` (league id `16778`).
+Yahoo is configured as a 23-week regular season with no playoffs; all
+matchups are set manually.
+
+**The keeper deadline is the real first deadline, not the draft.** On Oct 4
+the draft order is set and keepers are imported into the last six rounds.
+Choosing keepers well needs `DRAFT_PICK_VALUES.json` rebuilt with 2025-26
+included, which needs the historical rollup done first. So Phases 1-3 have to
+finish by roughly Sep 27, not by draft day -- managers need time to decide.
+
+Week 1 starts on a **Tuesday** (NBA opening night), so it is likely a short
+week. Confirm the exact week boundaries in Yahoo before building SCHEDULE.json;
+a 6-day week 1 changes expected games played and every per-game rate stat.
 
 Everything below is scheduled backward from the draft. The hard deadline is not
 Week 1 -- it is **draft day**, because `pull_current_draft.py` and the keeper
@@ -71,6 +86,101 @@ comes back, and if the roster/round arithmetic stops agreeing.
   games, or games left on bench that spans the Week 15/16 boundary crosses
   a rule change. Worth remembering when the newsletter makes a
   season-over-season or career superlative claim about injury burden.
+
+---
+
+## Four Deadlines, Not One
+
+Not everything has to be ready by Week 1. Sorting the work by when it is
+actually needed makes the schedule far less alarming:
+
+| By | What must work |
+|----|----------------|
+| **Oct 4** (keepers) | Rollup done; config updated; league key set; DRAFT_PICK_VALUES rebuilt; keeper analysis delivered |
+| **Oct 11** (draft) | OAuth verified; SCHEDULE.json weeks 1-15; draft pull ready; DRAFT_PICKS_CURRENT plan settled |
+| **Oct 20** (Week 1) | Engine runs clean on empty post-reset state; PLAYERLIST and ROSTERS built; the regular-season / stat-window config split done, since records start accruing immediately |
+| **~Week 14** (playoffs approach) | `simulator_playoff_odds.py` reworked for best-of-3 series; cup odds; series tracking in the newsletter |
+
+That last row is the biggest chunk of remaining work and it has the latest
+deadline. Playoff odds are meaningless in October -- they matter around the
+time the race tightens. Do not let it crowd out the October work.
+
+---
+
+## The 2026-27 Format Change
+
+The league is moving off the 21-week regular season + 2-week single-elim
+playoff it has used since 2017-18.
+
+| | Through 2025-26 | From 2026-27 |
+|---|---|---|
+| Weeks 1-15 | regular season | **regular season** (5 meetings per opponent) |
+| Weeks 16-21 | regular season | **playoffs**: semifinals wks 16-18, championship + 3rd-place wks 19-21, all best-of-3 |
+| Weeks 22-23 | championship (single elim) | **cup**: 2-week single-elim mini tournament |
+| Total | 23 weeks | 23 weeks |
+
+Game 3 of a series is always played, even at 2-0. Cup seeding comes from team
+total fantasy points over **weeks 1-21**, which is what stops those dead-rubber
+games from being meaningless. The cup pays no money -- the winner keeps an
+extra keeper the following season. 2026-27 runs 6 keepers for everyone; from
+2027-28 it is 5 per team with the cup winner getting a 6th.
+
+### What this breaks, and when
+
+**1. One config knob is doing two jobs.** `regular_season_weeks` currently
+drives both the competitive window (standings, W-L, H2H, seeding) and the
+record-keeping window. Those now differ: competition ends at week 15,
+record-keeping runs through week 21. Set it to 15 and the record book silently
+shrinks to a 15-week window, breaking comparability with nine seasons. Set it
+to 21 and playoff series results get absorbed into the regular-season W-L.
+The concept has to split in two. **Needed by Week 1** -- records accrue
+immediately.
+
+**2. `manager_season_totals` already mixes windows.** Verified on the
+2025-26 file: `wins`/`losses` are computed over weeks 1-21 (Nick 17-4 = 21
+games) while `total_points` sums weeks 1-23 (Nick 37,562.35 = all 23). Same
+object, two windows. That is a bug today, before any format change.
+
+**3. Cup seeding cannot reuse `total_points`.** Seeding is defined as points
+over weeks 1-21, but the existing field holds 1-23 -- which includes the cup
+itself. Seeding a tournament on a number containing that tournament's results
+is circular. It needs its own explicit 1-21 sum.
+
+**4. The H2H tiebreaker needs bounding to week 15.** Five meetings per
+opponent is odd on purpose, so a season series always has a winner. But a
+semifinal adds three more meetings against the same opponent: 5 + 3 = 8, even,
+drawable. The standings tiebreaker must see weeks 1-15 only. The existing
+guard keys off `regular_season_weeks`, so this falls out correctly once that
+becomes 15 -- but only if the record-keeping window is a separate setting.
+
+**5. The record book keeps a two-tier policy** (verified in the code, not
+assumed): standings-shaped records -- W-L, season series, all-time H2H,
+streaks -- are regular-season-only. Performance-shaped records -- highest
+weekly score, biggest blowout, closest game -- deliberately include playoff
+weeks, per an explicit comment in `records_tracker`. Agreed policy going
+forward: counting and rate stats move to weeks 1-21 in both eras; peak records
+keep all 23 weeks, because excluding 22-23 retroactively would delete nine
+seasons of championship performances from the all-time book, and a maximum
+over 21 weeks versus 23 is barely biased anyway.
+
+**6. `simulator_playoff_odds.py` models the wrong tournament.** Its docstring
+says "the 2-week playoff bracket (semifinals + finals)" with single-week
+rounds and a consolation game. It needs best-of-3 series over three weeks per
+round, plus a separate cup simulation seeded by total points. ~700 lines, the
+largest remaining piece of work -- but not needed until the playoff race
+matters, around week 14. `simulator_title_odds.py` models the regular-season
+race only, so it just needs the 15-week window. `simulator_betting.py` should
+be unaffected: a series game is still a weekly matchup.
+
+**7. Four outcomes per season now**, where there used to be two: regular-season
+winner (wks 1-15), champion (19-21), 3rd-place series winner, cup winner
+(22-23). `league_config.json` already separates `first_place_finishes` from
+`titles` in `pre_data_era`, so there is precedent -- but decide how all four
+are recorded before the season, not in March.
+
+**8. All-time H2H will accrue slower.** 15 games per season against 21
+historically. Not wrong, but the milestone numbers the fun-facts generator
+leans on ("Nick leads Hayden 46-20") will grow at a different pace.
 
 ---
 
@@ -157,7 +267,7 @@ All green before you start changing season state.
 
 ---
 
-## Phase 1 -- Roll 2025-26 Into History (Sep 7 - Sep 11)
+## Phase 1 -- Roll 2025-26 Into History (target: Sep 7)
 
 **This is the highest-risk phase and the one with the least tooling.** Phase 2
 truncates `PLAYERLOG.xlsx` and `LINEUPS.xlsx` to header rows. The archive keeps
@@ -245,7 +355,7 @@ Phase 5 below covers it.
 
 ---
 
-## Phase 2 -- Stand Up the New League (Sep 14 - Sep 18)
+## Phase 2 -- Stand Up the New League (target: Sep 14)
 
 Blocked on the Yahoo league for 2026-27 actually existing. Create/renew it
 first, then grab the league key.
@@ -267,11 +377,22 @@ first, then grab the league key.
 
 Then: `py scripts\verify_project_integrity.py` -- check 4 validates this schema.
 
-### 2.2 Re-auth Yahoo
+### 2.2 Get the league key, and prove OAuth still works
 
-`oauth2.json` was last touched in June. Tokens go stale over an offseason.
-Re-run any Yahoo script early enough to hit the browser consent flow calmly --
-**not** on draft night.
+```cmd
+py scripts\get_league_key.py --league-id 16778 --season 2026
+```
+
+One call. It authenticates, prints the NBA `game_id` for the season, lists
+your leagues, and hands back the exact `<game_id>.l.16778` string to paste
+into `league_config.json`. The `game_id` is not guessable -- it has run 380,
+390, 402, 411, 418, 428, 438, 451, 466 across nine seasons, in jumps of 7 to
+15.
+
+It is also the cheapest possible live Yahoo call, so it doubles as the OAuth
+health check. `oauth2.json` was last touched in June; tokens go stale over an
+offseason. Run this now, at a browser, rather than discovering the problem on
+draft night with 60 picks waiting.
 
 ### 2.3 Fetch the NBA schedule
 
@@ -292,7 +413,7 @@ since every weekly run reads its dates from here.
 
 ---
 
-## Phase 3 -- Rebuild Derived Data (Sep 21 - Sep 25)
+## Phase 3 -- Rebuild Derived Data (target: Sep 20)
 
 Now that `season.current` is `2026-27`, 2025-26 is visible to the historical
 puller.
@@ -327,7 +448,7 @@ what the `is_keeper` fix bought.)
 
 ---
 
-## Phase 4 -- Draft Prep (Sep 28 - Oct 15)
+## Phase 4 -- Keeper + Draft Prep (Sep 21 - Oct 10)
 
 ### 4.1 Keeper analysis
 
@@ -374,7 +495,7 @@ draft.
 
 ---
 
-## Phase 5 -- Draft Week (Oct 16 - Oct 18)
+## Phase 5 -- Draft Day (Oct 11) and the week after
 
 Immediately after the draft completes:
 
@@ -397,7 +518,7 @@ Then:
 
 ---
 
-## Phase 6 -- Week 1 (Oct 19 - Oct 25, live)
+## Phase 6 -- Week 1 (starts Tue Oct 20)
 
 Week 1 runs Mon Oct 19 through Sun Oct 25. The newsletter is produced the
 following week, from `WEEKLY_WORKFLOW.md` as normal:
