@@ -19,9 +19,16 @@ possible live call, so run it well before draft night: if the token has gone
 stale over the offseason you want to find out now, at a browser, not while
 36 draft picks are waiting to be pulled.
 
+Yahoo's discovery endpoints (Game.game_id, Game.league_ids) need broader
+scopes than league-scoped reads, and can return "This application is not
+authorized to perform this action" even when the rest of the API works fine.
+When that happens, --probe finds the game_id the other way: by trying
+candidate keys against the league-scoped endpoint the engine already uses.
+
 USAGE
     py scripts/get_league_key.py --league-id 16778
     py scripts/get_league_key.py --league-id 16778 --season 2026
+    py scripts/get_league_key.py --league-id 16778 --probe   # discovery blocked
     py scripts/get_league_key.py                      # just list my leagues
 
 Read-only: it never writes league_config.json. It prints the value to set.
@@ -45,6 +52,28 @@ from modules.yahoo_auth import YahooAuthError, build_oauth  # noqa: E402
 OAUTH_FILE = PROJECT_ROOT / "oauth2.json"
 
 
+def short_error(e):
+    s = str(e).replace("\n", " ")
+    if "not authorized" in s:
+        return "NOT AUTHORIZED (this app lacks the scope for that endpoint)"
+    return s[:110] + ("..." if len(s) > 110 else "")
+
+
+def print_config_block(key, season):
+    season_label = f"{season}-{str(season + 1)[-2:]}" if season else "<season>"
+    print(f"\n{'=' * 58}")
+    print(f"  LEAGUE KEY: {key}")
+    print(f"{'=' * 58}")
+    print("\nSet in config/league_config.json (AFTER the season reset runs):")
+    print('    "yahoo": {')
+    print(f'        "current_league_key": "{key}",')
+    print('        "historical_league_keys": {')
+    print('            ...,')
+    print(f'            "{season_label}": "{key}"')
+    print('        }')
+    print('    }')
+
+
 def parse_league_id(raw):
     """Accept a bare id or a full league URL."""
     s = str(raw).strip().rstrip("/")
@@ -58,6 +87,31 @@ def parse_league_id(raw):
     return s
 
 
+def probe_for_game_id(yfa, oauth, league_id, lo, hi):
+    """Find the game_id by asking the league-scoped API about candidate keys.
+
+    Game.game_id() and Game.league_ids() need scopes this app may not have.
+    yfa.League(oauth, key).settings() only needs league read -- the same
+    permission every weekly script already relies on -- so a key that resolves
+    is the right one.
+    """
+    print(f"\n  Probing game_ids {lo}-{hi} against league {league_id}...")
+    print("  (each miss is expected and harmless)\n")
+    for gid in range(lo, hi + 1):
+        key = f"{gid}.l.{league_id}"
+        try:
+            settings = yfa.League(oauth, key).settings()
+        except Exception:
+            continue
+        if settings:
+            name = settings.get("name") if isinstance(settings, dict) else None
+            print(f"    HIT  {key}" + (f"  ({name})" if name else ""))
+            return key
+    print("    No candidate resolved in that range.")
+    print("    Widen it with --probe-range, or confirm the league exists yet.")
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Look up the Yahoo league key for a season."
@@ -66,6 +120,16 @@ def main():
         "--league-id",
         help="league id, or the full league URL "
              "(https://basketball.fantasysports.yahoo.com/nba/16778)",
+    )
+    parser.add_argument(
+        "--probe", action="store_true",
+        help="find the game_id by trying candidate league keys against the "
+             "league-scoped API. Use when the discovery endpoints are blocked.",
+    )
+    parser.add_argument(
+        "--probe-range", default="467-500",
+        help="game_id range to probe, e.g. 467-500. Yearly jumps have run "
+             "7-15 since 2017-18, and 2025-26 was 466.",
     )
     parser.add_argument(
         "--season", type=int, default=None,
@@ -101,12 +165,37 @@ def main():
         print(f"  WARNING: could not read game_id ({e})")
         game_id = None
 
+    league_keys = []
+    discovery_blocked = False
     try:
         league_keys = game.league_ids(year=args.season) if args.season \
             else game.league_ids()
     except Exception as e:
-        print(f"\nERROR: could not list leagues ({e})")
-        return 1
+        discovery_blocked = True
+        print(f"\n  Could not list leagues: {short_error(e)}")
+
+    # Discovery blocked (or empty) -- fall back to probing, which only needs
+    # the league-read permission the engine already uses.
+    if (discovery_blocked or not league_keys) and args.league_id:
+        if not args.probe:
+            print("\n  Discovery endpoints are unavailable on this app.")
+            print("  Re-run with --probe to find the game_id the other way:")
+            print(f"      py scripts/get_league_key.py --league-id "
+                  f"{args.league_id} --probe")
+            print("  And run scripts/check_yahoo_access.py to confirm the")
+            print("  engine's own league-scoped calls still work.")
+            return 1
+        try:
+            wanted = parse_league_id(args.league_id)
+            lo, hi = (int(x) for x in args.probe_range.split("-"))
+        except ValueError as e:
+            print(f"\nERROR: {e}")
+            return 1
+        key = probe_for_game_id(yfa, oauth, wanted, lo, hi)
+        if not key:
+            return 1
+        print_config_block(key, args.season)
+        return 0
 
     if not league_keys:
         print("\nNo leagues found for that season.")
@@ -136,18 +225,7 @@ def main():
         return 1
 
     key = matches[0]
-    season_label = f"{args.season}-{str(args.season + 1)[-2:]}" if args.season else "<season>"
-    print(f"\n{'=' * 58}")
-    print(f"  LEAGUE KEY: {key}")
-    print(f"{'=' * 58}")
-    print("\nSet in config/league_config.json (AFTER the season reset runs):")
-    print(f'    "yahoo": {{')
-    print(f'        "current_league_key": "{key}",')
-    print(f'        "historical_league_keys": {{')
-    print(f'            ...,')
-    print(f'            "{season_label}": "{key}"')
-    print(f'        }}')
-    print(f'    }}')
+    print_config_block(key, args.season)
     return 0
 
 
