@@ -35,6 +35,9 @@ it verifies the new token with a real league-scoped call.
 
 USAGE
     py scripts/reauth_yahoo.py                       # verify against config's league
+    py scripts/reauth_yahoo.py --consumer-key <id> --consumer-secret <secret>
+                                                     # swap in a NEW Yahoo app
+    py scripts/reauth_yahoo.py --callback-uri https://localhost:8080
     py scripts/reauth_yahoo.py --league-key 466.l.42309
     py scripts/reauth_yahoo.py --dry-run             # show the plan only
 
@@ -77,6 +80,12 @@ def main():
     )
     parser.add_argument("--league-key", default=None,
                         help=f"league key to verify against (default: {LEAGUE_KEY})")
+    parser.add_argument("--consumer-key", default=None,
+                        help="Client ID of a NEW Yahoo app. Use with "
+                             "--consumer-secret when replacing a broken app; "
+                             "safer than hand-editing oauth2.json.")
+    parser.add_argument("--consumer-secret", default=None,
+                        help="Client Secret of the new Yahoo app.")
     parser.add_argument("--callback-uri", default=None,
                         help="redirect URI to use for the flow. yahoo_oauth "
                              "defaults to 'oob'; if your Yahoo app is "
@@ -99,6 +108,16 @@ def main():
         print(f"ERROR: {OAUTH_FILE.name} is unreadable: {e}")
         return 1
 
+    if bool(args.consumer_key) != bool(args.consumer_secret):
+        print("ERROR: pass --consumer-key and --consumer-secret together.")
+        return 1
+
+    replacing_app = bool(args.consumer_key)
+    if replacing_app:
+        creds = dict(creds)
+        creds["consumer_key"] = args.consumer_key
+        creds["consumer_secret"] = args.consumer_secret
+
     key = str(creds.get("consumer_key", ""))
     secret = str(creds.get("consumer_secret", ""))
     if not key or not secret:
@@ -114,9 +133,13 @@ def main():
     print("  YAHOO RE-AUTHORIZATION")
     print("=" * 62)
     print(f"\n  consumer_key:  {key[:12]}...{key[-4:]}")
-    print("  ^ this must match the Client ID of the app you checked at")
-    print("    https://developer.yahoo.com/apps/ -- if it does not, you were")
-    print("    looking at a different app and nothing else here will help.")
+    if replacing_app:
+        print("  ^ NEW app credentials, supplied on the command line.")
+        print("    The old ones are preserved in the backup below.")
+    else:
+        print("  ^ this must match the Client ID of the app you checked at")
+        print("    https://developer.yahoo.com/apps/ -- if it does not, you were")
+        print("    looking at a different app and nothing else here will help.")
     print(f"\n  clearing: {', '.join(dropping) if dropping else '(no token fields)'}")
     print(f"  keeping:  {', '.join(keeping)}")
     print(f"  callback_uri: {callback}"
@@ -131,9 +154,13 @@ def main():
         print("\n  [DRY-RUN] Nothing changed. Re-run without --dry-run.")
         return 0
 
-    print("\n  Have you confirmed at https://developer.yahoo.com/apps/ that this")
-    print("  app has Fantasy Sports permission? Without it, the new token will")
-    print("  be refused exactly like the old one.")
+    if replacing_app:
+        print("\n  Replacing the app credentials in oauth2.json, then running a")
+        print("  fresh consent against the new app.")
+    else:
+        print("\n  Have you confirmed at https://developer.yahoo.com/apps/ that this")
+        print("  app has Fantasy Sports permission? Without it, the new token will")
+        print("  be refused exactly like the old one.")
     answer = input("\n  Continue? [y/N] ").strip().lower()
     if answer != "y":
         print("  Aborted. Nothing changed.")
@@ -145,6 +172,8 @@ def main():
     print(f"\n  Backup: {backup.name}")
 
     fresh = {k: v for k, v in creds.items() if k not in TOKEN_FIELDS}
+    # creds was updated above when --consumer-key/--consumer-secret were given,
+    # so the new app's credentials are written here alongside the token reset.
     if args.callback_uri:
         fresh["callback_uri"] = args.callback_uri
     OAUTH_FILE.write_text(json.dumps(fresh, indent=2), encoding="utf-8")

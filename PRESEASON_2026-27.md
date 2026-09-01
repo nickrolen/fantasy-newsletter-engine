@@ -107,68 +107,71 @@ time the race tightens. Do not let it crowd out the October work.
 
 ---
 
-## BLOCKER -- Yahoo API access is refused (found Sep 1, 2026)
+## BLOCKER -- Yahoo API access is refused (Sep 1, 2026)
 
-Every Yahoo API call is coming back `"This application is not authorized to
-perform this action."` -- including league-scoped reads, which is what the
-whole engine runs on:
+Every Yahoo call returns HTTP **403** with `"This application is not
+authorized to perform this action."`
 
-```
-league/466.l.42309/settings  ->  not authorized
-```
+### What was ruled out
 
-**The token is not the problem.** It refreshes successfully and yahoo_oauth
-reports it valid. A refresh is an OAuth-level operation and keeps working
-after the underlying grant loses a scope, which is exactly this symptom:
-auth fine, authorization refused.
+| Theory | Test | Result |
+|--------|------|--------|
+| Expired credentials | token refresh | refreshes fine, reports valid |
+| Stale grant / missing scope | full re-consent via `reauth_yahoo.py` | brand-new grant refused identically |
+| Wrong Yahoo app | consumer_key vs the app's Client ID | they match |
+| App lacks the permission | developer console | Fantasy Sports - Read **is** enabled |
+| Something about one league | `users;use_login=1/games` (no membership needed) | 403 |
+| Fantasy-specific problem | OpenID `userinfo` (not a fantasy endpoint) | **403** |
+
+### The diagnosis
+
+**401 would mean the token is bad. 403 means the token is fine and the app is
+refused.** Every endpoint returns 403, including OpenID `userinfo`, which has
+nothing to do with fantasy. The authorization URL that `yahoo_oauth` builds
+sends no `scope` parameter at all, so the token carries whatever the app is
+configured for -- and it is evidently carrying nothing.
+
+So the app produces structurally valid tokens with no usable permissions
+attached, regardless of what the console displays. The app is the problem.
+
+### Fix: build a new Yahoo app
+
+1. https://developer.yahoo.com/apps/create/
+   - **API Permissions: Fantasy Sports -> Read**
+   - If a Redirect URI is required, use `https://localhost:8080` (Yahoo
+     requires https; nothing needs to listen on it)
+2. Swap the credentials in and re-consent in one step:
+   ```cmd
+   py scripts\reauth_yahoo.py --consumer-key <new id> --consumer-secret <new secret>
+   ```
+   Add `--callback-uri https://localhost:8080` if the app has a redirect URI.
+   The old credentials are preserved in the `oauth2.backup_*.json` it writes.
+3. **The redirect-URI gotcha:** with a real redirect URI, approving sends the
+   browser to `https://localhost:8080/?code=XXXXX`, which fails to load. That
+   is expected. The code is in the address bar -- paste it as the verifier.
+4. Confirm:
+   ```cmd
+   py scripts\diagnose_yahoo_raw.py
+   py scripts\check_yahoo_access.py
+   ```
+
+**If a brand-new app also 403s immediately**, that points at Yahoo's side
+rather than any app. Wait a few hours and retry before concluding anything.
 
 ### What this blocks
 
-| Blocked | Needed by |
-|---------|-----------|
-| `pull_historical_data.py` (2025-26 standings/matchups/drafts/trades) | Phase 3, before Oct 4 |
-| `pull_current_draft.py` | draft day, Oct 11 |
-| `update_fantasy_logs.py` | every week from Oct 20 |
-| `sync_transactions.py`, `fetch_injury_statuses.py` | every week |
-| `get_league_key.py` (the 2026-27 key) | Phase 2 |
+`pull_historical_data.py` (Phase 3, needed by Oct 4), `pull_current_draft.py`
+(Oct 11), `update_fantasy_logs.py`, `sync_transactions.py` and
+`fetch_injury_statuses.py` (every week from Oct 20), and
+`get_league_key.py`.
 
 ### What this does NOT block
 
 Phase 1 is entirely offline. `rollup_season_to_history.py`,
 `update_leaguehistory.py` and `start_new_season.py` import no Yahoo library
-and make no network calls -- they read local spreadsheets and JSON. **Do
-Phase 1 now regardless.** It is on the critical path either way and it
-removes the only irreversible step from the schedule.
-
-### Fix, in order
-
-1. **https://developer.yahoo.com/apps/** -- open the app whose consumer key is
-   in `oauth2.json`. Confirm it still exists and that API Permissions includes
-   **Fantasy Sports** (Read, or Read/Write). This is the most likely cause: a
-   permission that was present last season and is not now.
-
-2. **Force a fresh consent.** A refresh cannot add a scope the original grant
-   never had:
-   ```cmd
-   py scripts\reauth_yahoo.py --dry-run
-   py scripts\reauth_yahoo.py
-   ```
-   Backs up `oauth2.json`, clears only the token fields (consumer key/secret
-   are kept), runs the interactive browser flow, then verifies with a real
-   league read. Backups match `oauth2.backup_*.json` and are gitignored.
-
-3. **If it is still refused after re-consent**, the app itself lacks the
-   permission. Create a new app at developer.yahoo.com with Fantasy Sports
-   read, put its consumer key/secret in `oauth2.json`, and run step 2 again.
-
-4. **Confirm with** `py scripts\check_yahoo_access.py`, which exercises every
-   call the engine depends on and reports them individually.
-
-### Schedule impact
-
-This is the #1 risk to Oct 4 and Oct 11. It is not a code problem and cannot
-be worked around in code -- there is no other source for Yahoo league data.
-Resolve it this week; everything from Phase 2 onward waits on it.
+and make no network calls. **Do Phase 1 now regardless** -- it is on the
+critical path either way and it is the only irreversible step in the season
+transition.
 
 ---
 
