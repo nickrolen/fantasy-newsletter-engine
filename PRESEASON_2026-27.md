@@ -107,71 +107,101 @@ time the race tightens. Do not let it crowd out the October work.
 
 ---
 
-## BLOCKER -- Yahoo API access is refused (Sep 1, 2026)
+## BLOCKER -- Yahoo gated the Fantasy API behind an approval process
 
-Every Yahoo call returns HTTP **403** with `"This application is not
-authorized to perform this action."`
+**This is not the app, the credentials, or the code.** Yahoo moved Fantasy
+Sports API access out of the self-serve developer console and behind an
+application-and-review process. "Fantasy Sports" is simply no longer a
+checkbox when you create an app -- the only API Permissions offered now are
+OpenID Connect and TW Auction.
 
-### What was ruled out
+That explains every symptom, in order:
 
-| Theory | Test | Result |
-|--------|------|--------|
-| Expired credentials | token refresh | refreshes fine, reports valid |
-| Stale grant / missing scope | full re-consent via `reauth_yahoo.py` | brand-new grant refused identically |
-| Wrong Yahoo app | consumer_key vs the app's Client ID | they match |
-| App lacks the permission | developer console | Fantasy Sports - Read **is** enabled |
-| Something about one league | `users;use_login=1/games` (no membership needed) | 403 |
-| Fantasy-specific problem | OpenID `userinfo` (not a fantasy endpoint) | **403** |
+| Observation | Explanation |
+|---|---|
+| Token refreshes, reports valid | OAuth still works; it is an identity layer |
+| HTTP **403** everywhere, never 401 | Token accepted, application not entitled |
+| OpenID `userinfo` also 403 | Not fantasy-specific -- the grant carries nothing |
+| Old app shows "Fantasy Sports - Read" | Legacy console display; entitlement revoked behind it |
+| A brand-new app is refused identically | New apps cannot be granted fantasy access at all |
+| It worked all through 2025-26 | The policy changed after last season ended |
 
-### The diagnosis
+### The fix: apply for access
 
-**401 would mean the token is bad. 403 means the token is fine and the app is
-refused.** Every endpoint returns 403, including OpenID `userinfo`, which has
-nothing to do with fantasy. The authorization URL that `yahoo_oauth` builds
-sends no `scope` parameter at all, so the token carries whatever the app is
-configured for -- and it is evidently carrying nothing.
+**https://sports.yahoo.com/developer/access/**
 
-So the app produces structurally valid tokens with no usable permissions
-attached, regardless of what the console displays. The app is the problem.
+Read access only, which is all this project needs. The form asks for the
+product, the data required, the audience, an estimated user count (Small,
+under 1,000) and optionally an existing Client ID.
 
-### Fix: build a new Yahoo app
+**Apply the day you read this.** Yahoo publishes no approval timeline, the
+review is manual, and the keeper deadline is Oct 4. This is now the single
+largest schedule risk in the project and the only one entirely outside our
+control.
 
-1. https://developer.yahoo.com/apps/create/
-   - **API Permissions: Fantasy Sports -> Read**
-   - If a Redirect URI is required, use `https://localhost:8080` (Yahoo
-     requires https; nothing needs to listen on it)
-2. Swap the credentials in and re-consent in one step:
-   ```cmd
-   py scripts\reauth_yahoo.py --consumer-key <new id> --consumer-secret <new secret>
-   ```
-   Add `--callback-uri https://localhost:8080` if the app has a redirect URI.
-   The old credentials are preserved in the `oauth2.backup_*.json` it writes.
-3. **The redirect-URI gotcha:** with a real redirect URI, approving sends the
-   browser to `https://localhost:8080/?code=XXXXX`, which fails to load. That
-   is expected. The code is in the address bar -- paste it as the verifier.
-4. Confirm:
-   ```cmd
-   py scripts\diagnose_yahoo_raw.py
-   py scripts\check_yahoo_access.py
-   ```
+Yahoo warns that "incomplete or insufficiently detailed submissions cannot be
+evaluated and will be closed without further correspondence" -- a thin
+application does not get a rejection, it gets silence. Draft text is below;
+edit freely, but keep it specific.
 
-**If a brand-new app also 403s immediately**, that points at Yahoo's side
-rather than any app. Wait a few hours and retry before concluding anything.
+### Draft application
 
-### What this blocks
+> **Product**
+> A private, non-commercial weekly newsletter generator for a single
+> four-person fantasy basketball league that has run continuously on Yahoo
+> Fantasy since the 2017-18 season. After each scoring week it compiles
+> matchup recaps, power rankings, statistical records and historical context
+> into an HTML newsletter distributed to the league's four members. It is a
+> personal hobby project, open-sourced at
+> github.com/nickrolen/fantasy-newsletter-engine.
+>
+> **Data required (read only)**
+> League settings and metadata; teams and managers; weekly matchups and
+> scoreboards; daily rosters with lineup slot assignments; player game-level
+> fantasy point totals; draft results; add/drop and trade transactions;
+> standings. Historical seasons for the same league are read once per year to
+> maintain an all-time record book.
+>
+> **Audience and scale**
+> Four people -- the members of this one league. The data is never
+> redistributed, resold, or published beyond that group. Estimated users:
+> Small (under 1,000).
+>
+> **Usage pattern**
+> Roughly one batch of requests per week during the NBA season, covering the
+> seven days of the completed scoring week, plus a one-time historical pull
+> at season rollover and a draft-results pull on draft day. Well under any
+> reasonable rate limit.
+>
+> **Attribution**
+> The generated newsletter will display "Fantasy data provided by Yahoo
+> Fantasy" using the official logo and branding guidelines.
+>
+> **Existing Client ID**
+> <paste the consumer_key from oauth2.json>
 
-`pull_historical_data.py` (Phase 3, needed by Oct 4), `pull_current_draft.py`
-(Oct 11), `update_fantasy_logs.py`, `sync_transactions.py` and
-`fetch_injury_statuses.py` (every week from Oct 20), and
-`get_league_key.py`.
+### Once approved
 
-### What this does NOT block
+```cmd
+py scripts\reauth_yahoo.py --consumer-key <id> --consumer-secret <secret> ^
+    --callback-uri <the redirect URI registered on the app>
+py scripts\diagnose_yahoo_raw.py
+py scripts\check_yahoo_access.py
+```
 
-Phase 1 is entirely offline. `rollup_season_to_history.py`,
-`update_leaguehistory.py` and `start_new_season.py` import no Yahoo library
-and make no network calls. **Do Phase 1 now regardless** -- it is on the
-critical path either way and it is the only irreversible step in the season
-transition.
+Redirect-URI gotcha: after approving, the browser lands on
+`<redirect uri>/?code=XXXXX` and fails to load. That is expected -- the code
+is in the address bar; paste it as the verifier.
+
+### If approval has not arrived by early October
+
+| Date | Consequence | Mitigation |
+|------|-------------|------------|
+| Oct 4 | Keeper analysis has no refreshed 2025-26 Yahoo data | Keeper values can still be rebuilt from LOCAL data -- PLAYERLOG.xlsx and DRAFT_PICKS_CURRENT.json are on disk. Only `pull_historical_data.py` (standings/matchups/trades) is blocked, and it is not what keeper value depends on |
+| Oct 11 | `pull_current_draft.py` cannot pull draft results | Enter the 60 picks by hand into DRAFT_PICKS_CURRENT.json -- it has always been hand-maintained anyway |
+| Oct 20 | `update_fantasy_logs.py` cannot pull weekly stats | **This is the real problem.** It is the engine's primary input. Fallback: extract from the league's own web pages via browser automation while signed in. Slower and more fragile, but the data is visible in the UI |
+
+Phase 1 remains entirely offline and unaffected. Do it now.
 
 ---
 
