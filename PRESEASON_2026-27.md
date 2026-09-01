@@ -107,6 +107,71 @@ time the race tightens. Do not let it crowd out the October work.
 
 ---
 
+## BLOCKER -- Yahoo API access is refused (found Sep 1, 2026)
+
+Every Yahoo API call is coming back `"This application is not authorized to
+perform this action."` -- including league-scoped reads, which is what the
+whole engine runs on:
+
+```
+league/466.l.42309/settings  ->  not authorized
+```
+
+**The token is not the problem.** It refreshes successfully and yahoo_oauth
+reports it valid. A refresh is an OAuth-level operation and keeps working
+after the underlying grant loses a scope, which is exactly this symptom:
+auth fine, authorization refused.
+
+### What this blocks
+
+| Blocked | Needed by |
+|---------|-----------|
+| `pull_historical_data.py` (2025-26 standings/matchups/drafts/trades) | Phase 3, before Oct 4 |
+| `pull_current_draft.py` | draft day, Oct 11 |
+| `update_fantasy_logs.py` | every week from Oct 20 |
+| `sync_transactions.py`, `fetch_injury_statuses.py` | every week |
+| `get_league_key.py` (the 2026-27 key) | Phase 2 |
+
+### What this does NOT block
+
+Phase 1 is entirely offline. `rollup_season_to_history.py`,
+`update_leaguehistory.py` and `start_new_season.py` import no Yahoo library
+and make no network calls -- they read local spreadsheets and JSON. **Do
+Phase 1 now regardless.** It is on the critical path either way and it
+removes the only irreversible step from the schedule.
+
+### Fix, in order
+
+1. **https://developer.yahoo.com/apps/** -- open the app whose consumer key is
+   in `oauth2.json`. Confirm it still exists and that API Permissions includes
+   **Fantasy Sports** (Read, or Read/Write). This is the most likely cause: a
+   permission that was present last season and is not now.
+
+2. **Force a fresh consent.** A refresh cannot add a scope the original grant
+   never had:
+   ```cmd
+   py scripts\reauth_yahoo.py --dry-run
+   py scripts\reauth_yahoo.py
+   ```
+   Backs up `oauth2.json`, clears only the token fields (consumer key/secret
+   are kept), runs the interactive browser flow, then verifies with a real
+   league read. Backups match `oauth2.backup_*.json` and are gitignored.
+
+3. **If it is still refused after re-consent**, the app itself lacks the
+   permission. Create a new app at developer.yahoo.com with Fantasy Sports
+   read, put its consumer key/secret in `oauth2.json`, and run step 2 again.
+
+4. **Confirm with** `py scripts\check_yahoo_access.py`, which exercises every
+   call the engine depends on and reports them individually.
+
+### Schedule impact
+
+This is the #1 risk to Oct 4 and Oct 11. It is not a code problem and cannot
+be worked around in code -- there is no other source for Yahoo league data.
+Resolve it this week; everything from Phase 2 onward waits on it.
+
+---
+
 ## The 2026-27 Format Change
 
 The league is moving off the 21-week regular season + 2-week single-elim

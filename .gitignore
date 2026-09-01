@@ -64,6 +64,7 @@ desktop.ini
 # --------------------------------------------
 oauth2.json
 oauth2_backup.json
+oauth2.backup_*.json
 *.oauth
 private.json
 
