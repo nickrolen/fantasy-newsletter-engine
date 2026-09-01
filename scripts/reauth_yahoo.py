@@ -58,8 +58,17 @@ from modules.data_loader import LEAGUE_KEY  # noqa: E402
 
 OAUTH_FILE = PROJECT_ROOT / "oauth2.json"
 
-# Everything except these is a token artifact and gets cleared.
-KEEP_FIELDS = {"consumer_key", "consumer_secret"}
+# Token artifacts to clear. Everything else in the file is configuration and
+# is preserved -- notably callback_uri, which changes how the flow behaves and
+# must survive a re-auth.
+TOKEN_FIELDS = {
+    "access_token", "refresh_token", "token_time", "token_type", "guid",
+}
+
+# yahoo_oauth defaults callback_uri to "oob" (out-of-band). If the Yahoo app
+# is registered with a real redirect URI, "oob" is rejected and the flow fails
+# with a redirect_uri error -- pass --callback-uri to match the app.
+DEFAULT_CALLBACK = "oob"
 
 
 def main():
@@ -68,6 +77,12 @@ def main():
     )
     parser.add_argument("--league-key", default=None,
                         help=f"league key to verify against (default: {LEAGUE_KEY})")
+    parser.add_argument("--callback-uri", default=None,
+                        help="redirect URI to use for the flow. yahoo_oauth "
+                             "defaults to 'oob'; if your Yahoo app is "
+                             "registered with a real redirect URI, pass it "
+                             "here exactly as configured "
+                             "(e.g. https://localhost:8080).")
     parser.add_argument("--dry-run", action="store_true",
                         help="show what would happen; change nothing")
     args = parser.parse_args()
@@ -91,13 +106,26 @@ def main():
         print("       Those come from https://developer.yahoo.com/apps/")
         return 1
 
-    dropping = sorted(k for k in creds if k not in KEEP_FIELDS)
+    dropping = sorted(k for k in creds if k in TOKEN_FIELDS)
+    keeping = sorted(k for k in creds if k not in TOKEN_FIELDS)
+    callback = args.callback_uri or creds.get("callback_uri") or DEFAULT_CALLBACK
+
     print("=" * 62)
     print("  YAHOO RE-AUTHORIZATION")
     print("=" * 62)
-    print(f"\n  consumer_key:  {key[:12]}...{key[-4:]}  (kept)")
-    print(f"  token fields to clear: {', '.join(dropping) if dropping else '(none)'}")
-    print(f"  verify against: {league_key}")
+    print(f"\n  consumer_key:  {key[:12]}...{key[-4:]}")
+    print("  ^ this must match the Client ID of the app you checked at")
+    print("    https://developer.yahoo.com/apps/ -- if it does not, you were")
+    print("    looking at a different app and nothing else here will help.")
+    print(f"\n  clearing: {', '.join(dropping) if dropping else '(no token fields)'}")
+    print(f"  keeping:  {', '.join(keeping)}")
+    print(f"  callback_uri: {callback}"
+          + ("  (yahoo_oauth default)" if callback == DEFAULT_CALLBACK else "  (custom)"))
+    if callback == DEFAULT_CALLBACK:
+        print("    If the flow fails with a redirect_uri error, your app is")
+        print("    registered with a real redirect URI. Re-run with")
+        print("    --callback-uri <the URI shown on the app page>.")
+    print(f"\n  verify against: {league_key}")
 
     if args.dry_run:
         print("\n  [DRY-RUN] Nothing changed. Re-run without --dry-run.")
@@ -116,11 +144,12 @@ def main():
     shutil.copy2(OAUTH_FILE, backup)
     print(f"\n  Backup: {backup.name}")
 
-    OAUTH_FILE.write_text(
-        json.dumps({"consumer_key": key, "consumer_secret": secret}, indent=2),
-        encoding="utf-8",
-    )
-    print(f"  Cleared token fields from {OAUTH_FILE.name}")
+    fresh = {k: v for k, v in creds.items() if k not in TOKEN_FIELDS}
+    if args.callback_uri:
+        fresh["callback_uri"] = args.callback_uri
+    OAUTH_FILE.write_text(json.dumps(fresh, indent=2), encoding="utf-8")
+    print(f"  Cleared token fields from {OAUTH_FILE.name}"
+          + (f"; callback_uri set to {args.callback_uri}" if args.callback_uri else ""))
 
     try:
         from yahoo_oauth import OAuth2
@@ -152,10 +181,15 @@ def main():
     except Exception as e:
         msg = str(e).replace("\n", " ")
         print(f"  STILL REFUSED: {msg[:150]}")
-        print("\n  The new token has the same problem, which means the app itself")
-        print("  lacks Fantasy Sports permission. Fix it at")
-        print("  https://developer.yahoo.com/apps/ (or create a new app and put")
-        print("  its key/secret in oauth2.json), then run this again.")
+        print("\n  A brand-new grant is refused too. That rules out a stale")
+        print("  scope, so the app itself is not delivering Fantasy access.")
+        print("  Remaining possibilities, in order:")
+        print("   - the consumer_key above belongs to a DIFFERENT app than the")
+        print("     one you checked; compare it to the Client ID on the app page")
+        print("   - the permission was saved but needs a few minutes, or the app")
+        print("     was edited after this grant -- wait and re-run once")
+        print("   - the app is in a broken state: create a NEW app with Fantasy")
+        print("     Sports Read, put its key/secret in oauth2.json, re-run this")
         return 1
 
     print("\n" + "=" * 62)
