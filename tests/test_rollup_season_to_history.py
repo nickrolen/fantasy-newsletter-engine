@@ -72,12 +72,46 @@ def roll(tmp_path, monkeypatch):
         {"date": "2025-10-22", "manager": "Nick", "player_name": "Cooper Flagg", "slot": "BN"},
     ]).to_excel(tmp_path / "LINEUPS.xlsx", index=False)
 
+    # Redirect EVERY module-level path at the throwaway root. Anything left
+    # pointing at the real repo gets written to for real by main() --execute;
+    # that is exactly how an earlier version of this fixture appended 52 rows
+    # to the project's own all_drafts.json.
+    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "data" / "historical").mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(mod, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(mod, "PLAYERLOG_XLSX", tmp_path / "PLAYERLOG.xlsx")
     monkeypatch.setattr(mod, "LINEUPS_XLSX", tmp_path / "LINEUPS.xlsx")
     monkeypatch.setattr(mod, "HISTORY_JSON", hist_path)
+    monkeypatch.setattr(mod, "DRAFTS_JSON",
+                        tmp_path / "data" / "historical" / "all_drafts.json")
+    monkeypatch.setattr(mod, "DRAFT_PICKS_CURRENT",
+                        tmp_path / "config" / "DRAFT_PICKS_CURRENT.json")
     mod._history = history
     return mod
+
+
+def test_no_module_path_escapes_the_tmp_root(roll, tmp_path):
+    """Guard the bug above: every Path constant must live under tmp_path.
+
+    If someone adds a new file to the script and forgets to patch it here,
+    this fails instead of that file being written to in the real repo.
+    """
+    from pathlib import Path as _P
+    escaped = []
+    for name in dir(roll):
+        if name.startswith("_"):
+            continue
+        val = getattr(roll, name)
+        # PROJECT_ROOT and SCRIPT_DIR are location anchors, never write targets.
+        if isinstance(val, _P) and name not in {"PROJECT_ROOT", "SCRIPT_DIR"}:
+            try:
+                val.relative_to(tmp_path)
+            except ValueError:
+                escaped.append(f"{name} -> {val}")
+    assert escaped == [], (
+        "module path constants not redirected into tmp_path; tests would write "
+        "to the real repo:\n  " + "\n  ".join(escaped)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -202,3 +236,85 @@ def test_force_replaces_rather_than_duplicates(roll, monkeypatch):
     data = json.loads(roll.HISTORY_JSON.read_text(encoding="utf-8"))
     assert len([r for r in data if r["season_key"] == "2025-26"]) == 3
     assert len(data) == 4
+
+
+# ---------------------------------------------------------------------------
+# Draft rollup -- the Yahoo-free path into all_drafts.json
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def roll_drafts(roll, tmp_path):
+    """Add draft fixtures to the throwaway project root."""
+    drafts = [{
+        "season": "2024-25", "pick_number": 1, "round": 1, "manager": "Nick",
+        "player_key": "1", "player_name": "Old Guy", "is_keeper": False,
+    }]
+    dj = tmp_path / "data" / "historical" / "all_drafts.json"
+    dj.write_text(json.dumps(drafts), encoding="utf-8")
+
+    dpc = tmp_path / "config" / "DRAFT_PICKS_CURRENT.json"
+    dpc.write_text(json.dumps({
+        "season": "2025-26",
+        "picks": [
+            {"season": "2025-26", "pick_number": 1, "round": 1, "manager": "Nick",
+             "player_key": "10", "player_name": "Rookie", "is_keeper": False,
+             "_extra": "should be dropped"},
+            {"season": "2025-26", "pick_number": 2, "round": 10, "manager": "Hayden",
+             "player_key": "11", "player_name": "Kept Guy", "is_keeper": True},
+        ],
+    }), encoding="utf-8")
+
+    # Paths are already redirected by `roll`; just write the fixture files.
+    assert roll.DRAFTS_JSON == dj
+    assert roll.DRAFT_PICKS_CURRENT == dpc
+    return roll
+
+
+def test_draft_rollup_needs_no_yahoo_call(roll_drafts, tmp_path):
+    status, msg = roll_drafts.rollup_drafts("2025-26", execute=True, force=False)
+    assert status == "done", msg
+    data = json.loads((tmp_path / "data" / "historical" / "all_drafts.json").read_text())
+    assert len(data) == 3
+    new = [d for d in data if d["season"] == "2025-26"]
+    assert len(new) == 2
+    assert sum(1 for d in new if d["is_keeper"]) == 1
+
+
+def test_draft_rollup_normalizes_to_the_historical_schema(roll_drafts, tmp_path):
+    roll_drafts.rollup_drafts("2025-26", execute=True, force=False)
+    data = json.loads((tmp_path / "data" / "historical" / "all_drafts.json").read_text())
+    for row in (d for d in data if d["season"] == "2025-26"):
+        assert sorted(row.keys()) == sorted(roll_drafts.DRAFT_FIELDS)
+        assert "_extra" not in row
+
+
+def test_draft_rollup_refuses_a_season_already_present(roll_drafts):
+    assert roll_drafts.rollup_drafts("2025-26", execute=True, force=False)[0] == "done"
+    status, msg = roll_drafts.rollup_drafts("2025-26", execute=True, force=False)
+    assert status == "skipped"
+    assert "already has" in msg
+
+
+def test_draft_rollup_force_replaces_rather_than_duplicates(roll_drafts, tmp_path):
+    roll_drafts.rollup_drafts("2025-26", execute=True, force=False)
+    roll_drafts.rollup_drafts("2025-26", execute=True, force=True)
+    data = json.loads((tmp_path / "data" / "historical" / "all_drafts.json").read_text())
+    assert len([d for d in data if d["season"] == "2025-26"]) == 2
+    assert len(data) == 3
+
+
+def test_draft_rollup_dry_run_writes_nothing(roll_drafts, tmp_path):
+    before = (tmp_path / "data" / "historical" / "all_drafts.json").read_text()
+    status, _ = roll_drafts.rollup_drafts("2025-26", execute=False, force=False)
+    assert status == "done"
+    assert (tmp_path / "data" / "historical" / "all_drafts.json").read_text() == before
+
+
+def test_draft_rollup_rejects_picks_missing_required_fields(roll_drafts, tmp_path):
+    bad = tmp_path / "config" / "DRAFT_PICKS_CURRENT.json"
+    bad.write_text(json.dumps({"season": "2025-26", "picks": [
+        {"season": "2025-26", "pick_number": 1, "round": 1, "manager": "Nick"}
+    ]}), encoding="utf-8")
+    status, msg = roll_drafts.rollup_drafts("2025-26", execute=True, force=False)
+    assert status == "error"
+    assert "missing" in msg

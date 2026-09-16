@@ -22,6 +22,14 @@ irreversible one: start_new_season.py Phase 2 truncates PLAYERLOG.xlsx to a
 header row. Miss this step and the season's per-game detail survives only as
 an archived spreadsheet.
 
+It also rolls the season's DRAFT into data/historical/all_drafts.json.
+config/DRAFT_PICKS_CURRENT.json already carries exactly the schema
+all_drafts.json uses -- season, pick_number, round, manager, player_key,
+player_name, is_keeper -- so this needs no Yahoo call. That matters when the
+Fantasy API is unavailable: pull_historical_data.py is the usual route and it
+is blocked, but the draft data is sitting on disk. Phase 2 of the reset
+empties DRAFT_PICKS_CURRENT.json, so this has to happen first either way.
+
 WHAT IT DOES
 ------------
 PLAYERLOG.xlsx does not have the historical schema. Four fields have to be
@@ -52,6 +60,7 @@ the result. Run this BEFORE start_new_season.py.
 
 USAGE
     py scripts/rollup_season_to_history.py                # preview (default)
+    py scripts/rollup_season_to_history.py --skip-drafts  # player log only
     py scripts/rollup_season_to_history.py --execute      # do it
     py scripts/rollup_season_to_history.py --execute --force   # replace a
                                                           # season already in
@@ -83,6 +92,13 @@ from modules.data_loader import CURRENT_SEASON, CURRENT_SEASON_LONG  # noqa: E40
 PLAYERLOG_XLSX = PROJECT_ROOT / "data" / "PLAYERLOG.xlsx"
 LINEUPS_XLSX = PROJECT_ROOT / "data" / "LINEUPS.xlsx"
 HISTORY_JSON = PROJECT_ROOT / "data" / "historical" / "HISTORICAL_PLAYERLOG.json"
+DRAFTS_JSON = PROJECT_ROOT / "data" / "historical" / "all_drafts.json"
+DRAFT_PICKS_CURRENT = PROJECT_ROOT / "config" / "DRAFT_PICKS_CURRENT.json"
+
+DRAFT_FIELDS = [
+    "season", "pick_number", "round", "manager", "player_key",
+    "player_name", "is_keeper",
+]
 
 # The historical schema, in order. Rows are written with exactly these keys.
 HISTORY_FIELDS = [
@@ -284,6 +300,60 @@ def build_rows(season_key, history):
     return rows, report
 
 
+def rollup_drafts(season_key, execute, force):
+    """Append the season's draft picks to all_drafts.json.
+
+    Returns (status, message). status is one of: "done", "skipped", "error".
+    """
+    if not DRAFT_PICKS_CURRENT.exists():
+        return "skipped", f"{rel(DRAFT_PICKS_CURRENT)} not found"
+    if not DRAFTS_JSON.exists():
+        return "error", f"{rel(DRAFTS_JSON)} not found"
+
+    with open(DRAFT_PICKS_CURRENT, "r", encoding="utf-8") as f:
+        current = json.load(f)
+    picks = current.get("picks", [])
+    if not picks:
+        return "skipped", "DRAFT_PICKS_CURRENT.json has no picks"
+
+    with open(DRAFTS_JSON, "r", encoding="utf-8") as f:
+        drafts = json.load(f)
+
+    existing = sum(1 for d in drafts if d.get("season") == season_key)
+    if existing and not force:
+        return "skipped", (f"{season_key} already has {existing} picks in "
+                           f"all_drafts.json (use --force to replace)")
+
+    # Normalize to the historical schema, dropping anything extra.
+    new_rows = []
+    for p in picks:
+        missing = [k for k in DRAFT_FIELDS if k not in p]
+        if missing:
+            return "error", f"pick {p.get('pick_number')} missing {missing}"
+        new_rows.append({k: p[k] for k in DRAFT_FIELDS})
+
+    keepers = sum(1 for r in new_rows if r["is_keeper"])
+    msg = (f"{len(new_rows)} picks ({len(new_rows) - keepers} drafted, "
+           f"{keepers} keepers)")
+
+    if not execute:
+        return "done", f"would append {msg}"
+
+    base = [d for d in drafts if d.get("season") != season_key] if force else drafts
+    shutil.copy2(DRAFTS_JSON, DRAFTS_JSON.with_suffix(".json.bak"))
+    merged = base + new_rows
+    with open(DRAFTS_JSON, "w", encoding="utf-8") as f:
+        json.dump(merged, f, indent=2)
+
+    with open(DRAFTS_JSON, "r", encoding="utf-8") as f:
+        check = json.load(f)
+    landed = sum(1 for d in check if d.get("season") == season_key)
+    if landed != len(new_rows) or len(check) != len(merged):
+        return "error", (f"verification failed: {landed} picks for {season_key}, "
+                         f"{len(check)} total")
+    return "done", f"appended {msg}; all_drafts.json now {len(check)} picks"
+
+
 def print_report(season_key, rows, report, history_len):
     header(f"ROLLUP PREVIEW -- {season_key}")
     weeks = sorted(w for w in report["weeks"] if w)
@@ -373,6 +443,9 @@ def main():
                         help="actually write (default is a dry run)")
     parser.add_argument("--force", action="store_true",
                         help="replace the season if it is already in the record")
+    parser.add_argument("--skip-drafts", action="store_true",
+                        help="do not roll DRAFT_PICKS_CURRENT.json into "
+                             "all_drafts.json")
     parser.add_argument("--season", default=None,
                         help=f"season key to roll up (default: {CURRENT_SEASON})")
     args = parser.parse_args()
@@ -404,6 +477,14 @@ def main():
     base = [r for r in history if r.get("season_key") != season_key] if args.force else history
     print_report(season_key, rows, report, len(base))
 
+    if not args.skip_drafts:
+        status, msg = rollup_drafts(season_key, execute=False, force=args.force)
+        print(f"\n  DRAFT ROLLUP -> {rel(DRAFTS_JSON)}")
+        print(f"    [{status}] {msg}")
+        if status == "done":
+            print("    No Yahoo call needed -- DRAFT_PICKS_CURRENT.json already")
+            print("    uses the all_drafts.json schema.")
+
     if not args.execute:
         print("\n  [DRY-RUN] Nothing written. Re-run with --execute to append.")
         print("  Run this BEFORE scripts/start_new_season.py -- Phase 2 truncates")
@@ -433,6 +514,14 @@ def main():
         return 1
 
     print(f"  Verified {len(rows):,} {season_key} rows on disk, schema matches")
+
+    if not args.skip_drafts:
+        status, msg = rollup_drafts(season_key, execute=True, force=args.force)
+        print(f"\n  Drafts:  [{status}] {msg}")
+        if status == "error":
+            print("  Draft rollup FAILED. The player log is fine; all_drafts.json")
+            print("  is restorable from all_drafts.json.bak.")
+            return 1
     print("\n  Next: update data/LEAGUEHISTORY.xlsx, then run")
     print("        py scripts/start_new_season.py")
     return 0
