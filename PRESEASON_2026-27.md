@@ -144,41 +144,77 @@ evaluated and will be closed without further correspondence" -- a thin
 application does not get a rejection, it gets silence. Draft text is below;
 edit freely, but keep it specific.
 
-### Draft application
+### Draft application -- field by field
 
-> **Product**
-> A private, non-commercial weekly newsletter generator for a single
-> four-person fantasy basketball league that has run continuously on Yahoo
-> Fantasy since the 2017-18 season. After each scoring week it compiles
-> matchup recaps, power rankings, statistical records and historical context
-> into an HTML newsletter distributed to the league's four members. It is a
-> personal hobby project, open-sourced at
-> github.com/nickrolen/fantasy-newsletter-engine.
+The form at https://sports.yahoo.com/developer/access/ is written for
+companies (Business Title, Business Name & Address, Company Description).
+Do not invent one. Yahoo's own instructions on that page say applications
+must identify "where access is limited to **personal or single league use**",
+so a personal project is an anticipated case, not a disqualifier. Answer the
+business fields honestly as an individual.
+
+**Do not put U-Haul anywhere on this form.** It is a personal project; naming
+an employer on it is both inaccurate and a problem you do not need.
+
+| Field | What to enter |
+|-------|---------------|
+| Name | Nick Rolen |
+| Business Title | Individual developer -- personal project (not a business) |
+| Email Address | a personal address, not work. Ideally the one on the GitHub account the application cites |
+| Phone Number | your own |
+| Business Name & Address | `N/A -- individual, personal project. Phoenix, AZ, USA` |
+| Consumer-Facing Product or App Name | `CHS Alumni Fantasy Basketball Newsletter` |
+| Brief Company Description | see below |
+| Website URL or App Store Details | `https://nickrolen.github.io/fantasy-newsletter-engine/` (live sample newsletters) and `https://github.com/nickrolen/fantasy-newsletter-engine` (source) |
+| Describe Your Intended Use Case | see below |
+| Expected Users | Small (< 1,000) -- already the default |
+| Client ID | the `consumer_key` from `oauth2.json` |
+| Additional Notes | see below |
+
+**Brief Company Description**
+
+> Not a company. I am an individual developer building this for my own use.
+> The project is an open-source hobby project (MIT licensed) that generates a
+> weekly newsletter for one private fantasy basketball league of four friends,
+> which has run on Yahoo Fantasy continuously since the 2017-18 season.
+
+**Describe Your Intended Use Case**
+
+> Read-only access to a single Yahoo Fantasy Basketball league that I am a
+> member of (league id 16778), to generate a weekly newsletter distributed to
+> that league's four managers.
 >
-> **Data required (read only)**
-> League settings and metadata; teams and managers; weekly matchups and
-> scoreboards; daily rosters with lineup slot assignments; player game-level
-> fantasy point totals; draft results; add/drop and trade transactions;
-> standings. Historical seasons for the same league are read once per year to
-> maintain an all-time record book.
+> After each scoring week the tool reads league settings, teams and managers,
+> weekly matchups and scoreboards, daily rosters with lineup slot assignments,
+> player game-level fantasy point totals, and add/drop and trade transactions.
+> It compiles those into matchup recaps, power rankings, statistical records
+> and historical context, and renders a single self-contained HTML newsletter.
+> Draft results are read once per season on draft day. Prior seasons of the
+> same league are read once a year to maintain an all-time record book, which
+> currently holds about 76,000 player-game records across eight seasons.
 >
-> **Audience and scale**
-> Four people -- the members of this one league. The data is never
-> redistributed, resold, or published beyond that group. Estimated users:
-> Small (under 1,000).
+> Request volume is low and bursty: roughly one batch per week during the NBA
+> season covering the seven days of the completed week, plus a one-time
+> historical pull at season rollover and one draft pull. Nothing is polled.
 >
-> **Usage pattern**
-> Roughly one batch of requests per week during the NBA season, covering the
-> seven days of the completed scoring week, plus a one-time historical pull
-> at season rollover and a draft-results pull on draft day. Well under any
-> reasonable rate limit.
+> The data is used only to produce that newsletter for those four people. It
+> is never redistributed, resold, published publicly, or used to build a
+> competing fantasy product. Sample output is public at
+> nickrolen.github.io/fantasy-newsletter-engine so you can see exactly what
+> is produced.
 >
-> **Attribution**
-> The generated newsletter will display "Fantasy data provided by Yahoo
-> Fantasy" using the official logo and branding guidelines.
+> Access is limited to personal, single-league use. Read-only is sufficient;
+> I do not need write access.
+
+**Additional Notes**
+
+> This integration worked against the Fantasy API through the 2025-26 season
+> using client ID <paste>. It began returning HTTP 403 on all endpoints in
+> 2026, which I understand to be the move to reviewed access. I am applying to
+> restore access for the same single-league, read-only use.
 >
-> **Existing Client ID**
-> <paste the consumer_key from oauth2.json>
+> The league's 2026-27 season begins the week of October 20, 2026, and the
+> draft is October 11. Any guidance on timing would be appreciated.
 
 ### Once approved
 
