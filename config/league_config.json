@@ -102,16 +102,17 @@
         "2019-20": {
             "regular_through": 19,
             "bracket": false,
-            "note": "COVID stoppage; season ended wk19, no bracket played"
+            "note": "COVID stoppage; season ended wk19 with no bracket played"
         },
         "2020-21": {
             "regular_through": 16,
             "bracket": true,
-            "note": "short regular season after the bubble; bracket in wks 17-18"
+            "note": "18-week season after the bubble; bracket in wks 17-18"
         },
         "2021-22": {
-            "regular_through": 21,
-            "bracket": true
+            "regular_through": 20,
+            "bracket": true,
+            "note": "22-week season (All-Star double week); bracket in wks 21-22"
         },
         "2022-23": {
             "regular_through": 21,
@@ -133,6 +134,7 @@
             "regular_through": 15,
             "bracket": true,
             "note": "new format: best-of-3 series wks 16-21, cup wks 22-23"
-        }
+        },
+        "_derivation": "The bracket is ALWAYS the last two fantasy weeks of a season, so regular_through = last_week - 2 whenever a bracket was played. The last week is not a fixed number because Yahoo stretches any week containing the All-Star break to 14 days, which changes how many fantasy weeks a season fits into. 2021-22 ran 22 weeks, not 23, so its bracket was weeks 21-22 and the regular season ended at week 20."
     }
 }
