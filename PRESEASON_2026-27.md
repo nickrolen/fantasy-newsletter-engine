@@ -348,9 +348,14 @@ cross-checks the week layout, round math, keeper counts and payouts against
 each other. Test suite: 236 passing, up from 148.
 
 Still to do before Week 1:
-- `season.nba_schedule_file` points at `data/nba_schedule_2026-27.json`, which
-  does not exist yet -- cdn.nba.com blocks both this machine and the container,
-  so it needs a manual download (Phase 2.3).
+- ~~`season.nba_schedule_file` points at a file that does not exist~~ **DONE
+  Sep 21.** cdn.nba.com now returns 403 to everything -- container, local VM,
+  and an ordinary browser -- so `fetch_nba_schedule.py` grew a
+  basketball-reference fallback (`--source auto|nba|bbref`, auto by default).
+  `data/nba_schedule_2026-27.json` has 1,200 games, Oct 20 2026 - Apr 11 2027.
+  **Every team has 80 games, not 82:** the last two depend on the NBA Cup
+  knockout round and are announced in December. **Refetch the file in
+  mid-December** -- the script warns about this on every run.
 - `yahoo.current_league_key` is empty, waiting on Yahoo to provision the
   2026-27 league.
 - `config/SCHEDULE.json` is still the 2025-26 file (Phase 2.4).
