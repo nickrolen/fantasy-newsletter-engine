@@ -174,14 +174,36 @@ def main():
         print(f"    R{rnd:<2} " + " | ".join(f"{c:<18}" for c in cells))
 
     print(f"\n  Picks per manager across rounds 1-{rounds}:")
+    uneven = []
     for m in sorted(tally, key=lambda x: -tally[x]):
-        base = rounds
-        diff = tally[m] - base
+        diff = tally[m] - rounds
+        if diff:
+            uneven.append((m, diff))
         print(f"    {m:8} {tally[m]:>2}"
-              + (f"  ({diff:+d} vs {base})" if diff else "  (even)"))
+              + (f"  ({diff:+d} vs {rounds})" if diff else "  (even)"))
+
     total = sum(tally.values())
     print(f"\n  Total picks: {total} (expected {rounds * len(slots)})"
           + ("  OK" if total == rounds * len(slots) else "  MISMATCH"))
+
+    if uneven:
+        keepers = int(LEAGUE_STRUCTURE.get("keepers_per_team", 0))
+        roster = int(LEAGUE_STRUCTURE.get("roster_size", 0))
+        il = int(LEAGUE_STRUCTURE.get("il_slots", 0))
+        fillable = roster - il
+        print("\n  " + "!" * 62)
+        print("  UNEVEN PICK COUNTS -- almost certainly a gap in the trade log.")
+        print(f"  The roster has {roster} spots and {il} IL, so {fillable} are filled by")
+        print(f"  keepers plus the draft. With {keepers} keepers, every manager must draft")
+        print(f"  exactly {fillable - keepers}. These do not:")
+        for m, d in uneven:
+            print(f"    {m}: {tally[m]} ({d:+d})")
+        print()
+        print("  Check TRADES.json for a trade where the two sides send a different")
+        print("  number of picks for the SAME draft year. A pick is probably missing")
+        print("  from sent_picks rather than the trade having been genuinely lopsided.")
+        print("  " + "!" * 62)
+        return 1
     return 0
 
 

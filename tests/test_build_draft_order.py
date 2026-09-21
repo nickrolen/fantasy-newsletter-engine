@@ -152,3 +152,34 @@ def test_every_ownership_entry_matches_a_recorded_trade(mod):
     assert checked == len(parsed) == 15, (
         f"every traded pick must appear exactly once in ownership: "
         f"{checked} entries vs {len(parsed)} picks in the trade log")
+
+
+def test_uneven_pick_counts_are_detected_not_silently_reported(mod, capsys, monkeypatch):
+    """Uneven counts mean the trade log is incomplete -- the script must say so.
+
+    Roster is 17 with 2 IL, so 15 spots are filled by keepers plus the draft.
+    With 6 keepers every manager drafts exactly 9. Any other total is a data
+    problem, not a draft order, and must not be printed as if it were fine.
+    """
+    monkeypatch.setattr("sys.argv", ["b"])
+    rc = mod.main()
+    out = capsys.readouterr().out
+    if "UNEVEN PICK COUNTS" in out:
+        assert rc == 1, "uneven counts must be a failure exit, not a clean run"
+        assert "missing" in out.lower()
+    else:
+        assert rc == 0
+        # if it claims even, every manager really must be even
+        import re
+        for m, n in re.findall(r"^\s+(\w+)\s+(\d+)\s+\(even\)", out, re.M):
+            assert int(n) == 9
+
+
+def test_pick_counts_must_equal_fillable_spots_minus_keepers(mod):
+    """The invariant itself: 17 - 2 IL - 6 keepers = 9 drafted picks each."""
+    from modules.data_loader import LEAGUE_STRUCTURE as LS
+    fillable = LS["roster_size"] - LS["il_slots"]
+    assert fillable - LS["keepers_per_team"] == LS["total_draft_rounds"], (
+        "roster math and total_draft_rounds disagree: "
+        f"{LS['roster_size']} - {LS['il_slots']} - {LS['keepers_per_team']} "
+        f"!= {LS['total_draft_rounds']}")
