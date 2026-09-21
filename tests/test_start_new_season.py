@@ -224,3 +224,59 @@ def test_missing_index_html_protects_nothing_and_does_not_crash(sns):
 def test_index_html_itself_is_not_treated_as_a_newsletter(sns, tmp_path):
     (tmp_path / "index.html").write_text('<a href="index.html">self</a>', encoding="utf-8")
     assert sns.showcase_newsletters() == set()
+
+
+# ---------------------------------------------------------------------------
+# Draft-pick ownership must outlive the season it was traded in
+# ---------------------------------------------------------------------------
+
+def test_reset_preserves_future_draft_pick_ownership(sns, tmp_path):
+    """Wiping this would destroy data that exists nowhere else.
+
+    Managers trade picks for drafts that have not happened. Yahoo does not
+    track those -- they are league bookkeeping. Clearing them at season reset
+    would have destroyed the 2026 ownership needed to set the draft order.
+    """
+    tj = tmp_path / "config" / "TRADES.json"
+    tj.write_text(json.dumps({
+        "trades": [{"trade_id": 1}],
+        "draft_pick_ownership": {
+            "_note": "keep me",
+            "2026": {"1_Nick": "Benton", "6_Hayden": "Benton"},
+            "2027": {"2_Hayden": "Benton"},
+        },
+    }), encoding="utf-8")
+
+    sns.reset_trades(execute=True, upcoming_draft_year=2026)
+    out = json.loads(tj.read_text(encoding="utf-8"))
+
+    assert out["trades"] == [], "the season's trade log is per-season and resets"
+    own = out["draft_pick_ownership"]
+    assert own["2026"] == {"1_Nick": "Benton", "6_Hayden": "Benton"}
+    assert own["2027"] == {"2_Hayden": "Benton"}
+    assert own["_note"] == "keep me"
+
+
+def test_reset_drops_only_already_spent_draft_years(sns, tmp_path):
+    tj = tmp_path / "config" / "TRADES.json"
+    tj.write_text(json.dumps({
+        "trades": [],
+        "draft_pick_ownership": {
+            "2025": {"1_Nick": "Benton"},      # already drafted, spent
+            "2026": {"1_Nick": "Benton"},      # upcoming
+            "2027": {"2_Hayden": "Benton"},    # future
+        },
+    }), encoding="utf-8")
+    sns.reset_trades(execute=True, upcoming_draft_year=2026)
+    own = json.loads(tj.read_text(encoding="utf-8"))["draft_pick_ownership"]
+    assert "2025" not in own, "picks for a draft already held are spent"
+    assert set(own) == {"2026", "2027"}
+
+
+def test_reset_trades_dry_run_writes_nothing(sns, tmp_path):
+    tj = tmp_path / "config" / "TRADES.json"
+    original = json.dumps({"trades": [{"trade_id": 1}],
+                           "draft_pick_ownership": {"2026": {"1_Nick": "Benton"}}})
+    tj.write_text(original, encoding="utf-8")
+    sns.reset_trades(execute=False, upcoming_draft_year=2026)
+    assert tj.read_text(encoding="utf-8") == original

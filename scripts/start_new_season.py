@@ -279,22 +279,61 @@ def reset_rosters(execute: bool) -> None:
         print(f"    {rel(path)} -> empty rosters dict")
 
 
-def reset_trades(execute: bool) -> None:
-    """Reset TRADES.json to empty schema."""
+def reset_trades(execute: bool, upcoming_draft_year: int = None) -> None:
+    """Clear the season's trade log but PRESERVE future draft-pick ownership.
+
+    The trade LOG is per-season and is archived, so it resets. Draft-pick
+    OWNERSHIP is not: the file's own _rolling_window_rule says it tracks a
+    rolling 3-year window, because managers trade picks for drafts that have
+    not happened yet. Those entries have to outlive the season they were
+    traded in.
+
+    Wiping them would have destroyed the 2026 ownership needed to set the
+    draft order -- 12 entries from five trades -- and the 2027 entries
+    alongside it. Yahoo does not track these; they are league bookkeeping and
+    exist nowhere else.
+
+    Years strictly BEFORE the upcoming draft are spent and are dropped.
+    """
     path = PROJECT_ROOT / "config" / "TRADES.json"
-    empty = {
+    existing = {}
+    if path.exists():
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+
+    ownership = existing.get("draft_pick_ownership", {}) or {}
+    kept, dropped = {}, []
+    for year, entries in ownership.items():
+        if year.startswith("_"):
+            kept[year] = entries
+            continue
+        if upcoming_draft_year and year.isdigit() and int(year) < upcoming_draft_year:
+            dropped.append(year)
+            continue
+        kept[year] = entries
+
+    n_picks = sum(len([k for k in v if not k.startswith("_")])
+                  for v in kept.values() if isinstance(v, dict))
+
+    reset = {
         "_description": "Trade log and draft pick ownership tracker. Updated after each trade.",
         "_usage": "Used by modules/records_tracker.py and scripts/format_stats_report.py.",
         "_rolling_window_rule": "Draft pick ownership tracks a rolling 3-year window.",
         "trades": [],
-        "draft_pick_ownership": {}
+        "draft_pick_ownership": kept
     }
     if execute:
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(empty, f, indent=2)
-        print(f"    OK  {rel(path)}")
+            json.dump(reset, f, indent=2)
+        print(f"    OK  {rel(path)} (trades cleared, {n_picks} pick-ownership entries kept"
+              + (f", dropped spent year(s) {', '.join(dropped)}" if dropped else "") + ")")
     else:
-        print(f"    {rel(path)} -> empty trades list and draft_pick_ownership")
+        print(f"    {rel(path)} -> trades cleared; PRESERVING {n_picks} draft-pick "
+              f"ownership entries across years {sorted(k for k in kept if not k.startswith('_'))}"
+              + (f"; dropping spent year(s) {dropped}" if dropped else ""))
 
 
 def reset_records(execute: bool) -> None:
@@ -436,7 +475,7 @@ def reset_excel(filename: str, headers: list[str], execute: bool) -> None:
         print(f"    data/{filename} -> header row preserved, all data rows cleared")
 
 
-def reset_phase(execute: bool) -> None:
+def reset_phase(execute: bool, upcoming_draft_year: int = None) -> None:
     """Reset per-season config files to empty defaults."""
     print_header("PHASE 2: RESET per-season files to empty defaults")
 
@@ -449,7 +488,7 @@ def reset_phase(execute: bool) -> None:
     reset_potw_history(execute)
     reset_injury_overrides(execute)
     reset_rosters(execute)
-    reset_trades(execute)
+    reset_trades(execute, upcoming_draft_year)
     reset_records(execute)
     reset_draft_picks_current(execute)
     reset_last_week_recap(execute)
@@ -617,7 +656,13 @@ def main() -> None:
         sys.exit(1)
 
     # Phase 2: Reset
-    reset_phase(execute)
+    # Season "2025-26" is followed by the 2026 draft.
+    upcoming_draft_year = None
+    try:
+        upcoming_draft_year = int(str(season).split("-")[0]) + 1
+    except (ValueError, IndexError):
+        pass
+    reset_phase(execute, upcoming_draft_year)
 
     # Phase 3: Delete
     delete_phase(execute)
