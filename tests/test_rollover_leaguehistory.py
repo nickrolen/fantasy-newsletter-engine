@@ -233,3 +233,49 @@ def test_no_module_path_escapes_the_tmp_root(roll, tmp_path):
             except ValueError:
                 escaped.append(f"{name} -> {val}")
     assert escaped == [], "paths not redirected; tests would write real data:\n" + "\n".join(escaped)
+
+
+# ---------------------------------------------------------------------------
+# --zero-only: the case that actually occurred
+# ---------------------------------------------------------------------------
+
+def test_zero_only_clears_without_touching_to_date(roll, tmp_path, monkeypatch):
+    """The sheet was accumulated by hand; only the current columns need clearing.
+
+    Populated current-season columns do NOT prove the to-date totals are
+    missing the season. Running the full rollover in that situation
+    double-counts every to-date field, which is exactly what happened to the
+    real 2025-26 sheet.
+    """
+    before = _rows(tmp_path / "LEAGUEHISTORY.xlsx")
+    monkeypatch.setattr("sys.argv", ["r", "--zero-only", "--execute"])
+    assert roll.main() == 0
+    after = _rows(tmp_path / "LEAGUEHISTORY.xlsx")
+
+    for mgr in ("Nick", "Hayden", "Benton", "Garrett"):
+        # to-date columns untouched
+        for field in ("seasons_completed", "regular_season_record", "playoff_record",
+                      "titles_won", "playoff_championships",
+                      "total_points_scored_to_date", "total_moves_made_to_date"):
+            assert after[mgr][field] == before[mgr][field], f"{mgr}.{field} changed"
+        # current-season columns cleared
+        assert after[mgr]["total_points_current_season"] == 0
+        assert after[mgr]["total_moves_current_season"] == 0
+        assert after[mgr]["total_blunders_current_season"] == 0
+        assert after[mgr]["record_current_season"] == "(0-0)"
+
+
+def test_zero_only_dry_run_writes_nothing(roll, tmp_path, monkeypatch):
+    before = (tmp_path / "LEAGUEHISTORY.xlsx").read_bytes()
+    monkeypatch.setattr("sys.argv", ["r", "--zero-only"])
+    assert roll.main() == 0
+    assert (tmp_path / "LEAGUEHISTORY.xlsx").read_bytes() == before
+
+
+def test_accumulate_path_warns_about_double_counting(roll, monkeypatch, capsys):
+    """The dry run must say out loud that it ADDS, and point at --zero-only."""
+    monkeypatch.setattr("sys.argv", ["r"])
+    assert roll.main() == 0
+    out = capsys.readouterr().out
+    assert "ADDS to the to-date columns" in out
+    assert "--zero-only" in out

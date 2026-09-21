@@ -21,6 +21,20 @@ season's numbers, and the all-time record silently stops advancing. Unlike the
 player-log rollup, nothing downstream errors -- the totals just quietly go
 wrong and stay wrong.
 
+DANGER -- READ THIS
+-------------------
+Populated current-season columns do NOT prove the to-date columns are missing
+this season. The sheet is maintained by hand, and a season can be accumulated
+into the to-date totals while the current-season columns are simply left
+filled in. That is exactly what happened in 2025-26: running this script
+blind double-counted every to-date field.
+
+There is no way to detect that from the sheet alone. So the operator must
+confirm it. If the to-date totals already include the finished season, the
+only thing left to do is clear the current-season columns:
+
+    py scripts/rollover_leaguehistory.py --zero-only --execute
+
 WHAT IT DOES
 ------------
 For each manager:
@@ -151,6 +165,10 @@ def main():
     )
     parser.add_argument("--execute", action="store_true",
                         help="write (default is a dry run)")
+    parser.add_argument("--zero-only", action="store_true",
+                        help="ONLY clear the current-season columns. Use when "
+                             "the to-date totals already include this season "
+                             "(e.g. it was accumulated by hand).")
     parser.add_argument("--champion", default=None,
                         help="override the derived playoff champion")
     parser.add_argument("--regular-season-winner", default=None,
@@ -201,6 +219,34 @@ def main():
     if not live:
         return fail("all *_current_season columns are already zero -- this "
                     "season looks rolled over. Nothing to do.")
+
+    if args.zero_only:
+        print("=" * 66)
+        print(f"  LEAGUEHISTORY -- CLEAR CURRENT-SEASON COLUMNS ONLY ({season})")
+        print("=" * 66)
+        print("\n  To-date totals will NOT be touched.")
+        print(f"  Clearing: {', '.join(current_cols)}\n")
+        for r in range(2, ws.max_row + 1):
+            name = ws.cell(row=r, column=col["manager_name"]).value
+            if not name:
+                continue
+            vals = {h: ws.cell(row=r, column=col[h]).value for h in current_cols}
+            print(f"    {str(name).strip():9} {vals}")
+        if not args.execute:
+            print("\n  [DRY-RUN] Nothing written.")
+            return 0
+        backup = LEAGUEHISTORY.with_suffix(".xlsx.bak")
+        shutil.copy2(LEAGUEHISTORY, backup)
+        print(f"\n  Backup: {rel(backup)}")
+        for r in range(2, ws.max_row + 1):
+            if not ws.cell(row=r, column=col["manager_name"]).value:
+                continue
+            for h in current_cols:
+                ws.cell(row=r, column=col[h],
+                        value="(0-0)" if h == "record_current_season" else 0)
+        wb.save(LEAGUEHISTORY)
+        print("  Cleared. To-date totals unchanged.")
+        return 0
 
     reg_winner, champion = derive_outcomes(records, schedule)
     if args.regular_season_winner:
@@ -278,9 +324,17 @@ def main():
             print(f"      playoff_championships  {old_pc} -> {new['playoff_championships']}  (champion)")
         print()
 
+    print("  " + "!" * 62)
+    print("  THIS ADDS to the to-date columns. Confirm they do NOT already")
+    print("  include this season. Populated current-season columns are NOT")
+    print("  evidence of that -- the sheet is maintained by hand, and a season")
+    print("  can be accumulated while those columns are left filled in.")
+    print("  If the to-date totals already include it, you want --zero-only.")
+    print("  " + "!" * 62)
+
     if not args.execute:
-        print("  [DRY-RUN] Nothing written.")
-        print("  Check the split and the two winners above, then re-run with --execute.")
+        print("\n  [DRY-RUN] Nothing written.")
+        print("  Check the split, the two winners, and the warning above.")
         return 0
 
     backup = LEAGUEHISTORY.with_suffix(".xlsx.bak")
