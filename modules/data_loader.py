@@ -56,6 +56,12 @@ SEASON_CONFIG = _LEAGUE_CONFIG.get("season", {})
 CURRENT_SEASON = SEASON_CONFIG.get("current", "")
 CURRENT_SEASON_LONG = SEASON_CONFIG.get("current_long", "")
 REGULAR_SEASON_WEEKS = SEASON_CONFIG.get("regular_season_weeks", 21)
+
+# Per-season week layout. REGULAR_SEASON_WEEKS describes only the CURRENT
+# season; historical seasons have had different shapes and anything walking
+# history must not assume one boundary for all time. See league_config.json
+# "season_structure" for the values and the derivation.
+SEASON_STRUCTURE = _LEAGUE_CONFIG.get("season_structure", {})
 PLAYOFF_START_WEEK = SEASON_CONFIG.get("playoff_start_week", 22)
 TOTAL_WEEKS = SEASON_CONFIG.get("total_weeks", 23)
 SEASON_NUMBER = SEASON_CONFIG.get("season_number", 1)
@@ -510,6 +516,42 @@ def load_league_history_detailed(path: Path) -> Optional[dict]:
     if not path.exists():
         return None
     return load_json_file(path)
+
+
+def regular_season_weeks_for(season, default=None):
+    """Last regular-season week for `season`.
+
+    The regular/playoff boundary is not a fixed week number. The bracket is
+    always the last two fantasy weeks, and how many fantasy weeks a season
+    contains varies -- Yahoo stretches any week holding the All-Star break to
+    14 days, so a season can cover the same calendar in fewer weeks. Known
+    cases: 2019-20 ended at week 19 with no bracket, 2020-21 ran 18 weeks with
+    the bracket at 17-18, and 2021-22 ran 22 weeks with the bracket at 21-22.
+
+    Falls back to the current season's value when a season is not listed.
+    """
+    entry = SEASON_STRUCTURE.get(str(season))
+    if isinstance(entry, dict):
+        through = entry.get("regular_through")
+        if through:
+            return int(through)
+    return int(REGULAR_SEASON_WEEKS if default is None else default)
+
+
+def is_regular_season_week(season, week, default=None):
+    """True if (season, week) falls in that season's regular season."""
+    try:
+        return int(week) <= regular_season_weeks_for(season, default)
+    except (TypeError, ValueError):
+        return False
+
+
+def season_had_bracket(season):
+    """True if `season` played a postseason bracket (2019-20 did not)."""
+    entry = SEASON_STRUCTURE.get(str(season))
+    if isinstance(entry, dict) and "bracket" in entry:
+        return bool(entry["bracket"])
+    return True
 
 
 def load_all_matchups(path: Path) -> list:

@@ -150,6 +150,10 @@ pytest-cache-files-*/
 data/historical/*_BACKUP.json
 data/historical/*_BACKUP.xlsx
 
+# Script-written safety backups (rollup, rollover, h2h repair)
+*.bak
+*.preRestore
+
 # --------------------------------------------
 # Cowork backup directory
 # --------------------------------------------

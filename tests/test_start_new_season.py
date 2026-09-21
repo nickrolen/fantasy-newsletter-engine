@@ -89,10 +89,12 @@ def test_config_dir_has_no_unclassified_files():
 
     Forces a decision when someone adds a file to config/ mid-season.
     """
+    # Backups written by the rollup/rollover/repair scripts are transient
+    # artifacts, not configuration, and are gitignored.
     live = {
         f"config/{p.name}"
         for p in (PROJECT_ROOT / "config").iterdir()
-        if p.is_file()
+        if p.is_file() and p.suffix not in {".bak", ".preRestore"}
     }
     unclassified = sorted(live - PER_SEASON_CONFIG - CROSS_SEASON_CONFIG)
     assert unclassified == [], (
@@ -175,3 +177,50 @@ def test_league_config_and_leaguehistory_are_protected(sns):
 def test_nba_schedule_is_never_reset(sns):
     assert sns.is_nba_schedule("data/nba_schedule_2026-27.json")
     assert not sns.is_nba_schedule("data/PLAYERLOG.xlsx")
+
+
+# ---------------------------------------------------------------------------
+# The GitHub Pages showcase must survive the reset
+# ---------------------------------------------------------------------------
+
+def test_showcase_newsletters_are_never_deleted(sns, tmp_path):
+    """index.html links six newsletters; deleting them breaks the live site.
+
+    They match the output/*.html glob the reset deletes, and they are tracked
+    in git on purpose. Phase 3 must archive them and leave them in place.
+    """
+    (tmp_path / "output").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "index.html").write_text(
+        '<a href="output/WEEK21_NEWSLETTER.html">wk21</a>'
+        '<a href="output/WEEK20_NEWSLETTER.html">wk20</a>', encoding="utf-8")
+    for n in ("WEEK20_NEWSLETTER.html", "WEEK21_NEWSLETTER.html",
+              "WEEK22_NEWSLETTER.html"):
+        (tmp_path / "output" / n).write_text("x", encoding="utf-8")
+
+    keep = sns.showcase_newsletters()
+    assert keep == {"output/WEEK21_NEWSLETTER.html", "output/WEEK20_NEWSLETTER.html"}
+
+    doomed = {sns.rel(f) for f in sns.get_delete_files()}
+    assert "output/WEEK20_NEWSLETTER.html" not in doomed
+    assert "output/WEEK21_NEWSLETTER.html" not in doomed
+    # one NOT referenced by index.html is still regenerable output
+    assert "output/WEEK22_NEWSLETTER.html" in doomed
+
+
+def test_showcase_files_are_still_archived(sns, tmp_path):
+    """Protected from deletion, but they must still land in the archive."""
+    (tmp_path / "output").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "index.html").write_text(
+        '<a href="output/WEEK21_NEWSLETTER.html">wk21</a>', encoding="utf-8")
+    (tmp_path / "output" / "WEEK21_NEWSLETTER.html").write_text("x", encoding="utf-8")
+    archived = {sns.rel(f) for f in sns.get_archive_files()}
+    assert "output/WEEK21_NEWSLETTER.html" in archived
+
+
+def test_missing_index_html_protects_nothing_and_does_not_crash(sns):
+    assert sns.showcase_newsletters() == set()
+
+
+def test_index_html_itself_is_not_treated_as_a_newsletter(sns, tmp_path):
+    (tmp_path / "index.html").write_text('<a href="index.html">self</a>', encoding="utf-8")
+    assert sns.showcase_newsletters() == set()

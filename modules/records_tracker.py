@@ -18,7 +18,8 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-from .data_loader import FantasyData, MANAGERS, CURRENT_SEASON, REGULAR_SEASON_WEEKS, save_records
+from .data_loader import (FantasyData, MANAGERS, CURRENT_SEASON, REGULAR_SEASON_WEEKS,
+                          is_regular_season_week, save_records)
 from .weekly_stats import WeeklyReport, MatchupStats
 
 
@@ -2044,8 +2045,11 @@ def get_h2h_streak(all_matchups: list, manager_a: str, manager_b: str,
         week = m.get('week', 0)
         season = m.get('season', '')
         
-        # Skip playoff weeks
-        if week > max_regular_season_week:
+        # Skip playoff weeks. The boundary is per-season: season lengths have
+        # varied (All-Star double weeks, the COVID stoppage), so a single
+        # cutoff misclassifies 2020-21's and 2021-22's brackets as regular
+        # season. max_regular_season_week is only the fallback.
+        if not is_regular_season_week(season, week, max_regular_season_week):
             continue
         
         # Skip current season from historical (we handle current season separately)

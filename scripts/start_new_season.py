@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -46,6 +47,27 @@ def is_protected(rel_path_str: str) -> bool:
         if normed.startswith(d + "/") or normed == d:
             return True
     return False
+
+def showcase_newsletters() -> set:
+    """Newsletter files index.html links to -- the public GitHub Pages site.
+
+    These live in output/ and match the archive/delete globs, but deleting
+    them breaks nickrolen.github.io/fantasy-newsletter-engine and leaves six
+    dead links in the repo. They are tracked in git on purpose.
+
+    Derived from index.html rather than hardcoded, so the protection follows
+    whatever the site actually references.
+    """
+    index = PROJECT_ROOT / "index.html"
+    if not index.is_file():
+        return set()
+    try:
+        html = index.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return set()
+    names = set(re.findall(r'[A-Za-z0-9_\-]+\.html', html))
+    return {f"output/{n}" for n in names if n.lower() != "index.html"}
+
 
 def is_nba_schedule(rel_path_str: str) -> bool:
     """Return True for NBA schedule data files (never touched by reset)."""
@@ -467,6 +489,9 @@ def get_delete_files() -> list[Path]:
     files = []
     for pat in patterns:
         files.extend(collect_glob(pat))
+
+    keep = showcase_newsletters()
+    files = [f for f in files if rel(f) not in keep]
     return sorted(set(files))
 
 
@@ -479,6 +504,14 @@ def delete_phase(execute: bool) -> None:
     if not files:
         print("\n  No output files to delete.")
         return
+
+    keep = showcase_newsletters()
+    kept = sorted(k for k in keep if (PROJECT_ROOT / k).is_file())
+    if kept:
+        print(f"\n  KEEPING {len(kept)} showcase newsletter(s) that index.html links to")
+        print("  (archived above, but left in place so GitHub Pages keeps working):")
+        for k in kept:
+            print(f"    {k}")
 
     print_file_list("Files to delete", files)
 
