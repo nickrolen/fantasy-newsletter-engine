@@ -1,0 +1,223 @@
+{
+  "week": 23,
+  "num_simulations": 200,
+  "matchup_previews": [
+    {
+      "week": 23,
+      "manager_a": "Hayden",
+      "manager_b": "Garrett",
+      "team_name_a": "Big Nik Energy",
+      "team_name_b": "Saboner",
+      "betting_line": {
+        "manager_a": "Hayden",
+        "manager_b": "Garrett",
+        "spread_a": 248.0,
+        "spread_b": -248.0,
+        "over_under": 3800,
+        "win_prob_a": 20.0,
+        "win_prob_b": 80.0,
+        "moneyline_a": 400,
+        "moneyline_b": -400,
+        "avg_score_a": 1787.3103375365733,
+        "avg_score_b": 2010.5560108654934,
+        "std_dev_a": 202.85322570034114,
+        "std_dev_b": 203.1006355157363,
+        "team_name_a": "Big Nik Energy",
+        "team_name_b": "Saboner"
+      },
+      "series_a_wins": 1,
+      "series_b_wins": 7,
+      "guard_matchup": {
+        "position": "G",
+        "manager_a_fp": 361.24,
+        "manager_a_games": 10,
+        "manager_a_players": [
+          "De'Aaron Fox",
+          "Dejounte Murray",
+          "Devin Booker"
+        ],
+        "manager_b_fp": 387.28000000000003,
+        "manager_b_games": 11,
+        "manager_b_players": [
+          "Austin Reaves",
+          "Cooper Flagg",
+          "Dyson Daniels"
+        ],
+        "advantage": "Garrett",
+        "advantage_margin": 26.04000000000002
+      },
+      "forward_matchup": {
+        "position": "F",
+        "manager_a_fp": 231.23,
+        "manager_a_games": 7,
+        "manager_a_players": [
+          "Jabari Smith Jr.",
+          "Kon Knueppel",
+          "Matas Buzelis"
+        ],
+        "manager_b_fp": 411.78,
+        "manager_b_games": 11,
+        "manager_b_players": [
+          "Alperen Sengun",
+          "Austin Reaves",
+          "Cooper Flagg"
+        ],
+        "advantage": "Garrett",
+        "advantage_margin": 180.54999999999998
+      },
+      "center_matchup": {
+        "position": "C",
+        "manager_a_fp": 200.47,
+        "manager_a_games": 5,
+        "manager_a_players": [
+          "Jabari Smith Jr.",
+          "Nikola Jokic",
+          "Onyeka Okongwu"
+        ],
+        "manager_b_fp": 169.79,
+        "manager_b_games": 4,
+        "manager_b_players": [
+          "Alperen Sengun",
+          "Giannis Antetokounmpo",
+          "Rudy Gobert"
+        ],
+        "advantage": "Hayden",
+        "advantage_margin": 30.680000000000007
+      },
+      "key_player_a": "Nikola Jokic",
+      "key_player_a_proj": 62.16,
+      "key_player_b": "Victor Wembanyama",
+      "key_player_b_proj": 55.5,
+      "implications": "A Hayden loss would put them 6 games back of Garrett.",
+      "all_time_a_wins": 34,
+      "all_time_b_wins": 32,
+      "h2h_streak_holder": "Garrett",
+      "h2h_streak_length": 3,
+      "h2h_streak_last_loss_season": "2025-26",
+      "key_player_a_injury_note": "",
+      "key_player_b_injury_note": "",
+      "notable_injuries_a": [
+        {
+          "player": "Lauri Markkanen",
+          "notes": "Out for season",
+          "status": "out"
+        }
+      ],
+      "notable_injuries_b": []
+    },
+    {
+      "week": 23,
+      "manager_a": "Nick",
+      "manager_b": "Benton",
+      "team_name_a": "Luka my Balls",
+      "team_name_b": "Smaxey",
+      "betting_line": {
+        "manager_a": "Nick",
+        "manager_b": "Benton",
+        "spread_a": 256.5,
+        "spread_b": -256.5,
+        "over_under": 3710,
+        "win_prob_a": 20.5,
+        "win_prob_b": 79.5,
+        "moneyline_a": 390,
+        "moneyline_b": -390,
+        "avg_score_a": 1738.922854093617,
+        "avg_score_b": 1969.8928616080789,
+        "std_dev_a": 202.4585585741829,
+        "std_dev_b": 208.4374996600737,
+        "team_name_a": "Luka my Balls",
+        "team_name_b": "Smaxey"
+      },
+      "series_a_wins": 5,
+      "series_b_wins": 3,
+      "guard_matchup": {
+        "position": "G",
+        "manager_a_fp": 266.88,
+        "manager_a_games": 7,
+        "manager_a_players": [
+          "Ace Bailey",
+          "Amen Thompson",
+          "Anthony Edwards"
+        ],
+        "manager_b_fp": 352.94999999999993,
+        "manager_b_games": 9,
+        "manager_b_players": [
+          "Derrick White",
+          "Desmond Bane",
+          "Donovan Mitchell"
+        ],
+        "advantage": "Benton",
+        "advantage_margin": 86.06999999999994
+      },
+      "forward_matchup": {
+        "position": "F",
+        "manager_a_fp": 262.9,
+        "manager_a_games": 7,
+        "manager_a_players": [
+          "Ace Bailey",
+          "Amen Thompson",
+          "Brandon Miller"
+        ],
+        "manager_b_fp": 337.6,
+        "manager_b_games": 9,
+        "manager_b_players": [
+          "Bam Adebayo",
+          "Desmond Bane",
+          "Evan Mobley"
+        ],
+        "advantage": "Benton",
+        "advantage_margin": 74.70000000000005
+      },
+      "center_matchup": {
+        "position": "C",
+        "manager_a_fp": 179.92,
+        "manager_a_games": 5,
+        "manager_a_players": [
+          "Chet Holmgren",
+          "Donovan Clingan",
+          "Joel Embiid"
+        ],
+        "manager_b_fp": 141.76000000000002,
+        "manager_b_games": 4,
+        "manager_b_players": [
+          "Bam Adebayo",
+          "Evan Mobley",
+          "Jarrett Allen"
+        ],
+        "advantage": "Nick",
+        "advantage_margin": 38.15999999999997
+      },
+      "key_player_a": "Luka Doncic",
+      "key_player_a_proj": 57.0,
+      "key_player_b": "Tyrese Maxey",
+      "key_player_b_proj": 45.41,
+      "implications": "A Benton loss would put them 8 games back of Nick.",
+      "all_time_a_wins": 37,
+      "all_time_b_wins": 29,
+      "h2h_streak_holder": "Benton",
+      "h2h_streak_length": 1,
+      "h2h_streak_last_loss_season": "2025-26",
+      "key_player_a_injury_note": "",
+      "key_player_b_injury_note": "Cade Cunningham (injured)",
+      "notable_injuries_a": [
+        {
+          "player": "Domantas Sabonis",
+          "notes": "Out for season",
+          "status": "out"
+        },
+        {
+          "player": "Anthony Davis",
+          "notes": "Out for season",
+          "status": "out"
+        }
+      ],
+      "notable_injuries_b": [
+        {
+          "player": "Cade Cunningham",
+          "notes": "Out for season",
+          "status": "out"
+        }
+      ]
+    }
+  ]
+}

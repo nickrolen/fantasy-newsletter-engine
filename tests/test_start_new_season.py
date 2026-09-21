@@ -280,3 +280,14 @@ def test_reset_trades_dry_run_writes_nothing(sns, tmp_path):
     tj.write_text(original, encoding="utf-8")
     sns.reset_trades(execute=False, upcoming_draft_year=2026)
     assert tj.read_text(encoding="utf-8") == original
+
+
+def test_schedule_json_is_archived(sns):
+    """SCHEDULE.json describes the season that was played.
+
+    It is replaced wholesale for the new season and is what the draft-order
+    script reads back out of the archive, so it has to be archived.
+    """
+    src = (PROJECT_ROOT / "scripts" / "start_new_season.py").read_text(encoding="utf-8")
+    archive_block = src[src.index("def get_archive_files"):src.index("def archive_phase")]
+    assert '"config/SCHEDULE.json"' in archive_block

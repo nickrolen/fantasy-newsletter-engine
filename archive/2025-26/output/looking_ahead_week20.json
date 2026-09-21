@@ -1,0 +1,248 @@
+{
+  "week": 21,
+  "num_simulations": 5000,
+  "matchup_previews": [
+    {
+      "week": 21,
+      "manager_a": "Nick",
+      "manager_b": "Benton",
+      "team_name_a": "Luka my Balls",
+      "team_name_b": "Smaxey",
+      "betting_line": {
+        "manager_a": "Nick",
+        "manager_b": "Benton",
+        "spread_a": 33.0,
+        "spread_b": -33.0,
+        "over_under": 3770,
+        "win_prob_a": 45.64,
+        "win_prob_b": 54.36,
+        "moneyline_a": 120,
+        "moneyline_b": -120,
+        "avg_score_a": 1871.3165512026815,
+        "avg_score_b": 1901.049202265612,
+        "std_dev_a": 208.46882530394254,
+        "std_dev_b": 211.12316406385247,
+        "team_name_a": "Luka my Balls",
+        "team_name_b": "Smaxey"
+      },
+      "series_a_wins": 4,
+      "series_b_wins": 2,
+      "guard_matchup": {
+        "position": "G",
+        "manager_a_fp": 339.343451,
+        "manager_a_games": 9,
+        "manager_a_players": [
+          "Amen Thompson",
+          "Anthony Edwards",
+          "Brandon Ingram"
+        ],
+        "manager_b_fp": 349.403869,
+        "manager_b_games": 9,
+        "manager_b_players": [
+          "Cade Cunningham",
+          "Derrick White",
+          "Desmond Bane"
+        ],
+        "advantage": "Benton",
+        "advantage_margin": 10.06041799999997
+      },
+      "forward_matchup": {
+        "position": "F",
+        "manager_a_fp": 328.250692,
+        "manager_a_games": 9,
+        "manager_a_players": [
+          "Amen Thompson",
+          "Brandon Ingram",
+          "Brandon Miller"
+        ],
+        "manager_b_fp": 335.039715,
+        "manager_b_games": 9,
+        "manager_b_players": [
+          "Bam Adebayo",
+          "Desmond Bane",
+          "Evan Mobley"
+        ],
+        "advantage": "Benton",
+        "advantage_margin": 6.789022999999986
+      },
+      "center_matchup": {
+        "position": "C",
+        "manager_a_fp": 112.845274,
+        "manager_a_games": 3,
+        "manager_a_players": [
+          "Chet Holmgren",
+          "Jalen Duren",
+          "Karl-Anthony Towns"
+        ],
+        "manager_b_fp": 107.65323699999999,
+        "manager_b_games": 3,
+        "manager_b_players": [
+          "Bam Adebayo",
+          "Evan Mobley",
+          "Julius Randle"
+        ],
+        "advantage": "Nick",
+        "advantage_margin": 5.192037000000013
+      },
+      "key_player_a": "Luka Doncic",
+      "key_player_a_proj": 55.929054,
+      "key_player_b": "Cade Cunningham",
+      "key_player_b_proj": 46.818919,
+      "implications": "A Benton loss would put them 7 games back of Nick.",
+      "all_time_a_wins": 36,
+      "all_time_b_wins": 28,
+      "h2h_streak_holder": "Nick",
+      "h2h_streak_length": 3,
+      "h2h_streak_last_loss_season": "2025-26",
+      "key_player_a_injury_note": "",
+      "key_player_b_injury_note": "",
+      "notable_injuries_a": [
+        {
+          "player": "Anthony Davis",
+          "notes": "Hand injury - out ~11 weeks starting week 12",
+          "status": "out"
+        }
+      ],
+      "notable_injuries_b": [
+        {
+          "player": "Tyrese Maxey",
+          "notes": "Finger injury - out ~4 weeks starting week 19",
+          "status": "out"
+        },
+        {
+          "player": "Jarrett Allen",
+          "notes": "Knee injury - out ~4 weeks starting week 19",
+          "status": "out"
+        },
+        {
+          "player": "Michael Porter Jr.",
+          "notes": "Possibly returning from ankle injury on 3/18",
+          "status": "returning",
+          "return_games": 3,
+          "total_week_games": 4
+        }
+      ]
+    },
+    {
+      "week": 21,
+      "manager_a": "Hayden",
+      "manager_b": "Garrett",
+      "team_name_a": "Big Nik Energy",
+      "team_name_b": "Saboner",
+      "betting_line": {
+        "manager_a": "Hayden",
+        "manager_b": "Garrett",
+        "spread_a": 112.0,
+        "spread_b": -112.0,
+        "over_under": 3570,
+        "win_prob_a": 35.02,
+        "win_prob_b": 64.98,
+        "moneyline_a": 185,
+        "moneyline_b": -185,
+        "avg_score_a": 1732.8578740732787,
+        "avg_score_b": 1833.4723456292274,
+        "std_dev_a": 201.95363479827972,
+        "std_dev_b": 209.39334079733152,
+        "team_name_a": "Big Nik Energy",
+        "team_name_b": "Saboner"
+      },
+      "series_a_wins": 1,
+      "series_b_wins": 5,
+      "guard_matchup": {
+        "position": "G",
+        "manager_a_fp": 348.66192499999994,
+        "manager_a_games": 10,
+        "manager_a_players": [
+          "De'Aaron Fox",
+          "Devin Booker",
+          "Kevin Porter Jr."
+        ],
+        "manager_b_fp": 283.317259,
+        "manager_b_games": 8,
+        "manager_b_players": [
+          "Austin Reaves",
+          "Cooper Flagg",
+          "Immanuel Quickley"
+        ],
+        "advantage": "Hayden",
+        "advantage_margin": 65.34466599999996
+      },
+      "forward_matchup": {
+        "position": "F",
+        "manager_a_fp": 254.888665,
+        "manager_a_games": 8,
+        "manager_a_players": [
+          "Kon Knueppel",
+          "Matas Buzelis",
+          "Mikal Bridges"
+        ],
+        "manager_b_fp": 356.240459,
+        "manager_b_games": 9,
+        "manager_b_players": [
+          "Alperen Sengun",
+          "Austin Reaves",
+          "Cooper Flagg"
+        ],
+        "advantage": "Garrett",
+        "advantage_margin": 101.35179399999998
+      },
+      "center_matchup": {
+        "position": "C",
+        "manager_a_fp": 200.329138,
+        "manager_a_games": 5,
+        "manager_a_players": [
+          "Nikola Jokic",
+          "Onyeka Okongwu",
+          "Paolo Banchero"
+        ],
+        "manager_b_fp": 234.24837,
+        "manager_b_games": 6,
+        "manager_b_players": [
+          "Alperen Sengun",
+          "Donovan Clingan",
+          "Giannis Antetokounmpo"
+        ],
+        "advantage": "Garrett",
+        "advantage_margin": 33.919231999999994
+      },
+      "key_player_a": "Nikola Jokic",
+      "key_player_a_proj": 59.852518,
+      "key_player_b": "Victor Wembanyama",
+      "key_player_b_proj": 55.783784,
+      "implications": "A Hayden loss would put them 5 games back of Garrett.",
+      "all_time_a_wins": 34,
+      "all_time_b_wins": 30,
+      "h2h_streak_holder": "Garrett",
+      "h2h_streak_length": 1,
+      "h2h_streak_last_loss_season": "2025-26",
+      "key_player_a_injury_note": "",
+      "key_player_b_injury_note": "",
+      "notable_injuries_a": [
+        {
+          "player": "Pascal Siakam",
+          "notes": "Possibly returning from ankle injury on 3/18",
+          "status": "returning",
+          "return_games": 2,
+          "total_week_games": 3
+        },
+        {
+          "player": "Lauri Markkanen",
+          "notes": "Hip injury - out ~6 weeks starting week 17",
+          "status": "out"
+        }
+      ],
+      "notable_injuries_b": [
+        {
+          "player": "Domantas Sabonis",
+          "notes": "Out for season",
+          "status": "out"
+        },
+        {
+          "player": "Stephen Curry",
+          "notes": "Knee injury - out ~7 weeks starting week 15",
+          "status": "out"
+        }
+      ]
+    }
+  ]
+}

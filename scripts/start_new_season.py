@@ -143,6 +143,7 @@ def get_archive_files() -> list[Path]:
         "config/TRADES.json",
         "config/INJURY_OVERRIDES.json",
         "config/RECORDS.json",
+        "config/SCHEDULE.json",         # the season actually played; replaced each year
         "config/league_config.json",    # snapshot copy (original is never modified)
         "data/LEAGUEHISTORY.xlsx",      # snapshot copy (original is never modified)
         # Season data files -- MUST be archived before Phase 2 wipes them.

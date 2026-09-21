@@ -38,7 +38,27 @@ SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 CONFIG_DIR = PROJECT_ROOT / "config"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 BASELINE_FILE = CONFIG_DIR / ".file_baselines.json"
-GOLDEN_REPORT = OUTPUT_DIR / "stats_report_week22.json"
+_GOLDEN_NAME = "stats_report_week22.json"
+GOLDEN_REPORT = OUTPUT_DIR / _GOLDEN_NAME
+
+
+def _resolve_golden():
+    """Golden master reference, live or archived.
+
+    The season reset deletes output/, so this check goes dark from the reset
+    until the new season produces a week-22 report -- which is precisely the
+    stretch when the engine is being changed most. Fall back to the most
+    recently archived season so the regression check keeps working.
+    """
+    if GOLDEN_REPORT.is_file():
+        return GOLDEN_REPORT
+    archive = PROJECT_ROOT / "archive"
+    if archive.is_dir():
+        for season in sorted((d for d in archive.iterdir() if d.is_dir()), reverse=True):
+            candidate = season / "output" / _GOLDEN_NAME
+            if candidate.is_file():
+                return candidate
+    return _resolve_golden()
 LEAGUE_CONFIG = CONFIG_DIR / "league_config.json"
 
 # Required top-level keys in league_config.json
@@ -479,7 +499,7 @@ def check_golden_master(verbose=False):
     failures = []
     warnings = []
 
-    if not GOLDEN_REPORT.is_file():
+    if not _resolve_golden().is_file():
         return {
             "label": "[6/6] Golden Master",
             "status": "SKIPPED (no stats_report_week22.json)",
@@ -495,7 +515,7 @@ def check_golden_master(verbose=False):
         }
 
     try:
-        with open(GOLDEN_REPORT, "r", encoding="utf-8") as f:
+        with open(_resolve_golden(), "r", encoding="utf-8") as f:
             report = json.load(f)
         with open(LEAGUE_CONFIG, "r", encoding="utf-8") as f:
             cfg = json.load(f)
@@ -578,6 +598,12 @@ def main():
         help="Update the file-size baseline after a successful run."
     )
     parser.add_argument(
+        "--force", action="store_true",
+        help="With --baseline: rewrite the baseline even though size checks "
+             "failed. For the documented post-season-reset case, where the "
+             "failures ARE the stale baseline. Review the list first."
+    )
+    parser.add_argument(
         "--compare-golden", action="store_true",
         help="Also run the golden master comparison."
     )
@@ -636,9 +662,20 @@ def main():
 
     # Baseline update happens AFTER all checks, only if no failures
     if args.baseline:
-        if all_failures:
+        size_only = all(f.startswith("[SIZE]") for f in all_failures)
+        if all_failures and not (args.force and size_only):
             print("\nBaseline NOT updated (failures present). Fix failures and re-run.")
+            if size_only:
+                print()
+                print("All failures are size/existence checks. If they are expected --")
+                print("after scripts/start_new_season.py, every deleted output file and")
+                print("every emptied config file reports here -- review the list above,")
+                print("confirm nothing unexpected is in it, then re-run with:")
+                print("    py scripts/verify_project_integrity.py --baseline --force")
             return 1
+        if all_failures:
+            print(f"\n--force: rewriting the baseline over {len(all_failures)} "
+                  f"size failure(s), all of them size/existence checks.")
         baseline_check = next(
             (r for r in results if r["label"].startswith("[2/6]")), None
         )

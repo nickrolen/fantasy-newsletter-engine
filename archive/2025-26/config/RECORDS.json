@@ -1,0 +1,7304 @@
+{
+  "all_time": {
+    "h2h": {
+      "Benton_vs_Garrett": {
+        "benton": 29,
+        "garrett": 31
+      },
+      "Benton_vs_Hayden": {
+        "benton": 23,
+        "hayden": 37
+      },
+      "Benton_vs_Nick": {
+        "benton": 27,
+        "nick": 34
+      },
+      "Garrett_vs_Hayden": {
+        "garrett": 30,
+        "hayden": 31
+      },
+      "Garrett_vs_Nick": {
+        "garrett": 17,
+        "nick": 43
+      },
+      "Hayden_vs_Nick": {
+        "hayden": 24,
+        "nick": 36
+      }
+    },
+    "manager_careers": {
+      "Nick": {
+        "total_wins": 120,
+        "total_losses": 77,
+        "total_points_scored": 313856.55,
+        "win_pct": 60.9,
+        "titles": 6,
+        "franchise_player": "Luka Doncic",
+        "franchise_player_fp": 19344.7,
+        "playoff_titles": 0
+      },
+      "Hayden": {
+        "total_wins": 102,
+        "total_losses": 95,
+        "total_points_scored": 308867.4,
+        "win_pct": 51.8,
+        "titles": 3,
+        "franchise_player": "Nikola Jokic",
+        "franchise_player_fp": 23033.1,
+        "playoff_titles": 0
+      },
+      "Benton": {
+        "total_wins": 86,
+        "total_losses": 111,
+        "total_points_scored": 302058.54999999993,
+        "win_pct": 43.7,
+        "titles": 2,
+        "franchise_player": "Trae Young",
+        "franchise_player_fp": 13332.7,
+        "playoff_titles": 0
+      },
+      "Garrett": {
+        "total_wins": 86,
+        "total_losses": 111,
+        "total_points_scored": 299060.55,
+        "win_pct": 43.7,
+        "titles": 0,
+        "franchise_player": "Giannis Antetokounmpo",
+        "franchise_player_fp": 18645.2,
+        "playoff_titles": 1
+      }
+    },
+    "highest_weekly_score": {
+      "score": 2773.1,
+      "manager": "Nick",
+      "season": "2024-25",
+      "week": 7
+    },
+    "lowest_weekly_score": {
+      "score": 677.1,
+      "manager": "Benton",
+      "season": "2025-26",
+      "week": 8
+    },
+    "biggest_blowout": {
+      "margin": 763.2000000000003,
+      "winner": "Garrett",
+      "loser": "Benton",
+      "season": "2020-21",
+      "week": 11
+    },
+    "closest_game": {
+      "margin": 0.3999999999998636,
+      "winner": "Garrett",
+      "loser": "Benton",
+      "season": "2020-21",
+      "week": 2
+    },
+    "longest_win_streak": {
+      "Nick": {
+        "length": 8,
+        "season": "2020-21"
+      },
+      "Hayden": {
+        "length": 9,
+        "season": "2022-23"
+      },
+      "Benton": {
+        "length": 9,
+        "season": "2017-18"
+      },
+      "Garrett": {
+        "length": 7,
+        "season": "2021-22"
+      }
+    },
+    "longest_loss_streak": {
+      "Nick": {
+        "length": 5,
+        "season": "2019-20"
+      },
+      "Hayden": {
+        "length": 9,
+        "season": "2018-19"
+      },
+      "Benton": {
+        "length": 18,
+        "season": "2020-21"
+      },
+      "Garrett": {
+        "length": 7,
+        "season": "2017-18"
+      }
+    },
+    "trade_partners": {
+      "Benton_and_Hayden": 5,
+      "Garrett_and_Hayden": 3,
+      "Hayden_and_Nick": 7,
+      "Garrett_and_Nick": 6,
+      "Benton_and_Nick": 12,
+      "Benton_and_Garrett": 4
+    },
+    "highest_weekly_score_top10": [
+      {
+        "score": 2773.1,
+        "manager": "Nick",
+        "season": "2024-25",
+        "week": 7,
+        "games": 71,
+        "fppg": 39.1
+      },
+      {
+        "score": 2754.2,
+        "manager": "Hayden",
+        "season": "2024-25",
+        "week": 7,
+        "games": 70,
+        "fppg": 39.3
+      },
+      {
+        "score": 2504.5,
+        "manager": "Hayden",
+        "season": "2020-21",
+        "week": 11,
+        "games": 62,
+        "fppg": 40.4
+      },
+      {
+        "score": 2435.35,
+        "manager": "Garrett",
+        "season": "2024-25",
+        "week": 7,
+        "games": 63,
+        "fppg": 38.7
+      },
+      {
+        "score": 2434.75,
+        "manager": "Benton",
+        "season": "2024-25",
+        "week": 7,
+        "games": 65,
+        "fppg": 37.5
+      },
+      {
+        "score": 2311.7,
+        "manager": "Garrett",
+        "season": "2023-24",
+        "week": 17,
+        "games": 56,
+        "fppg": 41.3
+      },
+      {
+        "score": 2266.55,
+        "manager": "Nick",
+        "season": "2024-25",
+        "week": 16,
+        "games": 60,
+        "fppg": 37.8
+      },
+      {
+        "score": 2249.15,
+        "manager": "Hayden",
+        "season": "2023-24",
+        "week": 17,
+        "games": 54,
+        "fppg": 41.7
+      },
+      {
+        "score": 2224.95,
+        "manager": "Hayden",
+        "season": "2024-25",
+        "week": 16,
+        "games": 58,
+        "fppg": 38.4
+      },
+      {
+        "score": 2190.5,
+        "manager": "Nick",
+        "season": "2020-21",
+        "week": 11,
+        "games": 55,
+        "fppg": 39.8
+      }
+    ],
+    "lowest_weekly_score_top10": [
+      {
+        "score": 677.1,
+        "manager": "Benton",
+        "season": "2025-26",
+        "week": 8,
+        "games": 18,
+        "fppg": 37.6
+      },
+      {
+        "score": 718.35,
+        "manager": "Garrett",
+        "season": "2025-26",
+        "week": 8,
+        "games": 21,
+        "fppg": 34.2
+      },
+      {
+        "score": 794.9,
+        "manager": "Garrett",
+        "season": "2017-18",
+        "week": 12,
+        "games": 24,
+        "fppg": 33.1
+      },
+      {
+        "score": 814.8,
+        "manager": "Garrett",
+        "season": "2021-22",
+        "week": 15,
+        "games": 18,
+        "fppg": 45.3
+      },
+      {
+        "score": 900.4,
+        "manager": "Benton",
+        "season": "2024-25",
+        "week": 23,
+        "games": 25,
+        "fppg": 36.0
+      },
+      {
+        "score": 900.75,
+        "manager": "Hayden",
+        "season": "2025-26",
+        "week": 8,
+        "games": 26,
+        "fppg": 34.6
+      },
+      {
+        "score": 915.65,
+        "manager": "Benton",
+        "season": "2023-24",
+        "week": 7,
+        "games": 24,
+        "fppg": 38.2
+      },
+      {
+        "score": 924.75,
+        "manager": "Benton",
+        "season": "2021-22",
+        "week": 10,
+        "games": 25,
+        "fppg": 37.0
+      },
+      {
+        "score": 950.95,
+        "manager": "Hayden",
+        "season": "2021-22",
+        "week": 9,
+        "games": 26,
+        "fppg": 36.6
+      },
+      {
+        "score": 955.3,
+        "manager": "Nick",
+        "season": "2024-25",
+        "week": 8,
+        "games": 28,
+        "fppg": 34.1
+      }
+    ],
+    "biggest_blowout_top10": [
+      {
+        "margin": 763.2,
+        "winner": "Garrett",
+        "loser": "Benton",
+        "season": "2020-21",
+        "week": 11
+      },
+      {
+        "margin": 752.05,
+        "winner": "Hayden",
+        "loser": "Garrett",
+        "season": "2021-22",
+        "week": 15
+      },
+      {
+        "margin": 749.2,
+        "winner": "Nick",
+        "loser": "Benton",
+        "season": "2020-21",
+        "week": 16
+      },
+      {
+        "margin": 665.05,
+        "winner": "Garrett",
+        "loser": "Benton",
+        "season": "2025-26",
+        "week": 22
+      },
+      {
+        "margin": 601.05,
+        "winner": "Garrett",
+        "loser": "Benton",
+        "season": "2019-20",
+        "week": 17
+      },
+      {
+        "margin": 595.05,
+        "winner": "Nick",
+        "loser": "Garrett",
+        "season": "2017-18",
+        "week": 12
+      },
+      {
+        "margin": 591.5,
+        "winner": "Hayden",
+        "loser": "Benton",
+        "season": "2024-25",
+        "week": 19
+      },
+      {
+        "margin": 536.55,
+        "winner": "Benton",
+        "loser": "Garrett",
+        "season": "2017-18",
+        "week": 19
+      },
+      {
+        "margin": 527.85,
+        "winner": "Nick",
+        "loser": "Garrett",
+        "season": "2022-23",
+        "week": 11
+      },
+      {
+        "margin": 527.75,
+        "winner": "Benton",
+        "loser": "Garrett",
+        "season": "2024-25",
+        "week": 20
+      }
+    ],
+    "closest_game_top10": [
+      {
+        "margin": 0.4,
+        "winner": "Garrett",
+        "loser": "Benton",
+        "season": "2020-21",
+        "week": 2
+      },
+      {
+        "margin": 1.95,
+        "winner": "Hayden",
+        "loser": "Garrett",
+        "season": "2020-21",
+        "week": 10
+      },
+      {
+        "margin": 2.65,
+        "winner": "Garrett",
+        "loser": "Nick",
+        "season": "2019-20",
+        "week": 12
+      },
+      {
+        "margin": 4.45,
+        "winner": "Hayden",
+        "loser": "Nick",
+        "season": "2021-22",
+        "week": 22
+      },
+      {
+        "margin": 4.5,
+        "winner": "Hayden",
+        "loser": "Nick",
+        "season": "2022-23",
+        "week": 10
+      },
+      {
+        "margin": 5.0,
+        "winner": "Garrett",
+        "loser": "Benton",
+        "season": "2023-24",
+        "week": 5
+      },
+      {
+        "margin": 5.15,
+        "winner": "Nick",
+        "loser": "Benton",
+        "season": "2025-26",
+        "week": 12
+      },
+      {
+        "margin": 5.9,
+        "winner": "Garrett",
+        "loser": "Hayden",
+        "season": "2023-24",
+        "week": 6
+      },
+      {
+        "margin": 6.2,
+        "winner": "Garrett",
+        "loser": "Hayden",
+        "season": "2025-26",
+        "week": 3
+      },
+      {
+        "margin": 6.25,
+        "winner": "Garrett",
+        "loser": "Nick",
+        "season": "2017-18",
+        "week": 9
+      }
+    ],
+    "longest_win_streak_top10": [
+      {
+        "length": 9,
+        "manager": "Benton",
+        "season": "2017-18"
+      },
+      {
+        "length": 9,
+        "manager": "Hayden",
+        "season": "2022-23"
+      },
+      {
+        "length": 8,
+        "manager": "Nick",
+        "season": "2020-21"
+      },
+      {
+        "length": 7,
+        "manager": "Benton",
+        "season": "2019-20"
+      },
+      {
+        "length": 7,
+        "manager": "Hayden",
+        "season": "2020-21"
+      },
+      {
+        "length": 7,
+        "manager": "Garrett",
+        "season": "2021-22"
+      },
+      {
+        "length": 7,
+        "manager": "Nick",
+        "season": "2023-24"
+      },
+      {
+        "length": 7,
+        "manager": "Nick",
+        "season": "2024-25"
+      },
+      {
+        "length": 7,
+        "manager": "Nick",
+        "season": "2025-26"
+      },
+      {
+        "length": 6,
+        "manager": "Nick",
+        "season": "2021-22"
+      }
+    ],
+    "longest_loss_streak_top10": [
+      {
+        "length": 18,
+        "manager": "Benton",
+        "season": "2020-21"
+      },
+      {
+        "length": 9,
+        "manager": "Hayden",
+        "season": "2018-19"
+      },
+      {
+        "length": 8,
+        "manager": "Benton",
+        "season": "2023-24"
+      },
+      {
+        "length": 8,
+        "manager": "Benton",
+        "season": "2023-24"
+      },
+      {
+        "length": 7,
+        "manager": "Garrett",
+        "season": "2017-18"
+      },
+      {
+        "length": 7,
+        "manager": "Garrett",
+        "season": "2021-22"
+      },
+      {
+        "length": 6,
+        "manager": "Hayden",
+        "season": "2021-22"
+      },
+      {
+        "length": 6,
+        "manager": "Hayden",
+        "season": "2025-26"
+      },
+      {
+        "length": 5,
+        "manager": "Hayden",
+        "season": "2017-18"
+      },
+      {
+        "length": 5,
+        "manager": "Nick",
+        "season": "2019-20"
+      }
+    ],
+    "highest_single_game": {
+      "player_name": "Stephen Curry",
+      "manager": "Nick",
+      "fantasy_points": 111.05,
+      "date": "2025-04-01",
+      "season": "2024-25",
+      "week": 22
+    },
+    "highest_single_game_top10": [
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Nick",
+        "fantasy_points": 111.05,
+        "date": "2025-04-01",
+        "season": "2024-25",
+        "week": 22
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "fantasy_points": 107.75,
+        "date": "2023-12-25",
+        "season": "2023-24",
+        "week": 10
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "fantasy_points": 103.85,
+        "date": "2025-03-07",
+        "season": "2024-25",
+        "week": 18
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "fantasy_points": 102.45,
+        "date": "2025-01-23",
+        "season": "2024-25",
+        "week": 13
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "fantasy_points": 100.3,
+        "date": "2025-12-25",
+        "season": "2025-26",
+        "week": 10
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Nick",
+        "fantasy_points": 99.9,
+        "date": "2023-02-26",
+        "season": "2022-23",
+        "week": 18
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "fantasy_points": 99.8,
+        "date": "2026-03-12",
+        "season": "2025-26",
+        "week": 20
+      },
+      {
+        "player_name": "DeMarcus Cousins",
+        "manager": "Benton",
+        "fantasy_points": 98.95,
+        "date": "2018-01-22",
+        "season": "2017-18",
+        "week": 15
+      },
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Nick",
+        "fantasy_points": 98.15,
+        "date": "2021-11-08",
+        "season": "2021-22",
+        "week": 4
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "fantasy_points": 97.9,
+        "date": "2024-12-15",
+        "season": "2024-25",
+        "week": 7
+      }
+    ],
+    "lowest_single_game": {
+      "player_name": "Anfernee Simons",
+      "manager": "Garrett",
+      "fantasy_points": -4.55,
+      "date": "2024-11-10",
+      "season": "2024-25",
+      "week": 3
+    },
+    "lowest_single_game_top10": [
+      {
+        "player_name": "Anfernee Simons",
+        "manager": "Garrett",
+        "fantasy_points": -4.55,
+        "date": "2024-11-10",
+        "season": "2024-25",
+        "week": 3
+      },
+      {
+        "player_name": "Payton Pritchard",
+        "manager": "Nick",
+        "fantasy_points": -3.7,
+        "date": "2026-03-04",
+        "season": "2025-26",
+        "week": 19
+      },
+      {
+        "player_name": "Mike Conley",
+        "manager": "Hayden",
+        "fantasy_points": -3.1,
+        "date": "2019-01-02",
+        "season": "2018-19",
+        "week": 12
+      },
+      {
+        "player_name": "Danny Green",
+        "manager": "Nick",
+        "fantasy_points": -2.75,
+        "date": "2017-10-27",
+        "season": "2017-18",
+        "week": 2
+      },
+      {
+        "player_name": "Karl-Anthony Towns",
+        "manager": "Nick",
+        "fantasy_points": -2.55,
+        "date": "2026-01-05",
+        "season": "2025-26",
+        "week": 12
+      },
+      {
+        "player_name": "Jaylen Brown",
+        "manager": "Hayden",
+        "fantasy_points": -2.35,
+        "date": "2021-10-22",
+        "season": "2021-22",
+        "week": 1
+      },
+      {
+        "player_name": "De'Aaron Fox",
+        "manager": "Benton",
+        "fantasy_points": -2.3,
+        "date": "2018-12-17",
+        "season": "2018-19",
+        "week": 10
+      },
+      {
+        "player_name": "Marcus Smart",
+        "manager": "Nick",
+        "fantasy_points": -2.2,
+        "date": "2019-12-01",
+        "season": "2019-20",
+        "week": 6
+      },
+      {
+        "player_name": "Trey Murphy III",
+        "manager": "Garrett",
+        "fantasy_points": -2.0,
+        "date": "2025-03-17",
+        "season": "2024-25",
+        "week": 20
+      },
+      {
+        "player_name": "Anfernee Simons",
+        "manager": "Hayden",
+        "fantasy_points": -1.95,
+        "date": "2024-02-25",
+        "season": "2023-24",
+        "week": 17
+      }
+    ],
+    "best_season_fppg": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "fppg": 64.0,
+      "gp": 67,
+      "total_fp": 4287.8,
+      "season": "2024-25"
+    },
+    "best_season_fppg_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "fppg": 64.0,
+        "gp": 67,
+        "total_fp": 4287.8,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "fppg": 61.95,
+        "gp": 62,
+        "total_fp": 3840.8,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "fppg": 61.13,
+        "gp": 65,
+        "total_fp": 3973.4,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett, Nick",
+        "fppg": 57.97,
+        "gp": 72,
+        "total_fp": 4174.0,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "fppg": 56.24,
+        "gp": 64,
+        "total_fp": 3599.6,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "fppg": 55.68,
+        "gp": 73,
+        "total_fp": 4064.3,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "fppg": 55.42,
+        "gp": 68,
+        "total_fp": 3768.4,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Benton",
+        "fppg": 54.94,
+        "gp": 59,
+        "total_fp": 3241.2,
+        "season": "2019-20"
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fppg": 54.61,
+        "gp": 44,
+        "total_fp": 2402.8,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "fppg": 54.56,
+        "gp": 67,
+        "total_fp": 3655.7,
+        "season": "2022-23"
+      }
+    ],
+    "best_season_total_fp": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "total_fp": 4287.8,
+      "gp": 67,
+      "fppg": 64.0,
+      "season": "2024-25"
+    },
+    "best_season_total_fp_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "total_fp": 4287.8,
+        "gp": 67,
+        "fppg": 64.0,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett, Nick",
+        "total_fp": 4174.0,
+        "gp": 72,
+        "fppg": 57.97,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "total_fp": 4064.3,
+        "gp": 73,
+        "fppg": 55.68,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "total_fp": 3973.4,
+        "gp": 65,
+        "fppg": 61.13,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "total_fp": 3840.8,
+        "gp": 62,
+        "fppg": 61.95,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "total_fp": 3768.4,
+        "gp": 68,
+        "fppg": 55.42,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Shai Gilgeous-Alexander",
+        "manager": "Hayden",
+        "total_fp": 3673.4,
+        "gp": 75,
+        "fppg": 48.98,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "total_fp": 3655.7,
+        "gp": 67,
+        "fppg": 54.56,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "total_fp": 3599.6,
+        "gp": 64,
+        "fppg": 56.24,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Domantas Sabonis",
+        "manager": "Garrett",
+        "total_fp": 3583.0,
+        "gp": 75,
+        "fppg": 47.77,
+        "season": "2023-24"
+      }
+    ],
+    "most_fp_single_week": {
+      "player_name": "Luka Doncic",
+      "manager": "Nick",
+      "weekly_fp": 339.6,
+      "games": 5,
+      "season": "2024-25",
+      "week": 7
+    },
+    "most_fp_single_week_top10": [
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "weekly_fp": 339.6,
+        "games": 5,
+        "season": "2024-25",
+        "week": 7
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fp": 319.7,
+        "games": 5,
+        "season": "2023-24",
+        "week": 17
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fp": 318.15,
+        "games": 5,
+        "season": "2023-24",
+        "week": 17
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fp": 315.85,
+        "games": 5,
+        "season": "2024-25",
+        "week": 7
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fp": 314.75,
+        "games": 4,
+        "season": "2024-25",
+        "week": 10
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fp": 313.6,
+        "games": 4,
+        "season": "2025-26",
+        "week": 10
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Hayden",
+        "weekly_fp": 310.1,
+        "games": 6,
+        "season": "2020-21",
+        "week": 11
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fp": 304.35,
+        "games": 4,
+        "season": "2025-26",
+        "week": 20
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fp": 294.55,
+        "games": 4,
+        "season": "2024-25",
+        "week": 3
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "weekly_fp": 293.9,
+        "games": 4,
+        "season": "2023-24",
+        "week": 14
+      }
+    ],
+    "best_rookie_single_game": {
+      "player_name": "Victor Wembanyama",
+      "manager": "Garrett",
+      "fantasy_points": 81.1,
+      "date": "2024-03-29",
+      "season": "2023-24",
+      "week": 22
+    },
+    "best_rookie_single_game_top10": [
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fantasy_points": 81.1,
+        "date": "2024-03-29",
+        "season": "2023-24",
+        "week": 22
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fantasy_points": 81.05,
+        "date": "2024-02-23",
+        "season": "2023-24",
+        "week": 17
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fantasy_points": 80.6,
+        "date": "2024-02-29",
+        "season": "2023-24",
+        "week": 18
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Nick",
+        "fantasy_points": 77.4,
+        "date": "2019-03-01",
+        "season": "2018-19",
+        "week": 19
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fantasy_points": 76.7,
+        "date": "2024-02-12",
+        "season": "2023-24",
+        "week": 17
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fantasy_points": 76.45,
+        "date": "2024-04-02",
+        "season": "2023-24",
+        "week": 23
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fantasy_points": 76.25,
+        "date": "2024-04-07",
+        "season": "2023-24",
+        "week": 23
+      },
+      {
+        "player_name": "Cooper Flagg",
+        "manager": "Garrett",
+        "fantasy_points": 75.75,
+        "date": "2026-04-03",
+        "season": "2025-26",
+        "week": 23
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fantasy_points": 73.6,
+        "date": "2024-03-03",
+        "season": "2023-24",
+        "week": 18
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fantasy_points": 70.8,
+        "date": "2024-03-17",
+        "season": "2023-24",
+        "week": 20
+      }
+    ],
+    "best_rookie_season_total_fp": {
+      "player_name": "Victor Wembanyama",
+      "manager": "Garrett",
+      "total_fp": 3208.2,
+      "gp": 68,
+      "fppg": 47.18,
+      "season": "2023-24"
+    },
+    "best_rookie_season_total_fp_top10": [
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "total_fp": 3208.2,
+        "gp": 68,
+        "fppg": 47.18,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Chet Holmgren",
+        "manager": "Nick",
+        "total_fp": 2772.0,
+        "gp": 76,
+        "fppg": 36.47,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Ben Simmons",
+        "manager": "Hayden",
+        "total_fp": 2728.7,
+        "gp": 73,
+        "fppg": 37.38,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Benton, Nick",
+        "total_fp": 2300.9,
+        "gp": 59,
+        "fppg": 39.0,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Cooper Flagg",
+        "manager": "Garrett",
+        "total_fp": 2259.9,
+        "gp": 64,
+        "fppg": 35.31,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Paolo Banchero",
+        "manager": "Garrett",
+        "total_fp": 1943.5,
+        "gp": 65,
+        "fppg": 29.9,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Evan Mobley",
+        "manager": "Benton, Hayden",
+        "total_fp": 1639.3,
+        "gp": 56,
+        "fppg": 29.27,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Benton, Hayden, Nick",
+        "total_fp": 1460.8,
+        "gp": 39,
+        "fppg": 37.46,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Lonzo Ball",
+        "manager": "Benton, Garrett",
+        "total_fp": 1371.5,
+        "gp": 39,
+        "fppg": 35.17,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "VJ Edgecombe",
+        "manager": "Garrett",
+        "total_fp": 1195.0,
+        "gp": 36,
+        "fppg": 33.19,
+        "season": "2025-26"
+      }
+    ],
+    "best_rookie_fantasy_week": {
+      "player_name": "Victor Wembanyama",
+      "manager": "Garrett",
+      "weekly_fp": 319.7,
+      "games": 5,
+      "season": "2023-24",
+      "week": 17
+    },
+    "best_rookie_fantasy_week_top10": [
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fp": 319.7,
+        "games": 5,
+        "season": "2023-24",
+        "week": 17
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Nick",
+        "weekly_fp": 243.6,
+        "games": 4,
+        "season": "2018-19",
+        "week": 19
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fp": 215.85,
+        "games": 4,
+        "season": "2023-24",
+        "week": 8
+      },
+      {
+        "player_name": "Ben Simmons",
+        "manager": "Hayden",
+        "weekly_fp": 215.7,
+        "games": 5,
+        "season": "2017-18",
+        "week": 18
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fp": 214.8,
+        "games": 3,
+        "season": "2023-24",
+        "week": 23
+      },
+      {
+        "player_name": "Kon Knueppel",
+        "manager": "Hayden",
+        "weekly_fp": 210.95,
+        "games": 5,
+        "season": "2025-26",
+        "week": 17
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fp": 206.6,
+        "games": 3,
+        "season": "2023-24",
+        "week": 18
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fp": 199.5,
+        "games": 4,
+        "season": "2023-24",
+        "week": 20
+      },
+      {
+        "player_name": "Ben Simmons",
+        "manager": "Hayden",
+        "weekly_fp": 197.9,
+        "games": 4,
+        "season": "2017-18",
+        "week": 23
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Benton",
+        "weekly_fp": 195.75,
+        "games": 4,
+        "season": "2018-19",
+        "week": 15
+      }
+    ],
+    "best_collective_team_game": {
+      "manager": "Nick",
+      "avg_fp": 59.6,
+      "total_fp": 298.2,
+      "starters": 5,
+      "date": "2024-02-08",
+      "week": 16,
+      "season": "2023-24"
+    },
+    "best_collective_team_game_top10": [
+      {
+        "manager": "Nick",
+        "avg_fp": 59.6,
+        "total_fp": 298.2,
+        "starters": 5,
+        "date": "2024-02-08",
+        "week": 16,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fp": 58.7,
+        "total_fp": 293.5,
+        "starters": 5,
+        "date": "2025-10-23",
+        "week": 1,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "avg_fp": 57.8,
+        "total_fp": 289.2,
+        "starters": 5,
+        "date": "2024-02-06",
+        "week": 16,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 57.1,
+        "total_fp": 285.5,
+        "starters": 5,
+        "date": "2020-12-30",
+        "week": 2,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Nick",
+        "avg_fp": 56.5,
+        "total_fp": 339.2,
+        "starters": 6,
+        "date": "2026-03-06",
+        "week": 19,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 55.9,
+        "total_fp": 335.4,
+        "starters": 6,
+        "date": "2024-02-03",
+        "week": 15,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 55.3,
+        "total_fp": 331.6,
+        "starters": 6,
+        "date": "2025-01-31",
+        "week": 14,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 55.0,
+        "total_fp": 549.8,
+        "starters": 10,
+        "date": "2024-01-31",
+        "week": 15,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 54.9,
+        "total_fp": 329.2,
+        "starters": 6,
+        "date": "2024-12-16",
+        "week": 8,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 54.8,
+        "total_fp": 328.9,
+        "starters": 6,
+        "date": "2019-01-13",
+        "week": 13,
+        "season": "2018-19"
+      }
+    ],
+    "worst_collective_team_game": {
+      "manager": "Garrett",
+      "avg_fp": 16.8,
+      "total_fp": 150.8,
+      "starters": 9,
+      "date": "2018-03-27",
+      "week": 23,
+      "season": "2017-18"
+    },
+    "worst_collective_team_game_top10": [
+      {
+        "manager": "Garrett",
+        "avg_fp": 16.8,
+        "total_fp": 150.8,
+        "starters": 9,
+        "date": "2018-03-27",
+        "week": 23,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Nick",
+        "avg_fp": 18.9,
+        "total_fp": 94.3,
+        "starters": 5,
+        "date": "2026-02-08",
+        "week": 16,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fp": 20.2,
+        "total_fp": 121.2,
+        "starters": 6,
+        "date": "2022-11-20",
+        "week": 5,
+        "season": "2022-23"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 20.5,
+        "total_fp": 122.8,
+        "starters": 6,
+        "date": "2021-03-02",
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Nick",
+        "avg_fp": 21.1,
+        "total_fp": 105.3,
+        "starters": 5,
+        "date": "2025-01-16",
+        "week": 12,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 21.3,
+        "total_fp": 106.4,
+        "starters": 5,
+        "date": "2020-03-02",
+        "week": 19,
+        "season": "2019-20"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fp": 21.9,
+        "total_fp": 109.3,
+        "starters": 5,
+        "date": "2018-10-25",
+        "week": 2,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 21.9,
+        "total_fp": 131.3,
+        "starters": 6,
+        "date": "2026-03-31",
+        "week": 23,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 22.2,
+        "total_fp": 155.8,
+        "starters": 7,
+        "date": "2019-10-25",
+        "week": 1,
+        "season": "2019-20"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 22.2,
+        "total_fp": 222.4,
+        "starters": 10,
+        "date": "2025-03-17",
+        "week": 20,
+        "season": "2024-25"
+      }
+    ],
+    "best_duo_output": {
+      "manager": "Hayden",
+      "combined_fp": 598.8,
+      "player1": "Nikola Jokic",
+      "player1_fp": 315.8,
+      "player2": "Tyrese Haliburton",
+      "player2_fp": 282.9,
+      "week": 7,
+      "season": "2024-25"
+    },
+    "best_duo_output_top10": [
+      {
+        "manager": "Hayden",
+        "combined_fp": 598.8,
+        "player1": "Nikola Jokic",
+        "player1_fp": 315.8,
+        "player2": "Tyrese Haliburton",
+        "player2_fp": 282.9,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 593.1,
+        "player1": "Luka Doncic",
+        "player1_fp": 339.6,
+        "player2": "Anthony Davis",
+        "player2_fp": 253.5,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 589.2,
+        "player1": "Damian Lillard",
+        "player1_fp": 310.1,
+        "player2": "Nikola Jokic",
+        "player2_fp": 279.1,
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 580.4,
+        "player1": "Victor Wembanyama",
+        "player1_fp": 319.7,
+        "player2": "Giannis Antetokounmpo",
+        "player2_fp": 260.7,
+        "week": 17,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 525.5,
+        "player1": "Nikola Jokic",
+        "player1_fp": 318.1,
+        "player2": "De'Aaron Fox",
+        "player2_fp": 207.3,
+        "week": 17,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 524.0,
+        "player1": "Nikola Jokic",
+        "player1_fp": 314.8,
+        "player2": "Shai Gilgeous-Alexander",
+        "player2_fp": 209.2,
+        "week": 10,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 513.2,
+        "player1": "James Harden",
+        "player1_fp": 278.5,
+        "player2": "Bradley Beal",
+        "player2_fp": 234.8,
+        "week": 13,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 508.6,
+        "player1": "Nikola Jokic",
+        "player1_fp": 274.6,
+        "player2": "Devin Booker",
+        "player2_fp": 234.0,
+        "week": 18,
+        "season": "2021-22"
+      },
+      {
+        "manager": "Benton",
+        "combined_fp": 507.7,
+        "player1": "Trae Young",
+        "player1_fp": 274.4,
+        "player2": "Dejounte Murray",
+        "player2_fp": 233.3,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 507.0,
+        "player1": "Giannis Antetokounmpo",
+        "player1_fp": 261.6,
+        "player2": "Devin Booker",
+        "player2_fp": 245.4,
+        "week": 7,
+        "season": "2024-25"
+      }
+    ],
+    "most_45plus_fp_week": {
+      "manager": "Hayden",
+      "count": 24,
+      "total_games": 44,
+      "week": 6,
+      "season": "2024-25"
+    },
+    "most_45plus_fp_week_top10": [
+      {
+        "manager": "Hayden",
+        "count": 24,
+        "total_games": 44,
+        "week": 6,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "count": 23,
+        "total_games": 48,
+        "week": 8,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Nick",
+        "count": 23,
+        "total_games": 45,
+        "week": 9,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Benton",
+        "count": 22,
+        "total_games": 46,
+        "week": 10,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "count": 22,
+        "total_games": 62,
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Hayden",
+        "count": 22,
+        "total_games": 44,
+        "week": 10,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "count": 22,
+        "total_games": 47,
+        "week": 15,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "count": 22,
+        "total_games": 54,
+        "week": 17,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "count": 22,
+        "total_games": 43,
+        "week": 4,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "count": 21,
+        "total_games": 49,
+        "week": 22,
+        "season": "2018-19"
+      }
+    ],
+    "biggest_outperformance": {
+      "player_name": "Stephen Curry",
+      "manager": "Nick",
+      "game_fp": 111.05,
+      "season_avg": 46.06,
+      "delta": 65.0,
+      "season": "2024-25",
+      "date": "2025-04-01"
+    },
+    "biggest_outperformance_top10": [
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Nick",
+        "game_fp": 111.05,
+        "season_avg": 46.06,
+        "delta": 65.0,
+        "season": "2024-25",
+        "date": "2025-04-01"
+      },
+      {
+        "player_name": "Jimmy Butler III",
+        "manager": "Benton",
+        "game_fp": 87.55,
+        "season_avg": 31.92,
+        "delta": 55.6,
+        "season": "2024-25",
+        "date": "2024-12-16"
+      },
+      {
+        "player_name": "Jalen Brunson",
+        "manager": "Garrett",
+        "game_fp": 96.9,
+        "season_avg": 41.67,
+        "delta": 55.2,
+        "season": "2023-24",
+        "date": "2023-12-15"
+      },
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Nick",
+        "game_fp": 98.15,
+        "season_avg": 45.41,
+        "delta": 52.7,
+        "season": "2021-22",
+        "date": "2021-11-08"
+      },
+      {
+        "player_name": "Donovan Mitchell",
+        "manager": "Garrett",
+        "game_fp": 93.45,
+        "season_avg": 41.48,
+        "delta": 52.0,
+        "season": "2022-23",
+        "date": "2023-01-02"
+      },
+      {
+        "player_name": "Fred VanVleet",
+        "manager": "Benton",
+        "game_fp": 93.4,
+        "season_avg": 41.47,
+        "delta": 51.9,
+        "season": "2020-21",
+        "date": "2021-02-02"
+      },
+      {
+        "player_name": "Aaron Gordon",
+        "manager": "Nick",
+        "game_fp": 83.9,
+        "season_avg": 32.3,
+        "delta": 51.6,
+        "season": "2017-18",
+        "date": "2017-11-29"
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Nick",
+        "game_fp": 99.9,
+        "season_avg": 49.1,
+        "delta": 50.8,
+        "season": "2022-23",
+        "date": "2023-02-26"
+      },
+      {
+        "player_name": "Bam Adebayo",
+        "manager": "Benton",
+        "game_fp": 88.4,
+        "season_avg": 38.78,
+        "delta": 49.6,
+        "date": "2026-03-10",
+        "week": 20,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Kyrie Irving",
+        "manager": "Garrett",
+        "game_fp": 92.3,
+        "season_avg": 43.07,
+        "delta": 49.2,
+        "season": "2021-22",
+        "date": "2022-03-15"
+      }
+    ],
+    "most_consistent_player": {
+      "player_name": "Jarrett Allen",
+      "manager": "Benton",
+      "std_dev": 8.03,
+      "avg_fp": 35.3,
+      "gp": 31,
+      "season": "2023-24"
+    },
+    "most_consistent_player_top10": [
+      {
+        "player_name": "Jarrett Allen",
+        "manager": "Benton",
+        "std_dev": 8.03,
+        "avg_fp": 35.3,
+        "gp": 31,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Aaron Gordon",
+        "manager": "Hayden",
+        "std_dev": 8.26,
+        "avg_fp": 30.7,
+        "gp": 35,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Zach LaVine",
+        "manager": "Garrett",
+        "std_dev": 8.32,
+        "avg_fp": 29.9,
+        "gp": 35,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Jimmy Butler III",
+        "manager": "Garrett",
+        "std_dev": 8.7,
+        "avg_fp": 33.7,
+        "gp": 33,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Zion Williamson",
+        "manager": "Nick",
+        "std_dev": 8.78,
+        "avg_fp": 32.4,
+        "gp": 36,
+        "season": "2020-21"
+      },
+      {
+        "player_name": "De'Aaron Fox",
+        "manager": "Benton",
+        "std_dev": 8.99,
+        "avg_fp": 28.4,
+        "gp": 38,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Amen Thompson",
+        "manager": "Nick",
+        "std_dev": 9.0,
+        "avg_fp": 35.0,
+        "gp": 73,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Bam Adebayo",
+        "manager": "Benton",
+        "std_dev": 9.18,
+        "avg_fp": 36.5,
+        "gp": 35,
+        "season": "2020-21"
+      },
+      {
+        "player_name": "Dejounte Murray",
+        "manager": "Hayden",
+        "std_dev": 9.36,
+        "avg_fp": 34.8,
+        "gp": 33,
+        "season": "2020-21"
+      },
+      {
+        "player_name": "Deandre Ayton",
+        "manager": "Benton",
+        "std_dev": 9.56,
+        "avg_fp": 30.0,
+        "gp": 56,
+        "season": "2020-21"
+      }
+    ],
+    "garbage_time_king": {
+      "player_name": "Mikal Bridges",
+      "manager": "Hayden",
+      "under_15_count": 7,
+      "total_starts": 66,
+      "pct": 10.6,
+      "season": "2025-26"
+    },
+    "garbage_time_king_top10": [
+      {
+        "player_name": "Mikal Bridges",
+        "manager": "Hayden",
+        "under_15_count": 7,
+        "total_starts": 66,
+        "pct": 10.6,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Miles Bridges",
+        "manager": "Nick",
+        "under_15_count": 7,
+        "total_starts": 41,
+        "pct": 17.1,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Cooper Flagg",
+        "manager": "Garrett",
+        "under_15_count": 6,
+        "total_starts": 64,
+        "pct": 9.4,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Kevin Durant",
+        "manager": "Garrett",
+        "under_15_count": 4,
+        "total_starts": 74,
+        "pct": 5.4,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Nikola Vucevic",
+        "manager": "Garrett",
+        "under_15_count": 4,
+        "total_starts": 56,
+        "pct": 7.1,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Alex Sarr",
+        "manager": "Benton",
+        "under_15_count": 3,
+        "total_starts": 37,
+        "pct": 8.1,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Brandon Ingram",
+        "manager": "Nick",
+        "under_15_count": 3,
+        "total_starts": 28,
+        "pct": 10.7,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Deni Avdija",
+        "manager": "Nick",
+        "under_15_count": 3,
+        "total_starts": 59,
+        "pct": 5.1,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Derrick White",
+        "manager": "Benton",
+        "under_15_count": 3,
+        "total_starts": 70,
+        "pct": 4.3,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Evan Mobley",
+        "manager": "Benton",
+        "under_15_count": 3,
+        "total_starts": 59,
+        "pct": 5.1,
+        "season": "2025-26"
+      }
+    ],
+    "mr_monday_night": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "avg_fp": 67.2,
+      "monday_games": 11,
+      "season": "2025-26"
+    },
+    "mr_monday_night_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "avg_fp": 67.2,
+        "monday_games": 11,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "avg_fp": 65.5,
+        "monday_games": 12,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "avg_fp": 64.8,
+        "monday_games": 8,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "avg_fp": 63.8,
+        "monday_games": 11,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Joel Embiid",
+        "manager": "Nick",
+        "avg_fp": 63.7,
+        "monday_games": 6,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett",
+        "avg_fp": 63.1,
+        "monday_games": 7,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "DeMarcus Cousins",
+        "manager": "Benton",
+        "avg_fp": 59.0,
+        "monday_games": 7,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "avg_fp": 58.6,
+        "monday_games": 7,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "avg_fp": 58.2,
+        "monday_games": 8,
+        "season": "2020-21"
+      },
+      {
+        "player_name": "Russell Westbrook",
+        "manager": "Hayden",
+        "avg_fp": 57.1,
+        "monday_games": 8,
+        "season": "2020-21"
+      }
+    ],
+    "franchise_player": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "total_fp": 23033.1,
+      "gp": 401,
+      "historical_fp": 19192.3,
+      "historical_gp": 339,
+      "seasons": 6,
+      "fppg": 57.44,
+      "season": "all-time"
+    },
+    "franchise_player_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "total_fp": 23033.1,
+        "gp": 401,
+        "historical_fp": 19192.3,
+        "historical_gp": 339,
+        "seasons": 6,
+        "fppg": 57.44,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "total_fp": 19344.7,
+        "gp": 360,
+        "historical_fp": 15745.1,
+        "historical_gp": 296,
+        "seasons": 7,
+        "fppg": 53.74,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Giannis Antetokounmpo",
+        "manager": "Garrett",
+        "total_fp": 18645.2,
+        "gp": 389,
+        "historical_fp": 17205.4,
+        "historical_gp": 354,
+        "seasons": 7,
+        "fppg": 47.93,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Shai Gilgeous-Alexander",
+        "manager": "Hayden",
+        "total_fp": 16425.2,
+        "gp": 378,
+        "historical_fp": 13412.7,
+        "historical_gp": 312,
+        "seasons": 7,
+        "fppg": 43.45,
+        "season": "all-time"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett",
+        "total_fp": 15835.2,
+        "gp": 320,
+        "historical_fp": 15835.2,
+        "historical_gp": 320,
+        "seasons": 6,
+        "fppg": 49.48,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Nick",
+        "total_fp": 15397.0,
+        "gp": 350,
+        "historical_fp": 15397.0,
+        "historical_gp": 350,
+        "seasons": 7,
+        "fppg": 43.99,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Domantas Sabonis",
+        "manager": "Garrett",
+        "total_fp": 14916.4,
+        "gp": 347,
+        "historical_fp": 14288.1,
+        "historical_gp": 328,
+        "seasons": 6,
+        "fppg": 42.99,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Anthony Edwards",
+        "manager": "Nick",
+        "total_fp": 13477.0,
+        "gp": 341,
+        "historical_fp": 10984.4,
+        "historical_gp": 281,
+        "seasons": 5,
+        "fppg": 39.52,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Benton",
+        "total_fp": 13332.7,
+        "gp": 316,
+        "historical_fp": 12930.6,
+        "historical_gp": 303,
+        "seasons": 7,
+        "fppg": 42.19,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Jayson Tatum",
+        "manager": "Benton",
+        "total_fp": 13084.7,
+        "gp": 279,
+        "historical_fp": 12556.7,
+        "historical_gp": 268,
+        "seasons": 5,
+        "fppg": 46.9,
+        "season": "all-time"
+      }
+    ],
+    "best_draft_class": {
+      "manager": "Hayden",
+      "total_fp": 17370.9,
+      "total_gp": 473,
+      "player_count": 7,
+      "draft_year": "2022-23",
+      "season": "2022-23"
+    },
+    "best_draft_class_top10": [
+      {
+        "manager": "Hayden",
+        "total_fp": 17370.9,
+        "total_gp": 473,
+        "player_count": 7,
+        "draft_year": "2022-23",
+        "season": "2022-23"
+      },
+      {
+        "manager": "Benton",
+        "total_fp": 14468.5,
+        "total_gp": 366,
+        "player_count": 7,
+        "draft_year": "2025-26",
+        "season": "2025-26"
+      },
+      {
+        "manager": "Garrett",
+        "total_fp": 14400.1,
+        "total_gp": 384,
+        "player_count": 7,
+        "draft_year": "2022-23",
+        "season": "2022-23"
+      },
+      {
+        "manager": "Benton",
+        "total_fp": 13903.2,
+        "total_gp": 355,
+        "player_count": 7,
+        "draft_year": "2024-25",
+        "season": "2024-25"
+      },
+      {
+        "manager": "Benton",
+        "total_fp": 12495.0,
+        "total_gp": 327,
+        "player_count": 7,
+        "draft_year": "2022-23",
+        "season": "2022-23"
+      },
+      {
+        "manager": "Hayden",
+        "total_fp": 12238.6,
+        "total_gp": 331,
+        "player_count": 7,
+        "draft_year": "2023-24",
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "total_fp": 11930.6,
+        "total_gp": 316,
+        "player_count": 7,
+        "draft_year": "2024-25",
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "total_fp": 10865.5,
+        "total_gp": 270,
+        "player_count": 6,
+        "draft_year": "2023-24",
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "total_fp": 10618.6,
+        "total_gp": 264,
+        "player_count": 6,
+        "draft_year": "2021-22",
+        "season": "2021-22"
+      },
+      {
+        "manager": "Hayden",
+        "total_fp": 10410.2,
+        "total_gp": 309,
+        "player_count": 6,
+        "draft_year": "2021-22",
+        "season": "2021-22"
+      }
+    ],
+    "biggest_draft_steal": {
+      "player_name": "LeBron James",
+      "manager": "Garrett",
+      "round": 1,
+      "pick_number": 3,
+      "fppg": 51.33,
+      "expected_fppg": 40.0,
+      "delta": 11.33,
+      "total_fp": 2361.4,
+      "gp": 46,
+      "season": "2021-22"
+    },
+    "biggest_draft_steal_top10": [
+      {
+        "player_name": "LeBron James",
+        "manager": "Garrett",
+        "round": 1,
+        "pick_number": 3,
+        "fppg": 51.33,
+        "expected_fppg": 40.0,
+        "delta": 11.33,
+        "total_fp": 2361.4,
+        "gp": 46,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "round": 3,
+        "pick_number": 10,
+        "fppg": 47.18,
+        "expected_fppg": 36.8,
+        "delta": 10.38,
+        "total_fp": 3208.2,
+        "gp": 68,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Austin Reaves",
+        "manager": "Nick",
+        "round": 6,
+        "pick_number": 24,
+        "fppg": 43.56,
+        "expected_fppg": 34.9,
+        "delta": 8.66,
+        "total_fp": 871.1,
+        "gp": 20,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Julius Randle",
+        "manager": "Benton",
+        "round": 5,
+        "pick_number": 20,
+        "fppg": 41.5,
+        "expected_fppg": 33.6,
+        "delta": 7.9,
+        "total_fp": 3112.8,
+        "gp": 75,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "LeBron James",
+        "manager": "Hayden",
+        "round": 2,
+        "pick_number": 7,
+        "fppg": 46.33,
+        "expected_fppg": 39.6,
+        "delta": 6.73,
+        "total_fp": 2825.9,
+        "gp": 61,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Jamal Murray",
+        "manager": "Garrett",
+        "round": 4,
+        "pick_number": 13,
+        "fppg": 44.24,
+        "expected_fppg": 37.6,
+        "delta": 6.64,
+        "total_fp": 3097.0,
+        "gp": 70,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Karl-Anthony Towns",
+        "manager": "Garrett",
+        "round": 1,
+        "pick_number": 2,
+        "fppg": 44.56,
+        "expected_fppg": 38.4,
+        "delta": 6.16,
+        "total_fp": 3074.7,
+        "gp": 69,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Cade Cunningham",
+        "manager": "Benton",
+        "round": 2,
+        "pick_number": 5,
+        "fppg": 44.04,
+        "expected_fppg": 38.3,
+        "delta": 5.74,
+        "total_fp": 2818.3,
+        "gp": 64,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Deni Avdija",
+        "manager": "Nick",
+        "round": 7,
+        "pick_number": 28,
+        "fppg": 39.39,
+        "expected_fppg": 33.7,
+        "delta": 5.69,
+        "total_fp": 2324.1,
+        "gp": 59,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Jalen Brunson",
+        "manager": "Garrett",
+        "round": 4,
+        "pick_number": 14,
+        "fppg": 41.67,
+        "expected_fppg": 36.1,
+        "delta": 5.57,
+        "total_fp": 2791.7,
+        "gp": 67,
+        "season": "2023-24"
+      }
+    ],
+    "biggest_draft_bust": {
+      "player_name": "De'Aaron Fox",
+      "manager": "Benton",
+      "round": 2,
+      "pick_number": 5,
+      "fppg": 28.36,
+      "expected_fppg": 38.3,
+      "delta": -9.94,
+      "total_fp": 1077.8,
+      "gp": 38,
+      "season": "2021-22"
+    },
+    "biggest_draft_bust_top10": [
+      {
+        "player_name": "De'Aaron Fox",
+        "manager": "Benton",
+        "round": 2,
+        "pick_number": 5,
+        "fppg": 28.36,
+        "expected_fppg": 38.3,
+        "delta": -9.94,
+        "total_fp": 1077.8,
+        "gp": 38,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Mikal Bridges",
+        "manager": "Nick",
+        "round": 1,
+        "pick_number": 1,
+        "fppg": 31.51,
+        "expected_fppg": 39.5,
+        "delta": -7.99,
+        "total_fp": 1228.9,
+        "gp": 39,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Deandre Ayton",
+        "manager": "Hayden",
+        "round": 3,
+        "pick_number": 10,
+        "fppg": 29.62,
+        "expected_fppg": 36.8,
+        "delta": -7.18,
+        "total_fp": 1481.0,
+        "gp": 50,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Rudy Gobert",
+        "manager": "Nick",
+        "round": 3,
+        "pick_number": 10,
+        "fppg": 30.08,
+        "expected_fppg": 36.8,
+        "delta": -6.72,
+        "total_fp": 1744.6,
+        "gp": 58,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Pascal Siakam",
+        "manager": "Hayden",
+        "round": 1,
+        "pick_number": 3,
+        "fppg": 34.36,
+        "expected_fppg": 40.0,
+        "delta": -5.64,
+        "total_fp": 2611.6,
+        "gp": 76,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Devin Booker",
+        "manager": "Benton",
+        "round": 1,
+        "pick_number": 2,
+        "fppg": 33.96,
+        "expected_fppg": 38.4,
+        "delta": -4.44,
+        "total_fp": 679.1,
+        "gp": 20,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Jaylen Brown",
+        "manager": "Hayden",
+        "round": 2,
+        "pick_number": 6,
+        "fppg": 34.38,
+        "expected_fppg": 38.6,
+        "delta": -4.22,
+        "total_fp": 1959.7,
+        "gp": 57,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Cooper Flagg",
+        "manager": "Garrett",
+        "round": 1,
+        "pick_number": 1,
+        "fppg": 35.31,
+        "expected_fppg": 39.5,
+        "delta": -4.19,
+        "total_fp": 2259.9,
+        "gp": 64,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Jimmy Butler III",
+        "manager": "Benton",
+        "round": 1,
+        "pick_number": 4,
+        "fppg": 35.61,
+        "expected_fppg": 39.5,
+        "delta": -3.89,
+        "total_fp": 1566.8,
+        "gp": 44,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Bam Adebayo",
+        "manager": "Hayden",
+        "round": 1,
+        "pick_number": 2,
+        "fppg": 34.52,
+        "expected_fppg": 38.4,
+        "delta": -3.88,
+        "total_fp": 1691.2,
+        "gp": 49,
+        "season": "2021-22"
+      }
+    ],
+    "most_cursed_roster": {
+      "manager": "Nick",
+      "il_games": 574,
+      "season": "2024-25"
+    },
+    "most_cursed_roster_top10": [
+      {
+        "manager": "Nick",
+        "il_games": 574,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "il_games": 549,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Benton",
+        "il_games": 525,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "il_games": 501,
+        "season": "2022-23"
+      },
+      {
+        "manager": "Garrett",
+        "il_games": 481,
+        "season": "2022-23"
+      },
+      {
+        "manager": "Garrett",
+        "il_games": 457,
+        "season": "2021-22"
+      },
+      {
+        "manager": "Benton",
+        "il_games": 447,
+        "season": "2022-23"
+      },
+      {
+        "manager": "Hayden",
+        "il_games": 447,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "il_games": 444,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Hayden",
+        "il_games": 435,
+        "season": "2021-22"
+      }
+    ],
+    "manager_loyalty": {
+      "manager": "Nick",
+      "player_name": "Nick",
+      "keeper_seasons": 152,
+      "total_eligible": 213,
+      "loyalty_pct": 71.4,
+      "season": "all-time"
+    },
+    "manager_loyalty_top10": [
+      {
+        "manager": "Nick",
+        "player_name": "Nick",
+        "keeper_seasons": 152,
+        "total_eligible": 213,
+        "loyalty_pct": 71.4,
+        "season": "all-time"
+      },
+      {
+        "manager": "Hayden",
+        "player_name": "Hayden",
+        "keeper_seasons": 120,
+        "total_eligible": 176,
+        "loyalty_pct": 68.2,
+        "season": "all-time"
+      },
+      {
+        "manager": "Benton",
+        "player_name": "Benton",
+        "keeper_seasons": 105,
+        "total_eligible": 176,
+        "loyalty_pct": 59.7,
+        "season": "all-time"
+      },
+      {
+        "manager": "Garrett",
+        "player_name": "Garrett",
+        "keeper_seasons": 77,
+        "total_eligible": 127,
+        "loyalty_pct": 60.6,
+        "season": "all-time"
+      }
+    ],
+    "best_rookie_season_fppg": {
+      "player_name": "Victor Wembanyama",
+      "manager": "Garrett",
+      "fppg": 47.18,
+      "gp": 68,
+      "total_fp": 3208.2,
+      "season": "2023-24"
+    },
+    "best_rookie_season_fppg_top10": [
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "fppg": 47.18,
+        "gp": 68,
+        "total_fp": 3208.2,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Benton, Nick",
+        "fppg": 39.0,
+        "gp": 59,
+        "total_fp": 2300.9,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Benton, Hayden, Nick",
+        "fppg": 37.46,
+        "gp": 39,
+        "total_fp": 1460.8,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Ben Simmons",
+        "manager": "Hayden",
+        "fppg": 37.38,
+        "gp": 73,
+        "total_fp": 2728.7,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "Chet Holmgren",
+        "manager": "Nick",
+        "fppg": 36.47,
+        "gp": 76,
+        "total_fp": 2772.0,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Cooper Flagg",
+        "manager": "Garrett",
+        "fppg": 35.31,
+        "gp": 64,
+        "total_fp": 2259.9,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Lonzo Ball",
+        "manager": "Benton, Garrett",
+        "fppg": 35.17,
+        "gp": 39,
+        "total_fp": 1371.5,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "Kon Knueppel",
+        "manager": "Hayden",
+        "fppg": 34.3,
+        "gp": 32,
+        "total_fp": 1097.5,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "VJ Edgecombe",
+        "manager": "Garrett",
+        "fppg": 33.19,
+        "gp": 36,
+        "total_fp": 1195.0,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Paolo Banchero",
+        "manager": "Garrett",
+        "fppg": 29.9,
+        "gp": 65,
+        "total_fp": 1943.5,
+        "season": "2022-23"
+      }
+    ],
+    "best_keeper_value": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "total_fp": 21528.2,
+      "gp": 376,
+      "historical_fp": 19192.3,
+      "historical_gp": 339,
+      "seasons_kept": 6,
+      "fppg": 57.26,
+      "season": "all-time"
+    },
+    "best_keeper_value_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "total_fp": 21528.2,
+        "gp": 376,
+        "historical_fp": 19192.3,
+        "historical_gp": 339,
+        "seasons_kept": 6,
+        "fppg": 57.26,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "total_fp": 17801.2,
+        "gp": 331,
+        "historical_fp": 15533.5,
+        "historical_gp": 289,
+        "seasons_kept": 6,
+        "fppg": 53.78,
+        "season": "all-time"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett",
+        "total_fp": 15835.2,
+        "gp": 320,
+        "historical_fp": 15835.2,
+        "historical_gp": 320,
+        "seasons_kept": 6,
+        "fppg": 49.49,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Giannis Antetokounmpo",
+        "manager": "Garrett",
+        "total_fp": 15115.9,
+        "gp": 316,
+        "historical_fp": 13883.3,
+        "historical_gp": 287,
+        "seasons_kept": 6,
+        "fppg": 47.84,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Domantas Sabonis",
+        "manager": "Garrett",
+        "total_fp": 14916.4,
+        "gp": 347,
+        "historical_fp": 14288.1,
+        "historical_gp": 328,
+        "seasons_kept": 6,
+        "fppg": 42.99,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Nick",
+        "total_fp": 14820.6,
+        "gp": 336,
+        "historical_fp": 14820.6,
+        "historical_gp": 336,
+        "seasons_kept": 6,
+        "fppg": 44.11,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Shai Gilgeous-Alexander",
+        "manager": "Hayden",
+        "total_fp": 13859.0,
+        "gp": 311,
+        "historical_fp": 11599.8,
+        "historical_gp": 262,
+        "seasons_kept": 5,
+        "fppg": 44.56,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Anthony Edwards",
+        "manager": "Nick",
+        "total_fp": 12847.1,
+        "gp": 325,
+        "historical_fp": 10984.4,
+        "historical_gp": 281,
+        "seasons_kept": 5,
+        "fppg": 39.53,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Joel Embiid",
+        "manager": "Nick",
+        "total_fp": 12174.1,
+        "gp": 266,
+        "historical_fp": 11666.4,
+        "historical_gp": 252,
+        "seasons_kept": 7,
+        "fppg": 45.77,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Nick",
+        "total_fp": 11692.6,
+        "gp": 248,
+        "historical_fp": 11692.6,
+        "historical_gp": 248,
+        "seasons_kept": 5,
+        "fppg": 47.15,
+        "season": "all-time"
+      }
+    ],
+    "trade_winner": {
+      "player_name": "Paul George",
+      "manager": "Benton",
+      "from_manager": "Nick",
+      "post_trade_fp": 3430.8,
+      "gp": 68,
+      "fppg": 50.45,
+      "season": "2018-19"
+    },
+    "trade_winner_top10": [
+      {
+        "player_name": "Paul George",
+        "manager": "Benton",
+        "from_manager": "Nick",
+        "post_trade_fp": 3430.8,
+        "gp": 68,
+        "fppg": 50.45,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "LeBron James",
+        "manager": "Nick",
+        "from_manager": "Garrett",
+        "post_trade_fp": 2972.4,
+        "gp": 65,
+        "fppg": 45.73,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Jayson Tatum",
+        "manager": "Benton",
+        "from_manager": "Nick",
+        "post_trade_fp": 2715.8,
+        "gp": 61,
+        "fppg": 44.52,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Dejounte Murray",
+        "manager": "Benton",
+        "from_manager": "Nick",
+        "post_trade_fp": 2702.8,
+        "gp": 56,
+        "fppg": 48.26,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Julius Randle",
+        "manager": "Garrett",
+        "from_manager": "Benton",
+        "post_trade_fp": 2378.2,
+        "gp": 54,
+        "fppg": 44.04,
+        "season": "2020-21"
+      },
+      {
+        "player_name": "Scottie Barnes",
+        "manager": "Garrett",
+        "from_manager": "Nick",
+        "post_trade_fp": 2237.3,
+        "gp": 59,
+        "fppg": 37.92,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Marc Gasol",
+        "manager": "Garrett",
+        "from_manager": "Nick",
+        "post_trade_fp": 2062.9,
+        "gp": 62,
+        "fppg": 33.27,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Draymond Green",
+        "manager": "Nick",
+        "from_manager": "Garrett",
+        "post_trade_fp": 2018.9,
+        "gp": 51,
+        "fppg": 39.59,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "De'Aaron Fox",
+        "manager": "Garrett",
+        "from_manager": "Benton",
+        "post_trade_fp": 1957.3,
+        "gp": 51,
+        "fppg": 38.38,
+        "season": "2020-21"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Nick",
+        "from_manager": "Garrett",
+        "post_trade_fp": 1939.1,
+        "gp": 33,
+        "fppg": 58.76,
+        "season": "2018-19"
+      }
+    ],
+    "best_waiver_pickup": {
+      "player_name": "Bam Adebayo",
+      "manager": "Benton",
+      "fppg": 41.79,
+      "total_fp": 1379.2,
+      "gp": 33,
+      "add_date": "2026-01-19",
+      "season": "2025-26"
+    },
+    "best_waiver_pickup_top10": [
+      {
+        "player_name": "Bam Adebayo",
+        "manager": "Benton",
+        "fppg": 41.79,
+        "total_fp": 1379.2,
+        "gp": 33,
+        "add_date": "2026-01-19",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Lauri Markkanen",
+        "manager": "Benton",
+        "fppg": 41.22,
+        "total_fp": 1236.5,
+        "gp": 30,
+        "add_date": "2025-10-27",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Michael Porter Jr.",
+        "manager": "Hayden",
+        "fppg": 40.84,
+        "total_fp": 1102.8,
+        "gp": 27,
+        "add_date": "2025-11-03",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Joel Embiid",
+        "manager": "Hayden",
+        "fppg": 38.79,
+        "total_fp": 465.4,
+        "gp": 12,
+        "add_date": "2025-12-29",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Donovan Clingan",
+        "manager": "Garrett",
+        "fppg": 38.33,
+        "total_fp": 1763.4,
+        "gp": 46,
+        "add_date": "2025-12-22",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Josh Hart",
+        "manager": "Benton",
+        "fppg": 37.3,
+        "total_fp": 372.9,
+        "gp": 10,
+        "add_date": "2025-12-01",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Devin Booker",
+        "manager": "Hayden",
+        "fppg": 36.87,
+        "total_fp": 663.6,
+        "gp": 18,
+        "add_date": "2026-03-02",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Jalen Duren",
+        "manager": "Nick",
+        "fppg": 36.57,
+        "total_fp": 768.0,
+        "gp": 21,
+        "add_date": "2026-02-09",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Keyonte George",
+        "manager": "Hayden",
+        "fppg": 36.55,
+        "total_fp": 1059.8,
+        "gp": 29,
+        "add_date": "2025-12-15",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Matas Buzelis",
+        "manager": "Hayden",
+        "fppg": 36.39,
+        "total_fp": 473.1,
+        "gp": 13,
+        "add_date": "2026-03-09",
+        "season": "2025-26"
+      }
+    ],
+    "best_daily_team_fppg": {
+      "manager": "Nick",
+      "avg_fp": 59.6,
+      "total_fp": 298.2,
+      "starters": 5,
+      "date": "2024-02-08",
+      "week": 16,
+      "season": "2023-24"
+    },
+    "best_daily_team_fppg_top10": [
+      {
+        "manager": "Nick",
+        "avg_fp": 59.6,
+        "total_fp": 298.2,
+        "starters": 5,
+        "date": "2024-02-08",
+        "week": 16,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fp": 58.7,
+        "total_fp": 293.5,
+        "starters": 5,
+        "date": "2025-10-23",
+        "week": 1,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "avg_fp": 57.8,
+        "total_fp": 289.2,
+        "starters": 5,
+        "date": "2024-02-06",
+        "week": 16,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 57.1,
+        "total_fp": 285.5,
+        "starters": 5,
+        "date": "2020-12-30",
+        "week": 2,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Nick",
+        "avg_fp": 56.5,
+        "total_fp": 339.2,
+        "starters": 6,
+        "date": "2026-03-06",
+        "week": 19,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 55.9,
+        "total_fp": 335.4,
+        "starters": 6,
+        "date": "2024-02-03",
+        "week": 15,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 55.3,
+        "total_fp": 331.6,
+        "starters": 6,
+        "date": "2025-01-31",
+        "week": 14,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 55.0,
+        "total_fp": 549.8,
+        "starters": 10,
+        "date": "2024-01-31",
+        "week": 15,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 54.9,
+        "total_fp": 329.2,
+        "starters": 6,
+        "date": "2024-12-16",
+        "week": 8,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 54.8,
+        "total_fp": 328.9,
+        "starters": 6,
+        "date": "2019-01-13",
+        "week": 13,
+        "season": "2018-19"
+      }
+    ],
+    "worst_daily_team_fppg": {
+      "manager": "Garrett",
+      "avg_fp": 16.8,
+      "total_fp": 150.8,
+      "starters": 9,
+      "date": "2018-03-27",
+      "week": 23,
+      "season": "2017-18"
+    },
+    "worst_daily_team_fppg_top10": [
+      {
+        "manager": "Garrett",
+        "avg_fp": 16.8,
+        "total_fp": 150.8,
+        "starters": 9,
+        "date": "2018-03-27",
+        "week": 23,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Nick",
+        "avg_fp": 18.9,
+        "total_fp": 94.3,
+        "starters": 5,
+        "date": "2026-02-08",
+        "week": 16,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fp": 20.2,
+        "total_fp": 121.2,
+        "starters": 6,
+        "date": "2022-11-20",
+        "week": 5,
+        "season": "2022-23"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 20.5,
+        "total_fp": 122.8,
+        "starters": 6,
+        "date": "2021-03-02",
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Nick",
+        "avg_fp": 21.1,
+        "total_fp": 105.3,
+        "starters": 5,
+        "date": "2025-01-16",
+        "week": 12,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 21.3,
+        "total_fp": 106.4,
+        "starters": 5,
+        "date": "2020-03-02",
+        "week": 19,
+        "season": "2019-20"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fp": 21.9,
+        "total_fp": 109.3,
+        "starters": 5,
+        "date": "2018-10-25",
+        "week": 2,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 21.9,
+        "total_fp": 131.3,
+        "starters": 6,
+        "date": "2026-03-31",
+        "week": 23,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Benton",
+        "avg_fp": 22.2,
+        "total_fp": 155.8,
+        "starters": 7,
+        "date": "2019-10-25",
+        "week": 1,
+        "season": "2019-20"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fp": 22.2,
+        "total_fp": 222.4,
+        "starters": 10,
+        "date": "2025-03-17",
+        "week": 20,
+        "season": "2024-25"
+      }
+    ],
+    "highest_daily_team_score": {
+      "manager": "Garrett",
+      "total_fp": 549.8,
+      "starters": 10,
+      "date": "2024-01-31",
+      "week": 15,
+      "season": "2023-24"
+    },
+    "highest_daily_team_score_top10": [
+      {
+        "manager": "Garrett",
+        "total_fp": 549.8,
+        "starters": 10,
+        "date": "2024-01-31",
+        "week": 15,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "total_fp": 520.9,
+        "starters": 10,
+        "date": "2023-11-22",
+        "week": 5,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Nick",
+        "total_fp": 495.7,
+        "starters": 10,
+        "date": "2022-01-19",
+        "week": 14,
+        "season": "2021-22"
+      },
+      {
+        "manager": "Hayden",
+        "total_fp": 492.3,
+        "starters": 10,
+        "date": "2023-01-06",
+        "week": 12,
+        "season": "2022-23"
+      },
+      {
+        "manager": "Nick",
+        "total_fp": 490.9,
+        "starters": 10,
+        "date": "2023-12-18",
+        "week": 9,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Nick",
+        "total_fp": 489.6,
+        "starters": 10,
+        "date": "2023-10-30",
+        "week": 2,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "total_fp": 489.5,
+        "starters": 10,
+        "date": "2024-11-15",
+        "week": 4,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Hayden",
+        "total_fp": 487.5,
+        "starters": 10,
+        "date": "2024-11-10",
+        "week": 3,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Benton",
+        "total_fp": 481.9,
+        "starters": 10,
+        "date": "2022-01-23",
+        "week": 14,
+        "season": "2021-22"
+      },
+      {
+        "manager": "Nick",
+        "total_fp": 481.3,
+        "starters": 10,
+        "date": "2020-01-20",
+        "week": 14,
+        "season": "2019-20"
+      }
+    ],
+    "team_fppg_week_high": {
+      "manager": "Garrett",
+      "avg_fppg": 49.05,
+      "total_fp": 1422.5,
+      "games": 29,
+      "week": 11,
+      "season": "2021-22"
+    },
+    "team_fppg_week_high_top10": [
+      {
+        "manager": "Garrett",
+        "avg_fppg": 49.05,
+        "total_fp": 1422.5,
+        "games": 29,
+        "week": 11,
+        "season": "2021-22"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 46.04,
+        "total_fp": 1657.5,
+        "games": 36,
+        "week": 18,
+        "season": "2019-20"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fppg": 45.86,
+        "total_fp": 1971.9,
+        "games": 43,
+        "week": 4,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 45.35,
+        "total_fp": 816.3,
+        "games": 18,
+        "week": 15,
+        "season": "2021-22"
+      },
+      {
+        "manager": "Nick",
+        "avg_fppg": 44.86,
+        "total_fp": 2018.5,
+        "games": 45,
+        "week": 9,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 44.84,
+        "total_fp": 1748.8,
+        "games": 39,
+        "week": 9,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 44.83,
+        "total_fp": 1927.7,
+        "games": 43,
+        "week": 6,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "avg_fppg": 44.75,
+        "total_fp": 1924.2,
+        "games": 43,
+        "week": 16,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fppg": 44.59,
+        "total_fp": 1962.0,
+        "games": 44,
+        "week": 10,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 44.37,
+        "total_fp": 1686.2,
+        "games": 38,
+        "week": 15,
+        "season": "2019-20"
+      }
+    ],
+    "team_fppg_week_low": {
+      "manager": "Garrett",
+      "avg_fppg": 29.27,
+      "total_fp": 1112.4,
+      "games": 38,
+      "week": 23,
+      "season": "2017-18"
+    },
+    "team_fppg_week_low_top10": [
+      {
+        "manager": "Garrett",
+        "avg_fppg": 29.27,
+        "total_fp": 1112.4,
+        "games": 38,
+        "week": 23,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Benton",
+        "avg_fppg": 31.09,
+        "total_fp": 1368.1,
+        "games": 44,
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Nick",
+        "avg_fppg": 31.42,
+        "total_fp": 1036.9,
+        "games": 33,
+        "week": 10,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Nick",
+        "avg_fppg": 31.42,
+        "total_fp": 1131.0,
+        "games": 36,
+        "week": 16,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fppg": 31.81,
+        "total_fp": 1176.8,
+        "games": 37,
+        "week": 4,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Benton",
+        "avg_fppg": 31.84,
+        "total_fp": 1018.9,
+        "games": 32,
+        "week": 1,
+        "season": "2019-20"
+      },
+      {
+        "manager": "Nick",
+        "avg_fppg": 31.93,
+        "total_fp": 1117.7,
+        "games": 35,
+        "week": 4,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 32.09,
+        "total_fp": 1347.9,
+        "games": 42,
+        "week": 3,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 32.21,
+        "total_fp": 1127.2,
+        "games": 35,
+        "week": 13,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Nick",
+        "avg_fppg": 32.29,
+        "total_fp": 1356.3,
+        "games": 42,
+        "week": 5,
+        "season": "2018-19"
+      }
+    ],
+    "best_duo_day": {
+      "manager": "Hayden",
+      "combined_fp": 170.1,
+      "player1": "Nikola Jokic",
+      "player1_fp": 88.8,
+      "player2": "LaMelo Ball",
+      "player2_fp": 81.2,
+      "date": "2026-02-22",
+      "week": 17,
+      "season": "2025-26"
+    },
+    "best_duo_day_top10": [
+      {
+        "manager": "Hayden",
+        "combined_fp": 170.1,
+        "player1": "Nikola Jokic",
+        "player1_fp": 88.8,
+        "player2": "LaMelo Ball",
+        "player2_fp": 81.2,
+        "date": "2026-02-22",
+        "week": 17,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 168.1,
+        "player1": "Kawhi Leonard",
+        "player1_fp": 89.5,
+        "player2": "Scottie Barnes",
+        "player2_fp": 78.6,
+        "date": "2025-12-28",
+        "week": 10,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 167.6,
+        "player1": "Stephen Curry",
+        "player1_fp": 111.0,
+        "player2": "Anthony Edwards",
+        "player2_fp": 56.5,
+        "date": "2025-04-01",
+        "week": 22,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 166.0,
+        "player1": "Luka Doncic",
+        "player1_fp": 94.4,
+        "player2": "Jalen Johnson",
+        "player2_fp": 71.6,
+        "date": "2025-12-18",
+        "week": 9,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 164.1,
+        "player1": "Luka Doncic",
+        "player1_fp": 107.8,
+        "player2": "Anthony Davis",
+        "player2_fp": 56.3,
+        "date": "2023-12-25",
+        "week": 10,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 163.9,
+        "player1": "Luka Doncic",
+        "player1_fp": 83.2,
+        "player2": "LeBron James",
+        "player2_fp": 80.8,
+        "date": "2021-01-25",
+        "week": 6,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 161.9,
+        "player1": "Nikola Jokic",
+        "player1_fp": 102.5,
+        "player2": "Jalen Williams",
+        "player2_fp": 59.5,
+        "date": "2025-01-23",
+        "week": 13,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 161.7,
+        "player1": "Giannis Antetokounmpo",
+        "player1_fp": 85.5,
+        "player2": "Victor Wembanyama",
+        "player2_fp": 76.2,
+        "date": "2024-11-13",
+        "week": 4,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 161.4,
+        "player1": "Nikola Jokic",
+        "player1_fp": 84.5,
+        "player2": "Alperen Sengun",
+        "player2_fp": 77.0,
+        "date": "2025-12-01",
+        "week": 7,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 161.1,
+        "player1": "Joel Embiid",
+        "player1_fp": 88.3,
+        "player2": "Luka Doncic",
+        "player2_fp": 72.8,
+        "date": "2024-01-22",
+        "week": 14,
+        "season": "2023-24"
+      }
+    ],
+    "best_duo_week": {
+      "manager": "Hayden",
+      "combined_fp": 598.8,
+      "player1": "Nikola Jokic",
+      "player1_fp": 315.8,
+      "player2": "Tyrese Haliburton",
+      "player2_fp": 282.9,
+      "week": 7,
+      "season": "2024-25"
+    },
+    "best_duo_week_top10": [
+      {
+        "manager": "Hayden",
+        "combined_fp": 598.8,
+        "player1": "Nikola Jokic",
+        "player1_fp": 315.8,
+        "player2": "Tyrese Haliburton",
+        "player2_fp": 282.9,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 593.1,
+        "player1": "Luka Doncic",
+        "player1_fp": 339.6,
+        "player2": "Anthony Davis",
+        "player2_fp": 253.5,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 589.2,
+        "player1": "Damian Lillard",
+        "player1_fp": 310.1,
+        "player2": "Nikola Jokic",
+        "player2_fp": 279.1,
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 580.4,
+        "player1": "Victor Wembanyama",
+        "player1_fp": 319.7,
+        "player2": "Giannis Antetokounmpo",
+        "player2_fp": 260.7,
+        "week": 17,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 525.5,
+        "player1": "Nikola Jokic",
+        "player1_fp": 318.1,
+        "player2": "De'Aaron Fox",
+        "player2_fp": 207.3,
+        "week": 17,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 524.0,
+        "player1": "Nikola Jokic",
+        "player1_fp": 314.8,
+        "player2": "Shai Gilgeous-Alexander",
+        "player2_fp": 209.2,
+        "week": 10,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 513.2,
+        "player1": "James Harden",
+        "player1_fp": 278.5,
+        "player2": "Bradley Beal",
+        "player2_fp": 234.8,
+        "week": 13,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 508.6,
+        "player1": "Nikola Jokic",
+        "player1_fp": 274.6,
+        "player2": "Devin Booker",
+        "player2_fp": 234.0,
+        "week": 18,
+        "season": "2021-22"
+      },
+      {
+        "manager": "Benton",
+        "combined_fp": 507.7,
+        "player1": "Trae Young",
+        "player1_fp": 274.4,
+        "player2": "Dejounte Murray",
+        "player2_fp": 233.3,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 507.0,
+        "player1": "Giannis Antetokounmpo",
+        "player1_fp": 261.6,
+        "player2": "Devin Booker",
+        "player2_fp": 245.4,
+        "week": 7,
+        "season": "2024-25"
+      }
+    ],
+    "best_duo_season": {
+      "manager": "Hayden",
+      "combined_fp": 7961.1,
+      "player1": "Nikola Jokic",
+      "player1_fp": 4287.8,
+      "player2": "Shai Gilgeous-Alexander",
+      "player2_fp": 3673.4,
+      "season": "2024-25"
+    },
+    "best_duo_season_top10": [
+      {
+        "manager": "Hayden",
+        "combined_fp": 7961.1,
+        "player1": "Nikola Jokic",
+        "player1_fp": 4287.8,
+        "player2": "Shai Gilgeous-Alexander",
+        "player2_fp": 3673.4,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 7424.6,
+        "player1": "Nikola Jokic",
+        "player1_fp": 4064.3,
+        "player2": "Shai Gilgeous-Alexander",
+        "player2_fp": 3360.3,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 7396.2,
+        "player1": "Luka Doncic",
+        "player1_fp": 3973.4,
+        "player2": "Anthony Davis",
+        "player2_fp": 3422.8,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Benton",
+        "combined_fp": 6955.8,
+        "player1": "Nikola Jokic",
+        "player1_fp": 3525.0,
+        "player2": "Paul George",
+        "player2_fp": 3430.8,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 6853.2,
+        "player1": "Nikola Jokic",
+        "player1_fp": 3840.8,
+        "player2": "Shai Gilgeous-Alexander",
+        "player2_fp": 3012.4,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 6813.1,
+        "player1": "Domantas Sabonis",
+        "player1_fp": 3583.0,
+        "player2": "Giannis Antetokounmpo",
+        "player2_fp": 3230.1,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "combined_fp": 6661.4,
+        "player1": "LeBron James",
+        "player1_fp": 3344.9,
+        "player2": "James Harden",
+        "player2_fp": 3316.5,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Hayden",
+        "combined_fp": 6580.8,
+        "player1": "Nikola Jokic",
+        "player1_fp": 3768.4,
+        "player2": "LaMelo Ball",
+        "player2_fp": 2812.4,
+        "season": "2021-22"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 6559.7,
+        "player1": "Russell Westbrook",
+        "player1_fp": 3496.1,
+        "player2": "Andre Drummond",
+        "player2_fp": 3063.6,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Nick",
+        "combined_fp": 6557.9,
+        "player1": "Luka Doncic",
+        "player1_fp": 3599.6,
+        "player2": "Jalen Johnson",
+        "player2_fp": 2958.3,
+        "season": "2025-26"
+      }
+    ],
+    "most_45plus_games_week": {
+      "manager": "Hayden",
+      "count": 24,
+      "total_games": 44,
+      "week": 6,
+      "season": "2024-25"
+    },
+    "most_45plus_games_week_top10": [
+      {
+        "manager": "Hayden",
+        "count": 24,
+        "total_games": 44,
+        "week": 6,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "count": 23,
+        "total_games": 48,
+        "week": 8,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Nick",
+        "count": 23,
+        "total_games": 45,
+        "week": 9,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Benton",
+        "count": 22,
+        "total_games": 46,
+        "week": 10,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "count": 22,
+        "total_games": 62,
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Hayden",
+        "count": 22,
+        "total_games": 44,
+        "week": 10,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "count": 22,
+        "total_games": 47,
+        "week": 15,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "count": 22,
+        "total_games": 54,
+        "week": 17,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "count": 22,
+        "total_games": 43,
+        "week": 4,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "count": 21,
+        "total_games": 49,
+        "week": 22,
+        "season": "2018-19"
+      }
+    ],
+    "most_sub20_games_week": {
+      "manager": "Garrett",
+      "count": 13,
+      "total_games": 38,
+      "week": 23,
+      "season": "2017-18"
+    },
+    "most_sub20_games_week_top10": [
+      {
+        "manager": "Garrett",
+        "count": 13,
+        "total_games": 38,
+        "week": 23,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Nick",
+        "count": 11,
+        "total_games": 44,
+        "week": 3,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Nick",
+        "count": 10,
+        "total_games": 50,
+        "week": 7,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "count": 10,
+        "total_games": 47,
+        "week": 18,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Garrett",
+        "count": 9,
+        "total_games": 44,
+        "week": 22,
+        "season": "2017-18"
+      },
+      {
+        "manager": "Hayden",
+        "count": 9,
+        "total_games": 34,
+        "week": 5,
+        "season": "2022-23"
+      },
+      {
+        "manager": "Benton",
+        "count": 9,
+        "total_games": 41,
+        "week": 7,
+        "season": "2022-23"
+      },
+      {
+        "manager": "Nick",
+        "count": 9,
+        "total_games": 44,
+        "week": 16,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "count": 9,
+        "total_games": 52,
+        "week": 19,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "count": 9,
+        "total_games": 51,
+        "week": 22,
+        "season": "2025-26"
+      }
+    ],
+    "most_games_under_20": {
+      "player_name": "Myles Turner",
+      "manager": "Garrett",
+      "under_20_count": 17,
+      "total_starts": 49,
+      "pct": 34.7,
+      "season": "2017-18"
+    },
+    "most_games_under_20_top10": [
+      {
+        "player_name": "Myles Turner",
+        "manager": "Garrett",
+        "under_20_count": 17,
+        "total_starts": 49,
+        "pct": 34.7,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "Goran Dragic",
+        "manager": "Hayden",
+        "under_20_count": 14,
+        "total_starts": 66,
+        "pct": 21.2,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "Marc Gasol",
+        "manager": "Garrett",
+        "under_20_count": 13,
+        "total_starts": 62,
+        "pct": 21.0,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Anthony Edwards",
+        "manager": "Nick",
+        "under_20_count": 13,
+        "total_starts": 63,
+        "pct": 20.6,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Paolo Banchero",
+        "manager": "Garrett",
+        "under_20_count": 13,
+        "total_starts": 65,
+        "pct": 20.0,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Otto Porter Jr.",
+        "manager": "Garrett",
+        "under_20_count": 12,
+        "total_starts": 59,
+        "pct": 20.3,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "Scottie Barnes",
+        "manager": "Hayden",
+        "under_20_count": 12,
+        "total_starts": 69,
+        "pct": 17.4,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Mikal Bridges",
+        "manager": "Hayden",
+        "under_20_count": 12,
+        "total_starts": 66,
+        "pct": 18.2,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Bradley Beal",
+        "manager": "Hayden",
+        "under_20_count": 11,
+        "total_starts": 73,
+        "pct": 15.1,
+        "season": "2017-18"
+      },
+      {
+        "player_name": "Rudy Gobert",
+        "manager": "Nick",
+        "under_20_count": 11,
+        "total_starts": 58,
+        "pct": 19.0,
+        "season": "2022-23"
+      }
+    ],
+    "mr_4th_quarter": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "avg_fp": 68.0,
+      "sunday_games": 10,
+      "season": "2022-23"
+    },
+    "mr_4th_quarter_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "avg_fp": 68.0,
+        "sunday_games": 10,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "avg_fp": 66.7,
+        "sunday_games": 10,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "avg_fp": 62.2,
+        "sunday_games": 7,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "avg_fp": 61.5,
+        "sunday_games": 6,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "avg_fp": 61.2,
+        "sunday_games": 10,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett",
+        "avg_fp": 58.8,
+        "sunday_games": 6,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "avg_fp": 58.8,
+        "sunday_games": 11,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "avg_fp": 58.0,
+        "sunday_games": 9,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Giannis Antetokounmpo",
+        "manager": "Garrett",
+        "avg_fp": 57.9,
+        "sunday_games": 7,
+        "season": "2020-21"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett",
+        "avg_fp": 56.3,
+        "sunday_games": 10,
+        "season": "2017-18"
+      }
+    ],
+    "head_to_head": {
+      "Benton_vs_Garrett": 31,
+      "Benton_vs_Hayden": 26,
+      "Benton_vs_Nick": 29,
+      "Garrett_vs_Benton": 34,
+      "Garrett_vs_Hayden": 32,
+      "Garrett_vs_Nick": 20,
+      "Hayden_vs_Benton": 40,
+      "Hayden_vs_Garrett": 34,
+      "Hayden_vs_Nick": 28,
+      "Nick_vs_Benton": 37,
+      "Nick_vs_Garrett": 46,
+      "Nick_vs_Hayden": 37,
+      "managers": [
+        "Benton",
+        "Garrett",
+        "Hayden",
+        "Nick"
+      ]
+    },
+    "best_manager_season_top10": [
+      {
+        "manager": "Nick",
+        "season": "2024-25",
+        "wins": 19,
+        "losses": 4,
+        "total_fp": 40510.0,
+        "weeks": 23,
+        "fppg_per_week": 1761.3
+      },
+      {
+        "manager": "Hayden",
+        "season": "2024-25",
+        "wins": 15,
+        "losses": 8,
+        "total_fp": 40479.7,
+        "weeks": 23,
+        "fppg_per_week": 1760.0
+      },
+      {
+        "manager": "Nick",
+        "season": "2023-24",
+        "wins": 16,
+        "losses": 7,
+        "total_fp": 39818.6,
+        "weeks": 23,
+        "fppg_per_week": 1731.2
+      },
+      {
+        "manager": "Hayden",
+        "season": "2023-24",
+        "wins": 13,
+        "losses": 10,
+        "total_fp": 39053.0,
+        "weeks": 23,
+        "fppg_per_week": 1698.0
+      },
+      {
+        "manager": "Garrett",
+        "season": "2023-24",
+        "wins": 13,
+        "losses": 10,
+        "total_fp": 38955.9,
+        "weeks": 23,
+        "fppg_per_week": 1693.7
+      },
+      {
+        "manager": "Garrett",
+        "season": "2024-25",
+        "wins": 6,
+        "losses": 17,
+        "total_fp": 37769.1,
+        "weeks": 23,
+        "fppg_per_week": 1642.1
+      },
+      {
+        "manager": "Nick",
+        "season": "2025-26",
+        "wins": 17,
+        "losses": 6,
+        "total_fp": 37562.4,
+        "weeks": 23,
+        "fppg_per_week": 1633.1
+      },
+      {
+        "manager": "Hayden",
+        "season": "2022-23",
+        "wins": 18,
+        "losses": 5,
+        "total_fp": 37483.2,
+        "weeks": 23,
+        "fppg_per_week": 1629.7
+      },
+      {
+        "manager": "Benton",
+        "season": "2024-25",
+        "wins": 6,
+        "losses": 17,
+        "total_fp": 37013.7,
+        "weeks": 23,
+        "fppg_per_week": 1609.3
+      },
+      {
+        "manager": "Nick",
+        "season": "2018-19",
+        "wins": 15,
+        "losses": 8,
+        "total_fp": 36587.2,
+        "weeks": 23,
+        "fppg_per_week": 1590.7
+      }
+    ],
+    "worst_manager_season_top10": [
+      {
+        "manager": "Benton",
+        "season": "2020-21",
+        "wins": 0,
+        "losses": 18,
+        "total_fp": 25900.9,
+        "weeks": 18,
+        "fppg_per_week": 1438.9
+      },
+      {
+        "manager": "Nick",
+        "season": "2019-20",
+        "wins": 7,
+        "losses": 12,
+        "total_fp": 27344.6,
+        "weeks": 19,
+        "fppg_per_week": 1439.2
+      },
+      {
+        "manager": "Garrett",
+        "season": "2019-20",
+        "wins": 9,
+        "losses": 10,
+        "total_fp": 27506.8,
+        "weeks": 19,
+        "fppg_per_week": 1447.7
+      },
+      {
+        "manager": "Benton",
+        "season": "2019-20",
+        "wins": 10,
+        "losses": 9,
+        "total_fp": 28343.2,
+        "weeks": 19,
+        "fppg_per_week": 1491.7
+      },
+      {
+        "manager": "Hayden",
+        "season": "2019-20",
+        "wins": 12,
+        "losses": 7,
+        "total_fp": 29151.2,
+        "weeks": 19,
+        "fppg_per_week": 1534.3
+      },
+      {
+        "manager": "Garrett",
+        "season": "2020-21",
+        "wins": 11,
+        "losses": 7,
+        "total_fp": 29209.5,
+        "weeks": 18,
+        "fppg_per_week": 1622.8
+      },
+      {
+        "manager": "Garrett",
+        "season": "2017-18",
+        "wins": 6,
+        "losses": 17,
+        "total_fp": 29869.7,
+        "weeks": 23,
+        "fppg_per_week": 1298.7
+      },
+      {
+        "manager": "Hayden",
+        "season": "2020-21",
+        "wins": 11,
+        "losses": 7,
+        "total_fp": 29873.6,
+        "weeks": 18,
+        "fppg_per_week": 1659.6
+      },
+      {
+        "manager": "Hayden",
+        "season": "2021-22",
+        "wins": 8,
+        "losses": 14,
+        "total_fp": 31339.0,
+        "weeks": 22,
+        "fppg_per_week": 1424.5
+      },
+      {
+        "manager": "Nick",
+        "season": "2020-21",
+        "wins": 14,
+        "losses": 4,
+        "total_fp": 31346.8,
+        "weeks": 18,
+        "fppg_per_week": 1741.5
+      }
+    ],
+    "career_total_fp_by_manager": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "total_fp": 23033.1,
+      "gp": 401,
+      "historical_fp": 19192.3,
+      "historical_gp": 339,
+      "seasons": 6,
+      "fppg": 57.44,
+      "season": "all-time"
+    },
+    "career_total_fp_by_manager_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "total_fp": 23033.1,
+        "gp": 401,
+        "historical_fp": 19192.3,
+        "historical_gp": 339,
+        "seasons": 6,
+        "fppg": 57.44,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "total_fp": 19344.7,
+        "gp": 360,
+        "historical_fp": 15745.1,
+        "historical_gp": 296,
+        "seasons": 7,
+        "fppg": 53.74,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Giannis Antetokounmpo",
+        "manager": "Garrett",
+        "total_fp": 18645.2,
+        "gp": 389,
+        "historical_fp": 17205.4,
+        "historical_gp": 354,
+        "seasons": 7,
+        "fppg": 47.93,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Shai Gilgeous-Alexander",
+        "manager": "Hayden",
+        "total_fp": 16425.2,
+        "gp": 378,
+        "historical_fp": 13412.7,
+        "historical_gp": 312,
+        "seasons": 7,
+        "fppg": 43.45,
+        "season": "all-time"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett",
+        "total_fp": 15835.2,
+        "gp": 320,
+        "historical_fp": 15835.2,
+        "historical_gp": 320,
+        "seasons": 6,
+        "fppg": 49.48,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Nick",
+        "total_fp": 15397.0,
+        "gp": 350,
+        "historical_fp": 15397.0,
+        "historical_gp": 350,
+        "seasons": 7,
+        "fppg": 43.99,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Domantas Sabonis",
+        "manager": "Garrett",
+        "total_fp": 14916.4,
+        "gp": 347,
+        "historical_fp": 14288.1,
+        "historical_gp": 328,
+        "seasons": 6,
+        "fppg": 42.99,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Anthony Edwards",
+        "manager": "Nick",
+        "total_fp": 13477.0,
+        "gp": 341,
+        "historical_fp": 10984.4,
+        "historical_gp": 281,
+        "seasons": 5,
+        "fppg": 39.52,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Benton",
+        "total_fp": 13332.7,
+        "gp": 316,
+        "historical_fp": 12930.6,
+        "historical_gp": 303,
+        "seasons": 7,
+        "fppg": 42.19,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Jayson Tatum",
+        "manager": "Benton",
+        "total_fp": 13084.7,
+        "gp": 279,
+        "historical_fp": 12556.7,
+        "historical_gp": 268,
+        "seasons": 5,
+        "fppg": 46.9,
+        "season": "all-time"
+      }
+    ],
+    "career_total_fp": {
+      "player_name": "Nikola Jokic",
+      "manager": "Benton, Garrett, Hayden",
+      "total_fp": 31975.5,
+      "gp": 602,
+      "historical_fp": 28134.7,
+      "historical_gp": 540,
+      "seasons": 9,
+      "fppg": 53.12,
+      "season": "all-time"
+    },
+    "career_total_fp_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Benton, Garrett, Hayden",
+        "total_fp": 31975.5,
+        "gp": 602,
+        "historical_fp": 28134.7,
+        "historical_gp": 540,
+        "seasons": 9,
+        "fppg": 53.12,
+        "season": "all-time"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Benton, Garrett, Nick",
+        "total_fp": 27186.4,
+        "gp": 553,
+        "historical_fp": 24473.7,
+        "historical_gp": 490,
+        "seasons": 9,
+        "fppg": 49.16,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Giannis Antetokounmpo",
+        "manager": "Benton, Garrett, Hayden",
+        "total_fp": 24536.0,
+        "gp": 512,
+        "historical_fp": 23096.2,
+        "historical_gp": 477,
+        "seasons": 9,
+        "fppg": 47.92,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Benton, Hayden, Nick",
+        "total_fp": 24074.0,
+        "gp": 464,
+        "historical_fp": 20474.4,
+        "historical_gp": 400,
+        "seasons": 8,
+        "fppg": 51.88,
+        "season": "all-time"
+      },
+      {
+        "player_name": "LeBron James",
+        "manager": "Benton, Garrett, Hayden, Nick",
+        "total_fp": 22857.9,
+        "gp": 487,
+        "historical_fp": 20831.7,
+        "historical_gp": 433,
+        "seasons": 9,
+        "fppg": 46.94,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Nikola Vucevic",
+        "manager": "Benton, Garrett, Hayden, Nick",
+        "total_fp": 22708.6,
+        "gp": 570,
+        "historical_fp": 20755.9,
+        "historical_gp": 514,
+        "seasons": 9,
+        "fppg": 39.84,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Karl-Anthony Towns",
+        "manager": "Benton, Garrett, Hayden, Nick",
+        "total_fp": 21888.7,
+        "gp": 509,
+        "historical_fp": 19156.4,
+        "historical_gp": 438,
+        "seasons": 9,
+        "fppg": 43.0,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Benton, Garrett, Hayden, Nick",
+        "total_fp": 21059.1,
+        "gp": 456,
+        "historical_fp": 19447.1,
+        "historical_gp": 418,
+        "seasons": 9,
+        "fppg": 46.18,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Garrett, Hayden, Nick",
+        "total_fp": 20325.9,
+        "gp": 461,
+        "historical_fp": 20325.9,
+        "historical_gp": 461,
+        "seasons": 8,
+        "fppg": 44.09,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Anthony Davis",
+        "manager": "Benton, Garrett, Hayden, Nick",
+        "total_fp": 19763.0,
+        "gp": 431,
+        "historical_fp": 19084.7,
+        "historical_gp": 414,
+        "seasons": 9,
+        "fppg": 45.85,
+        "season": "all-time"
+      }
+    ],
+    "career_fppg": {
+      "player_name": "Nikola Jokic",
+      "manager": "Benton, Garrett, Hayden",
+      "total_fp": 31975.5,
+      "gp": 602,
+      "historical_fp": 28134.7,
+      "historical_gp": 540,
+      "seasons": 9,
+      "fppg": 53.12,
+      "season": "all-time"
+    },
+    "career_fppg_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Benton, Garrett, Hayden",
+        "total_fp": 31975.5,
+        "gp": 602,
+        "historical_fp": 28134.7,
+        "historical_gp": 540,
+        "seasons": 9,
+        "fppg": 53.12,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Benton, Hayden, Nick",
+        "total_fp": 24074.0,
+        "gp": 464,
+        "historical_fp": 20474.4,
+        "historical_gp": 400,
+        "seasons": 8,
+        "fppg": 51.88,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "total_fp": 8541.0,
+        "gp": 170,
+        "historical_fp": 5610.9,
+        "historical_gp": 112,
+        "seasons": 3,
+        "fppg": 50.24,
+        "season": "all-time"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Benton, Garrett, Nick",
+        "total_fp": 27186.4,
+        "gp": 553,
+        "historical_fp": 24473.7,
+        "historical_gp": 490,
+        "seasons": 9,
+        "fppg": 49.16,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Giannis Antetokounmpo",
+        "manager": "Benton, Garrett, Hayden",
+        "total_fp": 24536.0,
+        "gp": 512,
+        "historical_fp": 23096.2,
+        "historical_gp": 477,
+        "seasons": 9,
+        "fppg": 47.92,
+        "season": "all-time"
+      },
+      {
+        "player_name": "LeBron James",
+        "manager": "Benton, Garrett, Hayden, Nick",
+        "total_fp": 22857.9,
+        "gp": 487,
+        "historical_fp": 20831.7,
+        "historical_gp": 433,
+        "seasons": 9,
+        "fppg": 46.94,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Benton, Garrett, Hayden, Nick",
+        "total_fp": 21059.1,
+        "gp": 456,
+        "historical_fp": 19447.1,
+        "historical_gp": 418,
+        "seasons": 9,
+        "fppg": 46.18,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Anthony Davis",
+        "manager": "Benton, Garrett, Hayden, Nick",
+        "total_fp": 19763.0,
+        "gp": 431,
+        "historical_fp": 19084.7,
+        "historical_gp": 414,
+        "seasons": 9,
+        "fppg": 45.85,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Tyrese Haliburton",
+        "manager": "Benton, Hayden",
+        "total_fp": 10932.0,
+        "gp": 244,
+        "historical_fp": 10932.0,
+        "historical_gp": 244,
+        "seasons": 5,
+        "fppg": 44.8,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Joel Embiid",
+        "manager": "Benton, Hayden, Nick",
+        "total_fp": 17879.7,
+        "gp": 401,
+        "historical_fp": 16780.2,
+        "historical_gp": 372,
+        "seasons": 9,
+        "fppg": 44.59,
+        "season": "all-time"
+      }
+    ],
+    "longest_player_tenure": {
+      "player_name": "Pascal Siakam",
+      "manager": "Hayden",
+      "consecutive_seasons": 7,
+      "start_season": "2019-20",
+      "end_season": "2025-26",
+      "active": true,
+      "season": "all-time"
+    },
+    "longest_player_tenure_top10": [
+      {
+        "player_name": "Pascal Siakam",
+        "manager": "Hayden",
+        "consecutive_seasons": 7,
+        "start_season": "2019-20",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Joel Embiid",
+        "manager": "Nick",
+        "consecutive_seasons": 7,
+        "start_season": "2019-20",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Shai Gilgeous-Alexander",
+        "manager": "Hayden",
+        "consecutive_seasons": 7,
+        "start_season": "2019-20",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Giannis Antetokounmpo",
+        "manager": "Garrett",
+        "consecutive_seasons": 6,
+        "start_season": "2020-21",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Benton",
+        "consecutive_seasons": 6,
+        "start_season": "2020-21",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "consecutive_seasons": 6,
+        "start_season": "2020-21",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "consecutive_seasons": 6,
+        "start_season": "2020-21",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Domantas Sabonis",
+        "manager": "Garrett",
+        "consecutive_seasons": 6,
+        "start_season": "2020-21",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "LaMelo Ball",
+        "manager": "Hayden",
+        "consecutive_seasons": 6,
+        "start_season": "2020-21",
+        "end_season": "2025-26",
+        "active": true,
+        "season": "all-time"
+      },
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Nick",
+        "consecutive_seasons": 5,
+        "start_season": "2020-21",
+        "end_season": "2024-25",
+        "active": false,
+        "season": "all-time"
+      }
+    ],
+    "franchise_badges": {
+      "Hayden": {
+        "player": "Nikola Jokic",
+        "total_fp": 23033.1
+      },
+      "Nick": {
+        "player": "Luka Doncic",
+        "total_fp": 19344.7
+      },
+      "Garrett": {
+        "player": "Giannis Antetokounmpo",
+        "total_fp": 18645.2
+      },
+      "Benton": {
+        "player": "Trae Young",
+        "total_fp": 13332.7
+      }
+    },
+    "best_draft_class_fppg": {
+      "manager": "Garrett",
+      "avg_fppg": 40.38,
+      "total_gp": 249,
+      "player_count": 4,
+      "draft_year": "2023-24",
+      "season": "2023-24"
+    },
+    "best_draft_class_fppg_top10": [
+      {
+        "manager": "Garrett",
+        "avg_fppg": 40.38,
+        "total_gp": 249,
+        "player_count": 4,
+        "draft_year": "2023-24",
+        "season": "2023-24"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 40.32,
+        "total_gp": 264,
+        "player_count": 6,
+        "draft_year": "2021-22",
+        "season": "2021-22"
+      },
+      {
+        "manager": "Benton",
+        "avg_fppg": 39.33,
+        "total_gp": 344,
+        "player_count": 6,
+        "draft_year": "2024-25",
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "avg_fppg": 39.19,
+        "total_gp": 161,
+        "player_count": 4,
+        "draft_year": "2025-26",
+        "season": "2025-26"
+      },
+      {
+        "manager": "Benton",
+        "avg_fppg": 39.16,
+        "total_gp": 366,
+        "player_count": 7,
+        "draft_year": "2025-26",
+        "season": "2025-26"
+      },
+      {
+        "manager": "Benton",
+        "avg_fppg": 39.02,
+        "total_gp": 169,
+        "player_count": 3,
+        "draft_year": "2023-24",
+        "season": "2023-24"
+      },
+      {
+        "manager": "Benton",
+        "avg_fppg": 38.67,
+        "total_gp": 313,
+        "player_count": 5,
+        "draft_year": "2022-23",
+        "season": "2022-23"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 38.32,
+        "total_gp": 201,
+        "player_count": 4,
+        "draft_year": "2024-25",
+        "season": "2024-25"
+      },
+      {
+        "manager": "Hayden",
+        "avg_fppg": 38.07,
+        "total_gp": 315,
+        "player_count": 6,
+        "draft_year": "2024-25",
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "avg_fppg": 37.99,
+        "total_gp": 238,
+        "player_count": 4,
+        "draft_year": "2025-26",
+        "season": "2025-26"
+      }
+    ],
+    "best_fppg_single_week": {
+      "player_name": "Luka Doncic",
+      "manager": "Nick",
+      "weekly_fppg": 87.77,
+      "games": 3,
+      "weekly_fp": 263.3,
+      "season": "2022-23",
+      "week": 11
+    },
+    "best_fppg_single_week_top10": [
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "weekly_fppg": 87.77,
+        "games": 3,
+        "weekly_fp": 263.3,
+        "season": "2022-23",
+        "week": 11
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Nick",
+        "weekly_fppg": 87.38,
+        "games": 3,
+        "weekly_fp": 262.15,
+        "season": "2019-20",
+        "week": 14
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Nick",
+        "weekly_fppg": 79.5,
+        "games": 3,
+        "weekly_fp": 238.5,
+        "season": "2019-20",
+        "week": 15
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fppg": 78.69,
+        "games": 4,
+        "weekly_fp": 314.75,
+        "season": "2024-25",
+        "week": 10
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fppg": 78.4,
+        "games": 4,
+        "weekly_fp": 313.6,
+        "season": "2025-26",
+        "week": 10
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "weekly_fppg": 78.18,
+        "games": 3,
+        "weekly_fp": 234.55,
+        "season": "2025-26",
+        "week": 20
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fppg": 78.18,
+        "games": 3,
+        "weekly_fp": 234.55,
+        "season": "2025-26",
+        "week": 23
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fppg": 77.98,
+        "games": 3,
+        "weekly_fp": 233.95,
+        "season": "2024-25",
+        "week": 22
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "weekly_fppg": 76.13,
+        "games": 3,
+        "weekly_fp": 228.4,
+        "season": "2023-24",
+        "week": 10
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "weekly_fppg": 76.09,
+        "games": 4,
+        "weekly_fp": 304.35,
+        "season": "2025-26",
+        "week": 20
+      }
+    ],
+    "most_games_over_40": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "count": 62,
+      "gp": 67,
+      "season": "2024-25"
+    },
+    "most_games_over_40_top10": [
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "count": 62,
+        "gp": 67,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "count": 61,
+        "gp": 68,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "count": 61,
+        "gp": 73,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Luka Doncic",
+        "manager": "Nick",
+        "count": 60,
+        "gp": 65,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Garrett, Nick",
+        "count": 59,
+        "gp": 72,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "count": 59,
+        "gp": 67,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Russell Westbrook",
+        "manager": "Nick",
+        "count": 56,
+        "gp": 67,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Shai Gilgeous-Alexander",
+        "manager": "Hayden",
+        "count": 56,
+        "gp": 71,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Shai Gilgeous-Alexander",
+        "manager": "Hayden",
+        "count": 56,
+        "gp": 75,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Nikola Jokic",
+        "manager": "Hayden",
+        "count": 56,
+        "gp": 62,
+        "season": "2025-26"
+      }
+    ],
+    "best_rookie_fppg_week": {
+      "player_name": "Victor Wembanyama",
+      "manager": "Garrett",
+      "weekly_fppg": 71.6,
+      "games": 3,
+      "weekly_fp": 214.8,
+      "season": "2023-24",
+      "week": 23
+    },
+    "best_rookie_fppg_week_top10": [
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fppg": 71.6,
+        "games": 3,
+        "weekly_fp": 214.8,
+        "season": "2023-24",
+        "week": 23
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fppg": 68.87,
+        "games": 3,
+        "weekly_fp": 206.6,
+        "season": "2023-24",
+        "week": 18
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fppg": 63.94,
+        "games": 5,
+        "weekly_fp": 319.7,
+        "season": "2023-24",
+        "week": 17
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Nick",
+        "weekly_fppg": 60.9,
+        "games": 4,
+        "weekly_fp": 243.6,
+        "season": "2018-19",
+        "week": 19
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fppg": 60.23,
+        "games": 3,
+        "weekly_fp": 180.7,
+        "season": "2023-24",
+        "week": 22
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fppg": 53.96,
+        "games": 4,
+        "weekly_fp": 215.85,
+        "season": "2023-24",
+        "week": 8
+      },
+      {
+        "player_name": "Trae Young",
+        "manager": "Nick",
+        "weekly_fppg": 52.3,
+        "games": 3,
+        "weekly_fp": 156.9,
+        "season": "2018-19",
+        "week": 23
+      },
+      {
+        "player_name": "VJ Edgecombe",
+        "manager": "Garrett",
+        "weekly_fppg": 51.6,
+        "games": 3,
+        "weekly_fp": 154.8,
+        "season": "2025-26",
+        "week": 11
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "weekly_fppg": 49.88,
+        "games": 4,
+        "weekly_fp": 199.5,
+        "season": "2023-24",
+        "week": 20
+      },
+      {
+        "player_name": "Ben Simmons",
+        "manager": "Hayden",
+        "weekly_fppg": 49.47,
+        "games": 4,
+        "weekly_fp": 197.9,
+        "season": "2017-18",
+        "week": 23
+      }
+    ],
+    "most_40plus_games_week": {
+      "manager": "Benton",
+      "count": 31,
+      "total_games": 46,
+      "week": 10,
+      "season": "2018-19"
+    },
+    "most_40plus_games_week_top10": [
+      {
+        "manager": "Benton",
+        "count": 31,
+        "total_games": 46,
+        "week": 10,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "count": 31,
+        "total_games": 54,
+        "week": 17,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "count": 30,
+        "total_games": 62,
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Nick",
+        "count": 30,
+        "total_games": 45,
+        "week": 9,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Nick",
+        "count": 30,
+        "total_games": 71,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "count": 30,
+        "total_games": 51,
+        "week": 22,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "count": 29,
+        "total_games": 46,
+        "week": 19,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "count": 29,
+        "total_games": 44,
+        "week": 6,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Benton",
+        "count": 29,
+        "total_games": 65,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "count": 28,
+        "total_games": 46,
+        "week": 12,
+        "season": "2020-21"
+      }
+    ],
+    "most_40plus_fp_week": {
+      "manager": "Benton",
+      "count": 31,
+      "total_games": 46,
+      "week": 10,
+      "season": "2018-19"
+    },
+    "most_40plus_fp_week_top10": [
+      {
+        "manager": "Benton",
+        "count": 31,
+        "total_games": 46,
+        "week": 10,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "count": 31,
+        "total_games": 54,
+        "week": 17,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Hayden",
+        "count": 30,
+        "total_games": 62,
+        "week": 11,
+        "season": "2020-21"
+      },
+      {
+        "manager": "Nick",
+        "count": 30,
+        "total_games": 45,
+        "week": 9,
+        "season": "2023-24"
+      },
+      {
+        "manager": "Nick",
+        "count": 30,
+        "total_games": 71,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "count": 30,
+        "total_games": 51,
+        "week": 22,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Nick",
+        "count": 29,
+        "total_games": 46,
+        "week": 19,
+        "season": "2018-19"
+      },
+      {
+        "manager": "Hayden",
+        "count": 29,
+        "total_games": 44,
+        "week": 6,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Benton",
+        "count": 29,
+        "total_games": 65,
+        "week": 7,
+        "season": "2024-25"
+      },
+      {
+        "manager": "Garrett",
+        "count": 28,
+        "total_games": 46,
+        "week": 12,
+        "season": "2020-21"
+      }
+    ],
+    "biggest_draft_steal_totalfp": {
+      "player_name": "Julius Randle",
+      "manager": "Benton",
+      "round": 5,
+      "pick_number": 20,
+      "total_fp": 3112.8,
+      "expected_total_fp": 1532.6,
+      "delta": 1580.2,
+      "fppg": 41.5,
+      "gp": 75,
+      "season": "2022-23"
+    },
+    "biggest_draft_steal_totalfp_top10": [
+      {
+        "player_name": "Julius Randle",
+        "manager": "Benton",
+        "round": 5,
+        "pick_number": 20,
+        "total_fp": 3112.8,
+        "expected_total_fp": 1532.6,
+        "delta": 1580.2,
+        "fppg": 41.5,
+        "gp": 75,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Victor Wembanyama",
+        "manager": "Garrett",
+        "round": 3,
+        "pick_number": 10,
+        "total_fp": 3208.2,
+        "expected_total_fp": 1875.7,
+        "delta": 1332.5,
+        "fppg": 47.18,
+        "gp": 68,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Jamal Murray",
+        "manager": "Garrett",
+        "round": 4,
+        "pick_number": 13,
+        "total_fp": 3097.0,
+        "expected_total_fp": 1913.8,
+        "delta": 1183.2,
+        "fppg": 44.24,
+        "gp": 70,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Bam Adebayo",
+        "manager": "Benton",
+        "round": 6,
+        "pick_number": 21,
+        "total_fp": 2751.1,
+        "expected_total_fp": 1683.9,
+        "delta": 1067.2,
+        "fppg": 37.18,
+        "gp": 74,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Jalen Brunson",
+        "manager": "Garrett",
+        "round": 4,
+        "pick_number": 14,
+        "total_fp": 2791.7,
+        "expected_total_fp": 1752.4,
+        "delta": 1039.2,
+        "fppg": 41.67,
+        "gp": 67,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Karl-Anthony Towns",
+        "manager": "Garrett",
+        "round": 1,
+        "pick_number": 2,
+        "total_fp": 3074.7,
+        "expected_total_fp": 2049.9,
+        "delta": 1024.8,
+        "fppg": 44.56,
+        "gp": 69,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Nikola Vucevic",
+        "manager": "Benton",
+        "round": 2,
+        "pick_number": 8,
+        "total_fp": 3014.6,
+        "expected_total_fp": 2055.4,
+        "delta": 959.2,
+        "fppg": 38.65,
+        "gp": 78,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Kristaps Porzingis",
+        "manager": "Garrett",
+        "round": 6,
+        "pick_number": 23,
+        "total_fp": 2496.9,
+        "expected_total_fp": 1582.1,
+        "delta": 914.8,
+        "fppg": 40.27,
+        "gp": 62,
+        "season": "2022-23"
+      },
+      {
+        "player_name": "Nikola Vucevic",
+        "manager": "Nick",
+        "round": 6,
+        "pick_number": 21,
+        "total_fp": 2572.8,
+        "expected_total_fp": 1683.9,
+        "delta": 888.9,
+        "fppg": 36.75,
+        "gp": 70,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Deni Avdija",
+        "manager": "Nick",
+        "round": 7,
+        "pick_number": 28,
+        "total_fp": 2324.1,
+        "expected_total_fp": 1438.4,
+        "delta": 885.7,
+        "fppg": 39.39,
+        "gp": 59,
+        "season": "2025-26"
+      }
+    ],
+    "biggest_draft_bust_totalfp": {
+      "player_name": "Devin Booker",
+      "manager": "Benton",
+      "round": 1,
+      "pick_number": 2,
+      "total_fp": 679.1,
+      "expected_total_fp": 2049.9,
+      "delta": -1370.8,
+      "fppg": 33.96,
+      "gp": 20,
+      "season": "2025-26"
+    },
+    "biggest_draft_bust_totalfp_top10": [
+      {
+        "player_name": "Devin Booker",
+        "manager": "Benton",
+        "round": 1,
+        "pick_number": 2,
+        "total_fp": 679.1,
+        "expected_total_fp": 2049.9,
+        "delta": -1370.8,
+        "fppg": 33.96,
+        "gp": 20,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Paul George",
+        "manager": "Benton",
+        "round": 1,
+        "pick_number": 1,
+        "total_fp": 1062.0,
+        "expected_total_fp": 2189.3,
+        "delta": -1127.3,
+        "fppg": 40.85,
+        "gp": 26,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "De'Aaron Fox",
+        "manager": "Benton",
+        "round": 2,
+        "pick_number": 5,
+        "total_fp": 1077.8,
+        "expected_total_fp": 2113.6,
+        "delta": -1035.8,
+        "fppg": 28.36,
+        "gp": 38,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Mikal Bridges",
+        "manager": "Nick",
+        "round": 1,
+        "pick_number": 1,
+        "total_fp": 1228.9,
+        "expected_total_fp": 2189.3,
+        "delta": -960.5,
+        "fppg": 31.51,
+        "gp": 39,
+        "season": "2023-24"
+      },
+      {
+        "player_name": "Kyrie Irving",
+        "manager": "Garrett",
+        "round": 3,
+        "pick_number": 11,
+        "total_fp": 904.5,
+        "expected_total_fp": 1791.2,
+        "delta": -886.7,
+        "fppg": 43.07,
+        "gp": 21,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Tyler Herro",
+        "manager": "Garrett",
+        "round": 3,
+        "pick_number": 9,
+        "total_fp": 1020.3,
+        "expected_total_fp": 1848.7,
+        "delta": -828.4,
+        "fppg": 34.01,
+        "gp": 30,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Michael Porter Jr.",
+        "manager": "Nick",
+        "round": 5,
+        "pick_number": 20,
+        "total_fp": 720.3,
+        "expected_total_fp": 1532.6,
+        "delta": -812.3,
+        "fppg": 30.01,
+        "gp": 24,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Franz Wagner",
+        "manager": "Hayden",
+        "round": 6,
+        "pick_number": 23,
+        "total_fp": 872.3,
+        "expected_total_fp": 1582.1,
+        "delta": -709.8,
+        "fppg": 33.55,
+        "gp": 26,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Trey Murphy III",
+        "manager": "Nick",
+        "round": 4,
+        "pick_number": 16,
+        "total_fp": 954.2,
+        "expected_total_fp": 1647.6,
+        "delta": -693.3,
+        "fppg": 38.17,
+        "gp": 25,
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Terry Rozier",
+        "manager": "Nick",
+        "round": 7,
+        "pick_number": 25,
+        "total_fp": 845.1,
+        "expected_total_fp": 1531.3,
+        "delta": -686.2,
+        "fppg": 32.5,
+        "gp": 26,
+        "season": "2022-23"
+      }
+    ],
+    "trade_winner_fppg": {
+      "player_name": "James Harden",
+      "manager": "Nick",
+      "from_manager": "Garrett",
+      "fppg": 58.76,
+      "post_trade_fp": 1939.1,
+      "gp": 33,
+      "season": "2018-19"
+    },
+    "trade_winner_fppg_top10": [
+      {
+        "player_name": "James Harden",
+        "manager": "Nick",
+        "from_manager": "Garrett",
+        "fppg": 58.76,
+        "post_trade_fp": 1939.1,
+        "gp": 33,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Paul George",
+        "manager": "Benton",
+        "from_manager": "Nick",
+        "fppg": 50.45,
+        "post_trade_fp": 3430.8,
+        "gp": 68,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Karl-Anthony Towns",
+        "manager": "Nick",
+        "from_manager": "Hayden",
+        "fppg": 50.41,
+        "post_trade_fp": 1461.8,
+        "gp": 29,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "James Harden",
+        "manager": "Nick",
+        "from_manager": "Benton",
+        "fppg": 48.83,
+        "post_trade_fp": 1465.0,
+        "gp": 30,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Dejounte Murray",
+        "manager": "Benton",
+        "from_manager": "Nick",
+        "fppg": 48.26,
+        "post_trade_fp": 2702.8,
+        "gp": 56,
+        "season": "2021-22"
+      },
+      {
+        "player_name": "Damian Lillard",
+        "manager": "Hayden",
+        "from_manager": "Nick",
+        "fppg": 46.78,
+        "post_trade_fp": 1169.5,
+        "gp": 25,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Stephen Curry",
+        "manager": "Nick",
+        "from_manager": "Benton",
+        "fppg": 46.06,
+        "post_trade_fp": 1197.5,
+        "gp": 26,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "LeBron James",
+        "manager": "Nick",
+        "from_manager": "Garrett",
+        "fppg": 45.73,
+        "post_trade_fp": 2972.4,
+        "gp": 65,
+        "season": "2024-25"
+      },
+      {
+        "player_name": "Kyrie Irving",
+        "manager": "Nick",
+        "from_manager": "Hayden",
+        "fppg": 45.7,
+        "post_trade_fp": 1325.2,
+        "gp": 29,
+        "season": "2018-19"
+      },
+      {
+        "player_name": "Jayson Tatum",
+        "manager": "Benton",
+        "from_manager": "Nick",
+        "fppg": 44.52,
+        "post_trade_fp": 2715.8,
+        "gp": 61,
+        "season": "2021-22"
+      }
+    ],
+    "best_waiver_pickup_totalfp": {
+      "player_name": "Julius Randle",
+      "manager": "Benton",
+      "total_fp": 2479.8,
+      "fppg": 33.97,
+      "gp": 73,
+      "add_date": "2025-10-25",
+      "season": "2025-26"
+    },
+    "best_waiver_pickup_totalfp_top10": [
+      {
+        "player_name": "Julius Randle",
+        "manager": "Benton",
+        "total_fp": 2479.8,
+        "fppg": 33.97,
+        "gp": 73,
+        "add_date": "2025-10-25",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Mikal Bridges",
+        "manager": "Hayden",
+        "total_fp": 2053.4,
+        "fppg": 31.11,
+        "gp": 66,
+        "add_date": "2025-11-02",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Donovan Clingan",
+        "manager": "Garrett",
+        "total_fp": 1763.4,
+        "fppg": 38.33,
+        "gp": 46,
+        "add_date": "2025-12-22",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Bam Adebayo",
+        "manager": "Benton",
+        "total_fp": 1379.2,
+        "fppg": 41.79,
+        "gp": 33,
+        "add_date": "2026-01-19",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Lauri Markkanen",
+        "manager": "Benton",
+        "total_fp": 1236.5,
+        "fppg": 41.22,
+        "gp": 30,
+        "add_date": "2025-10-27",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Miles Bridges",
+        "manager": "Nick",
+        "total_fp": 1214.0,
+        "fppg": 29.61,
+        "gp": 41,
+        "add_date": "2025-10-25",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "VJ Edgecombe",
+        "manager": "Garrett",
+        "total_fp": 1195.0,
+        "fppg": 33.19,
+        "gp": 36,
+        "add_date": "2025-10-25",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Alex Sarr",
+        "manager": "Benton",
+        "total_fp": 1168.2,
+        "fppg": 33.38,
+        "gp": 35,
+        "add_date": "2025-10-29",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Michael Porter Jr.",
+        "manager": "Hayden",
+        "total_fp": 1102.8,
+        "fppg": 40.84,
+        "gp": 27,
+        "add_date": "2025-11-03",
+        "season": "2025-26"
+      },
+      {
+        "player_name": "Kon Knueppel",
+        "manager": "Hayden",
+        "total_fp": 1097.5,
+        "fppg": 34.3,
+        "gp": 32,
+        "add_date": "2026-01-25",
+        "season": "2025-26"
+      }
+    ],
+    "most_total_injury_games": {
+      "manager": "Benton",
+      "total_injury_games": 363,
+      "non_il_injuries": 210,
+      "il_games": 153,
+      "total_scheduled": 1343,
+      "burden_pct": 27.0,
+      "season": "2025-26"
+    },
+    "most_total_injury_games_top10": [
+      {
+        "manager": "Benton",
+        "total_injury_games": 363,
+        "non_il_injuries": 210,
+        "il_games": 153,
+        "total_scheduled": 1343,
+        "burden_pct": 27.0,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Hayden",
+        "total_injury_games": 342,
+        "non_il_injuries": 192,
+        "il_games": 150,
+        "total_scheduled": 1329,
+        "burden_pct": 25.7,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Garrett",
+        "total_injury_games": 330,
+        "non_il_injuries": 183,
+        "il_games": 147,
+        "total_scheduled": 1343,
+        "burden_pct": 24.6,
+        "season": "2025-26"
+      },
+      {
+        "manager": "Nick",
+        "total_injury_games": 267,
+        "non_il_injuries": 164,
+        "il_games": 103,
+        "total_scheduled": 1330,
+        "burden_pct": 20.1,
+        "season": "2025-26"
+      }
+    ],
+    "best_manager_season_fpweek_top10": [
+      {
+        "manager": "Nick",
+        "season": "2024-25",
+        "wins": 19,
+        "losses": 4,
+        "total_fp": 40510.0,
+        "weeks": 23,
+        "fppg_per_week": 1761.3
+      },
+      {
+        "manager": "Hayden",
+        "season": "2024-25",
+        "wins": 15,
+        "losses": 8,
+        "total_fp": 40479.7,
+        "weeks": 23,
+        "fppg_per_week": 1760.0
+      },
+      {
+        "manager": "Nick",
+        "season": "2020-21",
+        "wins": 14,
+        "losses": 4,
+        "total_fp": 31346.8,
+        "weeks": 18,
+        "fppg_per_week": 1741.5
+      },
+      {
+        "manager": "Nick",
+        "season": "2023-24",
+        "wins": 16,
+        "losses": 7,
+        "total_fp": 39818.6,
+        "weeks": 23,
+        "fppg_per_week": 1731.2
+      },
+      {
+        "manager": "Hayden",
+        "season": "2023-24",
+        "wins": 13,
+        "losses": 10,
+        "total_fp": 39053.0,
+        "weeks": 23,
+        "fppg_per_week": 1698.0
+      },
+      {
+        "manager": "Garrett",
+        "season": "2023-24",
+        "wins": 13,
+        "losses": 10,
+        "total_fp": 38955.9,
+        "weeks": 23,
+        "fppg_per_week": 1693.7
+      },
+      {
+        "manager": "Hayden",
+        "season": "2020-21",
+        "wins": 11,
+        "losses": 7,
+        "total_fp": 29873.6,
+        "weeks": 18,
+        "fppg_per_week": 1659.6
+      },
+      {
+        "manager": "Garrett",
+        "season": "2024-25",
+        "wins": 6,
+        "losses": 17,
+        "total_fp": 37769.1,
+        "weeks": 23,
+        "fppg_per_week": 1642.1
+      },
+      {
+        "manager": "Nick",
+        "season": "2025-26",
+        "wins": 17,
+        "losses": 6,
+        "total_fp": 37562.4,
+        "weeks": 23,
+        "fppg_per_week": 1633.1
+      },
+      {
+        "manager": "Hayden",
+        "season": "2022-23",
+        "wins": 18,
+        "losses": 5,
+        "total_fp": 37483.2,
+        "weeks": 23,
+        "fppg_per_week": 1629.7
+      }
+    ],
+    "worst_manager_season_fpweek_top10": [
+      {
+        "manager": "Garrett",
+        "season": "2017-18",
+        "wins": 6,
+        "losses": 17,
+        "total_fp": 29869.7,
+        "weeks": 23,
+        "fppg_per_week": 1298.7
+      },
+      {
+        "manager": "Nick",
+        "season": "2017-18",
+        "wins": 13,
+        "losses": 10,
+        "total_fp": 31944.3,
+        "weeks": 23,
+        "fppg_per_week": 1388.9
+      },
+      {
+        "manager": "Hayden",
+        "season": "2017-18",
+        "wins": 11,
+        "losses": 12,
+        "total_fp": 32548.9,
+        "weeks": 23,
+        "fppg_per_week": 1415.2
+      },
+      {
+        "manager": "Hayden",
+        "season": "2021-22",
+        "wins": 8,
+        "losses": 14,
+        "total_fp": 31339.0,
+        "weeks": 22,
+        "fppg_per_week": 1424.5
+      },
+      {
+        "manager": "Garrett",
+        "season": "2021-22",
+        "wins": 11,
+        "losses": 11,
+        "total_fp": 31599.8,
+        "weeks": 22,
+        "fppg_per_week": 1436.4
+      },
+      {
+        "manager": "Benton",
+        "season": "2020-21",
+        "wins": 0,
+        "losses": 18,
+        "total_fp": 25900.9,
+        "weeks": 18,
+        "fppg_per_week": 1438.9
+      },
+      {
+        "manager": "Nick",
+        "season": "2019-20",
+        "wins": 7,
+        "losses": 12,
+        "total_fp": 27344.6,
+        "weeks": 19,
+        "fppg_per_week": 1439.2
+      },
+      {
+        "manager": "Garrett",
+        "season": "2019-20",
+        "wins": 9,
+        "losses": 10,
+        "total_fp": 27506.8,
+        "weeks": 19,
+        "fppg_per_week": 1447.7
+      },
+      {
+        "manager": "Benton",
+        "season": "2022-23",
+        "wins": 10,
+        "losses": 13,
+        "total_fp": 33947.4,
+        "weeks": 23,
+        "fppg_per_week": 1476.0
+      },
+      {
+        "manager": "Hayden",
+        "season": "2018-19",
+        "wins": 8,
+        "losses": 15,
+        "total_fp": 33978.0,
+        "weeks": 23,
+        "fppg_per_week": 1477.3
+      }
+    ],
+    "best_manager_season_fppg_top10": [
+      {
+        "manager": "Garrett",
+        "season": "2020-21",
+        "wins": 11,
+        "losses": 7,
+        "total_fp": 29209.5,
+        "weeks": 18,
+        "games": 721,
+        "fppg": 40.5
+      },
+      {
+        "manager": "Hayden",
+        "season": "2024-25",
+        "wins": 15,
+        "losses": 8,
+        "total_fp": 40479.7,
+        "weeks": 23,
+        "games": 1000,
+        "fppg": 40.5
+      },
+      {
+        "manager": "Benton",
+        "season": "2018-19",
+        "wins": 14,
+        "losses": 9,
+        "total_fp": 36534.7,
+        "weeks": 23,
+        "games": 914,
+        "fppg": 40.0
+      },
+      {
+        "manager": "Garrett",
+        "season": "2019-20",
+        "wins": 9,
+        "losses": 10,
+        "total_fp": 27506.8,
+        "weeks": 19,
+        "games": 687,
+        "fppg": 40.0
+      },
+      {
+        "manager": "Nick",
+        "season": "2020-21",
+        "wins": 14,
+        "losses": 4,
+        "total_fp": 31346.8,
+        "weeks": 18,
+        "games": 787,
+        "fppg": 39.8
+      },
+      {
+        "manager": "Garrett",
+        "season": "2023-24",
+        "wins": 13,
+        "losses": 10,
+        "total_fp": 38955.9,
+        "weeks": 23,
+        "games": 981,
+        "fppg": 39.7
+      },
+      {
+        "manager": "Garrett",
+        "season": "2021-22",
+        "wins": 11,
+        "losses": 11,
+        "total_fp": 31599.8,
+        "weeks": 22,
+        "games": 798,
+        "fppg": 39.6
+      },
+      {
+        "manager": "Nick",
+        "season": "2023-24",
+        "wins": 16,
+        "losses": 7,
+        "total_fp": 39818.6,
+        "weeks": 23,
+        "games": 1005,
+        "fppg": 39.6
+      },
+      {
+        "manager": "Hayden",
+        "season": "2023-24",
+        "wins": 13,
+        "losses": 10,
+        "total_fp": 39053.0,
+        "weeks": 23,
+        "games": 985,
+        "fppg": 39.6
+      },
+      {
+        "manager": "Benton",
+        "season": "2017-18",
+        "wins": 16,
+        "losses": 7,
+        "total_fp": 34524.8,
+        "weeks": 23,
+        "games": 876,
+        "fppg": 39.4
+      }
+    ],
+    "worst_manager_season_fppg_top10": [
+      {
+        "manager": "Benton",
+        "season": "2020-21",
+        "wins": 0,
+        "losses": 18,
+        "total_fp": 25900.9,
+        "weeks": 18,
+        "games": 723,
+        "fppg": 35.8
+      },
+      {
+        "manager": "Nick",
+        "season": "2017-18",
+        "wins": 13,
+        "losses": 10,
+        "total_fp": 31944.3,
+        "weeks": 23,
+        "games": 876,
+        "fppg": 36.5
+      },
+      {
+        "manager": "Nick",
+        "season": "2025-26",
+        "wins": 17,
+        "losses": 5,
+        "total_fp": 37562.3,
+        "weeks": 23,
+        "games": 1028,
+        "fppg": 36.5
+      },
+      {
+        "manager": "Hayden",
+        "season": "2021-22",
+        "wins": 8,
+        "losses": 14,
+        "total_fp": 31339.0,
+        "weeks": 22,
+        "games": 852,
+        "fppg": 36.8
+      },
+      {
+        "manager": "Garrett",
+        "season": "2017-18",
+        "wins": 6,
+        "losses": 17,
+        "total_fp": 29869.7,
+        "weeks": 23,
+        "games": 810,
+        "fppg": 36.9
+      },
+      {
+        "manager": "Hayden",
+        "season": "2018-19",
+        "wins": 8,
+        "losses": 15,
+        "total_fp": 33978.0,
+        "weeks": 23,
+        "games": 922,
+        "fppg": 36.9
+      },
+      {
+        "manager": "Garrett",
+        "season": "2025-26",
+        "wins": 11,
+        "losses": 11,
+        "total_fp": 36009.7,
+        "weeks": 23,
+        "games": 973,
+        "fppg": 37.0
+      },
+      {
+        "manager": "Hayden",
+        "season": "2025-26",
+        "wins": 6,
+        "losses": 16,
+        "total_fp": 35067.6,
+        "weeks": 23,
+        "games": 939,
+        "fppg": 37.3
+      },
+      {
+        "manager": "Hayden",
+        "season": "2017-18",
+        "wins": 11,
+        "losses": 12,
+        "total_fp": 32548.9,
+        "weeks": 23,
+        "games": 869,
+        "fppg": 37.5
+      },
+      {
+        "manager": "Garrett",
+        "season": "2018-19",
+        "wins": 9,
+        "losses": 14,
+        "total_fp": 34242.1,
+        "weeks": 23,
+        "games": 913,
+        "fppg": 37.5
+      }
+    ],
+    "head_to_head_historical": {
+      "Benton_vs_Garrett": 27,
+      "Benton_vs_Hayden": 22,
+      "Benton_vs_Nick": 26,
+      "Garrett_vs_Benton": 30,
+      "Garrett_vs_Hayden": 25,
+      "Garrett_vs_Nick": 19,
+      "Hayden_vs_Benton": 37,
+      "Hayden_vs_Garrett": 33,
+      "Hayden_vs_Nick": 26,
+      "Nick_vs_Benton": 32,
+      "Nick_vs_Garrett": 40,
+      "Nick_vs_Hayden": 31,
+      "managers": [
+        "Benton",
+        "Garrett",
+        "Hayden",
+        "Nick"
+      ]
+    },
+    "_notes": {
+      "playoff_titles_backfill": "Historical playoff bracket results were not in project data when the playoff_titles field was added (2026-06-09). Pre-2025-26 values are placeholders -- please manually fill in by season."
+    }
+  },
+  "season_records": {
+    "highest_weekly_team_score": {
+      "manager": "Nick",
+      "week": 15,
+      "score": 2037.45
+    },
+    "lowest_weekly_team_score": {
+      "score": 677.1,
+      "manager": "Benton",
+      "week": 8
+    },
+    "biggest_blowout": {
+      "margin": 394.9000000000001,
+      "winner": "Benton",
+      "loser": "Nick",
+      "week": 3
+    },
+    "closest_matchup": {
+      "margin": 6.2000000000000455,
+      "winner": "Garrett",
+      "loser": "Hayden",
+      "week": 3
+    },
+    "highest_single_game": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "fantasy_points": 100.3,
+      "date": "2025-12-25"
+    },
+    "lowest_single_game": {
+      "player_name": "Payton Pritchard",
+      "manager": "Nick",
+      "date": "2026-03-04",
+      "week": 19,
+      "fantasy_points": -3.7,
+      "nba_opponent": "CHA"
+    },
+    "current_streaks": {
+      "Nick": {
+        "win": 0,
+        "loss": 2
+      },
+      "Hayden": {
+        "win": 0,
+        "loss": 1
+      },
+      "Benton": {
+        "win": 1,
+        "loss": 0
+      },
+      "Garrett": {
+        "win": 3,
+        "loss": 0
+      }
+    },
+    "season_longest_win_streak": {
+      "Nick": {
+        "length": 7,
+        "start_week": 10,
+        "end_week": 16,
+        "active": false
+      },
+      "Hayden": {
+        "length": 2,
+        "start_week": 1,
+        "end_week": 2,
+        "active": false
+      },
+      "Benton": {
+        "length": 3,
+        "start_week": 3,
+        "end_week": 5,
+        "active": false
+      },
+      "Garrett": {
+        "length": 4,
+        "start_week": 16,
+        "end_week": 19,
+        "active": false
+      }
+    },
+    "season_longest_loss_streak": {
+      "Nick": {
+        "length": 2,
+        "start_week": 22,
+        "end_week": 23,
+        "active": true
+      },
+      "Hayden": {
+        "length": 6,
+        "start_week": 9,
+        "end_week": 14,
+        "active": false
+      },
+      "Benton": {
+        "length": 5,
+        "start_week": 18,
+        "end_week": 22,
+        "active": false
+      },
+      "Garrett": {
+        "length": 3,
+        "start_week": 13,
+        "end_week": 15,
+        "active": false
+      }
+    },
+    "best_season_fppg": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "fppg": 61.95,
+      "gp": 62,
+      "total_fp": 3840.8
+    },
+    "most_fp_single_week": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "weekly_fp": 313.6,
+      "games": 4,
+      "week": 10
+    },
+    "best_rookie_single_game": {
+      "player_name": "Cooper Flagg",
+      "manager": "Garrett",
+      "fantasy_points": 75.75,
+      "date": "2026-04-03",
+      "week": 23
+    },
+    "best_rookie_season_fppg": {
+      "player_name": "Cooper Flagg",
+      "manager": "Garrett",
+      "fppg": 35.31,
+      "gp": 64,
+      "total_fp": 2259.9
+    },
+    "best_rookie_fantasy_week": {
+      "player_name": "Kon Knueppel",
+      "manager": "Hayden",
+      "weekly_fp": 210.95,
+      "games": 5,
+      "week": 17
+    },
+    "best_season_total_fp": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "total_fp": 3840.8,
+      "gp": 62,
+      "fppg": 61.95
+    },
+    "best_collective_team_game": {
+      "manager": "Hayden",
+      "avg_fp": 58.7,
+      "total_fp": 293.5,
+      "starters": 5,
+      "date": "2025-10-23",
+      "week": 1
+    },
+    "worst_collective_team_game": {
+      "manager": "Nick",
+      "avg_fp": 18.9,
+      "total_fp": 94.3,
+      "starters": 5,
+      "date": "2026-02-08",
+      "week": 16
+    },
+    "best_duo_output": {
+      "manager": "Hayden",
+      "week": 3,
+      "combined_fp": 499.5,
+      "player1": "Nikola Jokic",
+      "player1_fp": 289.7,
+      "player2": "Shai Gilgeous-Alexander",
+      "player2_fp": 209.8
+    },
+    "most_45plus_fp_week": {
+      "manager": "Nick",
+      "week": 10,
+      "count": 16
+    },
+    "biggest_outperformance": {
+      "player_name": "Bam Adebayo",
+      "manager": "Benton",
+      "game_fp": 88.4,
+      "season_avg": 38.78,
+      "delta": 49.6,
+      "date": "2026-03-10",
+      "week": 20
+    },
+    "most_consistent_player": {
+      "player_name": "Amen Thompson",
+      "manager": "Nick",
+      "std_dev": 9.0,
+      "avg_fp": 35.0,
+      "gp": 73
+    },
+    "garbage_time_king": {
+      "player_name": "Mikal Bridges",
+      "manager": "Hayden",
+      "under_15_count": 7,
+      "total_starts": 66,
+      "pct": 10.6
+    },
+    "mr_monday_night": {
+      "player_name": "Nikola Jokic",
+      "manager": "Hayden",
+      "avg_fp": 67.2,
+      "monday_games": 11
+    },
+    "best_rookie_season_total_fp": {
+      "player_name": "Cooper Flagg",
+      "manager": "Garrett",
+      "total_fp": 2259.9,
+      "gp": 64,
+      "fppg": 35.31
+    }
+  },
+  "h2h_season": {
+    "Hayden_vs_Nick": {
+      "hayden": 2,
+      "nick": 6
+    },
+    "Benton_vs_Nick": {
+      "benton": 3,
+      "nick": 5
+    },
+    "Garrett_vs_Nick": {
+      "garrett": 1,
+      "nick": 6
+    },
+    "Benton_vs_Hayden": {
+      "benton": 4,
+      "hayden": 3
+    },
+    "Garrett_vs_Hayden": {
+      "garrett": 7,
+      "hayden": 1
+    },
+    "Benton_vs_Garrett": {
+      "benton": 4,
+      "garrett": 4
+    }
+  },
+  "manager_season_totals": {
+    "Nick": {
+      "wins": 17,
+      "losses": 4,
+      "total_points": 37562.35,
+      "positional": {
+        "guard": {
+          "total_fp": 12319.2,
+          "games": 315,
+          "fppg": 39.11
+        },
+        "forward": {
+          "total_fp": 11327.7,
+          "games": 312,
+          "fppg": 36.31
+        },
+        "center": {
+          "total_fp": 7341.4,
+          "games": 215,
+          "fppg": 34.15
+        }
+      }
+    },
+    "Hayden": {
+      "wins": 5,
+      "losses": 16,
+      "total_points": 35067.65,
+      "positional": {
+        "guard": {
+          "total_fp": 11115.2,
+          "games": 293,
+          "fppg": 37.94
+        },
+        "forward": {
+          "total_fp": 8407.8,
+          "games": 249,
+          "fppg": 33.77
+        },
+        "center": {
+          "total_fp": 8571.8,
+          "games": 209,
+          "fppg": 41.01
+        }
+      }
+    },
+    "Benton": {
+      "wins": 10,
+      "losses": 11,
+      "total_points": 35918.45,
+      "positional": {
+        "guard": {
+          "total_fp": 15033.2,
+          "games": 355,
+          "fppg": 42.35
+        },
+        "forward": {
+          "total_fp": 7708.6,
+          "games": 202,
+          "fppg": 38.16
+        },
+        "center": {
+          "total_fp": 7475.3,
+          "games": 208,
+          "fppg": 35.94
+        }
+      }
+    },
+    "Garrett": {
+      "wins": 10,
+      "losses": 11,
+      "total_points": 36009.7,
+      "positional": {
+        "guard": {
+          "total_fp": 10229.0,
+          "games": 285,
+          "fppg": 35.89
+        },
+        "forward": {
+          "total_fp": 8736.0,
+          "games": 248,
+          "fppg": 35.23
+        },
+        "center": {
+          "total_fp": 9882.2,
+          "games": 257,
+          "fppg": 38.45
+        }
+      }
+    }
+  },
+  "weekly_scores": {
+    "Nick": [
+      {
+        "week": 1,
+        "score": 1335.45
+      },
+      {
+        "week": 2,
+        "score": 1654.8
+      },
+      {
+        "week": 3,
+        "score": 1492.0
+      },
+      {
+        "week": 4,
+        "score": 1490.55
+      },
+      {
+        "week": 5,
+        "score": 1681.2
+      },
+      {
+        "week": 6,
+        "score": 1774.1
+      },
+      {
+        "week": 7,
+        "score": 1799.2
+      },
+      {
+        "week": 8,
+        "score": 1083.95
+      },
+      {
+        "week": 9,
+        "score": 1300.1
+      },
+      {
+        "week": 10,
+        "score": 1710.75
+      },
+      {
+        "week": 11,
+        "score": 1896.7
+      },
+      {
+        "week": 12,
+        "score": 1713.2
+      },
+      {
+        "week": 13,
+        "score": 1521.75
+      },
+      {
+        "week": 14,
+        "score": 1655.25
+      },
+      {
+        "week": 15,
+        "score": 2037.45
+      },
+      {
+        "week": 16,
+        "score": 1455.95
+      },
+      {
+        "week": 17,
+        "score": 1909.5
+      },
+      {
+        "week": 18,
+        "score": 1562.75
+      },
+      {
+        "week": 19,
+        "score": 1913.65
+      },
+      {
+        "week": 20,
+        "score": 1910.2
+      },
+      {
+        "week": 21,
+        "score": 1643.45
+      },
+      {
+        "week": 22,
+        "score": 1722.8
+      },
+      {
+        "week": 23,
+        "score": 1297.6
+      }
+    ],
+    "Hayden": [
+      {
+        "week": 1,
+        "score": 1469.85
+      },
+      {
+        "week": 2,
+        "score": 1803.7
+      },
+      {
+        "week": 3,
+        "score": 1632.1
+      },
+      {
+        "week": 4,
+        "score": 1257.25
+      },
+      {
+        "week": 5,
+        "score": 1693.8
+      },
+      {
+        "week": 6,
+        "score": 1422.45
+      },
+      {
+        "week": 7,
+        "score": 1702.25
+      },
+      {
+        "week": 8,
+        "score": 900.75
+      },
+      {
+        "week": 9,
+        "score": 1318.75
+      },
+      {
+        "week": 10,
+        "score": 1604.75
+      },
+      {
+        "week": 11,
+        "score": 1598.15
+      },
+      {
+        "week": 12,
+        "score": 1566.45
+      },
+      {
+        "week": 13,
+        "score": 1394.75
+      },
+      {
+        "week": 14,
+        "score": 1486.8999999999999
+      },
+      {
+        "week": 15,
+        "score": 1581.0
+      },
+      {
+        "week": 16,
+        "score": 1270.75
+      },
+      {
+        "week": 17,
+        "score": 1785.0
+      },
+      {
+        "week": 18,
+        "score": 1165.25
+      },
+      {
+        "week": 19,
+        "score": 1440.8
+      },
+      {
+        "week": 20,
+        "score": 1633.55
+      },
+      {
+        "week": 21,
+        "score": 1564.5
+      },
+      {
+        "week": 22,
+        "score": 2034.3
+      },
+      {
+        "week": 23,
+        "score": 1740.6
+      }
+    ],
+    "Benton": [
+      {
+        "week": 1,
+        "score": 1099.4
+      },
+      {
+        "week": 2,
+        "score": 1783.8
+      },
+      {
+        "week": 3,
+        "score": 1886.9
+      },
+      {
+        "week": 4,
+        "score": 1410.25
+      },
+      {
+        "week": 5,
+        "score": 1840.8
+      },
+      {
+        "week": 6,
+        "score": 1575.3
+      },
+      {
+        "week": 7,
+        "score": 1941.05
+      },
+      {
+        "week": 8,
+        "score": 677.1
+      },
+      {
+        "week": 9,
+        "score": 1425.45
+      },
+      {
+        "week": 10,
+        "score": 1716.05
+      },
+      {
+        "week": 11,
+        "score": 1795.0
+      },
+      {
+        "week": 12,
+        "score": 1708.05
+      },
+      {
+        "week": 13,
+        "score": 1630.8
+      },
+      {
+        "week": 14,
+        "score": 1793.75
+      },
+      {
+        "week": 15,
+        "score": 1807.05
+      },
+      {
+        "week": 16,
+        "score": 1389.5
+      },
+      {
+        "week": 17,
+        "score": 1810.45
+      },
+      {
+        "week": 18,
+        "score": 1547.7
+      },
+      {
+        "week": 19,
+        "score": 1378.8
+      },
+      {
+        "week": 20,
+        "score": 1560.55
+      },
+      {
+        "week": 21,
+        "score": 1583.5
+      },
+      {
+        "week": 22,
+        "score": 1125.2
+      },
+      {
+        "week": 23,
+        "score": 1432.0
+      }
+    ],
+    "Garrett": [
+      {
+        "week": 1,
+        "score": 1462.9
+      },
+      {
+        "week": 2,
+        "score": 1562.15
+      },
+      {
+        "week": 3,
+        "score": 1638.3
+      },
+      {
+        "week": 4,
+        "score": 1074.35
+      },
+      {
+        "week": 5,
+        "score": 1340.55
+      },
+      {
+        "week": 6,
+        "score": 1434.85
+      },
+      {
+        "week": 7,
+        "score": 1611.1
+      },
+      {
+        "week": 8,
+        "score": 718.35
+      },
+      {
+        "week": 9,
+        "score": 1479.35
+      },
+      {
+        "week": 10,
+        "score": 1549.3
+      },
+      {
+        "week": 11,
+        "score": 1670.4
+      },
+      {
+        "week": 12,
+        "score": 1728.0
+      },
+      {
+        "week": 13,
+        "score": 1607.3
+      },
+      {
+        "week": 14,
+        "score": 1544.45
+      },
+      {
+        "week": 15,
+        "score": 1543.55
+      },
+      {
+        "week": 16,
+        "score": 1581.35
+      },
+      {
+        "week": 17,
+        "score": 1988.6
+      },
+      {
+        "week": 18,
+        "score": 1505.45
+      },
+      {
+        "week": 19,
+        "score": 1806.8
+      },
+      {
+        "week": 20,
+        "score": 1778.9
+      },
+      {
+        "week": 21,
+        "score": 1626.7
+      },
+      {
+        "week": 22,
+        "score": 1790.25
+      },
+      {
+        "week": 23,
+        "score": 1966.75
+      }
+    ]
+  },
+  "team_name_history": {
+    "2017-18": {
+      "375.l.132631.t.5": {
+        "manager": "Benton",
+        "team_name": "The Austin River"
+      },
+      "375.l.132631.t.2": {
+        "manager": "Hayden",
+        "team_name": "The G league"
+      },
+      "375.l.132631.t.1": {
+        "manager": "Nick",
+        "team_name": "DAME TIME"
+      },
+      "375.l.132631.t.6": {
+        "manager": "Garrett",
+        "team_name": "Big Ballers"
+      }
+    },
+    "2018-19": {
+      "385.l.90986.t.1": {
+        "manager": "Nick",
+        "team_name": "Russell Eastbrook"
+      },
+      "385.l.90986.t.3": {
+        "manager": "Benton",
+        "team_name": "The Austin River"
+      },
+      "385.l.90986.t.2": {
+        "manager": "Hayden",
+        "team_name": "The G league"
+      },
+      "385.l.90986.t.4": {
+        "manager": "Garrett",
+        "team_name": "Art of the Beal"
+      }
+    },
+    "2019-20": {
+      "395.l.98181.t.2": {
+        "manager": "Hayden",
+        "team_name": "Kawhi Me a River"
+      },
+      "395.l.98181.t.3": {
+        "manager": "Benton",
+        "team_name": "The Austin River"
+      },
+      "395.l.98181.t.4": {
+        "manager": "Garrett",
+        "team_name": "Art of the Beal"
+      },
+      "395.l.98181.t.1": {
+        "manager": "Nick",
+        "team_name": "The Bad Boys"
+      }
+    },
+    "2020-21": {
+      "402.l.120068.t.2": {
+        "manager": "Hayden",
+        "team_name": "Wet Like I'm Book"
+      },
+      "402.l.120068.t.1": {
+        "manager": "Nick",
+        "team_name": "The Bad Boys"
+      },
+      "402.l.120068.t.4": {
+        "manager": "Garrett",
+        "team_name": "2011 Giannissan Leaf"
+      },
+      "402.l.120068.t.3": {
+        "manager": "Benton",
+        "team_name": "Wood"
+      }
+    },
+    "2021-22": {
+      "410.l.22742.t.4": {
+        "manager": "Benton",
+        "team_name": "Serge I-Block-Ya"
+      },
+      "410.l.22742.t.2": {
+        "manager": "Garrett",
+        "team_name": "2012 Giannissan Leaf"
+      },
+      "410.l.22742.t.3": {
+        "manager": "Hayden",
+        "team_name": "Big Nik Energy"
+      },
+      "410.l.22742.t.1": {
+        "manager": "Nick",
+        "team_name": "The Bad Boys"
+      }
+    },
+    "2022-23": {
+      "418.l.78463.t.3": {
+        "manager": "Hayden",
+        "team_name": "Big Nik Energy"
+      },
+      "418.l.78463.t.4": {
+        "manager": "Benton",
+        "team_name": "Serge I-Block-Ya"
+      },
+      "418.l.78463.t.2": {
+        "manager": "Garrett",
+        "team_name": "Jimmy Gutler"
+      },
+      "418.l.78463.t.1": {
+        "manager": "Nick",
+        "team_name": "Luka my Balls"
+      }
+    },
+    "2023-24": {
+      "428.l.83508.t.2": {
+        "manager": "Garrett",
+        "team_name": "Saboner"
+      },
+      "428.l.83508.t.1": {
+        "manager": "Nick",
+        "team_name": "Luka my Balls"
+      },
+      "428.l.83508.t.3": {
+        "manager": "Hayden",
+        "team_name": "Big Nik Energy"
+      },
+      "428.l.83508.t.4": {
+        "manager": "Benton",
+        "team_name": "Serge I-Cock-Ya"
+      }
+    },
+    "2024-25": {
+      "454.l.100725.t.1": {
+        "manager": "Nick",
+        "team_name": "Luka my Balls"
+      },
+      "454.l.100725.t.3": {
+        "manager": "Hayden",
+        "team_name": "Big Nik Energy"
+      },
+      "454.l.100725.t.2": {
+        "manager": "Garrett",
+        "team_name": "Saboner"
+      },
+      "454.l.100725.t.4": {
+        "manager": "Benton",
+        "team_name": "Serge I-Cock-Ya"
+      }
+    },
+    "2025-26": {
+      "466.l.42309.t.1": {
+        "manager": "Nick",
+        "team_name": "Luka my Balls"
+      },
+      "466.l.42309.t.4": {
+        "manager": "Benton",
+        "team_name": "Smaxey"
+      },
+      "466.l.42309.t.2": {
+        "manager": "Garrett",
+        "team_name": "Saboner"
+      },
+      "466.l.42309.t.3": {
+        "manager": "Hayden",
+        "team_name": "Big Nik Energy"
+      }
+    }
+  },
+  "last_updated_week": 23,
+  "season_fppg_stats": {
+    "Nick": {
+      "total_fp": 37562.35,
+      "total_games": 1117,
+      "season_fppg": 33.28,
+      "positional": {
+        "guard": {
+          "total_fp": 14999.45,
+          "games": 383,
+          "fppg": 39.16
+        },
+        "forward": {
+          "total_fp": 13637.750000000002,
+          "games": 381,
+          "fppg": 35.79
+        },
+        "center": {
+          "total_fp": 8925.15,
+          "games": 264,
+          "fppg": 33.81
+        }
+      },
+      "last_updated_week": 23,
+      "fppg": 33.63
+    },
+    "Hayden": {
+      "total_fp": 35067.65,
+      "total_games": 1022,
+      "season_fppg": 33.69,
+      "positional": {
+        "guard": {
+          "total_fp": 14160.35,
+          "games": 374,
+          "fppg": 37.86
+        },
+        "forward": {
+          "total_fp": 10507.400000000001,
+          "games": 314,
+          "fppg": 33.46
+        },
+        "center": {
+          "total_fp": 10399.899999999998,
+          "games": 251,
+          "fppg": 41.43
+        }
+      },
+      "last_updated_week": 23,
+      "fppg": 34.31
+    },
+    "Benton": {
+      "total_fp": 35918.45,
+      "total_games": 995,
+      "season_fppg": 35.76,
+      "positional": {
+        "guard": {
+          "total_fp": 17063.300000000003,
+          "games": 406,
+          "fppg": 42.03
+        },
+        "forward": {
+          "total_fp": 9908.35,
+          "games": 260,
+          "fppg": 38.11
+        },
+        "center": {
+          "total_fp": 8946.800000000001,
+          "games": 249,
+          "fppg": 35.93
+        }
+      },
+      "last_updated_week": 23,
+      "fppg": 36.1
+    },
+    "Garrett": {
+      "total_fp": 36009.7,
+      "total_games": 1043,
+      "season_fppg": 33.54,
+      "positional": {
+        "guard": {
+          "total_fp": 13449.550000000001,
+          "games": 373,
+          "fppg": 36.06
+        },
+        "forward": {
+          "total_fp": 10320.75,
+          "games": 288,
+          "fppg": 35.84
+        },
+        "center": {
+          "total_fp": 12239.4,
+          "games": 312,
+          "fppg": 39.23
+        }
+      },
+      "last_updated_week": 23,
+      "fppg": 34.53
+    }
+  },
+  "cumulative_blunders": {
+    "Nick": 10,
+    "Hayden": 14,
+    "Benton": 7,
+    "Garrett": 10
+  },
+  "single_week_blunders_high": {
+    "Nick": {
+      "count": 9,
+      "week": 4
+    },
+    "Hayden": {
+      "count": 7,
+      "week": 4
+    },
+    "Benton": {
+      "count": 6,
+      "week": 4
+    },
+    "Garrett": {
+      "count": 9,
+      "week": 4
+    }
+  }
+}

@@ -48,6 +48,35 @@ from modules.data_loader import LEAGUE_STRUCTURE, MANAGERS  # noqa: E402
 RECORDS = PROJECT_ROOT / "config" / "RECORDS.json"
 SCHEDULE = PROJECT_ROOT / "config" / "SCHEDULE.json"
 TRADES = PROJECT_ROOT / "config" / "TRADES.json"
+ARCHIVE = PROJECT_ROOT / "archive"
+
+
+def resolve_season_files(records_path, schedule_path):
+    """Use the live files, or fall back to the most recent archived season.
+
+    The draft order is set AFTER the season reset, which clears RECORDS.json.
+    The standings that determine the order therefore live in
+    archive/<season>/config/ by the time anyone needs them.
+    """
+    try:
+        live = json.loads(records_path.read_text(encoding="utf-8"))
+        if live.get("weekly_scores"):
+            return records_path, schedule_path, None
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    if not ARCHIVE.is_dir():
+        return records_path, schedule_path, None
+    seasons = sorted((d for d in ARCHIVE.iterdir() if d.is_dir()), reverse=True)
+    for d in seasons:
+        ar, asch = d / "config" / "RECORDS.json", d / "config" / "SCHEDULE.json"
+        if ar.is_file() and asch.is_file():
+            try:
+                if json.loads(ar.read_text(encoding="utf-8")).get("weekly_scores"):
+                    return ar, asch, d.name
+            except (OSError, json.JSONDecodeError):
+                continue
+    return records_path, schedule_path, None
 
 
 def regular_season_results(records, schedule):
@@ -124,13 +153,16 @@ def main():
             print(f"ERROR: missing {p.name}")
             return 1
 
-    records = json.loads(RECORDS.read_text(encoding="utf-8"))
-    schedule = json.loads(SCHEDULE.read_text(encoding="utf-8"))
+    rec_path, sched_path, from_archive = resolve_season_files(RECORDS, SCHEDULE)
+    records = json.loads(rec_path.read_text(encoding="utf-8"))
+    schedule = json.loads(sched_path.read_text(encoding="utf-8"))
     trades = json.loads(TRADES.read_text(encoding="utf-8"))
 
     wl, pts, h2h, reg_weeks = regular_season_results(records, schedule)
     if not wl:
-        print("ERROR: no regular-season results found.")
+        print("ERROR: no regular-season results found in either config/ or archive/.")
+        print("       The season reset clears RECORDS.json; the standings that set")
+        print("       the draft order live in archive/<season>/config/RECORDS.json.")
         return 1
     standings, notes = rank_managers(wl, pts, h2h)
     slots = list(reversed(standings))          # worst picks first
@@ -144,6 +176,9 @@ def main():
     print("=" * 68)
     print(f"  DRAFT ORDER -- {year}")
     print("=" * 68)
+    if from_archive:
+        print(f"\n  Standings read from archive/{from_archive}/ "
+              f"(the live RECORDS.json was cleared by the season reset).")
     print(f"\n  Regular-season standings (weeks 1-{reg_weeks}):")
     for i, m in enumerate(standings, 1):
         print(f"    {i}. {m:8} {wl[m][0]}-{wl[m][1]}   {pts[m]:>10,.2f} pts")

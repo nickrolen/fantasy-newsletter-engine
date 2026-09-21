@@ -126,6 +126,20 @@ def test_real_trades_reconcile_to_even_totals(mod):
 def test_every_ownership_entry_matches_a_recorded_trade(mod):
     """draft_pick_ownership must not drift from the trade log."""
     trades = json.loads((PROJECT_ROOT / "config" / "TRADES.json").read_text(encoding="utf-8"))
+    # The season reset clears the trade LOG but preserves pick OWNERSHIP, so
+    # after a reset the two live in different places. Read the log back out of
+    # the archive when the live one is empty.
+    if not trades.get("trades"):
+        arc = PROJECT_ROOT / "archive"
+        for d in sorted((x for x in arc.iterdir() if x.is_dir()), reverse=True) if arc.is_dir() else []:
+            f = d / "config" / "TRADES.json"
+            if f.is_file():
+                archived = json.loads(f.read_text(encoding="utf-8"))
+                if archived.get("trades"):
+                    trades = {**trades, "trades": archived["trades"]}
+                    break
+    if not trades.get("trades"):
+        pytest.skip("no trade log available (live or archived) to check against")
     sent = set()
     for t in trades["trades"]:
         for side in ("side_a", "side_b"):
@@ -184,3 +198,44 @@ def test_pick_counts_must_equal_fillable_spots_minus_keepers(mod):
         "roster math and total_draft_rounds disagree: "
         f"{LS['roster_size']} - {LS['il_slots']} - {LS['keepers_per_team']} "
         f"!= {LS['total_draft_rounds']}")
+
+
+def test_falls_back_to_the_archive_after_the_season_reset(mod, tmp_path, monkeypatch):
+    """The draft order is set AFTER the reset, which clears RECORDS.json.
+
+    The standings that determine it then live only in
+    archive/<season>/config/. Without this the script simply stops working at
+    exactly the moment it is needed.
+    """
+    live_rec = tmp_path / "config" / "RECORDS.json"
+    live_sched = tmp_path / "config" / "SCHEDULE.json"
+    live_rec.parent.mkdir(parents=True, exist_ok=True)
+    live_rec.write_text(json.dumps({"weekly_scores": {}}), encoding="utf-8")   # post-reset
+    live_sched.write_text(json.dumps({"weeks": []}), encoding="utf-8")
+
+    arc = tmp_path / "archive" / "2025-26" / "config"
+    arc.mkdir(parents=True)
+    (arc / "RECORDS.json").write_text(json.dumps({
+        "weekly_scores": {"Nick": [{"week": 1, "score": 100}],
+                          "Hayden": [{"week": 1, "score": 10}]}}), encoding="utf-8")
+    (arc / "SCHEDULE.json").write_text(json.dumps({
+        "regular_season_weeks": 1,
+        "weeks": [{"week": 1, "matchups": [{"manager_a": "Nick", "manager_b": "Hayden"}]}],
+    }), encoding="utf-8")
+
+    monkeypatch.setattr(mod, "ARCHIVE", tmp_path / "archive")
+    r, s, season = mod.resolve_season_files(live_rec, live_sched)
+    assert season == "2025-26"
+    assert r == arc / "RECORDS.json"
+    assert s == arc / "SCHEDULE.json"
+
+
+def test_live_records_win_when_they_have_data(mod, tmp_path, monkeypatch):
+    live_rec = tmp_path / "RECORDS.json"
+    live_sched = tmp_path / "SCHEDULE.json"
+    live_rec.write_text(json.dumps({"weekly_scores": {"Nick": [{"week": 1, "score": 1}]}}),
+                        encoding="utf-8")
+    live_sched.write_text(json.dumps({"weeks": []}), encoding="utf-8")
+    monkeypatch.setattr(mod, "ARCHIVE", tmp_path / "nope")
+    r, s, season = mod.resolve_season_files(live_rec, live_sched)
+    assert season is None and r == live_rec

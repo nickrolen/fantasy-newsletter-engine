@@ -34,11 +34,22 @@ After the season reset script finishes, always run the project integrity checker
 py scripts/verify_project_integrity.py
 ```
 
-If anything has changed structurally (modules were intentionally added/removed, files intentionally rewritten), refresh the size baseline once you've manually verified the new state is correct:
+The reset deletes every archived output file and empties several config files,
+so the size check will report them all -- roughly 50 failures, all of them
+`DISAPPEARED` or `POSSIBLE TRUNCATION`. That is expected. Read the list, confirm
+nothing unexpected is in it, then refresh the baseline:
 
 ```
-py scripts/verify_project_integrity.py --baseline
+py scripts/verify_project_integrity.py --baseline --force
 ```
+
+`--baseline` alone refuses while failures are present, which is right in
+general and unhelpful here, since after a reset the failures ARE the stale
+baseline. `--force` only applies when every failure is a size/existence check;
+a syntax error, broken import or config problem still blocks it.
+
+If anything has changed structurally outside a reset (modules added or removed,
+files intentionally rewritten), plain `--baseline` is the one you want.
 
 See `WEEKLY_WORKFLOW.md` for full details on what this script checks.
 
