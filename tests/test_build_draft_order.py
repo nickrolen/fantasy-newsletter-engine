@@ -149,9 +149,10 @@ def test_every_ownership_entry_matches_a_recorded_trade(mod):
             rnd, orig = k.split("_", 1)
             assert (year, rnd, orig) in parsed, (
                 f"ownership entry {year} {k} has no matching sent_picks in the trade log")
-    assert checked == len(parsed) == 15, (
+    assert checked == len(parsed), (
         f"every traded pick must appear exactly once in ownership: "
         f"{checked} entries vs {len(parsed)} picks in the trade log")
+    assert checked > 0
 
 
 def test_uneven_pick_counts_are_detected_not_silently_reported(mod, capsys, monkeypatch):

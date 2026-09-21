@@ -84,6 +84,7 @@
           "Michael Porter Jr."
         ],
         "sent_picks": [
+          "2026 6th (Hayden)",
           "2027 2nd (Hayden)"
         ]
       },
@@ -131,12 +132,13 @@
       "1_Garrett": "Hayden",
       "2_Nick": "Garrett",
       "2_Benton": "Nick",
+      "4_Hayden": "Garrett",
       "5_Garrett": "Hayden",
       "5_Benton": "Hayden",
+      "6_Hayden": "Benton",
       "7_Garrett": "Nick",
       "7_Hayden": "Garrett",
       "8_Hayden": "Garrett",
-      "4_Hayden": "Garrett",
       "8_Garrett": "Hayden"
     },
     "2027": {
