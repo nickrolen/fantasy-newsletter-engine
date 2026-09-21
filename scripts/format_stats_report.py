@@ -1862,17 +1862,31 @@ def format_section_5_fun_facts(data: dict, lookups: dict) -> str:
     # All-time H2H records matrix
     h2h = atr.get("h2h_records", {})
     if h2h:
-        lines.append("**All-Time Head-to-Head Records:**")
-        lines.append("| Matchup | Record |")
-        lines.append("|---------|--------|")
+        # Regular season only, and the regular season is 15 weeks from 2026-27
+        # where it was 21 before -- so these counts accrue at 5 meetings per
+        # season instead of 7. The rate is what compares across eras; the
+        # count is the flavour, so lead with the rate and keep both.
+        lines.append("**All-Time Head-to-Head Records** (regular season only):")
+        lines.append("| Matchup | Leader | Record | Games |")
+        lines.append("|---------|--------|--------|-------|")
         for matchup, record in h2h.items():
-            # Parse the matchup key (e.g., "Hayden_vs_Nick")
             parts = matchup.split("_vs_")
-            if len(parts) == 2:
-                m1, m2 = parts[0], parts[1]
-                w1 = record.get(m1.lower(), 0)
-                w2 = record.get(m2.lower(), 0)
-                lines.append(f"| {m1} vs {m2} | {m1} {w1} - {w2} {m2} |")
+            if len(parts) != 2:
+                continue
+            m1, m2 = parts[0], parts[1]
+            w1 = record.get(m1.lower(), 0)
+            w2 = record.get(m2.lower(), 0)
+            played = record.get("games") or (w1 + w2)
+            pct = record.get("pct") or {}
+            if w1 == w2:
+                leader = f"level (.500, {played} games)"
+            else:
+                top, top_w = (m1, w1) if w1 > w2 else (m2, w2)
+                share = pct.get(top.lower())
+                if share is None:
+                    share = (top_w / played * 100) if played else 0.0
+                leader = f"{top} .{round(share * 10):03d}"
+            lines.append(f"| {m1} vs {m2} | {leader} | {m1} {w1} - {w2} {m2} | {played} |")
         lines.append("")
     
     # Luck Index (All-Play Expected Wins)

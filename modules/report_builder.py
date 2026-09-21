@@ -14,7 +14,8 @@ from typing import Optional, Any
 
 from .data_loader import (FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
                           CURRENT_SEASON, classify_position_group,
-                          phase_for_week, regular_season_weeks_for)
+                          phase_for_week, regular_season_weeks_for,
+                          is_regular_season_week)
 from .weekly_stats import (
     WeeklyReport,
     compute_weekly_report,
@@ -1669,19 +1670,40 @@ def _merge_current_season_into_alltime(all_time: dict, data) -> None:
     _merge_top10("longest_loss_streak_top10", all_loss_streaks, "length", True)
 
     # --- Inject manager seasons ---
-    ms = defaultdict(lambda: {"wins": 0, "losses": 0, "total_fp": 0.0, "weeks": 0})
+    #
+    # TWO records per season, deliberately kept apart. `wins`/`losses` count
+    # every matchup played (23 weeks: regular season, bracket and Cup) and are
+    # what the volume leaderboards have always stored. `reg_wins`/`reg_losses`
+    # are the COMPETITIVE record -- the one that decides the League Champion,
+    # the draft order and the payouts.
+    #
+    # They used to differ by two games and nobody noticed. From 2026-27 they
+    # differ by eight, and the competitive season is 15 weeks against 21
+    # before it, so printing one while the reader assumes the other is now a
+    # real misreading rather than a rounding error.
+    ms = defaultdict(lambda: {"wins": 0, "losses": 0, "total_fp": 0.0, "weeks": 0,
+                              "reg_wins": 0, "reg_losses": 0, "reg_weeks": 0})
     for mr in matchup_results:
+        in_regular = is_regular_season_week(cs, mr["week"])
         for side, score_key in [("manager_a", "score_a"), ("manager_b", "score_b")]:
             mgr = mr[side]
             ms[mgr]["total_fp"] += mr[score_key]
             ms[mgr]["weeks"] += 1
+            if in_regular:
+                ms[mgr]["reg_weeks"] += 1
         if mr["winner"]:
             ms[mr["winner"]]["wins"] += 1
+            if in_regular:
+                ms[mr["winner"]]["reg_wins"] += 1
         if mr["loser"]:
             ms[mr["loser"]]["losses"] += 1
+            if in_regular:
+                ms[mr["loser"]]["reg_losses"] += 1
     cs_ms = [
         {"manager": mgr, "season": cs, "wins": d["wins"], "losses": d["losses"],
          "total_fp": round(d["total_fp"], 1), "weeks": d["weeks"],
+         "reg_wins": d["reg_wins"], "reg_losses": d["reg_losses"],
+         "reg_weeks": d["reg_weeks"],
          "fppg_per_week": round(d["total_fp"] / d["weeks"], 1) if d["weeks"] > 0 else 0}
         for mgr, d in ms.items()
     ]
@@ -2291,6 +2313,10 @@ def build_record_book(data) -> dict:
             "manager": mgr,
             "career_wins": wins,
             "career_losses": losses,
+            # Explicit denominator: 21 regular-season games per season through
+            # 2025-26, 15 from 2026-27. Without it the record reads as though
+            # every season contributed equally.
+            "career_games": stats.get("games_played", wins + losses),
             "win_pct": stats.get("win_pct", 0),
             "career_points": round(stats.get("total_points_scored", 0), 2),
             "titles": titles_map.get(mgr, 0),
@@ -2398,10 +2424,11 @@ def build_record_book(data) -> dict:
             season_rec={},
             value_field="total_fp",
             current_season=current_season,
-            detail_fn=lambda e: f"{e.get('wins', 0)}-{e.get('losses', 0)}, {e.get('fppg_per_week', 0):,.1f} FP/week, {e.get('weeks', 0)} weeks",
+            detail_fn=lambda e: _season_detail(
+                e, f"{e.get('fppg_per_week', 0):,.1f} FP/week over {e.get('weeks', 0)} weeks played"),
             holder_fn=lambda e: e.get("manager", ""),
             unit="Total FP",
-            note="Total fantasy points scored in a season",
+            note="Total fantasy points scored in a season, over every week played (23) -- not the regular season alone, so it stays comparable across the 2026-27 format change",
         ))
 
     # Worst Manager Season (by Total FP)
@@ -2414,10 +2441,11 @@ def build_record_book(data) -> dict:
             season_rec={},
             value_field="total_fp",
             current_season=current_season,
-            detail_fn=lambda e: f"{e.get('wins', 0)}-{e.get('losses', 0)}, {e.get('fppg_per_week', 0):,.1f} FP/week, {e.get('weeks', 0)} weeks",
+            detail_fn=lambda e: _season_detail(
+                e, f"{e.get('fppg_per_week', 0):,.1f} FP/week over {e.get('weeks', 0)} weeks played"),
             holder_fn=lambda e: e.get("manager", ""),
             unit="Total FP",
-            note="Total fantasy points scored in a season",
+            note="Total fantasy points scored in a season, over every week played (23) -- not the regular season alone, so it stays comparable across the 2026-27 format change",
             min_weeks=18,
         ))
 
@@ -2431,10 +2459,11 @@ def build_record_book(data) -> dict:
             season_rec={},
             value_field="fppg_per_week",
             current_season=current_season,
-            detail_fn=lambda e: f"{e.get('wins', 0)}-{e.get('losses', 0)}, {e.get('total_fp', 0):,.0f} total FP, {e.get('weeks', 0)} weeks",
+            detail_fn=lambda e: _season_detail(
+                e, f"{e.get('total_fp', 0):,.0f} total FP over {e.get('weeks', 0)} weeks played"),
             holder_fn=lambda e: e.get("manager", ""),
             unit="FP/week",
-            note="Average fantasy points per matchup week in a season",
+            note="Average fantasy points per matchup week in a season, over every week played -- a rate, so season length does not affect it",
         ))
 
     # Worst Manager Season (by FP/week)
@@ -2447,10 +2476,11 @@ def build_record_book(data) -> dict:
             season_rec={},
             value_field="fppg_per_week",
             current_season=current_season,
-            detail_fn=lambda e: f"{e.get('wins', 0)}-{e.get('losses', 0)}, {e.get('total_fp', 0):,.0f} total FP, {e.get('weeks', 0)} weeks",
+            detail_fn=lambda e: _season_detail(
+                e, f"{e.get('total_fp', 0):,.0f} total FP over {e.get('weeks', 0)} weeks played"),
             holder_fn=lambda e: e.get("manager", ""),
             unit="FP/week",
-            note="Average fantasy points per matchup week in a season",
+            note="Average fantasy points per matchup week in a season, over every week played -- a rate, so season length does not affect it",
             min_weeks=18,
         ))
 
@@ -2464,7 +2494,8 @@ def build_record_book(data) -> dict:
             season_rec={},
             value_field="fppg",
             current_season=current_season,
-            detail_fn=lambda e: f"{e.get('wins', 0)}-{e.get('losses', 0)}, {e.get('total_fp', 0):,.0f} total FP, {e.get('games', 0)} games",
+            detail_fn=lambda e: _season_detail(
+                e, f"{e.get('total_fp', 0):,.0f} total FP over {e.get('games', 0)} player games"),
             holder_fn=lambda e: e.get("manager", ""),
             unit="FP/game",
             note="Average fantasy points per game started in a season",
@@ -2480,7 +2511,8 @@ def build_record_book(data) -> dict:
             season_rec={},
             value_field="fppg",
             current_season=current_season,
-            detail_fn=lambda e: f"{e.get('wins', 0)}-{e.get('losses', 0)}, {e.get('total_fp', 0):,.0f} total FP, {e.get('games', 0)} games",
+            detail_fn=lambda e: _season_detail(
+                e, f"{e.get('total_fp', 0):,.0f} total FP over {e.get('games', 0)} player games"),
             holder_fn=lambda e: e.get("manager", ""),
             unit="FP/game",
             note="Average fantasy points per game started in a season",
@@ -3415,6 +3447,30 @@ def build_stats_report(
     return stats_report
 
 
+def _season_wl(e: dict) -> str:
+    """The W-L to print for a season leaderboard entry, with its scope named.
+
+    Entries written from 2026-27 onward carry the COMPETITIVE record
+    (`reg_wins`/`reg_losses`/`reg_weeks`) alongside the all-games pair the
+    leaderboards have always stored; scripts/backfill_season_record_scope.py
+    filled those in for the seasons already on file.
+
+    Either way the scope is named rather than assumed. The competitive season
+    is 15 weeks from 2026-27 and was 21 before it, and the all-games figure
+    now includes a six-week bracket and a two-week Cup -- so an unlabelled
+    record is the one number in the book that can honestly be read two ways.
+    """
+    if e.get("reg_weeks"):
+        return (f"{e.get('reg_wins', 0)}-{e.get('reg_losses', 0)} "
+                f"regular season ({e['reg_weeks']} wks)")
+    return f"{e.get('wins', 0)}-{e.get('losses', 0)} all games"
+
+
+def _season_detail(e: dict, tail: str) -> str:
+    """One leaderboard detail line: scoped record, then the volume figure."""
+    return f"{_season_wl(e)}, {tail}"
+
+
 def build_all_time_records(records: dict) -> dict:
     """Build all-time records section for newsletter."""
     all_time = records.get("all_time", {})
@@ -3430,6 +3486,14 @@ def build_all_time_records(records: dict) -> dict:
                 "wins": stats.get("total_wins", 0),
                 "losses": stats.get("total_losses", 0),
                 "win_pct": stats.get("win_pct", 0),
+                # Explicit denominator. A season adds 21 regular-season games
+                # through 2025-26 and 15 from 2026-27, so career totals accrue
+                # at two different rates and the count alone is misleading.
+                # Sorting stays on win_pct, which is era-independent.
+                "games_played": stats.get(
+                    "games_played",
+                    stats.get("total_wins", 0) + stats.get("total_losses", 0)),
+                "games_scope": stats.get("games_scope", "regular_season"),
                 "total_points": stats.get("total_points_scored", 0),
             }
             for m, stats in careers.items()
@@ -3437,11 +3501,24 @@ def build_all_time_records(records: dict) -> dict:
         key=lambda x: -x["win_pct"]
     )
     
-    # H2H records
+    # H2H records.
+    #
+    # All-time head-to-head is regular-season only, so it now accrues at 5
+    # meetings per season instead of 7. The counts still go up, just more
+    # slowly -- which makes the rate the honest comparator across eras and the
+    # count the flavour. Both are published; the renderer leads with the rate.
     h2h_summary = {}
     for key, data in all_time.get("h2h", {}).items():
         # Extract just wins, not the games list
-        h2h_summary[key] = {k: v for k, v in data.items() if k != "games"}
+        entry = {k: v for k, v in data.items() if k != "games"}
+        wins = {k: v for k, v in entry.items() if isinstance(v, (int, float))}
+        played = sum(wins.values())
+        entry["games"] = played
+        entry["pct"] = {
+            k: round((v / played) * 100, 1) if played else 0.0
+            for k, v in wins.items()
+        }
+        h2h_summary[key] = entry
     
     # Record book
     return {

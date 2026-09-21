@@ -10,6 +10,70 @@ This file preserves the detailed development history that was originally tracked
 
 ### September 2026
 
+**September 21, 2026 - Record book: one meaning per number**
+
+The 15-week regular season raised an obvious worry -- that 21-week records
+become unbeatable. Checking what is actually stored says otherwise, and the
+real problem turned out to be somewhere else.
+
+**What was never at risk.** Volume and peak records already span every week
+played, not the regular season: `best_manager_season_top10` literally stores
+`"weeks": 23`, so a season total is 23 weeks in both eras and stays
+beatable. Player season records key off NBA games played across the same
+Oct-Apr calendar, so fantasy week count is irrelevant to them. Win and loss
+streaks are computed over all weeks with no regular-season guard. Every
+per-week and per-game peak record is structurally immune.
+
+**What actually shrinks** is three things, all of which accrue forever
+rather than becoming unbeatable: `all_time.h2h` (5 meetings a season instead
+of 7), `manager_careers` W-L (15 a season instead of 21), and `h2h_season`
+(a season sweep maxes at 5-0, was 7-0).
+
+**The real problem was an ambiguity, not a ceiling.** Season leaderboards
+print a W-L beside the volume figure, and that W-L counts EVERY matchup
+played. Through 2025-26 it differed from the regular-season record by two
+games. From 2026-27 it differs by eight, while the competitive season is 15
+weeks against 21 -- so the same "19-4" now means two very different things
+depending on which the reader assumes.
+
+Deliberately NOT fixed by adding a third stat-keeping window. Narrowing the
+leaderboards to weeks 1-21 would have rewritten nine seasons of stored
+entries that say `weeks: 23`, to solve a problem the code does not have.
+
+- **`report_builder`** now records `reg_wins`/`reg_losses`/`reg_weeks` beside
+  the all-games pair, and `_season_wl()` names the span on every leaderboard
+  detail line: `17-4 regular season (21 wks), 1,761.3 FP/week over 23 weeks
+  played`. An entry without the competitive record says `19-4 all games`
+  rather than going unlabelled.
+- **New `scripts/backfill_season_record_scope.py`** fills those fields in for
+  the 60 entries already stored, from `all_matchups.json` and, for seasons it
+  does not cover, `archive/<season>/config/`. Verified against an independent
+  recount: 2025-26 Nick comes back 17-4 over 21 regular-season weeks, which
+  is what the Week 21 newsletter said at the time.
+- **Denominators are published.** `manager_careers` gains `games_played` and
+  `games_scope`; the Stats Corner career card says `Reg. season (197 g)`
+  instead of `Record`. A season adds 21 games through 2025-26 and 15 after,
+  so the count alone invites the wrong comparison.
+- **All-time head-to-head leads with the rate.** The table is now
+  `Matchup | Leader | Record | Games`, e.g. `Garrett vs Nick | Nick .717 |
+  Garrett 17 - 43 Nick | 60`. The rate compares across eras; the count is
+  the flavour.
+- **Record notes name their span**, so "Total fantasy points scored in a
+  season" now says over every week played rather than leaving it open.
+
+16 new tests, including a regression guard that fails if any leaderboard
+goes back to printing a bare `wins-losses`. That guard caught two
+leaderboards missed on the first pass.
+
+**Found while doing this, not fixed:** `data/historical/all_matchups.json`
+still stops at 2024-25. `rollup_season_to_history.py` rolled 2025-26 into
+`HISTORICAL_PLAYERLOG.json` and `all_drafts.json` but not the matchup file,
+so any all-time table built from it is a season short.
+
+---
+
+### September 2026
+
 **September 21, 2026 - The 2026-27 format change: three stages, three champions, uneven keepers**
 
 Two league rules changed at once and the engine assumed neither. The season is

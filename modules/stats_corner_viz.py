@@ -1192,6 +1192,7 @@ def _render_milestones(milestones: list) -> str:
         rank = rank_labels[i] if i < len(rank_labels) else f"{i+1}th"
         wins = m.get("career_wins", 0)
         losses = m.get("career_losses", 0)
+        games = m.get("career_games", wins + losses)
         pct = m.get("win_pct", 0)
         pts = m.get("career_points", 0)
         titles = m.get("titles", 0)
@@ -1234,7 +1235,7 @@ def _render_milestones(milestones: list) -> str:
             <div class="sc-mgr-stats">
               <div class="sc-mgr-stat-item">
                 <span class="sc-mgr-stat-val">{wins}-{losses}</span>
-                <span class="sc-mgr-stat-label">Record</span>
+                <span class="sc-mgr-stat-label">Reg. season ({games} g)</span>
               </div>
               <div class="sc-mgr-stat-item">
                 <span class="sc-mgr-stat-val">{pct:.1f}%</span>

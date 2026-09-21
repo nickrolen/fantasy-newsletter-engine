@@ -526,8 +526,9 @@ def update_all_time_records(
 
     Updates:
     - all_time.h2h: Head-to-head records between managers (REGULAR SEASON ONLY)
-    - all_time.manager_careers: Total wins/losses (REGULAR SEASON ONLY),
-      total points scored (ALL weeks, including playoffs), win %
+    - all_time.manager_careers: Total wins/losses and games_played (REGULAR
+      SEASON ONLY), total points scored (ALL weeks, including the bracket and
+      the Cup), win %
     - all_time.highest_weekly_score / lowest_weekly_score (ALL weeks)
     - all_time.biggest_blowout / closest_game (ALL weeks)
 
@@ -590,8 +591,16 @@ def update_all_time_records(
             careers[manager] = {"total_wins": 0, "total_losses": 0, "total_points_scored": 0, "win_pct": 0}
         careers[manager]["total_points_scored"] = careers[manager].get("total_points_scored", 0) + score
 
-        # Recalc win % (denominator is regular-season-only W+L)
+        # Recalc win % (denominator is regular-season-only W+L).
+        #
+        # games_played is stored explicitly rather than left for a reader to
+        # add up, because the denominator now differs by era: a season adds
+        # 21 regular-season games through 2025-26 and 15 from 2026-27. A bare
+        # "120-77" invites the wrong comparison; "120-77 over 197 games"
+        # does not. win_pct is the era-independent comparator.
         total_games = careers[manager]["total_wins"] + careers[manager]["total_losses"]
+        careers[manager]["games_played"] = total_games
+        careers[manager]["games_scope"] = "regular_season"
         if total_games > 0:
             careers[manager]["win_pct"] = round(
                 (careers[manager]["total_wins"] / total_games) * 100, 1
