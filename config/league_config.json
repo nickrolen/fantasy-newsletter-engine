@@ -5,7 +5,12 @@
         "primary": "#1F4E79",
         "accent": "#C9A227"
     },
-    "managers": ["Nick", "Hayden", "Benton", "Garrett"],
+    "managers": [
+        "Nick",
+        "Hayden",
+        "Benton",
+        "Garrett"
+    ],
     "manager_to_team": {
         "Nick": "Luka my Balls",
         "Hayden": "Big Nik Energy",
@@ -55,8 +60,14 @@
         "fallback": "total_points"
     },
     "pre_data_era": {
-        "first_place_finishes": {"Nick": 1, "Hayden": 1},
-        "titles": {"Nick": 1, "Benton": 1}
+        "first_place_finishes": {
+            "Nick": 1,
+            "Hayden": 1
+        },
+        "titles": {
+            "Nick": 1,
+            "Benton": 1
+        }
     },
     "season": {
         "current": "2025-26",
@@ -66,5 +77,62 @@
         "playoff_start_week": 22,
         "total_weeks": 23,
         "nba_schedule_file": "data/nba_schedule_2025-26.json"
+    },
+    "season_structure": {
+        "_comment": "Per-season week layout. season.regular_season_weeks describes ONLY the current season; historical seasons varied and the engine must not assume one shape for all time. regular_through = last regular-season week. bracket = a postseason bracket was played.",
+        "_pre_yahoo": "2014-15 and 2015-16 predate usable Yahoo data and have no matchup records; their results live only in LEAGUEHISTORY.xlsx to-date totals. The league took 2016-17 off entirely.",
+        "2014-15": {
+            "regular_through": null,
+            "bracket": true,
+            "note": "pre-Yahoo; no matchup data"
+        },
+        "2015-16": {
+            "regular_through": null,
+            "bracket": true,
+            "note": "pre-Yahoo; no matchup data"
+        },
+        "2017-18": {
+            "regular_through": 21,
+            "bracket": true
+        },
+        "2018-19": {
+            "regular_through": 21,
+            "bracket": true
+        },
+        "2019-20": {
+            "regular_through": 19,
+            "bracket": false,
+            "note": "COVID stoppage; season ended wk19, no bracket played"
+        },
+        "2020-21": {
+            "regular_through": 16,
+            "bracket": true,
+            "note": "short regular season after the bubble; bracket in wks 17-18"
+        },
+        "2021-22": {
+            "regular_through": 21,
+            "bracket": true
+        },
+        "2022-23": {
+            "regular_through": 21,
+            "bracket": true
+        },
+        "2023-24": {
+            "regular_through": 21,
+            "bracket": true
+        },
+        "2024-25": {
+            "regular_through": 21,
+            "bracket": true
+        },
+        "2025-26": {
+            "regular_through": 21,
+            "bracket": true
+        },
+        "2026-27": {
+            "regular_through": 15,
+            "bracket": true,
+            "note": "new format: best-of-3 series wks 16-21, cup wks 22-23"
+        }
     }
 }
