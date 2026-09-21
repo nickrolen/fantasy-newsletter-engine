@@ -69,6 +69,10 @@ REQUIRED_CONFIG_KEYS = [
     "league_structure",
     "season",
     "tiebreaker_rules",
+    "season_structure",
+    "postseason_format",
+    "keeper_rules",
+    "payouts",
 ]
 
 # Dirs to skip when scanning
@@ -348,6 +352,143 @@ def check_import_chain(verbose=False):
 # Check 4: Config Integrity
 # ----------------------------------------------------------------------------
 
+def _check_season_format(cfg, warnings):
+    """Cross-check the week layout, keeper rules and payouts against each other.
+
+    These five numbers -- the last regular-season week, the first playoff
+    week, the last week of the season, the round count and the keeper count --
+    live in four different places in this file and are read by different
+    modules. When they disagree the failure is silent: records get built
+    against one boundary and the draft order against another. Checking them
+    here is cheap; finding out in February is not.
+    """
+    failures = []
+    season = cfg.get("season", {})
+    fmt = cfg.get("postseason_format", {})
+    stages = fmt.get("stages", {})
+    ls = cfg.get("league_structure", {})
+    current = season.get("current")
+
+    # --- roster and round math ---
+    roster, il = ls.get("roster_size"), ls.get("il_slots")
+    if roster is not None and il is not None:
+        if ls.get("total_rounds") != roster - il:
+            failures.append(
+                f"[CONFIG] league_structure.total_rounds={ls.get('total_rounds')} "
+                f"but roster_size - il_slots = {roster - il}; you draft into "
+                "every non-IL spot")
+        parts = (ls.get("starters", 0), ls.get("bench", 0), il)
+        if sum(parts) != roster:
+            failures.append(
+                f"[CONFIG] starters+bench+il = {sum(parts)} != roster_size {roster}")
+
+    # --- stages tile the season ---
+    spans = []
+    for name in ("regular_season", "playoffs", "cup"):
+        weeks = stages.get(name, {}).get("weeks")
+        if not weeks or len(weeks) != 2:
+            failures.append(f"[CONFIG] postseason_format.stages.{name}.weeks is missing")
+        else:
+            spans.append((name, int(weeks[0]), int(weeks[1])))
+    if len(spans) == 3:
+        if spans[0][1] != 1:
+            failures.append("[CONFIG] the regular season must start at week 1")
+        for (na, _, la), (nb, fb, _) in zip(spans, spans[1:]):
+            if fb != la + 1:
+                failures.append(
+                    f"[CONFIG] gap or overlap between {na} (ends wk {la}) and "
+                    f"{nb} (starts wk {fb})")
+        reg_last, season_last = spans[0][2], spans[2][2]
+        if season.get("regular_season_weeks") != reg_last:
+            failures.append(
+                f"[CONFIG] season.regular_season_weeks="
+                f"{season.get('regular_season_weeks')} but the regular season "
+                f"stage ends at week {reg_last}")
+        if season.get("playoff_start_week") != reg_last + 1:
+            failures.append(
+                f"[CONFIG] season.playoff_start_week="
+                f"{season.get('playoff_start_week')} but the regular season "
+                f"ends at week {reg_last}")
+        if season.get("total_weeks") != season_last:
+            failures.append(
+                f"[CONFIG] season.total_weeks={season.get('total_weeks')} but "
+                f"the Cup ends at week {season_last}")
+
+        # meetings per opponent must fill the regular season, and be odd
+        meetings = stages["regular_season"].get("meetings_per_opponent")
+        teams = ls.get("num_teams")
+        if meetings and teams:
+            if meetings * (teams - 1) != reg_last:
+                failures.append(
+                    f"[CONFIG] {meetings} meetings x {teams - 1} opponents = "
+                    f"{meetings * (teams - 1)} weeks, not {reg_last}")
+            if meetings % 2 == 0:
+                failures.append(
+                    f"[CONFIG] meetings_per_opponent={meetings} is even, so a "
+                    "season series can end drawn")
+
+    # --- the current season's own entry agrees ---
+    entry = cfg.get("season_structure", {}).get(current)
+    if not isinstance(entry, dict):
+        failures.append(f"[CONFIG] season_structure has no entry for '{current}'")
+    elif entry.get("regular_through") != season.get("regular_season_weeks"):
+        failures.append(
+            f"[CONFIG] season_structure['{current}'].regular_through="
+            f"{entry.get('regular_through')} != season.regular_season_weeks="
+            f"{season.get('regular_season_weeks')}")
+
+    # --- keepers ---
+    kr = cfg.get("keeper_rules", {})
+    rule = kr.get("seasons", {}).get(current) or kr.get("default", {})
+    total_rounds = ls.get("total_rounds")
+    base = rule.get("base")
+    bonus = rule.get("cup_winner_bonus", 0)
+    if base is None:
+        failures.append(f"[CONFIG] keeper_rules has no base keeper count for '{current}'")
+    elif total_rounds is not None:
+        if base + bonus > total_rounds:
+            failures.append(
+                f"[CONFIG] {base}+{bonus} keepers exceeds {total_rounds} rounds")
+        if bonus == 0:
+            # uniform season: the legacy scalars must still agree
+            if ls.get("keepers_per_team") != base:
+                failures.append(
+                    f"[CONFIG] league_structure.keepers_per_team="
+                    f"{ls.get('keepers_per_team')} != keeper_rules base {base}")
+            if ls.get("total_draft_rounds") != total_rounds - base:
+                failures.append(
+                    f"[CONFIG] total_draft_rounds={ls.get('total_draft_rounds')} "
+                    f"!= {total_rounds} rounds - {base} keepers")
+
+    if "cup_winners" not in kr:
+        failures.append("[CONFIG] keeper_rules.cup_winners is missing; nothing "
+                        "records who earns the extra keeper")
+    elif current in kr["cup_winners"] and kr["cup_winners"][current] is None:
+        warnings.append(
+            f"[CONFIG] keeper_rules.cup_winners['{current}'] is still null. "
+            "Fill it in when the Cup is decided, or the next season's draft "
+            "will be built one keeper short.")
+
+    # --- payouts ---
+    payouts = cfg.get("payouts", {})
+    for stage in stages.values():
+        key = stage.get("title_key")
+        if key and key not in payouts:
+            failures.append(f"[CONFIG] '{key}' has a title but no payouts entry")
+    for key, entry in payouts.items():
+        if key.startswith("_") or not isinstance(entry, dict):
+            continue
+        total, per = entry.get("total"), entry.get("per_payer")
+        if total is None or per is None:
+            continue
+        if total != per * 2:
+            failures.append(
+                f"[CONFIG] payouts.{key}: total {total} != 2 x per_payer {per} "
+                "(3rd and 4th each pay)")
+
+    return failures
+
+
 def check_config_integrity(verbose=False):
     """Verify league_config.json structural invariants."""
     failures = []
@@ -422,6 +563,8 @@ def check_config_integrity(verbose=False):
             failures.append(
                 f"[CONFIG] manager '{mgr}' not referenced as alias target in manager_aliases"
             )
+
+    failures.extend(_check_season_format(cfg, warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"

@@ -2007,6 +2007,80 @@ def format_section_6_what_if(data: dict, lookups: dict) -> str:
     return "\n".join(lines)
 
 
+def _weeks_label(weeks, suffix: str = "") -> str:
+    """" (Weeks 16-18, best-of-3)" from [16, 18]; "" when weeks are unknown.
+
+    The week numbers are data, not constants: through 2025-26 the bracket was
+    weeks 22-23, from 2026-27 it is 16-21 with the Cup in 22-23, and an
+    archived report has to keep saying what it said at the time.
+    """
+    if not weeks:
+        return f" ({suffix.lstrip(', ')})" if suffix else ""
+    first, last = weeks[0], weeks[-1]
+    span = f"Week {first}" if first == last else f"Weeks {first}-{last}"
+    return f" ({span}{suffix})"
+
+
+def _format_section_7b_cup(data: dict, cup_odds: dict) -> str:
+    """The Cup: a separate competition after the bracket, seeded on points."""
+    lines = ["## SECTION 7B: THE CUP\n"]
+    seeds = cup_odds.get("seeds", {})
+    points = cup_odds.get("seeding_points", {})
+    round_weeks = cup_odds.get("round_weeks", {})
+
+    lines.append("**Cup Round:** {}".format(
+        {"pre_cup": "Not started", "semifinals": "Semifinals",
+         "final": "Final", "complete": "Complete"}.get(
+             cup_odds.get("cup_round", ""), cup_odds.get("cup_round", ""))))
+    lines.append("")
+    window = cup_odds.get("seeding_weeks") or []
+    window_label = (f"weeks {window[0]}-{window[-1]}" if len(window) >= 2
+                    else "the season to date")
+    lines.append(f"**Seeding -- total points, {window_label} "
+                 "(record does not count):**")
+    lines.append("| Seed | Manager | Points |")
+    lines.append("|------|---------|--------|")
+    for mgr in sorted(seeds, key=lambda m: seeds[m]):
+        lines.append(f"| #{seeds[mgr]} | {mgr} | {points.get(mgr, 0):,.1f} |")
+    lines.append("")
+
+    semis = cup_odds.get("semi_matchups", [])
+    if semis:
+        lines.append("**Cup Semifinals{}:**".format(
+            _weeks_label(round_weeks.get("Cup Semifinals"))))
+        lines.append("| Seed | Manager | Win Prob | vs | Manager | Seed | Win Prob |")
+        lines.append("|------|---------|----------|-----|---------|------|----------|")
+        for s in semis:
+            lines.append(
+                f"| #{s['seed_a']} | {s['manager_a']} | {s['win_prob_a']:.1f}% "
+                f"| vs | {s['manager_b']} | #{s['seed_b']} | {s['win_prob_b']:.1f}% |")
+        lines.append("")
+
+    odds = cup_odds.get("cup_odds", {})
+    if odds:
+        lines.append("**Cup Probability:**")
+        for mgr, pct in sorted(odds.items(), key=lambda x: x[1], reverse=True):
+            lines.append(f"- #{seeds.get(mgr, '?')} {mgr}: {pct:.1f}%")
+        lines.append("")
+
+    stakes = cup_odds.get("keeper_stakes", {})
+    if stakes:
+        lines.append("**At stake:** the winner keeps {} players in {}; everyone "
+                     "else keeps {}. The winner drafts rounds 1-9, the other "
+                     "three draft 1-10.".format(
+                         stakes.get("winner_keepers"), stakes.get("season_affected"),
+                         stakes.get("base_keepers")))
+        if not stakes.get("recorded_winner"):
+            lines.append("")
+            lines.append("> NOTE: once the Cup is decided, record the winner in "
+                         "config/league_config.json under "
+                         "`keeper_rules.cup_winners` or next season's draft will "
+                         "be built with one keeper missing.")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def _format_section_7_playoff(data: dict, lookups: dict, playoff_odds: dict, prev_title_odds: Optional[dict] = None) -> str:
     """Format Section 7 for playoff weeks: Championship Odds & Bracket."""
     lines = ["## SECTION 7: PLAYOFF CHAMPIONSHIP ODDS\n"]
@@ -2014,16 +2088,36 @@ def _format_section_7_playoff(data: dict, lookups: dict, playoff_odds: dict, pre
     # power_rankings is None in --fast mode; `or []` guards both missing-key and null cases.
     rankings = data.get("power_rankings") or []
     seeds = playoff_odds.get("seeds", {})
-    playoff_round = playoff_odds.get("playoff_round", "pre_semis")
-    
-    # Playoff bracket header
-    lines.append(f"**Playoff Round:** {'Semifinals' if playoff_round == 'pre_semis' else 'Finals'}")
+    playoff_round = playoff_odds.get("playoff_round", "pre_playoffs")
+    round_weeks = playoff_odds.get("round_weeks", {})
+
+    # Playoff bracket header. Week numbers come from the report, never from
+    # literals here -- the bracket moved from weeks 22-23 to weeks 16-21 in
+    # 2026-27 and is now three-week series rather than single games.
+    round_label = {
+        "pre_playoffs": "Semifinals (preview)",
+        "semifinals": "Semifinals",
+        "final": "Final",
+        "complete": "Complete",
+        # legacy values, still readable in archived reports
+        "pre_semis": "Semifinals",
+        "pre_finals": "Finals",
+        "post_finals": "Complete",
+    }.get(playoff_round, playoff_round)
+    lines.append(f"**Playoff Round:** {round_label}")
+    sweeps = playoff_odds.get("sweep_probability", {})
+    if sweeps.get("Semifinals") is not None:
+        lines.append(f"**Chance a semifinal is swept 3-0:** {sweeps['Semifinals']:.1f}%")
     lines.append("")
     
     # Semifinal matchups with win probabilities
     semi_matchups = playoff_odds.get("semi_matchups", [])
     if semi_matchups:
-        lines.append("**Semifinal Matchups (Week 22):**")
+        fmt = semi_matchups[0].get("format")
+        lines.append("**Semifinal {}{}:**".format(
+            "Series" if fmt and "best-of" in fmt else "Matchups",
+            _weeks_label(round_weeks.get("Semifinals") or semi_matchups[0].get("weeks"),
+                         suffix=f", {fmt}" if fmt else "")))
         lines.append("| Matchup | Seed | Manager | Win Prob | vs | Manager | Seed | Win Prob |")
         lines.append("|---------|------|---------|---------|-----|---------|------|---------|")
         for i, semi in enumerate(semi_matchups, 1):
@@ -2055,7 +2149,8 @@ def _format_section_7_playoff(data: dict, lookups: dict, playoff_odds: dict, pre
     # Most likely championship game
     champ_probs = playoff_odds.get("championship_matchup_probs", {})
     if champ_probs:
-        lines.append("**Most Likely Championship Matchup (Week 23):**")
+        lines.append("**Most Likely Final{}:**".format(
+            _weeks_label(round_weeks.get("Final"))))
         sorted_matchups = sorted(champ_probs.items(), key=lambda x: x[1], reverse=True)
         for matchup_key, prob in sorted_matchups:
             m1, m2 = matchup_key.split("_vs_")
@@ -2168,7 +2263,11 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
     playoff_odds = data.get("playoff_odds")
     
     if is_playoff and playoff_odds:
-        return _format_section_7_playoff(data, lookups, playoff_odds, prev_title_odds)
+        out = _format_section_7_playoff(data, lookups, playoff_odds, prev_title_odds)
+        cup_odds = data.get("cup_odds")
+        if data.get("is_cup_week") and cup_odds:
+            out = out + "\n" + _format_section_7b_cup(data, cup_odds)
+        return out
     
     lines = ["## SECTION 7: POWER RANKINGS\n"]
 

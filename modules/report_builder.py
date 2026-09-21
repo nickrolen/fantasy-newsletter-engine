@@ -12,7 +12,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional, Any
 
-from .data_loader import FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM, CURRENT_SEASON, classify_position_group
+from .data_loader import (FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
+                          CURRENT_SEASON, classify_position_group,
+                          phase_for_week, regular_season_weeks_for)
 from .weekly_stats import (
     WeeklyReport,
     compute_weekly_report,
@@ -28,6 +30,7 @@ from .records_tracker import (
 )
 from .simulator_title_odds import run_title_odds_simulation, TitleOddsResult
 from .simulator_playoff_odds import run_playoff_odds_simulation, PlayoffOddsResult, rank_managers_by_standings
+from .simulator_cup_odds import run_cup_odds_simulation, CupOddsResult
 from .simulator_betting import generate_weekly_betting_lines, WeeklyBettingLines
 from .what_if_analyzer import analyze_weekly_what_if, WeeklyWhatIf
 from .fun_facts_generator import generate_fun_facts, FunFact
@@ -3162,13 +3165,19 @@ def build_stats_report(
     waiver_adds = waiver_adds or {}
     injury_statuses = injury_statuses or {}
     
-    # Determine if we should use playoff odds instead of regular title odds.
-    # This triggers for actual playoff weeks AND the final regular season week,
-    # since by that point standings are locked and the bracket preview is the
-    # interesting forward-looking data.
-    playoff_start = data.schedule.get("playoff_start_week", 99)
-    regular_season_weeks = data.schedule.get("regular_season_weeks", playoff_start - 1)
-    is_playoff = week >= playoff_start
+    # Which stage of the season this week belongs to.
+    #
+    # This deliberately does NOT read playoff_start_week out of SCHEDULE.json.
+    # That file is written per season and is stale for most of the preseason;
+    # reading week 22 out of last year's copy would put six playoff weeks back
+    # into the regular season. league_config's season_structure is the one
+    # place the boundary lives.
+    phase = phase_for_week(CURRENT_SEASON, week)
+    regular_season_weeks = regular_season_weeks_for(CURRENT_SEASON)
+    is_playoff = phase in ("playoffs", "cup")
+    in_cup = phase == "cup"
+    # Playoff odds also render for the FINAL regular-season week, when the
+    # standings are locked and the bracket preview is the forward-looking story.
     use_playoff_odds = week >= regular_season_weeks
     
     # Compute weekly report
@@ -3178,6 +3187,7 @@ def build_stats_report(
     # NOTE: Must run BEFORE update_records_from_weekly_report() so the title-odds
     # history (used by power-rankings trend arrows) gets written for THIS week.
     title_odds = None
+    cup_odds = None
     if run_simulations:
         if use_playoff_odds:
             title_odds = run_playoff_odds_simulation(
@@ -3187,6 +3197,15 @@ def build_stats_report(
         else:
             title_odds = run_title_odds_simulation(
                 data, num_simulations=num_title_sims, seed=seed
+            )
+        # The Cup runs after the bracket and is a separate competition with
+        # its own seeding, so it gets its own simulation rather than
+        # overwriting the playoff odds. By Cup weeks the bracket is already
+        # decided, so title_odds above is settled rather than a forecast.
+        if in_cup:
+            cup_odds = run_cup_odds_simulation(
+                data, num_simulations=num_title_sims, seed=seed,
+                injury_statuses=injury_statuses,
             )
 
     # Run betting simulation
@@ -3375,6 +3394,22 @@ def build_stats_report(
             "championship_matchup_probs": title_odds.championship_matchup_probs,
             "seeds": title_odds.seeds,
             "finish_distribution": title_odds.finish_distribution,
+            "round_weeks": title_odds.round_weeks,
+            "sweep_probability": title_odds.sweep_probability,
+        }
+
+    stats_report["is_cup_week"] = bool(in_cup)
+    if isinstance(cup_odds, CupOddsResult):
+        stats_report["cup_odds"] = {
+            "cup_round": cup_odds.cup_round,
+            "semi_matchups": cup_odds.semi_matchups,
+            "seeds": cup_odds.seeds,
+            "seeding_points": cup_odds.seeding_points,
+            "seeding_weeks": list(cup_odds.seeding_weeks),
+            "cup_odds": cup_odds.cup_odds,
+            "finish_distribution": cup_odds.finish_distribution,
+            "round_weeks": cup_odds.round_weeks,
+            "keeper_stakes": cup_odds.keeper_stakes,
         }
     
     return stats_report

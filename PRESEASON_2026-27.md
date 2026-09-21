@@ -261,7 +261,12 @@ extra keeper the following season. 2026-27 runs 6 keepers for everyone; from
 
 ### What this breaks, and when
 
-**1. One config knob is doing two jobs.** `regular_season_weeks` currently
+> **Status as of Sep 21, 2026.** Items 3, 4, 6 and most of 7 are DONE -- see
+> the September 2026 entry in CHANGELOG.md. Items 1, 2 and 5 are the open
+> design decisions and are marked below. Nothing in this list is unknown any
+> more; what is left is a choice, not an investigation.
+
+**1. [OPEN -- DECISION NEEDED] One config knob is doing two jobs.** `regular_season_weeks` currently
 drives both the competitive window (standings, W-L, H2H, seeding) and the
 record-keeping window. Those now differ: competition ends at week 15,
 record-keeping runs through week 21. Set it to 15 and the record book silently
@@ -270,24 +275,30 @@ to 21 and playoff series results get absorbed into the regular-season W-L.
 The concept has to split in two. **Needed by Week 1** -- records accrue
 immediately.
 
-**2. `manager_season_totals` already mixes windows.** Verified on the
+**2. [OPEN -- PRE-EXISTING BUG] `manager_season_totals` already mixes windows.** Verified on the
 2025-26 file: `wins`/`losses` are computed over weeks 1-21 (Nick 17-4 = 21
 games) while `total_points` sums weeks 1-23 (Nick 37,562.35 = all 23). Same
 object, two windows. That is a bug today, before any format change.
 
-**3. Cup seeding cannot reuse `total_points`.** Seeding is defined as points
+**3. [DONE] Cup seeding cannot reuse `total_points`.** Seeding is defined as points
 over weeks 1-21, but the existing field holds 1-23 -- which includes the cup
 itself. Seeding a tournament on a number containing that tournament's results
 is circular. It needs its own explicit 1-21 sum.
+*Resolved:* `simulator_cup_odds.cup_seeding_points()` sums weeks
+1..cup_start-1, derived from `postseason_format`, and never touches
+`total_points`. Pinned by `test_seeding_ignores_the_cup_weeks_themselves`.
 
-**4. The H2H tiebreaker needs bounding to week 15.** Five meetings per
+**4. [DONE] The H2H tiebreaker needs bounding to week 15.** Five meetings per
 opponent is odd on purpose, so a season series always has a winner. But a
 semifinal adds three more meetings against the same opponent: 5 + 3 = 8, even,
 drawable. The standings tiebreaker must see weeks 1-15 only. The existing
 guard keys off `regular_season_weeks`, so this falls out correctly once that
 becomes 15 -- but only if the record-keeping window is a separate setting.
+*Resolved:* `regular_season_weeks` is now 15, and `records_tracker` routes
+through `is_regular_season_week(season, week)` rather than the scalar, so the
+boundary is correct per season rather than per era.
 
-**5. The record book keeps a two-tier policy** (verified in the code, not
+**5. [OPEN -- DECISION NEEDED] The record book keeps a two-tier policy** (verified in the code, not
 assumed): standings-shaped records -- W-L, season series, all-time H2H,
 streaks -- are regular-season-only. Performance-shaped records -- highest
 weekly score, biggest blowout, closest game -- deliberately include playoff
@@ -297,7 +308,7 @@ keep all 23 weeks, because excluding 22-23 retroactively would delete nine
 seasons of championship performances from the all-time book, and a maximum
 over 21 weeks versus 23 is barely biased anyway.
 
-**6. `simulator_playoff_odds.py` models the wrong tournament.** Its docstring
+**6. [DONE] `simulator_playoff_odds.py` models the wrong tournament.** Its docstring
 says "the 2-week playoff bracket (semifinals + finals)" with single-week
 rounds and a consolation game. It needs best-of-3 series over three weeks per
 round, plus a separate cup simulation seeded by total points. ~700 lines, the
@@ -305,16 +316,45 @@ largest remaining piece of work -- but not needed until the playoff race
 matters, around week 14. `simulator_title_odds.py` models the regular-season
 race only, so it just needs the 15-week window. `simulator_betting.py` should
 be unaffected: a series game is still a weekly matchup.
+*Resolved Sep 21:* rewritten. Six weeks, series decided on week wins, every
+week played even at 2-0, and any already-played week resolved from real
+results rather than re-rolled. `simulator_cup_odds.py` added. 37 new tests.
 
-**7. Four outcomes per season now**, where there used to be two: regular-season
+**7. [PARTLY DONE] Four outcomes per season now**, where there used to be two: regular-season
 winner (wks 1-15), champion (19-21), 3rd-place series winner, cup winner
 (22-23). `league_config.json` already separates `first_place_finishes` from
 `titles` in `pre_data_era`, so there is precedent -- but decide how all four
 are recorded before the season, not in March.
+*Partly resolved:* `postseason_format` now names the three titles
+(`league_champion`, `playoff_champion`, `cup_champion`), `payouts` records
+what each is worth, and `keeper_rules.cup_winners` records the Cup result --
+which `start_new_season.py` now refuses to archive a season without. Still
+open: where the season's *results* get written into RECORDS.json and
+LEAGUEHISTORY.xlsx, and how the 3rd-place series winner is stored.
 
-**8. All-time H2H will accrue slower.** 15 games per season against 21
+**8. [NOTED, no action] All-time H2H will accrue slower.** 15 games per season against 21
 historically. Not wrong, but the milestone numbers the fun-facts generator
 leans on ("Nick leads Hayden 46-20") will grow at a different pace.
+
+---
+
+## Current State (as of Sep 21, 2026)
+
+The format change is wired end to end. `league_config.json` now carries
+`postseason_format`, `keeper_rules` and `payouts`; `data_loader` exposes the
+stage and keeper helpers everything else reads; the playoff simulator has been
+rewritten for best-of-3 and a Cup simulator added; `verify_project_integrity`
+cross-checks the week layout, round math, keeper counts and payouts against
+each other. Test suite: 236 passing, up from 148.
+
+Still to do before Week 1:
+- `season.nba_schedule_file` points at `data/nba_schedule_2026-27.json`, which
+  does not exist yet -- cdn.nba.com blocks both this machine and the container,
+  so it needs a manual download (Phase 2.3).
+- `yahoo.current_league_key` is empty, waiting on Yahoo to provision the
+  2026-27 league.
+- `config/SCHEDULE.json` is still the 2025-26 file (Phase 2.4).
+- Two open design decisions, items 1 and 5 under "What this breaks".
 
 ---
 

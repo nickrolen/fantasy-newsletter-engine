@@ -471,20 +471,28 @@ def update_h2h_records(
     records: dict,
     matchup_results: list[MatchupStats],
     week: int = None,
+    season: str = None,
 ) -> None:
     """Update head-to-head season records.
 
     DESIGN CHOICE (consistent with get_manager_record() and career W-L):
-    Playoff weeks (week > REGULAR_SEASON_WEEKS) are NOT counted toward the
-    H2H season series. Previously, playoff matchups inflated the season
-    series (e.g., "Nick leads Hayden 6-2") while the report card showed
-    regular-season-only records. This made the same report self-inconsistent.
+    Postseason weeks are NOT counted toward the H2H season series.
+    Previously, playoff matchups inflated the season series (e.g., "Nick
+    leads Hayden 6-2") while the report card showed regular-season-only
+    records. This made the same report self-inconsistent.
+
+    The boundary is per-season, not a constant: it is week 21 in a normal
+    pre-2026-27 year, 20 in 2021-22, 16 in 2020-21, and 15 from 2026-27
+    onward, where weeks 16-21 are the best-of-3 bracket and 22-23 the Cup.
+    Both of those are postseason and neither belongs in the season series.
 
     If `week` is None, the guard is skipped (back-compat for callers that
     haven't yet been updated, e.g. historical backfills).
     """
-    if week is not None and week > REGULAR_SEASON_WEEKS:
-        # Playoff week: skip H2H accumulation entirely.
+    if season is None:
+        season = CURRENT_SEASON
+    if week is not None and not is_regular_season_week(season, week):
+        # Postseason week (bracket or Cup): skip H2H accumulation entirely.
         return
 
     h2h = records.setdefault("h2h_season", {})
@@ -523,7 +531,9 @@ def update_all_time_records(
     - all_time.highest_weekly_score / lowest_weekly_score (ALL weeks)
     - all_time.biggest_blowout / closest_game (ALL weeks)
 
-    DESIGN CHOICE: Career W-L and H2H exclude playoff weeks so the same
+    DESIGN CHOICE: Career W-L and H2H exclude postseason weeks (from
+    2026-27 that means both the weeks 16-21 bracket and the weeks 22-23
+    Cup) so the same
     report is internally consistent with get_manager_record() (which is
     regular-season only). Total points scored, weekly highs/lows, and
     blowout/closest records still include playoff games -- those are
@@ -533,7 +543,7 @@ def update_all_time_records(
         season = CURRENT_SEASON
     all_time = records.setdefault("all_time", {})
 
-    is_regular_season = week <= REGULAR_SEASON_WEEKS
+    is_regular_season = is_regular_season_week(season, week)
 
     # Update all-time H2H -- regular season only (matches season H2H and
     # get_manager_record()).
@@ -1749,6 +1759,7 @@ def update_records_from_weekly_report(
     title_odds: dict[str, float] = None,
     bench_points: dict[str, float] = None,
     blunders: dict[str, int] = None,
+    season: str = None,
 ) -> list[RecordUpdate]:
     """
     Update all records based on a weekly report.
@@ -1759,6 +1770,9 @@ def update_records_from_weekly_report(
         title_odds: Title odds to store (optional)
         bench_points: Bench points left on table per manager (optional)
         blunders: Blunder counts per manager (optional)
+        season: season the report belongs to (defaults to CURRENT_SEASON).
+            It decides which weeks count as regular season, and that
+            boundary moves from year to year -- see data_loader.SEASON_STRUCTURE.
     
     Returns:
         List of RecordUpdates describing any records broken
@@ -1857,10 +1871,11 @@ def update_records_from_weekly_report(
     
     # Update H2H records (season) -- regular season only; playoff weeks
     # are intentionally skipped to stay consistent with get_manager_record().
-    update_h2h_records(records, report.matchups, week=week)
+    update_h2h_records(records, report.matchups, week=week, season=season)
     
     # Update all-time records (career stats, H2H, high/low scores, blowouts)
-    update_all_time_records(records, report.matchups, manager_scores, week)
+    update_all_time_records(records, report.matchups, manager_scores, week,
+                            season=season)
     
     # Update weekly scores history
     update_weekly_scores(records, week, manager_scores)

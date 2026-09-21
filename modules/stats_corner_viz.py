@@ -21,7 +21,7 @@ from typing import Optional
 
 from .data_loader import (
     MANAGERS, MANAGER_TO_TEAM, MANAGER_COLORS, PRE_DATA_ERA,
-    CURRENT_SEASON, PLAYOFF_START_WEEK, TOTAL_WEEKS,
+    CURRENT_SEASON, SEASON_STRUCTURE, stage_rounds, stage_weeks,
 )
 
 
@@ -52,18 +52,29 @@ KEEPER_TIER_ORDER = ["Lock", "Strong Hold", "Stash", "Sell High", "On the Bubble
 
 # Playoff weeks by season - playoffs are last 2 weeks of each season
 # 19-20 had NO playoffs due to COVID
-# Historical playoff weeks are hardcoded per season. For a new league, update
-# or remove these. The current season's entry comes from league_config.json.
+def _playoff_weeks_for(season) -> Optional[list]:
+    """Every week of `season`'s playoff bracket, or None if none was played.
+
+    Derived from league_config rather than listed here. It used to be a
+    hardcoded table of two-week brackets, which stops being true in 2026-27:
+    the bracket is six weeks (16-21) and the Cup is two more (22-23). A
+    two-element list would have been read as "weeks 16 and 23" and let weeks
+    17-22 through as regular season.
+
+    The Cup is NOT included. It is a separate competition and does not decide
+    a playoff placing.
+    """
+    span = stage_weeks(season, "playoffs")
+    if not span:
+        return None
+    return list(range(span[0], span[1] + 1))
+
+
+# Built once for every season the config knows about, current season included.
 PLAYOFF_WEEKS = {
-    '2017-18': [22, 23],
-    '2018-19': [22, 23],
-    '2019-20': None,  # No playoffs - COVID
-    '2020-21': [17, 18],
-    '2021-22': [21, 22],
-    '2022-23': [22, 23],
-    '2023-24': [22, 23],
-    '2024-25': [22, 23],
-    CURRENT_SEASON: [PLAYOFF_START_WEEK, TOTAL_WEEKS],
+    season: _playoff_weeks_for(season)
+    for season in SEASON_STRUCTURE
+    if not season.startswith("_")
 }
 
 # Manager list and historical viz colors (from config)
@@ -640,6 +651,38 @@ def _load_matchups() -> list:
     return []
 
 
+def _series_outcomes(season_matches: list, span: tuple) -> list:
+    """[(winner, loser), ...] for the series played across `span`.
+
+    A "series" may be one week (every season through 2025-26, and the Cup) or
+    three (the 2026-27 bracket). Decided on WEEK WINS, not total points, and
+    the pairing is whichever two managers met in those weeks. Any week a pair
+    did not both appear in is simply not counted, so a partially played
+    series still resolves to whoever is ahead.
+    """
+    first, last = span
+    tallies = {}
+    for m in season_matches:
+        week = m.get('week')
+        if week is None or not (first <= week <= last):
+            continue
+        winner, loser = m.get('winner'), m.get('loser')
+        if not winner or not loser:
+            continue
+        key = tuple(sorted((winner, loser)))
+        tallies.setdefault(key, {})
+        tallies[key][winner] = tallies[key].get(winner, 0) + 1
+        tallies[key].setdefault(loser, 0)
+
+    out = []
+    for (a, b), wins in tallies.items():
+        if wins.get(a, 0) == wins.get(b, 0):
+            continue  # undecided -- do not invent a winner
+        winner = a if wins.get(a, 0) > wins.get(b, 0) else b
+        out.append((winner, b if winner == a else a))
+    return out
+
+
 def _compute_regular_season_records() -> dict:
     """
     Compute regular season records (excluding playoff weeks) for each manager/season.
@@ -699,27 +742,23 @@ def _compute_playoff_results() -> dict:
             continue
         
         season_matches = [m for m in matchups if m['season'] == season]
-        semi_week, final_week = pweeks
-        
-        # Get semifinal results
-        semi_matches = [m for m in season_matches if m['week'] == semi_week]
-        semi_winners = [m['winner'] for m in semi_matches]
-        semi_losers = [m['loser'] for m in semi_matches]
-        
-        # Get finals results
-        final_matches = [m for m in season_matches if m['week'] == final_week]
-        
+        rounds = {r["name"]: r["weeks"] for r in stage_rounds(season, "playoffs")}
+        semi_span = rounds.get("Semifinals")
+        final_span = rounds.get("Final")
+        if not semi_span or not final_span:
+            results[season] = {mgr: None for mgr in MANAGERS_LIST}
+            continue
+
+        semi_pairs = _series_outcomes(season_matches, semi_span)
+        semi_winners = [w for w, _ in semi_pairs]
+        semi_losers = [l for _, l in semi_pairs]
+
         results[season] = {}
-        for match in final_matches:
-            winner = match['winner']
-            loser = match['loser']
-            
+        for winner, loser in _series_outcomes(season_matches, final_span):
             if winner in semi_winners and loser in semi_winners:
-                # Championship game
                 results[season][winner] = '1st'
                 results[season][loser] = '2nd'
             elif winner in semi_losers and loser in semi_losers:
-                # Consolation game
                 results[season][winner] = '3rd'
                 results[season][loser] = '4th'
     

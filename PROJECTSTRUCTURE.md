@@ -74,7 +74,8 @@ newsletter/
 |   +-- fetch_injury_statuses.py      # Yahoo API injury status fetcher (optional)
 |   +-- rumor_mill_analyzer.py        # Trade ideas, FA targets, drop candidates
 |   +-- simulator_title_odds.py       # Regular season title odds (Monte Carlo)
-|   +-- simulator_playoff_odds.py     # Playoff bracket championship odds (Monte Carlo)
+|   +-- simulator_playoff_odds.py     # Playoff bracket, best-of-3 series wks 16-21 (Monte Carlo)
+|   +-- simulator_cup_odds.py         # The Cup, wks 22-23, seeded on points (Monte Carlo)
 |   \-- simulator_betting.py          # Betting lines (spread, O/U, moneyline) + O/U injury discount
 |
 +-- scripts/                          # Pipeline steps + utilities (22 scripts)
@@ -215,6 +216,7 @@ Manual input      --> INJURY_OVERRIDES.json, weeklycontextinput, LAST_WEEK_RECAP
               |                                 |
    week < regular_season_weeks      week >= regular_season_weeks
    -> simulator_title_odds.py       -> simulator_playoff_odds.py
+                                    -> simulator_cup_odds.py
               |                                 |
               +----------------+----------------+
                                v

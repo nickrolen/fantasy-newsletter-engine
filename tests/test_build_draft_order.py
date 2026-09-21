@@ -172,10 +172,14 @@ def test_every_ownership_entry_matches_a_recorded_trade(mod):
 def test_uneven_pick_counts_are_detected_not_silently_reported(mod, capsys, monkeypatch):
     """Uneven counts mean the trade log is incomplete -- the script must say so.
 
-    Roster is 17 with 2 IL, so 15 spots are filled by keepers plus the draft.
-    With 6 keepers every manager drafts exactly 9. Any other total is a data
-    problem, not a draft order, and must not be printed as if it were fine.
+    Roster is 17 with 2 IL, so 15 rounds are filled by keepers plus the draft.
+    A manager's live-pick count is 15 minus their keeper count. That is 9 for
+    everyone in 2026-27, but NOT from 2027-28, when the Cup winner keeps a
+    sixth and drafts 9 while the other three draft 10. Either way an
+    unexpected total is a data problem, not a draft order, and must not be
+    printed as if it were fine.
     """
+    from modules.data_loader import live_picks_for
     monkeypatch.setattr("sys.argv", ["b"])
     rc = mod.main()
     out = capsys.readouterr().out
@@ -184,20 +188,49 @@ def test_uneven_pick_counts_are_detected_not_silently_reported(mod, capsys, monk
         assert "missing" in out.lower()
     else:
         assert rc == 0
-        # if it claims even, every manager really must be even
+        # if it claims even, every manager really must have their own expected total
         import re
+        expected = live_picks_for()
         for m, n in re.findall(r"^\s+(\w+)\s+(\d+)\s+\(even\)", out, re.M):
-            assert int(n) == 9
+            assert int(n) == expected.get(m, min(expected.values())), (
+                f"{m} shows {n} picks, expected {expected.get(m)}")
 
 
-def test_pick_counts_must_equal_fillable_spots_minus_keepers(mod):
-    """The invariant itself: 17 - 2 IL - 6 keepers = 9 drafted picks each."""
-    from modules.data_loader import LEAGUE_STRUCTURE as LS
-    fillable = LS["roster_size"] - LS["il_slots"]
-    assert fillable - LS["keepers_per_team"] == LS["total_draft_rounds"], (
-        "roster math and total_draft_rounds disagree: "
-        f"{LS['roster_size']} - {LS['il_slots']} - {LS['keepers_per_team']} "
-        f"!= {LS['total_draft_rounds']}")
+def test_pick_counts_must_equal_fillable_spots_minus_keepers():
+    """The invariant, stated so it survives asymmetric keeper counts.
+
+    The old form of this test was `fillable - keepers_per_team ==
+    total_draft_rounds`, which silently assumes every manager keeps the same
+    number. That stops being true in 2027-28, when the Cup winner keeps a
+    sixth. The durable statement is about the whole draft board, not one
+    manager: every one of the 15 x 4 = 60 slots is either a keeper or a live
+    pick, and each manager's live picks are 15 minus their own keepers.
+    """
+    from modules.data_loader import (LEAGUE_STRUCTURE as LS, MANAGERS,
+                                     TOTAL_ROUNDS, keepers_for, live_picks_for)
+
+    assert TOTAL_ROUNDS == LS["roster_size"] - LS["il_slots"], (
+        "you draft into every non-IL roster spot: "
+        f"{LS['roster_size']} - {LS['il_slots']} != {TOTAL_ROUNDS}")
+
+    keepers, live = keepers_for(), live_picks_for()
+    for m in MANAGERS:
+        assert keepers[m] + live[m] == TOTAL_ROUNDS, (
+            f"{m}: {keepers[m]} keepers + {live[m]} live picks != {TOTAL_ROUNDS} rounds")
+    assert sum(keepers.values()) + sum(live.values()) == TOTAL_ROUNDS * len(MANAGERS)
+
+
+def test_the_scalar_round_counts_still_match_while_keepers_are_uniform():
+    """league_structure.keepers_per_team / total_draft_rounds are scalars and
+    describe the CURRENT season only. While that season is uniform they must
+    agree with keepers_for(); once it is not, they stop being meaningful and
+    this test stops applying rather than failing misleadingly."""
+    from modules.data_loader import LEAGUE_STRUCTURE as LS, keepers_for, live_picks_for
+    counts = set(keepers_for().values())
+    if len(counts) != 1:
+        pytest.skip("keeper counts are no longer uniform; the scalars do not apply")
+    assert counts.pop() == LS["keepers_per_team"]
+    assert set(live_picks_for().values()).pop() == LS["total_draft_rounds"]
 
 
 def test_falls_back_to_the_archive_after_the_season_reset(mod, tmp_path, monkeypatch):
@@ -239,3 +272,44 @@ def test_live_records_win_when_they_have_data(mod, tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "ARCHIVE", tmp_path / "nope")
     r, s, season = mod.resolve_season_files(live_rec, live_sched)
     assert season is None and r == live_rec
+
+
+def test_the_board_is_short_a_pick_in_the_cup_winners_keeper_round(mod, capsys,
+                                                                   monkeypatch):
+    """2027-28: the Cup winner keeps 6, so round 10 has three picks, not four.
+
+    The old script printed one number of rounds for everybody and tallied
+    against it. Applied to 2027-28 that hands the Cup winner a tenth pick he
+    does not have and reports the board as even.
+    """
+    import modules.data_loader as dl
+    monkeypatch.setitem(dl.KEEPER_RULES["cup_winners"], "2026-27", "Benton")
+    monkeypatch.setattr("sys.argv", ["b", "--season", "2027-28"])
+
+    rc = mod.main()
+    out = capsys.readouterr().out
+
+    assert "Keepers for 2027-28 are NOT uniform" in out
+    assert "Benton   keeps 6" in out and "drafts rounds 1-9" in out
+    assert "(keeper: Benton)" in out, "round 10 must show Benton's slot as a keeper"
+    assert "expected 39" in out, "39 live picks, not 40"
+    assert rc in (0, 1)
+
+
+def test_a_uniform_season_prints_no_asymmetry_notice(mod, capsys, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["b"])
+    mod.main()
+    out = capsys.readouterr().out
+    assert "are NOT uniform" not in out
+    assert "(keeper:" not in out
+
+
+def test_regular_season_boundary_is_weeks_not_rounds(mod):
+    """The fallback used to be total_draft_rounds -- a round count, as weeks."""
+    from modules.data_loader import regular_season_weeks_for
+    _, _, _, reg = mod.regular_season_results(
+        {"weekly_scores": {}}, {"weeks": []}, "2026-27")
+    assert reg == regular_season_weeks_for("2026-27") == 15
+    _, _, _, reg = mod.regular_season_results(
+        {"weekly_scores": {}}, {"weeks": []}, "2021-22")
+    assert reg == 20

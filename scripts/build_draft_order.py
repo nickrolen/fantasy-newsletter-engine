@@ -43,7 +43,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from modules.data_loader import LEAGUE_STRUCTURE, MANAGERS  # noqa: E402
+from modules.data_loader import (LEAGUE_STRUCTURE, MANAGERS, CURRENT_SEASON,  # noqa: E402
+                                 TOTAL_ROUNDS, keepers_for, live_picks_for,
+                                 regular_season_weeks_for)
 
 RECORDS = PROJECT_ROOT / "config" / "RECORDS.json"
 SCHEDULE = PROJECT_ROOT / "config" / "SCHEDULE.json"
@@ -79,10 +81,26 @@ def resolve_season_files(records_path, schedule_path):
     return records_path, schedule_path, None
 
 
-def regular_season_results(records, schedule):
-    """(wins, losses, points, h2h) per manager over the regular season only."""
+def _next_season(season):
+    """"2026-27" -> "2027-28". None if it cannot be parsed."""
+    import re
+    match = re.fullmatch(r"(\d{4})-(\d{2})", str(season or ""))
+    if not match:
+        return None
+    start = int(match.group(1)) + 1
+    return f"{start}-{(start + 1) % 100:02d}"
+
+
+def regular_season_results(records, schedule, season=None):
+    """(wins, losses, points, h2h) per manager over the regular season only.
+
+    The boundary comes from the schedule file when it has one, and otherwise
+    from that season's entry in league_config. The old fallback here read
+    total_draft_rounds -- a ROUND count standing in for a WEEK count, which
+    happened to be 21 once and is 9 now.
+    """
     reg_weeks = int(schedule.get("regular_season_weeks")
-                    or LEAGUE_STRUCTURE.get("total_draft_rounds", 21))
+                    or regular_season_weeks_for(season or CURRENT_SEASON))
     scores = {}
     for mgr, rows in records.get("weekly_scores", {}).items():
         for row in rows:
@@ -145,7 +163,11 @@ def main():
     parser.add_argument("--year", default=None,
                         help="draft_pick_ownership year key (default: next calendar year of the season)")
     parser.add_argument("--rounds", type=int, default=None,
-                        help=f"drafted rounds (default {LEAGUE_STRUCTURE.get('total_draft_rounds')})")
+                        help="force a uniform live-round count for every manager "
+                             "(default: derived per manager from keeper counts)")
+    parser.add_argument("--season", default=None,
+                        help="season being drafted FOR (default: the one after "
+                             "the season the standings come from)")
     args = parser.parse_args()
 
     for p in (RECORDS, SCHEDULE, TRADES):
@@ -158,7 +180,11 @@ def main():
     schedule = json.loads(sched_path.read_text(encoding="utf-8"))
     trades = json.loads(TRADES.read_text(encoding="utf-8"))
 
-    wl, pts, h2h, reg_weeks = regular_season_results(records, schedule)
+    completed_season = from_archive or CURRENT_SEASON
+    upcoming_season = args.season or _next_season(completed_season) or CURRENT_SEASON
+
+    wl, pts, h2h, reg_weeks = regular_season_results(records, schedule,
+                                                     completed_season)
     if not wl:
         print("ERROR: no regular-season results found in either config/ or archive/.")
         print("       The season reset clears RECORDS.json; the standings that set")
@@ -167,7 +193,16 @@ def main():
     standings, notes = rank_managers(wl, pts, h2h)
     slots = list(reversed(standings))          # worst picks first
 
-    rounds = args.rounds or int(LEAGUE_STRUCTURE.get("total_draft_rounds", 9))
+    # Live picks are NOT the same for everyone from 2027-28 on: the previous
+    # season's Cup winner keeps a sixth player and so drafts one round fewer.
+    # One round of the board therefore has three picks in it, not four, and a
+    # single `rounds` number cannot describe that.
+    if args.rounds:
+        expected = {m: int(args.rounds) for m in MANAGERS}
+    else:
+        expected = live_picks_for(upcoming_season)
+    rounds = max(expected.values())
+    keeper_counts = keepers_for(upcoming_season)
     ownership_all = trades.get("draft_pick_ownership", {})
     year = args.year or sorted(k for k in ownership_all if k.isdigit())[0]
     owners = {k: v for k, v in ownership_all.get(year, {}).items()
@@ -195,12 +230,25 @@ def main():
             rnd, orig = k.split("_", 1)
             print(f"    R{rnd} {orig}'s pick -> {owners[k]}")
 
+    if len(set(expected.values())) > 1:
+        print(f"\n  Keepers for {upcoming_season} are NOT uniform:")
+        for m in slots:
+            print(f"    {m:8} keeps {keeper_counts[m]} "
+                  f"(rounds {expected[m] + 1}-{TOTAL_ROUNDS}), "
+                  f"drafts rounds 1-{expected[m]}")
+
     print(f"\n  PICK-BY-PICK, rounds 1-{rounds}:\n")
     n = 0
     tally = defaultdict(int)
     for rnd in range(1, rounds + 1):
         cells = []
         for orig in slots:
+            # A manager whose keepers start at this round has no live pick in
+            # it. The pick does not move to anyone else -- the round is simply
+            # short.
+            if rnd > expected[orig]:
+                cells.append(f"     (keeper: {orig})")
+                continue
             n += 1
             owner = owners.get(f"{rnd}_{orig}", orig)
             tally[owner] += 1
@@ -211,26 +259,27 @@ def main():
     print(f"\n  Picks per manager across rounds 1-{rounds}:")
     uneven = []
     for m in sorted(tally, key=lambda x: -tally[x]):
-        diff = tally[m] - rounds
+        diff = tally[m] - expected[m]
         if diff:
             uneven.append((m, diff))
         print(f"    {m:8} {tally[m]:>2}"
-              + (f"  ({diff:+d} vs {rounds})" if diff else "  (even)"))
+              + (f"  ({diff:+d} vs {expected[m]})" if diff else "  (even)"))
 
     total = sum(tally.values())
-    print(f"\n  Total picks: {total} (expected {rounds * len(slots)})"
-          + ("  OK" if total == rounds * len(slots) else "  MISMATCH"))
+    total_expected = sum(expected.values())
+    print(f"\n  Total picks: {total} (expected {total_expected})"
+          + ("  OK" if total == total_expected else "  MISMATCH"))
 
     if uneven:
-        keepers = int(LEAGUE_STRUCTURE.get("keepers_per_team", 0))
         roster = int(LEAGUE_STRUCTURE.get("roster_size", 0))
         il = int(LEAGUE_STRUCTURE.get("il_slots", 0))
-        fillable = roster - il
         print("\n  " + "!" * 62)
         print("  UNEVEN PICK COUNTS -- almost certainly a gap in the trade log.")
-        print(f"  The roster has {roster} spots and {il} IL, so {fillable} are filled by")
-        print(f"  keepers plus the draft. With {keepers} keepers, every manager must draft")
-        print(f"  exactly {fillable - keepers}. These do not:")
+        print(f"  The roster has {roster} spots and {il} IL, so {TOTAL_ROUNDS} are filled")
+        print(f"  by keepers plus the draft. For {upcoming_season} that means:")
+        for m in slots:
+            print(f"    {m:8} {keeper_counts[m]} keepers -> must draft {expected[m]}")
+        print("  These do not:")
         for m, d in uneven:
             print(f"    {m}: {tally[m]} ({d:+d})")
         print()

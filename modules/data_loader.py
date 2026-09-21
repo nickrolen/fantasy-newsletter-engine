@@ -6,6 +6,7 @@ Provides a centralized data access layer for all other modules.
 """
 
 import json
+import re
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
@@ -72,6 +73,21 @@ PRE_DATA_ERA = _LEAGUE_CONFIG.get("pre_data_era", {})
 
 # --- Tiebreaker rules (from config) ---
 TIEBREAKER_RULES = _LEAGUE_CONFIG.get("tiebreaker_rules", {})
+
+# --- Postseason format, keeper rules and payouts (from config) ---
+# From 2026-27 the season is three stages, not two: a 15-week regular season,
+# a six-week best-of-3 playoff bracket, then a two-week Cup. The old rule
+# ("the bracket is the last two weeks") describes seasons through 2025-26 only.
+POSTSEASON_FORMAT = _LEAGUE_CONFIG.get("postseason_format", {})
+KEEPER_RULES = _LEAGUE_CONFIG.get("keeper_rules", {})
+PAYOUTS = _LEAGUE_CONFIG.get("payouts", {})
+
+# Total draft rounds is fixed by the roster: you draft into every non-IL spot.
+# Unlike total_draft_rounds (live picks) this does not move when keeper counts
+# change, so anything iterating rounds should use it.
+TOTAL_ROUNDS = LEAGUE_STRUCTURE.get(
+    "total_rounds",
+    LEAGUE_STRUCTURE.get("roster_size", 17) - LEAGUE_STRUCTURE.get("il_slots", 2))
 
 
 # =============================================================================
@@ -552,6 +568,243 @@ def season_had_bracket(season):
     if isinstance(entry, dict) and "bracket" in entry:
         return bool(entry["bracket"])
     return True
+
+
+# =============================================================================
+# SEASON FORMAT (2026-27 onward)
+# =============================================================================
+# Season keys are "YYYY-YY" and sort correctly as plain strings, which is what
+# every _at_or_after comparison below relies on.
+
+def _at_or_after(season, threshold):
+    """True if `season` is `threshold` or a later season."""
+    if not season or not threshold:
+        return False
+    return str(season) >= str(threshold)
+
+
+def uses_three_stage_format(season=None):
+    """True if `season` uses the regular / playoffs / cup format.
+
+    Seasons before postseason_format.effective_from played the old shape: a
+    single-game, two-week bracket in the final two weeks and nothing after it.
+    """
+    if season is None:
+        season = CURRENT_SEASON
+    entry = SEASON_STRUCTURE.get(str(season))
+    if isinstance(entry, dict) and entry.get("format"):
+        return entry["format"] == POSTSEASON_FORMAT.get("name", "three_stage")
+    return _at_or_after(season, POSTSEASON_FORMAT.get("effective_from"))
+
+
+def _stage(stage):
+    return POSTSEASON_FORMAT.get("stages", {}).get(stage, {})
+
+
+def stage_weeks(season, stage):
+    """Inclusive (first_week, last_week) for a stage, or None.
+
+    Stage is "regular_season", "playoffs" or "cup". Returns None when the
+    season did not have that stage at all -- every season before 2026-27 has
+    no cup, and 2019-20 has no playoffs either.
+    """
+    season = str(season) if season is not None else CURRENT_SEASON
+    entry = SEASON_STRUCTURE.get(season)
+    entry = entry if isinstance(entry, dict) else {}
+
+    # A listed season with regular_through explicitly null has no week-level
+    # data at all -- 2014-15 and 2015-16 predate Yahoo and survive only as
+    # to-date totals in LEAGUEHISTORY.xlsx. Falling back to the current
+    # season's week count here would invent a schedule for them.
+    if "regular_through" in entry and entry["regular_through"] is None:
+        return None
+
+    if stage == "regular_season":
+        return (1, regular_season_weeks_for(season))
+
+    if not uses_three_stage_format(season):
+        # Legacy shape: the bracket is the two weeks after the regular season,
+        # and there is no cup.
+        if stage == "cup" or not season_had_bracket(season):
+            return None
+        last = regular_season_weeks_for(season)
+        return (last + 1, last + 2)
+
+    if not season_had_bracket(season) and stage == "playoffs":
+        return None
+    key = "playoff_weeks" if stage == "playoffs" else "cup_weeks"
+    weeks = entry.get(key) or _stage(stage).get("weeks")
+    if not weeks:
+        return None
+    return (int(weeks[0]), int(weeks[-1]))
+
+
+def phase_for_week(season, week):
+    """Which stage (season, week) belongs to: regular_season / playoffs / cup.
+
+    Returns None for a week outside the season entirely.
+    """
+    try:
+        week = int(week)
+    except (TypeError, ValueError):
+        return None
+    for stage in ("regular_season", "playoffs", "cup"):
+        span = stage_weeks(season, stage)
+        if span and span[0] <= week <= span[1]:
+            return stage
+    return None
+
+
+def is_playoff_week(season, week):
+    """True if (season, week) is part of the playoff bracket."""
+    return phase_for_week(season, week) == "playoffs"
+
+
+def is_cup_week(season, week):
+    """True if (season, week) is part of the Cup."""
+    return phase_for_week(season, week) == "cup"
+
+
+def is_postseason_week(season, week):
+    """True for any week after the regular season -- playoffs OR cup.
+
+    Not the same as `not is_regular_season_week(...)`, which is also true for
+    a week that falls outside the season altogether.
+    """
+    return phase_for_week(season, week) in ("playoffs", "cup")
+
+
+def stage_rounds(season, stage):
+    """Concrete rounds for a stage: [{name, weeks: (first, last), ...}].
+
+    Empty when the season has no such stage. Used by the simulators so the
+    bracket shape lives in config rather than in module constants.
+    """
+    span = stage_weeks(season, stage)
+    if span is None:
+        return []
+
+    if not uses_three_stage_format(season):
+        # Legacy shape: one semifinal week then one final week, and the
+        # third-place game shares the final week. The new format's round
+        # definitions describe six weeks and must not be applied to a season
+        # that only ever played two.
+        first, last = span
+        return [
+            {"name": "Semifinals", "weeks": (first, first), "seeds": [[1, 4], [2, 3]]},
+            {"name": "Final", "weeks": (last, last), "field": "semifinal winners"},
+            {"name": "Third Place", "weeks": (last, last), "field": "semifinal losers"},
+        ]
+
+    rounds = []
+    for rnd in _stage(stage).get("rounds", []):
+        weeks = rnd.get("weeks")
+        if not weeks:
+            continue
+        out = dict(rnd)
+        out["weeks"] = (int(weeks[0]), int(weeks[-1]))
+        rounds.append(out)
+    return rounds
+
+
+def series_length(season, stage="playoffs"):
+    """Weeks per playoff series: 3 under the new format, 1 under the old."""
+    if stage == "cup" or not uses_three_stage_format(season):
+        return 1
+    fmt = _stage(stage).get("series_format", "best_of_1")
+    match = re.search(r"(\d+)", str(fmt))
+    return int(match.group(1)) if match else 1
+
+
+# =============================================================================
+# KEEPER COUNTS (per season, and NOT necessarily uniform across managers)
+# =============================================================================
+# Through 2026-27 every manager keeps the same number, so a single scalar
+# (league_structure.keepers_per_team) is enough. From 2027-28 the previous
+# season's Cup winner keeps one extra, so the count is per manager and the
+# draft has a round with three picks in it instead of four. Anything that
+# needs a keeper count must go through keepers_for(); the scalar is kept only
+# for the current season and for reading old data.
+
+def keeper_rules_for(season=None):
+    """The {base, cup_winner_bonus} rule in force for `season`."""
+    if season is None:
+        season = CURRENT_SEASON
+    season = str(season)
+    listed = KEEPER_RULES.get("seasons", {})
+    if season in listed and isinstance(listed[season], dict):
+        rule = listed[season]
+    else:
+        rule = KEEPER_RULES.get("default", {})
+        if not _at_or_after(season, rule.get("effective_from")):
+            # Before the default takes effect and not listed: fall back to the
+            # uniform scalar, which is how every pre-2027-28 season worked.
+            return {"base": int(LEAGUE_STRUCTURE.get("keepers_per_team", 6)),
+                    "cup_winner_bonus": 0}
+    return {"base": int(rule.get("base", LEAGUE_STRUCTURE.get("keepers_per_team", 6))),
+            "cup_winner_bonus": int(rule.get("cup_winner_bonus", 0))}
+
+
+def cup_winner(season):
+    """Who won `season`'s Cup, or None if unplayed/unrecorded."""
+    return KEEPER_RULES.get("cup_winners", {}).get(str(season))
+
+
+def _prior_season(season):
+    """"2027-28" -> "2026-27". Returns None if unparseable."""
+    match = re.fullmatch(r"(\d{4})-(\d{2})", str(season))
+    if not match:
+        return None
+    start = int(match.group(1)) - 1
+    return f"{start}-{(start + 1) % 100:02d}"
+
+
+def keepers_for(season=None, manager=None):
+    """Keeper count for `season`.
+
+    With a manager, returns that manager's count as an int. Without one,
+    returns {manager: count} for every manager.
+
+    The bonus goes to whoever won the PREVIOUS season's Cup. If that result is
+    not recorded in keeper_rules.cup_winners this does not guess -- everyone
+    gets the base count, which will be visibly one short rather than silently
+    assigned to the wrong manager.
+    """
+    if season is None:
+        season = CURRENT_SEASON
+    rule = keeper_rules_for(season)
+    counts = {m: rule["base"] for m in MANAGERS}
+    if rule["cup_winner_bonus"]:
+        holder = cup_winner(_prior_season(season))
+        if holder in counts:
+            counts[holder] += rule["cup_winner_bonus"]
+    if manager is not None:
+        return counts.get(manager, rule["base"])
+    return counts
+
+
+def live_picks_for(season=None, manager=None):
+    """Drafted (non-keeper) picks for `season`: TOTAL_ROUNDS - keepers.
+
+    With a manager, an int; without one, {manager: count}. In 2026-27 that is
+    9 for everybody; in 2027-28 it is 9 for the Cup winner and 10 for the rest.
+    """
+    keepers = keepers_for(season, manager)
+    if manager is not None:
+        return TOTAL_ROUNDS - keepers
+    return {m: TOTAL_ROUNDS - k for m, k in keepers.items()}
+
+
+def first_keeper_round(season=None, manager=None):
+    """The first round a manager's keepers occupy (keepers take the LAST rounds).
+
+    2026-27: round 10 for everyone. 2027-28: round 10 for the Cup winner,
+    round 11 for the other three.
+    """
+    picks = live_picks_for(season, manager)
+    if manager is not None:
+        return picks + 1
+    return {m: p + 1 for m, p in picks.items()}
 
 
 def load_all_matchups(path: Path) -> list:

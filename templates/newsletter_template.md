@@ -1166,143 +1166,240 @@ From fun_facts[]:
 
 ---
 
-# PLAYOFF EDITION ADDENDUM (Weeks 22-23)
+# POSTSEASON EDITION ADDENDUM (Weeks 16-23)
 
-This section applies **only** during playoff weeks (Weeks 22 and 23). The regular season is over -- standings are final, magic numbers are irrelevant, and the narrative shifts entirely to the bracket. Below are the section-by-section modifications. If a section isn't mentioned here, it runs identically to the regular season.
+This section applies **only** from Week 16 onward. From 2026-27 the postseason
+is EIGHT weeks and there are THREE separate champions, so "the playoffs" is no
+longer one thing. Everything below replaces the old two-week addendum.
+
+If a section is not mentioned here, it runs identically to the regular season.
 
 ---
 
-## PLAYOFF CONTEXT
+## THE THREE CHAMPIONS -- GET THIS RIGHT
 
-- **Week 22 = Semifinals:** #1 seed vs #4 seed, #2 seed vs #3 seed
-- **Week 23 = Finals:** Semi winners play the championship, semi losers play the consolation game
-- **Finish order:** 1st = championship winner, 2nd = championship loser, 3rd = consolation winner, 4th = consolation loser
-- **Rosters are locked** -- no waiver moves during playoffs
+This is the single most important thing in this addendum. Confusing these is
+the mistake a reader will notice immediately.
+
+| Title | Decided by | When | Prize |
+|-------|-----------|------|-------|
+| **League Champion** | Best record over Weeks 1-15 | Already decided by Week 16 | $180 ($90 each from 3rd and 4th) |
+| **Playoff Champion** | Best-of-3 bracket, Weeks 16-21 | Week 21 | $90 ($45 each from 3rd and 4th) |
+| **Cup Champion** | Single elimination, Weeks 22-23 | Week 23 | An extra (6th) keeper next season |
+
+The **League Champion is the real champion** of this league. The regular season
+decides the money, the draft order, and the banner. The bracket winner is the
+**Playoff Champion** -- a separate, secondary title. Never call the bracket
+winner "the league champion" and never imply the regular season was a
+qualifier for the bracket.
+
+---
+
+## POSTSEASON CALENDAR
+
+- **Weeks 1-15:** Regular season. 5 meetings against each of the 3 opponents.
+  Odd on purpose -- no season series can end drawn.
+- **Weeks 16-18: Semifinals, best-of-3.** #1 seed vs #4, #2 vs #3. Seeds come
+  from the FINAL regular-season standings and never move.
+- **Weeks 19-21: Final and Third Place, best-of-3.** Semifinal winners play for
+  the Playoff Championship; semifinal losers play for 3rd.
+- **Weeks 22-23: The Cup.** Single elimination, seeded by TOTAL POINTS across
+  Weeks 1-21. Week 22 is #1 vs #4 and #2 vs #3; Week 23 is the Cup Final.
+
+**Every week of a series is played even after the series is decided.** A 2-0
+lead still plays its third week. Those points are not meaningless -- they feed
+the Cup seeding, which is points-based. Say so; it is a real strategic wrinkle.
+
+**Cup seeding is points, not record.** A manager knocked out in the semifinals
+can be the #1 Cup seed. This is the most counter-intuitive thing about the new
+format and worth explaining every time it comes up.
+
+---
+
+## WHICH NEWSLETTER COVERS WHAT
+
+Each newsletter reports on the week just finished and previews the next.
+
+- **Week 16 newsletter:** covers Week 15 -- the REGULAR SEASON FINALE and the
+  crowning of the League Champion. This is the biggest newsletter of the year.
+  Previews the semifinal series.
+- **Weeks 17-18:** mid-series. Report the series score ("Nick leads 2-0"), not
+  just the week result.
+- **Week 19 newsletter:** covers the semifinal results. Who advanced, who fell.
+- **Weeks 20-21:** the Final and Third Place series in progress.
+- **Week 22 newsletter:** covers the end of the bracket and crowns the Playoff
+  Champion. Introduces the Cup, its points-based seeding, and what is at stake.
+- **Week 23 newsletter:** covers the Cup semifinals; previews the Cup Final.
+- **Week 23 results / season wrap:** crowns the Cup Champion and states plainly
+  that they keep a sixth player next season while everyone else keeps five.
 
 ---
 
 ## SECTION-BY-SECTION MODIFICATIONS
 
 ### 1. Matchup Summaries
-- **Week 22 newsletter:** Covers Week 21 results (regular season finale). Frame as the final tune-up before playoffs.
-- **Week 23 newsletter:** Covers Week 22 results (semifinal results). Frame as elimination drama -- who advanced, who's headed to the consolation game.
+- Report the SERIES state, not only the week: "Hayden takes Game 2, leads the
+  series 2-0 with one to play."
+- A dead rubber (a third week of a 2-0 series) still gets written up. Frame it
+  as it is: pride, points for Cup seeding, and momentum.
 - All stat extraction and formatting rules are identical to regular season.
 
 ### 2. Report Cards
 - Same grading system, same format.
-- Add **playoff readiness context** in the narrative: who's peaking at the right time, who's limping into the bracket, whose stars are healthy.
+- Add postseason readiness context: who is peaking, who is limping, who is
+  healthy.
 
 ### 3. Betting Lines (Looking Ahead)
-- **Week 22 newsletter:** Previews the semifinal matchups. Spreads and over/unders carry extra weight -- these are elimination games.
-- **Week 23 newsletter:** Previews the finals matchups (championship + consolation). The `looking_ahead` data in the stats report will have the correct matchups.
-- Use sportsbook language as always ("the -270 favorite", "+140 underdog on the moneyline").
+- Preview the coming week of whichever series is live.
+- In a series, note the series price as well as the week price where the data
+  supports it -- being down 0-2 changes what a weekly favorite means.
+- During the Cup, these are single elimination games. Say so.
 
 ### 4. Player of the Week
-- No changes. Standard POTW for the week being reported on.
+- No changes.
 
 ### 5. Fun Facts
-- No changes. The fun_facts generator still produces facts -- they may include playoff-relevant historical tidbits.
+- No changes.
 
 ### 6. What If
-- No changes. Standard what-if analysis for the week being reported on.
+- No changes.
 
 ### 7. Power Rankings -> **Playoff Championship Odds**
 
-This is the biggest change. The section header becomes **"Playoff Championship Odds"** and the content is completely restructured.
-
-**The stats report includes a `playoff_odds` block** with simulation-based probabilities. Extract from it, not from the regular `power_rankings` block.
+The section header becomes **"Playoff Championship Odds"**. Extract from the
+`playoff_odds` block, not the regular `power_rankings` block.
 
 #### DATA EXTRACTION (do this first)
 ```
 From playoff_odds:
-  playoff_round: [pre_semis | pre_finals]
-  
-  For each semifinal in semi_matchups[]:
-  - manager_a: [name], seed: [#], win_prob: [X.X%]
-  - manager_b: [name], seed: [#], win_prob: [X.X%]
-  
+  playoff_round: [pre_playoffs | semifinals | final | complete]
+  round_weeks:   {"Semifinals": [16, 18], "Final": [19, 21], "Third Place": [19, 21]}
+  sweep_probability: {"Semifinals": X.X, "Final": X.X}   # chance a series ends 3-0
+
+  For each series in semi_matchups[]:
+  - manager_a: [name], seed: [#], win_prob_a: [X.X%]   # SERIES win probability
+  - manager_b: [name], seed: [#], win_prob_b: [X.X%]
+  - weeks: [16, 18], format: "best-of-3"
+
   For each manager in finish_distribution:
   - [manager]: 1st [X.X%], 2nd [X.X%], 3rd [X.X%], 4th [X.X%]
-  
+
   championship_matchup_probs:
   - [ManagerA vs ManagerB]: [X.X%]
-  
-From power_rankings[] (still populated, uses championship % for ranking):
-  - rank, manager, team_name, record, title_odds (= championship %), keeper_quality
 ```
+
+**`win_prob_a` is the chance of winning the SERIES, not a single week.** Do not
+describe it as a weekly win probability.
+
+Use `round_weeks` for every week number you print. Do not write "Week 22"
+because a previous newsletter did -- the bracket moved.
 
 #### REQUIRED OUTPUT FORMAT
 
-**Table 1: Semifinal Matchups**
+**Table 1: Semifinal Series (Weeks 16-18, best-of-3)**
 ```
-| Matchup | Higher Seed | Win Prob | vs | Lower Seed | Win Prob |
-|---------|-------------|---------|-----|------------|---------|
-| Semi 1 | #1 Nick (70.2%) | vs | #4 Hayden (29.8%) |
-| Semi 2 | #2 Benton (50.4%) | vs | #3 Garrett (49.6%) |
+| Series | Higher Seed | Series Win Prob | vs | Lower Seed | Series Win Prob |
+|--------|-------------|-----------------|-----|------------|-----------------|
 ```
 
-**Table 2: Championship Probability**
+**Table 2: Playoff Championship Probability**
 ```
-| Seed | Manager | Record | Champ % | Runner-Up % | 3rd % | 4th % |
-|------|---------|--------|---------|-------------|-------|-------|
+| Seed | Manager | Record | Playoff Champ % | Runner-Up % | 3rd % | 4th % |
+|------|---------|--------|-----------------|-------------|-------|-------|
 ```
 
-**Table 3: Most Likely Championship Matchup**
+**Table 3: Most Likely Final**
 ```
 - [Team A] vs [Team B]: [X.X%]
-- [Team C] vs [Team D]: [X.X%]
 ```
 
 Then **3-4 paragraphs of narrative**, covering:
-- Why the favorite is favored (season dominance, health, scoring trends)
-- The underdog's path to an upset (star player upside, variance potential)
-- How the other semifinal shapes up
-- Keeper quality / draft capital as the consolation narrative (even a first-round exit has offseason implications)
+- Why the favorite is favored, and how much a best-of-3 protects them compared
+  to the old one-week bracket (a single bad week no longer ends a season)
+- The underdog's path: they need two good weeks out of three, not one
+- How the other series shapes up
+- Keeper quality and draft capital as the consolation narrative
 
 **DO NOT include:**
 - Magic numbers (not applicable)
-- Expected regular season records (season is over)
-- Standings race language ("fighting for 2nd", "clinching scenarios")
+- Expected regular season records (the regular season is over)
+- Standings race language
+- Any suggestion that this decides the league title -- it does not
+
+### 7B. The Cup (Weeks 22-23 only)
+
+When the stats report has a `cup_odds` block, add a section after Section 7.
+
+```
+From cup_odds:
+  cup_round:      [pre_cup | semifinals | final | complete]
+  seeds:          {manager: 1-4}          # by POINTS, not record
+  seeding_points: {manager: total}        # weeks 1-21
+  seeding_weeks:  [1, 21]
+  cup_odds:       {manager: X.X%}
+  round_weeks:    {"Cup Semifinals": [22, 22], "Cup Final": [23, 23]}
+  keeper_stakes:  {season_affected, base_keepers, winner_keepers, recorded_winner}
+```
+
+Lead with the seeding table and say what it is seeded on. A manager who lost
+in the semifinals but scored the most points over 21 weeks is the #1 Cup seed,
+and that deserves a sentence.
+
+Always close the Cup section with the stakes: the winner keeps
+`winner_keepers` players in `season_affected` and drafts rounds 1-9; everyone
+else keeps `base_keepers` and drafts rounds 1-10. One round of that draft has
+three picks in it instead of four.
 
 ### 8. Stats Corner
-- No changes. All tables and visualizations run identically.
+- No changes.
 
 ### 9. Around the NBA
-- No changes to format. Web search for real NBA headlines from the reporting week.
-- If a fantasy trade happened during the playoff weeks (unlikely, but possible), include it per normal rules.
+- No changes to format.
 
 ### 10. Rumor Mill
-- **Reframe all trade ideas as OFFSEASON moves**, not in-season roster adjustments. Rosters are locked for playoffs.
-- "Buy low" and "sell high" candidates are about **keeper value** heading into the draft, not playoff performance.
-- Hot streak and slump watch are still relevant -- they inform keeper decisions.
-- Free agent targets are about who might be available on the waiver wire next season, not immediate pickups.
+- Reframe all trade ideas as OFFSEASON moves. Rosters are locked.
+- "Buy low" and "sell high" are about keeper value heading into the draft.
+- From Week 22 onward, keeper talk has to account for the Cup: the winner keeps
+  six and the other three keep five, so the same player is worth more to
+  whoever is still alive in the Cup.
 
 ---
 
-## LANGUAGE REMINDERS FOR PLAYOFF WEEKS
+## LANGUAGE REMINDERS FOR POSTSEASON WEEKS
 
 | Instead of... | Write... |
 |--------------|----------|
-| "Title odds" (in section headers) | "Championship odds" or "championship probability" |
+| "League champion" (for the bracket winner) | "Playoff Champion" |
+| "The playoffs decide the title" | "The regular season decided the title; the bracket decides the Playoff Championship" |
+| "Title odds" | "Playoff championship odds" |
 | "Power Rankings" (as section name) | "Playoff Championship Odds" |
-| "Clinch", "magic number" | Not applicable -- season is over |
-| "Standings race" | "Bracket" or "playoff picture" |
-| "Expected record" | "Championship probability" |
-| "Rest-of-season" | "Playoff path" or "bracket outlook" |
+| "Clinch", "magic number" | Not applicable -- the regular season is over |
+| "Standings race" | "Bracket" or "series" |
+| "Wins the week, wins the series" | "Leads the series 2-1" |
+| "Meaningless game" (a dead rubber) | "Still counts -- Cup seeding is points-based" |
 | "Waiver pickup this week" | "Offseason target" (rosters locked) |
 
 ---
 
-## WEEK 23 SPECIAL NOTES (Finals)
+## SPECIAL NOTES
 
-When writing the Week 23 newsletter (championship + consolation):
-- **Section 1 (Matchup Summaries)** covers the semifinal results from Week 22. These are elimination outcomes -- write them with the drama they deserve.
-- **Section 3 (Betting Lines)** previews both the championship game AND the consolation game. The championship game is the marquee matchup; the consolation game still matters for 3rd vs 4th place and bragging rights.
-- **Section 7 (Playoff Championship Odds)** -- if the semis are done and you're previewing the finals, the `playoff_odds` data will show championship probability based on the two finalists. The semifinal matchup table is no longer relevant -- replace it with the confirmed finals bracket.
-- **The closing section** should tease the offseason: keeper decisions, draft order, and the 2026-27 season outlook.
+**Week 16 newsletter (regular season finale coverage).** The League Champion is
+crowned here, along with the $180 payout and the draft order. This is the
+headline of the year -- do not bury it under a bracket preview.
+
+**Week 22 newsletter (Playoff Champion crowned, Cup introduced).** Two stories:
+the bracket result, and the Cup nobody has played before. Explain the
+points-based seeding from scratch; it will be unfamiliar.
+
+**Week 23 / season wrap (Cup Champion crowned).** State the keeper consequence
+explicitly. Then tease the offseason: keeper decisions, the draft order from
+the regular-season standings, and next season's outlook.
+
+**A reminder for whoever maintains this:** none of the week numbers above are
+hardcoded in the engine. They come from `postseason_format` in
+`config/league_config.json`. If the format changes again, change it there,
+run `py scripts/verify_project_integrity.py`, and then update this addendum.
 
 ---
 
-**End of Playoff Addendum**
-
-       
+**End of Postseason Addendum**

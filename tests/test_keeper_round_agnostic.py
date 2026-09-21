@@ -93,17 +93,23 @@ def test_roster_slots_match_league_config():
 def test_draft_rounds_equal_the_non_il_roster_spots():
     """You draft into every roster spot that is not an IL slot.
 
-    15 rounds = 9 drafted + 6 keepers = 17 roster spots - 2 IL.
-    This is the relationship that changed, so it is worth pinning: if the
-    roster changes again, this fails until the round counts are updated too.
+    15 rounds = live picks + keepers = 17 roster spots - 2 IL, per manager.
+    Stated per manager rather than once for the league, because from 2027-28
+    the split differs between managers (the Cup winner keeps 6 and drafts 9;
+    everyone else keeps 5 and drafts 10) while the 15 stays fixed.
     """
+    from modules.data_loader import MANAGERS, TOTAL_ROUNDS, keepers_for, live_picks_for
     s = LEAGUE_STRUCTURE
-    total_rounds = s["total_draft_rounds"] + s["keepers_per_team"]
-    assert total_rounds == s["roster_size"] - s["il_slots"], (
-        f"{s['total_draft_rounds']} drafted + {s['keepers_per_team']} keepers "
-        f"= {total_rounds} rounds, but the roster has "
+    assert TOTAL_ROUNDS == s["roster_size"] - s["il_slots"], (
+        f"total_rounds={TOTAL_ROUNDS}, but the roster has "
         f"{s['roster_size'] - s['il_slots']} non-IL spots"
     )
+    keepers, live = keepers_for(), live_picks_for()
+    for m in MANAGERS:
+        assert live[m] + keepers[m] == TOTAL_ROUNDS, (
+            f"{m}: {live[m]} drafted + {keepers[m]} keepers = "
+            f"{live[m] + keepers[m]} rounds, not {TOTAL_ROUNDS}"
+        )
 
 
 # ---------------------------------------------------------------------------

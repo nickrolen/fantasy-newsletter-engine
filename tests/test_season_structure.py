@@ -10,7 +10,10 @@ wrong for three of the nine Yahoo seasons and for the 2026-27 format:
 
 The cause is that Yahoo stretches any week containing the All-Star break to
 14 days, so a season covers the same calendar in a varying number of fantasy
-weeks. The durable rule is that the bracket is the last two weeks.
+weeks. Through 2025-26 the durable rule was that the bracket is the last two
+weeks. From 2026-27 that rule is retired: the postseason is eight weeks --
+best-of-3 series in 16-21 and the Cup in 22-23 -- and the shape comes from
+league_config.postseason_format instead.
 """
 import json
 from pathlib import Path
@@ -22,6 +25,8 @@ from modules.data_loader import (
     is_regular_season_week,
     regular_season_weeks_for,
     season_had_bracket,
+    stage_weeks,
+    uses_three_stage_format,
 )
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -61,9 +66,20 @@ def test_2019_20_had_no_bracket():
 
 
 def test_structure_matches_the_matchup_data():
-    """Every season's recorded cutoff must be last_week - 2 where a bracket
-    was played, and last_week where none was. This is the rule, checked
-    against the data rather than trusted."""
+    """Check the recorded cutoff against the data rather than trusting it.
+
+    Two different rules apply, and which one holds depends on the season:
+
+      through 2025-26  the postseason was a single-game bracket in the final
+                       two weeks, so regular_through == last_week - 2 (or
+                       last_week where no bracket was played at all)
+      2026-27 onward   the postseason is eight weeks -- a six-week best-of-3
+                       bracket then a two-week Cup -- so the cutoff comes
+                       from postseason_format and last_week - 2 is wrong
+
+    The old single rule is exactly what this guards: applied to a 23-week
+    2026-27 it would put the regular season through week 21.
+    """
     matchups = json.loads(
         (PROJECT_ROOT / "data" / "historical" / "all_matchups.json").read_text(encoding="utf-8"))
     last = {}
@@ -71,10 +87,18 @@ def test_structure_matches_the_matchup_data():
         s = r["season"]
         last[s] = max(last.get(s, 0), int(r["week"]))
     for season, last_week in sorted(last.items()):
-        expected = last_week - 2 if season_had_bracket(season) else last_week
-        assert regular_season_weeks_for(season) == expected, (
-            f"{season}: last week {last_week}, bracket={season_had_bracket(season)}, "
-            f"so regular_through should be {expected}")
+        if uses_three_stage_format(season):
+            reg = stage_weeks(season, "regular_season")
+            cup = stage_weeks(season, "cup")
+            assert regular_season_weeks_for(season) == reg[1]
+            assert cup and cup[1] == last_week, (
+                f"{season}: last week played is {last_week} but the Cup is "
+                f"recorded as ending in week {cup[1] if cup else None}")
+        else:
+            expected = last_week - 2 if season_had_bracket(season) else last_week
+            assert regular_season_weeks_for(season) == expected, (
+                f"{season}: last week {last_week}, bracket={season_had_bracket(season)}, "
+                f"so regular_through should be {expected}")
 
 
 def test_every_recorded_season_is_in_the_structure():

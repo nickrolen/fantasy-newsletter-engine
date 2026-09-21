@@ -568,6 +568,59 @@ def delete_phase(execute: bool) -> None:
 # Manual checklist
 # ---------------------------------------------------------------------------
 
+def check_cup_winner_recorded(config: dict, season: str, execute: bool) -> bool:
+    """Refuse to archive a season whose Cup winner has not been written down.
+
+    The Cup winner keeps a sixth player the following season while everyone
+    else keeps five. Nothing else in the project derives that -- it is a
+    result, and once the season is archived and RECORDS.json is emptied there
+    is no cheap way to recover it. If it is missing, next season's draft gets
+    built with 20 keepers instead of 21 and a round that should have three
+    picks silently gets four.
+
+    Seasons before the Cup existed have nothing to check.
+    """
+    fmt = config.get("postseason_format", {})
+    effective_from = fmt.get("effective_from")
+    if not effective_from or str(season) < str(effective_from):
+        return True
+    if not config.get("postseason_format", {}).get("stages", {}).get("cup"):
+        return True
+
+    winners = config.get("keeper_rules", {}).get("cup_winners", {})
+    winner = winners.get(season)
+    if winner:
+        print(f"\n  Cup winner for {season}: {winner} "
+              "(keeps a sixth player next season).")
+        return True
+
+    print()
+    print("!" * 60)
+    print(f"  BLOCKED -- the {season} Cup winner is not recorded.")
+    print("!" * 60)
+    print(f"""
+  Set it in config/league_config.json:
+
+      "keeper_rules": {{
+          "cup_winners": {{
+              "{season}": "<manager who won weeks 22-23>"
+          }}
+      }}
+
+  Why this blocks the reset rather than warning: the winner keeps a sixth
+  player next season and the other three keep five. That asymmetry is what
+  build_draft_order and keepers_for() work from. Archiving first empties
+  RECORDS.json, and the result is then only recoverable by hand from the
+  archive.
+
+  If the Cup genuinely was not played, set it to the string "not played".
+""")
+    if not execute:
+        print("  (dry run -- continuing so you can still preview the plan.)")
+        return True
+    return False
+
+
 def print_manual_checklist(season: str) -> None:
     """Print the manual steps the script deliberately does not automate."""
     print_header("MANUAL STEPS TO COMPLETE THE NEW SEASON SETUP")
@@ -585,13 +638,30 @@ def print_manual_checklist(season: str) -> None:
   AFTER the reset (the script has archived season {season} and reset working files):
 
     4. Edit config/league_config.json:
-       - season.current          -> new season (e.g. "2026-27")
-       - season.current_long     -> new long form (e.g. "2026-2027")
+       - season.current          -> new season (e.g. "2027-28")
+       - season.current_long     -> new long form (e.g. "2027-2028")
        - season.season_number    -> increment by 1
        - yahoo.current_league_key -> new Yahoo league ID for the new season
        - yahoo.historical_league_keys -> add "{season}" with its league key
-       - season.nba_schedule_file -> new filename (e.g. "data/nba_schedule_2026-27.json")
+       - season.nba_schedule_file -> new filename (e.g. "data/nba_schedule_2027-28.json")
        - manager_to_team         -> update if any team names changed
+       - season_structure        -> add the new season. Only needed if its
+                                    shape differs from postseason_format;
+                                    an unlisted season inherits that.
+       - keeper_rules.cup_winners -> add the NEW season with null, so the
+                                    next reset has somewhere to record it
+       - league_structure.keepers_per_team / total_draft_rounds
+                                 -> these two scalars describe the current
+                                    season and are only meaningful while
+                                    every manager keeps the same number.
+                                    From 2027-28 they do NOT -- the Cup
+                                    winner keeps a sixth. Use keepers_for()
+                                    in code; verify_project_integrity checks
+                                    the scalars only while they still apply.
+
+       Run `py scripts/verify_project_integrity.py` after editing: it
+       cross-checks the week layout, round math, keeper counts and payouts
+       against each other and fails on any disagreement.
 
     5. Fetch the new NBA schedule:
        py scripts/fetch_nba_schedule.py --season <new> --output data/nba_schedule_<new>.json
@@ -649,6 +719,11 @@ def main() -> None:
 
     if not execute:
         print("\n  This is a preview. Pass --execute to perform the reset.")
+
+    # Pre-flight: a season result that next season's rules depend on.
+    if not check_cup_winner_recorded(config, season, execute):
+        print("  ABORTED -- nothing was modified.")
+        sys.exit(1)
 
     # Phase 1: Archive
     ok = archive_phase(season, archive_dir, execute, force)

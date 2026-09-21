@@ -31,7 +31,7 @@
     },
     "yahoo": {
         "game_code": "nba",
-        "current_league_key": "466.l.42309",
+        "current_league_key": "",
         "historical_league_keys": {
             "2017-18": "380.l.23647",
             "2018-19": "390.l.19887",
@@ -42,7 +42,8 @@
             "2023-24": "438.l.31099",
             "2024-25": "451.l.13907",
             "2025-26": "466.l.42309"
-        }
+        },
+        "_current_league_key_comment": "EMPTY until Yahoo provisions the 2026-27 league. It is deliberately not left pointing at 2025-26 (466.l.42309), because every Yahoo script would then silently pull last season's data as if it were current. Set it once the new league exists; scripts/get_league_key.py finds it."
     },
     "league_structure": {
         "num_teams": 4,
@@ -50,10 +51,12 @@
         "starters": 10,
         "bench": 5,
         "il_slots": 2,
+        "total_rounds": 15,
         "keepers_per_team": 6,
         "historical_draft_rounds": 7,
         "total_draft_rounds": 9,
-        "keeper_era_start": "2021-22"
+        "keeper_era_start": "2021-22",
+        "_rounds_comment": "total_rounds = roster_size - il_slots and is fixed: you draft into every roster spot that is not an IL slot. keepers_per_team and total_draft_rounds describe the CURRENT season ONLY, and are meaningful only while every manager keeps the same number. From 2027-28 keeper counts differ by manager -- see keeper_rules and data_loader.keepers_for()."
     },
     "tiebreaker_rules": {
         "standings": "h2h_regular_season",
@@ -70,13 +73,13 @@
         }
     },
     "season": {
-        "current": "2025-26",
-        "current_long": "2025-2026",
-        "season_number": 9,
-        "regular_season_weeks": 21,
-        "playoff_start_week": 22,
+        "current": "2026-27",
+        "current_long": "2026-2027",
+        "season_number": 10,
+        "regular_season_weeks": 15,
+        "playoff_start_week": 16,
         "total_weeks": 23,
-        "nba_schedule_file": "data/nba_schedule_2025-26.json"
+        "nba_schedule_file": "data/nba_schedule_2026-27.json"
     },
     "season_structure": {
         "_comment": "Per-season week layout. season.regular_season_weeks describes ONLY the current season; historical seasons varied and the engine must not assume one shape for all time. regular_through = last regular-season week. bracket = a postseason bracket was played.",
@@ -133,8 +136,162 @@
         "2026-27": {
             "regular_through": 15,
             "bracket": true,
-            "note": "new format: best-of-3 series wks 16-21, cup wks 22-23"
+            "format": "three_stage",
+            "playoff_weeks": [
+                16,
+                21
+            ],
+            "cup_weeks": [
+                22,
+                23
+            ],
+            "total_weeks": 23,
+            "note": "new format: best-of-3 series wks 16-21 (semis 16-18, final and 3rd-place 19-21), cup wks 22-23"
         },
-        "_derivation": "The bracket is ALWAYS the last two fantasy weeks of a season, so regular_through = last_week - 2 whenever a bracket was played. The last week is not a fixed number because Yahoo stretches any week containing the All-Star break to 14 days, which changes how many fantasy weeks a season fits into. 2021-22 ran 22 weeks, not 23, so its bracket was weeks 21-22 and the regular season ended at week 20."
+        "_derivation": "THROUGH 2025-26 ONLY: the bracket was always the last two fantasy weeks, so regular_through = last_week - 2 whenever a bracket was played. The last week is not a fixed number because Yahoo stretches any week containing the All-Star break to 14 days, which changes how many fantasy weeks a season fits into; 2021-22 ran 22 weeks, not 23, so its bracket was weeks 21-22 and its regular season ended at week 20. That rule does NOT hold from 2026-27 onward -- see postseason_format, where the postseason is eight weeks long."
+    },
+    "postseason_format": {
+        "_comment": "The league format in force from effective_from onward. Earlier seasons played a two-week, single-game bracket in the final two weeks and are described individually in season_structure. All week ranges are inclusive [first, last].",
+        "name": "three_stage",
+        "effective_from": "2026-27",
+        "stages": {
+            "regular_season": {
+                "weeks": [
+                    1,
+                    15
+                ],
+                "meetings_per_opponent": 5,
+                "title": "League Champion",
+                "title_key": "league_champion",
+                "decides": "final standings, draft order, and payouts",
+                "note": "5 meetings per opponent is deliberately odd so no season series can end drawn. 3 opponents x 5 = 15 weeks."
+            },
+            "playoffs": {
+                "weeks": [
+                    16,
+                    21
+                ],
+                "series_format": "best_of_3",
+                "seeded_by": "regular_season_standings",
+                "title": "Playoff Champion",
+                "title_key": "playoff_champion",
+                "rounds": [
+                    {
+                        "name": "Semifinals",
+                        "weeks": [
+                            16,
+                            18
+                        ],
+                        "seeds": [
+                            [
+                                1,
+                                4
+                            ],
+                            [
+                                2,
+                                3
+                            ]
+                        ]
+                    },
+                    {
+                        "name": "Final",
+                        "weeks": [
+                            19,
+                            21
+                        ],
+                        "field": "semifinal winners"
+                    },
+                    {
+                        "name": "Third Place",
+                        "weeks": [
+                            19,
+                            21
+                        ],
+                        "field": "semifinal losers"
+                    }
+                ],
+                "all_weeks_played": true,
+                "note": "Every week of a series is played even after the series is decided, so a 2-0 series still plays its third week. The series winner is whoever wins the most of the three weeks."
+            },
+            "cup": {
+                "weeks": [
+                    22,
+                    23
+                ],
+                "elimination": "single",
+                "seeded_by": "total_points_weeks_1_through_21",
+                "title": "Cup Champion",
+                "title_key": "cup_champion",
+                "rounds": [
+                    {
+                        "name": "Cup Semifinals",
+                        "weeks": [
+                            22,
+                            22
+                        ],
+                        "seeds": [
+                            [
+                                1,
+                                4
+                            ],
+                            [
+                                2,
+                                3
+                            ]
+                        ]
+                    },
+                    {
+                        "name": "Cup Final",
+                        "weeks": [
+                            23,
+                            23
+                        ],
+                        "field": "cup semifinal winners"
+                    }
+                ],
+                "prize": "an extra (6th) keeper for the following season",
+                "note": "Single games, not series. The 2026-27 Cup is the first one ever played; its winner sets the 2027-28 keeper asymmetry."
+            }
+        }
+    },
+    "keeper_rules": {
+        "_comment": "Keeper counts are per-season and need NOT be uniform across managers. A manager's live picks = league_structure.total_rounds minus their keeper count, and keepers always occupy the LAST rounds. Any season after the last one listed in `seasons` inherits `default`.",
+        "seasons": {
+            "2026-27": {
+                "base": 6,
+                "cup_winner_bonus": 0,
+                "note": "The last uniform year. Everyone keeps 6 (rounds 10-15) and drafts rounds 1-9, 36 live picks in all. No Cup had been played yet when these keepers were chosen."
+            }
+        },
+        "default": {
+            "effective_from": "2027-28",
+            "base": 5,
+            "cup_winner_bonus": 1,
+            "note": "The previous season's Cup winner keeps 6 (rounds 10-15) and drafts rounds 1-9; the other three keep 5 (rounds 11-15) and draft rounds 1-10. 39 live + 21 keeper = 60 = 15 rounds x 4 teams, so round 10 holds three picks rather than four."
+        },
+        "cup_winners": {
+            "_comment": "Season -> the manager who won that season's Cup (weeks 22-23). That manager keeps one extra player the FOLLOWING season. null means the Cup has not been played or the result has not been recorded yet; keepers_for() refuses to guess and treats every manager as base until it is filled in. scripts/start_new_season.py will not let a season be archived while its Cup winner is still null.",
+            "2026-27": null
+        }
+    },
+    "payouts": {
+        "_comment": "Manager-to-manager payments; the league keeps no pot. USD.",
+        "currency": "USD",
+        "league_champion": {
+            "total": 180,
+            "per_payer": 90,
+            "paid_by": "3rd and 4th place in the regular-season standings (weeks 1-15)"
+        },
+        "playoff_champion": {
+            "total": 90,
+            "per_payer": 45,
+            "paid_by": "3rd and 4th place in the playoff bracket, as decided by the weeks 19-21 third-place series"
+        },
+        "cup_champion": {
+            "total": 0,
+            "per_payer": 0,
+            "paid_by": null,
+            "prize": "an extra (6th) keeper for the following season"
+        }
     }
 }

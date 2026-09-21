@@ -2,18 +2,36 @@
 simulator_playoff_odds.py
 
 Monte Carlo simulation for PLAYOFF championship odds.
-Runs N simulations of the 2-week playoff bracket (semifinals + finals)
-to produce championship probability, finish distribution (1st-4th),
-and matchup win probabilities for each team.
 
-Uses the same high-fidelity simulation engine as the betting lines
+THE BRACKET IS SIX WEEKS LONG, NOT TWO
+--------------------------------------
+Through 2025-26 the postseason was two single games: a semifinal week then a
+final week, always the last two weeks of the season. From 2026-27 it is:
+
+    weeks 16-18   Semifinals, best-of-3       (#1 vs #4, #2 vs #3)
+    weeks 19-21   Final and Third Place, best-of-3
+    weeks 22-23   The Cup -- a SEPARATE competition, simulated in
+                  simulator_cup_odds.py, not here
+
+Every week of a series is played even after the series is decided, so a 2-0
+lead still plays its third week. The series winner is whoever won more of the
+three weeks; with three games a series cannot be drawn.
+
+None of those week numbers are written down in this module. They come from
+data_loader.stage_weeks()/stage_rounds(), which read league_config's
+postseason_format, so the shape can change again in one file.
+
+Seeding comes from the FINAL REGULAR-SEASON standings and is frozen there --
+in this league the regular-season winner is the League Champion and the
+bracket winner is the separate Playoff Champion, so bracket results must
+never feed back into seeding.
+
+Uses the same high-fidelity engine as the betting lines
 (simulator_betting.py): day-by-day NBA schedule, position-aware lineups,
 injury overrides, partial returns, and Yahoo injury statuses.
 
-Architecture:
-  - Semifinal matchups come from SCHEDULE.json week 22.
-  - Finals matchups are determined dynamically: semi winners play for
-    the championship, semi losers play the consolation game.
+COST: a full bracket is six simulated weeks rather than two, so a run is
+roughly 3x what it used to be. num_simulations is the knob.
 """
 
 import random
@@ -22,9 +40,9 @@ from collections import defaultdict
 from typing import Optional
 
 from .data_loader import (
-    FantasyData, MANAGERS,
-    REGULAR_SEASON_WEEKS, PLAYOFF_START_WEEK, TOTAL_WEEKS,
-    TIEBREAKER_RULES,
+    FantasyData, MANAGERS, CURRENT_SEASON,
+    REGULAR_SEASON_WEEKS, TIEBREAKER_RULES,
+    stage_weeks, stage_rounds, regular_season_weeks_for,
 )
 from .projections import (
     TeamProjections,
@@ -38,8 +56,11 @@ from .simulator_betting import simulate_week_hifi
 # =============================================================================
 
 DEFAULT_NUM_SIMULATIONS = 10000
-SEMIFINAL_WEEK = PLAYOFF_START_WEEK
-FINALS_WEEK = TOTAL_WEEKS
+
+# Round names as they appear in league_config.postseason_format.
+SEMIFINAL_ROUND = "Semifinals"
+FINAL_ROUND = "Final"
+THIRD_PLACE_ROUND = "Third Place"
 
 
 # =============================================================================
@@ -47,24 +68,48 @@ FINALS_WEEK = TOTAL_WEEKS
 # =============================================================================
 
 @dataclass
+class SeriesResult:
+    """One best-of-N series inside a simulated bracket."""
+    round_name: str
+    weeks: tuple            # inclusive (first, last)
+    manager_a: str
+    manager_b: str
+    week_winners: list      # winner of each week, in week order
+    winner: str
+    loser: str
+
+    @property
+    def games(self) -> str:
+        """"2-1" from the winner's point of view."""
+        won = self.week_winners.count(self.winner)
+        return f"{won}-{len(self.week_winners) - won}"
+
+
+@dataclass
 class PlayoffSimResult:
     """Result of one simulated playoff bracket."""
-    # Semifinal results
-    semi_scores: dict  # {manager: score} for each semi
-    semi_winners: list[str]  # 2 winners
-    semi_losers: list[str]   # 2 losers
-    
-    # Finals results
+    # Semifinal round. semi_scores is each manager's TOTAL points across the
+    # semifinal series, not one week's score -- the old field name is kept so
+    # report_builder and the formatters keep working.
+    semi_scores: dict
+    semi_winners: list[str]
+    semi_losers: list[str]
+
+    # Final round
     champ_winner: str
     champ_loser: str
     consolation_winner: str
     consolation_loser: str
-    
+
     # Final placement 1-4
-    finish_order: list[str]  # [1st, 2nd, 3rd, 4th]
-    
-    # Week-23 (finals week) scores for all managers, {manager: score}
+    finish_order: list[str]
+
+    # Total points across the final round, per manager
     final_scores: dict
+
+    # Full detail: every series played, and every week's scores
+    series: list = field(default_factory=list)
+    scores_by_week: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -72,31 +117,37 @@ class PlayoffOddsResult:
     """Complete playoff odds simulation results."""
     num_simulations: int
     current_week: int
-    playoff_round: str  # "pre_semis", "pre_finals"
-    
+    playoff_round: str  # "pre_playoffs", "semifinals", "final", "complete"
+
     # Core results -- same interface as TitleOddsResult for compatibility
-    title_odds: dict[str, float]         # manager -> % chance of winning championship
+    title_odds: dict[str, float]         # manager -> % chance of winning the bracket
     finish_distribution: dict[str, dict[int, float]]  # manager -> {1: %, 2: %, 3: %, 4: %}
-    
-    # Semifinal matchup probabilities
-    semi_matchups: list[dict]  # [{manager_a, manager_b, win_prob_a, win_prob_b, seed_a, seed_b}]
-    
-    # Championship game probability (who's most likely to meet in the finals)
-    championship_matchup_probs: dict[str, float]  # "A_vs_B" -> probability they meet in finals
-    
-    # Expected scores per round
-    expected_semi_scores: dict[str, float]  # manager -> avg simulated semi score
-    expected_final_scores: dict[str, float]  # manager -> avg simulated final score (when they make it)
-    
+
+    # Semifinal SERIES probabilities (field name kept for compatibility)
+    semi_matchups: list[dict]  # [{manager_a, manager_b, win_prob_a, ..., weeks, format}]
+
+    # Which pairing is most likely to meet in the final
+    championship_matchup_probs: dict[str, float]  # "A_vs_B" -> probability
+
+    # Expected points per round (series totals, not single weeks)
+    expected_semi_scores: dict[str, float]
+    expected_final_scores: dict[str, float]
+
     # Regular season records (for context)
     current_records: dict[str, tuple[int, int]]
-    
+
     # Seeding
     seeds: dict[str, int]  # manager -> seed (1-4)
-    
+
+    # Bracket shape, so consumers can label weeks without hardcoding them
+    round_weeks: dict = field(default_factory=dict)  # {"Semifinals": (16, 18), ...}
+
+    # How often a series goes the distance, per round
+    sweep_probability: dict = field(default_factory=dict)  # round -> % ending 2-0... i.e. 3-0
+
     # Change from last week (if available)
     title_odds_delta: dict[str, float] = field(default_factory=dict)
-    
+
     # Compatibility fields so power_rankings can consume this
     expected_record: dict[str, tuple[float, float]] = field(default_factory=dict)
     magic_numbers: dict[str, Optional[int]] = field(default_factory=dict)
@@ -117,7 +168,8 @@ def _regular_season_standings(data: FantasyData) -> dict:
     Playoff results must not influence seeding, so we deliberately ignore any
     week beyond regular_season_weeks. Returns {manager: {wins, losses, points}}.
     """
-    reg_weeks = data.schedule.get("regular_season_weeks", SEMIFINAL_WEEK - 1)
+    reg_weeks = data.schedule.get(
+        "regular_season_weeks", regular_season_weeks_for(CURRENT_SEASON))
     weekly_scores = data.records.get("weekly_scores", {})
 
     # Build {week: {manager: score}} for regular-season weeks only.
@@ -267,177 +319,244 @@ def get_playoff_seeds(data: FantasyData) -> dict[str, int]:
     return {mgr: seed for seed, mgr in enumerate(ranked, 1)}
 
 
-def get_semifinal_matchups(data: FantasyData) -> list[dict]:
+
+# =============================================================================
+# BRACKET SHAPE
+# =============================================================================
+
+def bracket_rounds(season: str = None) -> dict:
+    """{round_name: (first_week, last_week)} for the playoff bracket.
+
+    Read from league_config.postseason_format via data_loader, so the six-week
+    shape is never written down here. Empty for a season with no bracket
+    (2019-20), which callers must treat as "no playoffs to simulate".
     """
-    Get semifinal matchups from SCHEDULE.json week 22.
-    
-    Returns list of 2 matchup dicts with manager_a, manager_b keys.
-    """
-    for week_data in data.schedule.get("weeks", []):
-        if week_data["week"] == SEMIFINAL_WEEK:
-            return week_data["matchups"]
-    return []
+    season = season or CURRENT_SEASON
+    return {r["name"]: r["weeks"] for r in stage_rounds(season, "playoffs")}
 
 
-def get_completed_week_results(data: FantasyData, week_data: dict):
-    """
-    Read the ACTUAL results of a COMPLETED playoff week from the game logs.
+def bracket_weeks(season: str = None) -> list[int]:
+    """Every week of the bracket, in order, with no duplicates.
 
-    Uses compute_weekly_report (the same scoring logic the rest of the
-    pipeline uses) so the locked-in results match the matchup recaps exactly.
-
-    Returns (winners, losers, scores):
-      - winners: [winner of matchup 0, winner of matchup 1]
-      - losers:  [loser of matchup 0,  loser of matchup 1]
-      - scores:  {manager: actual_score}
-    Order follows week_data["matchups"] so finals seeding stays consistent.
+    The Final and the Third Place series run in the SAME weeks, so a plain
+    concatenation of round spans double-counts them.
     """
+    span = stage_weeks(season or CURRENT_SEASON, "playoffs")
+    return list(range(span[0], span[1] + 1)) if span else []
+
+
+def _week_entry(data: FantasyData, week: int) -> Optional[dict]:
+    """The SCHEDULE.json entry for `week`, if it is there."""
+    for entry in data.schedule.get("weeks", []):
+        if entry.get("week") == week:
+            return entry
+    return None
+
+
+def get_semifinal_matchups(data: FantasyData, seeds: dict = None) -> list[dict]:
+    """The two semifinal pairings.
+
+    Prefers what SCHEDULE.json says for the first semifinal week, because that
+    is what Yahoo actually built. Falls back to the configured seeding
+    (#1 vs #4, #2 vs #3) when the schedule has not been created yet, which is
+    the normal state during a preview before the bracket exists.
+    """
+    rounds = bracket_rounds()
+    if SEMIFINAL_ROUND not in rounds:
+        return []
+    first_week = rounds[SEMIFINAL_ROUND][0]
+
+    entry = _week_entry(data, first_week)
+    if entry and entry.get("matchups"):
+        return entry["matchups"]
+
+    seeds = seeds or get_playoff_seeds(data)
+    by_seed = {s: m for m, s in seeds.items()}
+    pairs = []
+    for rnd in stage_rounds(CURRENT_SEASON, "playoffs"):
+        if rnd["name"] != SEMIFINAL_ROUND:
+            continue
+        for sa, sb in rnd.get("seeds", [[1, 4], [2, 3]]):
+            if sa in by_seed and sb in by_seed:
+                pairs.append({"manager_a": by_seed[sa], "manager_b": by_seed[sb]})
+    return pairs
+
+
+# =============================================================================
+# COMPLETED WEEKS
+# =============================================================================
+
+def resolve_completed_week(data: FantasyData, week: int) -> Optional[dict]:
+    """Actual {manager: score} for a week that has been played, else None.
+
+    Uses compute_weekly_report -- the same scoring path as the recaps -- so a
+    locked-in series matches what the newsletter says happened.
+
+    This replaces the old fixed_semis/fixed_finals pair. With a six-week
+    postseason the bracket can be halfway through a series, so "which weeks
+    are decided" is a per-week question, not a per-round one. Re-rolling a
+    week that has already been played would hand championship odds to a
+    manager who is already eliminated.
+    """
+    if week > data.current_week:
+        return None
     # Lazy import avoids a circular import: report_builder imports this module
     # at load time, so we can only import it back here inside the function.
     from .report_builder import compute_weekly_report
-
-    report = compute_weekly_report(data, week_data["week"])
-    score_lookup = {}
+    try:
+        report = compute_weekly_report(data, week)
+    except Exception:
+        return None
+    scores = {}
     for m in report.matchups:
-        score_lookup[(m.manager_a, m.manager_b)] = (m.score_a, m.score_b)
+        scores[m.manager_a] = m.score_a
+        scores[m.manager_b] = m.score_b
+    return scores or None
 
-    winners, losers, scores = [], [], {}
-    for matchup in week_data["matchups"]:
-        ma, mb = matchup["manager_a"], matchup["manager_b"]
-        if (ma, mb) in score_lookup:
-            sa, sb = score_lookup[(ma, mb)]
-        elif (mb, ma) in score_lookup:
-            sb, sa = score_lookup[(mb, ma)]
-        else:
-            sa = sb = 0.0
-        scores[ma], scores[mb] = sa, sb
-        # Tie convention for ACTUAL completed games: manager_a wins.
-        # In SCHEDULE.json, manager_a is the higher seed for playoff matchups,
-        # so this is equivalent to "higher seed wins" -- which is the standard
-        # tiebreaker for completed playoff games. Real ties are essentially
-        # impossible with fractional scoring; the rule exists for consistency.
-        if sa >= sb:
-            winners.append(ma)
-            losers.append(mb)
-        else:
-            winners.append(mb)
-            losers.append(ma)
-    return winners, losers, scores
+
+def _decided_weeks(data: FantasyData) -> dict:
+    """{week: {manager: score}} for every bracket week already played."""
+    out = {}
+    for week in bracket_weeks():
+        scores = resolve_completed_week(data, week)
+        if scores:
+            out[week] = scores
+    return out
 
 
 # =============================================================================
 # SIMULATION CORE
 # =============================================================================
 
+def _week_winner(pair, scores, seeds, simulated):
+    """Winner of one week of a series.
+
+    Ties: a SIMULATED tie is a coin flip (project-wide convention for
+    simulated results); an ACTUAL tie goes to the higher seed, which is the
+    standard rule for a played playoff game. Fractional scoring makes both
+    essentially impossible -- the rules exist so the same input always gives
+    the same answer.
+    """
+    a, b = pair
+    sa, sb = scores.get(a, 0.0), scores.get(b, 0.0)
+    if sa > sb:
+        return a
+    if sb > sa:
+        return b
+    if simulated:
+        return random.choice([a, b])
+    return a if seeds.get(a, 99) <= seeds.get(b, 99) else b
+
+
+def _play_series(data, team_projections, pairs, weeks, seeds, decided,
+                 injury_statuses, scores_by_week):
+    """Play one round: every week of it, for both pairings at once.
+
+    `pairs` is [(a, b), (c, d)]. Both pairings play in the same weeks, so the
+    week is simulated once and read by both. Every week is played even once a
+    series is decided -- the league plays them out, and the points still count
+    toward season totals and the Cup seeding.
+
+    Returns [(winner, loser, week_winners), ...] in the order of `pairs`.
+    """
+    first, last = weeks
+    tallies = [defaultdict(int) for _ in pairs]
+    week_winner_lists = [[] for _ in pairs]
+
+    for week in range(first, last + 1):
+        simulated = week not in decided
+        if simulated:
+            entry = _week_entry(data, week) or {"week": week}
+            week_data = dict(entry)
+            week_data["week"] = week
+            week_data["matchups"] = [
+                {"manager_a": a, "manager_b": b} for a, b in pairs
+            ]
+            results = simulate_week_hifi(
+                data, team_projections, week_data, injury_statuses)
+            scores = {m: results[m]["score"] for m in MANAGERS}
+        else:
+            scores = decided[week]
+        scores_by_week[week] = scores
+
+        for i, pair in enumerate(pairs):
+            winner = _week_winner(pair, scores, seeds, simulated)
+            tallies[i][winner] += 1
+            week_winner_lists[i].append(winner)
+
+    out = []
+    for i, (a, b) in enumerate(pairs):
+        winner = a if tallies[i][a] > tallies[i][b] else b
+        loser = b if winner == a else a
+        out.append((winner, loser, week_winner_lists[i]))
+    return out
+
+
 def simulate_playoff_bracket(
     data: FantasyData,
     team_projections: dict[str, TeamProjections],
-    semi_week_data: dict,
-    finals_week_data: dict,
+    semi_pairs: list,
+    seeds: dict,
+    decided: dict = None,
     injury_statuses: dict[str, str] = None,
-    fixed_semis: tuple = None,
-    fixed_finals: tuple = None,
 ) -> PlayoffSimResult:
+    """Simulate one complete playoff bracket: semifinals, then final.
+
+    semi_pairs is [(a, b), (c, d)]. `decided` maps an already-played week to
+    its real {manager: score}; those weeks are used as-is rather than rolled
+    again, so an eliminated manager cannot pick up championship odds.
     """
-    Simulate one complete playoff bracket (semis + finals).
-    
-    Uses the same high-fidelity simulation as the betting lines:
-    day-by-day NBA schedule, injury overrides, partial returns,
-    and Yahoo injury status checks.
-    
-    The semis use the matchups from SCHEDULE.json week 22.
-    The finals are determined dynamically: semi winners play the
-    championship, semi losers play the consolation game.
+    decided = decided or {}
+    rounds = bracket_rounds()
+    scores_by_week = {}
+    series = []
 
-    If fixed_semis is provided (winners, losers, scores), the semifinals
-    are treated as already decided -- they are NOT re-simulated. This is
-    used once the semifinals have actually been played (the pre_finals
-    round), so only the finals are randomized.
-    """
-    # --- Semifinals (Week 22) ---
-    if fixed_semis is not None:
-        # Semifinals already complete: use real results, don't re-roll them.
-        semi_winners, semi_losers, semi_scores = fixed_semis
-    else:
-        # Semifinals not yet played (pre_semis preview): simulate them.
-        semi_results = simulate_week_hifi(
-            data, team_projections, semi_week_data, injury_statuses
-        )
+    # --- Semifinals ---
+    semi_weeks = rounds[SEMIFINAL_ROUND]
+    semi_out = _play_series(data, team_projections, semi_pairs, semi_weeks,
+                            seeds, decided, injury_statuses, scores_by_week)
+    semi_winners = [w for w, _, _ in semi_out]
+    semi_losers = [l for _, l, _ in semi_out]
+    for (a, b), (w, l, wk_winners) in zip(semi_pairs, semi_out):
+        series.append(SeriesResult(SEMIFINAL_ROUND, semi_weeks, a, b,
+                                   wk_winners, w, l))
 
-        semi_scores = {m: semi_results[m]["score"] for m in MANAGERS}
+    semi_scores = {m: 0.0 for m in MANAGERS}
+    for week in range(semi_weeks[0], semi_weeks[1] + 1):
+        for m in MANAGERS:
+            semi_scores[m] += scores_by_week.get(week, {}).get(m, 0.0)
 
-        # Determine semi winners/losers from the simulated scores
-        semi_winners = []
-        semi_losers = []
-        for matchup in semi_week_data["matchups"]:
-            ma = matchup["manager_a"]
-            mb = matchup["manager_b"]
-            if semi_scores[ma] > semi_scores[mb]:
-                semi_winners.append(ma)
-                semi_losers.append(mb)
-            elif semi_scores[mb] > semi_scores[ma]:
-                semi_winners.append(mb)
-                semi_losers.append(ma)
-            else:
-                # Exact tie -- coin flip per project-wide SIMULATED-tie
-                # convention (extremely rare with fractional scoring).
-                winner = random.choice([ma, mb])
-                loser = mb if winner == ma else ma
-                semi_winners.append(winner)
-                semi_losers.append(loser)
-    
-    # --- Build Finals Matchups (Week 23) ---
-    # Championship: semi_winners[0] vs semi_winners[1]
-    # Consolation: semi_losers[0] vs semi_losers[1]
-    finals_week_dynamic = dict(finals_week_data)  # shallow copy
-    finals_week_dynamic["matchups"] = [
-        {"manager_a": semi_winners[0], "manager_b": semi_winners[1]},
-        {"manager_a": semi_losers[0], "manager_b": semi_losers[1]},
-    ]
-    
-    # --- Finals (Week 23) ---
-    if fixed_finals is not None:
-        # Finals already complete (post_finals round): use the real results
-        # instead of re-simulating a decided championship.
-        _, _, finals_scores = fixed_finals
-    else:
-        finals_results = simulate_week_hifi(
-            data, team_projections, finals_week_dynamic, injury_statuses
-        )
-        finals_scores = {m: finals_results[m]["score"] for m in MANAGERS}
-    
-    # Championship game
-    cw0, cw1 = semi_winners[0], semi_winners[1]
-    if finals_scores[cw0] > finals_scores[cw1]:
-        champ_winner, champ_loser = cw0, cw1
-    elif finals_scores[cw1] > finals_scores[cw0]:
-        champ_winner, champ_loser = cw1, cw0
-    else:
-        champ_winner = random.choice([cw0, cw1])
-        champ_loser = cw1 if champ_winner == cw0 else cw0
-    
-    # Consolation game
-    cl0, cl1 = semi_losers[0], semi_losers[1]
-    if finals_scores[cl0] > finals_scores[cl1]:
-        consolation_winner, consolation_loser = cl0, cl1
-    elif finals_scores[cl1] > finals_scores[cl0]:
-        consolation_winner, consolation_loser = cl1, cl0
-    else:
-        consolation_winner = random.choice([cl0, cl1])
-        consolation_loser = cl1 if consolation_winner == cl0 else cl0
-    
-    finish_order = [champ_winner, champ_loser, consolation_winner, consolation_loser]
-    
+    # --- Final and Third Place (same weeks) ---
+    final_weeks = rounds[FINAL_ROUND]
+    final_pairs = [tuple(semi_winners), tuple(semi_losers)]
+    final_out = _play_series(data, team_projections, final_pairs, final_weeks,
+                             seeds, decided, injury_statuses, scores_by_week)
+
+    champ_winner, champ_loser, champ_weeks = final_out[0]
+    consolation_winner, consolation_loser, cons_weeks = final_out[1]
+    series.append(SeriesResult(FINAL_ROUND, final_weeks, *final_pairs[0],
+                               champ_weeks, champ_winner, champ_loser))
+    series.append(SeriesResult(THIRD_PLACE_ROUND, final_weeks, *final_pairs[1],
+                               cons_weeks, consolation_winner, consolation_loser))
+
+    final_scores = {m: 0.0 for m in MANAGERS}
+    for week in range(final_weeks[0], final_weeks[1] + 1):
+        for m in MANAGERS:
+            final_scores[m] += scores_by_week.get(week, {}).get(m, 0.0)
+
     return PlayoffSimResult(
         semi_scores=semi_scores,
         semi_winners=semi_winners,
         semi_losers=semi_losers,
-        final_scores=finals_scores,
         champ_winner=champ_winner,
         champ_loser=champ_loser,
         consolation_winner=consolation_winner,
         consolation_loser=consolation_loser,
-        finish_order=finish_order,
+        finish_order=[champ_winner, champ_loser,
+                      consolation_winner, consolation_loser],
+        final_scores=final_scores,
+        series=series,
+        scores_by_week=scores_by_week,
     )
 
 
@@ -445,171 +564,146 @@ def simulate_playoff_bracket(
 # MAIN SIMULATION
 # =============================================================================
 
+def playoff_round_for_week(week: int, season: str = None) -> str:
+    """Where in the postseason `week` sits: for labelling, not for logic."""
+    rounds = bracket_rounds(season)
+    if not rounds:
+        return "pre_playoffs"
+    semi = rounds.get(SEMIFINAL_ROUND)
+    final = rounds.get(FINAL_ROUND)
+    if semi and week < semi[0]:
+        return "pre_playoffs"
+    if semi and semi[0] <= week <= semi[1]:
+        return "semifinals"
+    if final and final[0] <= week <= final[1]:
+        return "final"
+    return "complete"
+
+
 def run_playoff_odds_simulation(
     data: FantasyData,
     num_simulations: int = DEFAULT_NUM_SIMULATIONS,
     seed: int = None,
     injury_statuses: dict[str, str] = None,
 ) -> PlayoffOddsResult:
-    """
-    Run Monte Carlo simulation for playoff championship odds.
-    
-    Uses the same high-fidelity engine as the betting lines:
-    day-by-day NBA schedule, position-aware lineups, injury overrides,
-    partial returns, and Yahoo injury status checks.
-    
-    Simulates the full 2-week bracket N times:
-      Week 22 (semis): #1 vs #4, #2 vs #3
-      Week 23 (finals): semi winners for championship, semi losers for consolation
-    
+    """Monte Carlo the playoff bracket.
+
+    Simulates the full six-week bracket N times:
+      Semifinals (best-of-3)  #1 vs #4, #2 vs #3
+      Final / Third Place     semifinal winners, semifinal losers
+
+    Weeks that have already been played are locked to their real results, so
+    running this mid-series does not re-roll games that happened.
+
     Args:
         data: FantasyData container
-        num_simulations: Number of bracket simulations to run
-        seed: Random seed for reproducibility
-        injury_statuses: Player -> injury status mapping (from Yahoo API, optional)
-    
-    Returns:
-        PlayoffOddsResult with championship probabilities and finish distributions
+        num_simulations: number of bracket simulations to run
+        seed: random seed for reproducibility
+        injury_statuses: player -> injury status (from Yahoo, optional)
     """
     if seed is not None:
         random.seed(seed)
-    
-    current_week = data.current_week
-    
-    # Load projections
-    team_projections = load_all_team_projections(data)
-    
-    # Get the two playoff week schedule entries
-    semi_week_data = None
-    finals_week_data = None
-    for week_data in data.schedule.get("weeks", []):
-        if week_data["week"] == SEMIFINAL_WEEK:
-            semi_week_data = week_data
-        elif week_data["week"] == FINALS_WEEK:
-            finals_week_data = week_data
-    
-    if not semi_week_data or not finals_week_data:
+
+    rounds = bracket_rounds()
+    if not rounds:
         raise ValueError(
-            f"SCHEDULE.json missing playoff weeks. "
-            f"Need weeks {SEMIFINAL_WEEK} and {FINALS_WEEK}."
-        )
-    
-    # Get seeds and records
+            f"{CURRENT_SEASON} has no playoff bracket configured. Check "
+            "postseason_format / season_structure in config/league_config.json.")
+    for required in (SEMIFINAL_ROUND, FINAL_ROUND):
+        if required not in rounds:
+            raise ValueError(
+                f"postseason_format is missing the '{required}' round; "
+                f"found {sorted(rounds)}.")
+
+    current_week = data.current_week
+    team_projections = load_all_team_projections(data)
+
     seeds = get_playoff_seeds(data)
-    current_records = {}
-    for manager in MANAGERS:
-        current_records[manager] = data.get_manager_record(manager)
-    
-    # Determine playoff round context
-    if current_week < SEMIFINAL_WEEK:
-        playoff_round = "pre_semis"
-    elif current_week == SEMIFINAL_WEEK:
-        playoff_round = "pre_finals"
-    else:
-        playoff_round = "post_finals"
+    current_records = {m: data.get_manager_record(m) for m in MANAGERS}
 
-    # If the semifinals have already been played, lock them to their ACTUAL
-    # results so we only Monte-Carlo the finals. Without this, decided
-    # semifinals get re-rolled on every iteration and eliminated teams
-    # wrongly receive championship odds.
-    fixed_semis = None
-    if playoff_round in ("pre_finals", "post_finals"):
-        fixed_semis = get_completed_week_results(data, semi_week_data)
+    semi_matchup_dicts = get_semifinal_matchups(data, seeds)
+    if len(semi_matchup_dicts) != 2:
+        raise ValueError(
+            f"expected 2 semifinal matchups, got {len(semi_matchup_dicts)}. "
+            "Either SCHEDULE.json is missing the bracket weeks or "
+            "postseason_format has no seeds for the semifinals.")
+    semi_pairs = [(m["manager_a"], m["manager_b"]) for m in semi_matchup_dicts]
 
-    # For post_finals (the Week 23 recap), the finals are ALSO decided, so
-    # lock them too -- the champion should show at 100%, not a re-sim guess.
-    fixed_finals = None
-    if playoff_round == "post_finals":
-        fixed_finals = get_completed_week_results(data, finals_week_data)
-    
+    playoff_round = playoff_round_for_week(current_week)
+    decided = _decided_weeks(data)
+
     # --- Run simulations ---
     title_wins = {m: 0 for m in MANAGERS}
     finish_counts = {m: {1: 0, 2: 0, 3: 0, 4: 0} for m in MANAGERS}
-    
-    # Track semi win counts for matchup probabilities
-    semi_win_counts = {m: 0 for m in MANAGERS}
-    
-    # Track championship matchup frequency
+    series_wins = {m: 0 for m in MANAGERS}       # semifinal SERIES wins
     champ_matchup_counts = defaultdict(int)
-    
-    # Track scores for expected score computation
     semi_score_totals = {m: 0.0 for m in MANAGERS}
     final_score_totals = {m: 0.0 for m in MANAGERS}
     final_appearances = {m: 0 for m in MANAGERS}
-    
-    for sim in range(num_simulations):
+    sweeps = defaultdict(int)
+    series_played = defaultdict(int)
+
+    for _ in range(num_simulations):
         result = simulate_playoff_bracket(
-            data, team_projections,
-            semi_week_data, finals_week_data,
-            injury_statuses,
-            fixed_semis=fixed_semis,
-            fixed_finals=fixed_finals,
+            data, team_projections, semi_pairs, seeds,
+            decided=decided, injury_statuses=injury_statuses,
         )
-        
-        # Title winner
+
         title_wins[result.champ_winner] += 1
-        
-        # Finish positions
         for pos, manager in enumerate(result.finish_order, 1):
             finish_counts[manager][pos] += 1
-        
-        # Semi wins
         for w in result.semi_winners:
-            semi_win_counts[w] += 1
-        
-        # Championship matchup tracking
-        champ_key = "_vs_".join(sorted(result.semi_winners))
-        champ_matchup_counts[champ_key] += 1
-        
-        # Score tracking
+            series_wins[w] += 1
+
+        champ_matchup_counts["_vs_".join(sorted(result.semi_winners))] += 1
+
         for m in MANAGERS:
             semi_score_totals[m] += result.semi_scores[m]
-        
-        # Finals scores -- only for managers who made the championship game
         for m in result.semi_winners:
             final_appearances[m] += 1
             final_score_totals[m] += result.final_scores[m]
-    
+
+        for s in result.series:
+            series_played[s.round_name] += 1
+            if s.week_winners.count(s.winner) == len(s.week_winners):
+                sweeps[s.round_name] += 1
+
     # --- Compute results ---
     title_odds = {m: (title_wins[m] / num_simulations) * 100 for m in MANAGERS}
-    
     finish_distribution = {
         m: {pos: (count / num_simulations) * 100 for pos, count in positions.items()}
         for m, positions in finish_counts.items()
     }
-    
-    # Semifinal matchup probabilities
+
     semi_matchups = []
-    for matchup in semi_week_data["matchups"]:
-        ma = matchup["manager_a"]
-        mb = matchup["manager_b"]
-        win_prob_a = (semi_win_counts[ma] / num_simulations) * 100
-        win_prob_b = (semi_win_counts[mb] / num_simulations) * 100
+    for (ma, mb) in semi_pairs:
         semi_matchups.append({
             "manager_a": ma,
             "manager_b": mb,
-            "win_prob_a": round(win_prob_a, 1),
-            "win_prob_b": round(win_prob_b, 1),
+            "win_prob_a": round((series_wins[ma] / num_simulations) * 100, 1),
+            "win_prob_b": round((series_wins[mb] / num_simulations) * 100, 1),
             "seed_a": seeds[ma],
             "seed_b": seeds[mb],
+            "weeks": list(rounds[SEMIFINAL_ROUND]),
+            "format": "best-of-3",
         })
-    
-    # Championship matchup probabilities
+
     championship_matchup_probs = {
         key: (count / num_simulations) * 100
         for key, count in champ_matchup_counts.items()
     }
-    
-    # Expected scores
-    expected_semi_scores = {
-        m: semi_score_totals[m] / num_simulations for m in MANAGERS
-    }
+
+    expected_semi_scores = {m: semi_score_totals[m] / num_simulations for m in MANAGERS}
     expected_final_scores = {
-        m: (final_score_totals[m] / final_appearances[m]) if final_appearances[m] > 0 else 0.0
+        m: (final_score_totals[m] / final_appearances[m]) if final_appearances[m] else 0.0
         for m in MANAGERS
     }
-    
-    # Delta from last week's title odds (if available)
+
+    sweep_probability = {
+        name: (sweeps[name] / series_played[name]) * 100
+        for name in series_played if series_played[name]
+    }
+
     title_odds_delta = {}
     last_week_key = f"week_{current_week - 1}"
     if last_week_key in data.records.get("title_odds_history", {}):
@@ -617,13 +711,7 @@ def run_playoff_odds_simulation(
         for manager in MANAGERS:
             if manager in last_odds:
                 title_odds_delta[manager] = title_odds[manager] - last_odds[manager]
-    
-    # Build compatibility fields for power_rankings consumption
-    # expected_record stays as the regular season final record
-    expected_record = {m: current_records[m] for m in MANAGERS}
-    # magic_numbers not applicable in playoffs
-    magic_numbers = {m: None for m in MANAGERS}
-    
+
     return PlayoffOddsResult(
         num_simulations=num_simulations,
         current_week=current_week,
@@ -636,15 +724,22 @@ def run_playoff_odds_simulation(
         expected_final_scores=expected_final_scores,
         current_records=current_records,
         seeds=seeds,
+        round_weeks={name: list(weeks) for name, weeks in rounds.items()},
+        sweep_probability=sweep_probability,
         title_odds_delta=title_odds_delta,
-        expected_record=expected_record,
-        magic_numbers=magic_numbers,
+        expected_record={m: current_records[m] for m in MANAGERS},
+        magic_numbers={m: None for m in MANAGERS},
     )
 
 
 # =============================================================================
 # OUTPUT FORMATTING
 # =============================================================================
+
+def _weeks_label(weeks) -> str:
+    first, last = weeks[0], weeks[-1]
+    return f"Week {first}" if first == last else f"Weeks {first}-{last}"
+
 
 def format_playoff_odds_table(result: PlayoffOddsResult) -> str:
     """Format playoff odds as a text table."""
@@ -653,21 +748,22 @@ def format_playoff_odds_table(result: PlayoffOddsResult) -> str:
     lines.append("=" * 60)
     lines.append("")
 
-    # Semifinal matchup probabilities
-    lines.append("SEMIFINAL MATCHUPS (Week 22):")
+    semi_weeks = result.round_weeks.get(SEMIFINAL_ROUND, [])
+    label = f" ({_weeks_label(semi_weeks)}, best-of-3)" if semi_weeks else ""
+    lines.append(f"SEMIFINAL SERIES{label}:")
     lines.append("-" * 40)
     for semi in result.semi_matchups:
         ma, mb = semi["manager_a"], semi["manager_b"]
         pa, pb = semi["win_prob_a"], semi["win_prob_b"]
         sa, sb = semi["seed_a"], semi["seed_b"]
         lines.append(f"  #{sa} {ma} ({pa:.1f}%) vs #{sb} {mb} ({pb:.1f}%)")
+    if result.sweep_probability.get(SEMIFINAL_ROUND) is not None:
+        lines.append(f"  sweep (3-0): {result.sweep_probability[SEMIFINAL_ROUND]:.1f}%")
     lines.append("")
 
-    # Championship probabilities
-    lines.append("CHAMPIONSHIP PROBABILITY:")
+    lines.append("PLAYOFF CHAMPIONSHIP PROBABILITY:")
     lines.append("-" * 40)
-    sorted_managers = sorted(MANAGERS, key=lambda m: result.title_odds[m], reverse=True)
-    for manager in sorted_managers:
+    for manager in sorted(MANAGERS, key=lambda m: result.title_odds[m], reverse=True):
         odds = result.title_odds[manager]
         seed = result.seeds[manager]
         dist = result.finish_distribution[manager]
@@ -675,21 +771,25 @@ def format_playoff_odds_table(result: PlayoffOddsResult) -> str:
         delta_str = f" ({delta:+.1f}%)" if delta is not None else ""
         lines.append(
             f"  #{seed} {manager}: {odds:.1f}%{delta_str}"
-            f"  [1st: {dist[1]:.1f}% | 2nd: {dist[2]:.1f}% | 3rd: {dist[3]:.1f}% | 4th: {dist[4]:.1f}%]"
+            f"  [1st: {dist[1]:.1f}% | 2nd: {dist[2]:.1f}% | "
+            f"3rd: {dist[3]:.1f}% | 4th: {dist[4]:.1f}%]"
         )
     lines.append("")
 
-    # Most likely championship matchup
     if result.championship_matchup_probs:
-        lines.append("MOST LIKELY CHAMPIONSHIP GAME:")
+        final_weeks = result.round_weeks.get(FINAL_ROUND, [])
+        label = f" ({_weeks_label(final_weeks)})" if final_weeks else ""
+        lines.append(f"MOST LIKELY FINAL{label}:")
         lines.append("-" * 40)
-        sorted_matchups = sorted(
-            result.championship_matchup_probs.items(),
-            key=lambda x: x[1], reverse=True
-        )
-        for matchup_key, prob in sorted_matchups:
+        for matchup_key, prob in sorted(result.championship_matchup_probs.items(),
+                                        key=lambda x: x[1], reverse=True):
             m1, m2 = matchup_key.split("_vs_")
             lines.append(f"  {m1} vs {m2}: {prob:.1f}%")
+
+    lines.append("")
+    lines.append("NOTE: this is the PLAYOFF championship. The League Champion is")
+    lines.append("      the regular-season winner, already decided. The Cup runs")
+    lines.append("      after this -- see simulator_cup_odds.py.")
 
     return "\n".join(lines)
 
@@ -705,3 +805,4 @@ if __name__ == "__main__":
     week = int(sys.argv[1]) if len(sys.argv) > 1 else 1
     data = load_all_data(Path('.'))
     print(f"Week {week}: playoff odds simulator loaded.")
+    print(f"Bracket: {bracket_rounds()}")

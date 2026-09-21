@@ -8,6 +8,81 @@ This file preserves the detailed development history that was originally tracked
 
 ## Changelog
 
+### September 2026
+
+**September 21, 2026 - The 2026-27 format change: three stages, three champions, uneven keepers**
+
+Two league rules changed at once and the engine assumed neither. The season is
+no longer 21 regular-season weeks with a two-week bracket bolted on the end,
+and from 2027-28 the four managers no longer keep the same number of players.
+
+**The new shape**
+
+| Weeks | Stage | Decides |
+|-------|-------|---------|
+| 1-15 | Regular season, 5 meetings per opponent | League Champion ($180) |
+| 16-21 | Best-of-3 bracket (semis 16-18, final and 3rd place 19-21) | Playoff Champion ($90) |
+| 22-23 | The Cup, single elimination, seeded on total points wks 1-21 | Cup Champion (an extra keeper) |
+
+**Config is now the single source of truth**
+- New `postseason_format` block: stage week ranges, series formats, round
+  definitions, seeding rules and the title each stage decides.
+- New `keeper_rules` block: per-season `base` + `cup_winner_bonus`, a `default`
+  that unlisted future seasons inherit, and `cup_winners`, which records who
+  earns the extra keeper. `keepers_for()` will NOT guess when it is unset --
+  a visibly short draft beats a silently misassigned keeper.
+- New `payouts` block.
+- `season.regular_season_weeks` 21 -> 15, `playoff_start_week` 22 -> 16.
+- `yahoo.current_league_key` emptied rather than left pointing at 2025-26, so
+  no script can silently pull last season as if it were current.
+
+**New data_loader helpers** -- `uses_three_stage_format`, `stage_weeks`,
+`stage_rounds`, `phase_for_week`, `is_playoff_week`, `is_cup_week`,
+`is_postseason_week`, `series_length`, `keeper_rules_for`, `cup_winner`,
+`keepers_for`, `live_picks_for`, `first_keeper_round`, and `TOTAL_ROUNDS`
+(roster_size - il_slots, which does not move when keeper counts do).
+
+**`simulator_playoff_odds.py` rewritten** -- was a one-week semifinal and a
+one-week final hardcoded to weeks 22 and 23. Now plays six weeks, decides each
+series on week wins, plays every week of a series even once it is decided, and
+resolves any already-played week from the real results instead of re-rolling
+it. The old `fixed_semis`/`fixed_finals` pair is gone: with a six-week
+postseason, "which weeks are decided" is a per-week question.
+
+**New `simulator_cup_odds.py`** -- seeds on points over weeks 1-21, simulates
+both rounds, and reports the keeper consequence alongside the odds.
+
+**Fixed, each of which was silently wrong**
+- `records_tracker` compared against the scalar `REGULAR_SEASON_WEEKS` for the
+  current season, which would have counted weeks 16-21 as regular season in
+  every W-L record, every h2h series, and the draft order built from them.
+- `report_builder` read the regular/playoff boundary out of `SCHEDULE.json`,
+  which is stale for most of the preseason.
+- `stats_corner_viz` held a hardcoded table of two-week brackets and unpacked
+  it as `semi_week, final_week`; the 2026-27 entry would have been read as
+  "weeks 16 and 23", letting 17-22 through as regular season.
+- `build_draft_order` used `total_draft_rounds` -- a ROUND count -- as the
+  fallback for a WEEK count, and tallied every manager against one pick total.
+- `test_pick_counts_must_equal_fillable_spots_minus_keepers` and
+  `test_draft_rounds_equal_the_non_il_roster_spots` both assumed uniform
+  keepers and would have failed in 2027-28.
+
+**Guards added**
+- `verify_project_integrity` now cross-checks the week layout, round math,
+  keeper counts and payouts against each other, and warns while the Cup winner
+  is unrecorded.
+- `start_new_season` refuses to archive a season whose Cup winner has not been
+  written down.
+- New test files: `test_season_format.py`, `test_playoff_bracket.py`,
+  `test_cup.py`. Suite went from 148 tests to 236.
+
+**Known limitation** -- `total_draft_rounds` and `keepers_per_team` in
+`league_structure` remain scalars describing the current season. They are
+correct for 2026-27 and become meaningless in 2027-28; the integrity check
+validates them only while keepers are still uniform.
+
+---
+
 ### March 2026
 
 **March 24, 2026 - Playoff System**
