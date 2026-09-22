@@ -6,7 +6,12 @@
     "wins": 16,
     "losses": 7,
     "ties": 0,
-    "points_for": 34524.8
+    "points_for": 34524.8,
+    "rank_basis": "all_games_record",
+    "reg_wins": 14,
+    "reg_losses": 7,
+    "regular_season_rank": 1,
+    "playoff_rank": 1
   },
   {
     "season": "2017-18",
@@ -15,7 +20,12 @@
     "wins": 13,
     "losses": 10,
     "ties": 0,
-    "points_for": 31944.3
+    "points_for": 31944.3,
+    "rank_basis": "all_games_record",
+    "reg_wins": 12,
+    "reg_losses": 9,
+    "regular_season_rank": 2,
+    "playoff_rank": 3
   },
   {
     "season": "2017-18",
@@ -24,7 +34,12 @@
     "wins": 11,
     "losses": 12,
     "ties": 0,
-    "points_for": 32548.9
+    "points_for": 32548.9,
+    "rank_basis": "all_games_record",
+    "reg_wins": 10,
+    "reg_losses": 11,
+    "regular_season_rank": 3,
+    "playoff_rank": 2
   },
   {
     "season": "2017-18",
@@ -33,7 +48,12 @@
     "wins": 6,
     "losses": 17,
     "ties": 0,
-    "points_for": 29869.7
+    "points_for": 29869.7,
+    "rank_basis": "all_games_record",
+    "reg_wins": 6,
+    "reg_losses": 15,
+    "regular_season_rank": 4,
+    "playoff_rank": 4
   },
   {
     "season": "2018-19",
@@ -42,7 +62,12 @@
     "wins": 15,
     "losses": 8,
     "ties": 0,
-    "points_for": 36587.15
+    "points_for": 36587.15,
+    "rank_basis": "all_games_record",
+    "reg_wins": 13,
+    "reg_losses": 8,
+    "regular_season_rank": 1,
+    "playoff_rank": 1
   },
   {
     "season": "2018-19",
@@ -51,7 +76,12 @@
     "wins": 14,
     "losses": 9,
     "ties": 0,
-    "points_for": 36534.65
+    "points_for": 36534.65,
+    "rank_basis": "all_games_record",
+    "reg_wins": 13,
+    "reg_losses": 8,
+    "regular_season_rank": 2,
+    "playoff_rank": 2
   },
   {
     "season": "2018-19",
@@ -60,7 +90,12 @@
     "wins": 9,
     "losses": 14,
     "ties": 0,
-    "points_for": 34242.1
+    "points_for": 34242.1,
+    "rank_basis": "all_games_record",
+    "reg_wins": 9,
+    "reg_losses": 12,
+    "regular_season_rank": 3,
+    "playoff_rank": 4
   },
   {
     "season": "2018-19",
@@ -69,7 +104,12 @@
     "wins": 8,
     "losses": 15,
     "ties": 0,
-    "points_for": 33978.05
+    "points_for": 33978.05,
+    "rank_basis": "all_games_record",
+    "reg_wins": 7,
+    "reg_losses": 14,
+    "regular_season_rank": 4,
+    "playoff_rank": 3
   },
   {
     "season": "2019-20",
@@ -78,7 +118,12 @@
     "wins": 12,
     "losses": 7,
     "ties": 0,
-    "points_for": 29151.25
+    "points_for": 29151.25,
+    "rank_basis": "all_games_record",
+    "reg_wins": 12,
+    "reg_losses": 7,
+    "regular_season_rank": 1,
+    "playoff_rank": null
   },
   {
     "season": "2019-20",
@@ -87,7 +132,12 @@
     "wins": 10,
     "losses": 9,
     "ties": 0,
-    "points_for": 28343.2
+    "points_for": 28343.2,
+    "rank_basis": "all_games_record",
+    "reg_wins": 10,
+    "reg_losses": 9,
+    "regular_season_rank": 2,
+    "playoff_rank": null
   },
   {
     "season": "2019-20",
@@ -96,7 +146,12 @@
     "wins": 9,
     "losses": 10,
     "ties": 0,
-    "points_for": 27506.75
+    "points_for": 27506.75,
+    "rank_basis": "all_games_record",
+    "reg_wins": 9,
+    "reg_losses": 10,
+    "regular_season_rank": 3,
+    "playoff_rank": null
   },
   {
     "season": "2019-20",
@@ -105,7 +160,12 @@
     "wins": 7,
     "losses": 12,
     "ties": 0,
-    "points_for": 27344.6
+    "points_for": 27344.6,
+    "rank_basis": "all_games_record",
+    "reg_wins": 7,
+    "reg_losses": 12,
+    "regular_season_rank": 4,
+    "playoff_rank": null
   },
   {
     "season": "2020-21",
@@ -114,7 +174,12 @@
     "wins": 14,
     "losses": 4,
     "ties": 0,
-    "points_for": 31346.75
+    "points_for": 31346.75,
+    "rank_basis": "all_games_record",
+    "reg_wins": 13,
+    "reg_losses": 3,
+    "regular_season_rank": 1,
+    "playoff_rank": 2
   },
   {
     "season": "2020-21",
@@ -123,7 +188,12 @@
     "wins": 11,
     "losses": 7,
     "ties": 0,
-    "points_for": 29873.6
+    "points_for": 29873.6,
+    "rank_basis": "all_games_record",
+    "reg_wins": 9,
+    "reg_losses": 7,
+    "regular_season_rank": 3,
+    "playoff_rank": 1
   },
   {
     "season": "2020-21",
@@ -132,7 +202,12 @@
     "wins": 11,
     "losses": 7,
     "ties": 0,
-    "points_for": 29209.55
+    "points_for": 29209.55,
+    "rank_basis": "all_games_record",
+    "reg_wins": 10,
+    "reg_losses": 6,
+    "regular_season_rank": 2,
+    "playoff_rank": 3
   },
   {
     "season": "2020-21",
@@ -141,7 +216,12 @@
     "wins": 0,
     "losses": 18,
     "ties": 0,
-    "points_for": 25900.9
+    "points_for": 25900.9,
+    "rank_basis": "all_games_record",
+    "reg_wins": 0,
+    "reg_losses": 16,
+    "regular_season_rank": 4,
+    "playoff_rank": 4
   },
   {
     "season": "2021-22",
@@ -150,7 +230,12 @@
     "wins": 15,
     "losses": 7,
     "ties": 0,
-    "points_for": 34164.2
+    "points_for": 34164.2,
+    "rank_basis": "all_games_record",
+    "reg_wins": 13,
+    "reg_losses": 7,
+    "regular_season_rank": 1,
+    "playoff_rank": 1
   },
   {
     "season": "2021-22",
@@ -159,7 +244,12 @@
     "wins": 11,
     "losses": 11,
     "ties": 0,
-    "points_for": 31599.75
+    "points_for": 31599.75,
+    "rank_basis": "all_games_record",
+    "reg_wins": 10,
+    "reg_losses": 10,
+    "regular_season_rank": 2,
+    "playoff_rank": 2
   },
   {
     "season": "2021-22",
@@ -168,7 +258,12 @@
     "wins": 10,
     "losses": 12,
     "ties": 0,
-    "points_for": 33955.1
+    "points_for": 33955.1,
+    "rank_basis": "all_games_record",
+    "reg_wins": 10,
+    "reg_losses": 10,
+    "regular_season_rank": 3,
+    "playoff_rank": 4
   },
   {
     "season": "2021-22",
@@ -177,7 +272,12 @@
     "wins": 8,
     "losses": 14,
     "ties": 0,
-    "points_for": 31339.05
+    "points_for": 31339.05,
+    "rank_basis": "all_games_record",
+    "reg_wins": 7,
+    "reg_losses": 13,
+    "regular_season_rank": 4,
+    "playoff_rank": 3
   },
   {
     "season": "2022-23",
@@ -186,7 +286,12 @@
     "wins": 18,
     "losses": 5,
     "ties": 0,
-    "points_for": 37483.15
+    "points_for": 37483.15,
+    "rank_basis": "all_games_record",
+    "reg_wins": 16,
+    "reg_losses": 5,
+    "regular_season_rank": 1,
+    "playoff_rank": 1
   },
   {
     "season": "2022-23",
@@ -195,7 +300,12 @@
     "wins": 10,
     "losses": 13,
     "ties": 0,
-    "points_for": 33947.45
+    "points_for": 33947.45,
+    "rank_basis": "all_games_record",
+    "reg_wins": 9,
+    "reg_losses": 12,
+    "regular_season_rank": 2,
+    "playoff_rank": 2
   },
   {
     "season": "2022-23",
@@ -204,7 +314,12 @@
     "wins": 9,
     "losses": 14,
     "ties": 0,
-    "points_for": 34925.1
+    "points_for": 34925.1,
+    "rank_basis": "all_games_record",
+    "reg_wins": 9,
+    "reg_losses": 12,
+    "regular_season_rank": 3,
+    "playoff_rank": 4
   },
   {
     "season": "2022-23",
@@ -213,7 +328,12 @@
     "wins": 9,
     "losses": 14,
     "ties": 0,
-    "points_for": 34145.55
+    "points_for": 34145.55,
+    "rank_basis": "all_games_record",
+    "reg_wins": 8,
+    "reg_losses": 13,
+    "regular_season_rank": 4,
+    "playoff_rank": 3
   },
   {
     "season": "2023-24",
@@ -222,7 +342,12 @@
     "wins": 16,
     "losses": 7,
     "ties": 0,
-    "points_for": 39818.6
+    "points_for": 39818.6,
+    "rank_basis": "all_games_record",
+    "reg_wins": 15,
+    "reg_losses": 6,
+    "regular_season_rank": 1,
+    "playoff_rank": 2
   },
   {
     "season": "2023-24",
@@ -231,7 +356,12 @@
     "wins": 13,
     "losses": 10,
     "ties": 0,
-    "points_for": 39053.0
+    "points_for": 39053.0,
+    "rank_basis": "all_games_record",
+    "reg_wins": 12,
+    "reg_losses": 9,
+    "regular_season_rank": 2,
+    "playoff_rank": 3
   },
   {
     "season": "2023-24",
@@ -240,7 +370,12 @@
     "wins": 13,
     "losses": 10,
     "ties": 0,
-    "points_for": 38955.85
+    "points_for": 38955.85,
+    "rank_basis": "all_games_record",
+    "reg_wins": 11,
+    "reg_losses": 10,
+    "regular_season_rank": 3,
+    "playoff_rank": 1
   },
   {
     "season": "2023-24",
@@ -249,7 +384,12 @@
     "wins": 4,
     "losses": 19,
     "ties": 0,
-    "points_for": 35748.55
+    "points_for": 35748.55,
+    "rank_basis": "all_games_record",
+    "reg_wins": 4,
+    "reg_losses": 17,
+    "regular_season_rank": 4,
+    "playoff_rank": 4
   },
   {
     "season": "2024-25",
@@ -258,7 +398,12 @@
     "wins": 19,
     "losses": 4,
     "ties": 0,
-    "points_for": 40510.05
+    "points_for": 40510.05,
+    "rank_basis": "all_games_record",
+    "reg_wins": 17,
+    "reg_losses": 4,
+    "regular_season_rank": 1,
+    "playoff_rank": 1
   },
   {
     "season": "2024-25",
@@ -267,7 +412,12 @@
     "wins": 15,
     "losses": 8,
     "ties": 0,
-    "points_for": 40479.7
+    "points_for": 40479.7,
+    "rank_basis": "all_games_record",
+    "reg_wins": 14,
+    "reg_losses": 7,
+    "regular_season_rank": 2,
+    "playoff_rank": 2
   },
   {
     "season": "2024-25",
@@ -276,7 +426,12 @@
     "wins": 6,
     "losses": 17,
     "ties": 0,
-    "points_for": 37769.15
+    "points_for": 37769.15,
+    "rank_basis": "all_games_record",
+    "reg_wins": 5,
+    "reg_losses": 16,
+    "regular_season_rank": 4,
+    "playoff_rank": 3
   },
   {
     "season": "2024-25",
@@ -285,6 +440,67 @@
     "wins": 6,
     "losses": 17,
     "ties": 0,
-    "points_for": 37013.75
+    "points_for": 37013.75,
+    "rank_basis": "all_games_record",
+    "reg_wins": 6,
+    "reg_losses": 15,
+    "regular_season_rank": 3,
+    "playoff_rank": 4
+  },
+  {
+    "season": "2025-26",
+    "manager": "Nick",
+    "rank": 1,
+    "rank_basis": "all_games_record",
+    "wins": 17,
+    "losses": 6,
+    "ties": 0,
+    "points_for": 37562.4,
+    "reg_wins": 17,
+    "reg_losses": 4,
+    "regular_season_rank": 1,
+    "playoff_rank": 4
+  },
+  {
+    "season": "2025-26",
+    "manager": "Garrett",
+    "rank": 2,
+    "rank_basis": "all_games_record",
+    "wins": 12,
+    "losses": 11,
+    "ties": 0,
+    "points_for": 36009.7,
+    "reg_wins": 10,
+    "reg_losses": 11,
+    "regular_season_rank": 3,
+    "playoff_rank": 1
+  },
+  {
+    "season": "2025-26",
+    "manager": "Benton",
+    "rank": 3,
+    "rank_basis": "all_games_record",
+    "wins": 11,
+    "losses": 12,
+    "ties": 0,
+    "points_for": 35918.4,
+    "reg_wins": 10,
+    "reg_losses": 11,
+    "regular_season_rank": 2,
+    "playoff_rank": 3
+  },
+  {
+    "season": "2025-26",
+    "manager": "Hayden",
+    "rank": 4,
+    "rank_basis": "all_games_record",
+    "wins": 6,
+    "losses": 17,
+    "ties": 0,
+    "points_for": 35067.7,
+    "reg_wins": 5,
+    "reg_losses": 16,
+    "regular_season_rank": 4,
+    "playoff_rank": 2
   }
 ]

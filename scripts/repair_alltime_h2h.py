@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-repair_alltime_h2h.py -- Rebuild all_time.h2h from the matchup record.
+repair_alltime_h2h.py -- Rebuild all_time.h2h AND manager_careers from the
+matchup record, regular season only.
 
 WHY
 ---
@@ -26,9 +27,24 @@ Two things had to be settled before this could be done correctly:
 
 Both are now handled: cutoffs come from league_config season_structure.
 
+manager_careers has the SAME bug, found later: its docstring in
+records_tracker says "Total wins/losses (REGULAR SEASON ONLY)" and the guard
+is in the code, but the stored totals were accumulated before that guard
+existed and were never rebuilt. Checked: every manager's stored record is
+exactly their regular-season record plus their postseason record, across all
+eight bracket seasons -- Nick 120-77 stored, 113-68 regular, 7-9 postseason.
+Career win %, which the newsletter prints, is computed from those totals.
+
 WHAT CHANGES
 ------------
-Only all_time.h2h. Every other key in RECORDS.json is left untouched.
+all_time.h2h, and all_time.manager_careers total_wins / total_losses /
+win_pct / games_played. Every other key in RECORDS.json -- including
+total_points_scored, titles, playoff_titles and franchise_player -- is left
+untouched.
+
+NOT CHANGED, deliberately: `titles` and `playoff_titles`. LEAGUEHISTORY.xlsx
+is the source of truth for those and it includes two pre-Yahoo seasons this
+script has no data for.
 
 This visibly changes the record book -- the newsletter's all-time series lines
 will read differently. Dry-run first and look at the diff.
@@ -36,6 +52,8 @@ will read differently. Dry-run first and look at the diff.
 USAGE
     py scripts/repair_alltime_h2h.py
     py scripts/repair_alltime_h2h.py --execute
+    py scripts/repair_alltime_h2h.py --execute --h2h-only
+    py scripts/repair_alltime_h2h.py --execute --careers-only
 """
 
 import argparse
@@ -106,9 +124,24 @@ def build(games):
     return {k: dict(sorted(v.items())) for k, v in out.items()}, kept, dropped
 
 
+def build_careers(games):
+    """{manager: [wins, losses]} over regular-season games only."""
+    out = defaultdict(lambda: [0, 0])
+    for season, week, w, l in games:
+        if not is_regular_season_week(season, week):
+            continue
+        out[w][0] += 1
+        out[l][1] += 1
+    return {m: v for m, v in sorted(out.items())}
+
+
 def main():
     ap = argparse.ArgumentParser(description="Rebuild all_time.h2h, regular season only.")
     ap.add_argument("--execute", action="store_true", help="write (default: dry run)")
+    ap.add_argument("--h2h-only", action="store_true",
+                    help="rebuild all_time.h2h and leave manager_careers alone")
+    ap.add_argument("--careers-only", action="store_true",
+                    help="rebuild manager_careers and leave all_time.h2h alone")
     args = ap.parse_args()
 
     for p in (RECORDS, SCHEDULE, ALL_MATCHUPS):
@@ -140,37 +173,79 @@ def main():
             changed += 1
         print(f"  {k:24} {str(s):>22} {str(c):>22}  {sum(s.values())-sum(c.values()):>8}")
 
-    if not changed:
+    careers_correct = build_careers(games)
+    stored_careers = records.get("all_time", {}).get("manager_careers", {})
+    careers_changed = 0
+    if not args.h2h_only:
+        print(f"\n  {'manager':10} {'stored W-L':>14} {'regular season only':>22}  "
+              f"{'removed':>8}")
+        for m in sorted(set(stored_careers) | set(careers_correct)):
+            cur = stored_careers.get(m, {})
+            sw, sl = cur.get("total_wins", 0), cur.get("total_losses", 0)
+            cw, cl = careers_correct.get(m, [0, 0])
+            if (sw, sl) != (cw, cl):
+                careers_changed += 1
+            print(f"  {m:10} {sw:>6}-{sl:<7} {cw:>10}-{cl:<11} "
+                  f"{(sw + sl) - (cw + cl):>8}")
+
+    if args.careers_only:
+        changed = 0
+    if args.h2h_only:
+        careers_changed = 0
+
+    if not changed and not careers_changed:
         print("\n  Already correct. Nothing to do.")
         return 0
 
     if not args.execute:
-        print(f"\n  [DRY-RUN] {changed} pair(s) would change. Nothing written.")
-        print("  This changes the all-time series numbers the newsletter prints.")
+        print(f"\n  [DRY-RUN] {changed} pair(s) and {careers_changed} career "
+              "record(s) would change. Nothing written.")
+        print("  This changes the all-time series and career win % the")
+        print("  newsletter prints.")
         return 0
 
     backup = RECORDS.with_suffix(".json.bak")
     shutil.copy2(RECORDS, backup)
     print(f"\n  Backup: {backup.name}")
 
-    # Preserve the original capitalisation of manager names.
-    case = {}
-    for v in records.get("all_time", {}).get("h2h", {}).values():
-        for name in v:
-            case[name.lower()] = name
-    records.setdefault("all_time", {})["h2h"] = {
-        k: {case.get(n, n): c for n, c in sorted(v.items())}
-        for k, v in sorted(correct.items())
-    }
+    if not args.careers_only:
+        # Preserve the original capitalisation of manager names.
+        case = {}
+        for v in records.get("all_time", {}).get("h2h", {}).values():
+            for name in v:
+                case[name.lower()] = name
+        records.setdefault("all_time", {})["h2h"] = {
+            k: {case.get(n, n): c for n, c in sorted(v.items())}
+            for k, v in sorted(correct.items())
+        }
+
+    if not args.h2h_only:
+        careers = records.setdefault("all_time", {}).setdefault("manager_careers", {})
+        for m, (w, l) in careers_correct.items():
+            entry = careers.setdefault(m, {})
+            entry["total_wins"] = w
+            entry["total_losses"] = l
+            entry["games_played"] = w + l
+            entry["games_scope"] = "regular_season"
+            entry["win_pct"] = round((w / (w + l)) * 100, 1) if (w + l) else 0
+
     RECORDS.write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
 
     check = json.loads(RECORDS.read_text(encoding="utf-8"))
-    got = {k: {kk.lower(): vv for kk, vv in v.items()}
-           for k, v in check["all_time"]["h2h"].items()}
-    if got != correct:
-        print("  VERIFICATION FAILED -- restore from the backup.")
-        return 1
-    print(f"  Wrote and verified {len(correct)} pairs. Only all_time.h2h changed.")
+    if not args.careers_only:
+        got = {k: {kk.lower(): vv for kk, vv in v.items()}
+               for k, v in check["all_time"]["h2h"].items()}
+        if got != correct:
+            print("  VERIFICATION FAILED (h2h) -- restore from the backup.")
+            return 1
+    if not args.h2h_only:
+        for m, (w, l) in careers_correct.items():
+            got = check["all_time"]["manager_careers"][m]
+            if (got["total_wins"], got["total_losses"], got["games_played"]) != (w, l, w + l):
+                print(f"  VERIFICATION FAILED (careers: {m}) -- restore from the backup.")
+                return 1
+    print(f"  Wrote and verified {len(correct)} pairs and "
+          f"{len(careers_correct)} career records.")
     return 0
 
 

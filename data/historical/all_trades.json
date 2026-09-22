@@ -980,5 +980,181 @@
         "to_manager": "Nick"
       }
     ]
+  },
+  {
+    "season": "2025-26",
+    "timestamp": null,
+    "date": "2025-12-08",
+    "week": 7,
+    "trader_team": "Luka my Balls",
+    "tradee_team": "Saboner",
+    "trader_manager": "Nick",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Austin Reaves",
+        "from_team": "Luka my Balls",
+        "to_team": "Saboner",
+        "from_manager": "Nick",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Karl-Anthony Towns",
+        "from_team": "Saboner",
+        "to_team": "Luka my Balls",
+        "from_manager": "Garrett",
+        "to_manager": "Nick"
+      }
+    ],
+    "picks": {
+      "Nick": [
+        "2026 2nd (Nick)"
+      ],
+      "Garrett": [
+        "2026 7th (Garrett)"
+      ]
+    }
+  },
+  {
+    "season": "2025-26",
+    "timestamp": null,
+    "date": "2025-12-15",
+    "week": 8,
+    "trader_team": "Luka my Balls",
+    "tradee_team": "Smaxey",
+    "trader_manager": "Nick",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Trey Murphy III",
+        "from_team": "Luka my Balls",
+        "to_team": "Smaxey",
+        "from_manager": "Nick",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Devin Booker",
+        "from_team": "Smaxey",
+        "to_team": "Luka my Balls",
+        "from_manager": "Benton",
+        "to_manager": "Nick"
+      }
+    ],
+    "picks": {
+      "Nick": [
+        "2026 1st (Nick)"
+      ],
+      "Benton": [
+        "2026 2nd (Benton)"
+      ]
+    }
+  },
+  {
+    "season": "2025-26",
+    "timestamp": null,
+    "date": "2026-01-23",
+    "week": 14,
+    "trader_team": "Big Nik Energy",
+    "tradee_team": "Saboner",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Stephen Curry",
+        "from_team": "Big Nik Energy",
+        "to_team": "Saboner",
+        "from_manager": "Hayden",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "VJ Edgecombe",
+        "from_team": "Saboner",
+        "to_team": "Big Nik Energy",
+        "from_manager": "Garrett",
+        "to_manager": "Hayden"
+      }
+    ],
+    "picks": {
+      "Hayden": [
+        "2026 7th (Hayden)",
+        "2026 8th (Hayden)"
+      ],
+      "Garrett": [
+        "2026 1st (Garrett)",
+        "2026 5th (Garrett)"
+      ]
+    }
+  },
+  {
+    "season": "2025-26",
+    "timestamp": null,
+    "date": "2026-01-27",
+    "week": 15,
+    "trader_team": "Big Nik Energy",
+    "tradee_team": "Smaxey",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Benton",
+    "players": [
+      {
+        "player_name": "Michael Porter Jr.",
+        "from_team": "Big Nik Energy",
+        "to_team": "Smaxey",
+        "from_manager": "Hayden",
+        "to_manager": "Benton"
+      },
+      {
+        "player_name": "Lauri Markkanen",
+        "from_team": "Smaxey",
+        "to_team": "Big Nik Energy",
+        "from_manager": "Benton",
+        "to_manager": "Hayden"
+      }
+    ],
+    "picks": {
+      "Hayden": [
+        "2026 6th (Hayden)",
+        "2027 2nd (Hayden)"
+      ],
+      "Benton": [
+        "2026 5th (Benton)",
+        "2027 5th (Benton)"
+      ]
+    }
+  },
+  {
+    "season": "2025-26",
+    "timestamp": null,
+    "date": "Feb 2 - Feb 8",
+    "week": 16,
+    "trader_team": "Big Nik Energy",
+    "tradee_team": "Saboner",
+    "trader_manager": "Hayden",
+    "tradee_manager": "Garrett",
+    "players": [
+      {
+        "player_name": "Alperen Sengun",
+        "from_team": "Big Nik Energy",
+        "to_team": "Saboner",
+        "from_manager": "Hayden",
+        "to_manager": "Garrett"
+      },
+      {
+        "player_name": "Scottie Barnes",
+        "from_team": "Saboner",
+        "to_team": "Big Nik Energy",
+        "from_manager": "Garrett",
+        "to_manager": "Hayden"
+      }
+    ],
+    "picks": {
+      "Hayden": [
+        "2026 4th (Hayden)",
+        "2027 3rd (Hayden)"
+      ],
+      "Garrett": [
+        "2026 8th (Garrett)",
+        "2027 8th (Garrett)"
+      ]
+    }
   }
 ]

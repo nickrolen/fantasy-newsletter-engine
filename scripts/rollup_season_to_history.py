@@ -66,6 +66,11 @@ USAGE
                                                           # season already in
                                                           # the record
     py scripts/rollup_season_to_history.py --season 2025-26    # override
+    py scripts/rollup_season_to_history.py --tables-only --execute
+                                        # repair a season whose player log
+                                        # went in but whose matchups,
+                                        # standings, team keys and trades
+                                        # did not
 
 EXIT CODES
     0 = success (or a clean dry run)
@@ -87,7 +92,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from modules.data_loader import CURRENT_SEASON, CURRENT_SEASON_LONG  # noqa: E402
+from modules.data_loader import (CURRENT_SEASON, CURRENT_SEASON_LONG,  # noqa: E402
+                                 is_regular_season_week, stage_weeks)
 
 PLAYERLOG_XLSX = PROJECT_ROOT / "data" / "PLAYERLOG.xlsx"
 LINEUPS_XLSX = PROJECT_ROOT / "data" / "LINEUPS.xlsx"
@@ -354,6 +360,501 @@ def rollup_drafts(season_key, execute, force):
     return "done", f"appended {msg}; all_drafts.json now {len(check)} picks"
 
 
+# ---------------------------------------------------------------------------
+# Season tables -- matchups, standings, teams, trades
+# ---------------------------------------------------------------------------
+# These four files were being missed. rollup_drafts() and the player log
+# rollup ran; nothing rolled the season's matchups, standings, team keys or
+# trades, so all four sat a season behind while the other two moved on. That
+# is invisible until something reads them -- the all-time h2h tables, the
+# historical standings grid and the record book all build off all_matchups
+# and all_standings.
+#
+# Sources are resolved live-first, archive-second, because the reset empties
+# config/ and this may well be run after it.
+
+MATCHUPS_JSON = PROJECT_ROOT / "data" / "historical" / "all_matchups.json"
+STANDINGS_JSON = PROJECT_ROOT / "data" / "historical" / "all_standings.json"
+TEAMS_JSON = PROJECT_ROOT / "data" / "historical" / "all_teams.json"
+TRADES_HISTORY_JSON = PROJECT_ROOT / "data" / "historical" / "all_trades.json"
+SUMMARY_JSON = PROJECT_ROOT / "data" / "historical" / "historical_summary.json"
+ARCHIVE_DIR = PROJECT_ROOT / "archive"
+
+
+def season_config_dir(season_key):
+    """Where `season_key`'s config files live: config/ or archive/<season>/config/.
+
+    After start_new_season.py has run, config/ describes the NEXT season and
+    the finished one survives only in the archive. Checking which is which by
+    content rather than by date avoids rolling up the wrong season entirely.
+    """
+    live = PROJECT_ROOT / "config"
+    live_records = live / "RECORDS.json"
+    if live_records.is_file():
+        try:
+            rec = json.loads(live_records.read_text(encoding="utf-8"))
+            if rec.get("weekly_scores") and rec.get("season_records", {}).get(
+                    "season", season_key) == season_key:
+                return live
+            # A live RECORDS.json with scores but no season stamp: trust it
+            # only if the archive does not have this season.
+            if rec.get("weekly_scores") and not (
+                    ARCHIVE_DIR / season_key / "config" / "RECORDS.json").is_file():
+                return live
+        except (OSError, json.JSONDecodeError):
+            pass
+    archived = ARCHIVE_DIR / season_key / "config"
+    return archived if (archived / "RECORDS.json").is_file() else live
+
+
+def _load_season_sources(season_key):
+    """(records, schedule, trades, league_config) for a season, or raises."""
+    cfg_dir = season_config_dir(season_key)
+    out = []
+    for name, required in (("RECORDS.json", True), ("SCHEDULE.json", True),
+                           ("TRADES.json", False), ("league_config.json", False)):
+        path = cfg_dir / name
+        if not path.is_file():
+            if required:
+                raise ValueError(f"{season_key}: {rel(path)} not found")
+            out.append({})
+            continue
+        out.append(json.loads(path.read_text(encoding="utf-8")))
+    return (*out, cfg_dir)
+
+
+def _scores_by_week(records):
+    out = {}
+    for mgr, rows in records.get("weekly_scores", {}).items():
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            week = row.get("week")
+            if week is None:
+                continue
+            out.setdefault(int(week), {})[mgr] = float(row.get("score", 0.0) or 0.0)
+    return out
+
+
+def build_matchups(season_key, records, schedule):
+    """Rows in the all_matchups.json schema, in week order.
+
+    Ties leave winner and loser as None. No season on file has one -- scores
+    carry two decimals -- but inventing a winner would be worse than saying
+    there wasn't one.
+    """
+    scores = _scores_by_week(records)
+    rows = []
+    for wk in sorted(schedule.get("weeks", []), key=lambda w: w.get("week", 0)):
+        week = wk.get("week")
+        if week is None:
+            continue
+        week = int(week)
+        for mu in wk.get("matchups", []):
+            a, b = mu.get("manager_a"), mu.get("manager_b")
+            sa = scores.get(week, {}).get(a)
+            sb = scores.get(week, {}).get(b)
+            if a is None or b is None or sa is None or sb is None:
+                continue
+            winner = a if sa > sb else b if sb > sa else None
+            loser = b if sa > sb else a if sb > sa else None
+            rows.append({
+                "season": season_key, "week": week,
+                "manager_a": a, "manager_b": b,
+                "score_a": round(sa, 2), "score_b": round(sb, 2),
+                "winner": winner, "loser": loser,
+                "margin": round(abs(sa - sb), 2),
+            })
+    return rows
+
+
+def _playoff_placing(season_key, rows):
+    """{manager: 1..4} from the bracket, or {} if no bracket was played.
+
+    The final is whichever last-week matchup is between the two managers who
+    won in the first bracket week; the other is the consolation game. Derived
+    rather than assumed, because the bracket is not always the same weeks and
+    from 2026-27 it is six of them.
+    """
+    span = stage_weeks(season_key, "playoffs")
+    if not span:
+        return {}
+    first, last = span
+    def series_winners(lo, hi):
+        tally = {}
+        for r in rows:
+            if not (lo <= r["week"] <= hi) or not r["winner"]:
+                continue
+            key = tuple(sorted((r["manager_a"], r["manager_b"])))
+            tally.setdefault(key, {})
+            tally[key][r["winner"]] = tally[key].get(r["winner"], 0) + 1
+            tally[key].setdefault(r["loser"], 0)
+        out = []
+        for (x, y), w in tally.items():
+            if w.get(x, 0) == w.get(y, 0):
+                continue
+            win = x if w.get(x, 0) > w.get(y, 0) else y
+            out.append((win, y if win == x else x))
+        return out
+
+    # Semifinal round is the first half of the bracket; the final round is
+    # whatever is left. For a two-week bracket that is one week each.
+    mid = first + (last - first) // 2
+    semis = series_winners(first, mid if last > first else first)
+    if len(semis) != 2:
+        return {}
+    advanced = {w for w, _ in semis}
+    finals = series_winners(mid + 1 if last > first else last, last)
+    placing = {}
+    for win, lose in finals:
+        if win in advanced and lose in advanced:
+            placing[win], placing[lose] = 1, 2
+        elif win not in advanced and lose not in advanced:
+            placing[win], placing[lose] = 3, 4
+    return placing if len(placing) == 4 else {}
+
+
+def build_standings(season_key, rows):
+    """Rows in the all_standings.json schema, plus explicit scope fields.
+
+    WHAT `rank` ACTUALLY MEANS. Checked against all eight stored seasons: it
+    is the rank by ALL-GAMES W-L -- regular season and postseason added
+    together and sorted. It is not the playoff finish and it is not the
+    league title. In 2020-21 it has Nick 1st; Hayden won that bracket. In
+    2017-18 it has Nick 2nd and Hayden 3rd; the bracket finished Hayden 2nd
+    and Nick 3rd. It coincides with the regular-season order most years,
+    which is exactly why nobody noticed.
+
+    That number answers no question this league asks, and from 2026-27 it
+    gets worse -- it would blend 15 regular-season games with a six-week
+    bracket and a two-week Cup. It is preserved as-is for continuity with the
+    eight seasons already written, tagged with `rank_basis` so it can never
+    be mistaken again, and joined by the two ranks that mean something:
+
+        regular_season_rank  the League Champion order -- what decides the
+                             title, the draft order and the payouts
+        playoff_rank         the bracket finish -- the Playoff Champion
+    """
+    from collections import defaultdict as _dd
+    allw = _dd(lambda: [0, 0, 0])   # wins, losses, ties
+    regw = _dd(lambda: [0, 0])
+    points = _dd(float)
+    h2h = _dd(lambda: _dd(int))
+
+    for r in rows:
+        points[r["manager_a"]] += r["score_a"]
+        points[r["manager_b"]] += r["score_b"]
+        in_reg = is_regular_season_week(season_key, r["week"])
+        if not r["winner"]:
+            allw[r["manager_a"]][2] += 1
+            allw[r["manager_b"]][2] += 1
+            continue
+        allw[r["winner"]][0] += 1
+        allw[r["loser"]][1] += 1
+        if in_reg:
+            regw[r["winner"]][0] += 1
+            regw[r["loser"]][1] += 1
+            h2h[r["winner"]][r["loser"]] += 1
+
+    managers = sorted(allw)
+
+    # Regular-season rank: wins, then head-to-head AMONG THE TIED GROUP, then
+    # total points -- the rule in league_config.tiebreaker_rules, and the same
+    # one build_draft_order.py applies.
+    #
+    # "Among the tied group" is the part that matters and the part that is
+    # easy to get wrong. Summing a manager's head-to-head wins against the
+    # whole league just recovers their win total and changes nothing, so the
+    # tie silently falls through to points. In 2025-26 that would have ranked
+    # Garrett 2nd on points when Benton had actually won the season series
+    # 4-3 -- and this rank sets the draft order.
+    from itertools import groupby
+    reg_order = []
+    by_wins = sorted(managers, key=lambda m: -regw[m][0])
+    for _, group in groupby(by_wins, key=lambda m: regw[m][0]):
+        tied = list(group)
+        if len(tied) > 1:
+            within = {m: sum(h2h[m][o] for o in tied if o != m) for m in tied}
+            tied.sort(key=lambda m: (-within[m], -points[m], m))
+        reg_order.extend(tied)
+    reg_rank = {m: i for i, m in enumerate(reg_order, 1)}
+
+    placing = _playoff_placing(season_key, rows)
+
+    # The file's own convention: all-games W-L, ties broken on points.
+    all_games_order = sorted(managers,
+                             key=lambda m: (-allw[m][0], -points[m], m))
+    all_games_rank = {m: i for i, m in enumerate(all_games_order, 1)}
+
+    out = []
+    for m in managers:
+        wins, losses, ties = allw[m]
+        out.append({
+            "season": season_key,
+            "manager": m,
+            "rank": all_games_rank[m],
+            "rank_basis": "all_games_record",
+            "wins": wins,
+            "losses": losses,
+            "ties": ties,
+            "points_for": round(points[m], 1),
+            "reg_wins": regw[m][0],
+            "reg_losses": regw[m][1],
+            "regular_season_rank": reg_rank[m],
+            "playoff_rank": placing.get(m),
+        })
+    out.sort(key=lambda r: r["rank"])
+    return out
+
+
+def build_teams(season_key, records):
+    """{team_key: {manager, team_name}} from RECORDS.team_name_history."""
+    hist = records.get("team_name_history", {})
+    entry = hist.get(season_key)
+    return entry if isinstance(entry, dict) and entry else {}
+
+
+def build_trades(season_key, trades_cfg, league_config):
+    """Rows in the all_trades.json schema, plus the picks this league trades.
+
+    all_trades.json only ever held players. This league trades draft picks
+    constantly and they decide draft order, so they are carried through in an
+    additive `picks` field rather than dropped.
+    """
+    name_of = (league_config or {}).get("manager_to_team", {})
+    out = []
+    for t in trades_cfg.get("trades", []) or []:
+        a, b = t.get("side_a") or {}, t.get("side_b") or {}
+        ma, mb = a.get("manager"), b.get("manager")
+        if not ma or not mb:
+            continue
+        ta, tb = name_of.get(ma, ma), name_of.get(mb, mb)
+        players = []
+        for src, dst, src_team, dst_team in ((a, b, ta, tb), (b, a, tb, ta)):
+            for p in src.get("sent_players", []) or []:
+                players.append({
+                    "player_name": p,
+                    "from_team": src_team, "to_team": dst_team,
+                    "from_manager": src.get("manager"),
+                    "to_manager": dst.get("manager"),
+                })
+        out.append({
+            "season": season_key,
+            "timestamp": None,
+            "date": t.get("date"),
+            "week": t.get("week"),
+            "trader_team": ta, "tradee_team": tb,
+            "trader_manager": ma, "tradee_manager": mb,
+            "players": players,
+            "picks": {
+                ma: a.get("sent_picks", []) or [],
+                mb: b.get("sent_picks", []) or [],
+            },
+        })
+    return out
+
+
+def _write_list(path, season_key, new_rows, force, label):
+    """Replace/append a season in a list-shaped history file. Returns message."""
+    existing_rows = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else []
+    existing = sum(1 for r in existing_rows if r.get("season") == season_key)
+    if existing and not force:
+        return "skipped", f"{season_key} already has {existing} {label} (use --force)"
+    base = [r for r in existing_rows if r.get("season") != season_key]
+    merged = base + new_rows
+    shutil.copy2(path, path.with_suffix(".json.bak")) if path.is_file() else None
+    path.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+
+    check = json.loads(path.read_text(encoding="utf-8"))
+    landed = sum(1 for r in check if r.get("season") == season_key)
+    if landed != len(new_rows) or len(check) != len(merged):
+        return "error", f"verification failed: {landed} landed, {len(check)} total"
+    return "done", f"{len(new_rows)} {label}; {path.name} now {len(check)} rows"
+
+
+def rollup_season_tables(season_key, execute, force):
+    """Roll matchups, standings, team keys and trades into data/historical/.
+
+    Returns a list of (name, status, message).
+    """
+    results = []
+    try:
+        records, schedule, trades_cfg, league_config, cfg_dir = \
+            _load_season_sources(season_key)
+    except ValueError as e:
+        return [("sources", "error", str(e))]
+
+    results.append(("sources", "done", f"read from {rel(cfg_dir)}"))
+
+    rows = build_matchups(season_key, records, schedule)
+    if not rows:
+        return results + [("matchups", "error",
+                           "no matchups built -- RECORDS/SCHEDULE disagree?")]
+
+    standings = build_standings(season_key, rows)
+    teams = build_teams(season_key, records)
+    trades = build_trades(season_key, trades_cfg, league_config)
+
+    if not execute:
+        results.append(("matchups", "done", f"would write {len(rows)} rows"))
+        champ = next((s["manager"] for s in standings
+                      if s["regular_season_rank"] == 1), "?")
+        bracket = next((s["manager"] for s in standings
+                        if s.get("playoff_rank") == 1), None)
+        results.append(("standings", "done",
+                        f"would write {len(standings)} rows; League Champion "
+                        f"{champ}" + (f", Playoff Champion {bracket}"
+                                      if bracket else ", no bracket")))
+        results.append(("teams", "done" if teams else "skipped",
+                        f"would write {len(teams)} team keys" if teams
+                        else "no team_name_history for this season"))
+        results.append(("trades", "done", f"would write {len(trades)} trades"))
+        return results
+
+    results.append(("matchups", *_write_list(MATCHUPS_JSON, season_key, rows,
+                                             force, "matchups")))
+    results.append(("standings", *_write_list(STANDINGS_JSON, season_key,
+                                              standings, force, "standings")))
+    results.append(("trades", *_write_list(TRADES_HISTORY_JSON, season_key,
+                                           trades, force, "trades")))
+
+    if teams:
+        all_teams = json.loads(TEAMS_JSON.read_text(encoding="utf-8")) \
+            if TEAMS_JSON.is_file() else {}
+        if season_key in all_teams and not force:
+            results.append(("teams", "skipped",
+                            f"{season_key} already in {TEAMS_JSON.name}"))
+        else:
+            if TEAMS_JSON.is_file():
+                shutil.copy2(TEAMS_JSON, TEAMS_JSON.with_suffix(".json.bak"))
+            all_teams[season_key] = teams
+            TEAMS_JSON.write_text(json.dumps(all_teams, indent=2), encoding="utf-8")
+            results.append(("teams", "done",
+                            f"{len(teams)} team keys; {TEAMS_JSON.name} now "
+                            f"{len(all_teams)} seasons"))
+    else:
+        results.append(("teams", "skipped", "no team_name_history for this season"))
+
+    results.append(("summary", *refresh_summary()))
+    return results
+
+
+def repair_standings_fields(execute):
+    """Add the explicit rank fields to seasons already in all_standings.json.
+
+    Only ADDS fields. Before touching a season it recomputes rank, wins,
+    losses and points_for from all_matchups.json and refuses unless every one
+    of them already agrees with what is stored -- so a season whose stored
+    numbers came from somewhere this cannot reproduce is left alone and said
+    so, rather than quietly overwritten with a reconstruction.
+    """
+    if not (STANDINGS_JSON.is_file() and MATCHUPS_JSON.is_file()):
+        return "skipped", "all_standings.json or all_matchups.json missing"
+
+    stored = json.loads(STANDINGS_JSON.read_text(encoding="utf-8"))
+    matchups = json.loads(MATCHUPS_JSON.read_text(encoding="utf-8"))
+    by_season = {}
+    for r in matchups:
+        by_season.setdefault(r["season"], []).append(r)
+
+    NEW = ("rank_basis", "reg_wins", "reg_losses", "regular_season_rank",
+           "playoff_rank")
+    # Integers must match exactly. points_for is a sum of ~23 weekly scores
+    # that were each rounded to two places, so it drifts from the season
+    # total Yahoo reported by a rounding unit or so -- six of the 32 stored
+    # rows are off by exactly 0.1. That is arithmetic, not disagreement.
+    EXACT = ("rank", "wins", "losses")
+    TOLERANT = {"points_for": 0.5}
+
+    patched, skipped, disagreed = 0, 0, []
+    for row in stored:
+        if all(k in row for k in NEW):
+            skipped += 1
+            continue
+        rows = by_season.get(row["season"])
+        if not rows:
+            disagreed.append(f"{row['season']} {row['manager']}: no matchups on file")
+            continue
+        computed = {c["manager"]: c for c in build_standings(row["season"], rows)}
+        want = computed.get(row["manager"])
+        if not want:
+            disagreed.append(f"{row['season']} {row['manager']}: not in recount")
+            continue
+        off = [f for f in EXACT if int(row.get(f, -1)) != int(want[f])]
+        off += [f for f, tol in TOLERANT.items()
+                if abs(float(row.get(f, 0)) - float(want[f])) > tol]
+        if off:
+            disagreed.append(
+                f"{row['season']} {row['manager']}: stored and recomputed "
+                f"disagree on {', '.join(off)}")
+            continue
+        for k in NEW:
+            row.setdefault(k, want[k])
+        patched += 1
+
+    msg = f"{patched} rows would gain the explicit rank fields"
+    if skipped:
+        msg += f"; {skipped} already had them"
+    if disagreed:
+        msg += f"; {len(disagreed)} LEFT ALONE"
+    if not execute:
+        for d in disagreed:
+            msg += f"\n                  - {d}"
+        return ("done" if patched or skipped else "skipped"), msg
+    if patched:
+        shutil.copy2(STANDINGS_JSON, STANDINGS_JSON.with_suffix(".json.bak"))
+        STANDINGS_JSON.write_text(json.dumps(stored, indent=2), encoding="utf-8")
+    return "done", msg
+
+
+def refresh_summary():
+    """Rebuild historical_summary.json from the files it summarises.
+
+    It is a derived file. Left alone it keeps reporting the season count and
+    totals it had when it was last generated, which is how a stale roll-up
+    stays invisible.
+    """
+    if not MATCHUPS_JSON.is_file():
+        return "skipped", "no all_matchups.json"
+    from datetime import datetime
+    matchups = json.loads(MATCHUPS_JSON.read_text(encoding="utf-8"))
+    trades = json.loads(TRADES_HISTORY_JSON.read_text(encoding="utf-8")) \
+        if TRADES_HISTORY_JSON.is_file() else []
+    drafts = json.loads(DRAFTS_JSON.read_text(encoding="utf-8")) \
+        if DRAFTS_JSON.is_file() else []
+
+    previous = json.loads(SUMMARY_JSON.read_text(encoding="utf-8")) \
+        if SUMMARY_JSON.is_file() else {}
+
+    decided = [m for m in matchups if m.get("winner")]
+    blowout = max(decided, key=lambda m: m["margin"], default=None)
+    closest = min(decided, key=lambda m: m["margin"], default=None)
+    highest = None
+    for m in matchups:
+        for side in ("a", "b"):
+            cand = {"season": m["season"], "week": m["week"],
+                    "manager": m[f"manager_{side}"], "score": m[f"score_{side}"]}
+            if highest is None or cand["score"] > highest["score"]:
+                highest = cand
+
+    summary = dict(previous)
+    summary.update({
+        "generated_at": datetime.now().isoformat(),
+        "seasons_processed": sorted({m["season"] for m in matchups}),
+        "total_matchups": len(matchups),
+        "total_trades": len(trades),
+        "total_draft_picks": len(drafts),
+        "all_time_biggest_blowout": blowout,
+        "all_time_closest_game": closest,
+        "all_time_highest_weekly_score": highest,
+    })
+    if SUMMARY_JSON.is_file():
+        shutil.copy2(SUMMARY_JSON, SUMMARY_JSON.with_suffix(".json.bak"))
+    SUMMARY_JSON.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    return "done", (f"{len(summary['seasons_processed'])} seasons, "
+                    f"{len(matchups)} matchups, {len(drafts)} picks")
+
+
 def print_report(season_key, rows, report, history_len):
     header(f"ROLLUP PREVIEW -- {season_key}")
     weeks = sorted(w for w in report["weeks"] if w)
@@ -446,11 +947,39 @@ def main():
     parser.add_argument("--skip-drafts", action="store_true",
                         help="do not roll DRAFT_PICKS_CURRENT.json into "
                              "all_drafts.json")
+    parser.add_argument("--skip-tables", action="store_true",
+                        help="do not roll matchups, standings, team keys and "
+                             "trades into data/historical/")
+    parser.add_argument("--repair-standings", action="store_true",
+                        help="add the explicit rank fields to seasons already "
+                             "in all_standings.json, then stop")
+    parser.add_argument("--tables-only", action="store_true",
+                        help="roll ONLY those four tables. Use this to repair "
+                             "a season whose player log already went in but "
+                             "whose tables did not.")
     parser.add_argument("--season", default=None,
                         help=f"season key to roll up (default: {CURRENT_SEASON})")
     args = parser.parse_args()
 
     season_key = args.season or CURRENT_SEASON
+
+    if args.repair_standings:
+        header("REPAIR all_standings.json")
+        status, msg = repair_standings_fields(execute=args.execute)
+        print(f"    [{status}] {msg}")
+        if not args.execute:
+            print("\n  [DRY-RUN] Nothing written. Re-run with --execute.")
+        return 1 if status == "error" else 0
+
+    if args.tables_only:
+        header(f"SEASON TABLES -- {season_key}")
+        results = rollup_season_tables(season_key, execute=args.execute,
+                                       force=args.force)
+        for name, status, msg in results:
+            print(f"    {name:11} [{status}] {msg}")
+        if not args.execute:
+            print("\n  [DRY-RUN] Nothing written. Re-run with --execute.")
+        return 1 if any(st == "error" for _, st, _ in results) else 0
 
     for path in (PLAYERLOG_XLSX, LINEUPS_XLSX, HISTORY_JSON):
         if not path.exists():
@@ -484,6 +1013,12 @@ def main():
         if status == "done":
             print("    No Yahoo call needed -- DRAFT_PICKS_CURRENT.json already")
             print("    uses the all_drafts.json schema.")
+
+    if not args.skip_tables:
+        print(f"\n  SEASON TABLES -> {rel(MATCHUPS_JSON.parent)}")
+        for name, status, msg in rollup_season_tables(season_key, execute=False,
+                                                      force=args.force):
+            print(f"    {name:11} [{status}] {msg}")
 
     if not args.execute:
         print("\n  [DRY-RUN] Nothing written. Re-run with --execute to append.")
@@ -522,6 +1057,18 @@ def main():
             print("  Draft rollup FAILED. The player log is fine; all_drafts.json")
             print("  is restorable from all_drafts.json.bak.")
             return 1
+    if not args.skip_tables:
+        print(f"\n  SEASON TABLES -> {rel(MATCHUPS_JSON.parent)}")
+        failed = False
+        for name, status, msg in rollup_season_tables(season_key, execute=True,
+                                                      force=args.force):
+            print(f"    {name:11} [{status}] {msg}")
+            failed = failed or status == "error"
+        if failed:
+            print("\n  One or more season tables FAILED. Each file has a .bak")
+            print("  beside it from before this run.")
+            return 1
+
     print("\n  Next: update data/LEAGUEHISTORY.xlsx, then run")
     print("        py scripts/start_new_season.py")
     return 0
