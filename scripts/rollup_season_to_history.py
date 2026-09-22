@@ -682,14 +682,22 @@ def rollup_season_tables(season_key, execute, force):
         records, schedule, trades_cfg, league_config, cfg_dir = \
             _load_season_sources(season_key)
     except ValueError as e:
-        return [("sources", "error", str(e))]
+        # Not an error: there is simply nothing to read for this season, here.
+        # It IS worth saying loudly, because a season whose tables never got
+        # rolled is invisible afterwards -- that is the bug this exists for.
+        return [("sources", "skipped",
+                 f"{e}. THE SEASON TABLES DID NOT ROLL. Re-run with "
+                 f"--tables-only once config/ or archive/{season_key}/config/ "
+                 "has that season.")]
 
     results.append(("sources", "done", f"read from {rel(cfg_dir)}"))
 
     rows = build_matchups(season_key, records, schedule)
     if not rows:
         return results + [("matchups", "error",
-                           "no matchups built -- RECORDS/SCHEDULE disagree?")]
+                           "RECORDS.json and SCHEDULE.json are both present "
+                           "but produced no matchups -- they disagree about "
+                           "this season")]
 
     standings = build_standings(season_key, rows)
     teams = build_teams(season_key, records)
@@ -837,16 +845,25 @@ def refresh_summary():
             if highest is None or cand["score"] > highest["score"]:
                 highest = cand
 
+    seasons = sorted({m["season"] for m in matchups})
     summary = dict(previous)
     summary.update({
         "generated_at": datetime.now().isoformat(),
-        "seasons_processed": sorted({m["season"] for m in matchups}),
+        "seasons_processed": seasons,
         "total_matchups": len(matchups),
         "total_trades": len(trades),
         "total_draft_picks": len(drafts),
         "all_time_biggest_blowout": blowout,
         "all_time_closest_game": closest,
         "all_time_highest_weekly_score": highest,
+        # Derived, not carried over. The previous version of this file kept a
+        # hand-written note saying "2017-18 through 2024-25" long after that
+        # stopped being true -- the same staleness the rest of this rollup
+        # exists to prevent, in prose.
+        "notes": (f"Historical data, {seasons[0]} through {seasons[-1]}. "
+                  "Standings computed from matchups. The season in progress "
+                  "lives in config/RECORDS.json until it is rolled in here."
+                  if seasons else "No seasons on file."),
     })
     if SUMMARY_JSON.is_file():
         shutil.copy2(SUMMARY_JSON, SUMMARY_JSON.with_suffix(".json.bak"))

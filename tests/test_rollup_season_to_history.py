@@ -86,6 +86,18 @@ def roll(tmp_path, monkeypatch):
                         tmp_path / "data" / "historical" / "all_drafts.json")
     monkeypatch.setattr(mod, "DRAFT_PICKS_CURRENT",
                         tmp_path / "config" / "DRAFT_PICKS_CURRENT.json")
+    # The season-table rollup added five more write targets and an archive
+    # root. test_no_module_path_escapes_the_tmp_root below is what catches a
+    # new one being forgotten here.
+    for name, rel in (
+        ("MATCHUPS_JSON", "data/historical/all_matchups.json"),
+        ("STANDINGS_JSON", "data/historical/all_standings.json"),
+        ("TEAMS_JSON", "data/historical/all_teams.json"),
+        ("TRADES_HISTORY_JSON", "data/historical/all_trades.json"),
+        ("SUMMARY_JSON", "data/historical/historical_summary.json"),
+        ("ARCHIVE_DIR", "archive"),
+    ):
+        monkeypatch.setattr(mod, name, tmp_path / rel)
     mod._history = history
     return mod
 

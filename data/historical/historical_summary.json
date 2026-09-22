@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-22T16:12:59.436552",
+  "generated_at": "2026-09-22T16:14:30.167084",
   "seasons_processed": [
     "2017-18",
     "2018-19",
@@ -13,7 +13,7 @@
   ],
   "total_matchups": 394,
   "total_trades": 37,
-  "total_draft_picks": 0,
+  "total_draft_picks": 468,
   "all_time_biggest_blowout": {
     "season": "2020-21",
     "week": 11,
@@ -42,5 +42,5 @@
     "manager": "Nick",
     "score": 2773.1
   },
-  "notes": "Historical data (2017-18 through 2024-25). Current season (2025-26) tracked in RECORDS.json. Standings computed from matchups."
+  "notes": "Historical data, 2017-18 through 2025-26. Standings computed from matchups. The season in progress lives in config/RECORDS.json until it is rolled in here."
 }
