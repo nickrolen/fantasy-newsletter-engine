@@ -47,6 +47,7 @@ from modules.data_loader import is_regular_season_week  # noqa: E402
 
 RECORDS = PROJECT_ROOT / "config" / "RECORDS.json"
 ALL_MATCHUPS = PROJECT_ROOT / "data" / "historical" / "all_matchups.json"
+STANDINGS = PROJECT_ROOT / "data" / "historical" / "all_standings.json"
 ARCHIVE = PROJECT_ROOT / "archive"
 
 TOP10_KEYS = [
@@ -157,10 +158,30 @@ def main():
     if missing:
         print(f"  UNRESOLVED (left as all-games): {', '.join(missing)}")
 
-    patched = skipped = 0
+    # All-games W-L for every season/manager, from the standings file. Some
+    # leaderboard entries were written mid-season and never refreshed: three
+    # 2025-26 rows in worst_manager_season_fppg_top10 carry a week-22 record
+    # (Nick 17-5) while best_manager_season_top10 has the finished one (17-6).
+    # Same file, same season, two different records.
+    standings = {}
+    if STANDINGS.is_file():
+        for row in json.loads(STANDINGS.read_text(encoding="utf-8")):
+            standings[(row["season"], row["manager"])] = row
+
+    patched = skipped = corrected = 0
     for key in TOP10_KEYS:
         for entry in all_time.get(key, []):
             season, mgr = entry.get("season"), entry.get("manager")
+
+            final = standings.get((season, mgr))
+            if final and (entry.get("wins"), entry.get("losses")) != \
+                    (final["wins"], final["losses"]):
+                print(f"    stale W-L  {key}: {season} {mgr} "
+                      f"{entry.get('wins')}-{entry.get('losses')} -> "
+                      f"{final['wins']}-{final['losses']}")
+                entry["wins"], entry["losses"] = final["wins"], final["losses"]
+                corrected += 1
+
             if entry.get("reg_weeks"):
                 continue
             found = resolved.get(season, {}).get(mgr)
@@ -173,6 +194,7 @@ def main():
     print()
     print(f"  entries patched: {patched}")
     print(f"  entries left alone: {skipped}")
+    print(f"  stale W-L corrected: {corrected}")
 
     sample = [e for e in all_time.get(TOP10_KEYS[0], []) if e.get("reg_weeks")][:5]
     if sample:
@@ -187,7 +209,7 @@ def main():
     if not args.execute:
         print("\n  DRY RUN -- pass --execute to write config/RECORDS.json")
         return 0
-    if not patched:
+    if not patched and not corrected:
         print("\n  Nothing to write.")
         return 0
 

@@ -37,7 +37,8 @@ INTEGRATION POINTS:
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .data_loader import FantasyData, MANAGERS, CURRENT_SEASON
+from .data_loader import (FantasyData, MANAGERS, CURRENT_SEASON,
+                          regular_season_weeks_for)
 
 
 # =============================================================================
@@ -628,7 +629,11 @@ def build_historical_luck(data, current_week, current_season=None):
     if current_season is None:
         current_season = CURRENT_SEASON
 
-    reg_weeks = data.schedule.get("regular_season_weeks", current_week)
+    # All-play expected wins is a regular-season concept: from week 16 the
+    # bracket is best-of-3 between two fixed opponents, where "what if you
+    # had played everyone" means nothing. Bounded from config, not from
+    # SCHEDULE.json, which holds last season's boundary all preseason.
+    reg_weeks = regular_season_weeks_for(current_season)
     through_week = min(current_week, reg_weeks)
 
     current_matchups = _reconstruct_matchup_results(
@@ -673,7 +678,7 @@ def build_luck_index(data, week):
     """
     Build Luck Index section for the stats report.
     """
-    reg_weeks = data.schedule.get("regular_season_weeks", week)
+    reg_weeks = regular_season_weeks_for(CURRENT_SEASON)
     through_week = min(week, reg_weeks)
     report = compute_luck_index(
         records=data.records,

@@ -16,9 +16,11 @@ from collections import defaultdict
 
 from .data_loader import (
     FantasyData,
+    CURRENT_SEASON,
     MANAGERS,
     NUM_TEAMS,
     REGULAR_SEASON_WEEKS,
+    regular_season_weeks_for,
     TIEBREAKER_RULES,
     parse_record_string,
 )
@@ -106,9 +108,14 @@ def get_remaining_weeks(data: FantasyData, current_week: int) -> list[dict]:
     The title odds simulator models the regular-season championship race only.
     Playoff weeks (> REGULAR_SEASON_WEEKS) must not be counted here -- otherwise
     expected_record, magic_numbers, and finish-distribution would all be on a
-    23-game scale when the regular season is 21 games.
+    23-game scale when the regular season is 15.
+
+    The boundary comes from league_config. It used to come from SCHEDULE.json,
+    which is the previous season's file for the whole preseason -- so this
+    function did exactly what the paragraph above forbids, projecting a
+    21-game race that does not exist.
     """
-    max_week = data.schedule.get("regular_season_weeks", REGULAR_SEASON_WEEKS)
+    max_week = regular_season_weeks_for(CURRENT_SEASON)
     remaining = []
     for week_data in data.schedule.get("weeks", []):
         if week_data["week"] > current_week and week_data["week"] <= max_week:

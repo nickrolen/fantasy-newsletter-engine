@@ -1493,6 +1493,43 @@ def _patch_cumulative_records(all_time: dict, data) -> None:
         .to_dict("index")
     )
 
+    # Career baselines, recomputed rather than trusted.
+    #
+    # These entries carry historical_fp/historical_gp -- the player's career
+    # total through the last COMPLETED season -- and this function rebuilds
+    # total_fp as baseline + live. The baseline was written once by
+    # backfill_player_records.py and never advanced, so after 2025-26 was
+    # rolled into HISTORICAL_PLAYERLOG.json the stored baselines were a season
+    # short: Jokic 28,134.7 against a real 31,975.5. The first run of a new
+    # season with live data would have rebuilt his career total WITHOUT
+    # 2025-26 and re-sorted the leaderboards on it.
+    #
+    # Deriving it here means it cannot drift again. "Healthy start" is
+    # started AND had_game AND NOT is_injured, which is the definition that
+    # reproduces the stored figures exactly.
+    hist_rows = getattr(data, "historical_playerlog", None) or []
+    baseline_pure, baseline_by_mgr = {}, {}
+    for row in hist_rows:
+        if row.get("season_key") == CURRENT_SEASON:
+            continue
+        if not (row.get("started") and row.get("had_game")) or row.get("is_injured"):
+            continue
+        fp = float(row.get("fantasy_points") or 0.0)
+        name = row.get("player_name", "")
+        for store, key in ((baseline_pure, name),
+                           (baseline_by_mgr, (name, row.get("manager", "")))):
+            slot = store.setdefault(key, [0.0, 0])
+            slot[0] += fp
+            slot[1] += 1
+
+    def _baseline(entry, store, key):
+        """The recomputed baseline, or the stored one if the log cannot see
+        this player at all (a pre-2017-18 name, say)."""
+        found = store.get(key)
+        if not found:
+            return entry.get("historical_fp"), entry.get("historical_gp", 0)
+        return round(found[0], 1), found[1]
+
     # Patch by-manager career tables
     for key in ["career_total_fp_by_manager_top10", "franchise_player_top10"]:
         entries = all_time.get(key, [])
@@ -1500,14 +1537,17 @@ def _patch_cumulative_records(all_time: dict, data) -> None:
             continue
         updated = False
         for e in entries:
-            hist_fp = e.get("historical_fp")
-            if hist_fp is None:
+            if e.get("historical_fp") is None:
                 continue
             player = e.get("player_name", "")
             manager = e.get("manager", "")
+            hist_fp, hist_gp = _baseline(e, baseline_by_mgr, (player, manager))
+            if hist_fp is None:
+                continue
+            e["historical_fp"], e["historical_gp"] = hist_fp, hist_gp
             live = current_fp_by_mgr.get((player, manager), {"fp": 0.0, "gp": 0})
             e["total_fp"] = round(hist_fp + live["fp"], 1)
-            e["gp"] = e.get("historical_gp", 0) + live["gp"]
+            e["gp"] = hist_gp + live["gp"]
             if e["gp"] > 0:
                 e["fppg"] = round(e["total_fp"] / e["gp"], 2)
             updated = True
@@ -1521,19 +1561,82 @@ def _patch_cumulative_records(all_time: dict, data) -> None:
             continue
         updated = False
         for e in entries:
-            hist_fp = e.get("historical_fp")
-            if hist_fp is None:
+            if e.get("historical_fp") is None:
                 continue
             player = e.get("player_name", "")
+            hist_fp, hist_gp = _baseline(e, baseline_pure, player)
+            if hist_fp is None:
+                continue
+            e["historical_fp"], e["historical_gp"] = hist_fp, hist_gp
             live = current_fp_pure.get(player, {"fp": 0.0, "gp": 0})
             e["total_fp"] = round(hist_fp + live["fp"], 1)
-            e["gp"] = e.get("historical_gp", 0) + live["gp"]
+            e["gp"] = hist_gp + live["gp"]
             if e["gp"] > 0:
                 e["fppg"] = round(e["total_fp"] / e["gp"], 2)
             updated = True
         if updated:
             sort_key = "fppg" if "fppg" in key else "total_fp"
             entries.sort(key=lambda x: x.get(sort_key, 0), reverse=True)
+
+
+def _rebuild_head_to_head(all_time: dict, data) -> None:
+    # --- Rebuild the H2H matrix ---
+    #
+    # This used to start from a stored "head_to_head_historical" baseline
+    # written once by backfill_player_records.py. Two things were wrong with
+    # that. The baseline was never advanced when a season was rolled into
+    # history, so it sat at 348 games while the real record was 394 -- the
+    # first run of a new season would have rebuilt the matrix WITHOUT the
+    # season just completed. And it was on the all-games scope while
+    # all_time.h2h, the table most of the engine reads, is regular-season
+    # only; the same newsletter showed Nick leading Garrett 46-20 in one
+    # section and 43-17 in another.
+    #
+    # Both are fixed by deriving the baseline from all_matchups.json on the
+    # regular-season scope, which is the documented convention for every
+    # standings-shaped record. The stored key is refreshed from the same
+    # computation so it cannot drift again.
+    historical_h2h = {}
+    for row in getattr(data, "all_matchups", None) or []:
+        if row.get("season") == CURRENT_SEASON or not row.get("winner"):
+            continue
+        if not is_regular_season_week(row.get("season"), row.get("week")):
+            continue
+        winner = row["winner"]
+        loser = row["manager_a"] if winner == row["manager_b"] else row["manager_b"]
+        key = f"{winner}_vs_{loser}"
+        historical_h2h[key] = historical_h2h.get(key, 0) + 1
+        historical_h2h.setdefault(f"{loser}_vs_{winner}", 0)
+    if not historical_h2h:
+        # No matchup file: fall back to whatever is stored rather than
+        # blanking the table.
+        historical_h2h = all_time.get("head_to_head_historical",
+                                      all_time.get("head_to_head", {}))
+    else:
+        all_time["head_to_head_historical"] = dict(sorted(historical_h2h.items()))
+
+    existing_h2h = {k: v for k, v in historical_h2h.items()}  # Copy to avoid mutating
+    
+    # Add current season H2H from h2h_season in data.records (updated by weekly_stats)
+    # FIXED: Use MANAGERS lookup instead of .capitalize() so multi-word names
+    # like "Mary Jane" are not mangled to "Mary jane".
+    _mgr_by_lower = {m.lower(): m for m in MANAGERS}
+    h2h_season = data.records.get("h2h_season", {})
+    for key, val in h2h_season.items():
+        parts = key.split('_vs_')
+        m1, m2 = parts[0], parts[1]
+        for mgr_lower, wins in val.items():
+            mgr = _mgr_by_lower.get(mgr_lower.lower(), mgr_lower)
+            opponent_raw = m2 if mgr.lower() == m1.lower() else m1
+            opponent = _mgr_by_lower.get(opponent_raw.lower(), opponent_raw)
+            h2h_key = f'{mgr}_vs_{opponent}'
+            existing_h2h[h2h_key] = existing_h2h.get(h2h_key, 0) + wins
+    
+    # The matrix carries its own manager list for rendering. It used to be
+    # derived from the current season's matchups, which meant it was empty
+    # before Week 1; MANAGERS is the same list and is always available.
+    existing_h2h["managers"] = sorted(MANAGERS)
+    all_time["head_to_head"] = existing_h2h
 
 
 def _merge_current_season_into_alltime(all_time: dict, data) -> None:
@@ -1718,33 +1821,6 @@ def _merge_current_season_into_alltime(all_time: dict, data) -> None:
     _merge_top10("best_manager_season_fpweek_top10", cs_ms, "fppg_per_week", True)
     _merge_top10("worst_manager_season_fpweek_top10", cs_ms_complete, "fppg_per_week", False)
 
-    # --- Inject H2H from current season ---
-    # backfill_player_records.py stores historical-only H2H in "head_to_head_historical".
-    # We compute totals as: historical baseline + current season from h2h_season.
-    # This avoids double-counting on re-runs since we always start from the historical baseline.
-    historical_h2h = all_time.get("head_to_head_historical", all_time.get("head_to_head", {}))
-    existing_h2h = {k: v for k, v in historical_h2h.items()}  # Copy to avoid mutating
-    
-    # Add current season H2H from h2h_season in data.records (updated by weekly_stats)
-    # FIXED: Use MANAGERS lookup instead of .capitalize() so multi-word names
-    # like "Mary Jane" are not mangled to "Mary jane".
-    _mgr_by_lower = {m.lower(): m for m in MANAGERS}
-    h2h_season = data.records.get("h2h_season", {})
-    for key, val in h2h_season.items():
-        parts = key.split('_vs_')
-        m1, m2 = parts[0], parts[1]
-        for mgr_lower, wins in val.items():
-            mgr = _mgr_by_lower.get(mgr_lower.lower(), mgr_lower)
-            opponent_raw = m2 if mgr.lower() == m1.lower() else m1
-            opponent = _mgr_by_lower.get(opponent_raw.lower(), opponent_raw)
-            h2h_key = f'{mgr}_vs_{opponent}'
-            existing_h2h[h2h_key] = existing_h2h.get(h2h_key, 0) + wins
-    
-    if "managers" not in existing_h2h:
-        existing_h2h["managers"] = sorted(set(
-            m["manager_a"] for m in matchup_results
-        ) | set(m["manager_b"] for m in matchup_results))
-    all_time["head_to_head"] = existing_h2h
 
 
 def build_record_book(data) -> dict:
@@ -1784,6 +1860,10 @@ def build_record_book(data) -> dict:
     # Patch cumulative records with live current-season data
     _patch_cumulative_records(all_time, data)
     # Merge current-season matchup results into all-time top-10s
+    # Runs even with no live data yet: it is a HISTORICAL rebuild plus
+    # whatever the current season has so far, and the stored value it
+    # replaces is on the wrong scope.
+    _rebuild_head_to_head(all_time, data)
     _merge_current_season_into_alltime(all_time, data)
 
     result = {}

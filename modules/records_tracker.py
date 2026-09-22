@@ -674,15 +674,25 @@ def update_weekly_scores(
     Store weekly scores for historical tracking.
     
     Handles two formats:
-    - Old format: {manager: [{week, score}, ...]} (per-manager lists)
-    - New format: [{week, scores: {manager: score}}] (per-week list)
-    
-    We'll use the old format if it exists, otherwise new format.
+    - Manager-keyed: {manager: [{week, score}, ...]}  -- what everything reads
+    - Legacy list:   [{week, scores: {manager: score}}]
+
+    An EMPTY dict means manager-keyed, not "no format yet". The season reset
+    writes `"weekly_scores": {}`, and the old predicate here -- "a dict with
+    at least one manager key" -- was false for it, so the first write of a new
+    season silently converted the file to the legacy list shape. Nothing reads
+    that shape: data_loader.get_manager_record, luck_index, report_builder and
+    simulator_playoff_odds all call .items() expecting managers, and the Week 1
+    run died with "'list' object has no attribute 'items'".
+
+    So the test is on the TYPE, not on the contents. Only an actual list is
+    treated as the legacy shape.
     """
     weekly_scores = records.get("weekly_scores", {})
     
-    # Check if it's the old format (dict with manager keys)
-    if isinstance(weekly_scores, dict) and any(m in weekly_scores for m in MANAGERS):
+    if not isinstance(weekly_scores, list):
+        if not isinstance(weekly_scores, dict):
+            weekly_scores = {}
         # Old format - update each manager's list
         for manager, score in manager_scores.items():
             if manager not in weekly_scores:

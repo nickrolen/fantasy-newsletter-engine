@@ -352,6 +352,82 @@ def check_import_chain(verbose=False):
 # Check 4: Config Integrity
 # ----------------------------------------------------------------------------
 
+def _check_schedule_matches_config(cfg, warnings):
+    """config/SCHEDULE.json must describe the season league_config names.
+
+    The season reset does not clear SCHEDULE.json -- the new one cannot be
+    built until the league exists on Yahoo -- so for the whole preseason the
+    live file is the PREVIOUS season's. Nothing used to notice. Six modules
+    read week counts out of it, so a stale file silently applied last
+    season's 21-week regular season to a 15-week one, and its dates are a
+    year off the NBA schedule, which makes every game count zero.
+
+    A failure here is expected during the preseason and is the point: it is a
+    to-do that announces itself instead of one that has to be remembered.
+    """
+    failures = []
+    path = PROJECT_ROOT / "config" / "SCHEDULE.json"
+    if not path.is_file():
+        failures.append("[SCHEDULE] config/SCHEDULE.json does not exist")
+        return failures
+
+    try:
+        sched = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return [f"[SCHEDULE] config/SCHEDULE.json unreadable: {e}"]
+
+    season = cfg.get("season", {})
+    want_long = season.get("current_long")
+    got = str(sched.get("season_year", ""))
+    if want_long and got != want_long:
+        failures.append(
+            f"[SCHEDULE] season_year is '{got}' but league_config says "
+            f"'{want_long}'. This is last season's schedule: its matchups, "
+            "dates and week counts are all wrong for the current season.")
+
+    for field in ("regular_season_weeks", "playoff_start_week", "total_weeks"):
+        if field in sched and sched[field] != season.get(field):
+            failures.append(
+                f"[SCHEDULE] {field}={sched[field]} but league_config says "
+                f"{season.get(field)}")
+
+    weeks = sched.get("weeks") or []
+    if weeks and season.get("total_weeks") and len(weeks) != season["total_weeks"]:
+        failures.append(
+            f"[SCHEDULE] has {len(weeks)} weeks, league_config says "
+            f"{season['total_weeks']}")
+
+    # Week 1 has to land inside the NBA season the projections will use.
+    nba_file = season.get("nba_schedule_file")
+    if weeks and nba_file:
+        nba_path = PROJECT_ROOT / nba_file
+        if not nba_path.is_file():
+            failures.append(f"[SCHEDULE] season.nba_schedule_file '{nba_file}' "
+                            "does not exist; projections cannot load")
+        else:
+            try:
+                games = json.loads(nba_path.read_text(encoding="utf-8")).get("games", [])
+                dates = sorted({g["date"][:10] for g in games if g.get("date")})
+                start = str(weeks[0].get("start_date", ""))[:10]
+                if dates and start and not (dates[0] <= start <= dates[-1]):
+                    failures.append(
+                        f"[SCHEDULE] week 1 starts {start}, but the NBA "
+                        f"schedule runs {dates[0]} to {dates[-1]}. Every "
+                        "team's game count would be zero.")
+            except (OSError, json.JSONDecodeError, KeyError):
+                warnings.append("[SCHEDULE] could not read the NBA schedule to "
+                                "cross-check week 1")
+
+    managers = cfg.get("managers", [])
+    named = {m for w in weeks for mu in w.get("matchups", [])
+             for m in (mu.get("manager_a"), mu.get("manager_b")) if m}
+    unknown = sorted(named - set(managers))
+    if unknown:
+        failures.append(f"[SCHEDULE] matchups name unknown managers: {unknown}")
+
+    return failures
+
+
 def _check_season_format(cfg, warnings):
     """Cross-check the week layout, keeper rules and payouts against each other.
 
@@ -565,6 +641,7 @@ def check_config_integrity(verbose=False):
             )
 
     failures.extend(_check_season_format(cfg, warnings))
+    failures.extend(_check_schedule_matches_config(cfg, warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"

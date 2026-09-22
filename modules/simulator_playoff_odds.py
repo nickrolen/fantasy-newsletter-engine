@@ -168,8 +168,7 @@ def _regular_season_standings(data: FantasyData) -> dict:
     Playoff results must not influence seeding, so we deliberately ignore any
     week beyond regular_season_weeks. Returns {manager: {wins, losses, points}}.
     """
-    reg_weeks = data.schedule.get(
-        "regular_season_weeks", regular_season_weeks_for(CURRENT_SEASON))
+    reg_weeks = regular_season_weeks_for(CURRENT_SEASON)
     weekly_scores = data.records.get("weekly_scores", {})
 
     # Build {week: {manager: score}} for regular-season weeks only.
@@ -212,7 +211,9 @@ def _h2h_records_within_group(
     managers outside the group are ignored -- the rule is "record between
     the tied managers," not overall record.
     """
-    reg_weeks = data.schedule.get("regular_season_weeks", REGULAR_SEASON_WEEKS)
+    # Not from SCHEDULE.json: seeds must never move on bracket results, and
+    # a stale schedule would let weeks 16-21 into the standings that set them.
+    reg_weeks = regular_season_weeks_for(CURRENT_SEASON)
     weekly_scores = data.records.get("weekly_scores", {})
 
     scores_by_week: dict[int, dict[str, float]] = defaultdict(dict)

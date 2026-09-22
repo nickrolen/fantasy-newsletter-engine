@@ -33,7 +33,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .data_loader import FantasyData, MANAGERS
+from .data_loader import FantasyData, MANAGERS, TOTAL_WEEKS
 
 
 # Date parsing warnings: avoid silently dropping NBA games when schedule dates are malformed.
@@ -570,7 +570,9 @@ def build_schedule_strength(
     player_info = build_player_info_map(data.playerlist)
     player_team_map = build_player_team_map(data.playerlist)
     schedule_weeks = data.schedule.get("weeks", [])
-    total_weeks = data.schedule.get("total_weeks", 21)
+    # From config, not SCHEDULE.json (stale all preseason) and not the old
+    # literal 21, which was never the total -- it was the regular season.
+    total_weeks = TOTAL_WEEKS
 
     upcoming_week_num = week + 1
 

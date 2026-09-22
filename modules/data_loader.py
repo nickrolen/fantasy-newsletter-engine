@@ -175,7 +175,8 @@ class FantasyData:
         if include_playoffs:
             max_week = TOTAL_WEEKS
         else:
-            max_week = self.schedule.get("regular_season_weeks", REGULAR_SEASON_WEEKS)
+            # Deliberately NOT self.schedule["regular_season_weeks"]: the boundary comes from league_config, not SCHEDULE.json. That file is written per season and is the PREVIOUS season's for the whole preseason, so reading week counts out of it silently applies last year's shape -- 21 regular-season weeks where 2026-27 has 15.
+            max_week = regular_season_weeks_for(CURRENT_SEASON)
 
         weekly_scores = self.records.get("weekly_scores", {})
         if isinstance(weekly_scores, dict) and weekly_scores:
