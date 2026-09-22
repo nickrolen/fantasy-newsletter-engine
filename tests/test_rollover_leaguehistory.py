@@ -37,18 +37,78 @@ def _load():
 def roll(tmp_path, monkeypatch):
     mod = _load()
 
-    # Mirrors the real 2025-26 shape: four managers, a two-week bracket where
-    # the top regular-season seed loses in the semifinal. A two-manager
-    # fixture cannot exercise the "final is between last round's winners"
-    # derivation at all.
+    # A complete 2026-27 season in the format the league actually plays:
+    # 15 regular-season weeks, a best-of-3 bracket in 16-21, and the Cup in
+    # 22-23. The fixture used to model the OLD shape (a two-week bracket at
+    # 22-23), which is precisely what derive_outcomes now refuses to read as
+    # a bracket -- weeks 22-23 are the Cup.
+    #
+    # Regular season: Nick 13-2, Benton 8-7, Hayden 5-10, Garrett 4-11.
+    # Bracket: Garrett beats Nick and Hayden beats Benton in the semis, then
+    # Garrett beats Hayden in the final while Benton takes third off Nick.
+    # Cup: Nick wins it.
+    #
+    # So the three titles land on three different managers, which is the
+    # whole point -- League Champion Nick, Playoff Champion Garrett, Cup
+    # Champion Nick.
+    ROTATION = [
+        [("Nick", "Hayden"), ("Benton", "Garrett")],
+        [("Nick", "Benton"), ("Hayden", "Garrett")],
+        [("Nick", "Garrett"), ("Hayden", "Benton")],
+    ]
+    # winners per pair over their five regular-season meetings
+    REG_WINS = {
+        ("Hayden", "Nick"): {"Nick": 4, "Hayden": 1},
+        ("Benton", "Nick"): {"Nick": 4, "Benton": 1},
+        ("Garrett", "Nick"): {"Nick": 5, "Garrett": 0},
+        ("Garrett", "Hayden"): {"Garrett": 3, "Hayden": 2},
+        ("Benton", "Hayden"): {"Benton": 3, "Hayden": 2},
+        ("Benton", "Garrett"): {"Benton": 4, "Garrett": 1},
+    }
+    remaining = {k: dict(v) for k, v in REG_WINS.items()}
+
+    weeks, winners_by_week = [], {}
+    for wk in range(1, 16):
+        pairs = ROTATION[(wk - 1) % 3]
+        result = []
+        for a, b in pairs:
+            key = tuple(sorted((a, b)))
+            pick = a if remaining[key].get(a, 0) > 0 else b
+            remaining[key][pick] -= 1
+            result.append((pick, b if pick == a else a))
+        winners_by_week[wk] = result
+        weeks.append({"week": wk, "matchups": [
+            {"manager_a": w, "manager_b": l} for w, l in result]})
+
+    POST = {
+        16: [("Garrett", "Nick"), ("Hayden", "Benton")],
+        17: [("Nick", "Garrett"), ("Hayden", "Benton")],
+        18: [("Garrett", "Nick"), ("Benton", "Hayden")],
+        19: [("Garrett", "Hayden"), ("Benton", "Nick")],
+        20: [("Hayden", "Garrett"), ("Nick", "Benton")],
+        21: [("Garrett", "Hayden"), ("Benton", "Nick")],
+        22: [("Nick", "Hayden"), ("Benton", "Garrett")],
+        23: [("Nick", "Benton"), ("Hayden", "Garrett")],
+    }
+    for wk, result in POST.items():
+        winners_by_week[wk] = result
+        weeks.append({"week": wk, "matchups": [
+            {"manager_a": w, "manager_b": l} for w, l in result]})
+
+    weekly_scores = {m: [] for m in ("Nick", "Hayden", "Benton", "Garrett")}
+    for wk, result in sorted(winners_by_week.items()):
+        for w, l in result:
+            weekly_scores[w].append({"week": wk, "score": 200.0})
+            weekly_scores[l].append({"week": wk, "score": 100.0})
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append(HEADERS)
     # name, seasons, reg, po, titles, champs, pts_td, pts_cur, mv_td, mv_cur, rec_cur, blunders
-    ws.append(["Nick",    10, "(100-60)", "(5-5)",  3, 2, 300000.0, 40000.0, 400, 50, "(17-6)",  10])
-    ws.append(["Hayden",  10, "(80-80)",  "(6-4)",  2, 3, 290000.0, 38000.0, 300, 20, "(6-17)",  19])
-    ws.append(["Benton",  10, "(75-85)",  "(4-6)",  1, 1, 280000.0, 37000.0, 350, 15, "(11-12)", 25])
-    ws.append(["Garrett", 10, "(70-90)",  "(5-5)",  0, 2, 270000.0, 37500.0, 200, 30, "(12-11)", 12])
+    ws.append(["Nick",    10, "(100-60)", "(5-5)", 3, 2, 300000.0, 40000.0, 400, 50, "(17-6)",  10])
+    ws.append(["Hayden",  10, "(80-80)",  "(6-4)", 2, 3, 290000.0, 38000.0, 300, 20, "(9-14)",  19])
+    ws.append(["Benton",  10, "(75-85)",  "(4-6)", 1, 1, 280000.0, 37000.0, 350, 15, "(12-11)", 25])
+    ws.append(["Garrett", 10, "(70-90)",  "(5-5)", 0, 2, 270000.0, 37500.0, 200, 30, "(8-15)",  12])
     lh = tmp_path / "LEAGUEHISTORY.xlsx"
     wb.save(lh)
 
@@ -56,29 +116,15 @@ def roll(tmp_path, monkeypatch):
     records = tmp_path / "RECORDS.json"
     records.write_text(json.dumps({
         "manager_season_totals": {
-            "Nick":    {"wins": 17, "losses": 4,  "total_points": 40000.0},
-            "Hayden":  {"wins": 5,  "losses": 16, "total_points": 38000.0},
-            "Benton":  {"wins": 10, "losses": 11, "total_points": 37000.0},
-            "Garrett": {"wins": 10, "losses": 11, "total_points": 37500.0},
+            "Nick":    {"wins": 13, "losses": 2,  "total_points": 40000.0},
+            "Hayden":  {"wins": 5,  "losses": 10, "total_points": 38000.0},
+            "Benton":  {"wins": 8,  "losses": 7,  "total_points": 37000.0},
+            "Garrett": {"wins": 4,  "losses": 11, "total_points": 37500.0},
         },
-        "weekly_scores": {
-            # wk22 semifinals: Hayden beats Nick, Garrett beats Benton
-            # wk23 final: Garrett beats Hayden. 3rd place: Benton beats Nick.
-            "Nick":    [{"week": 22, "score": 100.0}, {"week": 23, "score": 100.0}],
-            "Hayden":  [{"week": 22, "score": 200.0}, {"week": 23, "score": 150.0}],
-            "Benton":  [{"week": 22, "score": 110.0}, {"week": 23, "score": 120.0}],
-            "Garrett": [{"week": 22, "score": 180.0}, {"week": 23, "score": 300.0}],
-        },
+        "weekly_scores": weekly_scores,
     }), encoding="utf-8")
     schedule = tmp_path / "SCHEDULE.json"
-    schedule.write_text(json.dumps({"weeks": [
-        {"week": 22, "matchups": [
-            {"manager_a": "Nick", "manager_b": "Hayden"},
-            {"manager_a": "Benton", "manager_b": "Garrett"}]},
-        {"week": 23, "matchups": [
-            {"manager_a": "Hayden", "manager_b": "Garrett"},
-            {"manager_a": "Nick", "manager_b": "Benton"}]},
-    ]}), encoding="utf-8")
+    schedule.write_text(json.dumps({"weeks": weeks}), encoding="utf-8")
 
     monkeypatch.setattr(mod, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(mod, "LEAGUEHISTORY", lh)
@@ -117,19 +163,29 @@ def test_regular_plus_playoff_equals_the_season_record(roll, tmp_path, monkeypat
     monkeypatch.setattr("sys.argv", ["r", "--execute"])
     assert roll.main() == 0
     rows = _rows(tmp_path / "LEAGUEHISTORY.xlsx")
-    # Nick 17-6 = regular 17-4 + playoff 0-2 (lost semi, lost 3rd-place game)
-    assert rows["Nick"]["regular_season_record"] == "(117-64)"
-    assert rows["Nick"]["playoff_record"] == "(5-7)"
-    # Hayden 6-17 = regular 5-16 + playoff 1-1 (won semi, lost final)
-    assert rows["Hayden"]["regular_season_record"] == "(85-96)"
-    assert rows["Hayden"]["playoff_record"] == "(7-5)"
-    # Garrett 12-11 = regular 10-11 + playoff 2-0 (won semi, won final)
-    assert rows["Garrett"]["regular_season_record"] == "(80-101)"
-    assert rows["Garrett"]["playoff_record"] == "(7-5)"
+    # Every manager plays 23 weeks: 15 regular season, then 8 postseason
+    # (six bracket weeks and two Cup weeks), so each postseason split is 4-4.
+    # Nick 17-6 = regular 13-2 + postseason 4-4
+    assert rows["Nick"]["regular_season_record"] == "(113-62)"
+    assert rows["Nick"]["playoff_record"] == "(9-9)"
+    # Hayden 9-14 = regular 5-10 + postseason 4-4
+    assert rows["Hayden"]["regular_season_record"] == "(85-90)"
+    assert rows["Hayden"]["playoff_record"] == "(10-8)"
+    # Garrett 8-15 = regular 4-11 + postseason 4-4
+    assert rows["Garrett"]["regular_season_record"] == "(74-101)"
+    assert rows["Garrett"]["playoff_record"] == "(9-9)"
+    # Benton 12-11 = regular 8-7 + postseason 4-4
+    assert rows["Benton"]["regular_season_record"] == "(83-92)"
+    assert rows["Benton"]["playoff_record"] == "(8-10)"
 
 
 def test_refuses_when_the_split_cannot_reconcile(roll, tmp_path, monkeypatch, capsys):
-    """RECORDS claiming more wins than the season record is a data conflict."""
+    """RECORDS.json disagreeing with its own week-by-week results is a conflict.
+
+    manager_season_totals keeps a summary W-L; the weekly scores are what
+    actually happened. If they disagree, writing either into the permanent
+    history is a coin flip, so refuse.
+    """
     r = json.loads((tmp_path / "RECORDS.json").read_text())
     r["manager_season_totals"]["Nick"]["wins"] = 25
     (tmp_path / "RECORDS.json").write_text(json.dumps(r), encoding="utf-8")
@@ -153,10 +209,12 @@ def test_totals_and_counters_accumulate(roll, tmp_path, monkeypatch):
 
 
 def test_winners_get_exactly_one_credit_each(roll, tmp_path, monkeypatch):
-    """Nick wins the regular season at 17-4; Garrett wins the bracket at 10-11.
+    """Nick wins the regular season at 13-2; Garrett wins the bracket at 4-11.
 
-    The two credits are independent -- this is exactly the 2025-26 case, where
-    the best record and the championship went to different managers.
+    The two credits are independent, and under the new format they are read
+    from two different parts of the season: weeks 1-15 for the title, the
+    weeks 19-21 series for the bracket. The Cup (weeks 22-23, won by Nick
+    here) credits neither column -- it earns a keeper, not a trophy.
     """
     monkeypatch.setattr("sys.argv", ["r", "--execute"])
     assert roll.main() == 0

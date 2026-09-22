@@ -352,6 +352,112 @@ def check_import_chain(verbose=False):
 # Check 4: Config Integrity
 # ----------------------------------------------------------------------------
 
+# Files the season reset is supposed to empty or replace. If one of these is
+# byte-identical to the copy archived under a FINISHED season, the reset
+# missed it and the live file is last season's.
+#
+# Deliberately not every file: LEAGUEHISTORY.xlsx, POTW_HISTORY.json,
+# ROOKIE_SEASONS.json, DRAFT_PICK_VALUES.json and TRADES draft_pick_ownership
+# are all meant to carry forward unchanged.
+PER_SEASON_FILES = [
+    "data/PLAYERLOG.xlsx",
+    "data/LINEUPS.xlsx",
+    "data/PLAYERLIST.xlsx",
+    "config/RECORDS.json",
+    "config/ROSTERS.json",
+    "config/DRAFT_PICKS_CURRENT.json",
+    "config/SCHEDULE.json",
+    "config/RECENT_CONTENT.json",
+    "config/LAST_WEEK_RECAP.md",
+]
+
+
+def _check_no_file_survived_the_reset(warnings):
+    """Catch a per-season file the reset archived but forgot to clear.
+
+    PLAYERLIST.xlsx was exactly this: archived correctly, never truncated, so
+    the live file stayed byte-identical to the archived one. It looked
+    populated and valid, which is worse than missing -- Week 1 would have
+    projected with last season's numbers rather than failing.
+    """
+    import hashlib
+
+    failures = []
+    archive = PROJECT_ROOT / "archive"
+    if not archive.is_dir():
+        return failures
+    seasons = sorted(d.name for d in archive.iterdir() if d.is_dir())
+    if not seasons:
+        return failures
+
+    def digest(path):
+        try:
+            return hashlib.md5(path.read_bytes()).hexdigest()
+        except OSError:
+            return None
+
+    for rel_path in PER_SEASON_FILES:
+        live = PROJECT_ROOT / rel_path
+        if not live.is_file():
+            continue
+        live_hash = digest(live)
+        if live_hash is None:
+            continue
+        for season in seasons:
+            archived = archive / season / rel_path
+            if archived.is_file() and digest(archived) == live_hash:
+                failures.append(
+                    f"[RESET] {rel_path} is byte-identical to "
+                    f"archive/{season}/{rel_path}. It is the {season} file, "
+                    "not this season's.")
+                break
+    return failures
+
+
+def _check_league_keys(cfg, warnings):
+    """Yahoo league keys in config must match the ones in the pulled data.
+
+    Eight of the nine were wrong from the first commit -- config claimed
+    380.l.23647 for 2017-18 where Yahoo's own team keys say 375.l.132631.
+    Nothing noticed because the Yahoo scripts are only run at season
+    boundaries, and a wrong key fails as a 404 rather than as bad data.
+
+    data/historical/all_teams.json stores keys of the form
+    "<league_key>.t.<n>", pulled from Yahoo, so the league prefix is Yahoo's
+    own answer rather than something typed by hand.
+    """
+    failures = []
+    stored = cfg.get("yahoo", {}).get("historical_league_keys", {})
+    teams_path = PROJECT_ROOT / "data" / "historical" / "all_teams.json"
+    if not (stored and teams_path.is_file()):
+        return failures
+
+    try:
+        teams = json.loads(teams_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return failures
+
+    for season, entry in sorted(teams.items()):
+        if not isinstance(entry, dict) or not entry:
+            continue
+        prefixes = {k.rsplit(".t.", 1)[0] for k in entry if ".t." in k}
+        if len(prefixes) != 1:
+            failures.append(
+                f"[YAHOO] all_teams.json {season} mixes league keys: "
+                f"{sorted(prefixes)}")
+            continue
+        actual = prefixes.pop()
+        listed = stored.get(season)
+        if listed is None:
+            warnings.append(f"[YAHOO] {season} has team data but no entry in "
+                            "historical_league_keys")
+        elif listed != actual:
+            failures.append(
+                f"[YAHOO] historical_league_keys['{season}'] is '{listed}' but "
+                f"the pulled team keys say '{actual}'")
+    return failures
+
+
 def _check_schedule_matches_config(cfg, warnings):
     """config/SCHEDULE.json must describe the season league_config names.
 
@@ -424,6 +530,42 @@ def _check_schedule_matches_config(cfg, warnings):
     unknown = sorted(named - set(managers))
     if unknown:
         failures.append(f"[SCHEDULE] matchups name unknown managers: {unknown}")
+
+    # The regular season must be complete and correctly balanced. The
+    # postseason legitimately cannot be: the bracket pairings depend on the
+    # final standings, and Yahoo holds the Cup weeks for a bracket of its own
+    # until its playoffs are turned off. Those are warnings, not failures.
+    from collections import Counter
+    reg_last = season.get("regular_season_weeks") or 0
+    reg_weeks = [w for w in weeks if (w.get("week") or 0) <= reg_last]
+    pairs = Counter()
+    for w in reg_weeks:
+        if not w.get("matchups"):
+            failures.append(
+                f"[SCHEDULE] week {w.get('week')} is in the regular season but "
+                "has no matchups")
+        for mu in w.get("matchups", []):
+            a, b = mu.get("manager_a"), mu.get("manager_b")
+            if a and b:
+                pairs[tuple(sorted((a, b)))] += 1
+    meetings = (cfg.get("postseason_format", {}).get("stages", {})
+                .get("regular_season", {}).get("meetings_per_opponent"))
+    if pairs and meetings:
+        off = {f"{a} vs {b}": n for (a, b), n in sorted(pairs.items())
+               if n != meetings}
+        if off:
+            failures.append(
+                f"[SCHEDULE] every pair should meet {meetings} times in the "
+                f"regular season; these do not: {off}")
+
+    for w in weeks:
+        week_no = w.get("week") or 0
+        if week_no > reg_last and not w.get("matchups"):
+            warnings.append(
+                f"[SCHEDULE] week {week_no} has no matchups yet. Bracket and "
+                "Cup pairings depend on results, so this is expected until "
+                "they are set -- but Yahoo also returns nothing for a week it "
+                "is holding for its own playoff bracket.")
 
     return failures
 
@@ -642,6 +784,8 @@ def check_config_integrity(verbose=False):
 
     failures.extend(_check_season_format(cfg, warnings))
     failures.extend(_check_schedule_matches_config(cfg, warnings))
+    failures.extend(_check_league_keys(cfg, warnings))
+    failures.extend(_check_no_file_survived_the_reset(warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"

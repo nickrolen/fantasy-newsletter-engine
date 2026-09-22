@@ -60,7 +60,8 @@ from pathlib import Path
 # Add project root to path for config imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from modules.data_loader import KEEPER_ERA_START, LEAGUE_STRUCTURE, NUM_TEAMS
+from modules.data_loader import (KEEPER_ERA_START, LEAGUE_STRUCTURE, NUM_TEAMS,
+                                 keepers_for, live_picks_for)
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DRAFT_PERF_FILE = PROJECT_ROOT / "data" / "historical" / "DRAFT_PERFORMANCE.json"
@@ -84,7 +85,20 @@ TEAMS = NUM_TEAMS
 HISTORICAL_DRAFT_ROUNDS = LEAGUE_STRUCTURE.get("historical_draft_rounds", 7)
 HISTORICAL_PICKS = HISTORICAL_DRAFT_ROUNDS * TEAMS
 
-TOTAL_DRAFT_ROUNDS = LEAGUE_STRUCTURE.get("total_draft_rounds", 9)
+# How many LIVE rounds the board runs to. Not the scalar
+# league_structure.total_draft_rounds, which describes one uniform season:
+# from 2027-28 the Cup winner keeps a sixth player and drafts 9 rounds while
+# the other three draft 10, so the board is 10 rounds deep with 39 picks in
+# it rather than 9 rounds and 36. A table that stopped at 36 would leave
+# every round-10 pick with no expected value at all, and the Draft Value
+# Tracker could not grade them.
+#
+# The table is generated full width (10 x 4 = 40 in 2027-28) and the one slot
+# that no manager owns simply goes unused, which is cheaper and clearer than
+# modelling a short round.
+_LIVE_PICKS = live_picks_for()
+TOTAL_DRAFT_ROUNDS = max(_LIVE_PICKS.values()) if _LIVE_PICKS else \
+    LEAGUE_STRUCTURE.get("total_draft_rounds", 9)
 TOTAL_PICKS = TOTAL_DRAFT_ROUNDS * TEAMS
 
 # Expansion round decay: FPPG and Total FP drop per pick beyond P28
@@ -424,10 +438,12 @@ def main():
 
     output = {
         "_description": (
-            "Draft pick valuation guide for trade grading. Maps each individual pick "
-            "number (1-36) to expected player value (projFPPG and Total FP) and role tier. "
-            "Picks 1-28 use a 70/30 blend of raw historical average and regression line. "
-            "Picks 29-36 (expansion rounds R8-R9) use cliff decay from the R7 average."
+            "Draft pick valuation guide for trade grading. Maps each individual "
+            f"pick number (1-{TOTAL_PICKS}) to expected player value (projFPPG "
+            "and Total FP) and role tier. Picks 1-28 use a "
+            f"{RAW_WEIGHT:.0%}/{REG_WEIGHT:.0%} blend of raw historical average "
+            f"and regression line. Picks 29-{TOTAL_PICKS} (expansion rounds) "
+            "use cliff decay from the R7 average."
         ),
         "_methodology": (
             f"Built from {len(fppg_x)} qualifying data points across "
@@ -490,11 +506,14 @@ def main():
         },
         "_league_context": {
             "league_size": TEAMS,
-            "keepers_per_team": LEAGUE_STRUCTURE.get("keepers_per_team", 6),
-            "total_keepers": TEAMS * LEAGUE_STRUCTURE.get("keepers_per_team", 6),
+            # Per manager, because these stop being one number in 2027-28.
+            "keepers_by_manager": keepers_for(),
+            "live_picks_by_manager": _LIVE_PICKS,
+            "total_keepers": sum(keepers_for().values()),
             "draft_rounds": TOTAL_DRAFT_ROUNDS,
             "picks_per_round": TEAMS,
             "total_draft_picks": TOTAL_PICKS,
+            "live_picks_actually_owned": sum(_LIVE_PICKS.values()),
             "roster_size": LEAGUE_STRUCTURE.get("roster_size", 17),
             "roster_composition": "10 starters + 5 BN + 2 IL",
             "notes": (

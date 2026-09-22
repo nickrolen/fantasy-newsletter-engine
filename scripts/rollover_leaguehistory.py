@@ -79,6 +79,10 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules.data_loader import CURRENT_SEASON, MANAGERS  # noqa: E402
+from modules.season_outcomes import (  # noqa: E402
+    build_matchups, build_standings, cup_champion, league_champion,
+    playoff_champion,
+)
 
 LEAGUEHISTORY = PROJECT_ROOT / "data" / "LEAGUEHISTORY.xlsx"
 RECORDS = PROJECT_ROOT / "config" / "RECORDS.json"
@@ -117,46 +121,33 @@ def num(v):
 
 
 def derive_outcomes(records, schedule):
-    """Return (regular_season_winner, champion) from the season's own data."""
-    totals = records.get("manager_season_totals", {})
-    reg_winner = None
-    if totals:
-        reg_winner = max(
-            totals, key=lambda m: (totals[m].get("wins", 0), totals[m].get("total_points", 0))
-        )
+    """Return (league_champion, playoff_champion, standings).
 
-    # Champion: winner of the final week, among whoever won the week before.
-    weekly = records.get("weekly_scores", {})
-    scores = {}
-    for mgr, rows in weekly.items():
-        for row in rows:
-            scores.setdefault(int(row["week"]), {})[mgr] = float(row["score"])
-    if not scores:
-        return reg_winner, None
+    This used to work the old format out by hand: "the champion is the winner
+    of the final week, among whoever won the week before". That is right for a
+    two-week single-game bracket and wrong from 2026-27, where the final two
+    weeks are the CUP -- so it would have credited the Cup winner with a
+    playoff championship in LEAGUEHISTORY.xlsx, permanently, and the real
+    weeks 19-21 series winner with nothing.
 
-    last = max(scores)
-    prev_winners = set()
-    prev = last - 1
-    for wk_def in schedule.get("weeks", []):
-        if int(wk_def.get("week", 0)) != prev:
-            continue
-        for mu in wk_def.get("matchups", []):
-            a, b = mu["manager_a"], mu["manager_b"]
-            sa, sb = scores.get(prev, {}).get(a, 0), scores.get(prev, {}).get(b, 0)
-            prev_winners.add(a if sa > sb else b)
+    It also picked the regular-season winner out of manager_season_totals,
+    whose W-L spans every week played rather than the regular season.
 
-    champion = None
-    for wk_def in schedule.get("weeks", []):
-        if int(wk_def.get("week", 0)) != last:
-            continue
-        for mu in wk_def.get("matchups", []):
-            a, b = mu["manager_a"], mu["manager_b"]
-            # The championship game is the one between last round's winners.
-            if prev_winners and not ({a, b} <= prev_winners):
-                continue
-            sa, sb = scores.get(last, {}).get(a, 0), scores.get(last, {}).get(b, 0)
-            champion = a if sa > sb else b
-    return reg_winner, champion
+    Both now come from modules/season_outcomes, which reads the week
+    boundaries out of league_config and is the same code the history rollup
+    uses. One definition of who won what.
+    """
+    rows = build_matchups(CURRENT_SEASON, records, schedule)
+    if not rows:
+        return None, None, []
+    standings = build_standings(CURRENT_SEASON, rows)
+    return league_champion(standings), playoff_champion(standings), standings
+
+
+def derive_cup_champion(records, schedule):
+    """The Cup winner, or None for a season that had no Cup."""
+    rows = build_matchups(CURRENT_SEASON, records, schedule)
+    return cup_champion(CURRENT_SEASON, rows) if rows else None
 
 
 def main():
@@ -248,7 +239,10 @@ def main():
         print("  Cleared. To-date totals unchanged.")
         return 0
 
-    reg_winner, champion = derive_outcomes(records, schedule)
+    reg_winner, champion, standings = derive_outcomes(records, schedule)
+    cup = derive_cup_champion(records, schedule)
+    reg_by_manager = {row["manager"]: (row["reg_wins"], row["reg_losses"])
+                      for row in standings}
     if args.regular_season_winner:
         reg_winner = args.regular_season_winner
     if args.champion:
@@ -265,6 +259,13 @@ def main():
     print(f"  Playoff champion      : {champion}"
           f"{'  (overridden)' if args.champion else '  (derived)'}"
           f"   -> playoff_championships +1")
+    if cup:
+        print(f"  Cup champion          : {cup}   -> no column for this yet")
+        print("      LEAGUEHISTORY.xlsx has titles_won and "
+              "playoff_championships but no cup_championships. Add the column "
+              "and this will fill it; until then record the Cup winner in "
+              "league_config keeper_rules.cup_winners, which is what next "
+              "season's keeper counts read.")
     if not champion:
         return fail("could not determine the champion; pass --champion")
 
@@ -280,8 +281,30 @@ def main():
         name = str(name).strip()
 
         cur_w, cur_l = parse_record(ws.cell(row=r, column=col["record_current_season"]).value)
-        t = totals.get(name, {})
-        reg_w, reg_l = int(t.get("wins", 0)), int(t.get("losses", 0))
+        # The regular-season split comes from the standings, which bound it to
+        # that season's own regular season. It used to come from
+        # manager_season_totals, whose W-L spans every week played -- fine
+        # while the postseason was two games, wrong now it is eight.
+        if name in reg_by_manager:
+            reg_w, reg_l = reg_by_manager[name]
+            # RECORDS.json keeps its own copy in manager_season_totals. If the
+            # two disagree, one of them is wrong and writing either into the
+            # permanent history is a coin flip.
+            t = totals.get(name)
+            if t and (int(t.get("wins", 0)), int(t.get("losses", 0))) != (reg_w, reg_l):
+                return fail(
+                    f"{name}: manager_season_totals says "
+                    f"{t.get('wins')}-{t.get('losses')} for the regular season "
+                    f"but the week-by-week results say {reg_w}-{reg_l}. "
+                    "These must reconcile before this is written to "
+                    "LEAGUEHISTORY.xlsx.")
+        else:
+            t = totals.get(name, {})
+            reg_w, reg_l = int(t.get("wins", 0)), int(t.get("losses", 0))
+        # NOTE: from 2026-27 this remainder is the six-week bracket AND the
+        # two-week Cup, eight games, all landing in playoff_record. The
+        # arithmetic reconciles; the label is broad until there is a
+        # cup_record column.
         po_w, po_l = cur_w - reg_w, cur_l - reg_l
         if po_w < 0 or po_l < 0:
             return fail(

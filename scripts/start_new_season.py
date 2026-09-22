@@ -237,18 +237,39 @@ def reset_recent_content(execute: bool) -> None:
 
 
 def reset_potw_history(execute: bool) -> None:
-    """Reset POTW_HISTORY.json to empty schema."""
+    """Carry POTW_HISTORY.json forward -- do NOT empty it.
+
+    The file calls itself all-time history and the formatter feeds it to
+    compute_potw_career_stats, but this used to write {"seasons": {}} every
+    year. So it had never held more than one season, and the newsletter's
+    career Player of the Week leaders were always really single-season
+    leaders. Keeping the finished season is the whole point of the file.
+    """
     path = PROJECT_ROOT / "config" / "POTW_HISTORY.json"
-    empty = {
-        "_comment": "All-time Player of the Week history. The formatter reads this at startup and appends the current week's winner after each run. Organized by NBA season.",
-        "seasons": {}
+    existing = {}
+    if path.is_file():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing = {}
+
+    seasons = existing.get("seasons") or {}
+    kept = {k: v for k, v in seasons.items() if v}
+    out = {
+        "_comment": ("All-time Player of the Week history. The formatter reads "
+                     "this at startup and appends the current week's winner "
+                     "after each run. Organized by NBA season. Seasons are "
+                     "KEPT across the season reset -- that is what makes the "
+                     "career leaders career leaders."),
+        "seasons": dict(sorted(kept.items())),
     }
     if execute:
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(empty, f, indent=2)
-        print(f"    OK  {rel(path)}")
+            json.dump(out, f, indent=2)
+        print(f"    OK  {rel(path)} ({len(kept)} season(s) kept)")
     else:
-        print(f"    {rel(path)} -> empty seasons dict")
+        print(f"    {rel(path)} -> keeping {len(kept)} season(s): "
+              f"{', '.join(sorted(kept)) or 'none'}")
 
 
 def reset_injury_overrides(execute: bool) -> None:
@@ -509,6 +530,17 @@ def reset_phase(execute: bool, upcoming_draft_year: int = None) -> None:
         "fantasy_points", "source", "notes", "opponent_manager"
     ]
     reset_excel("LINEUPS.xlsx", lineups_headers, execute)
+
+    # PLAYERLIST is a per-season projection snapshot. It was archived but
+    # never cleared, so the live file stayed byte-identical to the archived
+    # one -- populated, valid-looking, and a season out of date. A Week 1 run
+    # would quietly project with last year's numbers instead of failing.
+    # format_stats_report already handles an empty one loudly.
+    playerlist_headers = [
+        "player_name", "player_nba_team", "player_position(s)",
+        "player_total_proj_FP",
+    ]
+    reset_excel("PLAYERLIST.xlsx", playerlist_headers, execute)
 
 
 # ---------------------------------------------------------------------------

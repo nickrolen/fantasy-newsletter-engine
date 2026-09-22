@@ -15,7 +15,7 @@ from typing import Optional, Any
 from .data_loader import (FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
                           CURRENT_SEASON, classify_position_group,
                           phase_for_week, regular_season_weeks_for,
-                          is_regular_season_week)
+                          is_regular_season_week, keepers_for)
 from .weekly_stats import (
     WeeklyReport,
     compute_weekly_report,
@@ -526,9 +526,15 @@ def build_power_rankings(
             if manager:
                 championships[manager] = int(titles) if titles else 0
     
-    # Compute keeper quality scores per manager (if V2 data available)
+    # Keeper quality: the average keepability of the players a manager would
+    # actually keep. That count is per manager, not a literal 5 -- it is 6 for
+    # everyone in 2026-27, and from 2027-28 the Cup winner keeps 6 while the
+    # other three keep 5. A hardcoded 5 both averaged the wrong number of
+    # players and hid a manager's last keeper from the table, while feeding
+    # 20% of the power-rankings sort key.
     keeper_quality = {}
-    top_5_keepers = {}
+    top_5_keepers = {}   # key name kept for the report schema; count varies
+    keeper_counts = keepers_for()
     if keeper_watch:
         for manager in MANAGERS:
             mgr_players = [
@@ -536,12 +542,12 @@ def build_power_rankings(
                 if p.get("manager") == manager
             ]
             mgr_players.sort(key=lambda x: -x.get("keepability_score", 0))
-            top_5 = mgr_players[:5]
+            keeps = mgr_players[:keeper_counts.get(manager, len(mgr_players))]
             
-            if top_5:
-                avg_score = sum(p.get("keepability_score", 0) for p in top_5) / len(top_5)
+            if keeps:
+                avg_score = sum(p.get("keepability_score", 0) for p in keeps) / len(keeps)
                 keeper_quality[manager] = round(avg_score, 1)
-                top_5_keepers[manager] = [p["player_name"] for p in top_5]
+                top_5_keepers[manager] = [p["player_name"] for p in keeps]
             else:
                 keeper_quality[manager] = 0.0
                 top_5_keepers[manager] = []

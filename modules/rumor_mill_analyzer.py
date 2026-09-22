@@ -5,9 +5,12 @@ Data-driven strategic analysis for the Rumor Mill section.
 Generates trade ideas, free agent recommendations, and drop candidates.
 
 KEEPER LEAGUE TRADE LOGIC (v4):
-- Top 6 players per team = "keepers" (hard to acquire, need competitive packages)
+- Each team's keepers (count from league_config; 6 in 2026-27, and from
+  2027-28 the Cup winner keeps 6 while the others keep 5) = hard to acquire,
+  need competitive packages
 - Players 7+ = "trade block" (expendable, likely gone next year)
-- Core keepers (1-3) require overpay; fringe keepers (4-6) available for right price
+- Core keepers (the top half) require overpay; fringe keepers (the rest of
+  the keeper slots) available for the right price
 
 MANAGER SITUATION TAGS:
 - Contender: High title odds (>15%), wants proven production NOW
@@ -47,7 +50,8 @@ import math
 
 import pandas as pd
 
-from .data_loader import FantasyData, MANAGERS, MANAGER_TO_TEAM, get_position_list
+from .data_loader import (FantasyData, MANAGERS, MANAGER_TO_TEAM,
+                          get_position_list, keepers_for)
 from .projections import (
     load_all_team_projections,
     get_underperformers,
@@ -395,9 +399,10 @@ def generate_trade_ideas(
     team situations (contender vs rebuilder), and player ages.
     
     KEEPER LEAGUE LOGIC:
-    - Each team keeps 6 players per year
-    - Top 6 players by value = "keepers" (hard to acquire)
-    - Players 7+ = "trade block" (expendable, likely gone next year anyway)
+    - Each team keeps the number league_config gives it -- not always the
+      same number for every manager from 2027-28 on
+    - Players above that line = "keepers" (hard to acquire)
+    - Players below it = "trade block" (expendable, likely gone next year)
     - To get a keeper, you need a competitive package (keeper + pick, or 2-for-1)
     
     SITUATIONAL AWARENESS:
@@ -463,14 +468,22 @@ def generate_trade_ideas(
             reverse=True
         )
         
-        # Top 3 = core keepers (very hard to pry loose)
-        # 4-6 = fringe keepers (available for right price)  
-        # 7+ = trade block (expendable)
+        # The keeper line is what makes a player hard to acquire, so the tiers
+        # are cut from THIS manager's keeper count rather than a literal 6.
+        # It is 6 for everyone in 2026-27; from 2027-28 the Cup winner keeps 6
+        # and the other three keep 5, and treating a fifth-best player as
+        # protected would drop him from every trade suggestion.
+        #   core   top half of the keepers -- very hard to pry loose
+        #   fringe the rest of the keepers -- available for the right price
+        #   block  everyone below the line -- expendable, likely gone anyway
+        keep_line = keepers_for(manager=manager)
+        core_line = max(1, keep_line // 2)
         team_tiers[manager] = {
-            "core": sorted_players[:3] if len(sorted_players) >= 3 else sorted_players,
-            "fringe": sorted_players[3:6] if len(sorted_players) >= 6 else sorted_players[3:],
-            "block": sorted_players[6:] if len(sorted_players) > 6 else [],
+            "core": sorted_players[:core_line],
+            "fringe": sorted_players[core_line:keep_line],
+            "block": sorted_players[keep_line:],
             "all_sorted": sorted_players,
+            "keeper_line": keep_line,
         }
     
     # Get standings for draft pick value (worse teams have better picks).
@@ -800,9 +813,16 @@ def generate_trade_ideas(
             if p.player_name == player_name:
                 player_obj = p
                 idx = owner_tiers["all_sorted"].index(p)
-                if idx < 3:
+                # The "fringe" boundary is the keeper line: a player inside it
+                # is protected, one outside it is tradeable. It was the
+                # literal 6, which is this season's count for everyone and
+                # from 2027-28 is one too many for three of the four managers
+                # -- their sixth-best player would be treated as a keeper and
+                # dropped from every trade suggestion.
+                keep_line = owner_tiers.get("keeper_line") or keepers_for(manager=owner)
+                if idx < max(1, keep_line // 2):
                     player_tier = "core"
-                elif idx < 6:
+                elif idx < keep_line:
                     player_tier = "fringe"
                 else:
                     player_tier = "block"

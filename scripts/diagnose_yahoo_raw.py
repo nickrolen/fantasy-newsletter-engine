@@ -37,7 +37,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from modules.data_loader import LEAGUE_KEY  # noqa: E402
+from modules.data_loader import LEAGUE_KEY, resolve_league_key  # noqa: E402
 
 OAUTH_FILE = PROJECT_ROOT / "oauth2.json"
 FANTASY = "https://fantasysports.yahooapis.com/fantasy/v2"
@@ -68,7 +68,14 @@ def main():
     parser = argparse.ArgumentParser(description="Raw Yahoo API diagnosis.")
     parser.add_argument("--league-key", default=None)
     args = parser.parse_args()
-    league_key = args.league_key or LEAGUE_KEY
+    league_key, key_source = resolve_league_key(args.league_key)
+    if not league_key:
+        print(f"\n  ERROR: {key_source}")
+        print("  Without one this would request league '' and Yahoo would")
+        print("  reject it -- which looks exactly like a permission failure")
+        print("  and is not one.")
+        return 1
+    print(f"\n  league key: {league_key}  ({key_source})")
 
     try:
         import requests

@@ -563,6 +563,31 @@ def is_regular_season_week(season, week, default=None):
         return False
 
 
+def resolve_league_key(explicit=None):
+    """(league_key, source) for a Yahoo call, or (None, reason) if there is none.
+
+    yahoo.current_league_key is deliberately empty between the season reset
+    and Yahoo provisioning the new league -- leaving last season's key there
+    would make every script silently pull the wrong season. But an empty key
+    still builds a URL: /fantasy/v2/league//settings, which Yahoo rejects.
+    A diagnostic that makes that request reads the rejection as a permission
+    problem and tells you to rebuild your app, which is what happened.
+
+    So: resolve it explicitly, and say which key is being used and why.
+    """
+    if explicit:
+        return explicit, "passed on the command line"
+    if LEAGUE_KEY:
+        return LEAGUE_KEY, f"yahoo.current_league_key ({CURRENT_SEASON})"
+    if HISTORICAL_LEAGUE_KEYS:
+        season = max(HISTORICAL_LEAGUE_KEYS)
+        return HISTORICAL_LEAGUE_KEYS[season], (
+            f"most recent historical league ({season}) -- "
+            "yahoo.current_league_key is empty")
+    return None, ("no league key: yahoo.current_league_key is empty and there "
+                  "are no historical keys. Pass --league-key.")
+
+
 def season_had_bracket(season):
     """True if `season` played a postseason bracket (2019-20 did not)."""
     entry = SEASON_STRUCTURE.get(str(season))
