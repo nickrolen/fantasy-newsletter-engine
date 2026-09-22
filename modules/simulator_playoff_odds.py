@@ -354,33 +354,62 @@ def _week_entry(data: FantasyData, week: int) -> Optional[dict]:
     return None
 
 
-def get_semifinal_matchups(data: FantasyData, seeds: dict = None) -> list[dict]:
-    """The two semifinal pairings.
+def _seeded_pairs(seeds, seed_pairs):
+    """[(manager, manager)] for seed pairings like [[1, 4], [2, 3]]."""
+    by_seed = {s: m for m, s in seeds.items()}
+    out = []
+    for sa, sb in seed_pairs:
+        if sa in by_seed and sb in by_seed:
+            out.append((by_seed[sa], by_seed[sb]))
+    return out
 
-    Prefers what SCHEDULE.json says for the first semifinal week, because that
-    is what Yahoo actually built. Falls back to the configured seeding
-    (#1 vs #4, #2 vs #3) when the schedule has not been created yet, which is
-    the normal state during a preview before the bracket exists.
+
+def _matches_seeding(pairs, seeds, seed_pairs):
+    """True if `pairs` IS the configured seeded bracket, in any order.
+
+    The schedule file is authoritative once the real bracket has been entered
+    -- but until then it holds whatever Yahoo generated, which for this league
+    is an ordinary round robin. Taking that as the bracket would preview the
+    wrong semifinals, with the seed labels visibly contradicting the pairing.
+    So the schedule is used only when it actually forms the configured
+    bracket; otherwise the seeds win and the result says so.
+    """
+    want = {frozenset(p) for p in _seeded_pairs(seeds, seed_pairs)}
+    got = {frozenset(p) for p in pairs}
+    return bool(want) and want == got
+
+
+def get_semifinal_matchups(data: FantasyData, seeds: dict = None) -> list[dict]:
+    """The two semifinal pairings, and where they came from.
+
+    Returns (pairings, source). The schedule wins ONLY when it already holds
+    the configured bracket; otherwise the seeding does. See _matches_seeding.
     """
     rounds = bracket_rounds()
     if SEMIFINAL_ROUND not in rounds:
-        return []
+        return [], "no bracket configured"
     first_week = rounds[SEMIFINAL_ROUND][0]
 
-    entry = _week_entry(data, first_week)
-    if entry and entry.get("matchups"):
-        return entry["matchups"]
+    seed_pairs = [[1, 4], [2, 3]]
+    for rnd in stage_rounds(CURRENT_SEASON, "playoffs"):
+        if rnd["name"] == SEMIFINAL_ROUND:
+            seed_pairs = rnd.get("seeds", seed_pairs)
+            break
 
     seeds = seeds or get_playoff_seeds(data)
-    by_seed = {s: m for m, s in seeds.items()}
-    pairs = []
-    for rnd in stage_rounds(CURRENT_SEASON, "playoffs"):
-        if rnd["name"] != SEMIFINAL_ROUND:
-            continue
-        for sa, sb in rnd.get("seeds", [[1, 4], [2, 3]]):
-            if sa in by_seed and sb in by_seed:
-                pairs.append({"manager_a": by_seed[sa], "manager_b": by_seed[sb]})
-    return pairs
+    entry = _week_entry(data, first_week)
+    scheduled = [(m["manager_a"], m["manager_b"])
+                 for m in (entry or {}).get("matchups", [])]
+    if scheduled and _matches_seeding(scheduled, seeds, seed_pairs):
+        return ([{"manager_a": a, "manager_b": b} for a, b in scheduled],
+                f"SCHEDULE.json week {first_week}")
+
+    pairs = [{"manager_a": a, "manager_b": b}
+             for a, b in _seeded_pairs(seeds, seed_pairs)]
+    why = ("seeding (the schedule has no bracket yet)" if not scheduled else
+           f"seeding -- SCHEDULE.json week {first_week} holds "
+           f"{scheduled}, which is not the seeded bracket")
+    return pairs, why
 
 
 # =============================================================================
@@ -622,7 +651,7 @@ def run_playoff_odds_simulation(
     seeds = get_playoff_seeds(data)
     current_records = {m: data.get_manager_record(m) for m in MANAGERS}
 
-    semi_matchup_dicts = get_semifinal_matchups(data, seeds)
+    semi_matchup_dicts, pairing_source = get_semifinal_matchups(data, seeds)
     if len(semi_matchup_dicts) != 2:
         raise ValueError(
             f"expected 2 semifinal matchups, got {len(semi_matchup_dicts)}. "
@@ -687,6 +716,7 @@ def run_playoff_odds_simulation(
             "seed_b": seeds[mb],
             "weeks": list(rounds[SEMIFINAL_ROUND]),
             "format": "best-of-3",
+            "pairing_source": pairing_source,
         })
 
     championship_matchup_probs = {

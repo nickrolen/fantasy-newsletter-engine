@@ -115,18 +115,41 @@ def test_seeds_pair_one_four_and_two_three():
         "Benton":  {1: 200}, "Hayden":  {1: 100},
     }))
     seeds = cup.get_cup_seeds(data)
-    pairs = {(p["manager_a"], p["manager_b"])
-             for p in cup.get_cup_semifinal_matchups(data, seeds)}
-    assert pairs == {("Nick", "Hayden"), ("Garrett", "Benton")}
+    pairs, _ = cup.get_cup_semifinal_matchups(data, seeds)
+    assert {(p["manager_a"], p["manager_b"]) for p in pairs} == \
+           {("Nick", "Hayden"), ("Garrett", "Benton")}
 
 
-def test_the_schedule_overrides_the_seeding_when_it_exists():
+def test_the_schedule_wins_only_when_it_holds_the_seeded_cup():
+    data = _data(_scores({
+        "Nick":    {1: 400}, "Garrett": {1: 300},
+        "Benton":  {1: 200}, "Hayden":  {1: 100},
+    }))
+    seeds = cup.get_cup_seeds(data)          # Nick 1, Garrett 2, Benton 3, Hayden 4
     sched = [{"week": 22, "matchups": [
+        {"manager_a": "Nick", "manager_b": "Hayden"},
+        {"manager_a": "Garrett", "manager_b": "Benton"}]}]
+    data.schedule = {"weeks": sched}
+    pairs, source = cup.get_cup_semifinal_matchups(data, seeds)
+    assert "SCHEDULE.json" in source
+    assert {(p["manager_a"], p["manager_b"]) for p in pairs} == \
+           {("Nick", "Hayden"), ("Garrett", "Benton")}
+
+
+def test_a_round_robin_in_the_cup_weeks_does_not_become_the_cup():
+    """Yahoo cannot generate this bracket -- the Cup is seeded on POINTS."""
+    data = _data(_scores({
+        "Nick":    {1: 400}, "Garrett": {1: 300},
+        "Benton":  {1: 200}, "Hayden":  {1: 100},
+    }))
+    seeds = cup.get_cup_seeds(data)
+    data.schedule = {"weeks": [{"week": 22, "matchups": [
         {"manager_a": "Nick", "manager_b": "Benton"},
-        {"manager_a": "Hayden", "manager_b": "Garrett"}]}]
-    data = _data(_scores({m: {1: 100} for m in MANAGERS}), weeks=sched)
-    pairs = cup.get_cup_semifinal_matchups(data, cup.get_cup_seeds(data))
-    assert pairs[0]["manager_b"] == "Benton"
+        {"manager_a": "Garrett", "manager_b": "Hayden"}]}]}
+    pairs, source = cup.get_cup_semifinal_matchups(data, seeds)
+    assert "points seeding" in source and "not the seeded Cup bracket" in source
+    assert {(p["manager_a"], p["manager_b"]) for p in pairs} == \
+           {("Nick", "Hayden"), ("Garrett", "Benton")}
 
 
 # ---------------------------------------------------------------------------

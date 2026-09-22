@@ -187,19 +187,41 @@ def test_a_simulated_tied_week_is_a_coin_flip():
 # ---------------------------------------------------------------------------
 
 def test_semifinal_pairs_fall_back_to_seeding_when_no_schedule_exists(monkeypatch):
-    """Before Yahoo builds the bracket there is no SCHEDULE.json entry."""
+    """Before the bracket is entered there is no SCHEDULE.json entry."""
     monkeypatch.setattr(spo, "get_playoff_seeds", lambda data: SEEDS)
-    pairs = spo.get_semifinal_matchups(_data(weeks=[]), SEEDS)
+    pairs, source = spo.get_semifinal_matchups(_data(weeks=[]), SEEDS)
     assert {(p["manager_a"], p["manager_b"]) for p in pairs} == \
            {("Nick", "Garrett"), ("Hayden", "Benton")}, "should be 1v4 and 2v3"
+    assert "seeding" in source
 
 
-def test_the_schedule_wins_when_it_has_the_bracket():
+def test_the_schedule_wins_only_when_it_holds_the_seeded_bracket():
+    """SCHEDULE.json is authoritative once the real bracket is in it."""
     sched = [{"week": 16, "matchups": [
-        {"manager_a": "Nick", "manager_b": "Benton"},
-        {"manager_a": "Hayden", "manager_b": "Garrett"}]}]
-    pairs = spo.get_semifinal_matchups(_data(weeks=sched), SEEDS)
-    assert pairs[0]["manager_b"] == "Benton", "Yahoo's bracket is authoritative"
+        {"manager_a": "Nick", "manager_b": "Garrett"},
+        {"manager_a": "Hayden", "manager_b": "Benton"}]}]
+    pairs, source = spo.get_semifinal_matchups(_data(weeks=sched), SEEDS)
+    assert {(p["manager_a"], p["manager_b"]) for p in pairs} == \
+           {("Nick", "Garrett"), ("Hayden", "Benton")}
+    assert "SCHEDULE.json" in source
+
+
+def test_a_round_robin_in_the_bracket_weeks_does_not_become_the_bracket():
+    """The real case, and the reason the rule changed.
+
+    Yahoo generates an ordinary round robin for weeks 16-21 -- it does not
+    know this league plays a bracket there. Taking those pairings would
+    preview #1 vs #2 and #3 vs #4, with the seed labels in the table visibly
+    contradicting the matchup.
+    """
+    sched = [{"week": 16, "matchups": [
+        {"manager_a": "Nick", "manager_b": "Benton"},     # 1 vs 3
+        {"manager_a": "Hayden", "manager_b": "Garrett"}]}]  # 2 vs 4
+    pairs, source = spo.get_semifinal_matchups(_data(weeks=sched), SEEDS)
+    assert {(p["manager_a"], p["manager_b"]) for p in pairs} == \
+           {("Nick", "Garrett"), ("Hayden", "Benton")}, "seeding must win"
+    assert "not the seeded bracket" in source, (
+        "the report has to say which pairing it used and why")
 
 
 # ---------------------------------------------------------------------------

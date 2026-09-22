@@ -37,7 +37,8 @@ from .data_loader import (
 from .projections import TeamProjections, load_all_team_projections
 from .simulator_betting import simulate_week_hifi
 from .simulator_playoff_odds import (
-    _week_entry, _week_winner, resolve_completed_week,
+    _matches_seeding, _seeded_pairs, _week_entry, _week_winner,
+    resolve_completed_week,
 )
 
 
@@ -161,24 +162,38 @@ def cup_weeks(season: str = None) -> list[int]:
 
 
 def get_cup_semifinal_matchups(data: FantasyData, seeds: dict = None) -> list[dict]:
-    """The two week-22 pairings: from SCHEDULE.json if it has them, else seeding."""
+    """The two week-22 pairings, and where they came from.
+
+    Same rule as the bracket: the schedule wins only when it already holds the
+    seeded Cup pairing. The Cup is seeded on POINTS, so Yahoo could not have
+    generated it even if it wanted to.
+    """
     rounds = cup_rounds()
     if CUP_SEMIFINAL_ROUND not in rounds:
-        return []
-    entry = _week_entry(data, rounds[CUP_SEMIFINAL_ROUND][0])
-    if entry and entry.get("matchups"):
-        return entry["matchups"]
+        return [], "no Cup configured"
+
+    seed_pairs = [[1, 4], [2, 3]]
+    for rnd in stage_rounds(CURRENT_SEASON, "cup"):
+        if rnd["name"] == CUP_SEMIFINAL_ROUND:
+            seed_pairs = rnd.get("seeds", seed_pairs)
+            break
 
     seeds = seeds or get_cup_seeds(data)
-    by_seed = {s: m for m, s in seeds.items()}
-    pairs = []
-    for rnd in stage_rounds(CURRENT_SEASON, "cup"):
-        if rnd["name"] != CUP_SEMIFINAL_ROUND:
-            continue
-        for sa, sb in rnd.get("seeds", [[1, 4], [2, 3]]):
-            if sa in by_seed and sb in by_seed:
-                pairs.append({"manager_a": by_seed[sa], "manager_b": by_seed[sb]})
-    return pairs
+    first_week = rounds[CUP_SEMIFINAL_ROUND][0]
+    entry = _week_entry(data, first_week)
+    scheduled = [(m["manager_a"], m["manager_b"])
+                 for m in (entry or {}).get("matchups", [])]
+    if scheduled and _matches_seeding(scheduled, seeds, seed_pairs):
+        return ([{"manager_a": a, "manager_b": b} for a, b in scheduled],
+                f"SCHEDULE.json week {first_week}")
+
+    pairs = [{"manager_a": a, "manager_b": b}
+             for a, b in _seeded_pairs(seeds, seed_pairs)]
+    why = ("points seeding (the schedule has no Cup bracket yet)"
+           if not scheduled else
+           f"points seeding -- SCHEDULE.json week {first_week} holds "
+           f"{scheduled}, which is not the seeded Cup bracket")
+    return pairs, why
 
 
 def cup_round_for_week(week: int, season: str = None) -> str:
@@ -293,7 +308,7 @@ def run_cup_odds_simulation(
 
     seeds = get_cup_seeds(data)
     points = cup_seeding_points(data)
-    semi_dicts = get_cup_semifinal_matchups(data, seeds)
+    semi_dicts, pairing_source = get_cup_semifinal_matchups(data, seeds)
     if len(semi_dicts) != 2:
         raise ValueError(f"expected 2 Cup semifinals, got {len(semi_dicts)}")
     semi_pairs = [(m["manager_a"], m["manager_b"]) for m in semi_dicts]
@@ -332,6 +347,7 @@ def run_cup_odds_simulation(
             "seed_a": seeds[ma], "seed_b": seeds[mb],
             "weeks": list(rounds[CUP_SEMIFINAL_ROUND]),
             "format": "single game",
+            "pairing_source": pairing_source,
         })
 
     # What the Cup is for: the winner keeps one more player next season.
