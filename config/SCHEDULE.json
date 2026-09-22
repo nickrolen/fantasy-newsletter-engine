@@ -349,17 +349,35 @@
     },
     {
       "week": 22,
-      "start_date": null,
-      "end_date": null,
-      "days": null,
-      "matchups": []
+      "start_date": "2027-03-29",
+      "end_date": "2027-04-04",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Benton"
+        },
+        {
+          "manager_a": "Hayden",
+          "manager_b": "Garrett"
+        }
+      ]
     },
     {
       "week": 23,
-      "start_date": null,
-      "end_date": null,
-      "days": null,
-      "matchups": []
+      "start_date": "2027-04-05",
+      "end_date": "2027-04-11",
+      "days": 7,
+      "matchups": [
+        {
+          "manager_a": "Nick",
+          "manager_b": "Hayden"
+        },
+        {
+          "manager_a": "Garrett",
+          "manager_b": "Benton"
+        }
+      ]
     }
   ]
 }
