@@ -10,6 +10,63 @@ This file preserves the detailed development history that was originally tracked
 
 ### September 2026
 
+**September 25, 2026 - PLAYERLIST fetched instead of pasted**
+
+Step 2.5 was the last manual step in the weekly workflow and the one most
+likely to go wrong quietly: paste Yahoo's projections table into an LLM,
+have it parse five fields, compute FPPG, carry ages forward and cross-check
+the rosters. Every rule was written down and enforced by a prompt; nothing
+downstream checked the result. `check_file_health.py` never opened the file.
+
+**Yahoo's API cannot do this, but the website can.**
+`stats;type=projected_season`, `type=projected_week` and `type=projected` all
+return HTTP 400, and an unplayed week returns `player_points` 0.00. The player
+list, though, is server-rendered and URL-parameterised at
+`stat1=S_PSR` ("Remaining Games (proj)"), and the league is publicly visible --
+verified from a machine with no Yahoo cookies, which still gets our team names
+in the roster column and Fan Pts already scored by our league's settings.
+
+- **New `scripts/fetch_playerlist.py`.** Two passes: `status=T` for every
+  rostered player regardless of rank -- which is what structurally guarantees
+  a season-long injury still makes the file, rather than a rule someone has to
+  remember -- and `status=ALL` for the free-agent pool. 175 players, ~8
+  requests, about twenty seconds.
+- **`projectedFPPG` is derived, not parsed.** An LLM was doing the division.
+- **New `config/PLAYER_AGES.json`**, keyed by Yahoo player id rather than by
+  name. Ages are on neither the page nor the API (`player_details` has no
+  `birth_year`), so they are cached and seeded automatically from archived
+  spreadsheets and basketball-reference -- 169 of 175 filled on the first run,
+  the remaining six being genuine 2026 rookies. Survives the season reset,
+  which the old carry-forward-from-last-week did not.
+- **New `scripts/check_playerlist.py`**, the gate. Roster coverage, the
+  `total / GP` identity, implausible FPPG, week-over-week drift, whether the
+  file was regenerated at all, and missing ages. The sharpest check is that
+  **games remaining may not go up** -- a rest-of-season projection only burns
+  down, so an increase is the signature of a misaligned column.
+
+**A live bug found on the way: accented names never matched.** Yahoo writes
+Jokic, Doncic, Sengun, Demin and Nurkic with diacritics -- five in the top 150
+-- and every lookup into PLAYERLIST used exact string equality.
+`FantasyData.get_player_projection`, `get_available_players`,
+`player_card_builder` and the roster join in `projections.py` all missed them,
+and the projections join falls through to `projected_fppg=0.0` without
+complaint. The best player in the league was worth zero in every simulation he
+appeared in. Names are now normalised on load (NFKD -> ASCII -> lowercase ->
+strip punctuation, the same function the history rollup uses) and every lookup
+joins on that key.
+
+**Also corrected:** the earlier truncation of PLAYERLIST.xlsx during the season
+reset used a four-column schema read off the archived file, dropping
+`player_proj_GP`, `projectedFPPG` and `age`. `projectedFPPG` is the column the
+simulators actually read.
+
+The manual procedure stays documented in WEEKLY_WORKFLOW.md as the fallback,
+because this parses HTML from a site we do not control. 24 new tests.
+
+---
+
+### September 2026
+
 **September 21, 2026 - Record book: one meaning per number**
 
 The 15-week regular season raised an obvious worry -- that 21-week records

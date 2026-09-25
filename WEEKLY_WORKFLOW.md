@@ -118,39 +118,98 @@ python scripts\update_leaguehistory.py --week WEEK
 
 ---
 
-## Step 2.5: Update PLAYERLIST (with Claude)
+## Step 2.5: Update PLAYERLIST
 
-PLAYERLIST contains ROS projections for the top ~125 fantasy players. Yahoo doesn't provide projections via API, so this step involves copying from Yahoo's website and parsing here.
+PLAYERLIST holds rest-of-season projections for the top ~175 fantasy players.
+Every simulator runs on the `projectedFPPG` column, so this file being right
+matters more than almost anything else in the workflow.
 
-### How to do it:
+```
+py scripts/fetch_playerlist.py --execute
+py scripts/check_playerlist.py --snapshot
+```
 
-1. **Go to Yahoo Fantasy -> Players -> Sort by "Proj FP (ROS)"**
-2. **Copy the top ~125 players** (select all, Ctrl+C -> it will include a lot of junk data)
-3. **Paste the raw text into this Claude chat** and say something like: *"Here's this week's raw Yahoo projections data. Please parse it and generate an updated PLAYERLIST."*
+That is the whole step. About twenty seconds.
 
-### What Claude does:
-- Parses the raw text to extract: player name, NBA team, positions, projected GP, projected total FP
-- Strips accents (e.g., Don -> i -> -> Doncic)
-- Calculates projectedFPPG (= total FP -> GP)
-- Carries forward ages from last week's PLAYERLIST; web-searches ages for any new players
-- Checks `config\ROSTERS.json` and adds any rostered players missing from the Yahoo top ~125 (e.g., Tatum, Haliburton) using last week's placeholder projections
-- Outputs an updated `data\PLAYERLIST.xlsx` matching the exact column format
+### What the fetch does
 
-### Columns in PLAYERLIST.xlsx:
-| Column | Type | Source |
-|--------|------|--------|
-| `player_name` | str | Yahoo (ASCII, no accents) |
-| `player_nba_team` | str | Yahoo (e.g., "DEN", "LAL") |
-| `player_position(s)` | str | Yahoo (e.g., "PG,SG") -> excludes Util/IL/IL+ |
-| `player_total_proj_FP` | float | Yahoo |
-| `player_proj_GP` | float | Yahoo |
-| `projectedFPPG` | float | Calculated (total FP -> GP) |
-| `age` | int | Carried from last week or web-searched |
+Yahoo's Fantasy API does not expose projections -- `stats;type=projected_season`
+and friends all return HTTP 400. But the **website** renders them server-side in
+a URL-parameterised table, and our league is publicly visible, so the page needs
+no login at all:
 
-### Key rules:
-- **Every rostered player MUST be in the file**, even injured-for-season players like Tatum/Haliburton (they get placeholder values)
-- Ages carry forward automatically; only new-to-the-list players need lookup
-- File replaces `data\PLAYERLIST.xlsx` -> save the output there before proceeding
+```
+/nba/16778/players?status=...&stat1=S_PSR&sort=PTS&count=<n>
+```
+
+`stat1=S_PSR` is the "Remaining Games (proj)" view -- the same one the manual
+procedure used. Two passes:
+
+- `status=T` ("All Taken Players") -> every rostered player, regardless of rank.
+  This is what guarantees a season-long injury who has dropped out of the top
+  175 still makes the file. It used to be a rule someone had to remember.
+- `status=ALL` -> the free-agent pool for waiver and rumour-mill content.
+
+`projectedFPPG` is **derived** (`total FP / GP`), never parsed. Ages come from
+`config/PLAYER_AGES.json`, keyed by Yahoo player id so a spelling change cannot
+orphan an entry, and seeded automatically from archived spreadsheets and
+basketball-reference. Expect a handful of genuine rookies each season to need a
+one-time lookup; the script names them.
+
+### What the check does
+
+It is the gate. Do not generate a newsletter if it fails.
+
+| Check | Why |
+|---|---|
+| every rostered player present | a missing one projects 0.0 FPPG everywhere |
+| `total / GP` equals `projectedFPPG` | arithmetic error |
+| no implausible FPPG | a shifted column produces them |
+| **games remaining did not go up** | rest-of-season games only burn down; this is the signature of a misaligned column |
+| FPPG moves > 40% week over week | warned, not blocked -- projections do move |
+| file differs from last week's snapshot | catches "I forgot to regenerate it" |
+| ages present | missing ones silently default to 27 in keepability |
+
+`--snapshot` saves the file as next week's baseline, which is what the
+week-over-week comparisons read. Save it only on a clean run.
+
+### Names
+
+Yahoo writes `Jokić`, `Dončić`, `Şengün`, `Dëmin`, `Nurkić`. The engine
+normalises names on load (NFKD -> ASCII -> lowercase -> strip punctuation) and
+joins on that, so the accented form and the plain form are the same player
+everywhere. Do not "fix" the accents on the way in.
+
+### Columns
+
+| Column | Source |
+|--------|--------|
+| `player_name` | Yahoo, as written (accents kept) |
+| `player_nba_team` | Yahoo |
+| `player_position(s)` | Yahoo, e.g. "PG,SG" -- excludes Util/IL |
+| `player_total_proj_FP` | Yahoo |
+| `player_proj_GP` | Yahoo |
+| `projectedFPPG` | derived: total FP / GP |
+| `age` | `config/PLAYER_AGES.json` |
+
+---
+
+### Fallback: the manual procedure
+
+**This is not dead code -- keep it.** The fetch parses HTML from a site we do
+not control. If Yahoo reshuffles that table, or the league is ever made private,
+the symptom is a run that finds no player rows. `check_playerlist.py` will also
+fail, which is how you find out.
+
+1. Yahoo Fantasy -> Players -> sort by "Proj FP (ROS)"
+2. Copy the top ~125 players (it will include a lot of junk)
+3. Paste the raw text into Claude: *"Here's this week's raw Yahoo projections
+   data. Please parse it and generate an updated PLAYERLIST."*
+
+Claude extracts name, NBA team, positions, projected GP and projected total FP;
+carries ages forward from the previous file; adds any rostered player missing
+from the top ~125 using placeholder projections; and writes the seven columns
+above. Then run `check_playerlist.py` -- the gate is the same either way.
 
 ---
 

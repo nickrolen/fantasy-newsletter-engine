@@ -40,7 +40,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .data_loader import CURRENT_SEASON, CURRENT_SEASON_LONG, LEAGUE_NAME_SHORT
+from .data_loader import CURRENT_SEASON, CURRENT_SEASON_LONG, LEAGUE_NAME_SHORT, normalize_player_name
 
 
 # =============================================================================
@@ -471,7 +471,12 @@ def build_player_cards(
 
 
 def _load_playerlist(data_dir: Path) -> dict:
-    """Load PLAYERLIST.xlsx and return a {player_name: row_dict} lookup."""
+    """Load PLAYERLIST.xlsx as a lookup keyed BOTH ways.
+
+    Raw name and normalised name both point at the same row, so a caller
+    holding either spelling finds the player. Yahoo writes the accented
+    form; rosters and the player log write the plain one.
+    """
     path = data_dir / "PLAYERLIST.xlsx"
     if not path.exists():
         return {}
@@ -479,8 +484,11 @@ def _load_playerlist(data_dir: Path) -> dict:
     result = {}
     for _, row in df.iterrows():
         name = str(row.get("player_name", ""))
-        if name:
-            result[name] = row.to_dict()
+        if not name:
+            continue
+        data = row.to_dict()
+        result[name] = data
+        result.setdefault(normalize_player_name(name), data)
     return result
 
 
@@ -594,7 +602,7 @@ def _build_single_card(
 ) -> dict:
     """Build a complete player card for one player."""
 
-    plist = playerlist.get(name, {})
+    plist = playerlist.get(name) or playerlist.get(normalize_player_name(name)) or {}
 
     # =========================================================================
     # 1. HEADER / BASIC INFO

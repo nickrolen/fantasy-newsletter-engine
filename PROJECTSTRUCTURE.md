@@ -98,6 +98,8 @@ newsletter/
 |   +-- enrich_historical_playerlog.py # Add NBA team/opponent data to historical playerlog
 |   +-- fetch_nba_schedule.py         # Fetch NBA schedule from official API
 |   +-- check_file_health.py          # ASCII enforcement for .py/.md files
+|   +-- fetch_playerlist.py          # Build PLAYERLIST.xlsx from Yahoo's public player table
+|   +-- check_playerlist.py          # Gate it: roster coverage, arithmetic, week-over-week drift
 |   +-- start_new_season.py           # Season reset: archive, reset, delete (see SEASON_RESET.md)
 |   +-- verify_project_integrity.py   # Project health check (run after batch edits)
 |   \-- generate_player_card_preview.py # Standalone HTML player card preview

@@ -63,6 +63,11 @@ CROSS_SEASON_CONFIG = {
     "config/ROOKIE_SEASONS.json",       # append-only reference data
     "config/SCHEDULE.json",             # replaced wholesale for the new season
     "config/.file_baselines.json",      # machine-specific integrity baseline
+    # Ages, keyed by Yahoo player id. Deliberately cross-season: the whole
+    # point of the cache is that it is not rebuilt every year. Age itself is
+    # aged forward by fetch_playerlist when it seeds from an archived
+    # spreadsheet.
+    "config/PLAYER_AGES.json",
 }
 
 
@@ -291,3 +296,18 @@ def test_schedule_json_is_archived(sns):
     src = (PROJECT_ROOT / "scripts" / "start_new_season.py").read_text(encoding="utf-8")
     archive_block = src[src.index("def get_archive_files"):src.index("def archive_phase")]
     assert '"config/SCHEDULE.json"' in archive_block
+
+
+def test_the_age_cache_is_never_reset(sns):
+    """PLAYER_AGES.json must survive the season reset.
+
+    Ages are on neither Yahoo's projections page nor the Fantasy API, so they
+    are expensive to reacquire. The POTW file taught this lesson the hard way:
+    it called itself all-time history and was wiped every single year, so it
+    never held more than one season.
+    """
+    src = (PROJECT_ROOT / "scripts" / "start_new_season.py").read_text(encoding="utf-8")
+    for marker in ("PLAYER_AGES", "reset_player_ages"):
+        assert marker not in src, (
+            f"start_new_season.py mentions {marker}; the age cache is "
+            "cross-season and must not be archived or cleared")

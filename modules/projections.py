@@ -14,7 +14,7 @@ import math
 import pandas as pd
 import numpy as np
 
-from .data_loader import FantasyData, MANAGERS
+from .data_loader import FantasyData, MANAGERS, normalize_player_name
 
 
 # =============================================================================
@@ -440,8 +440,9 @@ def load_team_projections(
         # Use roster from config file or override
         team_players = {}
         for name in roster_players:
-            if name in player_projections:
-                team_players[name] = player_projections[name]
+            found = resolve_projection(player_projections, name)
+            if found is not None:
+                team_players[name] = found
             else:
                 # Player not in PLAYERLIST - create basic projection
                 # Try to get positions from lineups if available
@@ -480,8 +481,9 @@ def load_team_projections(
         for _, row in roster_df.iterrows():
             name = row["player_name"]
 
-            if name in player_projections:
-                team_players[name] = player_projections[name]
+            found = resolve_projection(player_projections, name)
+            if found is not None:
+                team_players[name] = found
             else:
                 # Player not in PLAYERLIST - create basic projection
                 positions_str = row.get("positions", "")
@@ -513,6 +515,23 @@ def load_team_projections(
         weekly_std_dev=weekly_std_dev,
         weekly_scores=weekly_scores,
     )
+
+
+def resolve_projection(player_projections: dict, name: str):
+    """A player's projection, tolerant of how their name is spelled.
+
+    The roster says "Nikola Jokic"; PLAYERLIST (from Yahoo) says "Nikola
+    Jokic" with a diacritic. Exact-match lookup returned nothing and the
+    caller fell through to projected_fppg=0.0 -- silently turning the best
+    player in the league into a zero for every simulation that week.
+    """
+    if name in player_projections:
+        return player_projections[name]
+    key = normalize_player_name(name)
+    for other, proj in player_projections.items():
+        if normalize_player_name(other) == key:
+            return proj
+    return None
 
 
 def load_all_team_projections(data: FantasyData) -> dict[str, TeamProjections]:

@@ -536,9 +536,12 @@ def reset_phase(execute: bool, upcoming_draft_year: int = None) -> None:
     # one -- populated, valid-looking, and a season out of date. A Week 1 run
     # would quietly project with last year's numbers instead of failing.
     # format_stats_report already handles an empty one loudly.
+    # Full schema. The first truncation of this file dropped player_proj_GP,
+    # projectedFPPG and age, which would have silently removed the projection
+    # the simulators actually read.
     playerlist_headers = [
         "player_name", "player_nba_team", "player_position(s)",
-        "player_total_proj_FP",
+        "player_total_proj_FP", "player_proj_GP", "projectedFPPG", "age",
     ]
     reset_excel("PLAYERLIST.xlsx", playerlist_headers, execute)
 

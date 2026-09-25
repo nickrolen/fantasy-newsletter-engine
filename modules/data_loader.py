@@ -7,6 +7,7 @@ Provides a centralized data access layer for all other modules.
 
 import json
 import re
+import unicodedata
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
@@ -247,8 +248,15 @@ class FantasyData:
         return []
 
     def get_player_projection(self, player_name: str) -> Optional[float]:
-        """Get projected FPPG for a player from PLAYERLIST."""
-        row = self.playerlist[self.playerlist["player_name"] == player_name]
+        """Get projected FPPG for a player from PLAYERLIST.
+
+        Matched on the normalised name, so "Nikola Jokic" and "Nikola Jokic"
+        with a diacritic are the same player.
+        """
+        if self.playerlist.empty or "_name_key" not in self.playerlist.columns:
+            return None
+        key = normalize_player_name(player_name)
+        row = self.playerlist[self.playerlist["_name_key"] == key]
         if row.empty:
             return None
         return row.iloc[0]["projectedFPPG"]
@@ -343,13 +351,19 @@ class FantasyData:
                 for manager, players in config_rosters.items():
                     if isinstance(players, list):
                         rostered.update(players)
-                return self.playerlist[~self.playerlist["player_name"].isin(rostered)].copy()
+                keys = {normalize_player_name(n) for n in rostered}
+                return self.playerlist[
+                    ~self.playerlist["player_name"].apply(normalize_player_name).isin(keys)
+                ].copy()
             except (json.JSONDecodeError, KeyError):
                 pass
 
         most_recent_date = self.lineups["date"].max()
         rostered = self.lineups[self.lineups["date"] == most_recent_date]["player_name"].unique()
-        return self.playerlist[~self.playerlist["player_name"].isin(rostered)].copy()
+        keys = {normalize_player_name(n) for n in rostered}
+        return self.playerlist[
+            ~self.playerlist["player_name"].apply(normalize_player_name).isin(keys)
+        ].copy()
 
     def get_current_rosters(self) -> dict[str, list[str]]:
         """Get current rosters from ROSTERS.json."""
@@ -441,6 +455,23 @@ def load_lineups(path: Path) -> pd.DataFrame:
     return df
 
 
+def normalize_player_name(name) -> str:
+    """Collapse case, accents and punctuation so spelling variants collide.
+
+    Yahoo serves accented names -- Jokic, Doncic, Sengun, Demin, Nurkic all
+    come back with diacritics, five of them in the top 150 alone. Every
+    lookup into PLAYERLIST used exact string equality, so an accented name
+    simply did not match the roster entry and the player fell through to a
+    0.0 FPPG projection. Silently: no error, no warning, just a star player
+    worth nothing in every simulation that week.
+
+    The same function the history rollup uses, for the same reason.
+    """
+    text = unicodedata.normalize("NFKD", str(name or ""))
+    text = text.encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
 def load_playerlist(path: Path) -> pd.DataFrame:
     """Load and validate PLAYERLIST.xlsx."""
     required = [
@@ -449,6 +480,8 @@ def load_playerlist(path: Path) -> pd.DataFrame:
     ]
     df = load_excel_file(path, required)
     df["projectedFPPG"] = pd.to_numeric(df["projectedFPPG"], errors="coerce").fillna(0.0)
+    # Every lookup joins on this, never on the raw name.
+    df["_name_key"] = df["player_name"].apply(normalize_player_name)
     return df
 
 
