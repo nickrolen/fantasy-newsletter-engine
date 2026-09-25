@@ -103,6 +103,21 @@ BROWSER_HEADERS = {
 }
 
 
+class TableFormatError(RuntimeError):
+    """Yahoo's players table no longer looks the way this parser expects."""
+
+
+# The two columns the spreadsheet is built from, as Yahoo labels them.
+# Matched on a squashed form of the header text so "GP*" survives its
+# asterisk and "Current\ue002" survives the private-use sort glyph Yahoo
+# appends to whichever column is sorted.
+#
+# Deliberately narrow: "PTS" is a DIFFERENT column -- points scored, ten
+# places to the right of Fan Pts -- and must never match here.
+GP_LABELS = {"GP", "GAMES", "GAMESPLAYED", "PROJGP"}
+FP_LABELS = {"FANPTS", "FANPOINTS", "FANTASYPTS", "FANTASYPOINTS", "FPTS"}
+
+
 def league_id_from_key(league_key: str) -> str:
     """"478.l.16778" -> "16778"."""
     match = re.search(r"\.l\.(\d+)", str(league_key or ""))
@@ -118,14 +133,56 @@ def fetch_page(league_id: str, status: str, offset: int) -> str:
         return response.read().decode("utf-8", "replace")
 
 
-def parse_rows(doc: str, team_names: set) -> list:
+def _squash(text) -> str:
+    """Header text down to comparable letters: "Fan Pts" -> "FANPTS"."""
+    return re.sub(r"[^A-Z0-9]", "", str(text or "").upper())
+
+
+def find_columns(doc: str):
+    """{"gp": i, "fp": j} from the table's header row, or None.
+
+    Yahoo renders a real <th> row whose cells line up index-for-index with
+    each player's <td> cells -- 23 and 23, with GP at 5 and Fan Pts at 6 as
+    of this writing. Letting the labels carry the positions is what makes a
+    reshuffle a non-event: Yahoo can move those columns, or insert and
+    remove columns to their left, and the numbers still land in the right
+    fields. The alternative -- taking the first two numeric cells -- reads
+    correctly today only because the two rank columns happen to sit just
+    behind Fan Pts instead of just ahead of GP.
+    """
+    for row in re.findall(r"<tr[^>]*>(.*?)</tr>", doc, re.S):
+        heads = [_squash(html_lib.unescape(re.sub(r"<[^>]+>", "", cell)))
+                 for cell in re.findall(r"<th[^>]*>(.*?)</th>", row, re.S)]
+        if not heads:
+            continue
+        gp = next((i for i, h in enumerate(heads) if h in GP_LABELS), None)
+        fp = next((i for i, h in enumerate(heads) if h in FP_LABELS), None)
+        if gp is not None and fp is not None:
+            return {"gp": gp, "fp": fp}
+    return None
+
+
+def parse_rows(doc: str, team_names: set, columns=None) -> list:
     """[{yahoo_id, player_name, nba_team, positions, proj_gp, total_fp, owner}]
 
-    The table is server-rendered HTML, so this reads the markup. Team codes
-    and the player id come from structural attributes (the /nba/players/<id>/
-    link) rather than from column position, which is the part most likely to
-    be reshuffled by a cosmetic change.
+    The table is server-rendered HTML, so this reads the markup. Player id
+    and name come from the /nba/players/<id>/ link, team and positions from
+    the "DEN - C" text pattern, and the owner from matching a known team
+    name -- all structural or content-based, none of them sensitive to
+    column order.
+
+    GP and Fan Pts are the two values that live in bare cells, so they are
+    located by their header labels via find_columns().
+
+    columns=None means "find the header in doc, and if there is none, fall
+    back to the first two numeric cells". That fallback is for parsing a
+    bare <tr> fragment in a test. The pipeline never relies on it: collect()
+    demands a header and refuses without one, because on a real page a
+    missing header means the table changed shape, and guessing at that point
+    is how a wrong spreadsheet gets written quietly.
     """
+    if columns is None:
+        columns = find_columns(doc)
     out = []
     for row in re.findall(r"<tr[^>]*>(.*?)</tr>", doc, re.S):
         link = re.search(r"/nba/players/(\d+)[/\"][^>]*>([^<]+)</a>", row)
@@ -136,18 +193,29 @@ def parse_rows(doc: str, team_names: set) -> list:
         team_pos = re.search(r"\b([A-Z]{2,3})\s*-\s*([A-Z,]+)", flat)
         cells = [html_lib.unescape(re.sub(r"<[^>]+>", "", c)).strip()
                  for c in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
-        numeric = [c for c in cells if re.fullmatch(r"-|[\d,]+\.?\d*", c or "")]
+        if columns:
+            proj_gp = _cell(cells, columns["gp"])
+            total_fp = _cell(cells, columns["fp"])
+        else:
+            numeric = [c for c in cells if re.fullmatch(r"-|[\d,]+\.?\d*", c or "")]
+            proj_gp = numeric[0] if numeric else ""
+            total_fp = numeric[1] if len(numeric) > 1 else ""
         owner = next((c for c in cells if c in team_names), None)
         out.append({
             "yahoo_id": yahoo_id,
             "player_name": name,
             "nba_team": team_pos.group(1) if team_pos else "",
             "positions": team_pos.group(2) if team_pos else "",
-            "proj_gp": numeric[0] if numeric else "",
-            "total_fp": numeric[1] if len(numeric) > 1 else "",
+            "proj_gp": proj_gp,
+            "total_fp": total_fp,
             "owner": owner,
         })
     return out
+
+
+def _cell(cells: list, index: int) -> str:
+    """cells[index], or "" when the row is shorter than the header."""
+    return cells[index] if 0 <= index < len(cells) else ""
 
 
 def to_number(text):
@@ -159,17 +227,33 @@ def to_number(text):
 
 def collect(league_id: str, status: str, limit: int, label: str) -> dict:
     """{yahoo_id: row} for one status filter, paging until it runs dry."""
-    found, offset = {}, 0
+    found, offset, columns = {}, 0, None
     while offset < limit:
         try:
-            page = parse_rows(fetch_page(league_id, status, offset),
-                              set(MANAGER_TO_TEAM.values()))
+            doc = fetch_page(league_id, status, offset)
         except urllib.error.HTTPError as e:
             print(f"    {label}: HTTP {e.code} at offset {offset}")
             break
         except Exception as e:
             print(f"    {label}: {type(e).__name__} at offset {offset}: {e}")
             break
+        if columns is None:
+            # Located once per run and reused for every page. Absent means
+            # the table is not the table this script was written against,
+            # and the only safe move is to stop: a wrong PLAYERLIST is worse
+            # than no PLAYERLIST, because the simulators will run on it.
+            columns = find_columns(doc)
+            if columns is None:
+                raise TableFormatError(
+                    "Yahoo's players table has no recognisable 'GP' and "
+                    "'Fan Pts' columns, so its numbers cannot be trusted. "
+                    "PLAYERLIST was NOT modified.\n"
+                    "  Use the manual procedure in WEEKLY_WORKFLOW.md for "
+                    "this week, then update GP_LABELS / FP_LABELS or "
+                    "find_columns() in scripts/fetch_playerlist.py.")
+            print(f"    columns: GP at {columns['gp']}, "
+                  f"Fan Pts at {columns['fp']}")
+        page = parse_rows(doc, set(MANAGER_TO_TEAM.values()), columns)
         fresh = [r for r in page if r["yahoo_id"] not in found]
         for r in fresh:
             found[r["yahoo_id"]] = r

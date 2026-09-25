@@ -38,6 +38,7 @@ EXIT CODES
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from datetime import date
@@ -76,6 +77,12 @@ def load_rosters() -> dict:
         return {}
     rosters = blob.get("rosters", blob)
     return {m: p for m, p in rosters.items() if isinstance(p, list)}
+
+
+def _snapshot_is_from_today(path) -> bool:
+    """Snapshots are named PLAYERLIST_<YYYY-MM-DD>.xlsx."""
+    found = re.search(r"(\d{4}-\d{2}-\d{2})", getattr(path, "name", ""))
+    return bool(found) and found.group(1) == date.today().isoformat()
 
 
 def previous_snapshot():
@@ -204,7 +211,14 @@ def main():
 
         if len(joined) == len(frame) == len(prev):
             same = frame[REQUIRED].equals(prev[REQUIRED]) if list(prev.columns) else False
-            if same:
+            # Identical to a snapshot taken on an EARLIER day means the file
+            # was not rebuilt. Identical to one taken today just means this
+            # ran twice today, which is what happens after a re-run, and
+            # Yahoo's numbers do not move between two runs an hour apart.
+            if same and _snapshot_is_from_today(prev_path):
+                print("  (identical to today's snapshot -- a same-day re-run, "
+                      "not a stale file)")
+            elif same:
                 failures.append(
                     "identical to the previous snapshot -- this file was not "
                     "regenerated this week")

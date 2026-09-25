@@ -150,6 +150,21 @@ procedure used. Two passes:
   175 still makes the file. It used to be a rule someone had to remember.
 - `status=ALL` -> the free-agent pool for waiver and rumour-mill content.
 
+**Columns are located by their header labels, not by position.** The fetch
+reads the table's `<th>` row, finds `GP*` and `Fan Pts`, and uses those indices
+for every player row. Yahoo can move those columns, or add and remove columns
+to their left, and the numbers still land in the right fields. If neither label
+is found, the fetch **refuses and leaves PLAYERLIST untouched** rather than
+guessing -- a wrong PLAYERLIST is worse than no PLAYERLIST, because the
+simulators will happily run on it. That refusal is your signal to use the
+manual procedure below for the week and update `GP_LABELS` / `FP_LABELS` in the
+script.
+
+Everything else in a row comes from structure or content rather than column
+order: the player id and name from the `/nba/players/<id>/` link, team and
+positions from the `DEN - C` text pattern, and the owning team by matching a
+known team name.
+
 `projectedFPPG` is **derived** (`total FP / GP`), never parsed. Ages come from
 `config/PLAYER_AGES.json`, keyed by Yahoo player id so a spelling change cannot
 orphan an entry, and seeded automatically from archived spreadsheets and
@@ -167,7 +182,7 @@ It is the gate. Do not generate a newsletter if it fails.
 | no implausible FPPG | a shifted column produces them |
 | **games remaining did not go up** | rest-of-season games only burn down; this is the signature of a misaligned column |
 | FPPG moves > 40% week over week | warned, not blocked -- projections do move |
-| file differs from last week's snapshot | catches "I forgot to regenerate it" |
+| file differs from an earlier day's snapshot | catches "I forgot to regenerate it"; a same-day re-run is expected to be identical and is not flagged |
 | ages present | missing ones silently default to 27 in keepability |
 
 `--snapshot` saves the file as next week's baseline, which is what the

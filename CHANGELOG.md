@@ -10,6 +10,40 @@ This file preserves the detailed development history that was originally tracked
 
 ### September 2026
 
+**September 25, 2026 - PLAYERLIST columns bound to their headers**
+
+The fetch read projected GP and total Fan Pts as the first two numeric cells
+in each player row. That is correct today only by luck of layout: Yahoo's two
+rank columns sit immediately *behind* Fan Pts rather than ahead of GP. Move
+them forward -- an ordinary cosmetic change on a site we do not control -- and
+the parser would take a rank as a games-remaining count.
+
+`find_columns()` now reads the table's `<th>` row and locates `GP*` and
+`Fan Pts` by label, then uses those indices for every row. The header cells
+line up index-for-index with the data cells (23 and 23, GP at 5, Fan Pts at 6),
+so this is exact rather than heuristic. Columns can now be reordered, added or
+removed to the left of the two that matter without affecting the output.
+
+Label matching is deliberately narrow: `PTS` is a different column -- points
+scored, ten places right of Fan Pts -- and is explicitly not a match for it.
+
+If neither label is found, `collect()` raises `TableFormatError` and the run
+stops with PLAYERLIST untouched, pointing at the manual fallback. The previous
+behaviour would have produced a plausible-looking spreadsheet; the checker
+would very likely have caught it, but the fetch has no business writing
+numbers it cannot account for.
+
+Verified against the live table: identical output to the previous run, all
+175 rows and all 7 columns unchanged.
+
+Also fixed: `check_playerlist.py` compared against the newest snapshot
+regardless of its date, so any same-day re-run failed as "not regenerated
+this week". The staleness verdict now applies only to a snapshot from an
+earlier day; a same-day re-run prints a note instead. The stale-file check
+itself is unchanged and still fails against an earlier day.
+
+321 tests (up from 313).
+
 **September 25, 2026 - PLAYERLIST fetched instead of pasted**
 
 Step 2.5 was the last manual step in the weekly workflow and the one most
