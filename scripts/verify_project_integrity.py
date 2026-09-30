@@ -371,6 +371,17 @@ PER_SEASON_FILES = [
     "config/LAST_WEEK_RECAP.md",
 ]
 
+# Directories whose entire contents belong to one season. Everything inside
+# is swept and compared against the archive, so a new kind of per-season
+# file does not have to be remembered and added to PER_SEASON_FILES above.
+#
+# assets/ is deliberately NOT here: helmet.png and friends are reused every
+# season and are SUPPOSED to be byte-identical to the archived copies.
+PER_SEASON_DIRS = [
+    "output",
+    "config/snapshots",
+]
+
 
 def _check_no_file_survived_the_reset(warnings):
     """Catch a per-season file the reset archived but forgot to clear.
@@ -379,6 +390,16 @@ def _check_no_file_survived_the_reset(warnings):
     the live file stayed byte-identical to the archived one. It looked
     populated and valid, which is worse than missing -- Week 1 would have
     projected with last season's numbers rather than failing.
+
+    Two passes, because a named list can only catch what someone remembered
+    to name. PER_SEASON_FILES covers the specific files; PER_SEASON_DIRS
+    sweeps whole directories whose contents belong to one season.
+
+    The sweep is not hypothetical. All six of 2025-26's newsletters sat in
+    output/ through the reset, byte-identical to archive/2025-26/output/,
+    and this check passed clean the whole time -- output/ was not on the
+    list, so it was never looked at. Byte-identical to an archived copy is
+    precisely this check's signature, and it missed 7.5 MB of it.
     """
     import hashlib
 
@@ -396,7 +417,26 @@ def _check_no_file_survived_the_reset(warnings):
         except OSError:
             return None
 
-    for rel_path in PER_SEASON_FILES:
+    def swept_paths():
+        """Relative paths to check: the named files, then the swept dirs."""
+        seen = set()
+        for rel_path in PER_SEASON_FILES:
+            if rel_path not in seen:
+                seen.add(rel_path)
+                yield rel_path
+        for rel_dir in PER_SEASON_DIRS:
+            live_dir = PROJECT_ROOT / rel_dir
+            if not live_dir.is_dir():
+                continue
+            for live in sorted(live_dir.rglob("*")):
+                if not live.is_file():
+                    continue
+                rel_path = live.relative_to(PROJECT_ROOT).as_posix()
+                if rel_path not in seen:
+                    seen.add(rel_path)
+                    yield rel_path
+
+    for rel_path in swept_paths():
         live = PROJECT_ROOT / rel_path
         if not live.is_file():
             continue
