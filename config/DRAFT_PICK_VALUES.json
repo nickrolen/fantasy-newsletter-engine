@@ -1,6 +1,6 @@
 {
-  "_description": "Draft pick valuation guide for trade grading. Maps each individual pick number (1-36) to expected player value (projFPPG and Total FP) and role tier. Picks 1-28 use a 70/30 blend of raw historical average and regression line. Picks 29-36 (expansion rounds R8-R9) use cliff decay from the R7 average.",
-  "_methodology": "Built from 131 qualifying data points across 5 keeper-era seasons (2021-22 through 2025-26). Pre-keeper drafts (2017-18 through 2020-21) are excluded because the full player pool was available, making those picks incomparable to keeper-era drafts where keepers are held off the board. Picks 1-28: expected = 50% raw mean + 50% regression. Picks 29-36: anchor at R7 blended average (33.3 FPPG) then decay 0.5 FPPG per pick. R8-R9 raw data (2025-26 only) is excluded from blending because mid-season IL+ to BN conversion filled those slots with established stars, not true draft-caliber players.",
+  "_description": "Draft pick valuation guide for trade grading. Maps each individual pick number (1-36) to expected player value (projFPPG and Total FP) and role tier. Picks 1-28 use a 50%/50% blend of raw historical average and regression line. Picks 29-36 (expansion rounds) use cliff decay from the R7 average.",
+  "_methodology": "Built from 132 qualifying data points across 5 keeper-era seasons (2021-22 through 2025-26). Pre-keeper drafts (2017-18 through 2020-21) are excluded because the full player pool was available, making those picks incomparable to keeper-era drafts where keepers are held off the board. Picks 1-28: expected = 50% raw mean + 50% regression. Picks 29-36: anchor at R7 blended average (33.1 FPPG) then decay 0.5 FPPG per pick. R8-R9 raw data (2025-26 only) is excluded from blending because mid-season IL+ to BN conversion filled those slots with established stars, not true draft-caliber players.",
   "_data_source": "data/historical/DRAFT_PERFORMANCE.json (built by extract_draft_fppg.py)",
   "_regenerate": "Run: python scripts/build_draft_pick_values.py",
   "_last_updated_seasons": [
@@ -25,36 +25,48 @@
   },
   "_expansion_config": {
     "applies_to": "picks 29-36 (R8-R9)",
-    "r7_anchor_fppg": 33.3,
-    "r7_anchor_total_fp": 1453.4,
+    "r7_anchor_fppg": 33.08,
+    "r7_anchor_total_fp": 1475.4,
     "fppg_decay_per_pick": 0.5,
     "total_fp_decay_per_pick": 40.0,
     "note": "R8-R9 use cliff decay instead of regression extrapolation because the R1-R7 regression is too flat (pool quality drops sharply after R7). 2025-26 R8-R9 raw data is contaminated by mid-season roster expansion. Decay values will be replaced by actual data once multiple 9-round drafts have occurred."
   },
   "_regression_model": {
     "fppg": {
-      "formula": "FPPG = 40.03 + (-0.2442 * pick_number)",
-      "intercept": 40.0266,
-      "slope": -0.2442,
-      "residual_std_error": 4.41,
-      "data_points": 131
+      "formula": "FPPG = 40.18 + (-0.2554 * pick_number)",
+      "intercept": 40.1818,
+      "slope": -0.2554,
+      "residual_std_error": 4.31,
+      "data_points": 132
     },
     "total_fp": {
-      "formula": "TotalFP = 2197.3 + (-28.74 * pick_number)",
-      "intercept": 2197.34,
-      "slope": -28.74,
-      "residual_std_error": 702.3,
-      "data_points": 131
+      "formula": "TotalFP = 2369.2 + (-33.54 * pick_number)",
+      "intercept": 2369.22,
+      "slope": -33.54,
+      "residual_std_error": 693.4,
+      "data_points": 132
     },
     "fit_range": "picks 1-28 (R1-R7 keeper era only)"
   },
   "_league_context": {
     "league_size": 4,
-    "keepers_per_team": 6,
+    "keepers_by_manager": {
+      "Nick": 6,
+      "Hayden": 6,
+      "Benton": 6,
+      "Garrett": 6
+    },
+    "live_picks_by_manager": {
+      "Nick": 9,
+      "Hayden": 9,
+      "Benton": 9,
+      "Garrett": 9
+    },
     "total_keepers": 24,
     "draft_rounds": 9,
     "picks_per_round": 4,
     "total_draft_picks": 36,
+    "live_picks_actually_owned": 36,
     "roster_size": 17,
     "roster_composition": "10 starters + 5 BN + 2 IL",
     "notes": "Roster expanded from 7 to 9 draft rounds mid-2025-26 season when 2 IL+ slots were converted to BN slots. Picks 29-36 are the R8-R9 picks; picks 37+ are keeper slots, not true draft picks."
@@ -66,51 +78,51 @@
       "tier": "Strong Draft Asset",
       "expected_projFPPG": {
         "low": 32.2,
-        "mid": 39.5,
+        "mid": 39.7,
         "high": 44.3
       },
       "expected_total_fp": {
         "low": 1062.0,
-        "mid": 2189.3,
+        "mid": 2335.5,
         "high": 3458.1
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 39.14,
+        "raw_mean_fppg": 39.4,
         "raw_median_fppg": 40.85,
-        "raw_mean_total_fp": 2209.93,
+        "raw_mean_total_fp": 2335.41,
         "raw_median_total_fp": 2414.5,
-        "regression_fppg": 39.78,
-        "regression_total_fp": 2168.6
+        "regression_fppg": 39.93,
+        "regression_total_fp": 2335.68
       },
       "description": "Possible keeper, reliable starter at minimum. These players are strong contributors who may develop into keeper-worthy assets, but it's less certain than Round 1. Floor is still a dependable starter.",
-      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 1 (R1) ~ 39.5 FPPG / ~2,189 Total FP."
+      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 1 (R1) ~ 39.7 FPPG / ~2,336 Total FP."
     },
     "2": {
       "pick_number": 2,
       "round": 1,
       "tier": "Strong Draft Asset",
       "expected_projFPPG": {
-        "low": 33.4,
-        "mid": 38.4,
+        "low": 33.9,
+        "mid": 38.5,
         "high": 44.6
       },
       "expected_total_fp": {
-        "low": 1269.7,
-        "mid": 2049.9,
+        "low": 1525.8,
+        "mid": 2212.1,
         "high": 3074.7
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 37.24,
+        "raw_mean_fppg": 37.35,
         "raw_median_fppg": 34.52,
-        "raw_mean_total_fp": 1958.01,
-        "raw_median_total_fp": 1691.25,
-        "regression_fppg": 39.54,
-        "regression_total_fp": 2139.87
+        "raw_mean_total_fp": 2098.1,
+        "raw_median_total_fp": 1970.1,
+        "regression_fppg": 39.67,
+        "regression_total_fp": 2302.14
       },
       "description": "Possible keeper, reliable starter at minimum. These players are strong contributors who may develop into keeper-worthy assets, but it's less certain than Round 1. Floor is still a dependable starter.",
-      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 2 (R1) ~ 38.4 FPPG / ~2,050 Total FP."
+      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 2 (R1) ~ 38.5 FPPG / ~2,212 Total FP."
     },
     "3": {
       "pick_number": 3,
@@ -118,12 +130,12 @@
       "tier": "Strong Draft Asset",
       "expected_projFPPG": {
         "low": 34.4,
-        "mid": 40.0,
+        "mid": 40.1,
         "high": 51.3
       },
       "expected_total_fp": {
         "low": 1612.0,
-        "mid": 2072.9,
+        "mid": 2178.6,
         "high": 2611.7
       },
       "historical_stats": {
@@ -132,11 +144,11 @@
         "raw_median_fppg": 38.27,
         "raw_mean_total_fp": 2034.74,
         "raw_median_total_fp": 1913.6,
-        "regression_fppg": 39.29,
-        "regression_total_fp": 2111.13
+        "regression_fppg": 39.42,
+        "regression_total_fp": 2268.6
       },
       "description": "Possible keeper, reliable starter at minimum. These players are strong contributors who may develop into keeper-worthy assets, but it's less certain than Round 1. Floor is still a dependable starter.",
-      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 3 (R1) ~ 40.0 FPPG / ~2,073 Total FP."
+      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 3 (R1) ~ 40.1 FPPG / ~2,179 Total FP."
     },
     "4": {
       "pick_number": 4,
@@ -145,24 +157,24 @@
       "expected_projFPPG": {
         "low": 35.6,
         "mid": 39.5,
-        "high": 43.8
+        "high": 43.1
       },
       "expected_total_fp": {
         "low": 1708.0,
-        "mid": 2039.7,
-        "high": 2461.1
+        "mid": 2194.7,
+        "high": 2712.7
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 39.99,
+        "raw_mean_fppg": 39.85,
         "raw_median_fppg": 40.31,
-        "raw_mean_total_fp": 1996.98,
-        "raw_median_total_fp": 1925.55,
-        "regression_fppg": 39.05,
-        "regression_total_fp": 2082.39
+        "raw_mean_total_fp": 2154.4,
+        "raw_median_total_fp": 2076.15,
+        "regression_fppg": 39.16,
+        "regression_total_fp": 2235.06
       },
       "description": "Possible keeper, reliable starter at minimum. These players are strong contributors who may develop into keeper-worthy assets, but it's less certain than Round 1. Floor is still a dependable starter.",
-      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 4 (R1) ~ 39.5 FPPG / ~2,040 Total FP."
+      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 4 (R1) ~ 39.5 FPPG / ~2,195 Total FP."
     },
     "5": {
       "pick_number": 5,
@@ -170,25 +182,25 @@
       "tier": "Strong Draft Asset",
       "expected_projFPPG": {
         "low": 30.7,
-        "mid": 38.3,
+        "mid": 38.4,
         "high": 44.0
       },
       "expected_total_fp": {
         "low": 1321.5,
-        "mid": 2113.6,
-        "high": 2818.3
+        "mid": 2291.5,
+        "high": 2841.8
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 37.7,
-        "raw_median_fppg": 37.5,
-        "raw_mean_total_fp": 2173.6,
-        "raw_median_total_fp": 2238.9,
-        "regression_fppg": 38.81,
-        "regression_total_fp": 2053.66
+        "raw_mean_fppg": 37.88,
+        "raw_median_fppg": 38.4,
+        "raw_mean_total_fp": 2381.99,
+        "raw_median_total_fp": 2689.5,
+        "regression_fppg": 38.9,
+        "regression_total_fp": 2201.52
       },
       "description": "Possible keeper, reliable starter at minimum. These players are strong contributors who may develop into keeper-worthy assets, but it's less certain than Round 1. Floor is still a dependable starter.",
-      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 5 (R2) ~ 38.3 FPPG / ~2,114 Total FP."
+      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 5 (R2) ~ 38.4 FPPG / ~2,292 Total FP."
     },
     "6": {
       "pick_number": 6,
@@ -196,25 +208,25 @@
       "tier": "Strong Draft Asset",
       "expected_projFPPG": {
         "low": 32.9,
-        "mid": 38.6,
+        "mid": 38.9,
         "high": 45.4
       },
       "expected_total_fp": {
         "low": 394.4,
-        "mid": 1951.7,
+        "mid": 2086.1,
         "high": 3129.9
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 38.71,
+        "raw_mean_fppg": 39.1,
         "raw_median_fppg": 38.96,
-        "raw_mean_total_fp": 1878.57,
+        "raw_mean_total_fp": 2004.28,
         "raw_median_total_fp": 1959.75,
-        "regression_fppg": 38.56,
-        "regression_total_fp": 2024.92
+        "regression_fppg": 38.65,
+        "regression_total_fp": 2167.98
       },
       "description": "Possible keeper, reliable starter at minimum. These players are strong contributors who may develop into keeper-worthy assets, but it's less certain than Round 1. Floor is still a dependable starter.",
-      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 6 (R2) ~ 38.6 FPPG / ~1,952 Total FP."
+      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 6 (R2) ~ 38.9 FPPG / ~2,086 Total FP."
     },
     "7": {
       "pick_number": 7,
@@ -222,25 +234,25 @@
       "tier": "Strong Draft Asset",
       "expected_projFPPG": {
         "low": 38.1,
-        "mid": 39.6,
+        "mid": 39.5,
         "high": 46.3
       },
       "expected_total_fp": {
         "low": 1623.3,
-        "mid": 2073.1,
+        "mid": 2224.4,
         "high": 2825.9
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 40.87,
-        "raw_median_fppg": 40.18,
-        "raw_mean_total_fp": 2150.0,
-        "raw_median_total_fp": 2171.05,
-        "regression_fppg": 38.32,
-        "regression_total_fp": 1996.19
+        "raw_mean_fppg": 40.67,
+        "raw_median_fppg": 39.18,
+        "raw_mean_total_fp": 2337.22,
+        "raw_median_total_fp": 2401.8,
+        "regression_fppg": 38.39,
+        "regression_total_fp": 2134.44
       },
       "description": "Possible keeper, reliable starter at minimum. These players are strong contributors who may develop into keeper-worthy assets, but it's less certain than Round 1. Floor is still a dependable starter.",
-      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 7 (R2) ~ 39.6 FPPG / ~2,073 Total FP."
+      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 7 (R2) ~ 39.5 FPPG / ~2,224 Total FP."
     },
     "8": {
       "pick_number": 8,
@@ -248,51 +260,51 @@
       "tier": "Strong Draft Asset",
       "expected_projFPPG": {
         "low": 35.3,
-        "mid": 38.3,
+        "mid": 38.4,
         "high": 43.5
       },
       "expected_total_fp": {
-        "low": 1520.5,
-        "mid": 2055.4,
+        "low": 1787.2,
+        "mid": 2190.9,
         "high": 3014.6
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 38.58,
+        "raw_mean_fppg": 38.64,
         "raw_median_fppg": 38.65,
-        "raw_mean_total_fp": 2143.36,
-        "raw_median_total_fp": 1871.15,
-        "regression_fppg": 38.07,
-        "regression_total_fp": 1967.45
+        "raw_mean_total_fp": 2310.42,
+        "raw_median_total_fp": 2355.8,
+        "regression_fppg": 38.14,
+        "regression_total_fp": 2100.9
       },
       "description": "Possible keeper, reliable starter at minimum. These players are strong contributors who may develop into keeper-worthy assets, but it's less certain than Round 1. Floor is still a dependable starter.",
-      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 8 (R2) ~ 38.3 FPPG / ~2,055 Total FP."
+      "trade_value_notes": "Valuable asset with upside. Worth including in trades as a meaningful sweetener or to bridge a gap in player value. Pick 8 (R2) ~ 38.4 FPPG / ~2,191 Total FP."
     },
     "9": {
       "pick_number": 9,
       "round": 3,
       "tier": "Solid Contributor",
       "expected_projFPPG": {
-        "low": 32.7,
-        "mid": 36.3,
+        "low": 33.4,
+        "mid": 36.4,
         "high": 38.0
       },
       "expected_total_fp": {
-        "low": 359.3,
-        "mid": 1848.7,
+        "low": 1020.3,
+        "mid": 1977.4,
         "high": 2373.7
       },
       "historical_stats": {
         "sample_size": 4,
-        "raw_mean_fppg": 34.6,
-        "raw_median_fppg": 33.86,
-        "raw_mean_total_fp": 1674.88,
+        "raw_mean_fppg": 34.94,
+        "raw_median_fppg": 34.14,
+        "raw_mean_total_fp": 1840.12,
         "raw_median_total_fp": 1983.25,
-        "regression_fppg": 37.83,
-        "regression_total_fp": 1938.72
+        "regression_fppg": 37.88,
+        "regression_total_fp": 2067.36
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 9 (R3) ~ 36.3 FPPG / ~1,849 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 9 (R3) ~ 36.4 FPPG / ~1,977 Total FP."
     },
     "10": {
       "pick_number": 10,
@@ -304,73 +316,73 @@
         "high": 47.2
       },
       "expected_total_fp": {
-        "low": 1264.0,
-        "mid": 1875.7,
+        "low": 1481.0,
+        "mid": 2013.9,
         "high": 3208.2
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 36.0,
+        "raw_mean_fppg": 36.07,
         "raw_median_fppg": 35.94,
-        "raw_mean_total_fp": 1841.48,
-        "raw_median_total_fp": 1509.5,
-        "regression_fppg": 37.58,
-        "regression_total_fp": 1909.98
+        "raw_mean_total_fp": 1993.9,
+        "raw_median_total_fp": 1744.6,
+        "regression_fppg": 37.63,
+        "regression_total_fp": 2033.82
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 10 (R3) ~ 36.8 FPPG / ~1,876 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 10 (R3) ~ 36.8 FPPG / ~2,014 Total FP."
     },
     "11": {
       "pick_number": 11,
       "round": 3,
       "tier": "Solid Contributor",
       "expected_projFPPG": {
-        "low": 35.3,
-        "mid": 37.8,
+        "low": 35.1,
+        "mid": 37.7,
         "high": 43.1
       },
       "expected_total_fp": {
         "low": 904.5,
-        "mid": 1791.2,
+        "mid": 1910.3,
         "high": 2010.8
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 38.22,
+        "raw_mean_fppg": 38.11,
         "raw_median_fppg": 37.24,
-        "raw_mean_total_fp": 1695.33,
+        "raw_mean_total_fp": 1732.56,
         "raw_median_total_fp": 1911.4,
-        "regression_fppg": 37.34,
-        "regression_total_fp": 1881.25
+        "regression_fppg": 37.37,
+        "regression_total_fp": 2000.28
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 11 (R3) ~ 37.8 FPPG / ~1,791 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 11 (R3) ~ 37.7 FPPG / ~1,910 Total FP."
     },
     "12": {
       "pick_number": 12,
       "round": 3,
       "tier": "Solid Contributor",
       "expected_projFPPG": {
-        "low": 31.1,
+        "low": 30.6,
         "mid": 37.4,
         "high": 40.7
       },
       "expected_total_fp": {
-        "low": 466.4,
-        "mid": 1936.1,
+        "low": 887.6,
+        "mid": 2035.4,
         "high": 2843.8
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 37.72,
+        "raw_mean_fppg": 37.62,
         "raw_median_fppg": 39.24,
-        "raw_mean_total_fp": 2019.74,
+        "raw_mean_total_fp": 2103.98,
         "raw_median_total_fp": 2118.7,
-        "regression_fppg": 37.1,
-        "regression_total_fp": 1852.51
+        "regression_fppg": 37.12,
+        "regression_total_fp": 1966.74
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 12 (R3) ~ 37.4 FPPG / ~1,936 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 12 (R3) ~ 37.4 FPPG / ~2,035 Total FP."
     },
     "13": {
       "pick_number": 13,
@@ -378,25 +390,25 @@
       "tier": "Solid Contributor",
       "expected_projFPPG": {
         "low": 35.6,
-        "mid": 37.6,
-        "high": 45.5
+        "mid": 37.5,
+        "high": 44.2
       },
       "expected_total_fp": {
         "low": 1459.3,
-        "mid": 1913.8,
-        "high": 2560.3
+        "mid": 2023.2,
+        "high": 3097.0
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 38.41,
+        "raw_mean_fppg": 38.17,
         "raw_median_fppg": 37.19,
-        "raw_mean_total_fp": 2109.72,
-        "raw_median_total_fp": 2066.1,
-        "regression_fppg": 36.85,
-        "regression_total_fp": 1823.77
+        "raw_mean_total_fp": 2319.97,
+        "raw_median_total_fp": 2417.15,
+        "regression_fppg": 36.86,
+        "regression_total_fp": 1933.2
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 13 (R4) ~ 37.6 FPPG / ~1,914 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 13 (R4) ~ 37.5 FPPG / ~2,023 Total FP."
     },
     "14": {
       "pick_number": 14,
@@ -404,25 +416,25 @@
       "tier": "Solid Contributor",
       "expected_projFPPG": {
         "low": 33.3,
-        "mid": 36.1,
+        "mid": 36.4,
         "high": 41.7
       },
       "expected_total_fp": {
         "low": 1266.3,
-        "mid": 1752.4,
+        "mid": 1896.0,
         "high": 2791.7
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 35.63,
+        "raw_mean_fppg": 36.22,
         "raw_median_fppg": 34.23,
-        "raw_mean_total_fp": 1709.76,
-        "raw_median_total_fp": 1464.7,
+        "raw_mean_total_fp": 1892.41,
+        "raw_median_total_fp": 1691.3,
         "regression_fppg": 36.61,
-        "regression_total_fp": 1795.04
+        "regression_total_fp": 1899.66
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 14 (R4) ~ 36.1 FPPG / ~1,752 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 14 (R4) ~ 36.4 FPPG / ~1,896 Total FP."
     },
     "15": {
       "pick_number": 15,
@@ -430,25 +442,25 @@
       "tier": "Solid Contributor",
       "expected_projFPPG": {
         "low": 28.5,
-        "mid": 36.5,
+        "mid": 36.3,
         "high": 41.2
       },
       "expected_total_fp": {
         "low": 796.9,
-        "mid": 1711.9,
+        "mid": 1839.0,
         "high": 2388.9
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 36.65,
+        "raw_mean_fppg": 36.35,
         "raw_median_fppg": 38.12,
-        "raw_mean_total_fp": 1657.45,
-        "raw_median_total_fp": 1431.85,
-        "regression_fppg": 36.36,
-        "regression_total_fp": 1766.3
+        "raw_mean_total_fp": 1811.89,
+        "raw_median_total_fp": 2204.05,
+        "regression_fppg": 36.35,
+        "regression_total_fp": 1866.12
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 15 (R4) ~ 36.5 FPPG / ~1,712 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 15 (R4) ~ 36.3 FPPG / ~1,839 Total FP."
     },
     "16": {
       "pick_number": 16,
@@ -457,50 +469,50 @@
       "expected_projFPPG": {
         "low": 30.8,
         "mid": 34.8,
-        "high": 39.7
+        "high": 39.3
       },
       "expected_total_fp": {
         "low": 217.8,
-        "mid": 1647.6,
-        "high": 2262.3
+        "mid": 1742.6,
+        "high": 2556.8
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 33.51,
+        "raw_mean_fppg": 33.44,
         "raw_median_fppg": 31.13,
-        "raw_mean_total_fp": 1334.32,
+        "raw_mean_total_fp": 1448.6,
         "raw_median_total_fp": 1805.55,
-        "regression_fppg": 36.12,
-        "regression_total_fp": 1737.57
+        "regression_fppg": 36.09,
+        "regression_total_fp": 1832.59
       },
       "description": "Useful roster piece that could stick or could get dropped. This is the boundary between players who contribute all season and players who get replaced by waiver pickups. Some hits, some misses.",
-      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 16 (R4) ~ 34.8 FPPG / ~1,648 Total FP."
+      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 16 (R4) ~ 34.8 FPPG / ~1,743 Total FP."
     },
     "17": {
       "pick_number": 17,
       "round": 5,
       "tier": "Solid Contributor",
       "expected_projFPPG": {
-        "low": 35.4,
-        "mid": 37.4,
+        "low": 35.6,
+        "mid": 37.3,
         "high": 47.8
       },
       "expected_total_fp": {
-        "low": 1096.2,
-        "mid": 1798.8,
+        "low": 2031.2,
+        "mid": 1889.0,
         "high": 3062.1
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 39.93,
+        "raw_mean_fppg": 39.98,
         "raw_median_fppg": 37.59,
-        "raw_mean_total_fp": 2324.68,
+        "raw_mean_total_fp": 2511.67,
         "raw_median_total_fp": 2466.6,
-        "regression_fppg": 35.87,
-        "regression_total_fp": 1708.83
+        "regression_fppg": 35.84,
+        "regression_total_fp": 1799.05
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 17 (R5) ~ 37.4 FPPG / ~1,799 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 17 (R5) ~ 37.3 FPPG / ~1,889 Total FP."
     },
     "18": {
       "pick_number": 18,
@@ -508,25 +520,25 @@
       "tier": "Solid Contributor",
       "expected_projFPPG": {
         "low": 35.9,
-        "mid": 36.7,
+        "mid": 36.6,
         "high": 38.6
       },
       "expected_total_fp": {
         "low": 1471.3,
-        "mid": 1770.1,
-        "high": 2561.6
+        "mid": 1855.5,
+        "high": 2635.0
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 37.71,
-        "raw_median_fppg": 38.35,
-        "raw_mean_total_fp": 2069.95,
-        "raw_median_total_fp": 2042.25,
-        "regression_fppg": 35.63,
-        "regression_total_fp": 1680.1
+        "raw_mean_fppg": 37.56,
+        "raw_median_fppg": 37.64,
+        "raw_mean_total_fp": 2221.12,
+        "raw_median_total_fp": 2395.4,
+        "regression_fppg": 35.58,
+        "regression_total_fp": 1765.51
       },
       "description": "Dependable starter, unlikely to become a keeper. These players fill roster spots and contribute, but rarely break into a team's top 6. Solid but unspectacular.",
-      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 18 (R5) ~ 36.7 FPPG / ~1,770 Total FP."
+      "trade_value_notes": "Moderate asset. Useful in trades as a secondary piece but not enough on its own to swing a deal. Pick 18 (R5) ~ 36.6 FPPG / ~1,856 Total FP."
     },
     "19": {
       "pick_number": 19,
@@ -539,7 +551,7 @@
       },
       "expected_total_fp": {
         "low": 513.7,
-        "mid": 1741.4,
+        "mid": 1822.0,
         "high": 2449.2
       },
       "historical_stats": {
@@ -548,11 +560,11 @@
         "raw_median_fppg": 37.05,
         "raw_mean_total_fp": 1938.18,
         "raw_median_total_fp": 2199.95,
-        "regression_fppg": 35.39,
-        "regression_total_fp": 1651.36
+        "regression_fppg": 35.33,
+        "regression_total_fp": 1731.97
       },
       "description": "Useful roster piece that could stick or could get dropped. This is the boundary between players who contribute all season and players who get replaced by waiver pickups. Some hits, some misses.",
-      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 19 (R5) ~ 35.6 FPPG / ~1,741 Total FP."
+      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 19 (R5) ~ 35.6 FPPG / ~1,822 Total FP."
     },
     "20": {
       "pick_number": 20,
@@ -565,7 +577,7 @@
       },
       "expected_total_fp": {
         "low": 167.1,
-        "mid": 1532.6,
+        "mid": 1608.4,
         "high": 3112.8
       },
       "historical_stats": {
@@ -574,37 +586,37 @@
         "raw_median_fppg": 30.13,
         "raw_mean_total_fp": 1318.09,
         "raw_median_total_fp": 1054.9,
-        "regression_fppg": 35.14,
-        "regression_total_fp": 1622.63
+        "regression_fppg": 35.07,
+        "regression_total_fp": 1698.43
       },
       "description": "Likely replaced via waivers by midseason. The player drafted here may start on the roster but has a high probability of being dropped within the first few weeks as better options emerge on the waiver wire.",
-      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 20 (R5) ~ 33.6 FPPG / ~1,533 Total FP."
+      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 20 (R5) ~ 33.6 FPPG / ~1,608 Total FP."
     },
     "21": {
       "pick_number": 21,
       "round": 6,
       "tier": "Fringe Contributor",
       "expected_projFPPG": {
-        "low": 30.6,
-        "mid": 34.3,
+        "low": 31.9,
+        "mid": 34.5,
         "high": 37.2
       },
       "expected_total_fp": {
-        "low": 826.7,
-        "mid": 1683.9,
+        "low": 1582.2,
+        "mid": 1754.9,
         "high": 2751.2
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 33.77,
+        "raw_mean_fppg": 34.11,
         "raw_median_fppg": 32.42,
-        "raw_mean_total_fp": 1996.41,
+        "raw_mean_total_fp": 2147.51,
         "raw_median_total_fp": 2236.65,
-        "regression_fppg": 34.9,
-        "regression_total_fp": 1593.89
+        "regression_fppg": 34.82,
+        "regression_total_fp": 1664.89
       },
       "description": "Useful roster piece that could stick or could get dropped. This is the boundary between players who contribute all season and players who get replaced by waiver pickups. Some hits, some misses.",
-      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 21 (R6) ~ 34.3 FPPG / ~1,684 Total FP."
+      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 21 (R6) ~ 34.5 FPPG / ~1,755 Total FP."
     },
     "22": {
       "pick_number": 22,
@@ -617,46 +629,46 @@
       },
       "expected_total_fp": {
         "low": 444.4,
-        "mid": 1475.2,
+        "mid": 1541.3,
         "high": 1794.4
       },
       "historical_stats": {
         "sample_size": 4,
-        "raw_mean_fppg": 36.89,
-        "raw_median_fppg": 37.41,
-        "raw_mean_total_fp": 1159.58,
-        "raw_median_total_fp": 1199.72,
-        "regression_fppg": 34.65,
-        "regression_total_fp": 1565.15
+        "raw_mean_fppg": 37.01,
+        "raw_median_fppg": 37.64,
+        "raw_mean_total_fp": 1191.16,
+        "raw_median_total_fp": 1262.9,
+        "regression_fppg": 34.56,
+        "regression_total_fp": 1631.35
       },
       "description": "Useful roster piece that could stick or could get dropped. This is the boundary between players who contribute all season and players who get replaced by waiver pickups. Some hits, some misses.",
-      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 22 (R6) ~ 35.8 FPPG / ~1,475 Total FP."
+      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 22 (R6) ~ 35.8 FPPG / ~1,541 Total FP."
     },
     "23": {
       "pick_number": 23,
       "round": 6,
       "tier": "Fringe Contributor",
       "expected_projFPPG": {
-        "low": 33.6,
-        "mid": 35.0,
+        "low": 33.5,
+        "mid": 34.9,
         "high": 40.3
       },
       "expected_total_fp": {
-        "low": 846.8,
-        "mid": 1582.1,
+        "low": 872.2,
+        "mid": 1615.3,
         "high": 2496.9
       },
       "historical_stats": {
         "sample_size": 5,
-        "raw_mean_fppg": 35.55,
+        "raw_mean_fppg": 35.49,
         "raw_median_fppg": 34.42,
-        "raw_mean_total_fp": 1627.73,
+        "raw_mean_total_fp": 1632.83,
         "raw_median_total_fp": 1343.0,
-        "regression_fppg": 34.41,
-        "regression_total_fp": 1536.42
+        "regression_fppg": 34.31,
+        "regression_total_fp": 1597.81
       },
       "description": "Useful roster piece that could stick or could get dropped. This is the boundary between players who contribute all season and players who get replaced by waiver pickups. Some hits, some misses.",
-      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 23 (R6) ~ 35.0 FPPG / ~1,582 Total FP."
+      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 23 (R6) ~ 34.9 FPPG / ~1,615 Total FP."
     },
     "24": {
       "pick_number": 24,
@@ -664,25 +676,25 @@
       "tier": "Fringe Contributor",
       "expected_projFPPG": {
         "low": 31.7,
-        "mid": 34.9,
-        "high": 39.6
+        "mid": 34.4,
+        "high": 37.5
       },
       "expected_total_fp": {
         "low": 535.1,
-        "mid": 1417.7,
-        "high": 1798.8
+        "mid": 1474.3,
+        "high": 1868.3
       },
       "historical_stats": {
         "sample_size": 4,
-        "raw_mean_fppg": 35.55,
-        "raw_median_fppg": 35.46,
-        "raw_mean_total_fp": 1023.0,
-        "raw_median_total_fp": 879.03,
-        "regression_fppg": 34.17,
-        "regression_total_fp": 1507.68
+        "raw_mean_fppg": 34.81,
+        "raw_median_fppg": 35.04,
+        "raw_mean_total_fp": 1232.91,
+        "raw_median_total_fp": 1264.08,
+        "regression_fppg": 34.05,
+        "regression_total_fp": 1564.27
       },
       "description": "Useful roster piece that could stick or could get dropped. This is the boundary between players who contribute all season and players who get replaced by waiver pickups. Some hits, some misses.",
-      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 24 (R6) ~ 34.9 FPPG / ~1,418 Total FP."
+      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 24 (R6) ~ 34.4 FPPG / ~1,474 Total FP."
     },
     "25": {
       "pick_number": 25,
@@ -690,25 +702,25 @@
       "tier": "Fringe Contributor",
       "expected_projFPPG": {
         "low": 32.4,
-        "mid": 34.9,
+        "mid": 34.6,
         "high": 38.1
       },
       "expected_total_fp": {
-        "low": 1191.5,
-        "mid": 1531.3,
+        "low": 299.9,
+        "mid": 1440.7,
         "high": 2286.4
       },
       "historical_stats": {
-        "sample_size": 4,
-        "raw_mean_fppg": 35.8,
-        "raw_median_fppg": 36.38,
-        "raw_mean_total_fp": 1583.73,
-        "raw_median_total_fp": 1428.53,
-        "regression_fppg": 33.92,
-        "regression_total_fp": 1478.95
+        "sample_size": 5,
+        "raw_mean_fppg": 35.31,
+        "raw_median_fppg": 35.53,
+        "raw_mean_total_fp": 1326.95,
+        "raw_median_total_fp": 1293.9,
+        "regression_fppg": 33.8,
+        "regression_total_fp": 1530.73
       },
       "description": "Useful roster piece that could stick or could get dropped. This is the boundary between players who contribute all season and players who get replaced by waiver pickups. Some hits, some misses.",
-      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 25 (R7) ~ 34.9 FPPG / ~1,531 Total FP."
+      "trade_value_notes": "Low-value asset. Functions as a throw-in to balance a trade rather than a meaningful piece. Pick 25 (R7) ~ 34.6 FPPG / ~1,441 Total FP."
     },
     "26": {
       "pick_number": 26,
@@ -716,12 +728,12 @@
       "tier": "Roster Churn",
       "expected_projFPPG": {
         "low": 23.0,
-        "mid": 32.2,
+        "mid": 32.0,
         "high": 33.6
       },
       "expected_total_fp": {
         "low": 184.3,
-        "mid": 1360.2,
+        "mid": 1407.2,
         "high": 1845.7
       },
       "historical_stats": {
@@ -730,11 +742,11 @@
         "raw_median_fppg": 29.6,
         "raw_mean_total_fp": 982.3,
         "raw_median_total_fp": 949.6,
-        "regression_fppg": 33.68,
-        "regression_total_fp": 1450.21
+        "regression_fppg": 33.54,
+        "regression_total_fp": 1497.19
       },
       "description": "Likely replaced via waivers by midseason. The player drafted here may start on the roster but has a high probability of being dropped within the first few weeks as better options emerge on the waiver wire.",
-      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 26 (R7) ~ 32.2 FPPG / ~1,360 Total FP."
+      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 26 (R7) ~ 32.0 FPPG / ~1,407 Total FP."
     },
     "27": {
       "pick_number": 27,
@@ -742,25 +754,25 @@
       "tier": "Roster Churn",
       "expected_projFPPG": {
         "low": 29.9,
-        "mid": 32.5,
+        "mid": 32.3,
         "high": 34.1
       },
       "expected_total_fp": {
-        "low": 854.0,
-        "mid": 1483.8,
+        "low": 1026.7,
+        "mid": 1533.7,
         "high": 1943.5
       },
       "historical_stats": {
         "sample_size": 3,
-        "raw_mean_fppg": 31.5,
-        "raw_median_fppg": 30.5,
-        "raw_mean_total_fp": 1546.18,
+        "raw_mean_fppg": 31.4,
+        "raw_median_fppg": 30.2,
+        "raw_mean_total_fp": 1603.73,
         "raw_median_total_fp": 1841.0,
-        "regression_fppg": 33.43,
-        "regression_total_fp": 1421.48
+        "regression_fppg": 33.28,
+        "regression_total_fp": 1463.65
       },
       "description": "Likely replaced via waivers by midseason. The player drafted here may start on the roster but has a high probability of being dropped within the first few weeks as better options emerge on the waiver wire.",
-      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 27 (R7) ~ 32.5 FPPG / ~1,484 Total FP."
+      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 27 (R7) ~ 32.3 FPPG / ~1,534 Total FP."
     },
     "28": {
       "pick_number": 28,
@@ -768,39 +780,39 @@
       "tier": "Roster Churn",
       "expected_projFPPG": {
         "low": 27.0,
-        "mid": 33.7,
-        "high": 40.8
+        "mid": 33.4,
+        "high": 39.4
       },
       "expected_total_fp": {
         "low": 459.5,
-        "mid": 1438.4,
-        "high": 2195.7
+        "mid": 1520.1,
+        "high": 2324.1
       },
       "historical_stats": {
         "sample_size": 3,
-        "raw_mean_fppg": 34.24,
+        "raw_mean_fppg": 33.76,
         "raw_median_fppg": 34.85,
-        "raw_mean_total_fp": 1484.07,
-        "raw_median_total_fp": 1797.05,
-        "regression_fppg": 33.19,
-        "regression_total_fp": 1392.74
+        "raw_mean_total_fp": 1659.75,
+        "raw_median_total_fp": 2195.65,
+        "regression_fppg": 33.03,
+        "regression_total_fp": 1430.11
       },
       "description": "Likely replaced via waivers by midseason. The player drafted here may start on the roster but has a high probability of being dropped within the first few weeks as better options emerge on the waiver wire.",
-      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 28 (R7) ~ 33.7 FPPG / ~1,438 Total FP."
+      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 28 (R7) ~ 33.4 FPPG / ~1,520 Total FP."
     },
     "29": {
       "pick_number": 29,
       "round": 8,
       "tier": "Roster Churn",
       "expected_projFPPG": {
-        "low": 28.4,
-        "mid": 32.8,
-        "high": 37.2
+        "low": 28.3,
+        "mid": 32.6,
+        "high": 36.9
       },
       "expected_total_fp": {
-        "low": 711.1,
-        "mid": 1413.4,
-        "high": 2115.7
+        "low": 742.0,
+        "mid": 1435.4,
+        "high": 2128.8
       },
       "historical_stats": {
         "sample_size": 0,
@@ -808,11 +820,11 @@
         "raw_median_fppg": 0,
         "raw_mean_total_fp": 0,
         "raw_median_total_fp": 0,
-        "regression_fppg": 32.94,
-        "regression_total_fp": 1364.01
+        "regression_fppg": 32.77,
+        "regression_total_fp": 1396.57
       },
       "description": "Likely replaced via waivers by midseason. The player drafted here may start on the roster but has a high probability of being dropped within the first few weeks as better options emerge on the waiver wire.",
-      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 29 (R8) ~ 32.8 FPPG / ~1,413 Total FP.",
+      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 29 (R8) ~ 32.6 FPPG / ~1,435 Total FP.",
       "_note": "Expansion round pick. Expected value derived from R7 average with cliff decay (0.5 FPPG/pick). Will become data-driven as more keeper-era drafts with 9 rounds accrue."
     },
     "30": {
@@ -820,14 +832,14 @@
       "round": 8,
       "tier": "Roster Churn",
       "expected_projFPPG": {
-        "low": 27.9,
-        "mid": 32.3,
-        "high": 36.7
+        "low": 27.8,
+        "mid": 32.1,
+        "high": 36.4
       },
       "expected_total_fp": {
-        "low": 671.1,
-        "mid": 1373.4,
-        "high": 2075.7
+        "low": 702.0,
+        "mid": 1395.4,
+        "high": 2088.8
       },
       "historical_stats": {
         "sample_size": 0,
@@ -835,11 +847,11 @@
         "raw_median_fppg": 0,
         "raw_mean_total_fp": 0,
         "raw_median_total_fp": 0,
-        "regression_fppg": 32.7,
-        "regression_total_fp": 1335.27
+        "regression_fppg": 32.52,
+        "regression_total_fp": 1363.03
       },
       "description": "Likely replaced via waivers by midseason. The player drafted here may start on the roster but has a high probability of being dropped within the first few weeks as better options emerge on the waiver wire.",
-      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 30 (R8) ~ 32.3 FPPG / ~1,373 Total FP.",
+      "trade_value_notes": "Minimal asset. Near-zero standalone trade value. Only useful as filler in a multi-piece deal. Pick 30 (R8) ~ 32.1 FPPG / ~1,395 Total FP.",
       "_note": "Expansion round pick. Expected value derived from R7 average with cliff decay (0.5 FPPG/pick). Will become data-driven as more keeper-era drafts with 9 rounds accrue."
     },
     "31": {
@@ -847,14 +859,14 @@
       "round": 8,
       "tier": "Waiver Replacement",
       "expected_projFPPG": {
-        "low": 27.4,
-        "mid": 31.8,
-        "high": 36.2
+        "low": 27.3,
+        "mid": 31.6,
+        "high": 35.9
       },
       "expected_total_fp": {
-        "low": 631.1,
-        "mid": 1333.4,
-        "high": 2035.7
+        "low": 662.0,
+        "mid": 1355.4,
+        "high": 2048.8
       },
       "historical_stats": {
         "sample_size": 0,
@@ -862,11 +874,11 @@
         "raw_median_fppg": 0,
         "raw_mean_total_fp": 0,
         "raw_median_total_fp": 0,
-        "regression_fppg": 32.46,
-        "regression_total_fp": 1306.53
+        "regression_fppg": 32.26,
+        "regression_total_fp": 1329.49
       },
       "description": "Dart throw - most get dropped early. Occasionally a breakout candidate lands here, but the expected outcome is a player who doesn't last on the roster past October. Functionally equivalent to a top waiver wire pickup.",
-      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 31 (R8) ~ 31.8 FPPG / ~1,333 Total FP.",
+      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 31 (R8) ~ 31.6 FPPG / ~1,355 Total FP.",
       "_note": "Expansion round pick. Expected value derived from R7 average with cliff decay (0.5 FPPG/pick). Will become data-driven as more keeper-era drafts with 9 rounds accrue."
     },
     "32": {
@@ -874,14 +886,14 @@
       "round": 8,
       "tier": "Waiver Replacement",
       "expected_projFPPG": {
-        "low": 26.9,
-        "mid": 31.3,
-        "high": 35.7
+        "low": 26.8,
+        "mid": 31.1,
+        "high": 35.4
       },
       "expected_total_fp": {
-        "low": 591.1,
-        "mid": 1293.4,
-        "high": 1995.7
+        "low": 622.0,
+        "mid": 1315.4,
+        "high": 2008.8
       },
       "historical_stats": {
         "sample_size": 0,
@@ -889,11 +901,11 @@
         "raw_median_fppg": 0,
         "raw_mean_total_fp": 0,
         "raw_median_total_fp": 0,
-        "regression_fppg": 32.21,
-        "regression_total_fp": 1277.8
+        "regression_fppg": 32.01,
+        "regression_total_fp": 1295.95
       },
       "description": "Dart throw - most get dropped early. Occasionally a breakout candidate lands here, but the expected outcome is a player who doesn't last on the roster past October. Functionally equivalent to a top waiver wire pickup.",
-      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 32 (R8) ~ 31.3 FPPG / ~1,293 Total FP.",
+      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 32 (R8) ~ 31.1 FPPG / ~1,315 Total FP.",
       "_note": "Expansion round pick. Expected value derived from R7 average with cliff decay (0.5 FPPG/pick). Will become data-driven as more keeper-era drafts with 9 rounds accrue."
     },
     "33": {
@@ -901,14 +913,14 @@
       "round": 9,
       "tier": "Waiver Replacement",
       "expected_projFPPG": {
-        "low": 26.4,
-        "mid": 30.8,
-        "high": 35.2
+        "low": 26.3,
+        "mid": 30.6,
+        "high": 34.9
       },
       "expected_total_fp": {
-        "low": 551.1,
-        "mid": 1253.4,
-        "high": 1955.7
+        "low": 582.0,
+        "mid": 1275.4,
+        "high": 1968.8
       },
       "historical_stats": {
         "sample_size": 0,
@@ -916,11 +928,11 @@
         "raw_median_fppg": 0,
         "raw_mean_total_fp": 0,
         "raw_median_total_fp": 0,
-        "regression_fppg": 31.97,
-        "regression_total_fp": 1249.06
+        "regression_fppg": 31.75,
+        "regression_total_fp": 1262.42
       },
       "description": "Dart throw - most get dropped early. Occasionally a breakout candidate lands here, but the expected outcome is a player who doesn't last on the roster past October. Functionally equivalent to a top waiver wire pickup.",
-      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 33 (R9) ~ 30.8 FPPG / ~1,253 Total FP.",
+      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 33 (R9) ~ 30.6 FPPG / ~1,275 Total FP.",
       "_note": "Expansion round pick. Expected value derived from R7 average with cliff decay (0.5 FPPG/pick). Will become data-driven as more keeper-era drafts with 9 rounds accrue."
     },
     "34": {
@@ -928,14 +940,14 @@
       "round": 9,
       "tier": "Waiver Replacement",
       "expected_projFPPG": {
-        "low": 25.9,
-        "mid": 30.3,
-        "high": 34.7
+        "low": 25.8,
+        "mid": 30.1,
+        "high": 34.4
       },
       "expected_total_fp": {
-        "low": 511.1,
-        "mid": 1213.4,
-        "high": 1915.7
+        "low": 542.0,
+        "mid": 1235.4,
+        "high": 1928.8
       },
       "historical_stats": {
         "sample_size": 0,
@@ -943,11 +955,11 @@
         "raw_median_fppg": 0,
         "raw_mean_total_fp": 0,
         "raw_median_total_fp": 0,
-        "regression_fppg": 31.72,
-        "regression_total_fp": 1220.33
+        "regression_fppg": 31.5,
+        "regression_total_fp": 1228.88
       },
       "description": "Dart throw - most get dropped early. Occasionally a breakout candidate lands here, but the expected outcome is a player who doesn't last on the roster past October. Functionally equivalent to a top waiver wire pickup.",
-      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 34 (R9) ~ 30.3 FPPG / ~1,213 Total FP.",
+      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 34 (R9) ~ 30.1 FPPG / ~1,235 Total FP.",
       "_note": "Expansion round pick. Expected value derived from R7 average with cliff decay (0.5 FPPG/pick). Will become data-driven as more keeper-era drafts with 9 rounds accrue."
     },
     "35": {
@@ -955,14 +967,14 @@
       "round": 9,
       "tier": "Waiver Replacement",
       "expected_projFPPG": {
-        "low": 25.4,
-        "mid": 29.8,
-        "high": 34.2
+        "low": 25.3,
+        "mid": 29.6,
+        "high": 33.9
       },
       "expected_total_fp": {
-        "low": 471.1,
-        "mid": 1173.4,
-        "high": 1875.7
+        "low": 502.0,
+        "mid": 1195.4,
+        "high": 1888.8
       },
       "historical_stats": {
         "sample_size": 0,
@@ -970,11 +982,11 @@
         "raw_median_fppg": 0,
         "raw_mean_total_fp": 0,
         "raw_median_total_fp": 0,
-        "regression_fppg": 31.48,
-        "regression_total_fp": 1191.59
+        "regression_fppg": 31.24,
+        "regression_total_fp": 1195.34
       },
       "description": "Dart throw - most get dropped early. Occasionally a breakout candidate lands here, but the expected outcome is a player who doesn't last on the roster past October. Functionally equivalent to a top waiver wire pickup.",
-      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 35 (R9) ~ 29.8 FPPG / ~1,173 Total FP.",
+      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 35 (R9) ~ 29.6 FPPG / ~1,195 Total FP.",
       "_note": "Expansion round pick. Expected value derived from R7 average with cliff decay (0.5 FPPG/pick). Will become data-driven as more keeper-era drafts with 9 rounds accrue."
     },
     "36": {
@@ -982,14 +994,14 @@
       "round": 9,
       "tier": "Waiver Replacement",
       "expected_projFPPG": {
-        "low": 24.9,
-        "mid": 29.3,
-        "high": 33.7
+        "low": 24.8,
+        "mid": 29.1,
+        "high": 33.4
       },
       "expected_total_fp": {
-        "low": 431.1,
-        "mid": 1133.4,
-        "high": 1835.7
+        "low": 462.0,
+        "mid": 1155.4,
+        "high": 1848.8
       },
       "historical_stats": {
         "sample_size": 0,
@@ -997,11 +1009,11 @@
         "raw_median_fppg": 0,
         "raw_mean_total_fp": 0,
         "raw_median_total_fp": 0,
-        "regression_fppg": 31.23,
-        "regression_total_fp": 1162.86
+        "regression_fppg": 30.99,
+        "regression_total_fp": 1161.8
       },
       "description": "Dart throw - most get dropped early. Occasionally a breakout candidate lands here, but the expected outcome is a player who doesn't last on the roster past October. Functionally equivalent to a top waiver wire pickup.",
-      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 36 (R9) ~ 29.3 FPPG / ~1,133 Total FP.",
+      "trade_value_notes": "Negligible trade value. Not enough to influence any deal on its own. Pick 36 (R9) ~ 29.1 FPPG / ~1,155 Total FP.",
       "_note": "Expansion round pick. Expected value derived from R7 average with cliff decay (0.5 FPPG/pick). Will become data-driven as more keeper-era drafts with 9 rounds accrue."
     }
   },
@@ -1014,9 +1026,9 @@
         3,
         4
       ],
-      "avg_fppg": 39.35,
-      "avg_total_fp": 2088.0,
-      "fppg_range": "38.4 - 40.0",
+      "avg_fppg": 39.45,
+      "avg_total_fp": 2230.2,
+      "fppg_range": "38.5 - 40.1",
       "tier": "Strong Draft Asset"
     },
     "2": {
@@ -1027,9 +1039,9 @@
         7,
         8
       ],
-      "avg_fppg": 38.7,
-      "avg_total_fp": 2048.4,
-      "fppg_range": "38.3 - 39.6",
+      "avg_fppg": 38.8,
+      "avg_total_fp": 2198.2,
+      "fppg_range": "38.4 - 39.5",
       "tier": "Strong Draft Asset"
     },
     "3": {
@@ -1040,9 +1052,9 @@
         11,
         12
       ],
-      "avg_fppg": 37.07,
-      "avg_total_fp": 1862.9,
-      "fppg_range": "36.3 - 37.8",
+      "avg_fppg": 37.08,
+      "avg_total_fp": 1984.2,
+      "fppg_range": "36.4 - 37.7",
       "tier": "Solid Contributor"
     },
     "4": {
@@ -1054,8 +1066,8 @@
         16
       ],
       "avg_fppg": 36.25,
-      "avg_total_fp": 1756.4,
-      "fppg_range": "34.8 - 37.6",
+      "avg_total_fp": 1875.2,
+      "fppg_range": "34.8 - 37.5",
       "tier": "Solid Contributor"
     },
     "5": {
@@ -1066,9 +1078,9 @@
         19,
         20
       ],
-      "avg_fppg": 35.83,
-      "avg_total_fp": 1710.7,
-      "fppg_range": "33.6 - 37.4",
+      "avg_fppg": 35.77,
+      "avg_total_fp": 1793.7,
+      "fppg_range": "33.6 - 37.3",
       "tier": "Fringe Contributor"
     },
     "6": {
@@ -1079,9 +1091,9 @@
         23,
         24
       ],
-      "avg_fppg": 35.0,
-      "avg_total_fp": 1539.7,
-      "fppg_range": "34.3 - 35.8",
+      "avg_fppg": 34.9,
+      "avg_total_fp": 1596.5,
+      "fppg_range": "34.4 - 35.8",
       "tier": "Fringe Contributor"
     },
     "7": {
@@ -1092,9 +1104,9 @@
         27,
         28
       ],
-      "avg_fppg": 33.33,
-      "avg_total_fp": 1453.4,
-      "fppg_range": "32.2 - 34.9",
+      "avg_fppg": 33.08,
+      "avg_total_fp": 1475.4,
+      "fppg_range": "32.0 - 34.6",
       "tier": "Roster Churn"
     },
     "8": {
@@ -1105,10 +1117,10 @@
         31,
         32
       ],
-      "avg_fppg": 32.05,
-      "avg_total_fp": 1353.4,
-      "fppg_range": "31.3 - 32.8",
-      "tier": "Roster Churn"
+      "avg_fppg": 31.85,
+      "avg_total_fp": 1375.4,
+      "fppg_range": "31.1 - 32.6",
+      "tier": "Waiver Replacement"
     },
     "9": {
       "round": 9,
@@ -1118,9 +1130,9 @@
         35,
         36
       ],
-      "avg_fppg": 30.05,
-      "avg_total_fp": 1193.4,
-      "fppg_range": "29.3 - 30.8",
+      "avg_fppg": 29.85,
+      "avg_total_fp": 1215.4,
+      "fppg_range": "29.1 - 30.6",
       "tier": "Waiver Replacement"
     }
   },
