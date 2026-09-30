@@ -1,6 +1,6 @@
 {
   "_comment": "Player ages, keyed by Yahoo NBA player id. Ages are not on the projections page and not in the Fantasy API, so they are cached here. Keyed by id rather than name so a spelling change cannot orphan an entry. Survives the season reset.",
-  "_updated": "2026-09-25",
+  "_updated": "2026-09-30",
   "ages": {
     "3704": 42,
     "4244": 38,
@@ -168,16 +168,15 @@
     "10467": 20,
     "10468": 20,
     "10496": 22,
+    "10571": 24,
+    "10576": 21,
     "10582": 29,
+    "10585": 19,
     "10588": 29,
-    "10590": 27
+    "10590": 27,
+    "10592": 19,
+    "10595": 20,
+    "10599": 19
   },
-  "_needs_age": {
-    "10592": "Cameron Boozer",
-    "10595": "Caleb Wilson",
-    "10599": "AJ Dybantsa",
-    "10571": "Yaxel Lendeborg",
-    "10576": "Brayden Burries",
-    "10585": "Keaton Wagler"
-  }
+  "_needs_age": {}
 }
