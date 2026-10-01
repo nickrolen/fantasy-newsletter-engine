@@ -59,7 +59,7 @@ from typing import Optional, Dict, List, Tuple
 
 import pandas as pd
 
-from .data_loader import CURRENT_SEASON, REGULAR_SEASON_WEEKS
+from .data_loader import PlayerIndex, CURRENT_SEASON, REGULAR_SEASON_WEEKS
 
 
 # =============================================================================
@@ -750,7 +750,7 @@ def build_keepability_report(
     season_lengths[current_season] = REGULAR_SEASON_WEEKS
     
     # Build player info lookup from PLAYERLIST
-    player_info = {}
+    player_info = PlayerIndex()
     for _, row in playerlist.iterrows():
         pname = row["player_name"]
         player_info[pname] = {

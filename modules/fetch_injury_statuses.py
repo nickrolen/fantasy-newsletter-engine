@@ -22,7 +22,7 @@ except ImportError:
 
 # ---------- CONFIGURATION (from league_config.json via data_loader) ----------
 
-from .data_loader import LEAGUE_KEY, TEAM_TO_MANAGER, YAHOO_GAME_CODE
+from .data_loader import PlayerIndex, LEAGUE_KEY, TEAM_TO_MANAGER, YAHOO_GAME_CODE
 
 # Alias for backwards compatibility
 FANTASY_TEAM_TO_MANAGER = TEAM_TO_MANAGER
@@ -132,7 +132,7 @@ def fetch_injury_statuses(
     # Get all teams
     teams_json = lg.teams()
     
-    injury_statuses = {}
+    injury_statuses = PlayerIndex()
     all_player_ids = []
     player_id_to_name = {}
     

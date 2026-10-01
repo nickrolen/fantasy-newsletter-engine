@@ -46,6 +46,7 @@ def _ensure_yahoo_imports():
 # =============================================================================
 
 from .data_loader import (
+    PlayerIndex,
     YAHOO_GAME_CODE, LEAGUE_KEY, CURRENT_SEASON,
     MANAGER_TO_TEAM, TEAM_TO_MANAGER, NBA_SCHEDULE_FILE,
 )
@@ -518,7 +519,7 @@ def aggregate_stats_from_yahoo(
     df = pd.DataFrame(rows)
     
     # Add projection data from PLAYERLIST
-    proj_lookup = playerlist.set_index('player_name').to_dict('index')
+    proj_lookup = PlayerIndex(playerlist.set_index('player_name').to_dict('index'))
     
     df['proj_fppg_ros'] = df['player_name'].map(
         lambda x: proj_lookup.get(x, {}).get('projectedFPPG', 0)

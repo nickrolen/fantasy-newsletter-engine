@@ -473,6 +473,78 @@ def load_lineups(path: Path) -> pd.DataFrame:
     return df
 
 
+class PlayerIndex(dict):
+    """A {player name: value} mapping that matches across accent spellings.
+
+    PLAYERLIST keeps Yahoo's spelling -- Jokic, Doncic, Sengun, Demin,
+    Nurkic and Porzingis all carry diacritics. LINEUPS, PLAYERLOG and
+    ROSTERS strip them on the way in (update_fantasy_logs and
+    sync_transactions both call strip_accents). So every join FROM a
+    roster INTO PLAYERLIST compares "Nikola Jokic" against "Nikola
+    Jokic" with an acute accent, and misses.
+
+    A miss is not an error. It falls through to a default -- 0.0 for a
+    projection, 27 for an age -- and publishes it as though it were
+    measured. Keepability scored the best player in the league at 0.0
+    projected FPPG and guessed his age, three days before a keeper
+    deadline, and nothing anywhere said so.
+
+    This exists so no caller has to remember. Lookups normalise; keys,
+    iteration and .values() are untouched, so anything that prints a key
+    still prints the accented spelling Yahoo gave us.
+
+    Strictly more permissive than dict: an exact match behaves exactly
+    as before, and only a miss falls back to the normalised form.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._normalised = {normalize_player_name(k): k for k in self}
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self._normalised[normalize_player_name(key)] = key
+
+    def __delitem__(self, key):
+        resolved = self._resolve(key)
+        if resolved is None:
+            raise KeyError(key)
+        super().__delitem__(resolved)
+        self._normalised.pop(normalize_player_name(resolved), None)
+
+    def _resolve(self, key):
+        """The stored key matching `key`, exactly or by spelling."""
+        if super().__contains__(key):
+            return key
+        return self._normalised.get(normalize_player_name(key))
+
+    def __getitem__(self, key):
+        resolved = self._resolve(key)
+        if resolved is None:
+            raise KeyError(key)
+        return super().__getitem__(resolved)
+
+    def __contains__(self, key):
+        return self._resolve(key) is not None
+
+    def get(self, key, default=None):
+        resolved = self._resolve(key)
+        return super().__getitem__(resolved) if resolved is not None else default
+
+    def setdefault(self, key, default=None):
+        resolved = self._resolve(key)
+        if resolved is not None:
+            return super().__getitem__(resolved)
+        self[key] = default
+        return default
+
+    def update(self, other=(), **kwargs):
+        for k, v in (other.items() if hasattr(other, "items") else other):
+            self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
+
+
 def normalize_player_name(name) -> str:
     """Collapse case, accents and punctuation so spelling variants collide.
 

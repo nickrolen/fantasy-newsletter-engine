@@ -12,7 +12,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional, Any
 
-from .data_loader import (FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
+from .data_loader import (PlayerIndex, FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
                           CURRENT_SEASON, classify_position_group,
                           phase_for_week, regular_season_weeks_for,
                           is_regular_season_week, keepers_for)
@@ -1241,7 +1241,7 @@ def build_current_team_health(
     
     # Load player projections from PLAYERLIST
     playerlist = data.playerlist
-    proj_by_player = {}
+    proj_by_player = PlayerIndex()
     for _, row in playerlist.iterrows():
         name = row['player_name']
         proj_fppg = row.get('projectedFPPG', 0) or 0
@@ -1256,7 +1256,7 @@ def build_current_team_health(
         rosters = get_rosters_from_lineups(data.lineups)
     
     # Build injury lookup: player -> {out_weeks, notes, return fields}
-    injury_lookup = {}
+    injury_lookup = PlayerIndex()
     for entry in injury_overrides.get("players", []):
         player_name = entry.get("player_name", "")
         injury_lookup[player_name] = {
@@ -2989,7 +2989,7 @@ def _build_keeper_watch_v1(data: FantasyData, week: int) -> dict:
     rosters = data.get_current_rosters()
     playerlist = data.playerlist
 
-    pl_lookup = {}
+    pl_lookup = PlayerIndex()
     for _, row in playerlist.iterrows():
         pname = row["player_name"]
         pl_lookup[pname] = {
@@ -3008,7 +3008,7 @@ def _build_keeper_watch_v1(data: FantasyData, week: int) -> dict:
     )
     played = plog[played_mask]
 
-    player_season = {}
+    player_season = PlayerIndex()
     for pname, grp in played.groupby("player_name"):
         gp = len(grp)
         total_fp = grp["fantasy_points"].sum()
@@ -3169,7 +3169,7 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
     )
     played = plog[played_mask]
 
-    player_season = {}
+    player_season = PlayerIndex()
     for pname, grp in played.groupby("player_name"):
         gp = len(grp)
         total_fp = grp["fantasy_points"].sum()

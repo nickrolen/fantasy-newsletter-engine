@@ -24,7 +24,7 @@ from typing import Any, Optional
 # Add project root to path for config imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from modules.data_loader import MANAGERS, CURRENT_SEASON
+from modules.data_loader import PlayerIndex, MANAGERS, CURRENT_SEASON
 
 try:
     import openpyxl  # type: ignore
@@ -362,12 +362,12 @@ def load_player_projections(base_path: Path) -> dict:
     - This returns {} if the projections workbook can't be loaded; main() decides whether to hard-fail.
     """
     if openpyxl is None:
-        return {}
+        return PlayerIndex()
 
     playerlist_path = base_path / "data" / "PLAYERLIST.xlsx"
 
     if not playerlist_path.exists():
-        return {}
+        return PlayerIndex()
 
     wb = None
     try:
@@ -379,7 +379,7 @@ def load_player_projections(base_path: Path) -> dict:
         name_col = headers.index("player_name")
         proj_col = headers.index("projectedFPPG")
 
-        projections = {}
+        projections = PlayerIndex()
         for row in ws.iter_rows(min_row=2, values_only=True):
             name = row[name_col]
             proj = row[proj_col]
@@ -509,7 +509,7 @@ def load_weekly_trades(base_path: Path, current_week: int, player_projs: dict, k
     ]
     """
     # Build keepability lookup
-    keeper_lookup = {}
+    keeper_lookup = PlayerIndex()
     if keeper_watch_players:
         for p in keeper_watch_players:
             keeper_lookup[p["player_name"]] = {

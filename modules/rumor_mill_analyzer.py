@@ -50,7 +50,7 @@ import math
 
 import pandas as pd
 
-from .data_loader import (FantasyData, MANAGERS, MANAGER_TO_TEAM,
+from .data_loader import (PlayerIndex, FantasyData, MANAGERS, MANAGER_TO_TEAM,
                           get_position_list, keepers_for)
 from .projections import (
     load_all_team_projections,
@@ -302,7 +302,7 @@ def compute_trade_value(
 
 def load_player_ages(data: FantasyData) -> dict[str, int]:
     """Load player ages from PLAYERLIST."""
-    ages = {}
+    ages = PlayerIndex()
     if hasattr(data, 'playerlist') and 'age' in data.playerlist.columns:
         for _, row in data.playerlist.iterrows():
             ages[row['player_name']] = int(row['age']) if pd.notna(row['age']) else 26  # Default to 26
@@ -431,7 +431,7 @@ def generate_trade_ideas(
     
     # Build keepability lookup from V2 keeper_watch data (if available)
     # Maps player_name -> {"score": float, "tier": str}
-    keepability_lookup = {}
+    keepability_lookup = PlayerIndex()
     if keeper_watch:
         for p in keeper_watch.get("players", []):
             keepability_lookup[p["player_name"]] = {

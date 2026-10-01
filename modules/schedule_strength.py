@@ -33,7 +33,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .data_loader import FantasyData, MANAGERS, TOTAL_WEEKS
+from .data_loader import PlayerIndex, FantasyData, MANAGERS, TOTAL_WEEKS
 
 
 # Date parsing warnings: avoid silently dropping NBA games when schedule dates are malformed.
@@ -211,7 +211,7 @@ def build_player_info_map(
             "proj_fppg": float,
         }
     """
-    info: dict[str, dict] = {}
+    info: dict[str, dict] = PlayerIndex()
 
     for _, row in playerlist.iterrows():
         name = row.get("player_name")
