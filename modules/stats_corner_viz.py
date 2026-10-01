@@ -842,7 +842,7 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
                 cells.append(f'<td class="sc-hist-td{current_class}">-</td>')
         
         # Summary columns (add pre-data-era finishes not in data)
-        pre_era_firsts = PRE_DATA_ERA.get("first_place_finishes", {})
+        pre_era_firsts = PRE_DATA_ERA.get("titles_won", {})
         firsts += pre_era_firsts.get(mgr, 0)
         
         cells.append(
@@ -928,7 +928,7 @@ def _render_historical_playoff_results_grid(historical_luck: dict = None) -> str
                 cells.append(f'<td class="sc-hist-td{current_class}">-</td>')
         
         # Summary column: total titles (add pre-data-era championships)
-        pre_era_titles = PRE_DATA_ERA.get("titles", {})
+        pre_era_titles = PRE_DATA_ERA.get("playoff_championships", {})
         titles += pre_era_titles.get(mgr, 0)
         
         cells.append(f'<td class="sc-hist-td sc-hist-td-sum sc-hist-sum-1st">{titles}</td>')

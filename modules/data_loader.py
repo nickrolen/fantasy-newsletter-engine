@@ -72,6 +72,24 @@ NBA_SCHEDULE_FILE = SEASON_CONFIG.get("nba_schedule_file", "")
 # --- Pre-data-era history (from config) ---
 PRE_DATA_ERA = _LEAGUE_CONFIG.get("pre_data_era", {})
 
+# These keys are named after LEAGUEHISTORY.xlsx's columns on purpose, because
+# the two are added together. They used to be "first_place_finishes" and
+# "titles", where "titles" meant PLAYOFF championships -- the exact opposite
+# of what titles_won means in the file it reconciles against. A reader who
+# trusted the name would have credited the wrong managers.
+#
+# A .get() against a renamed key returns {} and silently contributes zero, so
+# the old names are rejected outright rather than ignored.
+_LEGACY_PRE_DATA_ERA_KEYS = {
+    "first_place_finishes": "titles_won",
+    "titles": "playoff_championships",
+}
+for _old, _new in _LEGACY_PRE_DATA_ERA_KEYS.items():
+    if _old in PRE_DATA_ERA:
+        raise ValueError(
+            f"league_config.pre_data_era uses the old key {_old!r}; rename it "
+            f"to {_new!r}. Leaving it would contribute zero silently.")
+
 # --- Tiebreaker rules (from config) ---
 TIEBREAKER_RULES = _LEAGUE_CONFIG.get("tiebreaker_rules", {})
 

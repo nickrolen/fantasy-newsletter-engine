@@ -542,6 +542,74 @@ def _check_career_honors_agree(warnings):
     return failures
 
 
+def _check_pre_data_era_reconciles(cfg, warnings):
+    """Nine seasons of derived results plus two honoured ones must equal
+    LEAGUEHISTORY exactly, for both honours.
+
+    This is the only check that ties the three sources together:
+
+        all_standings.json      nine seasons, derived from Yahoo
+        pre_data_era            two seasons, hand-entered
+        LEAGUEHISTORY.xlsx      eleven seasons, the honour roll
+
+    Each is maintained separately and any of the three can drift. RECORDS
+    carried a note asserting this reconciliation as a settled fact while the
+    values it described did not actually match -- a claim about a check
+    nothing performed.
+
+    It is also what catches a mis-aimed pre_data_era key. Crediting a
+    regular-season title to the playoff column still totals eleven, so a sum
+    check alone would pass; only a per-manager comparison fails.
+    """
+    failures = []
+    lh_path = PROJECT_ROOT / "data" / "LEAGUEHISTORY.xlsx"
+    standings_path = PROJECT_ROOT / "data" / "historical" / "all_standings.json"
+    pre = cfg.get("pre_data_era", {})
+    if not (lh_path.is_file() and standings_path.is_file() and pre):
+        return failures
+
+    try:
+        import pandas as pd
+        lh = pd.read_excel(lh_path)
+        standings = json.loads(standings_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        warnings.append(f"[ERA] could not reconcile pre_data_era: "
+                        f"{type(e).__name__}: {e}")
+        return failures
+
+    derived = {}
+    for row in standings:
+        mgr = row.get("manager")
+        if not mgr:
+            continue
+        tally = derived.setdefault(mgr, {"titles_won": 0,
+                                         "playoff_championships": 0})
+        if row.get("regular_season_rank") == 1:
+            tally["titles_won"] += 1
+        if row.get("playoff_rank") == 1:
+            tally["playoff_championships"] += 1
+
+    for _, row in lh.iterrows():
+        mgr = row.get("manager_name")
+        if not mgr or mgr not in derived:
+            continue
+        for column in ("titles_won", "playoff_championships"):
+            if column not in lh.columns:
+                continue
+            honored = int(pre.get(column, {}).get(mgr, 0))
+            expected = derived[mgr][column] + honored
+            try:
+                actual = int(row.get(column))
+            except (TypeError, ValueError):
+                continue
+            if actual != expected:
+                failures.append(
+                    f"[ERA] {mgr} {column}: LEAGUEHISTORY says {actual}, but "
+                    f"{derived[mgr][column]} derived from all_standings plus "
+                    f"{honored} honoured in pre_data_era is {expected}.")
+    return failures
+
+
 def _check_league_keys(cfg, warnings):
     """Yahoo league keys in config must match the ones in the pulled data.
 
@@ -915,6 +983,7 @@ def check_config_integrity(verbose=False):
     failures.extend(_check_league_keys(cfg, warnings))
     failures.extend(_check_no_file_survived_the_reset(warnings))
     failures.extend(_check_career_honors_agree(warnings))
+    failures.extend(_check_pre_data_era_reconciles(cfg, warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"

@@ -63,11 +63,12 @@
         "fallback": "total_points"
     },
     "pre_data_era": {
-        "first_place_finishes": {
+        "_note": "The two seasons played before the current rules. Deliberately excluded from all_standings and RECORDS, deliberately still counted in the honour roll, so these are added to the nine-season derived totals to reconcile against LEAGUEHISTORY.xlsx. Key names match that file's columns exactly: titles_won is the regular season, playoff_championships is the bracket. They were previously named first_place_finishes and titles, where 'titles' meant playoff championships -- the opposite of what titles_won means one file over.",
+        "titles_won": {
             "Nick": 1,
             "Hayden": 1
         },
-        "titles": {
+        "playoff_championships": {
             "Nick": 1,
             "Benton": 1
         }

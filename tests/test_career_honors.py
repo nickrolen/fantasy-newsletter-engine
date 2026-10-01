@@ -162,3 +162,64 @@ def test_a_manager_absent_from_league_history_is_flagged(
     _tree(tmp_path, verify, monkeypatch, {"Somebody": {"titles": 1}})
     failures = verify._check_career_honors_agree([])
     assert any("Somebody" in f for f in failures)
+
+
+# ---------------------------------------------------------------------------
+# pre_data_era: the two honoured seasons
+# ---------------------------------------------------------------------------
+
+def _config():
+    return json.loads((PROJECT_ROOT / "config" / "league_config.json")
+                      .read_text(encoding="utf-8"))
+
+
+def test_the_keys_are_named_after_the_file_they_reconcile_against():
+    """They used to be first_place_finishes and titles, where "titles" meant
+    PLAYOFF championships -- the opposite of titles_won one file over."""
+    pre = _config()["pre_data_era"]
+    assert set(pre) - {"_note"} == {"titles_won", "playoff_championships"}
+    assert "first_place_finishes" not in pre
+    assert "titles" not in pre
+
+
+def test_the_old_key_names_are_rejected_rather_than_ignored():
+    """A .get() against a renamed key returns {} and contributes zero in
+    silence, which is how this would come back."""
+    src = (PROJECT_ROOT / "modules" / "data_loader.py").read_text(encoding="utf-8")
+    assert "_LEGACY_PRE_DATA_ERA_KEYS" in src
+    assert "contribute zero silently" in src
+
+
+def test_the_real_data_reconciles(verify):
+    """Nine derived seasons plus two honoured equals the honour roll."""
+    assert verify._check_pre_data_era_reconciles(_config(), []) == []
+
+
+def test_swapping_the_two_keys_is_caught(verify):
+    """The trap the rename removes.
+
+    Crediting a regular-season title to the playoff column leaves both totals
+    unchanged -- still 11 and 10 -- so only a per-manager comparison fails.
+    """
+    cfg = _config()
+    pre = cfg["pre_data_era"]
+    pre["titles_won"], pre["playoff_championships"] = (
+        pre["playoff_championships"], pre["titles_won"])
+    failures = verify._check_pre_data_era_reconciles(cfg, [])
+    assert {f.split()[1] for f in failures} == {"Hayden", "Benton"}
+    assert len(failures) == 4
+
+
+def test_an_extra_honoured_title_is_caught(verify):
+    cfg = _config()
+    cfg["pre_data_era"]["titles_won"]["Garrett"] = 1
+    failures = verify._check_pre_data_era_reconciles(cfg, [])
+    assert any("Garrett titles_won" in f for f in failures)
+
+
+def test_stats_corner_reads_the_new_names():
+    src = (PROJECT_ROOT / "modules" / "stats_corner_viz.py").read_text(encoding="utf-8")
+    assert 'PRE_DATA_ERA.get("titles_won"' in src
+    assert 'PRE_DATA_ERA.get("playoff_championships"' in src
+    assert 'PRE_DATA_ERA.get("first_place_finishes"' not in src
+    assert 'PRE_DATA_ERA.get("titles"' not in src
