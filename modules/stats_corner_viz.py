@@ -21,6 +21,7 @@ from typing import Optional
 
 from .data_loader import (
     MANAGERS, MANAGER_TO_TEAM, MANAGER_COLORS, PRE_DATA_ERA,
+    live_picks_for,
     CURRENT_SEASON, SEASON_STRUCTURE, stage_rounds, stage_weeks,
 )
 
@@ -207,6 +208,19 @@ def render_draft_value_tracker(data: dict) -> str:
     if not drafted:
         return ""
 
+    # The heading used to say "R1-7", typed in when seven was the number of
+    # drafted rounds. It is nine from 2026-27, and the cards below it already
+    # render R8 and R9 picks -- a heading contradicting the rows underneath
+    # it. Read the range off the picks actually being shown, so it describes
+    # this panel rather than the season it was written in.
+    rounds = [int(p["round"]) for p in drafted
+              if str(p.get("round", "")).strip().isdigit()]
+    if rounds:
+        lo, hi = min(rounds), max(rounds)
+        round_label = f"R{lo}&ndash;{hi}" if lo != hi else f"R{lo}"
+    else:
+        round_label = f"R1&ndash;{live_picks_for() // max(len(MANAGERS), 1)}"
+
     # Group by manager
     by_manager = {}
     for p in drafted:
@@ -318,7 +332,7 @@ def render_draft_value_tracker(data: dict) -> str:
     return f'''
     <div class="sc-viz-block" data-viz="draft-value">
       <h3 class="sc-viz-title">Draft Value Tracker</h3>
-      <div class="sc-viz-subtitle">Drafted Players R1&ndash;7 &middot; Actual vs Expected FPPG</div>
+      <div class="sc-viz-subtitle">Drafted Players {round_label} &middot; Actual vs Expected FPPG</div>
       {"".join(panels_html)}
       <div class="sc-manager-tabs">{"".join(tabs_html)}</div>
     </div>'''

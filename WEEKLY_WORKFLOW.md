@@ -266,9 +266,27 @@ python scripts\sync_transactions.py --week WEEK --apply
 2. **ROSTERS.json:** Applies ALL transactions since the week's start (including post-week moves like Monday morning pickups)
 
 **After running, verify ROSTERS.json:**
-- Each manager should have ~17 players
-- No phantom players from mid-week trades
-- Dropped players are gone, picked-up players are present
+
+```cmd
+python scripts\check_rosters.py
+```
+
+This is a gate. Exit 1 means do not continue. It checks the three things
+that used to be a manual eyeball and were therefore never actually checked:
+
+- **No player on two rosters.** A mid-week trade or claim puts a player in
+  both managers' lineups, so `generate_rosters` lists him twice and
+  `sync_transactions` is supposed to resolve it. When it does not, every
+  simulator projects his points for both teams. Matching ignores accents,
+  so a duplicate is caught whichever spelling each side uses.
+- **No empty-slot placeholders.** `(Empty)` is what LINEUPS records for an
+  open roster spot, not a player.
+- **Roster sizes.** One off is a warning (a drop before an add); more is a
+  failure.
+
+It also warns about rostered players missing from PLAYERLIST, since those
+project 0.0 FPPG -- usually a fresh waiver pickup, occasionally a real
+problem.
 
 **Known edge case (fixed Feb 2026):** Same-day add-then-drop was processed in reverse order. The fix sorts transactions by Unix timestamp instead of date. If you see this bug, make sure you're using the updated `sync_transactions.py`.
 
@@ -550,6 +568,9 @@ python scripts\generate_rosters.py --week N --show-diff
 
 :: Step 4: Sync transactions
 python scripts\sync_transactions.py --week N --apply
+
+:: Step 4.5: Gate -- rosters must be sane before anything reads them
+python scripts\check_rosters.py
 
 :: Step 5: Manually update config\INJURY_OVERRIDES.json
 :: Step 5.5: Optionally create data\weeklycontextinput_weekN.json

@@ -14,12 +14,24 @@ Usage:
 import argparse
 import sys
 import json
+import re
 from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.data_loader import load_all_data, MANAGERS
+
+
+PLACEHOLDER_SLOT = re.compile(
+    r"^\s*$|^\(?\s*empty\s*\)?$|^--+$|^n/?a$|^none$|^tbd$|^\(?\s*open\s*\)?$",
+    re.IGNORECASE,
+)
+
+
+def _is_placeholder(name) -> bool:
+    """True for a lineup token that records an empty slot, not a player."""
+    return bool(PLACEHOLDER_SLOT.match(str(name)))
 
 
 def main():
@@ -67,12 +79,26 @@ def main():
         sys.exit(1)
     
     # Build rosters
+    #
+    # "(Empty)" is what LINEUPS records when a manager leaves a roster slot
+    # open -- 13 rows across 5 weeks last season. It is a slot state, not a
+    # person, and it used to come straight through into ROSTERS.json, where
+    # it took a roster spot, matched nothing in PLAYERLIST and projected
+    # 0.0 FPPG. Nothing downstream filtered it.
     new_rosters = {}
+    dropped = []
     for manager in MANAGERS:
         players = week_lineups[
             week_lineups['manager'] == manager
         ]['player_name'].unique().tolist()
-        new_rosters[manager] = sorted(players)
+        real = [p for p in players if not _is_placeholder(p)]
+        dropped += [(manager, p) for p in players if _is_placeholder(p)]
+        new_rosters[manager] = sorted(real)
+
+    if dropped:
+        print(f"\n  Ignored {len(dropped)} empty lineup slot(s):")
+        for manager, token in dropped:
+            print(f"    {manager}: {token!r}")
     
     # Check for existing file and show diff if requested
     rosters_file = base_path / "config" / "ROSTERS.json"
