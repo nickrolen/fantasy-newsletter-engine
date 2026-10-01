@@ -1195,8 +1195,14 @@ def _render_milestones(milestones: list) -> str:
         games = m.get("career_games", wins + losses)
         pct = m.get("win_pct", 0)
         pts = m.get("career_points", 0)
-        titles = m.get("titles", 0)
-        title_str = f"{titles} title{'s' if titles != 1 else ''}" if titles else "0 titles"
+        # None means LEAGUEHISTORY was unavailable, which is not the same as
+        # zero. Printing "0 titles" for a six-time champion is the exact
+        # failure this chain was cleaned up to prevent.
+        titles = m.get("titles")
+        if titles is None:
+            title_str = "titles unavailable"
+        else:
+            title_str = f"{titles} title{'s' if titles != 1 else ''}"
 
         # Franchise player detail
         fp_name = m.get("franchise_player", "")

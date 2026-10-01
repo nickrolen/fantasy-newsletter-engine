@@ -454,6 +454,94 @@ def _check_no_file_survived_the_reset(warnings):
     return failures
 
 
+def _check_career_honors_agree(warnings):
+    """RECORDS must not disagree with LEAGUEHISTORY about who won what.
+
+    LEAGUEHISTORY.xlsx is the only file that counts the two pre-rules seasons,
+    so it is the sole source for career titles and playoff championships.
+    RECORDS.json carries copies, written by backfill_player_records.py.
+
+    Copies drift. playoff_titles in RECORDS sat at a placeholder 1, 0, 0, 0
+    against a true 3, 2, 3, 2 while the backfill only ever copied titles, and
+    the 2025-26 power rankings published the placeholder all season. Nothing
+    compared the copy to its source, so nothing noticed.
+    """
+    failures = []
+    lh_path = PROJECT_ROOT / "data" / "LEAGUEHISTORY.xlsx"
+    records_path = CONFIG_DIR / "RECORDS.json"
+    if not (lh_path.is_file() and records_path.is_file()):
+        return failures
+
+    try:
+        import pandas as pd
+        lh = pd.read_excel(lh_path)
+        records = json.loads(records_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        warnings.append(f"[HONORS] could not compare RECORDS to "
+                        f"LEAGUEHISTORY: {type(e).__name__}: {e}")
+        return failures
+
+    if "manager_name" not in lh.columns:
+        failures.append("[HONORS] LEAGUEHISTORY.xlsx has no manager_name column")
+        return failures
+
+    source = {}
+    for _, row in lh.iterrows():
+        mgr = row.get("manager_name")
+        if mgr:
+            source[mgr] = {
+                "titles": row.get("titles_won"),
+                "playoff_titles": row.get("playoff_championships"),
+                "seasons": row.get("seasons_completed"),
+            }
+
+    careers = records.get("all_time", {}).get("manager_careers", {})
+    for mgr, stats in careers.items():
+        truth = source.get(mgr)
+        if not truth:
+            failures.append(f"[HONORS] RECORDS has career stats for {mgr}, "
+                            f"who has no row in LEAGUEHISTORY.xlsx")
+            continue
+        for field, column in (("titles", "titles"),
+                              ("playoff_titles", "playoff_titles")):
+            if field not in stats or truth[column] is None:
+                continue
+            try:
+                have, want = int(stats[field]), int(truth[column])
+            except (TypeError, ValueError):
+                continue
+            if have != want:
+                failures.append(
+                    f"[HONORS] {mgr}: RECORDS says {field}={have}, "
+                    f"LEAGUEHISTORY says {want}. LEAGUEHISTORY is the source "
+                    f"of truth; re-run scripts/backfill_player_records.py.")
+
+    # A title per completed season, no more. Playoff championships may be
+    # fewer -- 2019-20 was never awarded one -- but never more.
+    seasons = {int(v["seasons"]) for v in source.values()
+               if v["seasons"] is not None}
+    if len(seasons) == 1:
+        played = seasons.pop()
+        for field, label in (("titles", "titles"),
+                             ("playoff_titles", "playoff championships")):
+            total = sum(int(v[field]) for v in source.values()
+                        if v[field] is not None)
+            if total > played:
+                failures.append(
+                    f"[HONORS] LEAGUEHISTORY awards {total} {label} across "
+                    f"{played} completed seasons. There cannot be more than "
+                    f"one per season.")
+        awarded = sum(int(v["titles"]) for v in source.values()
+                      if v["titles"] is not None)
+        if awarded < played:
+            warnings.append(
+                f"[HONORS] LEAGUEHISTORY awards {awarded} regular-season "
+                f"titles across {played} completed seasons. Expected one per "
+                f"season unless a season was genuinely unawarded.")
+
+    return failures
+
+
 def _check_league_keys(cfg, warnings):
     """Yahoo league keys in config must match the ones in the pulled data.
 
@@ -826,6 +914,7 @@ def check_config_integrity(verbose=False):
     failures.extend(_check_schedule_matches_config(cfg, warnings))
     failures.extend(_check_league_keys(cfg, warnings))
     failures.extend(_check_no_file_survived_the_reset(warnings))
+    failures.extend(_check_career_honors_agree(warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"

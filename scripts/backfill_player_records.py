@@ -1504,7 +1504,10 @@ def main():
             careers[mgr]["franchise_player"] = badge.get("player", "")
             careers[mgr]["franchise_player_fp"] = badge.get("total_fp", 0)
 
-    # Store titles from LEAGUEHISTORY.xlsx into manager_careers
+    # Store BOTH career honours from LEAGUEHISTORY.xlsx into manager_careers.
+    # Only titles used to be copied here, which left playoff_titles sitting at
+    # whatever placeholder it was first written with -- 1, 0, 0, 0 against a
+    # true 3, 2, 3, 2 -- and the power rankings published that for a season.
     lh_file = PROJECT_ROOT / "data" / "LEAGUEHISTORY.xlsx"
     if lh_file.exists():
         try:
@@ -1514,7 +1517,11 @@ def main():
                 mgr = row.get("manager_name", "")
                 if mgr and mgr in careers:
                     careers[mgr]["titles"] = int(row.get("titles_won", 0))
-            print(f"\n  Stored titles from LEAGUEHISTORY.xlsx")
+                    if "playoff_championships" in lh.columns:
+                        careers[mgr]["playoff_titles"] = int(
+                            row.get("playoff_championships", 0))
+            print(f"\n  Stored titles and playoff championships from "
+                  f"LEAGUEHISTORY.xlsx")
         except Exception as e:
             print(f"\n  Warning: Could not read LEAGUEHISTORY.xlsx for titles: {e}")
 

@@ -498,6 +498,57 @@ def build_report_cards(report: WeeklyReport, what_if: "WeeklyWhatIf" = None) -> 
     return cards
 
 
+def career_honors(leaguehistory) -> dict:
+    """{manager: {titles, playoff_titles, seasons_completed}} from LEAGUEHISTORY.
+
+    LEAGUEHISTORY.xlsx is the ONLY file in the project that counts the two
+    seasons played before the current rules, so it is the only honest source
+    for career honours. Everything else -- all_standings, RECORDS,
+    manager_careers -- starts at 2017-18 and is two seasons short.
+
+    That asymmetry is deliberate and the league knows about it. The danger is
+    not the asymmetry, it is substituting one scope for the other without
+    saying so: an 11-season title count quietly replaced by a 9-season one is
+    a smaller number that still looks like a real number.
+
+    Returns {} when LEAGUEHISTORY is unavailable. Callers must treat that as
+    "unknown" and leave the field out, never as zero.
+    """
+    honors = {}
+    if leaguehistory is None:
+        return honors
+    try:
+        if leaguehistory.empty:
+            return honors
+        columns = set(leaguehistory.columns)
+    except AttributeError:
+        return honors
+    if "manager_name" not in columns:
+        return honors
+
+    def whole(row, column):
+        if column not in columns:
+            return None
+        value = row.get(column)
+        try:
+            if value is None or value != value:   # NaN
+                return None
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    for _, row in leaguehistory.iterrows():
+        manager = row.get("manager_name")
+        if not manager:
+            continue
+        honors[manager] = {
+            "titles": whole(row, "titles_won"),
+            "playoff_titles": whole(row, "playoff_championships"),
+            "seasons_completed": whole(row, "seasons_completed"),
+        }
+    return honors
+
+
 def build_power_rankings(
     title_odds: TitleOddsResult,
     records: dict,
@@ -517,14 +568,14 @@ def build_power_rankings(
     # Get career stats from all-time records
     career_stats = records.get("all_time", {}).get("manager_careers", {})
     
-    # Get championships from leaguehistory
-    championships = {}
-    if leaguehistory is not None and not leaguehistory.empty:
-        for _, row in leaguehistory.iterrows():
-            manager = row.get("manager_name")
-            titles = row.get("titles_won", 0)
-            if manager:
-                championships[manager] = int(titles) if titles else 0
+    # Both honours come from LEAGUEHISTORY. They used to come from different
+    # places -- titles from here, playoff championships from manager_careers,
+    # whose playoff_titles were never backfilled and sat at placeholder zeros.
+    # The 2025-26 week-22 report shipped "playoff_championships": 1, 0, 0, 0
+    # against a true 3, 2, 3, 2. Same row, two scopes, one of them fiction.
+    honors = career_honors(leaguehistory)
+    championships = {m: h["titles"] for m, h in honors.items()
+                     if h.get("titles") is not None}
     
     # Keeper quality: the average keepability of the players a manager would
     # actually keep. That count is per manager, not a literal 5 -- it is 6 for
@@ -602,8 +653,11 @@ def build_power_rankings(
             "career_record": f"{career_wins}-{career_losses}" if career_wins > 0 else None,
             "career_win_pct": career_win_pct,
             "championships": championships.get(manager, 0),
-            # Playoff bracket championships -- distinct from regular-season titles.
-            "playoff_championships": career.get("playoff_titles", 0),
+            # Playoff bracket championships -- distinct from regular-season
+            # titles, and from the same source as them. None, not 0, when
+            # LEAGUEHISTORY is unavailable: absent reads as unknown, whereas
+            # zero reads as a fact and is indistinguishable from a real zero.
+            "playoff_championships": honors.get(manager, {}).get("playoff_titles"),
             "keeper_quality": keeper_quality.get(manager),
             "top_5_keepers": top_5_keepers.get(manager, []),
         })
@@ -2377,20 +2431,17 @@ def build_record_book(data) -> dict:
     careers = all_time.get("manager_careers", {})
     milestones = []
 
-    # Get titles from LEAGUEHISTORY (primary) or manager_careers (fallback)
-    titles_map = {}
-    if hasattr(data, "leaguehistory") and data.leaguehistory is not None:
-        lh = data.leaguehistory
-        if not lh.empty and "titles_won" in lh.columns:
-            for _, row in lh.iterrows():
-                mgr = row.get("manager_name", "")
-                titles_map[mgr] = int(row.get("titles_won", 0))
-
-    # Fallback: titles may be stored in manager_careers by backfill
-    if not titles_map:
-        for mgr, stats in careers.items():
-            if "titles" in stats:
-                titles_map[mgr] = stats["titles"]
+    # Career honours come from LEAGUEHISTORY and nowhere else. There used to
+    # be a fallback to manager_careers here, which is a DIFFERENT SCOPE: nine
+    # seasons rather than eleven. It would have turned 6 titles into 5 and 3
+    # into 2 with no warning -- numbers small enough to look ordinary. A
+    # missing honour is left absent rather than defaulted, because 0 titles is
+    # a claim and "unknown" is not.
+    honors = career_honors(getattr(data, "leaguehistory", None))
+    if not honors:
+        print("  WARNING: LEAGUEHISTORY unavailable -- career titles and "
+              "playoff championships omitted from manager milestones rather "
+              "than substituted from the nine-season record.")
 
     for mgr, stats in careers.items():
         wins = stats.get("total_wins", 0)
@@ -2405,12 +2456,16 @@ def build_record_book(data) -> dict:
             "career_games": stats.get("games_played", wins + losses),
             "win_pct": stats.get("win_pct", 0),
             "career_points": round(stats.get("total_points_scored", 0), 2),
-            "titles": titles_map.get(mgr, 0),
-            # Playoff championships (won the 2-week playoff bracket) -- tracked
-            # separately from regular-season titles. Historical values may be
-            # placeholder 0s (see all_time._notes.playoff_titles_backfill).
-            "playoff_titles": stats.get("playoff_titles", 0),
-            "seasons": (wins + losses) // 21 if (wins + losses) > 0 else 0,
+            "titles": honors.get(mgr, {}).get("titles"),
+            # Playoff championships (won the playoff bracket) -- tracked
+            # separately from regular-season titles but drawn from the same
+            # file, so the two can never be quoted at different scopes.
+            "playoff_titles": honors.get(mgr, {}).get("playoff_titles"),
+            # Seasons completed is read, not inferred. Dividing career games
+            # by 21 was right only while every season was 21 games; the
+            # regular season is 15 from 2026-27, so that arithmetic starts
+            # undercounting this year and drifts further every season after.
+            "seasons": honors.get(mgr, {}).get("seasons_completed"),
         })
 
     milestones.sort(key=lambda x: x["career_wins"], reverse=True)
