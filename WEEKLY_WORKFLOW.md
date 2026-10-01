@@ -65,14 +65,16 @@ py scripts\verify_project_integrity.py --baseline
 The NBA schedule file can go stale due to postponements and rescheduling, which affects betting lines and title odds accuracy. **Run this first every week.**
 
 ```cmd
-python scripts\fetch_nba_schedule.py --season 2025-26 --output data\nba_schedule_2025-26.json
+python scripts\fetch_nba_schedule.py
 ```
 
-**What this does:** Downloads the full NBA schedule from `cdn.nba.com`, trims it to ~120KB (date/home/away only), and saves it.
+**What this does:** Downloads the full NBA schedule, trims it to ~120KB (date/home/away only), and writes it to whatever `league_config.season.nba_schedule_file` names -- currently `data\nba_schedule_2026-27.json`. Do not pass `--season` or `--output`: both now default from config, and a hand-typed filename is how this went wrong before. The command used to name `nba_schedule_2025-26.json`, which nothing reads, so running it refreshed the wrong file and left the live one frozen.
+
+**Source note:** `cdn.nba.com` returns HTTP 403 to automated fetches, so the default `auto` source falls through to basketball-reference, which does honour `--season`.
 
 **If the NBA API is down:** Manually download from `https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json`, then run:
 ```cmd
-python scripts\fetch_nba_schedule.py --input raw_schedule.json --output data\nba_schedule_2025-26.json
+python scripts\fetch_nba_schedule.py --input raw_schedule.json
 ```
 
 ---
@@ -532,8 +534,8 @@ This prevents future newsletters from reusing the same phrasing or angles. The p
 ```cmd
 cd <project_root>
 
-:: Step 0: Fresh NBA schedule
-python scripts\fetch_nba_schedule.py --season 2025-26 --output data\nba_schedule_2025-26.json
+:: Step 0: Fresh NBA schedule (season and output both come from config)
+python scripts\fetch_nba_schedule.py
 
 :: Step 1: Pull Yahoo data (replace dates for your week)
 for %d in (YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD) do python scripts\update_fantasy_logs.py --date %d
@@ -605,7 +607,7 @@ Make sure you're using the updated `sync_transactions.py` (Feb 2, 2026 fix) that
 | LINEUPS.xlsx | `data\` | Daily lineup slots per manager (from Yahoo) |
 | LEAGUEHISTORY.xlsx | `data\` | Cumulative weekly totals |
 | PLAYERLIST.xlsx | `data\` | ROS projections for top ~125 players |
-| nba_schedule_2025-26.json | `data\` | NBA game schedule (from nba.com) |
+| nba_schedule_2026-27.json | `data\` | NBA game schedule. The name comes from `league_config.season.nba_schedule_file`; never hardcode it. |
 | waivers_weekN.txt | `data\` | Waiver adds during week N |
 | weeklycontextinput_weekN.json | `data\` | Optional storyline context |
 | ROSTERS.json | `config\` | Current rosters (source of truth) |

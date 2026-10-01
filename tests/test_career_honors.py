@@ -223,3 +223,19 @@ def test_stats_corner_reads_the_new_names():
     assert 'PRE_DATA_ERA.get("playoff_championships"' in src
     assert 'PRE_DATA_ERA.get("first_place_finishes"' not in src
     assert 'PRE_DATA_ERA.get("titles"' not in src
+
+
+def test_championships_is_absent_rather_than_zero(rb):
+    """The sibling field. playoff_championships was changed to emit None
+    and this one was left defaulting to 0 in the same dict literal, which
+    is exactly how the original bug survived its first fix."""
+    source = (PROJECT_ROOT / "modules" / "report_builder.py").read_text(encoding="utf-8")
+    assert '"championships": championships.get(manager, 0)' not in source
+    assert '"championships": honors.get(manager, {}).get("titles")' in source
+
+
+def test_neither_honour_defaults_to_zero_anywhere(rb):
+    source = (PROJECT_ROOT / "modules" / "report_builder.py").read_text(encoding="utf-8")
+    for bad in ('.get("playoff_titles", 0)', '.get("titles", 0)',
+                'championships.get(manager, 0)'):
+        assert bad not in source, f"a career honour still defaults to 0: {bad}"

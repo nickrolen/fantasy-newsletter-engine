@@ -38,6 +38,21 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from modules.data_loader import (  # noqa: E402
+    CURRENT_SEASON, NBA_SCHEDULE_FILE,
+)
+
+# Where the schedule goes is a config question, not a thing to retype.
+# It used to be three different answers: this script defaulted to
+# data/nba_schedule.json, WEEKLY_WORKFLOW told you to write
+# data/nba_schedule_2025-26.json, and league_config read
+# data/nba_schedule_2026-27.json. Only the third was ever loaded, so
+# following the documented command refreshed a file nothing reads and
+# left the live one frozen -- silently, since both files exist.
+DEFAULT_OUTPUT = Path(NBA_SCHEDULE_FILE or "data/nba_schedule.json")
+
 try:
     import requests
     HAS_REQUESTS = True
@@ -301,7 +316,10 @@ def main():
     )
     parser.add_argument(
         "--season",
-        help="Season to fetch (e.g., 2025-26). Currently fetches current season from NBA API.",
+        default=CURRENT_SEASON,
+        help=f"Season to fetch (default: {CURRENT_SEASON}, from league_config). "
+             f"Honoured by the bbref source; the nba source always returns "
+             f"the current season.",
     )
     parser.add_argument(
         "--input", "-i",
@@ -311,8 +329,9 @@ def main():
     parser.add_argument(
         "--output", "-o",
         type=Path,
-        default=Path("data/nba_schedule.json"),
-        help="Output file path (default: data/nba_schedule.json)",
+        default=DEFAULT_OUTPUT,
+        help=f"Output file path (default: {DEFAULT_OUTPUT}, the file "
+             f"league_config.season.nba_schedule_file actually reads)",
     )
     parser.add_argument(
         "--source",

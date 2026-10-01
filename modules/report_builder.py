@@ -652,7 +652,10 @@ def build_power_rankings(
             "finish_distribution": title_odds.finish_distribution[manager],
             "career_record": f"{career_wins}-{career_losses}" if career_wins > 0 else None,
             "career_win_pct": career_win_pct,
-            "championships": championships.get(manager, 0),
+            # None, not 0, for the same reason as playoff_championships
+            # below: a manager with six titles reading "0" is a
+            # statement, and an unreadable LEAGUEHISTORY is not one.
+            "championships": honors.get(manager, {}).get("titles"),
             # Playoff bracket championships -- distinct from regular-season
             # titles, and from the same source as them. None, not 0, when
             # LEAGUEHISTORY is unavailable: absent reads as unknown, whereas

@@ -45,7 +45,15 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_NEWSLETTER_GLOB = "output/WEEK*_NEWSLETTER.html"
+# Finished newsletters live in output/ during a season and move to
+# archive/<season>/output/ at the reset, so both are searched. Globbing
+# only output/ meant this raised FileNotFoundError the moment last
+# season's copies were cleared out of the live tree.
+NEWSLETTER_GLOBS = (
+    "output/WEEK*_NEWSLETTER.html",
+    "archive/*/output/WEEK*_NEWSLETTER.html",
+)
+DEFAULT_NEWSLETTER_GLOB = NEWSLETTER_GLOBS[0]  # kept for callers
 DEFAULT_OUTPUT = "data/backtest/published_lines.csv"
 
 FIELDNAMES = [
@@ -154,9 +162,16 @@ def build_rows(root: Path, strict: bool = False) -> list:
     team_to_manager = load_team_to_manager(root)
 
     lines_for_week, actuals_for_week = {}, {}
-    newsletters = sorted(root.glob(DEFAULT_NEWSLETTER_GLOB))
+    seen, newsletters = set(), []
+    for pattern in NEWSLETTER_GLOBS:
+        for path in sorted(root.glob(pattern)):
+            if path.name not in seen:          # the live copy wins
+                seen.add(path.name)
+                newsletters.append(path)
+    newsletters.sort(key=lambda q: int(re.search(r"WEEK(\d+)", q.name).group(1)))
     if not newsletters:
-        raise FileNotFoundError("No newsletters matched %s" % DEFAULT_NEWSLETTER_GLOB)
+        raise FileNotFoundError(
+            "No newsletters matched any of %s" % (NEWSLETTER_GLOBS,))
 
     for path in newsletters:
         week = int(re.search(r"WEEK(\d+)", path.name).group(1))

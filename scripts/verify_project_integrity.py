@@ -58,7 +58,11 @@ def _resolve_golden():
             candidate = season / "output" / _GOLDEN_NAME
             if candidate.is_file():
                 return candidate
-    return _resolve_golden()
+    # Nothing anywhere. Hand back the live path so the caller's .is_file()
+    # check fails and the golden-master step SKIPs. This line used to read
+    # `return _resolve_golden()`, which calls itself: with no golden report
+    # live or archived it recursed until RecursionError.
+    return GOLDEN_REPORT
 LEAGUE_CONFIG = CONFIG_DIR / "league_config.json"
 
 # Required top-level keys in league_config.json
@@ -242,7 +246,17 @@ def check_file_baselines(verbose=False):
         delta = new_size - old_size
         pct = delta / old_size
         if pct <= -SHRINK_THRESHOLD:
-            warnings.append(
+            # A FAILURE, not a warning. WEEKLY_WORKFLOW Step 0a tells you
+            # this check "flags any file that shrank by more than 20%" and
+            # that "exit code 1 means at least one failure", and calls
+            # silent truncation the main danger it exists for. It was
+            # appending to warnings, so a truncated file exited 0 and read
+            # as all-clear -- the guard reporting success at the one moment
+            # it had something to say.
+            #
+            # Legitimate shrinkage happens at the season reset, which is
+            # what --baseline --force is for.
+            failures.append(
                 f"[SIZE] {rel}: {old_size:,} -> {new_size:,} bytes "
                 f"({pct * 100:+.1f}%) *** POSSIBLE TRUNCATION ***"
             )
@@ -607,6 +621,68 @@ def _check_pre_data_era_reconciles(cfg, warnings):
                     f"[ERA] {mgr} {column}: LEAGUEHISTORY says {actual}, but "
                     f"{derived[mgr][column]} derived from all_standings plus "
                     f"{honored} honoured in pre_data_era is {expected}.")
+    return failures
+
+
+def _check_potw_attribution(warnings):
+    """Every Player of the Week must have played for the manager credited.
+
+    POTW_HISTORY is appended to once a week by format_stats_report and then
+    never looked at again, so a wrong row survives forever and quietly skews
+    the career tallies the newsletter prints. Week 8 of 2025-26 credited
+    Stephen Curry to Garrett; Curry played both his games that week for
+    Hayden. One award moved between managers and nothing noticed for a year.
+
+    Checked against HISTORICAL_PLAYERLOG, which records who actually started
+    whom. Only completed seasons present in the log can be checked.
+    """
+    failures = []
+    potw_path = CONFIG_DIR / "POTW_HISTORY.json"
+    log_path = PROJECT_ROOT / "data" / "historical" / "HISTORICAL_PLAYERLOG.json"
+    if not (potw_path.is_file() and log_path.is_file()):
+        return failures
+
+    try:
+        potw = json.loads(potw_path.read_text(encoding="utf-8"))
+        rows = json.loads(log_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        warnings.append(f"[POTW] could not verify attribution: "
+                        f"{type(e).__name__}: {e}")
+        return failures
+
+    if isinstance(rows, dict):
+        rows = rows.get("rows", [])
+
+    # (season, week, player) -> the managers he actually played for
+    played = {}
+    for row in rows:
+        season = str(row.get("season_year", ""))
+        short = season if "-" in season and len(season) == 7 else ""
+        if len(season) == 9 and season[4] == "-":        # 2025-2026
+            short = f"{season[:4]}-{season[7:]}"
+        key = (short or season, row.get("week"), row.get("player_name"))
+        played.setdefault(key, set()).add(row.get("manager"))
+
+    seasons = potw.get("seasons", potw)
+    if not isinstance(seasons, dict):
+        return failures
+
+    for season, entries in seasons.items():
+        if not isinstance(entries, list):
+            entries = entries.get("weeks", []) if isinstance(entries, dict) else []
+        for entry in entries:
+            week, player = entry.get("week"), entry.get("player")
+            credited = entry.get("manager")
+            if not (week and player and credited):
+                continue
+            actual = played.get((season, week, player))
+            if not actual:
+                continue        # season not in the log, or no games recorded
+            if credited not in actual:
+                failures.append(
+                    f"[POTW] {season} week {week}: {player} is credited to "
+                    f"{credited}, but the log has him playing for "
+                    f"{' and '.join(sorted(a for a in actual if a))}.")
     return failures
 
 
@@ -984,6 +1060,7 @@ def check_config_integrity(verbose=False):
     failures.extend(_check_no_file_survived_the_reset(warnings))
     failures.extend(_check_career_honors_agree(warnings))
     failures.extend(_check_pre_data_era_reconciles(cfg, warnings))
+    failures.extend(_check_potw_attribution(warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"
