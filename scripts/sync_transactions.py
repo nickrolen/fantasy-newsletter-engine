@@ -293,7 +293,7 @@ def save_rosters(rosters_data: dict, base_path: Path):
 
 
 def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
-                       dry_run: bool = False):
+                       dry_run: bool = False, partial: bool = False):
     """
     Write waivers_week{N}.txt with the week's waiver ADDS only.
 
@@ -312,8 +312,16 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
 
     lines = []
     lines.append(f"# Waiver Adds for Week {week}")
-    lines.append(f"# Generated: {dt.datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    lines.append(f"# Generated: {dt.datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                 f"{' (PARTIAL -- week still in progress)' if partial else ''}")
     lines.append("")
+
+    if partial:
+        lines.append("# Adds made so far in a week that has not finished. The")
+        lines.append("# newsletter reads this to report each team's remaining")
+        lines.append("# adds. It is overwritten by the full file when this")
+        lines.append("# week is itself synced.")
+        lines.append("")
 
     if adds:
         for t in adds:
@@ -484,6 +492,14 @@ def main():
         for t in post_week_transactions:
             sign = "+" if t["type"] == "add" else "-"
             print(f"    [{t['date']}] {t['manager']}: {sign}{t['player_name']}")
+
+    # These belong to the week that just opened, and they are the only
+    # record of it at newsletter time -- the newsletter is written on the
+    # Monday morning, inside the free-add window, before any game tips.
+    # They used to be printed to the console and thrown away, so nothing
+    # downstream could say how many adds anyone had left.
+    write_waivers_file(post_week_transactions, args.week + 1, base_path,
+                       dry_run=not args.apply, partial=True)
     
     # Load and update rosters
     rosters_data = load_rosters(base_path)

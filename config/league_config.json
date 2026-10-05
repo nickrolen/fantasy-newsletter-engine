@@ -56,6 +56,9 @@
         "historical_draft_rounds": 7,
         "total_draft_rounds": 9,
         "keeper_era_start": "2021-22",
+        "weekly_add_budget": 3,
+        "weekly_add_budget_from": "2026-27",
+        "_add_budget_comment": "New for 2026-27: each team gets 3 adds a week, covering both the free pre-matchup window (12:01 AM on the matchup's first day until that day's first NBA tip) and mid-week adds posted in the group chat. There was NO add budget before 2026-27, so historical add counts are not violations of it. Trades do not cost an add: sync_transactions records both sides of a trade as an add, and those are marked '(via trade)' and excluded.",
         "_rounds_comment": "total_rounds = roster_size - il_slots and is fixed: you draft into every roster spot that is not an IL slot. keepers_per_team and total_draft_rounds describe the CURRENT season ONLY, and are meaningful only while every manager keeps the same number. From 2027-28 keeper counts differ by manager -- see keeper_rules and data_loader.keepers_for()."
     },
     "tiebreaker_rules": {

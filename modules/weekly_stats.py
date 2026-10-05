@@ -5,6 +5,7 @@ Computes team and player statistics for a given fantasy week.
 This is the core stats engine that powers most newsletter sections.
 """
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 from datetime import date
@@ -674,6 +675,17 @@ def compute_weekly_report(
     )
 
 
+_ACQUISITION_SOURCE = re.compile(r"^(.*?)\s*\(via\s+([^)]+)\)\s*$", re.IGNORECASE)
+
+
+def _split_acquisition_source(entry: str) -> tuple[str, str]:
+    """"Jalen Duren (via trade)" -> ("Jalen Duren", "trade")."""
+    match = _ACQUISITION_SOURCE.match(str(entry).strip())
+    if match:
+        return match.group(1).strip(), match.group(2).strip().lower()
+    return str(entry).strip(), ""
+
+
 def load_waiver_adds(filepath: str) -> dict[str, list[str]]:
     """
     Load waiver adds from a text file.
@@ -689,8 +701,6 @@ def load_waiver_adds(filepath: str) -> dict[str, list[str]]:
     Returns:
         Dict mapping manager -> list of player names
     """
-    import re
-    
     waivers = {m: [] for m in MANAGERS}
 
     # FIXED: Match the manager by looking up against MANAGERS (longest match
@@ -720,7 +730,17 @@ def load_waiver_adds(filepath: str) -> dict[str, list[str]]:
                         token = f"{mgr}: "
                         if rest.startswith(token):
                             player = rest[len(token):].strip()
-                            waivers[mgr].append(player)
+                            player, via = _split_acquisition_source(player)
+                            # A trade is not a waiver add. sync_transactions
+                            # records both sides of a trade as type "add", so
+                            # traded-for players land in this file marked
+                            # "(via trade)" -- and used to come back as a
+                            # player literally named "Karl-Anthony Towns (via
+                            # trade)", which matches nothing in PLAYERLIST or
+                            # PLAYERLOG. Waiver ROI scored every traded player
+                            # at nothing, and the add counts included trades.
+                            if via != "trade":
+                                waivers[mgr].append(player)
                             matched = True
                             break
                     if matched:

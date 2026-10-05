@@ -12,7 +12,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional, Any
 
-from .data_loader import (PlayerIndex, FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
+from .data_loader import (PlayerIndex, add_budget_for, FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
                           CURRENT_SEASON, classify_position_group,
                           phase_for_week, regular_season_weeks_for,
                           is_regular_season_week, keepers_for)
@@ -1405,6 +1405,7 @@ def build_positional_breakdown(data: FantasyData, week: int) -> dict:
         }
     """
     import pandas as pd
+
 
     plog = data.playerlog
     # Filter to started games in completed weeks with actual production
@@ -3104,6 +3105,49 @@ def _pick_is_keeper(pick: dict, round_num: int) -> bool:
     return round_num > drafted_rounds
 
 
+def build_add_budget(data: FantasyData, week: int) -> dict:
+    """Adds used and remaining for the week that is currently open.
+
+    The newsletter is written on the Monday morning after a week closes,
+    which is inside the NEXT week's free-add window and before any game
+    has tipped. So the live question is not how many adds were used in the
+    week just finished -- it is how many each team has left in the one
+    that just opened.
+
+    sync_transactions writes those into waivers_week{N+1}.txt as a partial
+    file when it syncs week N. Before 2026-27 there was no add budget, and
+    this returns None rather than reporting everyone as unlimited or
+    everyone as over.
+    """
+    budget = add_budget_for(CURRENT_SEASON)
+    if budget is None:
+        return None
+
+    upcoming = week + 1
+    root = Path(__file__).resolve().parent.parent
+    path = root / "data" / f"waivers_week{upcoming}.txt"
+
+    used = load_waiver_adds(str(path)) if path.is_file() else {}
+    managers = {}
+    for manager in MANAGERS:
+        players = used.get(manager, []) or []
+        managers[manager] = {
+            "used": len(players),
+            "remaining": max(budget - len(players), 0),
+            "players": list(players),
+            "over_budget": len(players) > budget,
+        }
+    return {
+        "week": upcoming,
+        "budget": budget,
+        "managers": managers,
+        "source_exists": path.is_file(),
+        "_note": (f"Adds used so far in week {upcoming}, which opened at "
+                  f"12:01 AM on its first day. Trades do not count. "
+                  f"{'No add data synced yet for this week.' if not path.is_file() else ''}"),
+    }
+
+
 def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
     """
     Build draft value tracker comparing drafted players' actual production
@@ -3542,6 +3586,7 @@ def build_stats_report(
         "historical_luck": build_historical_luck(data, week, current_season=CURRENT_SEASON),
 
         "waiver_roi": build_waiver_roi(data, week),
+        "add_budget": build_add_budget(data, week),
 
         "schedule_strength": build_schedule_strength(data, week),
 

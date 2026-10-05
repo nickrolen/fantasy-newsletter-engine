@@ -90,6 +90,25 @@ for _old, _new in _LEGACY_PRE_DATA_ERA_KEYS.items():
             f"league_config.pre_data_era uses the old key {_old!r}; rename it "
             f"to {_new!r}. Leaving it would contribute zero silently.")
 
+# --- Weekly add budget (from config) ---
+# New for 2026-27. None for any season before it started, which is how a
+# caller tells "no budget existed" from "the budget is zero".
+WEEKLY_ADD_BUDGET = LEAGUE_STRUCTURE.get("weekly_add_budget")
+WEEKLY_ADD_BUDGET_FROM = LEAGUE_STRUCTURE.get("weekly_add_budget_from", "")
+
+
+def add_budget_for(season=None):
+    """Adds allowed per team per week, or None if the rule did not exist.
+
+    The rule arrived in 2026-27. Counting an earlier season against it
+    reports violations of a rule nobody was playing under.
+    """
+    season = season or CURRENT_SEASON
+    if WEEKLY_ADD_BUDGET is None or not WEEKLY_ADD_BUDGET_FROM:
+        return WEEKLY_ADD_BUDGET
+    return WEEKLY_ADD_BUDGET if str(season) >= str(WEEKLY_ADD_BUDGET_FROM) else None
+
+
 # --- Tiebreaker rules (from config) ---
 TIEBREAKER_RULES = _LEAGUE_CONFIG.get("tiebreaker_rules", {})
 

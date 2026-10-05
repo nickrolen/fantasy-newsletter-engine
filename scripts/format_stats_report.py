@@ -2726,6 +2726,39 @@ def format_section_10_rumor_mill(data: dict, lookups: dict, trades_context: Opti
     lines = ["## SECTION 10: RUMOR MILL\n"]
     
     rm = data.get("rumor_mill", {})
+
+    # === ADD BUDGET (free agent suggestions must respect it) ===
+    budget = data.get("add_budget")
+    if budget:
+        cap = budget.get("budget")
+        lines.append(f"**ADD BUDGET -- WEEK {budget.get('week')} (each team gets "
+                     f"{cap} adds per week):**")
+        if not budget.get("source_exists"):
+            lines.append("")
+            lines.append(f"*No adds synced yet for week {budget.get('week')}; "
+                         f"everyone is shown with a full budget.*")
+        lines.append("")
+        lines.append("| Manager | Used | Remaining | Added so far |")
+        lines.append("|---------|------|-----------|--------------|")
+        for mgr in MANAGERS:
+            entry = budget.get("managers", {}).get(mgr, {})
+            players = entry.get("players", [])
+            lines.append(
+                f"| {mgr} | {entry.get('used', 0)} | {entry.get('remaining', cap)} "
+                f"| {', '.join(players) if players else '-'} |")
+        lines.append("")
+        exhausted = [m for m in MANAGERS
+                     if budget.get("managers", {}).get(m, {}).get("remaining", cap) == 0]
+        if exhausted:
+            lines.append(f"**{' and '.join(exhausted)} "
+                         f"{'has' if len(exhausted) == 1 else 'have'} no adds "
+                         f"left this week -- do NOT recommend free agents to "
+                         f"{'him' if len(exhausted) == 1 else 'them'}.**")
+            lines.append("")
+        lines.append("*Trades do not cost an add. Mid-week adds are posted in "
+                     "the group chat and applied by the commissioner the "
+                     "following Monday, so they are not reflected here.*")
+        lines.append("")
     
     # === DRAFT PICK OWNERSHIP CONTEXT (for realistic trade ideas) ===
     if trades_context:

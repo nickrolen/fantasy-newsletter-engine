@@ -1,13 +1,5 @@
 # Project Map
 
-What this engine is, as built -- not as planned. Written October 2026, after a
-preseason in which several things turned out to work differently than either
-of us remembered.
-
-Read this before proposing to build something. Twice in one session the answer
-to "we should build X" was "X is 1,200 lines in `modules/`, written last
-season." The expensive mistakes here are not bugs, they are rebuilding.
-
 ---
 
 ## 1. The shape of the thing
