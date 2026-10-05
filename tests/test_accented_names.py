@@ -176,3 +176,60 @@ def test_every_cross_source_lookup_is_accent_tolerant(path, expected):
             f"{path} no longer builds this lookup with PlayerIndex: "
             f"{construction!r}. A plain dict here silently drops every "
             f"accented name.")
+
+
+# ---------------------------------------------------------------------------
+# Yahoo renames players (2026-10-05)
+# ---------------------------------------------------------------------------
+
+def test_an_abbreviated_first_name_resolves():
+    """Yahoo rewrote Shai Gilgeous-Alexander as "S. Gilgeous-Alexander".
+    No projection changed, only the spelling, while all_drafts,
+    HISTORICAL_PLAYERLOG, all_trades and the roster kept the old form."""
+    index = PlayerIndex({"S. Gilgeous-Alexander": 46.12})
+    assert index.get("Shai Gilgeous-Alexander") == 46.12
+    assert index.get("S. Gilgeous-Alexander") == 46.12
+
+
+def test_a_generational_suffix_resolves_either_way():
+    assert PlayerIndex({"Bobby Portis Jr.": 26.69}).get("Bobby Portis") == 26.69
+    assert PlayerIndex({"Bobby Portis": 26.69}).get("Bobby Portis Jr.") == 26.69
+    assert PlayerIndex({"Jimmy Butler III": 1}).get("Jimmy Butler") == 1
+
+
+def test_it_refuses_to_guess_between_two_players():
+    """Jalen and Jaylen Williams reduce to the same initial form. A wrong
+    projection on a real player is worse than a missing one."""
+    index = PlayerIndex({"Jalen Williams": 1, "Jaylen Williams": 2})
+    assert index.get("J. Williams") is None
+    assert index.get("Jalen Williams") == 1
+    assert index.get("Jaylen Williams") == 2
+
+
+def test_a_single_word_name_does_not_match_everything():
+    index = PlayerIndex({"Shai Gilgeous-Alexander": 46.12})
+    assert index.get("Gilgeous-Alexander") is None
+
+
+def test_the_live_lookup_resolves_both_spellings():
+    from modules.data_loader import FantasyData, load_playerlist
+    if not PLAYERLIST.is_file():
+        pytest.skip("PLAYERLIST.xlsx not present")
+    data = FantasyData(playerlist=load_playerlist(PLAYERLIST))
+    for old_form in ("Shai Gilgeous-Alexander", "Bobby Portis"):
+        assert data.get_player_projection(old_form) is not None, (
+            f"{old_form} is how every other file in the project spells him")
+    assert data.get_player_projection("Nobody At All") is None
+
+
+def test_the_gate_reports_a_rename(tmp_path):
+    """A rename looks like one player leaving and another arriving, which
+    is why nothing flagged it."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "check_playerlist", PROJECT_ROOT / "scripts" / "check_playerlist.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod._without_suffix("Bobby Portis Jr.") == mod._without_suffix("Bobby Portis")
+    assert (mod._last_name_with_initial("S. Gilgeous-Alexander")
+            == mod._last_name_with_initial("Shai Gilgeous-Alexander"))

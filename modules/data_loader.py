@@ -292,8 +292,19 @@ class FantasyData:
         """
         if self.playerlist.empty or "_name_key" not in self.playerlist.columns:
             return None
-        key = normalize_player_name(player_name)
-        row = self.playerlist[self.playerlist["_name_key"] == key]
+        row = self.playerlist[
+            self.playerlist["_name_key"] == normalize_player_name(player_name)]
+        if row.empty and "_name_nosuffix" in self.playerlist.columns:
+            row = self.playerlist[
+                self.playerlist["_name_nosuffix"] == _without_suffix(player_name)]
+        if row.empty and "_name_initial" in self.playerlist.columns:
+            probe = _last_name_with_initial(player_name)
+            if probe:
+                candidates = self.playerlist[
+                    self.playerlist["_name_initial"] == probe]
+                # One player only. Two who reduce the same way resolve to
+                # neither, because guessing between them is worse than a miss.
+                row = candidates if len(candidates) == 1 else row
         if row.empty:
             return None
         return row.iloc[0]["projectedFPPG"]
@@ -492,6 +503,31 @@ def load_lineups(path: Path) -> pd.DataFrame:
     return df
 
 
+_GENERATIONAL_SUFFIX = re.compile(r"\s+(?:jr|sr|ii|iii|iv|v)\.?\s*$", re.IGNORECASE)
+
+
+def _without_suffix(name) -> str:
+    """Normalised name with any trailing Jr/Sr/II/III/IV/V removed."""
+    return normalize_player_name(_GENERATIONAL_SUFFIX.sub("", str(name or "").strip()))
+
+
+def _last_name_with_initial(name) -> str:
+    """"Shai Gilgeous-Alexander" and "S. Gilgeous-Alexander" -> "sgilgeousalexander".
+
+    Returns "" for a single-word name, where there is no initial to take
+    and the whole thing would collide with every other one-word entry.
+    """
+    cleaned = _GENERATIONAL_SUFFIX.sub("", str(name or "").strip())
+    parts = [p for p in cleaned.split() if p]
+    if len(parts) < 2:
+        return ""
+    first = normalize_player_name(parts[0])
+    last = normalize_player_name(" ".join(parts[1:]))
+    if not first or not last:
+        return ""
+    return first[0] + last
+
+
 class PlayerIndex(dict):
     """A {player name: value} mapping that matches across accent spellings.
 
@@ -518,24 +554,74 @@ class PlayerIndex(dict):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._normalised = {normalize_player_name(k): k for k in self}
+        self._normalised = {}
+        self._nosuffix = {}
+        self._initial = {}
+        for k in self:
+            self._index(k)
+
+    def _index(self, key):
+        self._normalised[normalize_player_name(key)] = key
+        self._nosuffix.setdefault(_without_suffix(key), []).append(key)
+        initial = _last_name_with_initial(key)
+        if initial:
+            self._initial.setdefault(initial, []).append(key)
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        self._normalised[normalize_player_name(key)] = key
+        self._index(key)
 
     def __delitem__(self, key):
         resolved = self._resolve(key)
         if resolved is None:
             raise KeyError(key)
         super().__delitem__(resolved)
+        # All THREE indexes, or the deleted name keeps resolving through a
+        # fallback. Removing it from _normalised alone left it findable by
+        # suffix and by initial.
         self._normalised.pop(normalize_player_name(resolved), None)
+        for index, probe in ((self._nosuffix, _without_suffix(resolved)),
+                             (self._initial, _last_name_with_initial(resolved))):
+            remaining = [k for k in index.get(probe, []) if k != resolved]
+            if remaining:
+                index[probe] = remaining
+            else:
+                index.pop(probe, None)
 
     def _resolve(self, key):
-        """The stored key matching `key`, exactly or by spelling."""
+        """The stored key matching `key`, exactly or by spelling.
+
+        Four steps, each only tried when the one before it misses, and the
+        last two only accepted when they land on exactly one player:
+
+            exact                "Nikola Jokic"
+            accents/punctuation  "Nikola Jokic"   <- "Nikola Jokic" (acute)
+            generational suffix  "Bobby Portis"   <- "Bobby Portis Jr."
+            first initial        "S. Gilgeous-Alexander" <- "Shai ..."
+
+        The last two are Yahoo's doing. On 2026-10-05 it rewrote Shai
+        Gilgeous-Alexander as "S. Gilgeous-Alexander" and Bobby Portis as
+        "Bobby Portis Jr." -- no projection changed, just the spelling --
+        while every other file in the project still used the old form.
+        Normalising only collapses accents and punctuation, so both came
+        back as a missing projection on a keeper.
+
+        Ambiguity is a miss, not a guess. Two players who reduce to the
+        same last name and initial resolve to neither.
+        """
         if super().__contains__(key):
             return key
-        return self._normalised.get(normalize_player_name(key))
+        hit = self._normalised.get(normalize_player_name(key))
+        if hit is not None:
+            return hit
+        for index, probe in ((self._nosuffix, _without_suffix(key)),
+                             (self._initial, _last_name_with_initial(key))):
+            if not probe:
+                continue
+            candidates = index.get(probe) or []
+            if len(set(candidates)) == 1:
+                return candidates[0]
+        return None
 
     def __getitem__(self, key):
         resolved = self._resolve(key)
@@ -591,6 +677,12 @@ def load_playerlist(path: Path) -> pd.DataFrame:
     df["projectedFPPG"] = pd.to_numeric(df["projectedFPPG"], errors="coerce").fillna(0.0)
     # Every lookup joins on this, never on the raw name.
     df["_name_key"] = df["player_name"].apply(normalize_player_name)
+    # Yahoo rewrites names without warning: on 2026-10-05 it turned
+    # "Shai Gilgeous-Alexander" into "S. Gilgeous-Alexander" and "Bobby
+    # Portis" into "Bobby Portis Jr." without changing a single projection.
+    # Every other file in the project still held the old spelling.
+    df["_name_nosuffix"] = df["player_name"].apply(_without_suffix)
+    df["_name_initial"] = df["player_name"].apply(_last_name_with_initial)
     return df
 
 

@@ -50,7 +50,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from modules.data_loader import normalize_player_name  # noqa: E402
+from modules.data_loader import (  # noqa: E402
+    normalize_player_name, _without_suffix, _last_name_with_initial,
+)
 
 PLAYERLIST = PROJECT_ROOT / "data" / "PLAYERLIST.xlsx"
 ROSTERS = PROJECT_ROOT / "config" / "ROSTERS.json"
@@ -206,6 +208,32 @@ def main():
         prev = prev.copy()
         prev["_key"] = prev["player_name"].apply(normalize_player_name)
         joined = frame.merge(prev, on="_key", suffixes=("", "_prev"))
+
+        # Yahoo renames players. On 2026-10-05 "Shai Gilgeous-Alexander"
+        # became "S. Gilgeous-Alexander" and "Bobby Portis" became "Bobby
+        # Portis Jr." -- not one projection changed, only the spelling --
+        # while every other file in the project kept the old form. A rename
+        # looks exactly like one player leaving the pool and another
+        # arriving, so nothing flagged it, and a keeper silently lost his
+        # projection. Anything that leaves and comes back under a name
+        # reducing to the same person is reported.
+        entered = set(frame["player_name"]) - set(prev["player_name"])
+        departed = set(prev["player_name"]) - set(frame["player_name"])
+        renames = []
+        for gone in sorted(departed):
+            for arrived in sorted(entered):
+                same = (_without_suffix(gone) == _without_suffix(arrived)
+                        or (_last_name_with_initial(gone)
+                            and _last_name_with_initial(gone)
+                            == _last_name_with_initial(arrived)))
+                if same:
+                    renames.append((gone, arrived))
+        for gone, arrived in renames:
+            warnings.append(
+                f"Yahoo renamed {gone!r} to {arrived!r}. Projections still "
+                f"resolve, but every other file in the project uses the old "
+                f"spelling -- check anything that stores this name.")
+
         print(f"  compared against {prev_path.name} "
               f"({len(joined)} players in both)")
 
