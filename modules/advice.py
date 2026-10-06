@@ -219,73 +219,93 @@ class _Scored:
     starts: float
 
 
-class _Replacement:
-    """Drop cost above replacement, for one manager's this_week plan.
+REFILL_SCREEN_EXTRA = 8
 
-    cost(d) = max(0, -MV_rest(add r_k, drop d)), where r_k is the k-th best
-    free agent FOR THIS ROSTER with d's slot open -- ranked by marginal value
-    against roster - d, so position fit comes through the optimal fill, not
-    from a global projection list. LeBron's slot is refilled by the best
-    available forward for this team, not by whoever tops the league-wide wire.
 
-    Two wrong versions came first, both caught reading 2025-26 week 8:
-    charging a drop for this week only (Benton cut LeBron for +75), then
-    charging his whole rest-of-season (no stream ever cleared). The single
-    best FA as everyone's replacement double-counted one player.
+class Refill:
+    """One concept, one implementation: what an OPEN roster slot is worth.
 
-    Approximation: rankings are computed once on the roster as it stands this
-    week, not re-ranked after the plan's own earlier moves; that errs toward
-    a higher drop cost, the same safe direction as k.
+    The value of refilling a slot is the marginal value of the k-th best free
+    agent FOR THIS ROSTER with that slot open -- ranked by marginal value, so
+    position fit comes through the optimal fill. k = replacement_k().
+
+    Two callers, same function:
+      C2  a streaming drop's cost above replacement
+              cost(d) = max(0, -MV(roster: add r_k, drop d)), r_k ranked on roster - d
+      C3  a two-for-one: the side GIVING two ends at 16 with an open slot and
+          is credited MV(roster_after: add r_k). (The side taking two has no
+          slot to refill -- it is at 18 and must drop to 17, and the incoming
+          player takes that spot -- so its full drop cost is correct.)
+
+    Screen: candidates are each manager's top k + REFILL_SCREEN_EXTRA free
+    agents by marginal value against his roster as given. The k-th best of a
+    subset can never beat the k-th best of the full set, so the screen can
+    only LOWER the refill value: a higher C2 drop cost, a lower C3 credit --
+    both err toward missing advice, never toward bad advice. That bound is
+    proved, not asserted, which is why it is the only approximation here.
+
+    Rankings are re-done for every roster actually evaluated (cached by the
+    exact roster), so the plan's own earlier moves are reflected exactly.
     """
 
-    def __init__(self, manager, rest_short, rest_full, roster, fas, k):
-        self.manager, self.short, self.full = manager, rest_short, rest_full
-        self.roster, self.fas, self.k = list(roster), list(fas), k
-        self._ranked: dict = {}
-        self._cost: dict = {}
+    def __init__(self, short: mv.MVContext, full: mv.MVContext, fas: Sequence[str], k: int):
+        self.short, self.full, self.fas, self.k = short, full, list(fas), int(k)
+        self._screen: dict = {}
+        self._kth: dict = {}
+        self._mv: dict = {}
 
-    def _ranking(self, d):
-        if d not in self._ranked:
-            saved = _with_roster(self.short, self.manager, self.roster)
+    def _eval(self, ctx, manager, roster, adds=(), drops=()):
+        key = (id(ctx), manager, tuple(sorted(roster)), tuple(adds), tuple(drops))
+        if key not in self._mv:
+            saved = _with_roster(ctx, manager, roster)
             try:
-                scored = [(mv.marginal_value(self.short, self.manager, adds=[f], drops=[d]).points, f)
-                          for f in self.fas]
+                self._mv[key] = mv.marginal_value(ctx, manager, adds=list(adds), drops=list(drops))
             finally:
-                self.short.rosters[self.manager] = saved
-            self._ranked[d] = [f for _p, f in sorted(scored, key=lambda t: (-t[0], t[1]))]
-        return self._ranked[d]
+                ctx.rosters[manager] = saved
+        return self._mv[key]
 
-    def raw_rest_value(self, d) -> float:
-        """d's rest-of-season value, no replacement (cheap pre-filter)."""
-        saved = _with_roster(self.short, self.manager, self.roster)
-        try:
-            return -mv.marginal_value(self.short, self.manager, drops=[d]).points
-        finally:
-            self.short.rosters[self.manager] = saved
+    def screen(self, manager, roster) -> list:
+        if manager not in self._screen:
+            ranked = sorted(self.fas, key=lambda f: (-self._eval(self.short, manager, roster, adds=[f]).points, f))
+            self._screen[manager] = ranked[: self.k + REFILL_SCREEN_EXTRA]
+        return self._screen[manager]
 
-    def cost(self, d, exclude=()) -> tuple[float, float, Optional[str]]:
-        ranked = [f for f in self._ranking(d) if f not in set(exclude)]
-        if not ranked:
+    def kth(self, manager, roster_open, exclude=(), screen_roster=None) -> Optional[str]:
+        """k-th best free agent for `roster_open` (a roster with a slot open)."""
+        excl = frozenset(exclude) | frozenset(roster_open)
+        key = (manager, tuple(sorted(roster_open)), excl)
+        if key not in self._kth:
+            pool = [f for f in self.screen(manager, screen_roster or roster_open) if f not in excl]
+            ranked = sorted(pool, key=lambda f: (-self._eval(self.short, manager, roster_open, adds=[f]).points, f))
+            self._kth[key] = ranked[min(self.k, len(ranked)) - 1] if ranked else None
+        return self._kth[key]
+
+    def drop_cost(self, manager, roster, d, exclude=(), screen_roster=None):
+        """C2: (cost >= 0, se, r_k) of dropping d, above replacement."""
+        open_ = [p for p in roster if p != d]
+        r_k = self.kth(manager, open_, exclude, screen_roster or roster)
+        if r_k is None:
+            res = self._eval(self.full, manager, roster, drops=[d])
+            return max(0.0, -res.points), res.se, None
+        res = self._eval(self.full, manager, roster, adds=[r_k], drops=[d])
+        return max(0.0, -res.points), res.se, r_k
+
+    def credit(self, manager, roster_after, exclude=(), screen_roster=None):
+        """C3: (gain >= 0, se, r_k) of refilling the open slot in roster_after."""
+        r_k = self.kth(manager, roster_after, exclude, screen_roster)
+        if r_k is None:
             return 0.0, 0.0, None
-        r_k = ranked[min(self.k, len(ranked)) - 1]
-        key = (d, r_k)
-        if key not in self._cost:
-            saved = _with_roster(self.full, self.manager, self.roster)
-            try:
-                res = mv.marginal_value(self.full, self.manager, adds=[r_k], drops=[d])
-            finally:
-                self.full.rosters[self.manager] = saved
-            self._cost[key] = (max(0.0, -res.points), res.se)
-        c, se = self._cost[key]
-        return c, se, r_k
+        res = self._eval(self.full, manager, roster_after, adds=[r_k])
+        return max(0.0, res.points), res.se, r_k
 
 
 def _best_pairs(short: mv.MVContext, full: mv.MVContext, manager: str,
                 roster: list, fas: Sequence[str], drop_pool: Optional[list],
-                repl: Optional[_Replacement] = None) -> list:
+                refill: Optional[Refill] = None, plan_adds=(), base_roster=None) -> list:
     """Full-sim results for the shortlisted (add, drop) pairs, best first.
-    With `repl` (the this_week plan) each drop is charged its value above
-    replacement for the rest of the season -- see _Replacement."""
+    With `refill` (the this_week plan, rest-of-season contexts) each drop is
+    charged its value above replacement on the CURRENT roster -- exact for
+    the plan's own earlier moves; plan_adds are off the wire."""
     s_saved = _with_roster(short, manager, roster)
     f_saved = _with_roster(full, manager, roster)
     try:
@@ -295,19 +315,28 @@ def _best_pairs(short: mv.MVContext, full: mv.MVContext, manager: str,
             pairs = [(a, None) for a in adds]
         else:
             pool = list(drop_pool)
-            if repl is not None:
-                pool = sorted(pool, key=repl.raw_rest_value)[:REPLACEMENT_DROP_CANDIDATES]
+            if refill is not None:
+                # Screen by value WITHOUT replacement credit (the metric the
+                # replacement fix removed, back as a pre-filter): may miss a
+                # drop whose position refills easily -> missed advice, never
+                # bad advice.
+                pool = sorted(pool, key=lambda d: -refill._eval(refill.short, manager, roster,
+                                                                drops=[d]).points)
+                pool = pool[:REPLACEMENT_DROP_CANDIDATES]
 
             def drop_cost(d):
                 c = mv.marginal_value(short, manager, drops=[d]).points
-                return c - repl.cost(d)[0] if repl is not None else c
+                if refill is not None:
+                    c -= refill.drop_cost(manager, roster, d, plan_adds, base_roster)[0]
+                return c
             drops = sorted(pool, key=lambda d: -drop_cost(d))
             pairs = [(a, d) for a in adds for d in drops[:SHORTLIST_DROPS]]
         scored = []
         for a, d in pairs:
             r = mv.marginal_value(full, manager, adds=[a], drops=[d] if d else [])
-            if repl is not None and d is not None:
-                cost, cse, _rk = repl.cost(d, exclude=[a])
+            if refill is not None and d is not None:
+                cost, cse, _rk = refill.drop_cost(manager, roster, d,
+                                                  list(plan_adds) + [a], base_roster)
                 if cost:
                     r = _Scored(points=round(r.points - cost, 2),
                                 se=round((r.se ** 2 + cse ** 2) ** 0.5, 2),
@@ -354,17 +383,17 @@ def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
     # this_week: sequential plan. Never drop a protected keeper, and never
     # drop someone this same plan just added.
     short, full = ctxs["this_week"]
-    repl = None
+    refill = None
     if ctxs.get("rest_of_season") and ctxs["rest_of_season"][1].weeks and drop_pool is not None:
         if replacement_rank is None:
             raise ValueError("rest_of_season given without replacement_rank; "
                              "use replacement_k(season, managers)")
-        repl = _Replacement(manager, *ctxs["rest_of_season"], roster, free_agents,
-                            replacement_rank)
+        refill = Refill(*ctxs["rest_of_season"], free_agents, replacement_rank)
     plan, cur, pool, added = [], list(roster), list(free_agents), set()
     for step in range(1, max(0, adds_remaining) + 1):
         dp = None if drop_pool is None else [p for p in cur if p not in prot and p not in added]
-        scored = _best_pairs(short, full, manager, cur, pool, dp, repl=repl)
+        scored = _best_pairs(short, full, manager, cur, pool, dp, refill=refill,
+                             plan_adds=sorted(added), base_roster=roster)
         if not scored or not clears(scored[0][0], full):
             break
         best = scored[0]
@@ -426,8 +455,21 @@ def _side(ctx, mgr, gives, gets, drop):
 def find_trades(short: mv.MVContext, full: mv.MVContext, protected: Optional[dict],
                 keep_idx: PlayerIndex, commissioner: Optional[str],
                 cup_ctx: Optional[mv.MVContext] = None,
-                cup_live=lambda a, b: False) -> tuple[list, dict]:
-    """All eligible trades (best first) and the search counts."""
+                cup_live=lambda a, b: False,
+                refill: Optional[Refill] = None) -> tuple[list, dict]:
+    """All eligible trades (best first) and the search counts.
+
+    Eligibility: BOTH sides clear the same bar as C2 -- points > 2 SE and
+    >= FLOOR_PER_WEEK x weeks (clears()). One bar, stated once.
+
+    Two-for-ones: the side GIVING two ends at 16 and is credited the value
+    of refilling that slot (Refill.credit -- the same function C2 charges a
+    drop with). The side TAKING two must drop to 17; the incoming player
+    takes the spot, so the full drop cost is correct for it. The credit is
+    applied when rescoring, not in the 40-sim shortlist: a two-for-one whose
+    giver only clears WITH the credit can be missed -- missed advice, never
+    bad advice.
+    """
     managers = list(full.rosters)
     prot = {m: PlayerIndex({p: 1 for p in (protected or {}).get(m, [])}) for m in managers}
     considered, candidates = 0, []
@@ -464,6 +506,19 @@ def find_trades(short: mv.MVContext, full: mv.MVContext, protected: Optional[dic
         for _m, a_sends, b_sends, a_drop, b_drop in pool[:TRADES_RESCORED_PER_PAIR]:
             ra_ = _side(full, a, a_sends, b_sends, a_drop)
             rb_ = _side(full, b, b_sends, a_sends, b_drop)
+            if refill is not None:
+                for side, mgr, gives, gets in (("a", a, a_sends, b_sends), ("b", b, b_sends, a_sends)):
+                    if len(gives) > len(gets):     # ends a slot short: refill it
+                        after = [p for p in full.rosters[mgr] if p not in gives] + list(gets)
+                        c, cse, _rk = refill.credit(mgr, after, screen_roster=full.rosters[mgr])
+                        res = ra_ if side == "a" else rb_
+                        res = _Scored(points=round(res.points + c, 2),
+                                      se=round((res.se ** 2 + cse ** 2) ** 0.5, 2),
+                                      starts=res.starts)
+                        if side == "a":
+                            ra_ = res
+                        else:
+                            rb_ = res
             if not (clears(ra_, full) and clears(rb_, full)):
                 continue
             ka = sum(keep_idx.get(p, 0.0) for p in b_sends) - sum(keep_idx.get(p, 0.0) for p in a_sends)

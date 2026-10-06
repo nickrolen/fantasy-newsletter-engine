@@ -150,8 +150,9 @@ def test_replacement_is_ranked_for_this_roster_not_the_global_list():
     sched, nba = _mini(projs, roster, [], [(2, {"BOS", "NYK", "MIA", "LAL", "GSW", "DEN"})])
     c = mv.build_context(projs, {"Nick": roster}, nba, sched, "this_week", 1,
                          extra_players=["BigFA", "GuardFA"], sims=200)
-    r = adv._Replacement("Nick", c, c, roster, ["BigFA", "GuardFA"], k=1)
-    assert r._ranking("C1") == ["BigFA", "GuardFA"]
+    open_slot = [p for p in roster if p != "C1"]
+    assert adv.Refill(c, c, ["BigFA", "GuardFA"], k=1).kth("Nick", open_slot) == "BigFA"
+    assert adv.Refill(c, c, ["BigFA", "GuardFA"], k=2).kth("Nick", open_slot) == "GuardFA"
 
 
 def test_a_star_with_no_games_this_week_is_not_cut_to_stream():
@@ -192,3 +193,44 @@ def test_rest_of_season_without_a_replacement_rank_refuses():
                                _ctx(w, window="regular_season", sims=100))}
     with pytest.raises(ValueError, match="replacement_rank"):
         adv.waiver_plan("Nick", ctxs, w[4], [], 1, 1)
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_the_refill_screen_can_only_lower_the_refill_value(seed, monkeypatch):
+    """k-th best of a subset <= k-th best of the full set. The screen's only
+    possible error is a higher C2 drop cost / lower C3 credit."""
+    w = _world(seed=seed)
+    ctx = _ctx(w, window="regular_season", sims=60)
+    roster = ctx.rosters["Benton"]
+    open_slot = roster[1:]
+    screened = adv.Refill(ctx, ctx, w[4], k=4)
+    monkeypatch.setattr(adv, "REFILL_SCREEN_EXTRA", 10_000)
+    full = adv.Refill(ctx, ctx, w[4], k=4)
+    s_gain = screened.credit("Benton", open_slot, screen_roster=roster)[0]
+    f_gain = full.credit("Benton", open_slot, screen_roster=roster)[0]
+    assert s_gain <= f_gain + 1e-9
+
+
+def test_c2_charge_and_c3_credit_are_one_function():
+    """The drifted-copy signature: one concept, two implementations, two
+    answers. Both callers go through Refill; nothing else ranks a refill."""
+    import inspect
+    src = inspect.getsource(adv)
+    assert "refill.drop_cost(" in inspect.getsource(adv._best_pairs)
+    assert "refill.credit(" in inspect.getsource(adv.find_trades)
+    assert src.count("class Refill") == 1 and "_Replacement" not in src
+
+
+def test_drop_cost_is_value_minus_refill_of_the_same_slot():
+    """cost(d) = max(0, -MV(add r_k, drop d)) = value of d - refill credit,
+    both measured against roster - d."""
+    w = _world(seed=1)
+    ctx = _ctx(w, window="regular_season", sims=200)
+    roster = list(ctx.rosters["Hayden"])
+    rf = adv.Refill(ctx, ctx, w[4], k=3)
+    d = roster[0]
+    cost, _se, r_k = rf.drop_cost("Hayden", roster, d)
+    open_slot = [p for p in roster if p != d]
+    value_d = rf._eval(ctx, "Hayden", open_slot, adds=[d]).points
+    credit = rf._eval(ctx, "Hayden", open_slot, adds=[r_k]).points
+    assert abs(cost - max(0.0, value_d - credit)) < 0.02
