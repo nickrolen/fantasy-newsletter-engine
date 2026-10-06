@@ -54,7 +54,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional, Sequence
 
 from . import marginal_value as mv
-from .data_loader import PlayerIndex
+from .data_loader import PlayerIndex, add_budget_for
 
 FLOOR_PER_WEEK = 10.0
 SE_MULT = 2.0
@@ -65,6 +65,26 @@ TRADES_RESCORED_PER_PAIR = 20
 TWO_FOR_ONE_SEEDS = 10
 TWO_FOR_ONE_EXTRA = 6
 AGE_RESET_GAP = 2          # absent this many weeks or more -> age restarts
+REPLACEMENT_DROP_CANDIDATES = 5
+
+
+def replacement_k(season: str, managers: Sequence[str]) -> int:
+    """How picked-over the wire is assumed to be: one week of everyone's adds.
+
+    add_budget_for(season) x managers, derived -- never a written number
+    (the 3-add rule is one offseason old). A season with no add budget has
+    no defined replacement level; raise rather than invent one.
+
+    Direction of error (Nick, 10-06): managers rarely use every add, so this
+    assumes a MORE picked-over wire than reality -> lower replacement level
+    -> higher drop cost -> an engine LESS willing to cut good players.
+    That is the safe way to be wrong.
+    """
+    budget = add_budget_for(season)
+    if not budget:
+        raise ValueError(f"no weekly add budget for {season}; replacement level "
+                         "is undefined -- pass replacement_k explicitly")
+    return int(budget) * len(list(managers))
 
 
 def floor_for(ctx: mv.MVContext) -> float:
@@ -199,67 +219,95 @@ class _Scored:
     starts: float
 
 
+class _Replacement:
+    """Drop cost above replacement, for one manager's this_week plan.
+
+    cost(d) = max(0, -MV_rest(add r_k, drop d)), where r_k is the k-th best
+    free agent FOR THIS ROSTER with d's slot open -- ranked by marginal value
+    against roster - d, so position fit comes through the optimal fill, not
+    from a global projection list. LeBron's slot is refilled by the best
+    available forward for this team, not by whoever tops the league-wide wire.
+
+    Two wrong versions came first, both caught reading 2025-26 week 8:
+    charging a drop for this week only (Benton cut LeBron for +75), then
+    charging his whole rest-of-season (no stream ever cleared). The single
+    best FA as everyone's replacement double-counted one player.
+
+    Approximation: rankings are computed once on the roster as it stands this
+    week, not re-ranked after the plan's own earlier moves; that errs toward
+    a higher drop cost, the same safe direction as k.
+    """
+
+    def __init__(self, manager, rest_short, rest_full, roster, fas, k):
+        self.manager, self.short, self.full = manager, rest_short, rest_full
+        self.roster, self.fas, self.k = list(roster), list(fas), k
+        self._ranked: dict = {}
+        self._cost: dict = {}
+
+    def _ranking(self, d):
+        if d not in self._ranked:
+            saved = _with_roster(self.short, self.manager, self.roster)
+            try:
+                scored = [(mv.marginal_value(self.short, self.manager, adds=[f], drops=[d]).points, f)
+                          for f in self.fas]
+            finally:
+                self.short.rosters[self.manager] = saved
+            self._ranked[d] = [f for _p, f in sorted(scored, key=lambda t: (-t[0], t[1]))]
+        return self._ranked[d]
+
+    def raw_rest_value(self, d) -> float:
+        """d's rest-of-season value, no replacement (cheap pre-filter)."""
+        saved = _with_roster(self.short, self.manager, self.roster)
+        try:
+            return -mv.marginal_value(self.short, self.manager, drops=[d]).points
+        finally:
+            self.short.rosters[self.manager] = saved
+
+    def cost(self, d, exclude=()) -> tuple[float, float, Optional[str]]:
+        ranked = [f for f in self._ranking(d) if f not in set(exclude)]
+        if not ranked:
+            return 0.0, 0.0, None
+        r_k = ranked[min(self.k, len(ranked)) - 1]
+        key = (d, r_k)
+        if key not in self._cost:
+            saved = _with_roster(self.full, self.manager, self.roster)
+            try:
+                res = mv.marginal_value(self.full, self.manager, adds=[r_k], drops=[d])
+            finally:
+                self.full.rosters[self.manager] = saved
+            self._cost[key] = (max(0.0, -res.points), res.se)
+        c, se = self._cost[key]
+        return c, se, r_k
+
+
 def _best_pairs(short: mv.MVContext, full: mv.MVContext, manager: str,
                 roster: list, fas: Sequence[str], drop_pool: Optional[list],
-                rest: Optional[tuple] = None) -> list:
+                repl: Optional[_Replacement] = None) -> list:
     """Full-sim results for the shortlisted (add, drop) pairs, best first.
-
-    `rest` = (short, full) contexts for the regular season AFTER this week.
-    When given (the this_week plan), a drop is charged what the dropped
-    player is worth ABOVE REPLACEMENT for the rest of the season:
-
-        cost(d) = max(0, -max_f MV_rest(add f, drop d))
-
-    i.e. zero if some free agent would match him from next week on, large
-    for a star. Two wrong versions came first, both caught reading 2025-26
-    week 8: charging only this week (Benton cut LeBron for +75), then
-    charging his whole rest-of-season (no stream ever cleared -- it ignored
-    that the slot refills from a deep wire next week).
-    """
+    With `repl` (the this_week plan) each drop is charged its value above
+    replacement for the rest of the season -- see _Replacement."""
     s_saved = _with_roster(short, manager, roster)
     f_saved = _with_roster(full, manager, roster)
-    rests = None
-    if rest is not None and rest[1].weeks:
-        rests = (_with_roster(rest[0], manager, roster), _with_roster(rest[1], manager, roster))
-    cost_cache: dict = {}
-
-    def replacement_cost(d, ctx_rest, candidates):
-        """(cost >= 0, se) of losing d after this week, net of the best
-        replacement among `candidates`."""
-        key = (d, id(ctx_rest))
-        if key in cost_cache:
-            return cost_cache[key]
-        best = None
-        for f in candidates:
-            r = mv.marginal_value(ctx_rest, manager, adds=[f], drops=[d])
-            if best is None or r.points > best.points:
-                best = r
-        out = (max(0.0, -best.points), best.se) if best is not None else (0.0, 0.0)
-        cost_cache[key] = out
-        return out
-
     try:
         adds = sorted(fas, key=lambda f: -mv.marginal_value(short, manager, adds=[f]).points)
         adds = adds[:SHORTLIST_ADDS]
-        repl = []
-        if rests is not None:
-            repl = sorted(fas, key=lambda f: -mv.marginal_value(rest[0], manager, adds=[f]).points)
-            repl = repl[:SHORTLIST_ADDS]
         if drop_pool is None:
             pairs = [(a, None) for a in adds]
         else:
+            pool = list(drop_pool)
+            if repl is not None:
+                pool = sorted(pool, key=repl.raw_rest_value)[:REPLACEMENT_DROP_CANDIDATES]
+
             def drop_cost(d):
                 c = mv.marginal_value(short, manager, drops=[d]).points
-                if rests is not None:
-                    c -= replacement_cost(d, rest[0], repl)[0]
-                return c
-            drops = sorted(drop_pool, key=lambda d: -drop_cost(d))
+                return c - repl.cost(d)[0] if repl is not None else c
+            drops = sorted(pool, key=lambda d: -drop_cost(d))
             pairs = [(a, d) for a in adds for d in drops[:SHORTLIST_DROPS]]
         scored = []
         for a, d in pairs:
             r = mv.marginal_value(full, manager, adds=[a], drops=[d] if d else [])
-            if rests is not None and d is not None:
-                cost, cse = replacement_cost(d, rest[1], [f for f in repl if f != a])
+            if repl is not None and d is not None:
+                cost, cse, _rk = repl.cost(d, exclude=[a])
                 if cost:
                     r = _Scored(points=round(r.points - cost, 2),
                                 se=round((r.se ** 2 + cse ** 2) ** 0.5, 2),
@@ -270,8 +318,6 @@ def _best_pairs(short: mv.MVContext, full: mv.MVContext, manager: str,
     finally:
         short.rosters[manager] = s_saved
         full.rosters[manager] = f_saved
-        if rests is not None:
-            rest[0].rosters[manager], rest[1].rosters[manager] = rests
 
 
 def _rec(res, ctx, manager, add, drop, step, alt) -> Rec:
@@ -285,8 +331,10 @@ def _rec(res, ctx, manager, add, drop, step, alt) -> Rec:
 
 def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
                 protected: Optional[list], adds_remaining: int,
-                protected_week: Optional[int]) -> WaiverPlan:
-    """C2 for one manager. ctxs: {window: (short_ctx, full_ctx)}."""
+                protected_week: Optional[int], replacement_rank: Optional[int] = None) -> WaiverPlan:
+    """C2 for one manager. ctxs: {window: (short_ctx, full_ctx)}; the key
+    "rest_of_season" (regular season from NEXT week) plus replacement_rank
+    turn on the drop-above-replacement charge for the this_week plan."""
     roster = list(ctxs["this_week"][1].rosters[manager])
     note = ""
     prot = PlayerIndex({p: 1 for p in (protected or [])})
@@ -306,11 +354,17 @@ def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
     # this_week: sequential plan. Never drop a protected keeper, and never
     # drop someone this same plan just added.
     short, full = ctxs["this_week"]
+    repl = None
+    if ctxs.get("rest_of_season") and ctxs["rest_of_season"][1].weeks and drop_pool is not None:
+        if replacement_rank is None:
+            raise ValueError("rest_of_season given without replacement_rank; "
+                             "use replacement_k(season, managers)")
+        repl = _Replacement(manager, *ctxs["rest_of_season"], roster, free_agents,
+                            replacement_rank)
     plan, cur, pool, added = [], list(roster), list(free_agents), set()
     for step in range(1, max(0, adds_remaining) + 1):
         dp = None if drop_pool is None else [p for p in cur if p not in prot and p not in added]
-        scored = _best_pairs(short, full, manager, cur, pool, dp,
-                             rest=ctxs.get("rest_of_season"))
+        scored = _best_pairs(short, full, manager, cur, pool, dp, repl=repl)
         if not scored or not clears(scored[0][0], full):
             break
         best = scored[0]

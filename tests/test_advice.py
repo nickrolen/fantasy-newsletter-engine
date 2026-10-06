@@ -105,3 +105,90 @@ def test_trades_report_both_gains_and_the_differential_never_fairness():
     for f in ("gain_a", "gain_b", "differential", "acceptability"):
         assert f in fields
     assert not any("fair" in f for f in fields)
+
+
+# ---------------------------------------------------------------------------
+# Replacement level (Nick, 10-06)
+# ---------------------------------------------------------------------------
+
+def test_replacement_k_is_derived_never_written(monkeypatch):
+    monkeypatch.setattr(adv, "add_budget_for", lambda season: 3)
+    assert adv.replacement_k("2026-27", ["A", "B", "C", "D"]) == 12
+    monkeypatch.setattr(adv, "add_budget_for", lambda season: 2)
+    assert adv.replacement_k("2030-31", ["A", "B", "C", "D"]) == 8
+    monkeypatch.setattr(adv, "add_budget_for", lambda season: None)
+    with pytest.raises(ValueError, match="undefined"):
+        adv.replacement_k("2024-25", ["A", "B", "C", "D"])
+
+
+def _mini(projs, roster, fas, weeks_games):
+    """One manager, one team per player, games given per week as team sets."""
+    from datetime import date, timedelta
+    sched, games = [], []
+    d0 = date(2026, 10, 26)
+    for i, (wk, teams) in enumerate(weeks_games):
+        start = d0 + timedelta(days=7 * i)
+        sched.append({"week": wk, "start_date": start.isoformat(),
+                      "end_date": (start + timedelta(days=6)).isoformat()})
+        for k in range(7):
+            ts = sorted(teams)
+            for j in range(0, len(ts) - 1, 2):
+                games.append({"date": (start + timedelta(days=k)).isoformat(),
+                              "home": ts[j], "away": ts[j + 1]})
+    return sched, {"games": games}
+
+
+def test_replacement_is_ranked_for_this_roster_not_the_global_list():
+    """Drop the only center and the open seat is C: a 20-FPPG center
+    outranks a 40-FPPG guard for THIS roster -- position comes through the
+    optimal fill, with no separate positional logic."""
+    from test_marginal_value import _proj
+    roster = ["C1", "C2"] + [f"G{i}" for i in range(8)]
+    projs = {"C1": _proj("C1", "BOS", "C", 30), "C2": _proj("C2", "NYK", "C", 30)}
+    projs.update({f"G{i}": _proj(f"G{i}", "MIA", "PG", 30) for i in range(8)})
+    projs.update({"BigFA": _proj("BigFA", "LAL", "C", 20), "GuardFA": _proj("GuardFA", "GSW", "PG", 40)})
+    sched, nba = _mini(projs, roster, [], [(2, {"BOS", "NYK", "MIA", "LAL", "GSW", "DEN"})])
+    c = mv.build_context(projs, {"Nick": roster}, nba, sched, "this_week", 1,
+                         extra_players=["BigFA", "GuardFA"], sims=200)
+    r = adv._Replacement("Nick", c, c, roster, ["BigFA", "GuardFA"], k=1)
+    assert r._ranking("C1") == ["BigFA", "GuardFA"]
+
+
+def test_a_star_with_no_games_this_week_is_not_cut_to_stream():
+    """The LeBron bug. His team is off this week, so the one-week window
+    says cutting him for a streamer is pure profit; he plays next week, and
+    nothing on the wire replaces him."""
+    from test_marginal_value import _proj
+    roster = ["Star"] + [f"P{i}" for i in range(9)]
+    projs = {"Star": _proj("Star", "LAL", "SF", 60)}
+    projs.update({f"P{i}": _proj(f"P{i}", "BOS", ["PG", "SG", "SF", "PF", "C"][i % 5], 25)
+                  for i in range(9)})
+    fas = [f"F{i}" for i in range(6)]
+    projs.update({f: _proj(f, "NYK", "SF", 22) for f in fas})
+    weeks = [(2, {"BOS", "NYK", "MIA", "DEN"}),          # Star's team (LAL) off
+             (3, {"BOS", "NYK", "LAL", "GSW"})]           # LAL back
+    sched, nba = _mini(projs, roster, fas, weeks)
+    spans = lambda season, stage: {"regular_season": (1, 3)}.get(stage)
+    mv_stage = mv.stage_weeks
+    mv.stage_weeks = spans
+    try:
+        def ctx(window, cw, n):
+            return mv.build_context(projs, {"Nick": roster}, nba, sched, window, cw,
+                                    extra_players=fas, sims=n)
+        ctxs = {"this_week": (ctx("this_week", 1, 40), ctx("this_week", 1, 200)),
+                "rest_of_season": (ctx("regular_season", 2, 40), ctx("regular_season", 2, 200))}
+        naive = adv.waiver_plan("Nick", {"this_week": ctxs["this_week"]}, fas, [], 1, 1)
+        fixed = adv.waiver_plan("Nick", ctxs, fas, [], 1, 1, replacement_rank=2)
+    finally:
+        mv.stage_weeks = mv_stage
+    assert naive.this_week and naive.this_week[0].drop == "Star"      # the bug, reproduced
+    assert all(r.drop != "Star" for r in fixed.this_week)             # and fixed
+
+
+def test_rest_of_season_without_a_replacement_rank_refuses():
+    w = _world()
+    ctxs = {"this_week": (_ctx(w, sims=40), _ctx(w, sims=100)),
+            "rest_of_season": (_ctx(w, window="regular_season", sims=40),
+                               _ctx(w, window="regular_season", sims=100))}
+    with pytest.raises(ValueError, match="replacement_rank"):
+        adv.waiver_plan("Nick", ctxs, w[4], [], 1, 1)
