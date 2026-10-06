@@ -199,6 +199,13 @@ from .schedule_freshness import (
     diff_schedules,
     stale_problem,
 )
+from .marginal_value import (
+    MVResult,
+    build_context as build_mv_context,
+    cup_column_live,
+    marginal_value as compute_marginal_value,  # NOT "marginal_value": that
+    window_weeks,                               # would shadow the submodule
+)
 from .point_in_time import (
     capture_week_inputs,
     missing_captures,
@@ -366,4 +373,10 @@ __all__ = [
     # schedule_freshness
     "diff_schedules",
     "stale_problem",
+    # marginal_value
+    "MVResult",
+    "build_mv_context",
+    "cup_column_live",
+    "compute_marginal_value",
+    "window_weeks",
 ]

@@ -91,6 +91,17 @@ These are the ones that decide something, as opposed to totalling something.
   open slots left, how many a healthy free agent with a game could fill
   (exact matching), and a streamer board: top free agents by projected points
   added, scored against every roster.
+- **`lineup_fill.py`** -- the one exact daily lineup fill (matroid greedy:
+  most starters, then most projected points). schedule_strength and What-If
+  use it. The betting and title-odds sims still start an unconstrained top
+  10 -- that is A4, and fixing it will make the -120.8 level bias look WORSE
+  while being correct (see C1_DESIGN in the project).
+- **`marginal_value.py`** -- C1. `marginal_value(ctx, manager, adds, drops)`:
+  expected points a roster change adds over a named window
+  (this_week / regular_season / cup_seeding), keyed common random numbers,
+  reads no files. Every advice surface (C2-C4, C6) is a caller.
+  `scripts/validate_marginal_value.py` re-checks the roster-relative premise
+  on real rosters; exit 2 below half the original measurement.
 - **`games_grid.py`** -- C5. Lays that out as a manager x day grid led by
   Starts and Fillable, rows sorted by Starts, day cells muted. Rendered into Section 3 of the HTML straight
   from the JSON; the drafting chat sees it but must not retype it.

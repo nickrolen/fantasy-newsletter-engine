@@ -10,6 +10,20 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 6, 2026 - C1: marginal_value, on an exact lineup fill**
+
+`modules/lineup_fill.py` replaces both greedy fills with the matroid greedy
+(exact: most starters, then most points). The player-first greedy benched a
+startable player on 26 of 627 manager-days in 2025-26. `modules/
+marginal_value.py` is the valuation primitive: expected points a roster
+change adds over a window, by simulating availability and filling optimally
+each day, with keyed common random numbers (same question, same answer,
+exactly) and no file reads. `free_agents()` now matches through PlayerIndex
+and takes rosters as an argument. Worst-case weekly C2+C3 load measured at
+~2.5 minutes; no numpy fill needed. The roster-relative premise re-measured
+on 2025-26 rosters: rank spread 15.5 places, gap 300 pts, 54 mutual-gain
+swaps (thresholds 8 / 169 / 24).
+
 **October 6, 2026 - A3: NBA schedule freshness**
 
 The schedule moves all season (postponements, makeups, the TBD Cup games)
