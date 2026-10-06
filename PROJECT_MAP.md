@@ -34,7 +34,7 @@ In `WEEKLY_WORKFLOW.md` order. Each step's real inputs and outputs:
 | 4 | `sync_transactions.py --week N --apply` | Yahoo transactions | `waivers_weekN.txt`, patches `ROSTERS.json` |
 | 5 | by hand | - | `INJURY_OVERRIDES.json`, optional `weeklycontextinput_weekN.json` |
 | 5.75 | `backfill_player_records.py` | historical JSON, logs | `RECORDS.json["all_time"]` |
-| 6 | `generate_stats_report.py --week N` | nearly everything | `stats_report_weekN.json`, `RECORDS.json`, `RECENT_CONTENT.json` |
+| 6 | `generate_stats_report.py --week N` | nearly everything | `stats_report_weekN.json`, `RECORDS.json`, `RECENT_CONTENT.json`, `snapshots/point_in_time/report_weekNN/` |
 | 6.5 | `format_stats_report.py --week N` | the JSON + 5 more sources | `stats_report_weekN.md` (~650 lines) |
 | 7 | **a human in an LLM chat** | the .md + template + recaps | `assets/WEEKN_DRAFT.md` |
 | 8 | optional LLM verification | `VERIFICATION_TEMPLATE.md` | - |
@@ -87,7 +87,13 @@ These are the ones that decide something, as opposed to totalling something.
   Boom-or-Bust. **Needs 4 weeks**; before that every manager reads 0.0 and
   sorts as most consistent.
 - **`schedule_strength.py`** -- `startable_games` via a greedy daily lineup
-  simulation, which is the real "schedule edge" number.
+  simulation, which is the real "schedule edge" number. Also, per day: the
+  open slots left, how many a healthy free agent with a game could fill
+  (exact matching), and a streamer board: top free agents by projected points
+  added, scored against every roster.
+- **`games_grid.py`** -- C5. Lays that out as a manager x day grid led by
+  Starts and Fillable, rows sorted by Starts, day cells muted. Rendered into Section 3 of the HTML straight
+  from the JSON; the drafting chat sees it but must not retype it.
 - **`records_tracker.py`** -- detects new records; owns `current_streaks`,
   H2H season series, `title_odds_history`.
 - **`simulator_title_odds.py`** / **`simulator_playoff_odds.py`** /
@@ -192,7 +198,16 @@ Three things are allowed to stop a week. Respect them.
 - `check_rosters.py` -- no duplicate ownership, no placeholders, plausible
   sizes.
 
+`verify_project_integrity` also guards the point-in-time record: a latest
+report with no capture under `config/snapshots/point_in_time/` FAILS, an
+unreviewed `INJURY_OVERRIDES.json` FAILS from Week 1, and a PLAYERLIST snapshot
+older than 8 days warns. Every one of those is a week of record that cannot be
+rebuilt later -- the reason no pre-2026-27 published line can be backtested.
+
 ---
+
+**Retro-simulation** has its own constraints, written before any of it was
+built: `RETRO_SIM_REQUIREMENTS.md`. Read it before touching the harness or A2.
 
 ## 8. If you are picking this up again
 

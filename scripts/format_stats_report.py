@@ -1529,6 +1529,12 @@ def format_section_3_betting_lines(data: dict, lookups: dict, player_projs: Opti
             ros_parts = [f"{mgr} {sd.get('total_games', '?')}" for mgr, sd in ros_sorted]
             lines.append(f"- ROS total games: {' | '.join(ros_parts)}")
         lines.append("")
+
+    # C5: the day-by-day grid behind those totals.
+    from modules.games_grid import render_markdown as _games_grid_md
+    _grid_md = _games_grid_md(data)
+    if _grid_md:
+        lines.append(_grid_md)
     
     # Build injury lookup from current_team_health (any chained section can be None).
     cth_teams = (data.get("current_team_health") or {}).get("teams") or {}

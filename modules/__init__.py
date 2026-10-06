@@ -190,6 +190,15 @@ from .simulator_playoff_odds import (
 )
 
 # Cup simulator (weeks 22-23, single elimination, seeded on points)
+from .games_grid import (
+    build_grid as build_games_grid,
+    render_html as render_games_grid_html,
+    render_markdown as render_games_grid_markdown,
+)
+from .point_in_time import (
+    capture_week_inputs,
+    missing_captures,
+)
 from .simulator_cup_odds import (
     run_cup_odds_simulation,
     CupOddsResult,
@@ -343,4 +352,11 @@ __all__ = [
     "get_cup_seeds",
     "cup_round_for_week",
     "PlayoffOddsResult",
+    # point_in_time
+    "capture_week_inputs",
+    "missing_captures",
+    # games_grid
+    "build_games_grid",
+    "render_games_grid_html",
+    "render_games_grid_markdown",
 ]

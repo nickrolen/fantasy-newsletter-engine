@@ -33,6 +33,10 @@ from modules.player_card_modal import (
     embed_player_card_data,
 )
 from modules.player_card_builder import build_player_cards
+from modules.games_grid import (
+    render_html as render_games_grid_html,
+    get_css as get_games_grid_css,
+)
 from modules.data_loader import (
     MANAGER_TO_TEAM as _CFG_MANAGER_TO_TEAM,
     MANAGERS,
@@ -919,9 +923,32 @@ def generate_html(
         
         elif 'looking ahead' in heading.lower():
             content_html = parse_looking_ahead(content)
+            grid_html = ""
+            if stats_report and 'betting' in heading.lower():
+                try:
+                    grid_html = render_games_grid_html(stats_report)
+                except Exception as e:
+                    print(f"  WARNING: games grid skipped: {e}")
             section_html = f'''
         <section id="{section_id}">
             <h2>{heading}</h2>
+            {grid_html}
+            {content_html}
+        </section>'''
+        
+        elif 'betting lines' in heading.lower():
+            content_html = parse_section(content, heading)
+            # C5 games grid, straight from the stats report -- never retyped.
+            grid_html = ""
+            if stats_report:
+                try:
+                    grid_html = render_games_grid_html(stats_report)
+                except Exception as e:
+                    print(f"  WARNING: games grid skipped: {e}")
+            section_html = f'''
+        <section id="{section_id}">
+            <h2>{heading}</h2>
+            {grid_html}
             {content_html}
         </section>'''
         
@@ -1874,6 +1901,7 @@ def generate_html(
         }}
         
         {get_stats_corner_css() if stats_report else ""}
+        {get_games_grid_css() if stats_report else ""}
         {get_player_card_css() if stats_report else ""}
     </style>
 </head>

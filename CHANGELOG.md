@@ -8,6 +8,46 @@ This file preserves the detailed development history that was originally tracked
 
 ## Changelog
 
+### October 2026
+
+**October 6, 2026 - Point-in-time capture, 2025-26 log repair, games grid**
+
+*Point-in-time capture.* No published betting line from before 2026-27 can be
+backtested against what the engine knew, because nothing saved Yahoo's
+projections, INJURY_OVERRIDES or the live injury statuses -- each is
+overwritten weekly. Step 6 now freezes all of them, plus ROSTERS and both
+schedules, to `config/snapshots/point_in_time/report_weekNN/` on every full
+run (`modules/point_in_time.py`). Integrity fails when the latest report has
+no capture. `start_new_season` archives the nested folder; its glob would
+have crashed `copy2` on the directory. INJURY_OVERRIDES now has a due date
+(two days before Week 1: Oct 18) enforced by integrity on `last_updated`.
+
+*2025-26 log repair.* `rollup_season_to_history.py` drove from PLAYERLOG,
+which only holds game days, so 2025-26 entered history with 5,296 rows and no
+no-game days. It now drives from LINEUPS, cross-checks against PLAYERLOG on a
+normalized-name join, derives `started` from slot (the rule all 76,098
+earlier rows follow), drops `(Empty)` placeholders, finds the season's files
+by content (live or archive), and refuses to roll a draft file holding a
+different season. The spec's "2 PLAYERLOG-only rows" were spelling variants
+of rows LINEUPS already had; unioning them would have double-counted. 2025-26
+re-rolled: 11,083 rows, 5,785 no-game days recovered, all 92 team-week
+started-FP sums still equal RECORDS weekly scores.
+
+*C5 games grid.* `modules/games_grid.py` renders the week ahead per manager,
+led by Starts (simulated started games) and Fillable (empty slots a healthy
+free agent with a game could fill), with the day-by-day detail muted beside
+them. Per-day shading was near-uniform in a four-team league; the totals are
+the signal. Below it, one streamer board scored against all four rosters. A
+pick per manager was tried and collapsed: ranked by holes filled with ties
+broken by projection, any two managers with the same full nights got
+identical picks (2025-26 weeks 8/12/17/20, 7-37 FAs tied at the top). The
+board ranks by projected points added and shows each roster's holes, so real
+differences -- e.g. a PG who cannot fill a C/F-only Saturday -- stay visible. Rostered players
+missing from PLAYERLIST are now filled from LINEUPS instead of silently
+reading as empty slots, and the free-agent pool matches through PlayerIndex
+so a respelled rostered player is never listed as available.
+`startable_games` is otherwise unchanged.
+
 ### September 2026
 
 **September 25, 2026 - PLAYERLIST columns bound to their headers**

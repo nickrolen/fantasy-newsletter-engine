@@ -360,6 +360,7 @@ SCORING TRENDS (from scoring_trends, for both managers):
 ```
 
 ### KEY RULES
+- **GAMES GRID -- DO NOT REPRODUCE:** The week's games grid (Starts, Fillable holes, starters per day, and the streamer board) is rendered into the HTML automatically from the stats report. Never retype it as a table. You MAY cite it in a preview -- e.g. a manager's Starts against his opponent's, or his Fillable holes -- using the exact numbers from the "Games Grid" block in Section 3 of the stats report.
 - **KEY MATCHUP PLAYERS -- MANDATORY SECOND SENTENCE:** Every Betting Lines preview paragraph must include a second sentence that names the two key players for that matchup (one per team) along with brief context. These come from the `key_player_a` and `key_player_b` fields in the stats report. Example:
   - "The marquee matchup features Luka Doncic (52.7 projected FPPG, returning from a hamstring issue) squaring off against Victor Wembanyama (52.6 projected FPPG), with both stars projected nearly identically."
   - "This one revolves around Nikola Jokic (59.7 projected FPPG, fresh off his fourth POTW award) against Tyrese Maxey (46.1 projected FPPG), two franchise cornerstones with very different supporting casts."
