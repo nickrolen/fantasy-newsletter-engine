@@ -44,6 +44,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+GATE_FILE = Path("config") / "snapshots" / "MV_PREMISE_CHECK.json"
+
 ORIGINAL = {"rank_spread": 16, "gap_points": 337, "mutual_gain_swaps": 48}
 THRESHOLDS = {"rank_spread": 8, "gap_points": 169, "mutual_gain_swaps": 24}   # 1/2
 CLEAR = {"rank_spread": 12, "gap_points": 253, "mutual_gain_swaps": 36}        # 3/4
@@ -93,6 +95,31 @@ def band(stats: dict, k: str) -> str:
     return "CLEAR"
 
 
+def overall_band(stats: dict) -> str:
+    bands = [band(stats, k) for k in THRESHOLDS]
+    return "FAIL" if "FAIL" in bands else ("MARGINAL" if "MARGINAL" in bands else "CLEAR")
+
+
+def write_gate(stats: dict, season: str, week, rosters: dict, path: Path = GATE_FILE) -> dict:
+    """Record the result where Step 6 reads it. Step 6 publishes C2/C3 only
+    on CLEAR for the current season. There is no override: MARGINAL means
+    talk, not ship (Nick, 10-06, before seeing the number)."""
+    import json
+    from datetime import datetime
+    gate = {
+        "season": season, "band": overall_band(stats),
+        "bands": {k: band(stats, k) for k in THRESHOLDS},
+        "stats": {k: stats[k] for k in ("rank_spread", "gap_points", "mutual_gain_swaps",
+                                         "swaps_examined", "free_agents") if k in stats},
+        "checked_at": datetime.now().isoformat(timespec="seconds"),
+        "report_week": week,
+        "rostered_players": sum(len(v) for v in rosters.values()),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(gate, indent=2), encoding="utf-8")
+    return gate
+
+
 def report(stats: dict) -> int:
     print(f"\n  {'measure':20} {'7.2 (sim draft)':>16} {'now':>9} {'fail <':>8} "
           f"{'clear >=':>9}  band")
@@ -140,7 +167,12 @@ def main():
     ctx = build_context(load_player_projections(data), rosters, data.nba_schedule,
                         data.schedule.get("weeks", []), "regular_season", week,
                         extra_players=fas, sims=args.sims)
-    return report(premise_stats(ctx, rosters, fas))
+    stats = premise_stats(ctx, rosters, fas)
+    code = report(stats)
+    from modules.data_loader import CURRENT_SEASON
+    gate = write_gate(stats, CURRENT_SEASON, week, rosters)
+    print(f"\n  Recorded {gate['band']} for {gate['season']} in {GATE_FILE}.")
+    return code
 
 
 if __name__ == "__main__":

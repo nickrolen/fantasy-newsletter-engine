@@ -428,6 +428,22 @@ def main():
                 print(f"Warning: Failed to save looking_ahead cache: {e}")
 
     # -------------------------------------------------------------------------
+    # C2/C3 dark launch: when the engine ran but is not published, write the
+    # Section 10 preview for reading (weeks 1-2 by design; and any week the
+    # premise gate is not CLEAR). Never part of the newsletter.
+    # -------------------------------------------------------------------------
+    _adv = report.get("advice") or {}
+    if _adv.get("ran") and not _adv.get("published") and not args.dry_run:
+        try:
+            from modules.advice_render import render_preview_page
+            prev = base_path / "output" / f"advice_preview_week{week}.html"
+            prev.parent.mkdir(parents=True, exist_ok=True)
+            prev.write_text(render_preview_page(_adv), encoding="utf-8")
+            print(f"Saved C2/C3 preview (not in the newsletter): {prev}")
+        except Exception as e:
+            print(f"Warning: could not write the C2/C3 preview: {e}")
+
+    # -------------------------------------------------------------------------
     # Point-in-time capture: freeze the inputs behind this week's lines.
     # Overwritten in place every week, unrecoverable afterwards -- see
     # modules/point_in_time.py. Only publishable runs write one.

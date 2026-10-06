@@ -33,6 +33,10 @@ from modules.player_card_modal import (
     embed_player_card_data,
 )
 from modules.player_card_builder import build_player_cards
+from modules.advice_render import (
+    render_html as render_advice_html,
+    get_css as get_advice_css,
+)
 from modules.games_grid import (
     render_html as render_games_grid_html,
     get_css as get_games_grid_css,
@@ -949,6 +953,22 @@ def generate_html(
         <section id="{section_id}">
             <h2>{heading}</h2>
             {grid_html}
+            {content_html}
+        </section>'''
+        
+        elif 'rumor mill' in heading.lower():
+            content_html = parse_section(content, heading)
+            # C2/C3 from the stats report -- or the line saying why not.
+            adv_html = ""
+            if stats_report:
+                try:
+                    adv_html = render_advice_html(stats_report.get("advice"))
+                except Exception as e:
+                    print(f"  WARNING: advice block skipped: {e}")
+            section_html = f'''
+        <section id="{section_id}">
+            <h2>{heading}</h2>
+            {adv_html}
             {content_html}
         </section>'''
         
@@ -1902,6 +1922,7 @@ def generate_html(
         
         {get_stats_corner_css() if stats_report else ""}
         {get_games_grid_css() if stats_report else ""}
+        {get_advice_css() if stats_report else ""}
         {get_player_card_css() if stats_report else ""}
     </style>
 </head>

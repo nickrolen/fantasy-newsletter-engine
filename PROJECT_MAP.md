@@ -104,6 +104,14 @@ These are the ones that decide something, as opposed to totalling something.
   reads no files. Every advice surface (C2-C4, C6) is a caller.
   `scripts/validate_marginal_value.py` re-checks the roster-relative premise
   on real rosters; exit 2 below half the original measurement.
+- **`advice.py`** -- C2 (waiver plans) and C3 (trade finder) on marginal_value.
+  One bar (2 SE and 10 points per week of window), one Refill (what an open
+  slot is worth, used for C2 drop costs and C3 two-for-one credit), both
+  sides' gains plus the differential on every trade. `advice_runner.py` is
+  the Step-6 boundary: publish only on a CLEAR premise check from the launch
+  week, preview otherwise, and any failure becomes a printed status --
+  never a broken report (tests/test_advice_wiring.py). `advice_render.py`
+  renders Section 10 from the JSON.
 - **`games_grid.py`** -- C5. Lays that out as a manager x day grid led by
   Starts and Fillable, rows sorted by Starts, day cells muted. Rendered into Section 3 of the HTML straight
   from the JSON; the drafting chat sees it but must not retype it.

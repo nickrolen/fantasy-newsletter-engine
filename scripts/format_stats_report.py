@@ -2733,6 +2733,13 @@ def format_section_10_rumor_mill(data: dict, lookups: dict, trades_context: Opti
     
     rm = data.get("rumor_mill", {})
 
+    # C2/C3: the published block, or -- from the launch week -- why it is
+    # not here. Pre-launch (dark launch) it says nothing: Section 10 unchanged.
+    from modules.advice_render import render_markdown as _advice_md
+    _adv = _advice_md(data.get("advice"), MANAGERS)
+    if _adv:
+        lines.append(_adv)
+
     # === ADD BUDGET (free agent suggestions must respect it) ===
     budget = data.get("add_budget")
     if budget:

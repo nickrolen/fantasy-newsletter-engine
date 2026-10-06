@@ -10,6 +10,20 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 6, 2026 - C2/C3 wired into Step 6 (dark launch)**
+
+Waiver plans and the trade finder (`modules/advice.py`) now run in Step 6.
+They publish into Section 10 from `season.advice_publish_from_week` and only
+on a CLEAR premise check (`scripts/validate_marginal_value.py` writes
+`config/snapshots/MV_PREMISE_CHECK.json`); MARGINAL means talk, not ship, and
+there is no override. Otherwise they write `output/advice_preview_weekN.html`
+for reading. Any engine failure becomes a status line; a test raises inside
+the engine on the real pipeline and asserts the report, Section 10 and the
+newsletter HTML still generate. Reading the engine's raw output on 2025-26
+caught three design errors no property test would have: a streaming drop
+charged for one week (cut LeBron for +75), then for a whole rest-of-season
+(no stream cleared), and unprojected players valued at zero as free drops.
+
 **October 6, 2026 - C1: marginal_value, on an exact lineup fill**
 
 `modules/lineup_fill.py` replaces both greedy fills with the matroid greedy

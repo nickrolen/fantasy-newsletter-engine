@@ -1016,6 +1016,13 @@ TRADE HISTORY (from all_time_records.trade_partners):
 ```
 
 ### KEY RULES
+- **TRADE FINDER AND WAIVER PLANS (when the stats report has the block):** the tables are rendered into the HTML automatically -- never retype them. Write around them.
+  - **Never call a trade fair, and never say both sides "win".** Gains are measured against NOT trading. Every trade has a differential: say who moves ahead of whom ("Nick gains 200, Hayden 150 -- Nick moves 50 ahead, and both pull away from Benton and Garrett"). In a four-team league a trade is a two-on-two move.
+  - The trade order is the smaller side's gain: how likely the reluctant side is to say yes. Do not describe it as a ranking of fairness or quality.
+  - When the commissioner is a party, say so plainly.
+  - A trade or add "on the table since week N" has gone unclaimed: that is a story (the model may be wrong, or there is a human reason). Use it; do not invent the reason.
+  - A free agent recommended to more than one manager is a race -- the add window opens 12:01 Monday. Name everyone it was recommended to.
+  - If the block says it did not run or is paused, say that in one plain sentence. Do not substitute trade ideas of your own.
 - **BULLET FORMAT IS MANDATORY** -- Every item in Trade Ideas, Free Agent Targets, Hot Streaks, and Slump Watch MUST be a bullet point (`- `) with a bold header. NEVER write these sections as flowing paragraphs. Each trade idea, each free agent, each hot/cold player gets its OWN bullet. This is critical for HTML rendering -- paragraphs break the card-style layout.
 - **WRONG FORMAT (paragraphs):** "The analytics engine flagged four deals this week. The most intriguing has Nick sending Edwards to Benton for Maxey. Two other deals to watch: Hayden could swap Bridges for Giannis..."
 - **CORRECT FORMAT (bullets):** Each trade on its own `- **bold header**` line with a paragraph underneath, each free agent on its own bullet, each hot/cold player on its own bullet. Follow the REQUIRED OUTPUT FORMAT exactly.

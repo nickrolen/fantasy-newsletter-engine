@@ -11,6 +11,8 @@
         "Benton",
         "Garrett"
     ],
+    "commissioner": "Nick",
+    "_commissioner_comment": "Runs the engine. Trades involving him are labelled in Section 10; the trade finder publishes all six pairs automatically (decided 2026-10-06).",
     "manager_to_team": {
         "Nick": "Luka my Balls",
         "Hayden": "Big Nik Energy",
@@ -83,7 +85,9 @@
         "regular_season_weeks": 15,
         "playoff_start_week": 16,
         "total_weeks": 23,
-        "nba_schedule_file": "data/nba_schedule_2026-27.json"
+        "nba_schedule_file": "data/nba_schedule_2026-27.json",
+        "advice_publish_from_week": 3,
+        "_advice_comment": "C2/C3 (Section 10 waiver plans and trade finder) publish from this report week, and only if the premise check (scripts/validate_marginal_value.py) is CLEAR for this season. Before it, and whenever the check is MARGINAL or FAIL, they run as a preview (output/advice_preview_weekN.html) and Section 10 is unchanged. MARGINAL means talk, not ship."
     },
     "season_structure": {
         "_comment": "Per-season week layout. season.regular_season_weeks describes ONLY the current season; historical seasons varied and the engine must not assume one shape for all time. regular_through = last regular-season week. bracket = a postseason bracket was played.",

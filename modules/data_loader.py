@@ -95,6 +95,8 @@ for _old, _new in _LEGACY_PRE_DATA_ERA_KEYS.items():
 # caller tells "no budget existed" from "the budget is zero".
 WEEKLY_ADD_BUDGET = LEAGUE_STRUCTURE.get("weekly_add_budget")
 WEEKLY_ADD_BUDGET_FROM = LEAGUE_STRUCTURE.get("weekly_add_budget_from", "")
+COMMISSIONER = _LEAGUE_CONFIG.get("commissioner")
+ADVICE_PUBLISH_FROM_WEEK = SEASON_CONFIG.get("advice_publish_from_week")
 
 
 def add_budget_for(season=None):

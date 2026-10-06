@@ -450,6 +450,18 @@ python scripts\generate_stats_report.py --week WEEK --title-sims 10000 --betting
 
 ---
 
+### Step 6 -- C2/C3 (trade finder and waiver plans)
+
+Runs inside Step 6 on every full run (skipped by `--fast`, which Section 10 then says). Adds about 2.5 minutes.
+
+- **Publishes** into Section 10 only from `season.advice_publish_from_week` (week 3 in 2026-27) **and** only if the premise check recorded CLEAR for this season. Run it once after the draft:
+  ```cmd
+  py scripts\validate_marginal_value.py
+  ```
+  It writes `config\snapshots\MV_PREMISE_CHECK.json`. **MARGINAL means talk, not ship** -- there is deliberately no flag to override it.
+- **Otherwise** it runs as a preview: `output\advice_preview_weekN.html`, not part of the newsletter. **Weeks 1 and 2: open it and read it.** Ship in week 3 only if both previews read clean.
+- If it fails, Step 6 carries on and Section 10 says it did not run and why. It never falls back to the old trade ideas after launch.
+
 ## Step 6.5: Format Stats Report for Newsletter
 
 Converts the JSON stats report into newsletter-ready markdown, eliminating the need for Claude to do data extraction.

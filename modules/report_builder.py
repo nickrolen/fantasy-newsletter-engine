@@ -3354,6 +3354,36 @@ def _compute_draft_value(delta: float, gp: int) -> str:
 # MAIN REPORT BUILDER
 # =============================================================================
 
+def _run_advice_guarded(data, week, run_simulations, title_odds, keeper_watch,
+                        injury_statuses, freshness_tracker) -> dict:
+    """C2/C3 for this week, or a status saying why not. Never raises."""
+    try:
+        from .advice_runner import run_advice_safely
+        from .data_loader import ADVICE_PUBLISH_FROM_WEEK
+        launched = ADVICE_PUBLISH_FROM_WEEK is not None and week >= ADVICE_PUBLISH_FROM_WEEK
+        if not run_simulations:
+            return {"ran": False, "status": "skipped", "published": False,
+                    "launched": launched, "week": week,
+                    "publish_reason": "this was a --fast run (simulations skipped)"}
+        print("Running C2/C3 (waiver plans, trade finder)...")
+        out = run_advice_safely(data.base_path, data, week, title_odds=title_odds,
+                                keeper_watch=keeper_watch, injury_statuses=injury_statuses,
+                                freshness_tracker=freshness_tracker)
+        state = "published" if out.get("published") else ("preview" if out.get("ran") else "did not run")
+        print(f"  C2/C3 {state}: {out.get('publish_reason')}"
+              + (f" ({out.get('runtime_s')}s)" if out.get("runtime_s") else ""))
+        return out
+    except Exception as e:  # noqa: BLE001
+        print(f"  WARNING: C2/C3 wiring failed: {type(e).__name__}: {e}")
+        try:
+            from .data_loader import ADVICE_PUBLISH_FROM_WEEK as _from
+            launched = _from is not None and week >= _from
+        except Exception:  # noqa: BLE001
+            launched = True   # unknown: say it did not run rather than stay silent
+        return {"ran": False, "status": "error", "published": False, "launched": launched,
+                "week": week, "publish_reason": f"{type(e).__name__}: {e}"}
+
+
 def build_stats_report(
     data: FantasyData,
     week: int,
@@ -3487,12 +3517,28 @@ def build_stats_report(
     
     # Build keeper_watch early so rumor mill can use V2 keepability scores
     keeper_watch_data = build_keeper_watch(data, week)
+    # Stamped with the week it was computed for: C2's protected keepers
+    # refuse a table stamped for any other week (advice.protected_keepers).
+    if isinstance(keeper_watch_data, dict):
+        keeper_watch_data["week"] = week
     
     rumor_mill = generate_rumor_mill_analysis(
         data, title_odds=title_odds_dict, week=week,
         freshness_tracker=freshness_tracker,
         keeper_watch=keeper_watch_data,
     )
+
+    # C2/C3 -- waiver plans and the trade finder. NOTHING in here may break
+    # the report: the whole block, import included, is guarded, and
+    # advice_runner.run_advice_safely turns engine failures into a status
+    # Section 10 prints. Test: tests/test_advice_wiring.py.
+    advice = _run_advice_guarded(data, week, run_simulations, title_odds,
+                                 keeper_watch_data, injury_statuses, freshness_tracker)
+    if advice.get("launched"):
+        # From the launch week the old trade ideas / FA targets never stand in
+        # for C2/C3, even when C2/C3 did not run -- Section 10 says why instead.
+        rumor_mill.trade_ideas = []
+        rumor_mill.free_agent_targets = []
     
     # Build report sections
     stats_report = {
@@ -3540,6 +3586,7 @@ def build_stats_report(
         
         "season_performers": build_season_performers(data.base_path, week),
         
+        "advice": advice,
         "rumor_mill": {
             "trade_ideas": [dataclass_to_dict(t) for t in rumor_mill.trade_ideas],
             "free_agent_targets": [dataclass_to_dict(t) for t in rumor_mill.free_agent_targets],
