@@ -243,9 +243,27 @@ def test_a_weak_premise_is_a_nonzero_exit_not_a_footnote(capsys):
             "swaps_examined": 1683, "best_mutual": None, "free_agents": 100}
     assert v.verdict(weak) == ["rank_spread"]
     assert v.report(weak) == 2
-    assert "Discuss before building" in capsys.readouterr().out
+    assert "Stop and discuss" in capsys.readouterr().out
     strong = dict(weak, rank_spread=15.5)
     assert v.report(strong) == 0
+
+
+def test_clearing_the_floor_near_it_is_a_conversation_not_a_ship(capsys):
+    """Nick, 10-06: 8 / 169 / 24 is a floor, not a green light."""
+    v = _validator()
+    near_floor = {"rank_spread": 9, "gap_points": 300.0, "mutual_gain_swaps": 50,
+                  "swaps_examined": 1683, "best_mutual": None, "free_agents": 100}
+    assert v.report(near_floor) == 3
+    assert "Conversation, not ship" in capsys.readouterr().out
+    for k in v.ORIGINAL:
+        assert abs(v.CLEAR[k] - 0.75 * v.ORIGINAL[k]) <= 1, k
+
+
+def test_2025_26_dry_run_was_clear():
+    """15.5 / 300 / 54 on real 2025-26 rosters, against 12 / 253 / 36."""
+    v = _validator()
+    dry = {"rank_spread": 15.5, "gap_points": 300.0, "mutual_gain_swaps": 54}
+    assert all(v.band(dry, k) == "CLEAR" for k in v.ORIGINAL)
 
 
 def test_premise_stats_runs_end_to_end_on_a_small_world():
