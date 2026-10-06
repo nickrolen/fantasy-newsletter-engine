@@ -32,18 +32,41 @@ empties DRAFT_PICKS_CURRENT.json, so this has to happen first either way.
 
 WHAT IT DOES
 ------------
-PLAYERLOG.xlsx does not have the historical schema. Four fields have to be
-supplied, and this script derives all four rather than asking a human to:
+The roll-up drives from LINEUPS.xlsx, not PLAYERLOG.xlsx. LINEUPS has a
+row for every rostered player every day; PLAYERLOG, by design, only has rows
+where the player's NBA team played. Driving from PLAYERLOG -- as this script
+did until 2026-10-06 -- dropped every no-game day: 2025-26 went into history
+with 5,296 rows and had_game False on none of them, against ~8,000-11,000
+rows and a ~50/50 split for every earlier season. Anything that counts roster
+days (fill rate, startable games, absence shape) read that season wrong.
+
+LINEUPS does not have the historical schema either. The fields supplied:
 
   season_key   "2025-2026" -> "2025-26"
-  slot         joined from LINEUPS.xlsx on (date, manager, player_name)
+  started      slot is an active slot (not BN / IL / IL+). Exactly the rule
+               every earlier season follows: 76,098 of 76,098 rows.
   had_game     True when nba_opponent is set
                (verified: 0 disagreements across all 76,098 historical rows)
+  is_injured   had_game and 0.0 FP. An OUTCOME, not a status -- see
+               RETRO_SIM_REQUIREMENTS.md R1 before reading it as one.
   player_id    looked up by name from existing history
                (verified: no player has ever had two ids)
 
-Three xlsx-only columns (source, notes, opponent_manager) are dropped -- they
+PLAYERLOG is matched to LINEUPS on (date, manager, NORMALIZED name) and used
+to cross-check FP, opponent and started. It is not a second source of rows:
+the two files spell some players differently ("Lebron James" / "LeBron
+James", "De'Aaron Fox" / "DeAaron Fox"), and joining on the raw name made
+those look like extra PLAYERLOG rows that would have been counted twice. A
+PLAYERLOG row that matches nothing in LINEUPS even after normalization is
+appended and reported -- it has never happened.
+
+"(Empty)" placeholder rows -- a manager leaving a slot open -- are dropped.
+
+Workflow-only columns (source, notes, opponent_manager) are dropped -- they
 are weekly-workflow bookkeeping and are not part of the historical schema.
+
+Source files are found by CONTENT: the live data/ files if they hold the
+season asked for, else archive/<season>/data/. --data-dir overrides.
 
 It also canonicalizes player names against the existing record. A single row
 spelled "Lebron James" instead of "LeBron James" would append as a separate
@@ -120,6 +143,23 @@ HISTORY_FIELDS = [
 
 JOIN_KEY = ["date", "manager", "player_name"]
 
+# LINEUPS columns the roll-up needs. season_year is checked when present.
+LINEUPS_REQUIRED = [
+    "week", "date", "manager", "fantasy_team", "player_name", "nba_team",
+    "positions", "slot", "nba_opponent", "fantasy_points",
+]
+
+# Slots that do not count as starting. Everything else is an active slot.
+BENCH_SLOTS = {"BN", "IL", "IL+"}
+
+# Same token set generate_rosters.py filters: what LINEUPS records for a slot
+# a manager left open. Duplicated rather than imported because scripts/ is
+# not a package.
+PLACEHOLDER_NAME = re.compile(
+    r"^\s*$|^\(?\s*empty\s*\)?$|^--+$|^n/?a$|^none$|^tbd$|^\(?\s*open\s*\)?$",
+    re.IGNORECASE,
+)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -159,6 +199,43 @@ def season_key_from_long(season_long):
     return f"{start}-{end[-2:]}"
 
 
+def season_long_from_key(season_key):
+    """'2025-26' -> '2025-2026'."""
+    start = str(season_key).split("-", 1)[0]
+    return f"{start}-{int(start) + 1}" if start.isdigit() else str(season_key)
+
+
+def is_placeholder(name):
+    return bool(PLACEHOLDER_NAME.match(clean_str(name)))
+
+
+def _seasons_in(path):
+    """Distinct season_year values in a log file, or None if unreadable."""
+    try:
+        df = pd.read_excel(path, usecols=lambda c: c == "season_year")
+    except Exception:
+        return None
+    if "season_year" not in df.columns:
+        return set()
+    return {clean_str(v) for v in df["season_year"].dropna()}
+
+
+def season_data_paths(season_key, data_dir=None):
+    """(PLAYERLOG, LINEUPS) for a season: live data/ if it holds that season,
+    else archive/<season>/data/. Decided by content, not by date -- after the
+    reset, data/ belongs to the next season and is empty."""
+    if data_dir is not None:
+        d = Path(data_dir)
+        return d / "PLAYERLOG.xlsx", d / "LINEUPS.xlsx"
+    want = season_long_from_key(season_key)
+    if LINEUPS_XLSX.is_file() and want in (_seasons_in(LINEUPS_XLSX) or set()):
+        return PLAYERLOG_XLSX, LINEUPS_XLSX
+    archived = ARCHIVE_DIR / season_key / "data"
+    if (archived / "LINEUPS.xlsx").is_file():
+        return archived / "PLAYERLOG.xlsx", archived / "LINEUPS.xlsx"
+    return PLAYERLOG_XLSX, LINEUPS_XLSX
+
+
 def normalize_name(name):
     """Collapse case, accents and punctuation so spelling variants collide."""
     n = unicodedata.normalize("NFKD", str(name))
@@ -181,23 +258,6 @@ def to_date_str(v):
 # Build
 # ---------------------------------------------------------------------------
 
-def load_slot_lookup():
-    """Map (date, manager, player_name) -> roster slot, from LINEUPS.xlsx."""
-    lineups = pd.read_excel(LINEUPS_XLSX)
-    missing = [c for c in JOIN_KEY + ["slot"] if c not in lineups.columns]
-    if missing:
-        raise ValueError(f"LINEUPS.xlsx is missing columns: {missing}")
-    lineups = lineups[JOIN_KEY + ["slot"]].copy()
-    lineups["date"] = lineups["date"].map(to_date_str)
-    lineups["manager"] = lineups["manager"].map(clean_str)
-    lineups["player_name"] = lineups["player_name"].map(clean_str)
-    lineups = lineups.dropna(subset=["slot"]).drop_duplicates(subset=JOIN_KEY)
-    return {
-        (r.date, r.manager, r.player_name): clean_str(r.slot)
-        for r in lineups.itertuples(index=False)
-    }
-
-
 def load_player_ids(history):
     """Map player_name -> player_id using ids already in the record."""
     ids = {}
@@ -219,94 +279,195 @@ def load_canonical_names(history):
     return by_norm
 
 
-def build_rows(season_key, history):
-    """Transform PLAYERLOG.xlsx into historical-schema rows. Returns (rows, report)."""
-    log = pd.read_excel(PLAYERLOG_XLSX)
-    if log.empty:
-        raise ValueError(
-            "PLAYERLOG.xlsx has no data rows. If start_new_season.py has "
-            "already run, recover the season's log from archive/<season>/data/."
-        )
+def _read_log(path):
+    df = pd.read_excel(path)
+    # LINEUPS.xlsx carries ~23 trailing "Unnamed: N" columns from the sheet.
+    return df.loc[:, [not str(c).startswith("Unnamed") for c in df.columns]]
 
-    slots = load_slot_lookup()
+
+def _fp(v):
+    """FP as float, or None when the cell is empty (not the same as 0.0)."""
+    if v is None or (isinstance(v, float) and pd.isna(v)) or clean_str(v) == "":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def build_rows(season_key, history, playerlog_path=None, lineups_path=None):
+    """Transform the season's LINEUPS.xlsx into historical-schema rows.
+
+    Returns (rows, report).
+    """
+    playerlog_path = Path(playerlog_path or PLAYERLOG_XLSX)
+    lineups_path = Path(lineups_path or LINEUPS_XLSX)
+
+    lineups = _read_log(lineups_path)
+    if lineups.empty:
+        raise ValueError(
+            f"{rel(lineups_path)} has no data rows. If start_new_season.py has "
+            "already run, the season's LINEUPS is in archive/<season>/data/ "
+            "(found automatically) or pass --data-dir.")
+    missing = [c for c in LINEUPS_REQUIRED if c not in lineups.columns]
+    if missing:
+        raise ValueError(f"{rel(lineups_path)} is missing columns: {missing}")
+
+    want_long = season_long_from_key(season_key)
+    if "season_year" in lineups.columns:
+        found = {clean_str(v) for v in lineups["season_year"].dropna()}
+        if found and found != {want_long}:
+            raise ValueError(
+                f"{rel(lineups_path)} holds season(s) {sorted(found)}, not "
+                f"{want_long}. Rolling it up as {season_key} would file one "
+                "season's games under another.")
+
+    plog = _read_log(playerlog_path) if playerlog_path.is_file() else pd.DataFrame()
+
     known_ids = load_player_ids(history)
     canonical = load_canonical_names(history)
 
-    rows = []
     report = {
-        "no_slot_match": [],
+        "source": rel(lineups_path),
+        "cross_check": rel(playerlog_path) if not plog.empty else None,
+        "placeholders_dropped": 0,
+        "no_slot": [],
         "new_players": set(),
-        "is_injured_disagreements": [],
         "renamed": {},
         "ambiguous_names": {},
         "weeks": Counter(),
+        "matched_playerlog": 0,
+        "playerlog_only": [],
+        "playerlog_duplicates": [],
+        "fp_disagreements": [],
+        "opponent_disagreements": [],
+        "started_disagreements": [],
+        "is_injured_disagreements": [],
+        "missing_fp_with_game": [],
+        "duplicate_lineup_rows": [],
     }
 
-    for r in log.to_dict("records"):
-        date = to_date_str(r.get("date"))
-        manager = clean_str(r.get("manager"))
-        name = clean_str(r.get("player_name"))
-
-        # Canonicalize against the record before anything keys off the name.
-        if name and name not in canonical.get(normalize_name(name), set()):
-            variants = canonical.get(normalize_name(name), set())
+    def canon(name):
+        variants = canonical.get(normalize_name(name), set())
+        if name and name not in variants:
             if len(variants) == 1:
                 official = next(iter(variants))
                 report["renamed"].setdefault(name, official)
-                name = official
-            elif len(variants) > 1:
+                return official
+            if len(variants) > 1:
                 report["ambiguous_names"][name] = sorted(variants)
+        return name
 
-        opponent = clean_str(r.get("nba_opponent"))
+    # PLAYERLOG indexed on the NORMALIZED name -- see the module docstring.
+    plog_by_key = {}
+    for r in plog.to_dict("records") if not plog.empty else []:
+        key = (to_date_str(r.get("date")), clean_str(r.get("manager")),
+               normalize_name(clean_str(r.get("player_name"))))
+        if key in plog_by_key:
+            report["playerlog_duplicates"].append(" ".join(key))
+            continue
+        plog_by_key[key] = r
 
-        try:
-            fp = float(r.get("fantasy_points") or 0.0)
-        except (TypeError, ValueError):
-            fp = 0.0
-
-        had_game = bool(opponent)
-        derived_injured = had_game and fp == 0.0
-
-        # PLAYERLOG carries its own is_injured; cross-check rather than trust.
-        if "is_injured" in r and not pd.isna(r.get("is_injured")):
-            if bool(r["is_injured"]) != derived_injured:
-                report["is_injured_disagreements"].append(
-                    f"{date} {manager} {name}: file={bool(r['is_injured'])} derived={derived_injured}"
-                )
-
-        slot = slots.get((date, manager, name))
-        if slot is None:
-            slot = ""
-            report["no_slot_match"].append(f"{date} {manager} {name}")
-
+    def make_row(src, name, slot, fp, opponent, started, week):
         pid = known_ids.get(name)
         if pid is None:
             report["new_players"].add(name)
-
-        try:
-            week = int(r.get("week"))
-        except (TypeError, ValueError):
-            week = 0
         report["weeks"][week] += 1
-
-        rows.append({
-            "season_year": clean_str(r.get("season_year")) or CURRENT_SEASON_LONG,
+        had_game = bool(opponent)
+        return {
+            "season_year": clean_str(src.get("season_year")) or want_long,
             "season_key": season_key,
             "week": week,
-            "date": date,
-            "manager": manager,
-            "fantasy_team": clean_str(r.get("fantasy_team")),
+            "date": to_date_str(src.get("date")),
+            "manager": clean_str(src.get("manager")),
+            "fantasy_team": clean_str(src.get("fantasy_team")),
             "player_name": name,
             "player_id": pid,
-            "positions": clean_str(r.get("positions")),
+            "positions": clean_str(src.get("positions")),
             "slot": slot,
             "fantasy_points": fp,
-            "started": bool(r.get("started")),
-            "nba_team": clean_str(r.get("nba_team")),
+            "started": bool(started),
+            "nba_team": clean_str(src.get("nba_team")),
             "nba_opponent": opponent,
             "had_game": had_game,
-            "is_injured": derived_injured,
-        })
+            "is_injured": had_game and fp == 0.0,
+        }
+
+    def week_of(r):
+        try:
+            return int(r.get("week"))
+        except (TypeError, ValueError):
+            return 0
+
+    rows, seen = [], set()
+    for r in lineups.to_dict("records"):
+        raw = clean_str(r.get("player_name"))
+        if is_placeholder(raw):
+            report["placeholders_dropped"] += 1
+            continue
+        date, manager = to_date_str(r.get("date")), clean_str(r.get("manager"))
+        key = (date, manager, normalize_name(raw))
+        tag = f"{date} {manager} {raw}"
+        if key in seen:
+            report["duplicate_lineup_rows"].append(tag)
+            continue
+        seen.add(key)
+
+        name = canon(raw)
+        slot = clean_str(r.get("slot"))
+        opponent = clean_str(r.get("nba_opponent"))
+        fp = _fp(r.get("fantasy_points"))
+        started = slot not in BENCH_SLOTS if slot else False
+        if not slot:
+            report["no_slot"].append(tag)
+
+        pl = plog_by_key.pop(key, None)
+        if pl is not None:
+            report["matched_playerlog"] += 1
+            pl_fp = _fp(pl.get("fantasy_points"))
+            pl_opp = clean_str(pl.get("nba_opponent"))
+            if fp is None:
+                fp = pl_fp
+            elif pl_fp is not None and abs(pl_fp - fp) > 1e-9:
+                report["fp_disagreements"].append(f"{tag}: LINEUPS={fp} PLAYERLOG={pl_fp}")
+            if not opponent and pl_opp:
+                opponent = pl_opp
+            elif pl_opp and pl_opp != opponent:
+                report["opponent_disagreements"].append(
+                    f"{tag}: LINEUPS={opponent} PLAYERLOG={pl_opp}")
+            pl_started = pl.get("started")
+            if not slot and pl_started is not None and not pd.isna(pl_started):
+                started = bool(pl_started)
+            elif pl_started is not None and not pd.isna(pl_started) \
+                    and bool(pl_started) != started:
+                report["started_disagreements"].append(
+                    f"{tag} [{slot}]: PLAYERLOG={bool(pl_started)}, slot rule={started}")
+
+        if fp is None:
+            fp = 0.0
+            if opponent:
+                report["missing_fp_with_game"].append(tag)
+
+        row = make_row(r, name, slot, fp, opponent, started, week_of(r))
+        if pl is not None and "is_injured" in pl and not pd.isna(pl.get("is_injured")):
+            if bool(pl["is_injured"]) != row["is_injured"]:
+                report["is_injured_disagreements"].append(
+                    f"{tag}: file={bool(pl['is_injured'])} derived={row['is_injured']}")
+        rows.append(row)
+
+    # Anything PLAYERLOG has that LINEUPS does not, even after normalization.
+    for key, r in plog_by_key.items():
+        raw = clean_str(r.get("player_name"))
+        if is_placeholder(raw):
+            continue
+        tag = f"{key[0]} {key[1]} {raw}"
+        report["playerlog_only"].append(tag)
+        fp = _fp(r.get("fantasy_points"))
+        st = r.get("started")
+        rows.append(make_row(r, canon(raw), "", 0.0 if fp is None else fp,
+                             clean_str(r.get("nba_opponent")),
+                             False if st is None or pd.isna(st) else bool(st),
+                             week_of(r)))
 
     return rows, report
 
@@ -326,6 +487,14 @@ def rollup_drafts(season_key, execute, force):
     picks = current.get("picks", [])
     if not picks:
         return "skipped", "DRAFT_PICKS_CURRENT.json has no picks"
+
+    seasons = sorted({str(p.get("season")) for p in picks})
+    if seasons != [season_key]:
+        # After the reset this file holds the NEXT season's draft. Rolling it
+        # up under season_key -- e.g. re-running 2025-26 with --force in
+        # October -- would delete that season's picks and file the new ones.
+        return "error", (f"DRAFT_PICKS_CURRENT.json holds season(s) {seasons}, "
+                         f"not {season_key}. Use --skip-drafts.")
 
     with open(DRAFTS_JSON, "r", encoding="utf-8") as f:
         drafts = json.load(f)
@@ -708,13 +877,35 @@ def print_report(season_key, rows, report, history_len):
     print(f"  Games lost to injury (had_game + 0.0 FP): "
           f"{sum(1 for r in rows if r['is_injured']):,}")
 
-    if report["no_slot_match"]:
-        print(f"\n  WARNING: {len(report['no_slot_match'])} row(s) had no LINEUPS "
-              f"match; slot left empty:")
-        for line in report["no_slot_match"][:5]:
+    print(f"\n  Source:             {report['source']}")
+    print(f"  Cross-checked with: {report['cross_check'] or '(no PLAYERLOG)'}"
+          f" -- {report['matched_playerlog']:,} rows matched")
+    print(f"  No-game days:       {sum(1 for r in rows if not r['had_game']):,}")
+    if report["placeholders_dropped"]:
+        print(f"  Dropped {report['placeholders_dropped']} '(Empty)' placeholder row(s)")
+
+    def _listing(key, title, limit=5):
+        items = report[key]
+        if not items:
+            return
+        print(f"\n  {title} ({len(items)}):")
+        for line in items[:limit]:
             print(f"    {line}")
-        if len(report["no_slot_match"]) > 5:
-            print(f"    ... and {len(report['no_slot_match']) - 5} more")
+        if len(items) > limit:
+            print(f"    ... and {len(items) - limit} more")
+
+    _listing("playerlog_only", "WARNING: PLAYERLOG rows with no LINEUPS row even "
+             "after name normalization -- appended with an empty slot")
+    _listing("fp_disagreements", "WARNING: FP differs between LINEUPS and PLAYERLOG; "
+             "LINEUPS kept")
+    _listing("opponent_disagreements", "WARNING: opponent differs; LINEUPS kept")
+    _listing("missing_fp_with_game", "WARNING: team played but no FP in either file; "
+             "recorded as 0.0 (so is_injured=True)")
+    _listing("started_disagreements", "NOTE: PLAYERLOG 'started' disagrees with the "
+             "slot rule; slot rule kept, as for every earlier season")
+    _listing("no_slot", "WARNING: LINEUPS rows with no slot")
+    _listing("duplicate_lineup_rows", "WARNING: duplicate LINEUPS rows skipped")
+    _listing("playerlog_duplicates", "WARNING: duplicate PLAYERLOG rows ignored")
 
     if report["renamed"]:
         print(f"\n  CORRECTED {len(report['renamed'])} player name(s) to the "
@@ -795,6 +986,10 @@ def main():
                         help="roll ONLY those four tables. Use this to repair "
                              "a season whose player log already went in but "
                              "whose tables did not.")
+    parser.add_argument("--data-dir", default=None,
+                        help="folder holding the season's PLAYERLOG.xlsx and "
+                             "LINEUPS.xlsx (default: data/ if it holds that "
+                             "season, else archive/<season>/data/)")
     parser.add_argument("--season", default=None,
                         help=f"season key to roll up (default: {CURRENT_SEASON})")
     args = parser.parse_args()
@@ -819,7 +1014,8 @@ def main():
             print("\n  [DRY-RUN] Nothing written. Re-run with --execute.")
         return 1 if any(st == "error" for _, st, _ in results) else 0
 
-    for path in (PLAYERLOG_XLSX, LINEUPS_XLSX, HISTORY_JSON):
+    playerlog_path, lineups_path = season_data_paths(season_key, args.data_dir)
+    for path in (lineups_path, HISTORY_JSON):
         if not path.exists():
             return fail(f"required file not found: {rel(path)}")
 
@@ -834,12 +1030,12 @@ def main():
         )
 
     try:
-        rows, report = build_rows(season_key, history)
+        rows, report = build_rows(season_key, history, playerlog_path, lineups_path)
     except (ValueError, KeyError) as e:
         return fail(str(e))
 
     if not rows:
-        return fail("no rows built from PLAYERLOG.xlsx")
+        return fail(f"no rows built from {rel(lineups_path)}")
 
     base = [r for r in history if r.get("season_key") != season_key] if args.force else history
     print_report(season_key, rows, report, len(base))

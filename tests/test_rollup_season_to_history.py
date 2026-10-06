@@ -47,7 +47,27 @@ def roll(tmp_path, monkeypatch):
     hist_path = tmp_path / "HISTORICAL_PLAYERLOG.json"
     hist_path.write_text(json.dumps(history), encoding="utf-8")
 
-    # One clean row, one misspelled name, one zero-FP row with an opponent.
+    # LINEUPS is the source: every rostered player, every day. Five rows --
+    # a clean game, a zero-FP game spelled "Lebron James", a bench day with
+    # no game that PLAYERLOG also has, a no-game day ONLY LINEUPS has (the
+    # class of row the old PLAYERLOG-driven roll-up dropped), and an
+    # "(Empty)" placeholder that must not become a player.
+    def lrow(date, name, slot, opp, fp, team="LAL", pos="SF,PF"):
+        return {"season_year": "2025-2026", "week": 1, "date": date,
+                "manager": "Nick", "fantasy_team": "Luka my Balls",
+                "player_name": name, "nba_team": team, "positions": pos,
+                "slot": slot, "nba_opponent": opp, "fantasy_points": fp,
+                "source": "yahoo_api", "notes": "", "opponent_manager": "Hayden"}
+    pd.DataFrame([
+        lrow("2025-10-21", "LeBron James", "SF", "GSW", 38.0),
+        lrow("2025-10-22", "Lebron James", "SF", "PHX", 0.0),
+        lrow("2025-10-22", "Cooper Flagg", "BN", None, 0.0, "DAL", "PF"),
+        lrow("2025-10-21", "Cooper Flagg", "BN", None, None, "DAL", "PF"),
+        lrow("2025-10-21", "(Empty)", "SG", None, None, None, None),
+    ]).to_excel(tmp_path / "LINEUPS.xlsx", index=False)
+
+    # PLAYERLOG: game days only, spelling the 10-22 LeBron row the OTHER way.
+    # A raw-name join would call it a PLAYERLOG-only row and count it twice.
     pd.DataFrame([
         {"season_year": "2025-2026", "week": 1, "date": "2025-10-21",
          "manager": "Nick", "fantasy_team": "Luka my Balls",
@@ -56,7 +76,7 @@ def roll(tmp_path, monkeypatch):
          "is_injured": False, "source": "yahoo", "notes": ""},
         {"season_year": "2025-2026", "week": 1, "date": "2025-10-22",
          "manager": "Nick", "fantasy_team": "Luka my Balls",
-         "player_name": "Lebron James", "nba_team": "LAL", "positions": "SF,PF",
+         "player_name": "LeBron James", "nba_team": "LAL", "positions": "SF,PF",
          "nba_opponent": "PHX", "fantasy_points": 0.0, "started": True,
          "is_injured": True, "source": "yahoo", "notes": ""},
         {"season_year": "2025-2026", "week": 1, "date": "2025-10-22",
@@ -65,12 +85,6 @@ def roll(tmp_path, monkeypatch):
          "nba_opponent": "", "fantasy_points": 0.0, "started": False,
          "is_injured": False, "source": "yahoo", "notes": ""},
     ]).to_excel(tmp_path / "PLAYERLOG.xlsx", index=False)
-
-    pd.DataFrame([
-        {"date": "2025-10-21", "manager": "Nick", "player_name": "LeBron James", "slot": "SF"},
-        {"date": "2025-10-22", "manager": "Nick", "player_name": "LeBron James", "slot": "SF"},
-        {"date": "2025-10-22", "manager": "Nick", "player_name": "Cooper Flagg", "slot": "BN"},
-    ]).to_excel(tmp_path / "LINEUPS.xlsx", index=False)
 
     # Redirect EVERY module-level path at the throwaway root. Anything left
     # pointing at the real repo gets written to for real by main() --execute;
@@ -157,7 +171,80 @@ def test_is_injured_is_had_game_and_zero_points(roll):
 def test_slot_is_joined_from_lineups(roll):
     rows, report = roll.build_rows("2025-26", roll._history)
     assert {r["slot"] for r in rows} == {"SF", "BN"}
-    assert report["no_slot_match"] == []
+    assert report["no_slot"] == []
+
+
+# ---------------------------------------------------------------------------
+# Driving from LINEUPS -- the 2025-26 gap
+# ---------------------------------------------------------------------------
+
+def test_no_game_days_come_from_lineups(roll):
+    """The rows PLAYERLOG never had. Their absence is the 2025-26 gap."""
+    rows, _ = roll.build_rows("2025-26", roll._history)
+    day = [r for r in rows
+           if r["player_name"] == "Cooper Flagg" and r["date"] == "2025-10-21"]
+    assert len(day) == 1
+    assert day[0]["had_game"] is False and day[0]["is_injured"] is False
+    assert day[0]["fantasy_points"] == 0.0
+
+
+def test_empty_placeholders_are_not_players(roll):
+    rows, report = roll.build_rows("2025-26", roll._history)
+    assert not any("Empty" in r["player_name"] for r in rows)
+    assert report["placeholders_dropped"] == 1
+
+
+def test_spelling_variants_join_instead_of_counting_twice(roll):
+    """'Lebron James' in LINEUPS and 'LeBron James' in PLAYERLOG are one row.
+
+    The original repair spec said to union '2 PLAYERLOG-only rows'. They were
+    exactly this: LeBron and De'Aaron Fox, spelled differently in each file.
+    """
+    rows, report = roll.build_rows("2025-26", roll._history)
+    assert report["playerlog_only"] == []
+    assert report["matched_playerlog"] == 3
+    on_22 = [r for r in rows
+             if r["player_name"] == "LeBron James" and r["date"] == "2025-10-22"]
+    assert len(on_22) == 1
+
+
+def test_a_genuine_playerlog_only_row_is_kept_and_reported(roll, tmp_path):
+    plog = pd.read_excel(tmp_path / "PLAYERLOG.xlsx")
+    extra = plog.iloc[[0]].copy()
+    extra["player_name"] = "Austin Reaves"
+    extra["fantasy_points"] = 21.5
+    pd.concat([plog, extra]).to_excel(tmp_path / "PLAYERLOG.xlsx", index=False)
+    rows, report = roll.build_rows("2025-26", roll._history)
+    assert report["playerlog_only"] == ["2025-10-21 Nick Austin Reaves"]
+    reaves = [r for r in rows if r["player_name"] == "Austin Reaves"]
+    assert len(reaves) == 1 and reaves[0]["slot"] == "" and reaves[0]["fantasy_points"] == 21.5
+
+
+def test_started_is_the_slot_rule_every_earlier_season_follows(roll):
+    rows, _ = roll.build_rows("2025-26", roll._history)
+    for r in rows:
+        assert r["started"] == (r["slot"] not in {"BN", "IL", "IL+"})
+
+
+def test_another_seasons_lineups_are_refused(roll, tmp_path):
+    lu = pd.read_excel(tmp_path / "LINEUPS.xlsx")
+    lu["season_year"] = "2026-2027"
+    lu.to_excel(tmp_path / "LINEUPS.xlsx", index=False)
+    with pytest.raises(ValueError, match="not 2025-2026"):
+        roll.build_rows("2025-26", roll._history)
+
+
+def test_season_sources_fall_back_to_the_archive(roll, tmp_path):
+    """After the reset, data/ is next season's. The archive has this one."""
+    lu = pd.read_excel(tmp_path / "LINEUPS.xlsx")
+    lu["season_year"] = "2026-2027"
+    lu.to_excel(tmp_path / "LINEUPS.xlsx", index=False)
+    arch = tmp_path / "archive" / "2025-26" / "data"
+    arch.mkdir(parents=True)
+    lu.assign(season_year="2025-2026").to_excel(arch / "LINEUPS.xlsx", index=False)
+    plog_path, lu_path = roll.season_data_paths("2025-26")
+    assert lu_path == arch / "LINEUPS.xlsx"
+    assert plog_path == arch / "PLAYERLOG.xlsx"
 
 
 # ---------------------------------------------------------------------------
@@ -224,9 +311,9 @@ def test_execute_appends_and_verifies(roll, monkeypatch):
     monkeypatch.setattr("sys.argv", ["rollup", "--execute", "--season", "2025-26"])
     assert roll.main() == 0
     data = json.loads(roll.HISTORY_JSON.read_text(encoding="utf-8"))
-    assert len(data) == 4  # 1 historical + 3 appended
+    assert len(data) == 5  # 1 historical + 4 appended
     new = [r for r in data if r["season_key"] == "2025-26"]
-    assert len(new) == 3
+    assert len(new) == 4
     assert roll.HISTORY_JSON.with_suffix(".json.bak").exists(), "must back up first"
 
 
@@ -235,7 +322,7 @@ def test_execute_is_idempotent_by_refusing_the_second_run(roll, monkeypatch):
     assert roll.main() == 0
     assert roll.main() == 1, "a second run must refuse rather than duplicate rows"
     data = json.loads(roll.HISTORY_JSON.read_text(encoding="utf-8"))
-    assert len([r for r in data if r["season_key"] == "2025-26"]) == 3
+    assert len([r for r in data if r["season_key"] == "2025-26"]) == 4
 
 
 def test_force_replaces_rather_than_duplicates(roll, monkeypatch):
@@ -246,8 +333,8 @@ def test_force_replaces_rather_than_duplicates(roll, monkeypatch):
     )
     assert roll.main() == 0
     data = json.loads(roll.HISTORY_JSON.read_text(encoding="utf-8"))
-    assert len([r for r in data if r["season_key"] == "2025-26"]) == 3
-    assert len(data) == 4
+    assert len([r for r in data if r["season_key"] == "2025-26"]) == 4
+    assert len(data) == 5
 
 
 # ---------------------------------------------------------------------------
@@ -330,3 +417,12 @@ def test_draft_rollup_rejects_picks_missing_required_fields(roll_drafts, tmp_pat
     status, msg = roll_drafts.rollup_drafts("2025-26", execute=True, force=False)
     assert status == "error"
     assert "missing" in msg
+
+
+def test_draft_rollup_refuses_another_seasons_picks(roll_drafts, tmp_path):
+    """Re-rolling 2025-26 in October would file 2026-27's draft under it."""
+    dj = tmp_path / "data" / "historical" / "all_drafts.json"
+    before = dj.read_text()
+    status, msg = roll_drafts.rollup_drafts("2024-25", execute=True, force=True)
+    assert status == "error" and "--skip-drafts" in msg
+    assert dj.read_text() == before
