@@ -234,3 +234,100 @@ def test_newsletter_puts_the_grid_in_betting_lines():
     without = nhg.generate_html("t", "s", sections, stats_report={"x": 1})
     assert "Week 2 Games Grid" in with_grid
     assert "Games Grid" not in without.split("<body")[1]
+
+
+# ---------------------------------------------------------------------------
+# Grid invariants, over random rosters and schedules
+# ---------------------------------------------------------------------------
+
+POSITIONS = ["PG", "SG", "SF", "PF", "C", "PG,SG", "SG,SF", "SF,PF", "PF,C", "PG,SG,SF"]
+TEAMS = sorted(ss.NBA_TEAMS)
+
+
+def _random_report(rng):
+    """A full pipeline run -- simulation, FA pool, grid -- on random inputs."""
+    names = [f"P{i}" for i in range(80)]
+    pinfo = ss.PlayerIndex({
+        n: info(rng.choice(TEAMS), rng.choice(POSITIONS), round(rng.uniform(5, 55), 1))
+        for n in names})
+    rosters = {m: names[i * 15:(i + 1) * 15] for i, m in enumerate(["A", "B", "C", "D"])}
+    start = date(2026, 11, 2)
+    games, days = [], 7
+    for k in range(days):
+        playing = rng.sample(TEAMS, 2 * rng.randint(0, 12))
+        d = date.fromordinal(start.toordinal() + k).isoformat()
+        games += [{"date": d, "home": playing[j], "away": playing[j + 1]}
+                  for j in range(0, len(playing), 2)]
+    weeks = [{"week": 3, "start_date": start.isoformat(),
+              "end_date": date.fromordinal(start.toordinal() + days - 1).isoformat()}]
+    out = {"players": [{"player_name": n, "out_weeks": [3]}
+                       for n in rng.sample(names, 6)]}
+    pool = ss.build_free_agent_pool(pinfo, rosters)
+    import unittest.mock as um
+    with um.patch.object(ss, "MANAGERS", list(rosters)):
+        up = ss._build_for_week_with_lineups(3, weeks, {"games": games}, rosters,
+                                             pinfo, out, free_agents=pool)
+    return {"schedule_strength": {"upcoming_week": up}}
+
+
+@pytest.mark.parametrize("seed", range(40))
+def test_row_totals_are_the_sum_of_their_days(seed):
+    import random
+    g = gg.build_grid(_random_report(random.Random(seed)))
+    for r in g["rows"]:
+        days = [c for c in r["cells"] if not c["off"]]
+        assert r["startable"] == sum(c["started"] for c in days)
+        assert r["fillable"] == sum(c["fillable"] for c in days)
+        assert r["holes"] == sum(c["holes"] for c in days)
+        assert r["overflow"] == sum(c["overflow"] for c in days)
+
+
+@pytest.mark.parametrize("seed", range(40))
+def test_every_cell_accounts_for_all_ten_seats(seed):
+    import random
+    g = gg.build_grid(_random_report(random.Random(seed)))
+    for r in g["rows"]:
+        for c in r["cells"]:
+            if c["off"]:
+                continue
+            assert c["started"] + c["holes"] == gg.STARTING_SLOTS
+            assert 0 <= c["fillable"] <= c["holes"]
+            assert len(c["open_slots"]) == c["holes"]
+
+
+def test_starts_plus_fillable_is_not_always_ten():
+    """Why the stronger claim is not tested as an invariant.
+
+    Nine starters, the only open seat is C, and the one free agent playing
+    tonight is a guard. Starts 9 + fillable 0 = 9. In a deep four-team pool
+    this is rare -- it held for every cell of 2025-26 week 20 -- but it is a
+    property of the data, not of the grid.
+    """
+    roster = {"PG": "PG", "SG": "SG", "G": "PG", "SF": "SF", "PF": "PF",
+              "F": "SF", "C": "C", "U1": "PG", "U2": "SG"}
+    pinfo = ss.PlayerIndex({n: info("BOS", p, 30.0) for n, p in roster.items()})
+    pinfo["FA Guard"] = info("BOS", "PG", 25.0)
+    pool = ss.build_free_agent_pool(pinfo, {"Nick": list(roster)})
+    r = ss.simulate_daily_lineups("Nick", list(roster), pinfo, {MON: {"BOS", "LAL"}}, {},
+                                  free_agents=pool)
+    day = r["daily_detail"][0]
+    assert day["started"] == 9 and day["open_slots"] == ["C"]
+    assert day["fillable"] == 0
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "Greedy fill is not a maximum matching. Short on 26 of 627 manager-days "
+    "in 2025-26 (5-12 starts per team), and it shows in the grid as a hole "
+    "next to benched players with games. Pending Nick's decision on the "
+    "exact fill (C1 foundation). Remove this marker when it lands."))
+def test_the_fill_starts_as_many_players_as_can_possibly_start():
+    """Nine players, nine seats they can fill -- greedy starts eight.
+
+    The SF/SG player goes to SG (tried before SF), and the PG/SG player
+    finds PG, SG, G and both Util taken. SF stays empty with a man benched.
+    """
+    av = [("p0", {"PG"}, 50), ("p1", {"PG"}, 49), ("p2", {"PG"}, 48),
+          ("p3", {"PF"}, 47), ("p4", {"PG"}, 46), ("p5", {"C", "PF"}, 45),
+          ("p6", {"SF", "SG"}, 44), ("p7", {"C", "PF"}, 43), ("p8", {"PG", "SG"}, 42)]
+    started, benched = ss.fill_daily_lineup(av)
+    assert len(started) == 9 and benched == []
