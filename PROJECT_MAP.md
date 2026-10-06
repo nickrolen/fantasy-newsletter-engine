@@ -94,8 +94,10 @@ These are the ones that decide something, as opposed to totalling something.
 - **`lineup_fill.py`** -- the one exact daily lineup fill (matroid greedy:
   most starters, then most projected points). schedule_strength and What-If
   use it. The betting and title-odds sims still start an unconstrained top
-  10 -- that is A4, and fixing it will make the -120.8 level bias look WORSE
-  while being correct (see C1_DESIGN in the project).
+  10 -- that is A4. Unconstrained lineups score MORE, and the published
+  -120.8 level bias means lines run too HIGH (backtest_metrics:
+  error = actual - projected), so the position bug is a plausible part of
+  that bias and fixing it should move it toward zero (C1_DESIGN, project).
 - **`marginal_value.py`** -- C1. `marginal_value(ctx, manager, adds, drops)`:
   expected points a roster change adds over a named window
   (this_week / regular_season / cup_seeding), keyed common random numbers,

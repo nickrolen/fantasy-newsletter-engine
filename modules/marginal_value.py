@@ -121,22 +121,54 @@ def window_weeks(window: str, current_week: int, season: str = None) -> list[int
     return list(range(nxt, last + 1))
 
 
-def cup_column_live(finish_distribution: dict, managers: Iterable[str]) -> bool:
-    """True when any of `managers` has a settled regular-season finish.
+def title_eliminated(records: dict, remaining_games: int, manager: str) -> bool:
+    """Exact, from standings alone: can `manager` no longer finish first?
 
-    finish_distribution is title-odds' {manager: {place: probability}}, in
-    probabilities or percentages. Once a finish is settled the regular-
-    season window no longer moves anything for that manager, and Cup
-    seeding is the live question.
+    records is {manager: (wins, losses)}; remaining_games is regular-season
+    matchups left (one a week). Eliminated when his wins plus every remaining
+    game cannot reach the leader's CURRENT wins. A reachable tie counts as
+    alive -- the tiebreaker could still go his way. No simulation involved.
+    """
+    mine = records[manager][0]
+    best_other = max((w for m, (w, _l) in records.items() if m != manager), default=0)
+    return mine + remaining_games < best_other
+
+
+def cup_column_live(
+    finish_distribution: dict,
+    managers: Iterable[str],
+    records: Optional[dict] = None,
+    remaining_games: Optional[int] = None,
+) -> bool:
+    """Should a trade involving `managers` show the Cup-seeding column?
+
+    Fires at BOTH ends of the regular-season race, for either manager:
+
+      settled   one finishing place holds >= CUP_COLUMN_SETTLED in the
+                title-odds simulation -- the runaway leader, or a team locked
+                into last;
+      out       exactly eliminated from first place (title_eliminated). No
+                title path left: he is playing for Cup seeding and the sixth
+                keeper. In a four-team league this is the commoner case and
+                it comes earlier.
+
+    KNOWN COUPLING (A4): "settled" reads simulator_title_odds, which fields an
+    unconstrained top 10 with no position limits. At a 0.90 threshold that
+    is probably harmless, but when A4 adds positions this input moves --
+    check this trigger then. "out" uses standings only and is unaffected.
+
+    finish_distribution may be probabilities or percentages.
     """
     for m in managers:
         dist = (finish_distribution or {}).get(m) or {}
         vals = [float(v) for v in dist.values()]
-        if not vals:
-            continue
-        scale = 100.0 if sum(vals) > 1.5 else 1.0
-        if max(vals) / scale >= CUP_COLUMN_SETTLED:
-            return True
+        if vals:
+            scale = 100.0 if sum(vals) > 1.5 else 1.0
+            if max(vals) / scale >= CUP_COLUMN_SETTLED:
+                return True
+        if records and remaining_games is not None and m in records:
+            if title_eliminated(records, remaining_games, m):
+                return True
     return False
 
 

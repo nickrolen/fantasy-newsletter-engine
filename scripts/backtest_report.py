@@ -35,6 +35,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from modules.backtest_metrics import (          # noqa: E402
     score_error_stats, margin_error_stats, standardized_residuals,
     dispersion_ratio, brier_score, brier_skill_score, log_loss, hit_rate,
+    ERROR_CONVENTION,
 )
 
 DEFAULT_INPUT = "data/backtest/published_lines.csv"
@@ -71,6 +72,7 @@ def compute(rows: list) -> dict:
     total_err = [(r["actual_a"] + r["actual_b"]) - r["total_line"] for r in rows]
 
     return {
+        "error_convention": ERROR_CONVENTION,
         "weeks": sorted({int(r["week"]) for r in rows}),
         "n_lines": len(rows),
         "level": score_error_stats(projected, actual),
@@ -102,6 +104,7 @@ def render(summary: dict) -> str:
     out.append("     RMSE         %8.1f FP" % level["rmse"])
     out.append("     %d of %d team-weeks landed below projection"
                % (level["below"], level["n"]))
+    out.append("     (%s)" % ERROR_CONVENTION)
 
     out.append("\n2. DIFFERENCE -- matchup margins (n=%d)" % margin["n"])
     out.append("     mean error   %+8.1f FP   (t = %+.2f)" % (margin["bias"], margin["t_stat"]))

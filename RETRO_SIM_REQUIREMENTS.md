@@ -89,7 +89,10 @@ the tails are where level error and absence variance stack. So:
   accuracy of published win probabilities.
 - They cannot attribute the measured -120.8 level bias (weeks 17-22, n=12)
   between Yahoo's projections and the model -- the harness never sees Yahoo's
-  projections.
+  projections. Sign: error = actual - projected, so -120.8 means the lines
+  run too HIGH (backtest_metrics.ERROR_CONVENTION). Known model-side
+  candidate: the simulators start an unconstrained top 10 with no position
+  limits, which overstates points (A4).
 - The check that does measure it: re-price 2026-27's weeks from the frozen
   `report_weekNN` inputs with and without A2, and score both against what
   happened. That needs a season of captures; it is not available before

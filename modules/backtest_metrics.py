@@ -82,6 +82,15 @@ def chi2_quantile(p: float, k: int) -> float:
 # 1. LEVEL -- are the team-score projections right on average?
 # =============================================================================
 
+# The one sign convention for every error in this module. Written out because
+# a reading with the opposite convention inverts every conclusion downstream:
+# on 2026-10-06 a design note read the -120.8 level bias as "lines too low"
+# and concluded a correct fix would look like a regression. It is the
+# reverse -- negative means the projections run HIGH.
+ERROR_CONVENTION = ("error = actual - projected; a NEGATIVE bias means the "
+                    "projections run too HIGH (actual scores land below them)")
+
+
 def score_error_stats(projected: Sequence[float],
                       actual: Sequence[float]) -> dict:
     """

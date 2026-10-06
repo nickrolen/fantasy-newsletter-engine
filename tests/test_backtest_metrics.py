@@ -162,3 +162,22 @@ def test_log_loss_is_finite_when_certain_and_wrong():
 def test_hit_rate_counts_agreement():
     out = hit_rate([True, True, False], [True, False, False])
     assert out["correct"] == 2 and out["rate"] == pytest.approx(2 / 3)
+
+
+def test_the_published_bias_means_lines_too_high():
+    """Pin the reading, not just the arithmetic. The -120.8 headline was read
+    backwards once (2026-10-06) and the wrong reading flipped a design
+    conclusion about A4. The summary now carries the convention with it, and
+    the archived lines must agree: most team-weeks finished BELOW projection."""
+    import csv
+    from pathlib import Path
+    from modules.backtest_metrics import ERROR_CONVENTION
+    assert "actual - projected" in ERROR_CONVENTION and "too HIGH" in ERROR_CONVENTION
+    rows = list(csv.DictReader(open(Path(__file__).parent.parent
+                                    / "data/backtest/published_lines.csv")))
+    proj = [float(r[k]) for r in rows for k in ("proj_a", "proj_b")]
+    act = [float(r[k]) for r in rows for k in ("actual_a", "actual_b")]
+    stats = score_error_stats(proj, act)
+    assert stats["bias"] < 0
+    assert stats["below"] > stats["n"] / 2
+    assert sum(a < p for a, p in zip(act, proj)) == stats["below"]
