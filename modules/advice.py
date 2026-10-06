@@ -1,0 +1,491 @@
+"""
+advice.py -- C2 (waivers) and C3 (trades), built on marginal_value (C1).
+
+Design and decisions: claude/C2_C3_DESIGN.md in the project. The short form:
+
+WHY
+  In a four-team league with a deep wire, availability is not scarce, fit
+  is. "Who plays most" is the same answer for everyone (the cut streamer
+  board). What a move is worth to THIS roster is not.
+
+THE BAR -- proportional to the window
+  A recommendation must clear BOTH:
+    points > 2 SE                      (it is not Monte Carlo noise)
+    points >= 10 per week of window    (it is worth acting on)
+  A flat 10 would be a real move in one week and 0.67 a week over fifteen,
+  and 2 SE on a season-long value is itself 4-16 points, so a flat floor let
+  meaningless season-long recs through. Floor = FLOOR_PER_WEEK x weeks.
+
+C2 -- WAIVERS, per manager
+  this_week       a PLAN of up to the remaining adds: best (add, drop), apply
+                  it, choose the next on the new roster -- two streamers who
+                  fill the same Tuesday are worth less together.
+  regular_season  the top three (add, drop) pairs.
+  Drops never touch the protected keepers, derived THIS run from this run's
+  keepability (never a stored list); no keepability -> no drop advice.
+  CONTESTED: the add window opens 12:01 Monday and the newsletter lands in
+  it, in front of all four managers at once. A player recommended to more
+  than one manager is labelled with who else he was recommended to, and
+  each rec carries the best alternative -- the section never promises one
+  player to four people.
+
+C3 -- TRADES, all six pairs, published automatically
+  Gains are measured against NOT trading, a baseline nobody competes on.
+  Every trade shows both sides' gains AND the differential: in a four-team
+  league a trade is a two-on-two move, and both parties gain on the two
+  managers not in it. Nothing calls a trade fair. Eligibility: both sides
+  clear the bar. Order: min(gain) -- an ACCEPTABILITY heuristic (the
+  reluctant side decides), labelled as such. One trade per pair, four shown,
+  and every eligible trade not shown is counted out loud.
+
+AGES
+  A still-best recommendation is shown again with its age ("on the table
+  since week 3"). Absent two or more weeks, the age restarts.
+
+Nothing here opens a file. Inputs arrive built (marginal_value contexts,
+rosters, keepability, standings).
+"""
+
+from __future__ import annotations
+
+import itertools
+import time
+from dataclasses import dataclass, field, asdict
+from typing import Optional, Sequence
+
+from . import marginal_value as mv
+from .data_loader import PlayerIndex
+
+FLOOR_PER_WEEK = 10.0
+SE_MULT = 2.0
+SHORTLIST_ADDS = 10
+SHORTLIST_DROPS = 3
+SHOWN_TRADES = 4
+TRADES_RESCORED_PER_PAIR = 20
+TWO_FOR_ONE_SEEDS = 10
+TWO_FOR_ONE_EXTRA = 6
+AGE_RESET_GAP = 2          # absent this many weeks or more -> age restarts
+
+
+def floor_for(ctx: mv.MVContext) -> float:
+    return FLOOR_PER_WEEK * len(ctx.weeks)
+
+
+def clears(res: mv.MVResult, ctx: mv.MVContext) -> bool:
+    return res.points > SE_MULT * res.se and res.points >= floor_for(ctx)
+
+
+# =============================================================================
+# Records
+# =============================================================================
+
+@dataclass
+class Rec:
+    manager: str
+    window: str
+    add: str
+    drop: Optional[str]
+    points: float
+    se: float
+    starts: float
+    per_week: float
+    floor: float
+    step: int = 1
+    runner_up: Optional[dict] = None       # best alternative add (different player)
+    contested_with: list = field(default_factory=list)
+    first_shown_week: Optional[int] = None
+
+
+@dataclass
+class WaiverPlan:
+    manager: str
+    adds_remaining: int
+    this_week: list
+    regular_season: list
+    protected: list
+    protected_asof_week: Optional[int]
+    note: str = ""
+
+
+@dataclass
+class Trade:
+    manager_a: str
+    manager_b: str
+    a_sends: list
+    b_sends: list
+    b_drops: Optional[str]          # forced drop when B receives two for one
+    a_drops: Optional[str]
+    gain_a: float
+    se_a: float
+    gain_b: float
+    se_b: float
+    differential: float             # gain_a - gain_b: who moves ahead of whom
+    acceptability: float            # min(gain_a, gain_b): ORDER only, not fairness
+    window: str = "regular_season"
+    cup: Optional[dict] = None      # {"gain_a","gain_b","differential"} when live
+    keepability_delta_a: Optional[float] = None
+    keepability_delta_b: Optional[float] = None
+    keeper_flags: list = field(default_factory=list)
+    involves_commissioner: bool = False
+    first_shown_week: Optional[int] = None
+
+
+@dataclass
+class Advice:
+    ran: bool
+    reason: str
+    week: int
+    plans: list
+    trades: list
+    counts: dict
+    runtime_s: float
+    bar: dict
+
+
+# =============================================================================
+# Protected keepers -- derived, dated, checked
+# =============================================================================
+
+def protected_keepers(keeper_watch: Optional[dict], week: int, rosters: dict,
+                      keeper_counts: dict) -> tuple[Optional[dict], Optional[int]]:
+    """{manager: [names]} = each manager's top-K by THIS run's keepability.
+
+    Raises if keeper_watch is stamped for a different week -- a stale
+    keepability table is the rot this replaces. Returns (None, None) when
+    there is no keepability at all; callers then give no drop advice.
+    """
+    if not keeper_watch or not keeper_watch.get("players"):
+        return None, None
+    stamped = keeper_watch.get("week")
+    if stamped != week:
+        raise ValueError(f"keeper_watch is for week {stamped}, report is week {week}: "
+                         "protected keepers would come from a stale table")
+    by_mgr: dict = {m: [] for m in rosters}
+    for p in keeper_watch["players"]:
+        if p.get("manager") in by_mgr:
+            by_mgr[p["manager"]].append((p.get("keepability_score") or 0.0, p["player_name"]))
+    out = {}
+    for m, scored in by_mgr.items():
+        k = int(keeper_counts.get(m, 0))
+        on_roster = PlayerIndex({n: n for n in rosters[m]})
+        keep = [on_roster[n] for _s, n in sorted(scored, reverse=True) if n in on_roster][:k]
+        out[m] = keep
+    return out, week
+
+
+def keepability_index(keeper_watch: Optional[dict]) -> PlayerIndex:
+    idx = PlayerIndex()
+    for p in (keeper_watch or {}).get("players", []):
+        idx[p["player_name"]] = float(p.get("keepability_score") or 0.0)
+    return idx
+
+
+# =============================================================================
+# C2 -- waivers
+# =============================================================================
+
+def _with_roster(ctx: mv.MVContext, manager: str, roster: list):
+    """Temporarily evaluate against `roster` (restored by the caller)."""
+    saved = ctx.rosters[manager]
+    ctx.rosters[manager] = list(roster)
+    return saved
+
+
+@dataclass
+class _Scored:
+    """MVResult-shaped: what clears() and _rec() read."""
+    points: float
+    se: float
+    starts: float
+
+
+def _best_pairs(short: mv.MVContext, full: mv.MVContext, manager: str,
+                roster: list, fas: Sequence[str], drop_pool: Optional[list],
+                rest: Optional[tuple] = None) -> list:
+    """Full-sim results for the shortlisted (add, drop) pairs, best first.
+
+    `rest` = (short, full) contexts for the regular season AFTER this week.
+    When given (the this_week plan), a drop is charged what the dropped
+    player is worth ABOVE REPLACEMENT for the rest of the season:
+
+        cost(d) = max(0, -max_f MV_rest(add f, drop d))
+
+    i.e. zero if some free agent would match him from next week on, large
+    for a star. Two wrong versions came first, both caught reading 2025-26
+    week 8: charging only this week (Benton cut LeBron for +75), then
+    charging his whole rest-of-season (no stream ever cleared -- it ignored
+    that the slot refills from a deep wire next week).
+    """
+    s_saved = _with_roster(short, manager, roster)
+    f_saved = _with_roster(full, manager, roster)
+    rests = None
+    if rest is not None and rest[1].weeks:
+        rests = (_with_roster(rest[0], manager, roster), _with_roster(rest[1], manager, roster))
+    cost_cache: dict = {}
+
+    def replacement_cost(d, ctx_rest, candidates):
+        """(cost >= 0, se) of losing d after this week, net of the best
+        replacement among `candidates`."""
+        key = (d, id(ctx_rest))
+        if key in cost_cache:
+            return cost_cache[key]
+        best = None
+        for f in candidates:
+            r = mv.marginal_value(ctx_rest, manager, adds=[f], drops=[d])
+            if best is None or r.points > best.points:
+                best = r
+        out = (max(0.0, -best.points), best.se) if best is not None else (0.0, 0.0)
+        cost_cache[key] = out
+        return out
+
+    try:
+        adds = sorted(fas, key=lambda f: -mv.marginal_value(short, manager, adds=[f]).points)
+        adds = adds[:SHORTLIST_ADDS]
+        repl = []
+        if rests is not None:
+            repl = sorted(fas, key=lambda f: -mv.marginal_value(rest[0], manager, adds=[f]).points)
+            repl = repl[:SHORTLIST_ADDS]
+        if drop_pool is None:
+            pairs = [(a, None) for a in adds]
+        else:
+            def drop_cost(d):
+                c = mv.marginal_value(short, manager, drops=[d]).points
+                if rests is not None:
+                    c -= replacement_cost(d, rest[0], repl)[0]
+                return c
+            drops = sorted(drop_pool, key=lambda d: -drop_cost(d))
+            pairs = [(a, d) for a in adds for d in drops[:SHORTLIST_DROPS]]
+        scored = []
+        for a, d in pairs:
+            r = mv.marginal_value(full, manager, adds=[a], drops=[d] if d else [])
+            if rests is not None and d is not None:
+                cost, cse = replacement_cost(d, rest[1], [f for f in repl if f != a])
+                if cost:
+                    r = _Scored(points=round(r.points - cost, 2),
+                                se=round((r.se ** 2 + cse ** 2) ** 0.5, 2),
+                                starts=r.starts)
+            scored.append((r, a, d))
+        scored.sort(key=lambda t: -t[0].points)
+        return scored
+    finally:
+        short.rosters[manager] = s_saved
+        full.rosters[manager] = f_saved
+        if rests is not None:
+            rest[0].rosters[manager], rest[1].rosters[manager] = rests
+
+
+def _rec(res, ctx, manager, add, drop, step, alt) -> Rec:
+    return Rec(manager=manager, window=ctx.window, add=add, drop=drop,
+               points=res.points, se=res.se, starts=res.starts,
+               per_week=round(res.points / max(1, len(ctx.weeks)), 1),
+               floor=floor_for(ctx), step=step,
+               runner_up=({"add": alt[1], "drop": alt[2], "points": alt[0].points}
+                          if alt else None))
+
+
+def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
+                protected: Optional[list], adds_remaining: int,
+                protected_week: Optional[int]) -> WaiverPlan:
+    """C2 for one manager. ctxs: {window: (short_ctx, full_ctx)}."""
+    roster = list(ctxs["this_week"][1].rosters[manager])
+    note = ""
+    prot = PlayerIndex({p: 1 for p in (protected or [])})
+    # A rostered player with no projection is valued at 0.0 by C1, so he
+    # would always look like the free drop. We cannot know that; never
+    # recommend dropping him.
+    unknown = set(ctxs["this_week"][1].unprojected)
+    if unknown:
+        prot = PlayerIndex({**{p: 1 for p in (protected or [])}, **{p: 1 for p in unknown}})
+    if protected is None:
+        drop_pool = None
+        note = ("No keepability this week, so no drop advice: values are before "
+                "whatever you drop.")
+    else:
+        drop_pool = [p for p in roster if p not in prot]
+
+    # this_week: sequential plan. Never drop a protected keeper, and never
+    # drop someone this same plan just added.
+    short, full = ctxs["this_week"]
+    plan, cur, pool, added = [], list(roster), list(free_agents), set()
+    for step in range(1, max(0, adds_remaining) + 1):
+        dp = None if drop_pool is None else [p for p in cur if p not in prot and p not in added]
+        scored = _best_pairs(short, full, manager, cur, pool, dp,
+                             rest=ctxs.get("rest_of_season"))
+        if not scored or not clears(scored[0][0], full):
+            break
+        best = scored[0]
+        alt = next((s for s in scored[1:] if s[1] != best[1]), None)
+        plan.append(_rec(best[0], full, manager, best[1], best[2], step, alt))
+        cur = [p for p in cur if p != best[2]] + [best[1]]
+        pool = [f for f in pool if f != best[1]]
+        added.add(best[1])
+
+    # regular_season: top three distinct adds on the current roster
+    season = []
+    if "regular_season" in ctxs and ctxs["regular_season"][1].weeks:
+        short, full = ctxs["regular_season"]
+        scored = _best_pairs(short, full, manager, roster, list(free_agents), drop_pool)
+        seen = set()
+        distinct = []
+        for s in scored:
+            if s[1] not in seen:
+                seen.add(s[1])
+                distinct.append(s)
+        for i, s in enumerate(distinct[:3]):
+            if clears(s[0], full):
+                alt = distinct[i + 1] if i + 1 < len(distinct) else None
+                season.append(_rec(s[0], full, manager, s[1], s[2], i + 1, alt))
+    return WaiverPlan(manager=manager, adds_remaining=adds_remaining, this_week=plan,
+                      regular_season=season, protected=list(protected or []),
+                      protected_asof_week=protected_week, note=note)
+
+
+def mark_contested(plans: list) -> None:
+    """Label every rec whose player is also recommended to another manager
+    in the same window. Mutates."""
+    for window in ("this_week", "regular_season"):
+        holders: dict = {}
+        for p in plans:
+            for r in getattr(p, window):
+                holders.setdefault(r.add, set()).add(p.manager)
+        for p in plans:
+            for r in getattr(p, window):
+                r.contested_with = sorted(holders[r.add] - {p.manager})
+
+
+# =============================================================================
+# C3 -- trades
+# =============================================================================
+
+def _least_costly_drop(ctx, manager, exclude) -> Optional[str]:
+    pool = [p for p in ctx.rosters[manager] if p not in exclude]
+    if not pool:
+        return None
+    return max(pool, key=lambda d: mv.marginal_value(ctx, manager, drops=[d]).points)
+
+
+def _side(ctx, mgr, gives, gets, drop):
+    return mv.marginal_value(ctx, mgr, adds=list(gets),
+                             drops=list(gives) + ([drop] if drop else []))
+
+
+def find_trades(short: mv.MVContext, full: mv.MVContext, protected: Optional[dict],
+                keep_idx: PlayerIndex, commissioner: Optional[str],
+                cup_ctx: Optional[mv.MVContext] = None,
+                cup_live=lambda a, b: False) -> tuple[list, dict]:
+    """All eligible trades (best first) and the search counts."""
+    managers = list(full.rosters)
+    prot = {m: PlayerIndex({p: 1 for p in (protected or {}).get(m, [])}) for m in managers}
+    considered, candidates = 0, []
+
+    for a, b in itertools.combinations(managers, 2):
+        ra, rb = list(short.rosters[a]), list(short.rosters[b])
+        ones = []
+        for x, y in itertools.product(ra, rb):
+            ga = _side(short, a, [x], [y], None).points
+            gb = _side(short, b, [y], [x], None).points
+            considered += 1
+            ones.append((min(ga, gb), [x], [y], None, None))
+        ones.sort(key=lambda t: -t[0])
+        pool = [t for t in ones if t[0] > 0][:TRADES_RESCORED_PER_PAIR]
+
+        # two-for-one, seeded from the best one-for-ones
+        for _m, xs, ys, _da, _db in ones[:TWO_FOR_ONE_SEEDS]:
+            for giver, taker, give1, get1, extras_from in ((a, b, xs, ys, ra), (b, a, ys, xs, rb)):
+                cheap = sorted((p for p in extras_from if p not in give1),
+                               key=lambda p: -mv.marginal_value(short, giver, drops=[p]).points)
+                for x2 in cheap[:TWO_FOR_ONE_EXTRA]:
+                    gives2 = give1 + [x2]
+                    excl = set(get1) | {p for p in short.rosters[taker] if p in prot[taker]}
+                    d = _least_costly_drop(short, taker, excl)
+                    g_giver = _side(short, giver, gives2, get1, None).points
+                    g_taker = _side(short, taker, get1, gives2, d).points
+                    considered += 1
+                    if min(g_giver, g_taker) > 0:
+                        if giver == a:
+                            pool.append((min(g_giver, g_taker), gives2, get1, None, d))
+                        else:
+                            pool.append((min(g_giver, g_taker), get1, gives2, d, None))
+        pool.sort(key=lambda t: -t[0])
+        for _m, a_sends, b_sends, a_drop, b_drop in pool[:TRADES_RESCORED_PER_PAIR]:
+            ra_ = _side(full, a, a_sends, b_sends, a_drop)
+            rb_ = _side(full, b, b_sends, a_sends, b_drop)
+            if not (clears(ra_, full) and clears(rb_, full)):
+                continue
+            ka = sum(keep_idx.get(p, 0.0) for p in b_sends) - sum(keep_idx.get(p, 0.0) for p in a_sends)
+            flags = [f"{m} gives up keeper-tier {p}" for m, sent in ((a, a_sends), (b, b_sends))
+                     for p in sent if p in prot[m]]
+            candidates.append(Trade(
+                manager_a=a, manager_b=b, a_sends=a_sends, b_sends=b_sends,
+                a_drops=a_drop, b_drops=b_drop,
+                gain_a=ra_.points, se_a=ra_.se, gain_b=rb_.points, se_b=rb_.se,
+                differential=round(ra_.points - rb_.points, 1),
+                acceptability=min(ra_.points, rb_.points),
+                keepability_delta_a=round(ka, 1) if keep_idx else None,
+                keepability_delta_b=round(-ka, 1) if keep_idx else None,
+                keeper_flags=flags,
+                involves_commissioner=commissioner in (a, b)))
+
+    candidates.sort(key=lambda t: -t.acceptability)
+    # de-duplicate identical deals reached two ways
+    seen, unique = set(), []
+    for t in candidates:
+        key = (t.manager_a, t.manager_b, tuple(sorted(t.a_sends)), tuple(sorted(t.b_sends)))
+        if key not in seen:
+            seen.add(key)
+            unique.append(t)
+
+    shown, pairs = [], set()
+    for t in unique:
+        if (t.manager_a, t.manager_b) in pairs:
+            continue
+        pairs.add((t.manager_a, t.manager_b))
+        shown.append(t)
+        if len(shown) == SHOWN_TRADES:
+            break
+    for t in shown:
+        if cup_ctx is not None and cup_ctx.weeks and cup_live(t.manager_a, t.manager_b):
+            ca = _side(cup_ctx, t.manager_a, t.a_sends, t.b_sends, t.a_drops)
+            cb = _side(cup_ctx, t.manager_b, t.b_sends, t.a_sends, t.b_drops)
+            t.cup = {"gain_a": ca.points, "gain_b": cb.points,
+                     "differential": round(ca.points - cb.points, 1)}
+    counts = {"considered": considered, "eligible": len(unique), "shown": len(shown),
+              "not_shown": len(unique) - len(shown),
+              "pairs_with_eligible": len({(t.manager_a, t.manager_b) for t in unique})}
+    return shown, counts
+
+
+# =============================================================================
+# Ages
+# =============================================================================
+
+def trade_key(t: Trade) -> str:
+    return "c3:" + "|".join(sorted(t.a_sends + t.b_sends))
+
+
+def rec_key(r: Rec) -> str:
+    return f"c2:{r.manager}:{r.window}:{r.add}"
+
+
+def stamp_ages(entries: list, keyfn, store: Optional[dict], week: int) -> None:
+    """Set first_shown_week from the tracker store and record this week.
+    Absent AGE_RESET_GAP weeks or more -> the age restarts."""
+    if store is None:
+        for e in entries:
+            e.first_shown_week = week
+        return
+    for e in entries:
+        k = keyfn(e)
+        rec = store.get(k)
+        if rec is None or week - rec.get("last_shown_week", week) > AGE_RESET_GAP:
+            rec = {"first_shown_week": week, "times_shown": 0}
+        if rec.get("last_shown_week") != week:
+            rec["times_shown"] = rec.get("times_shown", 0) + 1
+        rec["last_shown_week"] = week
+        rec.setdefault("first_shown_week", week)
+        store[k] = rec
+        e.first_shown_week = rec["first_shown_week"]
+
+
+def to_dict(advice: Advice) -> dict:
+    return asdict(advice)
