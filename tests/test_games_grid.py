@@ -33,13 +33,21 @@ def test_open_slots_are_listed_per_seat_in_slot_order():
     assert ss.open_slot_list(remaining) == ["PG", "SG", "SF", "PF", "C", "G", "F", "Util", "Util"]
 
 
-def test_fillable_is_an_exact_matching_not_a_greedy_pass():
-    """Open: one C seat, one PF seat. A plays C or PF, B only C.
-    Greedy puts A at C and strands B; both seats are fillable."""
-    remaining = {name: 0 for name, _e, _c in ss.SLOT_DEFINITIONS}
-    remaining.update({"C": 1, "PF": 1})
-    assert ss.count_fillable(remaining, [{"C", "PF"}, {"C"}]) == 2
-    assert ss.count_fillable(remaining, [{"PG"}]) == 0
+def test_fillable_lets_existing_starters_move():
+    """2025-26 week 20, Hayden's Saturday, in miniature: the only open seat
+    is F, a forward sits in Util, and the free agent is a point guard. Slide
+    the forward to F and the guard takes Util -- one fillable hole. The old
+    check ("does he fit a seat left open?") said zero."""
+    roster = {"PG1": "PG", "SG1": "SG", "G1": "PG", "SF1": "SF", "PF1": "PF",
+              "C1": "C", "C2": "C", "U1": "SF", "U2": "SG"}
+    pinfo = ss.PlayerIndex({n: info("BOS", p, 30.0) for n, p in roster.items()})
+    pinfo["FA Guard"] = info("BOS", "PG", 25.0)
+    pool = ss.build_free_agent_pool(pinfo, {"Nick": list(roster)})
+    r = ss.simulate_daily_lineups("Nick", list(roster), pinfo, {MON: {"BOS", "LAL"}}, {},
+                                  free_agents=pool)
+    day = r["daily_detail"][0]
+    assert day["started"] == 9
+    assert day["fillable"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -103,53 +111,6 @@ def test_the_free_agent_pool_never_changes_startable_games():
         assert plain[k] == rich[k]
 
 
-def _open(**caps):
-    rem = {name: 0 for name, _e, _c in ss.SLOT_DEFINITIONS}
-    rem.update(caps)
-    return rem
-
-
-def test_streamers_rank_by_points_added_not_games_then_projection():
-    """Two games at 20 (40 pts) loses to one game at 50 (50 pts). The old
-    ranking -- most holes, ties by projection -- put the 20 first."""
-    full = {name: cap for name, _e, cap in ss.SLOT_DEFINITIONS}
-    days = [(MON, {"BOS", "MIA"}, dict(full)), (TUE, {"BOS"}, dict(full))]
-    pool = [("Two Games", "BOS", {"C"}, 20.0), ("One Game", "MIA", {"C"}, 50.0)]
-    board = ss.build_streamer_board({"Nick": days}, pool)
-    assert [r["player"] for r in board] == ["One Game", "Two Games"]
-    assert board[1]["managers"]["Nick"] == {
-        "holes_filled": 2, "points_added": 40.0, "days": ["2026-10-26", "2026-10-27"]}
-
-
-def test_board_scores_every_fa_against_every_roster():
-    """A full night for one manager is a hole for another; the board shows it."""
-    days_nick = [(MON, {"BOS"}, _open(Util=1)), (TUE, {"BOS"}, _open(Util=1))]
-    days_hay = [(MON, {"BOS"}, _open()), (TUE, {"BOS"}, _open(Util=1))]  # Mon full
-    board = ss.build_streamer_board({"Nick": days_nick, "Hayden": days_hay},
-                                    [("FA", "BOS", {"SF"}, 30.0)])
-    assert board[0]["managers"]["Nick"]["holes_filled"] == 2
-    assert board[0]["managers"]["Hayden"]["holes_filled"] == 1
-
-
-def test_positional_fit_counts_when_util_is_closed():
-    days = [(MON, {"BOS"}, _open(C=1))]
-    board = ss.build_streamer_board({"Nick": days}, [("G", "BOS", {"PG"}, 30.0)])
-    assert board == []
-
-
-def test_private_fill_state_never_reaches_the_report():
-    pinfo = ss.PlayerIndex({"A": info("LAL", "PG", 40.0), "FA": info("BOS", "C", 30.0)})
-    weeks = [{"week": 2, "start_date": "2026-10-26", "end_date": "2026-10-26"}]
-    nba = {"games": [{"date": "2026-10-26", "home": "LAL", "away": "BOS"}]}
-    pool = ss.build_free_agent_pool(pinfo, {"Nick": ["A"]})
-    up = ss._build_for_week_with_lineups(2, weeks, nba, {"Nick": ["A"]}, pinfo, {},
-                                         free_agents=pool)
-    import json
-    json.dumps(up)  # dates and sets would raise
-    assert "_remaining_by_day" not in up["managers"]["Nick"]
-    assert up["streamer_board"][0]["player"] == "FA"
-
-
 # ---------------------------------------------------------------------------
 # The grid
 # ---------------------------------------------------------------------------
@@ -159,13 +120,6 @@ def _report():
         "week": 2, "start_date": "2026-10-26", "end_date": "2026-10-28",
         "nba_games_by_day": {"2026-10-26": 5, "2026-10-28": 11},
         "free_agent_pool_size": 60,
-        "streamer_board": [{"player": "Josh Hart", "nba_team": "NYK",
-                            "positions": "SF", "proj_fppg": 28.8,
-                            "best_points_added": 57.6, "managers": {
-                                "Nick": {"holes_filled": 2, "points_added": 57.6,
-                                         "days": ["2026-10-26", "2026-10-28"]},
-                                "Hayden": {"holes_filled": 0, "points_added": 0.0,
-                                           "days": []}}}],
         "managers": {
             "Hayden": {"startable_games": 20, "unmatched_players": [],
                        "daily_detail": [
@@ -190,9 +144,7 @@ def test_grid_marks_game_free_days_and_totals_holes():
     row = g["rows"][1]
     assert row["cells"][1]["off"] is True
     assert row["holes"] == 3 and row["fillable"] == 3 and row["overflow"] == 2
-    hart = g["board"][0]
-    assert [c["manager"] for c in hart["cells"]] == ["Hayden", "Nick"]
-    assert hart["cells"][1]["day_labels"] == ["Mon", "Wed"]
+    assert "board" not in g
 
 
 def test_no_data_renders_nothing():
@@ -208,7 +160,7 @@ def test_markdown_tells_the_drafting_chat_not_to_retype_it():
     assert "7 (3 fillable: C,Util,Util)" in md
     assert "10 +2 bench" in md
     assert "| Manager | Starts | Fillable holes | Mon 10/26" in md
-    assert "| Josh Hart (NYK, SF, 28.8 proj) | 0 / 0.0 | 2 / 57.6 |" in md
+    assert "streamer" not in md.lower()
 
 
 def test_html_highlights_fillable_holes_and_escapes_names():
@@ -217,6 +169,7 @@ def test_html_highlights_fillable_holes_and_escapes_names():
     assert head.index(">Starts<") < head.index(">Fillable<") < head.index("Mon 10/26")
     assert '<td class="gg-key gg-top">20</td>' in out     # league-best Starts
     assert "gg-fill" not in out                            # no per-day shading
+    assert "streamer" not in out.lower()                   # board cut for week 1
     assert "Deep &lt;Guy&gt;" in out and "Deep <Guy>" not in out
     assert "Benched with a game: X, Y" in out
 
@@ -315,19 +268,64 @@ def test_starts_plus_fillable_is_not_always_ten():
     assert day["fillable"] == 0
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "Greedy fill is not a maximum matching. Short on 26 of 627 manager-days "
-    "in 2025-26 (5-12 starts per team), and it shows in the grid as a hole "
-    "next to benched players with games. Pending Nick's decision on the "
-    "exact fill (C1 foundation). Remove this marker when it lands."))
 def test_the_fill_starts_as_many_players_as_can_possibly_start():
-    """Nine players, nine seats they can fill -- greedy starts eight.
+    """Nine players, nine seats they can fill -- the old greedy started eight.
 
-    The SF/SG player goes to SG (tried before SF), and the PG/SG player
-    finds PG, SG, G and both Util taken. SF stays empty with a man benched.
+    The SF/SG player went to SG (tried before SF), and the PG/SG player
+    found PG, SG, G and both Util taken: SF empty, a man benched. Was an
+    xfail pinning the bug until the exact fill landed.
     """
     av = [("p0", {"PG"}, 50), ("p1", {"PG"}, 49), ("p2", {"PG"}, 48),
           ("p3", {"PF"}, 47), ("p4", {"PG"}, 46), ("p5", {"C", "PF"}, 45),
           ("p6", {"SF", "SG"}, 44), ("p7", {"C", "PF"}, 43), ("p8", {"PG", "SG"}, 42)]
     started, benched = ss.fill_daily_lineup(av)
     assert len(started) == 9 and benched == []
+
+
+def _brute_best(players):
+    """Max (starters, projected points) by trying every subset, small rosters."""
+    import itertools
+    from modules.lineup_fill import SEATS
+    def seatable(sub):
+        def go(i, used):
+            if i == len(sub):
+                return True
+            return any(si not in used and (sub[i][1] & el) and go(i + 1, used | {si})
+                       for si, (_n, el) in enumerate(SEATS))
+        return go(0, frozenset())
+    best = (0, 0.0)
+    for k in range(min(len(players), 10), -1, -1):
+        for sub in itertools.combinations(players, k):
+            if seatable(sub):
+                best = max(best, (k, round(sum(p[2] for p in sub), 6)))
+        if best[0] == k:
+            break
+    return best
+
+
+@pytest.mark.parametrize("seed", range(60))
+def test_exact_fill_matches_brute_force(seed):
+    """Most starters, then most projected points -- checked by exhaustion."""
+    import random
+    from modules.lineup_fill import exact_fill
+    rng = random.Random(seed)
+    players = [(f"p{i}", frozenset(rng.choice(POSITIONS).split(",")),
+                round(rng.uniform(5, 55), 1)) for i in range(rng.randint(6, 12))]
+    started, benched, assignment = exact_fill(players)
+    proj = {p[0]: p[2] for p in players}
+    assert (len(started), round(sum(proj[n] for n in started), 6)) == _brute_best(players)
+    assert sorted(started) == sorted(assignment.values())
+    assert set(started) | set(benched) == {p[0] for p in players}
+
+
+def test_what_if_optimizer_is_exact_too():
+    """lineup_optimizer.optimize_lineup was a slot-first greedy."""
+    from modules.lineup_optimizer import AvailablePlayer, optimize_lineup
+    av = [AvailablePlayer("p0", ["PG"], 50), AvailablePlayer("p1", ["PG"], 49),
+          AvailablePlayer("p2", ["PG"], 48), AvailablePlayer("p3", ["PF"], 47),
+          AvailablePlayer("p4", ["PG"], 46), AvailablePlayer("p5", ["C", "PF"], 45),
+          AvailablePlayer("p6", ["SF", "SG"], 44), AvailablePlayer("p7", ["C", "PF"], 43),
+          AvailablePlayer("p8", ["PG", "SG"], 42)]
+    lineup = optimize_lineup(av)
+    assert len(lineup.starters) == 9 and lineup.bench == []
+    assert len(lineup.unfilled_slots) == 1

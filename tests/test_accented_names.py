@@ -233,3 +233,22 @@ def test_the_gate_reports_a_rename(tmp_path):
     assert mod._without_suffix("Bobby Portis Jr.") == mod._without_suffix("Bobby Portis")
     assert (mod._last_name_with_initial("S. Gilgeous-Alexander")
             == mod._last_name_with_initial("Shai Gilgeous-Alexander"))
+
+
+def test_free_agents_does_not_list_a_respelled_rostered_player():
+    """Yahoo wrote 'S. Gilgeous-Alexander' (2026-10-05); rosters say 'Shai'.
+    The old get_free_agents() compared normalised names and listed him."""
+    import pandas as pd
+    from modules.data_loader import free_agents
+    pl = pd.DataFrame({"player_name": ["S. Gilgeous-Alexander", "Bobby Portis Jr.",
+                                        "Nikola Jokic", "Josh Hart"]})
+    rosters = {"Nick": ["Shai Gilgeous-Alexander", "Bobby Portis"], "Hayden": ["Nikola Jokic"]}
+    assert free_agents(pl, rosters)["player_name"].tolist() == ["Josh Hart"]
+
+
+def test_get_free_agents_takes_rosters_instead_of_reading_config():
+    import pandas as pd
+    from modules.data_loader import FantasyData
+    fd = FantasyData.__new__(FantasyData)
+    fd.playerlist = pd.DataFrame({"player_name": ["A", "B"]})
+    assert fd.get_free_agents(rosters={"Nick": ["A"]})["player_name"].tolist() == ["B"]

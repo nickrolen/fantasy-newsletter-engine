@@ -93,60 +93,43 @@ def optimize_lineup(
     slots: list[str] = None,
 ) -> OptimizedLineup:
     """
-    Find optimal lineup assignment to maximize total projected FP.
-    
-    Uses a greedy assignment that fills the most-constrained slots first.
-    Fast enough for simulation purposes (the brute-force backtracking
-    fallback was removed: production sims never relied on it).
-    
+    Optimal lineup: the most starters, and the most projected FP among
+    lineups that size. Exact -- see modules/lineup_fill.py for why the
+    matroid greedy is optimal when value sits on the player.
+
+    This used to be a slot-first greedy (_greedy_assign, kept below for
+    reference and tests): each slot took the best remaining eligible player,
+    which can strand a later player no slot will take.
+
     Args:
         available_players: List of available players with projections
         slots: Slots to fill (default: STARTER_SLOTS)
-    
+
     Returns:
-        OptimizedLineup with optimal slot assignments
+        OptimizedLineup with slot assignments
     """
+    from .lineup_fill import exact_fill
+
     if slots is None:
         slots = STARTER_SLOTS.copy()
-    
-    # Sort players by projected FP (highest first)
-    sorted_players = sorted(
-        available_players,
-        key=lambda p: p.projected_fp,
-        reverse=True
+    seats = [(slot, frozenset(SLOT_POSITIONS[slot])) for slot in slots]
+    by_name = {p.name: p for p in available_players}
+
+    started, benched, assignment = exact_fill(
+        [(p.name, frozenset(p.positions), p.projected_fp) for p in available_players],
+        seats,
     )
-    
-    # Use greedy assignment
-    assignments = _greedy_assign(sorted_players, slots)
-    
-    # Build result
-    starters = []
-    assigned_names = set()
-    filled_indices = set()
-    
-    for slot_idx, slot, player in assignments:
-        starters.append(PlayerSlot(
-            player_name=player.name,
-            slot=slot,
-            projected_fp=player.projected_fp,
-            positions=player.positions,
-        ))
-        assigned_names.add(player.name)
-        filled_indices.add(slot_idx)
-    
-    # Remaining players go to bench
-    bench = [p.name for p in sorted_players if p.name not in assigned_names]
-    
-    # Find unfilled slots
-    unfilled = [slots[i] for i in range(len(slots)) if i not in filled_indices]
-    
-    lineup = OptimizedLineup(
-        starters=starters,
-        bench=bench,
-        unfilled_slots=unfilled,
-    )
-    
-    return lineup
+    starters = [
+        PlayerSlot(
+            player_name=name,
+            slot=slots[si],
+            projected_fp=by_name[name].projected_fp,
+            positions=by_name[name].positions,
+        )
+        for si, name in sorted(assignment.items())
+    ]
+    unfilled = [slots[i] for i in range(len(slots)) if i not in assignment]
+    return OptimizedLineup(starters=starters, bench=list(benched), unfilled_slots=unfilled)
 
 
 def _greedy_assign(

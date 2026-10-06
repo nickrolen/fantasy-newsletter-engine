@@ -33,7 +33,8 @@ from typing import Optional
 
 import pandas as pd
 
-from .data_loader import PlayerIndex, FantasyData, MANAGERS, TOTAL_WEEKS
+from .data_loader import PlayerIndex, FantasyData, MANAGERS, TOTAL_WEEKS, roster_index
+from .lineup_fill import exact_fill, max_starters, open_seats
 
 
 # Date parsing warnings: avoid silently dropping NBA games when schedule dates are malformed.
@@ -298,7 +299,7 @@ def build_free_agent_pool(
     Yahoo started spelling rostered players "S. Gilgeous-Alexander", and a
     plain normalisation would list him as a free agent.
     """
-    rostered = PlayerIndex({p: True for players in rosters.values() for p in players})
+    rostered = roster_index(rosters)
     pool = []
     for name, info in player_info.items():
         if name in rostered:
@@ -331,75 +332,29 @@ def open_slot_list(remaining: dict[str, int]) -> list[str]:
     return out
 
 
-def count_fillable(
-    remaining: dict[str, int],
-    candidates: list[set[str]],
-) -> int:
-    """How many of the open seats the candidates could fill at once.
-
-    An exact maximum matching (open seat <-> candidate), not a greedy pass:
-    the question is "could a free agent fill this hole", and a greedy order
-    can answer no when the answer is yes. At most 10 seats, so it is cheap.
-    """
-    seats = []
-    for slot_name, eligible, _cap in SLOT_DEFINITIONS:
-        seats.extend([eligible] * max(0, remaining.get(slot_name, 0)))
-    if not seats or not candidates:
-        return 0
-    match: dict[int, int] = {}  # seat -> candidate
-
-    def augment(c: int, seen: set) -> bool:
-        for si, eligible in enumerate(seats):
-            if si in seen or not (candidates[c] & eligible):
-                continue
-            seen.add(si)
-            if si not in match or augment(match[si], seen):
-                match[si] = c
-                return True
-        return False
-
-    return sum(1 for c in range(len(candidates)) if augment(c, set()))
-
-
 def fill_daily_lineup_detail(
     available_players: list[tuple[str, set[str], float]],
 ) -> tuple[list[str], list[str], dict[str, int]]:
-    """
-    Greedily fill starting slots for one game day.
+    """Fill starting slots for one game day -- exactly (modules/lineup_fill).
 
-    Players are tried in descending projected-FPPG order.  For each
-    player we attempt to place them in the most restrictive eligible
-    slot first (PG/SG/SF/PF/C before G/F before Util).  This heuristic
-    maximises total projected points and mirrors real manager behaviour.
+    This was a greedy: players in projection order, each into his most
+    restrictive free slot, never moving anyone already placed. That is not a
+    maximum matching -- it benched a startable player on 26 of 627
+    manager-days in 2025-26. The matroid greedy in lineup_fill gives both
+    the most starters and the most projected points.
 
     Args:
-        available_players: List of (player_name, positions_set, proj_fppg),
-            already sorted by proj_fppg descending.
+        available_players: (player_name, positions_set, proj_fppg).
 
     Returns:
-        (started, benched, remaining) -- two lists of player names and the
-        capacity left in each slot after the fill.
+        (started, benched, remaining) -- two lists of player names in
+        descending projection, and the open capacity in each slot.
     """
-    # Track remaining capacity per slot
-    remaining = {name: cap for name, _, cap in SLOT_DEFINITIONS}
-
-    started: list[str] = []
-    benched: list[str] = []
-
-    for player_name, positions, _proj in available_players:
-        placed = False
-        for slot_name, eligible_pos, _ in SLOT_DEFINITIONS:
-            if remaining[slot_name] <= 0:
-                continue
-            # Player is eligible if ANY of their positions match the slot
-            if positions & eligible_pos:
-                remaining[slot_name] -= 1
-                started.append(player_name)
-                placed = True
-                break
-        if not placed:
-            benched.append(player_name)
-
+    started, benched, assignment = exact_fill(
+        [(n, frozenset(p), proj) for n, p, proj in available_players])
+    remaining = {name: 0 for name, _e, _c in SLOT_DEFINITIONS}
+    for slot in open_seats(assignment):
+        remaining[slot] += 1
     return started, benched, remaining
 
 
@@ -455,7 +410,6 @@ def simulate_daily_lineups(
     # A rostered player with no player_info used to be skipped silently --
     # every one of his games read as an empty slot. Name them instead.
     unmatched = [p for p in roster if player_info.get(p) is None]
-    remaining_by_day: list[tuple[date, set[str], dict[str, int]]] = []
 
     for game_day in sorted(daily_schedule.keys()):
         teams_playing = daily_schedule[game_day]
@@ -511,11 +465,15 @@ def simulate_daily_lineups(
             "benched_players": list(benched_list),
         }
         if free_agents is not None:
-            playing = [fa[2] for fa in free_agents if fa[1] in teams_playing]
+            # Exact: how many MORE could start if every healthy free agent
+            # playing tonight were added, existing starters free to move.
+            # (The current starters always extend to a maximum lineup of the
+            # larger pool, so none of them is displaced to make the count.)
+            playing = [frozenset(fa[2]) for fa in free_agents if fa[1] in teams_playing]
             detail["free_agents_playing"] = len(playing)
-            detail["fillable"] = count_fillable(remaining, playing)
+            detail["fillable"] = max_starters(
+                [frozenset(a[1]) for a in available] + playing) - len(started)
         daily_detail.append(detail)
-        remaining_by_day.append((game_day, teams_playing, remaining))
 
     # Totals
     total_games = sum(player_total.values())
@@ -560,62 +518,7 @@ def simulate_daily_lineups(
         "player_breakdown": player_breakdown,
         "daily_detail": daily_detail,
         "unmatched_players": unmatched,
-        # Popped by _build_for_week_with_lineups; never reaches the JSON.
-        "_remaining_by_day": remaining_by_day,
     }
-
-
-def score_streamer(
-    remaining_by_day: list[tuple[date, set[str], dict[str, int]]],
-    team: str,
-    positions: set[str],
-    proj: float,
-) -> tuple[list[date], float]:
-    """Days one added free agent would fill, and projected points added.
-
-    A day counts when his team plays and he fits a seat left open after the
-    simulated fill. Points added = projection x those days: the FA replaces
-    a zero. Ignores who is dropped to make room.
-    """
-    days = [d for d, teams, rem in remaining_by_day
-            if team in teams and count_fillable(rem, [positions]) >= 1]
-    return days, round(proj * len(days), 1)
-
-
-def build_streamer_board(
-    remaining_by_manager: dict[str, list[tuple[date, set[str], dict[str, int]]]],
-    free_agents: list[tuple[str, str, set[str], float]],
-    top_n: int = 4,
-) -> list[dict]:
-    """The best streamers this week, scored against EVERY roster.
-
-    Why one shared board and not a pick per manager: with a deep free-agent
-    pool and Util seats open most nights, positional fit almost never binds,
-    and a manager with holes every night fills one hole per game the FA
-    plays. Ranked per manager, that collapses to "most games, then highest
-    projection" -- the same answer for every roster with the same full
-    nights. Measured on 2025-26 weeks 8/12/17/20: any two managers with the
-    same full-night pattern got identical picks, with 7-37 FAs tied at the
-    top hole count. Showing each FA's holes and points against all four
-    rosters keeps the real differences visible without pretending they are
-    personalized. Roster-relative ranking is C1's job (marginal_value).
-    """
-    board = []
-    for name, team, positions, proj in free_agents:
-        per = {}
-        for mgr, rbd in remaining_by_manager.items():
-            days, pts = score_streamer(rbd, team, positions, proj)
-            per[mgr] = {"holes_filled": len(days), "points_added": pts,
-                        "days": [d.isoformat() for d in days]}
-        best = max((v["points_added"] for v in per.values()), default=0.0)
-        if best <= 0:
-            continue
-        board.append({"player": name, "nba_team": team,
-                      "positions": ",".join(sorted(positions)),
-                      "proj_fppg": round(proj, 1), "best_points_added": best,
-                      "managers": per})
-    board.sort(key=lambda r: (-r["best_points_added"], r["player"]))
-    return board[:top_n]
 
 
 # ============================================================================
@@ -899,8 +802,6 @@ def _build_for_week_with_lineups(
         )
         managers_data[manager] = result
 
-    remaining_by_manager = {m: d.pop("_remaining_by_day") for m, d in managers_data.items()}
-
     # Add rankings
     add_rankings(managers_data, "startable_games", "startable_rank")
     add_rankings(managers_data, "healthy_games", "healthy_rank")
@@ -917,8 +818,6 @@ def _build_for_week_with_lineups(
             for d, teams in sorted(daily_schedule.items())
         },
         "free_agent_pool_size": None if free_agents is None else len(free_agents),
-        "streamer_board": (build_streamer_board(remaining_by_manager, free_agents)
-                           if free_agents is not None else None),
     }
 
 

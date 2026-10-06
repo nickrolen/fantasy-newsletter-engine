@@ -386,32 +386,16 @@ class FantasyData:
                 teams.add(away)
         return teams
 
-    def get_free_agents(self) -> pd.DataFrame:
-        """Get players who are in PLAYERLIST but not on any roster."""
-        rosters_file = Path(__file__).parent.parent / "config" / "ROSTERS.json"
-        if rosters_file.exists():
-            try:
-                import json
-                with open(rosters_file, "r") as f:
-                    config_data = json.load(f)
-                config_rosters = config_data.get("rosters", config_data)
-                rostered = set()
-                for manager, players in config_rosters.items():
-                    if isinstance(players, list):
-                        rostered.update(players)
-                keys = {normalize_player_name(n) for n in rostered}
-                return self.playerlist[
-                    ~self.playerlist["player_name"].apply(normalize_player_name).isin(keys)
-                ].copy()
-            except (json.JSONDecodeError, KeyError):
-                pass
+    def get_free_agents(self, rosters: Optional[dict] = None) -> pd.DataFrame:
+        """PLAYERLIST players on no roster. See free_agents().
 
-        most_recent_date = self.lineups["date"].max()
-        rostered = self.lineups[self.lineups["date"] == most_recent_date]["player_name"].unique()
-        keys = {normalize_player_name(n) for n in rostered}
-        return self.playerlist[
-            ~self.playerlist["player_name"].apply(normalize_player_name).isin(keys)
-        ].copy()
+        `rosters` defaults to get_current_rosters() so the three existing
+        callers are unchanged; anything that must not read config/ (C1, the
+        retro-sim) passes rosters in.
+        """
+        if rosters is None:
+            rosters = self.get_current_rosters()
+        return free_agents(self.playerlist, rosters)
 
     def get_current_rosters(self) -> dict[str, list[str]]:
         """Get current rosters from ROSTERS.json."""
@@ -665,6 +649,31 @@ def normalize_player_name(name) -> str:
     text = unicodedata.normalize("NFKD", str(name or ""))
     text = text.encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def roster_index(rosters: dict) -> "PlayerIndex":
+    """Every rostered player, as a PlayerIndex: {name: manager}."""
+    idx = PlayerIndex()
+    for manager, players in (rosters or {}).items():
+        if isinstance(players, list):
+            for name in players:
+                idx[name] = manager
+    return idx
+
+
+def free_agents(playerlist: pd.DataFrame, rosters: dict) -> pd.DataFrame:
+    """PLAYERLIST rows for players on no roster.
+
+    Membership goes through PlayerIndex. The version this replaced compared
+    normalised names, which collapses accents but not Yahoo's respellings:
+    on 2026-10-05 Yahoo began writing "S. Gilgeous-Alexander" while every
+    roster file kept "Shai Gilgeous-Alexander", and the rostered MVP came
+    back as a free agent. It also read config/ROSTERS.json itself; rosters
+    are now an argument.
+    """
+    rostered = roster_index(rosters)
+    mask = [name not in rostered for name in playerlist["player_name"]]
+    return playerlist[mask].copy()
 
 
 def load_playerlist(path: Path) -> pd.DataFrame:

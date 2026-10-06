@@ -19,10 +19,14 @@ fillable and per-day shading is near-uniform -- but a week like Garrett
 50/20 against Benton 39/31 separates the league at a glance. Rows sort by
 STARTS; the day cells stay muted, as the detail behind the totals.
 
-Below it, one shared streamer board: the top free agents by projected
-points added, scored against all four rosters. Not a pick per manager --
-see schedule_strength.build_streamer_board for why that collapsed into
-identical pairs.
+There is no streamer board, deliberately. One was built and cut before
+week 1: per manager it collapsed into identical pairs, and scored against
+all four rosters it came out near-uniform too (every row 4/4/4/4 or close).
+That is not a display problem. It is the same fact the near-uniform day
+shading showed: in a four-team league with a ~175-deep free-agent pool,
+availability is not scarce -- fit is. "Who plays most this week" is the
+same answer for everyone. The personalised question is what an add is worth
+to THIS roster after the drop, which is C2, built on marginal_value (C1).
 
 Numbers are rendered from the stats report JSON straight into the HTML, never
 through the drafting chat, so they cannot be retyped wrong.
@@ -41,14 +45,6 @@ from typing import Optional
 
 STARTING_SLOTS = 10
 _WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-
-def _day_label(iso: str) -> str:
-    return _WEEKDAYS[date.fromisoformat(iso).weekday()]
-
-
-def _fa_label(st: dict) -> str:
-    return f"{st['player']} ({st['nba_team']}, {st['positions']}, {st['proj_fppg']} proj)"
 
 
 def build_grid(stats_report: dict) -> Optional[dict]:
@@ -112,21 +108,6 @@ def build_grid(stats_report: dict) -> Optional[dict]:
             "unmatched_players": list(md.get("unmatched_players", [])),
         })
     rows.sort(key=lambda r: (-r["startable"], r["manager"]))
-    managers_order = [r["manager"] for r in rows]
-
-    board = []
-    for st in upcoming.get("streamer_board") or []:
-        per = st.get("managers", {})
-        board.append({
-            "player": st["player"], "nba_team": st["nba_team"],
-            "positions": st["positions"], "proj_fppg": st["proj_fppg"],
-            "cells": [{
-                "manager": m,
-                "holes": per.get(m, {}).get("holes_filled", 0),
-                "points": per.get(m, {}).get("points_added", 0.0),
-                "day_labels": [_day_label(x) for x in per.get(m, {}).get("days", [])],
-            } for m in managers_order],
-        })
 
     return {
         "week": upcoming.get("week"),
@@ -134,7 +115,6 @@ def build_grid(stats_report: dict) -> Optional[dict]:
         "rows": rows,
         "has_free_agents": has_fa,
         "from_lineups": list(upcoming.get("player_info_from_lineups") or []),
-        "board": board,
     }
 
 
@@ -174,15 +154,6 @@ def render_markdown(stats_report: dict) -> str:
         lines.append("| " + " | ".join(
             [r["manager"], str(r["startable"]), fill]
             + [_cell_text(c) for c in r["cells"]]) + " |")
-    if grid["board"]:
-        mgrs = [c["manager"] for c in grid["board"][0]["cells"]]
-        lines += ["", "Top streamers this week -- holes each would fill / projected "
-                  "points added, against each roster (one add, before drops):", "",
-                  "| Free agent | " + " | ".join(mgrs) + " |",
-                  "|" + "|".join(["---"] * (len(mgrs) + 1)) + "|"]
-        for st in grid["board"]:
-            lines.append(f"| {_fa_label(st)} | " + " | ".join(
-                f"{c['holes']} / {c['points']}" for c in st["cells"]) + " |")
     unmatched = sorted({p for r in grid["rows"] for p in r["unmatched_players"]})
     if unmatched:
         lines.append("")
@@ -243,26 +214,6 @@ def render_html(stats_report: dict) -> str:
         out.append('</tr>')
     out.append('</tbody></table></div>')
 
-    if grid["board"]:
-        mgrs = [c["manager"] for c in grid["board"][0]["cells"]]
-        out.append('<div class="gg-board-h">Top streamers this week</div>'
-                   '<div class="gg-sub">Holes each would fill, and projected points '
-                   'added, against each roster. One add, before drops.</div>'
-                   '<div class="gg-scroll"><table class="gg-table gg-board"><thead><tr>'
-                   '<th class="gg-mgr-h">Free agent</th>'
-                   + "".join(f'<th class="gg-key">{e(m)}</th>' for m in mgrs)
-                   + '</tr></thead><tbody>')
-        for st in grid["board"]:
-            out.append(f'<tr><th class="gg-mgr">{e(st["player"])}'
-                       f'<span class="gg-fa">{e(st["nba_team"])} {e(st["positions"])} '
-                       f'&middot; {st["proj_fppg"]} proj</span></th>')
-            for c in st["cells"]:
-                title = f' title="{e(", ".join(c["day_labels"]))}"' if c["day_labels"] else ""
-                out.append(f'<td{title}><span class="gg-n">{c["holes"]}</span>'
-                           f'<span class="gg-note">{c["points"]} pts</span></td>')
-            out.append('</tr>')
-        out.append('</tbody></table></div>')
-
     foot = ["As of report time; rosters change after it. Injuries from "
             "INJURY_OVERRIDES only. Free agents are Yahoo's top ~175. Three "
             "adds a week."]
@@ -277,19 +228,16 @@ def get_css() -> str:
     """Styles for render_html. Plain CSS -- no f-string braces to escape."""
     return """
         .games-grid { margin: 0 0 28px; }
-        .games-grid .gg-title, .games-grid .gg-board-h { font-weight: 700; font-size: 1.05em; color: var(--primary-blue); }
-        .games-grid .gg-board-h { margin-top: 18px; font-size: 0.98em; }
+        .games-grid .gg-title { font-weight: 700; font-size: 1.05em; color: var(--primary-blue); }
         .games-grid .gg-sub, .games-grid .gg-foot { font-size: 0.82em; color: var(--text-secondary, #666); margin: 4px 0 10px; }
         .games-grid .gg-foot { margin-top: 8px; }
         .games-grid .gg-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .games-grid .gg-table { border-collapse: collapse; width: 100%; min-width: 600px; font-variant-numeric: tabular-nums; }
-        .games-grid .gg-board { min-width: 480px; }
         .games-grid th, .games-grid td { border: 1px solid var(--border-color, #ddd); padding: 6px; text-align: center; vertical-align: middle; }
         .games-grid thead th { font-size: 0.8em; font-weight: 600; background: var(--primary-blue); color: #fff; white-space: nowrap; }
         .games-grid thead th.gg-day-h { opacity: 0.85; font-weight: 500; }
         .games-grid .gg-nba { display: block; font-weight: 400; font-size: 0.85em; opacity: 0.85; }
         .games-grid .gg-mgr { text-align: left; font-weight: 600; background: var(--light-gray); white-space: nowrap; }
-        .games-grid .gg-fa { display: block; font-weight: 400; font-size: 0.75em; color: var(--text-secondary, #666); text-transform: none; }
         .games-grid td.gg-key { font-size: 1.35em; font-weight: 700; background: var(--light-gray); }
         .games-grid td.gg-top { color: var(--primary-blue); box-shadow: inset 0 -3px 0 var(--accent-gold); }
         .games-grid .gg-day { color: var(--text-secondary, #777); }
