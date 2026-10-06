@@ -198,6 +198,11 @@ Three things are allowed to stop a week. Respect them.
 - `check_rosters.py` -- no duplicate ownership, no placeholders, plausible
   sizes.
 
+Step 6 itself refuses to run in season on an NBA schedule fetched more than
+8 days ago (`modules/schedule_freshness.py`; `--allow-stale-schedule`
+overrides and is recorded). `fetch_nba_schedule` refuses a refresh that
+loses more than 10% of games and logs every change set.
+
 `verify_project_integrity` also guards the point-in-time record: a latest
 report with no capture under `config/snapshots/point_in_time/` FAILS, an
 unreviewed `INJURY_OVERRIDES.json` FAILS from Week 1, and a PLAYERLIST snapshot

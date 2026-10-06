@@ -1120,6 +1120,24 @@ def _check_point_in_time_record(cfg, warnings, today=None):
     return failures
 
 
+def _check_nba_schedule_fresh(cfg, warnings, today=None):
+    """A3: warn here; Step 6 is where a stale schedule is refused."""
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from modules.schedule_freshness import stale_problem
+    nba_file = cfg.get("season", {}).get("nba_schedule_file")
+    if not nba_file:
+        return []
+    path = PROJECT_ROOT / nba_file
+    try:
+        sched = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []   # _check_schedule_matches_config reports a missing file
+    problem = stale_problem(sched, path, _season_window(cfg), today=today)
+    if problem:
+        warnings.append(f"[SCHEDULE] {problem} Step 6 will refuse to run.")
+    return []
+
+
 def check_config_integrity(verbose=False):
     """Verify league_config.json structural invariants."""
     failures = []
@@ -1204,6 +1222,7 @@ def check_config_integrity(verbose=False):
     failures.extend(_check_potw_attribution(warnings))
     failures.extend(_check_injury_overrides_current(cfg, warnings))
     failures.extend(_check_point_in_time_record(cfg, warnings))
+    failures.extend(_check_nba_schedule_fresh(cfg, warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"

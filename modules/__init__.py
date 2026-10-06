@@ -195,6 +195,10 @@ from .games_grid import (
     render_html as render_games_grid_html,
     render_markdown as render_games_grid_markdown,
 )
+from .schedule_freshness import (
+    diff_schedules,
+    stale_problem,
+)
 from .point_in_time import (
     capture_week_inputs,
     missing_captures,
@@ -359,4 +363,7 @@ __all__ = [
     "build_games_grid",
     "render_games_grid_html",
     "render_games_grid_markdown",
+    # schedule_freshness
+    "diff_schedules",
+    "stale_problem",
 ]

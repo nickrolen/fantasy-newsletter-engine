@@ -112,6 +112,12 @@ def main():
         help="Disable freshness tracking (allow repetitive content)",
     )
     parser.add_argument(
+        "--allow-stale-schedule",
+        action="store_true",
+        help="run even though the NBA schedule is older than the in-season "
+             "limit (recorded in the point-in-time capture)",
+    )
+    parser.add_argument(
         "--repro",
         action="store_true",
         help="Repro run for the given week: use pre-week RECENT_CONTENT snapshot, do not save freshness, "
@@ -166,6 +172,22 @@ def main():
         print(f"ERROR loading data: {e}")
         sys.exit(1)
     
+    # A3: the NBA schedule must be fresh in season. --repro rebuilds a past
+    # week and is exempt; --allow-stale-schedule is an explicit override.
+    from modules.schedule_freshness import stale_problem, season_window_from
+    from modules.data_loader import NBA_SCHEDULE_FILE as _NBA_FILE
+    stale = None if args.repro else stale_problem(
+        data.nba_schedule, base_path / _NBA_FILE if _NBA_FILE else None,
+        season_window_from(data.schedule))
+    if stale and not args.allow_stale_schedule:
+        print(f"REFUSED: {stale}")
+        print("  Every startable-games count, line and odds figure reads it.")
+        print("  Pass --allow-stale-schedule to run anyway (recorded in the capture).")
+        sys.exit(1)
+    if stale:
+        print(f"WARNING (overridden): {stale}")
+        print()
+
     print(f"  PLAYERLOG: {len(data.playerlog)} rows")
     print(f"  LINEUPS: {len(data.lineups)} rows")
     print(f"  PLAYERLIST: {len(data.playerlist)} players")
@@ -429,6 +451,7 @@ def main():
                     "title_sims": args.title_sims,
                     "betting_sims": args.betting_sims,
                     "seed": args.seed,
+                    "stale_schedule_override": stale,
                 },
             )
             print(f"Saved point-in-time inputs to: {pit_dir}")

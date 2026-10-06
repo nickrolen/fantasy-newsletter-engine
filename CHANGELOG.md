@@ -10,6 +10,18 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 6, 2026 - A3: NBA schedule freshness**
+
+The schedule moves all season (postponements, makeups, the TBD Cup games)
+and every startable-games count and line reads it, so a refresh that quietly
+stopped would keep producing plausible numbers. `fetch_nba_schedule` now
+stamps `fetched_at` and source into the file, diffs each refresh against the
+one it replaces (added / removed / moved, with the next 14 days singled out),
+appends change sets to `<schedule>.changes.jsonl`, and refuses a refresh with
+>10% fewer games. In season, Step 6 refuses a schedule older than 8 days
+unless `--allow-stale-schedule` is passed; the override is recorded in the
+point-in-time capture. `modules/schedule_freshness.py`.
+
 **October 6, 2026 - Point-in-time capture, 2025-26 log repair, games grid**
 
 *Point-in-time capture.* No published betting line from before 2026-27 can be

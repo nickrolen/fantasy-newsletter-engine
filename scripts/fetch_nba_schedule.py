@@ -43,6 +43,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from modules.data_loader import (  # noqa: E402
     CURRENT_SEASON, NBA_SCHEDULE_FILE,
 )
+from modules.schedule_freshness import (  # noqa: E402
+    changes_within, diff_schedules, shrink_problem, stamp,
+)
 
 # Where the schedule goes is a config question, not a thing to retype.
 # It used to be three different answers: this script defaulted to
@@ -310,6 +313,33 @@ def _report_team_counts(trimmed: dict) -> None:
             print(f"    {team}: {n}")
 
 
+def _report_and_log_diff(diff: dict, trimmed: dict, output: Path) -> None:
+    """Print what the refresh changed and append it to the season's log.
+
+    The log is the record of how the schedule moved under the engine --
+    which postponements arrived when -- next to the file it describes.
+    """
+    from datetime import date
+    n_add, n_rem, n_mov = len(diff["added"]), len(diff["removed"]), len(diff["moved"])
+    print(f"\n  Changes since the last fetch: {n_add} added, {n_rem} removed, "
+          f"{n_mov} moved ({diff['old_games']} -> {diff['new_games']} games).")
+    near = changes_within(diff, date.today(), days=14)
+    if near:
+        print(f"  {len(near)} of them fall in the next 14 days -- these move this "
+              "week's and next week's numbers:")
+        for line in near[:20]:
+            print(f"    {line}")
+        if len(near) > 20:
+            print(f"    ... and {len(near) - 20} more")
+    if n_add or n_rem or n_mov:
+        log = output.with_name(output.stem + ".changes.jsonl")
+        entry = {"fetched_at": trimmed["fetched_at"], "source": trimmed["source"],
+                 **diff}
+        with open(log, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+        print(f"  Logged to {log}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Fetch and trim NBA schedule for fantasy basketball projections."
@@ -340,6 +370,12 @@ def main():
         help="where to fetch from (default: auto -- cdn.nba.com, then bbref)",
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help="write even if the new schedule has >10%% fewer games than the "
+             "file it replaces (normally refused as a partial fetch)",
+    )
+    parser.add_argument(
         "--keep-full",
         action="store_true",
         help="Also save the full (untrimmed) schedule",
@@ -350,16 +386,21 @@ def main():
     # Get the schedule
     if args.input:
         full_schedule = load_schedule_from_file(args.input)
+        source = f"file:{args.input.name}"
     elif args.source == "bbref":
         full_schedule = fetch_from_bbref(args.season)
+        source = "bbref"
     elif args.source == "nba":
         full_schedule = fetch_nba_schedule()
+        source = "nba"
     else:
         try:
             full_schedule = fetch_nba_schedule()
+            source = "nba"
         except Exception as e:
             print(f"cdn.nba.com failed ({e}); falling back to basketball-reference.")
             full_schedule = fetch_from_bbref(args.season)
+            source = "bbref"
     
     # Optionally save full version
     if args.keep_full:
@@ -369,12 +410,32 @@ def main():
         full_size = full_path.stat().st_size
         print(f"Saved full schedule: {full_path} ({full_size:,} bytes)")
     
-    # Trim and save
+    # Trim, compare with what it replaces, then save
     trimmed = trim_schedule(full_schedule)
-    
+
+    old = None
+    if args.output.is_file():
+        try:
+            with open(args.output) as f:
+                old = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            old = None
+    diff = diff_schedules(old, trimmed) if old else None
+    if diff:
+        problem = shrink_problem(diff)
+        if problem and not args.force:
+            print(f"\nREFUSED: {problem}")
+            print(f"  {args.output} was left as it was. Re-run, or pass --force "
+                  "if the drop is real.")
+            sys.exit(1)
+
+    trimmed = stamp(trimmed, source)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w") as f:
         json.dump(trimmed, f, indent=2)
+
+    if diff:
+        _report_and_log_diff(diff, trimmed, args.output)
     
     trimmed_size = args.output.stat().st_size
     game_count = len(trimmed.get("games", []))

@@ -70,6 +70,11 @@ python scripts\fetch_nba_schedule.py
 
 **What this does:** Downloads the full NBA schedule, trims it to ~120KB (date/home/away only), and writes it to whatever `league_config.season.nba_schedule_file` names -- currently `data\nba_schedule_2026-27.json`. Do not pass `--season` or `--output`: both now default from config, and a hand-typed filename is how this went wrong before. The command used to name `nba_schedule_2025-26.json`, which nothing reads, so running it refreshed the wrong file and left the live one frozen.
 
+**What it checks (A3):**
+- It stamps the file with `fetched_at` and the source. **In season, Step 6 refuses to run on a schedule more than 8 days old** (`--allow-stale-schedule` overrides, and the override is recorded in that week's point-in-time capture). Integrity warns too.
+- It diffs against the file it replaces and prints games added / removed / moved, singling out any in the next 14 days -- those change this week's and next week's numbers. Every change set is appended to `data\nba_schedule_2026-27.changes.jsonl`.
+- It refuses to write a schedule with more than 10% fewer games than the one it replaces -- the signature of a month page that failed to load. Re-run; `--force` only if the drop is real.
+
 **Source note:** `cdn.nba.com` returns HTTP 403 to automated fetches, so the default `auto` source falls through to basketball-reference, which does honour `--season`.
 
 **If the NBA API is down:** Manually download from `https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json`, then run:
@@ -441,6 +446,7 @@ python scripts\generate_stats_report.py --week WEEK --title-sims 10000 --betting
 | `--dry-run` | Don't save any files |
 | `--no-save-records` | Don't update RECORDS.json |
 | `--no-freshness` | Disable content repetition tracking |
+| `--allow-stale-schedule` | Run on an NBA schedule older than 8 days in season (recorded in the capture) |
 
 ---
 
