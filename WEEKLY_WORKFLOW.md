@@ -190,6 +190,12 @@ It is the gate. Do not generate a newsletter if it fails.
 `--snapshot` saves the file as next week's baseline, which is what the
 week-over-week comparisons read. Save it only on a clean run.
 
+**Do not skip it.** The snapshots are also the only record of what Yahoo
+projected that week. No PLAYERLIST was saved before 2026-27, which is why no
+published betting line from an earlier season can be backtested against what
+the engine actually knew. In season, `verify_project_integrity` warns when the
+newest snapshot is more than 8 days old.
+
 ### Names
 
 Yahoo writes `Jokić`, `Dončić`, `Şengün`, `Dëmin`, `Nurkić`. The engine
@@ -295,6 +301,17 @@ problem.
 ## Step 5: Update INJURY_OVERRIDES.json (MANUAL)
 
 Open `config\INJURY_OVERRIDES.json` and update based on current injury news.
+
+**Then set `"last_updated": "YYYY-MM-DD"` to today**, even if nothing changed.
+It is the review stamp: an empty `players` list can be correct, an empty
+`last_updated` means nobody looked. This file is the engine's only
+block-absence input. `verify_project_integrity` enforces it:
+
+| When | Empty `last_updated` | Stale `last_updated` |
+|---|---|---|
+| 14 days before Week 1 | warning, with the due date | - |
+| **Due: 2 days before Week 1** (Sun Oct 18, 2026) | | |
+| From Week 1 on | **FAILURE** | warning if > 8 days old; FAILURE if it predates the season |
 
 ### What to check:
 
@@ -403,6 +420,13 @@ python scripts\generate_stats_report.py --week WEEK --title-sims 10000 --betting
 4. Builds complete stats report: matchup summaries, report cards, standings, streaks, scoring trends, title odds (Monte Carlo), betting lines, Player of the Week, What-If analysis, power rankings, rumor mill, fun facts, season performers
 5. Saves to `output\stats_report_weekN.json`
 6. Updates `config\RECORDS.json` with new standings, streaks, and records
+7. **Freezes its inputs** to `config\snapshots\point_in_time\report_weekNN\`:
+   PLAYERLIST, INJURY_OVERRIDES, the live injury statuses it fetched, ROSTERS,
+   SCHEDULE and the NBA schedule, plus a manifest. Report N's betting lines
+   cover week N+1, so `report_week03` is what the engine knew when it priced
+   week 4. A re-run replaces it; `--fast`, `--repro` and `--dry-run` never
+   write one. **The last run before you publish must be a full run**, or that
+   week's record is lost -- integrity fails on a latest report with no capture.
 
 **Runtime:** ~30-60 seconds with sims, ~5-10 seconds with `--fast`
 

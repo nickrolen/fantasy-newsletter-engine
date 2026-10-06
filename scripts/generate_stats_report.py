@@ -404,7 +404,42 @@ def main():
                 print(f"Saved looking_ahead cache to: {looking_ahead_cache_file}")
             except Exception as e:
                 print(f"Warning: Failed to save looking_ahead cache: {e}")
-                
+
+    # -------------------------------------------------------------------------
+    # Point-in-time capture: freeze the inputs behind this week's lines.
+    # Overwritten in place every week, unrecoverable afterwards -- see
+    # modules/point_in_time.py. Only publishable runs write one.
+    # -------------------------------------------------------------------------
+    if args.dry_run or args.repro or args.fast:
+        reason = "--dry-run" if args.dry_run else ("--repro" if args.repro else "--fast")
+        print(f"Point-in-time capture skipped ({reason} is not a publishable run)")
+    else:
+        try:
+            from modules.point_in_time import capture_week_inputs
+            from modules.data_loader import CURRENT_SEASON, TOTAL_WEEKS, NBA_SCHEDULE_FILE
+            pit_dir = capture_week_inputs(
+                base_path,
+                week,
+                season=CURRENT_SEASON,
+                injury_statuses=injury_statuses,
+                injury_fetch_attempted=should_fetch,
+                nba_schedule_file=NBA_SCHEDULE_FILE or None,
+                total_weeks=TOTAL_WEEKS,
+                run_info={
+                    "title_sims": args.title_sims,
+                    "betting_sims": args.betting_sims,
+                    "seed": args.seed,
+                },
+            )
+            print(f"Saved point-in-time inputs to: {pit_dir}")
+            if should_fetch and not injury_statuses:
+                print("  WARNING: injury fetch returned nothing; the capture records "
+                      "that statuses were unavailable, not that everyone was healthy")
+        except Exception as e:
+            print(f"WARNING: point-in-time capture FAILED: {e}")
+            print("  This week's inputs will be overwritten next week and cannot be "
+                  "recovered. Fix and re-run Step 6 before publishing.")
+
     elapsed = (datetime.now() - start_time).total_seconds()
     
     print()

@@ -90,8 +90,13 @@ def load_config() -> dict:
 
 
 def collect_glob(pattern: str) -> list[Path]:
-    """Glob relative to PROJECT_ROOT and return sorted list of matching paths."""
-    return sorted(PROJECT_ROOT.glob(pattern))
+    """Glob relative to PROJECT_ROOT and return the matching FILES, sorted.
+
+    Directories are dropped: the archive copies with shutil.copy2, which
+    raises on a directory, and config/snapshots/ now has a subdirectory
+    (point_in_time/) that a recursive pattern walks into.
+    """
+    return sorted(p for p in PROJECT_ROOT.glob(pattern) if p.is_file())
 
 
 def rel(path: Path) -> str:
@@ -133,7 +138,7 @@ def get_archive_files() -> list[Path]:
         "output/looking_ahead_week*.json",
         "output/*.html",
         "assets/WEEK*_DRAFT.md",
-        "config/snapshots/*",
+        "config/snapshots/**/*",       # incl. point_in_time/report_weekNN/
         "data/waivers_week*.txt",
     ]
     single_files = [
@@ -558,7 +563,7 @@ def get_delete_files() -> list[Path]:
         "output/looking_ahead_week*.json",
         "output/*.html",
         "assets/WEEK*_DRAFT.md",
-        "config/snapshots/*",
+        "config/snapshots/**/*",       # incl. point_in_time/report_weekNN/
         "data/waivers_week*.txt",
     ]
     files = []

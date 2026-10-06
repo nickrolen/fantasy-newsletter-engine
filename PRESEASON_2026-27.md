@@ -98,6 +98,7 @@ actually needed makes the schedule far less alarming:
 |----|----------------|
 | **Oct 4** (keepers) | Rollup done; config updated; league key set; DRAFT_PICK_VALUES rebuilt; keeper analysis delivered |
 | **Oct 11** (draft) | OAuth verified; SCHEDULE.json weeks 1-15; draft pull ready; DRAFT_PICKS_CURRENT plan settled |
+| **Oct 18** (Sun) | `config\INJURY_OVERRIDES.json` reviewed against the drafted rosters and `last_updated` set. The only block-absence input. Integrity warns from Oct 6, **fails from Oct 20** |
 | **Oct 20** (Week 1) | Engine runs clean on empty post-reset state; PLAYERLIST and ROSTERS built; the regular-season / stat-window config split done, since records start accruing immediately |
 | **~Week 14** (playoffs approach) | `simulator_playoff_odds.py` reworked for best-of-3 series; cup odds; series tracking in the newsletter |
 
@@ -692,6 +693,9 @@ Then:
   so getting it right matters more than it used to.
 - Verify `config\ROSTERS.json` has 4 teams x 17 players
 - Update `data\PLAYERLIST.xlsx` for the new season (`WEEKLY_WORKFLOW.md` Step 2.5)
+- **By Sun Oct 18:** repopulate `config\INJURY_OVERRIDES.json` for every
+  rostered player with a known multi-week absence, and set `last_updated`
+  (`WEEKLY_WORKFLOW.md` Step 5)
 - Reset `config\TRADES.json` `draft_pick_ownership` for 2027-28 picks if your
   league trades future picks
 

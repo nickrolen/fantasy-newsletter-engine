@@ -979,6 +979,147 @@ def _check_season_format(cfg, warnings):
     return failures
 
 
+def _season_window(cfg):
+    """(week-1 start, last-week end) as dates from config/SCHEDULE.json.
+
+    None when SCHEDULE.json is missing, unreadable or for a different season
+    than league_config -- the date-based checks below then stay quiet, and
+    _check_schedule_matches_config reports the mismatch itself.
+    """
+    from datetime import date
+    try:
+        with open(PROJECT_ROOT / "config" / "SCHEDULE.json", "r", encoding="utf-8") as f:
+            sched = json.load(f)
+        current_long = cfg.get("season", {}).get("current_long")
+        if current_long and sched.get("season_year") != current_long:
+            return None
+        weeks = sorted(sched.get("weeks", []), key=lambda w: w["week"])
+        return (date.fromisoformat(weeks[0]["start_date"]),
+                date.fromisoformat(weeks[-1]["end_date"]))
+    except Exception:
+        return None
+
+
+# INJURY_OVERRIDES.json is the only block-structure input the engine has.
+# It must be reviewed before Week 1 and kept current through the season.
+INJURY_OVERRIDES_DUE_DAYS_BEFORE_WEEK1 = 2   # Sun Oct 18 for a Tue Oct 20 start
+INJURY_OVERRIDES_WARN_DAYS_BEFORE_WEEK1 = 14
+INJURY_OVERRIDES_MAX_AGE_DAYS = 8
+PLAYERLIST_SNAPSHOT_MAX_AGE_DAYS = 8
+
+
+def _check_injury_overrides_current(cfg, warnings, today=None):
+    """last_updated is the review stamp. Empty players[] can be legitimate;
+    an empty last_updated means nobody looked."""
+    from datetime import date, timedelta
+    failures = []
+    window = _season_window(cfg)
+    if window is None:
+        return failures
+    week1, season_end = window
+    today = today or date.today()
+    if today > season_end:
+        return failures
+    due = week1 - timedelta(days=INJURY_OVERRIDES_DUE_DAYS_BEFORE_WEEK1)
+
+    path = PROJECT_ROOT / "config" / "INJURY_OVERRIDES.json"
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            stamp = (json.load(f).get("last_updated") or "").strip()
+    except Exception as e:
+        failures.append(f"[INJURY] could not read config/INJURY_OVERRIDES.json: {e}")
+        return failures
+
+    if not stamp:
+        if today >= week1:
+            failures.append(
+                "[INJURY] config/INJURY_OVERRIDES.json has never been reviewed "
+                f"this season (last_updated is empty) and Week 1 began {week1}. "
+                "It is the only block-absence input; every simulator is running "
+                "on coin-flip availability alone. Review it and set last_updated "
+                "(YYYY-MM-DD).")
+        elif today >= week1 - timedelta(days=INJURY_OVERRIDES_WARN_DAYS_BEFORE_WEEK1):
+            warnings.append(
+                f"[INJURY] config/INJURY_OVERRIDES.json is due {due} "
+                f"(two days before Week 1 on {week1}) and has not been "
+                "reviewed: last_updated is empty. Becomes a FAILURE on "
+                f"{week1}.")
+        return failures
+
+    try:
+        stamped = date.fromisoformat(stamp[:10])
+    except ValueError:
+        failures.append(
+            f"[INJURY] INJURY_OVERRIDES.json last_updated '{stamp}' is not "
+            "YYYY-MM-DD; nothing can tell how stale it is.")
+        return failures
+    if stamped < week1 - timedelta(days=60):
+        failures.append(
+            f"[INJURY] INJURY_OVERRIDES.json last_updated {stamped} predates "
+            f"this season (Week 1 {week1}). Last season's file survived.")
+    elif today >= week1 and (today - stamped).days > INJURY_OVERRIDES_MAX_AGE_DAYS:
+        warnings.append(
+            f"[INJURY] INJURY_OVERRIDES.json last reviewed {stamped}, "
+            f"{(today - stamped).days} days ago. Step 5 is weekly.")
+    return failures
+
+
+def _check_point_in_time_record(cfg, warnings, today=None):
+    """The weekly snapshots exist for every week that needed one.
+
+    Two series. point_in_time/report_weekNN/ is written by Step 6 itself; a
+    gap means Step 6 ran in --fast or the capture failed. PLAYERLIST_<date>
+    is written by check_playerlist --snapshot and is the week-over-week
+    baseline. Either gap is permanent once the live files move on.
+    """
+    from datetime import date
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from modules.point_in_time import missing_captures, report_weeks
+    failures = []
+
+    missing = missing_captures(PROJECT_ROOT)
+    if missing:
+        latest = max(report_weeks(PROJECT_ROOT))
+        if latest in missing:
+            failures.append(
+                f"[SNAPSHOT] output/stats_report_week{latest}.json has no "
+                f"point-in-time capture. Re-run Step 6 without --fast NOW: "
+                "next week's PLAYERLIST and INJURY_OVERRIDES overwrite these "
+                "inputs for good.")
+        older = [w for w in missing if w != latest]
+        if older:
+            warnings.append(
+                "[SNAPSHOT] no point-in-time capture for report week(s) "
+                f"{older}. Those inputs are lost; the lines they priced cannot "
+                "be backtested against what the engine knew.")
+
+    window = _season_window(cfg)
+    if window is None:
+        return failures
+    week1, season_end = window
+    today = today or date.today()
+    if not (week1 <= today <= season_end):
+        return failures
+    snaps = sorted((PROJECT_ROOT / "config" / "snapshots").glob("PLAYERLIST_*.xlsx"))
+    newest = None
+    for snap in snaps:
+        try:
+            d = date.fromisoformat(snap.stem[len("PLAYERLIST_"):][:10])
+        except ValueError:
+            continue
+        newest = d if newest is None or d > newest else newest
+    if newest is None:
+        warnings.append(
+            "[SNAPSHOT] no PLAYERLIST_<date>.xlsx in config/snapshots. Run "
+            "py scripts\\check_playerlist.py --snapshot (Step 2.5).")
+    elif (today - newest).days > PLAYERLIST_SNAPSHOT_MAX_AGE_DAYS:
+        warnings.append(
+            f"[SNAPSHOT] newest PLAYERLIST snapshot is {newest}, "
+            f"{(today - newest).days} days old. Step 2.5's --snapshot was "
+            "skipped; that week's projections are unrecorded.")
+    return failures
+
+
 def check_config_integrity(verbose=False):
     """Verify league_config.json structural invariants."""
     failures = []
@@ -1061,6 +1202,8 @@ def check_config_integrity(verbose=False):
     failures.extend(_check_career_honors_agree(warnings))
     failures.extend(_check_pre_data_era_reconciles(cfg, warnings))
     failures.extend(_check_potw_attribution(warnings))
+    failures.extend(_check_injury_overrides_current(cfg, warnings))
+    failures.extend(_check_point_in_time_record(cfg, warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"
