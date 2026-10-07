@@ -252,15 +252,34 @@ def magic_number(season_matchups: list, week: int, reg_last: int):
     return lead, max(0, need)
 
 
+# Language rule (Nick, 10-07): never "safe from paying" or "certain to pay"
+# unqualified. Every liability line names the pot and the window: before
+# the semifinals resolve, an unqualified "safe" is a false statement about
+# total liability. tests/test_angles.py checks every template.
 DECIDED_TEXT = {
-    "clinched_title": "{m} clinched the regular-season title ({rec}, {left} "
-                      "weeks left)",
-    "out_of_title": "{m} is out of the title race ({rec}, {left} weeks left)",
-    "safe_from_paying": "{m} is safe: he can't finish {payers}, the places "
-                        "that pay ({rec}, {left} weeks left)",
-    "will_pay": "{m} will finish {payers} and pay ({rec}, {left} weeks "
-                "left)",
+    "clinched_title": "{m} clinched the regular-season title (weeks "
+                      "{w0}-{w1}) and the ${rs_total} that comes with it "
+                      "({rec}, {left} weeks left)",
+    "out_of_title": "{m} can no longer win the regular season (weeks "
+                    "{w0}-{w1}) or its ${rs_total} ({rec}, {left} weeks left)",
+    "safe_from_paying": "{m} can't finish {payers} in the regular season "
+                        "(weeks {w0}-{w1}), so he won't pay into its "
+                        "${rs_total} pot. The ${po_total} playoff pot is "
+                        "still open until the semifinals ({rec}, {left} "
+                        "weeks left)",
+    "will_pay": "{m} will finish {payers} in the regular season (weeks "
+                "{w0}-{w1}) and pay ${rs_per} of its ${rs_total} pot. The "
+                "${po_total} playoff pot is still open until the semifinals "
+                "({rec}, {left} weeks left)",
 }
+
+
+def _pot_terms(reg_last: int) -> dict:
+    from modules.data_loader import league_rule
+    rs = league_rule("payouts", "league_champion")
+    po = league_rule("payouts", "playoff_champion")
+    return {"w0": 1, "w1": reg_last, "rs_total": int(rs["total"]),
+            "rs_per": int(rs["per_payer"]), "po_total": int(po["total"])}
 
 
 def decided_angles(season_matchups: list, week: int, reg_last: int,
@@ -302,7 +321,7 @@ def decided_angles(season_matchups: list, week: int, reg_last: int,
         payers = " or ".join(_ordinal(k) for k in sorted(_payer_places()))
         out.append(Angle("decided", (m,), DECIDED_TEXT[ev].format(
             m=m, rec=f"{wins[m]}-{games[m] - wins[m]}", left=left,
-            payers=payers),
+            payers=payers, **_pot_terms(reg_last)),
             max(_u(p, max(len(ref), 1)), doubt), source="decided",
             direction=ev))
     return out
@@ -428,6 +447,17 @@ def _p_series(wa: int, wb: int, need: int) -> float:
                                                               need)
 
 
+def _game_winner(m: dict, seeds: dict, tie_rule: str) -> str:
+    """The winner of a bracket game. A tied score goes by the configured
+    rule (league_config tiebreaker_rules); an unknown rule raises."""
+    if m["score_a"] != m["score_b"]:
+        return m["manager_a"] if m["score_a"] > m["score_b"] else \
+            m["manager_b"]
+    if tie_rule != "higher_seed":
+        raise ValueError(f"unknown bracket tie rule {tie_rule!r}")
+    return min((m["manager_a"], m["manager_b"]), key=lambda x: seeds[x])
+
+
 def bracket_structure(season: str) -> list:
     """[{stage, title, seeded_by, values, rounds:[{name, kind, weeks}]}]
     from league_config: the three-stage format from its effective season,
@@ -436,14 +466,25 @@ def bracket_structure(season: str) -> list:
     from modules.data_loader import (POSTSEASON_FORMAT, PAYOUTS, stage_weeks,
                                      uses_three_stage_format)
 
-    def values_for(key):
-        pay = (PAYOUTS or {}).get(key) or {}
+    from modules.data_loader import league_rule
+
+    def values_for(key, third_key):
+        """Stake by finishing place, from the payout config. A prize with
+        no dollar value (the Cup keeper) is one unit for the winner. The
+        third-place contest's stake is read too -- zero today -- so a stake
+        added there later needs no code change."""
+        pay = league_rule("payouts", key)
         if pay.get("total"):
             payers = {int(x) for x in _re.findall(
                 r"(\d)(?:st|nd|rd|th)", pay.get("paid_by") or "")}
-            return {1: float(pay["total"]), 2: 0.0,
+            vals = {1: float(pay["total"]), 2: 0.0, 3: 0.0, 4: 0.0,
                     **{k: -float(pay.get("per_payer", 0)) for k in payers}}
-        return {1: 1.0}                       # a prize: the extra keeper
+        else:
+            vals = {1: 1.0, 2: 0.0, 3: 0.0, 4: 0.0}
+        third = float(league_rule("payouts", third_key, "total") or 0)
+        vals[3] += third
+        vals[4] -= third
+        return vals
 
     def kind(name):
         n = name.lower()
@@ -467,14 +508,17 @@ def bracket_structure(season: str) -> list:
                        "weeks": (pw[1], pw[1])}]
         out.append({"stage": "playoffs", "title": st.get("title"),
                     "seeded_by": "standings",
-                    "values": values_for("playoff_champion"),
+                    "values": values_for("playoff_champion",
+                                         "playoff_third_place"),
+                    "tie": league_rule("tiebreaker_rules", "series_week"),
                     "rounds": rounds})
     cw = stage_weeks(season, "cup")
     if cw:
         st = POSTSEASON_FORMAT["stages"]["cup"]
         out.append({"stage": "cup", "title": st.get("title"),
                     "seeded_by": "points",
-                    "values": values_for("cup_champion"),
+                    "values": values_for("cup_champion", "cup_third_place"),
+                    "tie": league_rule("tiebreaker_rules", "cup_game"),
                     "rounds": [{"name": r["name"], "kind": kind(r["name"]),
                                 "weeks": tuple(r["weeks"])}
                                for r in st["rounds"]]})
@@ -528,7 +572,7 @@ def bracket_week(season_matchups: list, week: int, season: str,
                     continue
                 if {m["manager_a"], m["manager_b"]} != {a, b}:
                     continue
-                a_won = (m["score_a"] > m["score_b"]) == (m["manager_a"] == a)
+                a_won = _game_winner(m, seeds, br["tie"]) == a
                 wa, wb = wa + a_won, wb + (not a_won)
             return wa, wb
 
@@ -563,7 +607,7 @@ def bracket_week(season_matchups: list, week: int, season: str,
                             _expected(vals, r["kind"], _p_series(x0, y0,
                                                                  need_r)))
                     cons[side] = cons.get(side, 0.0) + d / norm
-                a_won = (g["score_a"] > g["score_b"]) == (g["manager_a"] == a)
+                a_won = _game_winner(g, seeds, br["tie"]) == a
                 win, lose = (a, b) if a_won else (b, a)
                 p_win = _phi((avg.get(win, 0) - avg.get(lose, 0)) /
                              (hist_sigma * math.sqrt(2)))
@@ -585,6 +629,12 @@ def bracket_week(season_matchups: list, week: int, season: str,
                 elif r["kind"] == "semis":
                     text = (f"{win} ({sw} seed) knocked {lose} ({sl} seed) out "
                             f"of the {tag}{r['name'].lower()}")
+                    if br["stage"] == "playoffs":
+                        from modules.data_loader import league_rule
+                        po = league_rule("payouts", "playoff_champion")
+                        text += (f": {lose} pays ${int(po['per_payer'])} into "
+                                 f"the ${int(po['total'])} playoff pot, {win} "
+                                 f"is clear of it")
                 else:
                     text = (f"{win} beat {lose} in the {tag}"
                             f"{r['name'].lower()} game")

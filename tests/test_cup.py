@@ -229,7 +229,8 @@ def test_an_unrecorded_cup_winner_is_flagged_loudly(monkeypatch):
                         _scripted({22: {m: 10 for m in MANAGERS},
                                    23: {m: 10 for m in MANAGERS}}))
     monkeypatch.setattr(cup, "resolve_completed_week", lambda data, week: None)
-    data = _data(_scores({m: {1: 100} for m in MANAGERS}))
+    # distinct totals: this test is about the keeper note, not seeding ties
+    data = _data(_scores({m: {1: 100 + i} for i, m in enumerate(MANAGERS)}))
     result = cup.run_cup_odds_simulation(data, num_simulations=5)
 
     stakes = result.keeper_stakes
@@ -255,3 +256,29 @@ def test_odds_sum_to_one_hundred(monkeypatch):
         dist = result.finish_distribution[m]
         assert abs(sum(dist.values()) - 100.0) < 1e-6
     assert result.round_weeks[SEMI] == [22, 22]
+
+
+def test_seeding_tie_goes_to_the_better_regular_season_finish(monkeypatch):
+    """Nick, 10-07: Cup seeding tied on total points -> regular-season
+    finish. (It used to break on best single week, then on name.)"""
+    import modules.simulator_playoff_odds as po
+    data = _data(_scores({
+        "Nick":    {1: 100, 2: 100},
+        "Hayden":  {1: 150, 2: 50},
+        "Benton":  {1: 10,  2: 10},
+        "Garrett": {1: 5,   2: 5},
+    }))
+    monkeypatch.setattr(po, "rank_managers_by_standings",
+                        lambda d: ["Hayden", "Benton", "Nick", "Garrett"])
+    seeds = cup.get_cup_seeds(data)
+    assert seeds["Hayden"] == 1 and seeds["Nick"] == 2
+
+
+def test_unspecified_rules_raise():
+    from modules.data_loader import league_rule, UnspecifiedRule
+    assert league_rule("tiebreaker_rules", "series_week") == "higher_seed"
+    assert league_rule("tiebreaker_rules", "cup_game") == "higher_seed"
+    assert league_rule("payouts", "playoff_third_place", "total") == 0
+    assert league_rule("payouts", "cup_third_place", "total") == 0
+    with pytest.raises(UnspecifiedRule):
+        league_rule("tiebreaker_rules", "a_rule_nobody_made")

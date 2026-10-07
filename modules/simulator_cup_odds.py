@@ -128,9 +128,9 @@ def cup_seeding_points(data: FantasyData, season: str = None) -> dict:
 def get_cup_seeds(data: FantasyData, season: str = None) -> dict:
     """{manager: seed} with 1 = most points over weeks 1..cup_start-1.
 
-    Ties break on the manager's single best week in the window, then on name
-    so the result is at least stable. An exact tie on season-long fractional
-    points is not a real scenario; the rule exists so two runs agree.
+    A tie on total points goes to the better regular-season finish
+    (tiebreaker_rules.cup_seeding). This used to break on best single week
+    and then on NAME -- a rule nobody made, invented so two runs agreed.
     """
     totals = cup_seeding_points(data, season)
     first, last = cup_seeding_weeks(season)
@@ -142,7 +142,15 @@ def get_cup_seeds(data: FantasyData, season: str = None) -> dict:
             week = entry.get("week")
             if week is not None and first <= week <= last:
                 best_week[manager] = max(best_week[manager], entry.get("score", 0.0) or 0.0)
-    ranked = sorted(MANAGERS, key=lambda m: (-totals[m], -best_week[m], m))
+    from modules.data_loader import league_rule
+    rule = league_rule("tiebreaker_rules", "cup_seeding")
+    if rule != "regular_season_finish":
+        raise ValueError(f"unknown cup_seeding tiebreak {rule!r}")
+    finish = {m: 0 for m in MANAGERS}
+    if len(set(totals[m] for m in MANAGERS)) < len(MANAGERS):
+        from modules.simulator_playoff_odds import rank_managers_by_standings
+        finish = {m: i for i, m in enumerate(rank_managers_by_standings(data))}
+    ranked = sorted(MANAGERS, key=lambda m: (-totals[m], finish[m]))
     return {m: i for i, m in enumerate(ranked, 1)}
 
 

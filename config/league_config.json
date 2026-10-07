@@ -65,7 +65,14 @@
     },
     "tiebreaker_rules": {
         "standings": "h2h_regular_season",
-        "fallback": "total_points"
+        "fallback": "total_points",
+        "_comment": "Every tie the rules can produce, named. Anything not listed here RAISES -- code never guesses a tiebreak (Nick, 10-07). standings/fallback: regular-season standings, also the draft order and playoff seeding.",
+        "series_week": "higher_seed",
+        "_series_week": "A tied week inside a best-of-3 playoff series: the higher seed takes the week.",
+        "cup_game": "higher_seed",
+        "_cup_game": "A tied single game in the Cup: the higher (Cup) seed advances.",
+        "cup_seeding": "regular_season_finish",
+        "_cup_seeding": "Cup seeding tied on total points: the better regular-season finish gets the higher seed."
     },
     "pre_data_era": {
         "_note": "The two seasons played before the current rules. Deliberately excluded from all_standings and RECORDS, deliberately still counted in the honour roll, so these are added to the nine-season derived totals to reconcile against LEAGUEHISTORY.xlsx. Key names match that file's columns exactly: titles_won is the regular season, playoff_championships is the bracket. They were previously named first_place_finishes and titles, where 'titles' meant playoff championships -- the opposite of what titles_won means one file over.",
@@ -255,6 +262,15 @@
                             23
                         ],
                         "field": "cup semifinal winners"
+                    },
+                    {
+                        "name": "Cup Third Place",
+                        "weeks": [
+                            23,
+                            23
+                        ],
+                        "field": "cup semifinal losers",
+                        "note": "Played and recorded for the stat history. Carries no stake (payouts.cup_third_place)."
                     }
                 ],
                 "prize": "an extra (6th) keeper for the following season",
@@ -299,7 +315,20 @@
             "total": 0,
             "per_payer": 0,
             "paid_by": null,
-            "prize": "an extra (6th) keeper for the following season"
+            "prize": "one more keeper than the other three, the FOLLOWING season (keeper_rules: 2027-28 on, the previous season's Cup winner keeps 6, everyone else 5). Zero dollars; the only result that changes next season's rules.",
+            "first_played": "2026-27"
+        },
+        "playoff_third_place": {
+            "total": 0,
+            "per_payer": 0,
+            "paid_by": null,
+            "note": "The weeks 19-21 third-place series. Pride only FOR NOW: both semifinal losers pay the playoff champion regardless. If a stake is ever added, set it here -- the code reads it, nothing is hard-coded."
+        },
+        "cup_third_place": {
+            "total": 0,
+            "per_payer": 0,
+            "paid_by": null,
+            "note": "The week-23 game between the Cup semifinal losers. Played and recorded; no stake."
         }
     }
 }

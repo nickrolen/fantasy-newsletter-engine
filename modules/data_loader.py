@@ -114,6 +114,24 @@ def add_budget_for(season=None):
 # --- Tiebreaker rules (from config) ---
 TIEBREAKER_RULES = _LEAGUE_CONFIG.get("tiebreaker_rules", {})
 
+
+class UnspecifiedRule(KeyError):
+    """A league rule the config does not state. Raised, never defaulted:
+    a silent default makes missing data look real (Nick, 10-07: "I'd
+    rather a loud failure in week 22 than a quietly wrong bracket")."""
+
+
+def league_rule(*path):
+    """The value at `path` in league_config.json, or UnspecifiedRule."""
+    node = _LEAGUE_CONFIG
+    for key in path:
+        if not isinstance(node, dict) or key not in node:
+            raise UnspecifiedRule(
+                f"league_config.json does not specify {'.'.join(path)}. "
+                "Add the rule; the engine will not guess it.")
+        node = node[key]
+    return node
+
 # --- Postseason format, keeper rules and payouts (from config) ---
 # From 2026-27 the season is three stages, not two: a 15-week regular season,
 # a six-week best-of-3 playoff bracket, then a two-week Cup. The old rule

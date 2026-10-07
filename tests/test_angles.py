@@ -1,6 +1,7 @@
 """Angle selector: unusualness x consequence, recency only breaks ties."""
 
 import json
+import pytest
 import random
 import sys
 from pathlib import Path
@@ -138,7 +139,8 @@ def test_2025_26_postseason_leads_with_the_bracket():
     import angles_report
     rows, *_ = angles_report.replay(ROOT, "2025-26")
     leads = {w: s["lead"]["text"] for w, _, s in rows}
-    assert leads[22] == "Hayden (4 seed) knocked Nick (1 seed) out of the semifinals"
+    assert leads[22].startswith(
+        "Hayden (4 seed) knocked Nick (1 seed) out of the semifinals")
     assert leads[23] == "Garrett (3 seed) won the playoff championship over Hayden (4 seed)"
     # an expected title is still the title: a decisive game is never "no lead"
     assert not dict((w, s["dead"]) for w, _, s in rows)[23]
@@ -210,7 +212,8 @@ def test_the_title_clinch_leads_its_week():
     assert by[18]["lead"]["text"].startswith(
         "Nick clinched the regular-season title")
     # the final day settles who pays, on the tiebreak (both 10-11)
-    assert "Garrett will finish 3rd or 4th and pay" in by[21]["lead"]["text"]
+    assert "Garrett will finish 3rd or 4th in the regular season" in \
+        by[21]["lead"]["text"]
 
 
 def test_the_title_race_is_a_standing_thread_every_week():
@@ -262,3 +265,32 @@ def test_live_2026_27_path_from_schedule_and_records(tmp_path):
     assert sel["lead"] is not None
     assert any("Title race (12 weeks left)" in x for x in sel["race_state"])
     assert any("weeks 1-21" in x for x in sel["race_state"])
+
+
+def test_every_liability_line_names_its_pot_and_window():
+    """Nick, 10-07: never "safe from paying" or "certain to pay"
+    unqualified. Before the semis resolve, an unqualified "safe" is false."""
+    terms = A._pot_terms(15)
+    for ev, tmpl in A.DECIDED_TEXT.items():
+        line = tmpl.format(m="Nick", rec="9-3", left=3, payers="3rd or 4th",
+                           **terms)
+        assert "weeks 1-15" in line and "$" in line, ev
+        if ev in ("safe_from_paying", "will_pay"):
+            assert "playoff pot is still open" in line, ev
+        assert "safe from paying" not in line and "certain to pay" not in line
+
+
+def test_a_tied_bracket_week_goes_to_the_higher_seed():
+    g = {"manager_a": "Hayden", "manager_b": "Nick", "score_a": 1500.0,
+         "score_b": 1500.0}
+    assert A._game_winner(g, {"Nick": 1, "Hayden": 4}, "higher_seed") == "Nick"
+    with pytest.raises(ValueError):
+        A._game_winner(g, {"Nick": 1, "Hayden": 4}, "coin_flip")
+
+
+def test_third_place_stakes_come_from_config(monkeypatch):
+    import modules.data_loader as dl
+    br = next(b for b in A.bracket_structure("2026-27") if b["stage"] == "playoffs")
+    assert br["values"][3] == br["values"][4]          # pride only, for now
+    cup = next(b for b in A.bracket_structure("2026-27") if b["stage"] == "cup")
+    assert any(r["kind"] == "third" for r in cup["rounds"])

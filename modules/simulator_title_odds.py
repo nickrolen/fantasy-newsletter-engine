@@ -651,8 +651,11 @@ def apply_tiebreakers(
     This mirrors rank_managers_by_standings() in simulator_playoff_odds.py but
     operates on SIMULATED final standings rather than actual data.
     """
-    standings_rule = TIEBREAKER_RULES.get("standings", "h2h_regular_season")
-    fallback_rule = TIEBREAKER_RULES.get("fallback", "total_points")
+    from modules.data_loader import league_rule
+    standings_rule = league_rule("tiebreaker_rules", "standings")
+    fallback_rule = league_rule("tiebreaker_rules", "fallback")
+    if standings_rule != "h2h_regular_season" or fallback_rule != "total_points":
+        raise ValueError(f"unknown tiebreak rule {standings_rule}/{fallback_rule}")
 
     # Group managers by wins
     by_wins = defaultdict(list)

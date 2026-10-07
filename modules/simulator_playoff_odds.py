@@ -274,8 +274,11 @@ def rank_managers_by_standings(data: FantasyData) -> list[str]:
         live.sort(key=lambda x: (x[1], x[2]), reverse=True)
         return [m for m, _, _ in live]
 
-    standings_rule = TIEBREAKER_RULES.get("standings", "h2h_regular_season")
-    fallback_rule = TIEBREAKER_RULES.get("fallback", "total_points")
+    from modules.data_loader import league_rule
+    standings_rule = league_rule("tiebreaker_rules", "standings")
+    fallback_rule = league_rule("tiebreaker_rules", "fallback")
+    if standings_rule != "h2h_regular_season" or fallback_rule != "total_points":
+        raise ValueError(f"unknown tiebreak rule {standings_rule}/{fallback_rule}")
 
     # Group managers by win count.
     by_wins: dict[int, list[str]] = defaultdict(list)
