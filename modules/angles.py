@@ -421,10 +421,11 @@ def matchup_angles(season_matchups: list, week: int, hist: History,
         w, l = (a, b) if m["score_a"] > m["score_b"] else (b, a)
         margin = abs(m["score_a"] - m["score_b"])
         p = _two_sided(hist.margins, margin)
-        side = "close" if bisect_left(hist.margins, margin) < \
-            len(hist.margins) / 2 else "wide"
+        q = bisect_left(hist.margins, margin) / len(hist.margins)
+        side = " (one of the closest quarter of all games)" if q < 0.25 else (
+            " (one of the widest quarter of all games)" if q > 0.75 else "")
         out.append(Angle("margin", (w, l),
-                         f"{w} beat {l} by {margin:.2f} ({side})",
+                         f"{w} beat {l} by {margin:.2f}{side}",
                          _u(p, len(hist.margins), len(this))))
     scores = [(m["manager_a"], m["score_a"]) for m in this] + \
         [(m["manager_b"], m["score_b"]) for m in this]
