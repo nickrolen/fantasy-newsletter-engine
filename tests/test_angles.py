@@ -234,3 +234,31 @@ def test_decided_is_exact_and_ties_wait_for_the_tiebreak():
     assert need >= 1
     final = A.final_order(sm, 3)
     assert len(final) == 4
+
+
+def test_live_2026_27_path_from_schedule_and_records(tmp_path):
+    """In season, this season's games aren't in all_matchups.json yet: they
+    come from SCHEDULE.json pairings and RECORDS.json weekly scores, on the
+    2026-27 clock (15-week regular season, Cup race through 21)."""
+    import shutil
+    (tmp_path / "data" / "historical").mkdir(parents=True)
+    (tmp_path / "config").mkdir()
+    (tmp_path / "output").mkdir()
+    shutil.copy(ROOT / "data" / "historical" / "all_matchups.json",
+                tmp_path / "data" / "historical")
+    sm = _season("2026-27", weeks=3, seed=2)
+    sched = {"weeks": [{"week": w, "start_date": "2026-10-19",
+                        "matchups": [{"manager_a": a, "manager_b": b}
+                                     for a, b in PAIRS[w % 3]]}
+                       for w in (1, 2, 3)]}
+    rec = {"weekly_scores": {}}
+    for m in sm:
+        for side in ("a", "b"):
+            rec["weekly_scores"].setdefault(m[f"manager_{side}"], []).append(
+                {"week": m["week"], "score": m[f"score_{side}"]})
+    (tmp_path / "config" / "SCHEDULE.json").write_text(json.dumps(sched))
+    (tmp_path / "config" / "RECORDS.json").write_text(json.dumps(rec))
+    sel = A.for_report(tmp_path, "2026-27", 3, [])
+    assert sel["lead"] is not None
+    assert any("Title race (12 weeks left)" in x for x in sel["race_state"])
+    assert any("weeks 1-21" in x for x in sel["race_state"])
