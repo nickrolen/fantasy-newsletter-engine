@@ -166,3 +166,12 @@ _recovery/
 
 # State-migration archive (contains credentials -- never commit)
 newsletter_state.zip
+
+# --------------------------------------------
+# League lore (10-07). The repository is public; lore is the league's
+# private mythology. Never commit. (No chat logs, ever: not even ignored.)
+# --------------------------------------------
+config/LEAGUE_LORE.json
+data/lore_backups/
+output/claim_check_week*.md
+output/advice_preview_week*.html

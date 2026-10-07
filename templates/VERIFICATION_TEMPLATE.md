@@ -20,9 +20,17 @@ argued itself into a claim is the worst possible auditor of it.
 3. Paste the prompt below, filling in `[FILL IN]`
 4. Fix every P0 and P1 finding, then re-run if the fixes were substantial
 
-**Ground rule:** the stats report is the only source of truth. If a number in
-the draft is not in the stats report, it is wrong -- even if it sounds right,
-and even if it is true. Unverifiable is a finding.
+**Ground rule:** the stats report, and APPROVED entries of
+`config/LEAGUE_LORE.json`, are the only sources of truth. If a number in the
+draft is not in the stats report, it is wrong -- even if it sounds right, and
+even if it is true. Unverifiable is a finding. Lore supplies what the numbers
+can't (history, reputations, nicknames); a sentence using it carries a
+`<!--lore:id-->` tag. Numbers never come from written lore.
+
+**Run `scripts/check_draft.py` first (Step 7.5).** It mechanically checks every
+number, ranking and history claim. This chat is for what it can't: small
+counts attributed to the wrong player or week, causal claims, and whether a
+fact is being told as character.
 
 ---
 
@@ -35,6 +43,8 @@ did not write it and you have no stake in it. Your job is to find errors.
 FILES
 - WEEK[FILL IN]_DRAFT.md -- the newsletter draft under audit
 - stats_report_week[FILL IN].md -- the ONLY source of truth for every number
+- LEAGUE_LORE.json -- approved entries are the only source for history and
+  reputations; anything tagged <!--lore:id--> must match its entry
 
 METHOD (do not skip)
 1. Read the stats report FIRST, completely, before reading the draft.

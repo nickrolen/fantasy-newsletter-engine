@@ -190,6 +190,11 @@ from .simulator_playoff_odds import (
 )
 
 # Cup simulator (weeks 22-23, single elimination, seeded on points)
+from .claim_check import (
+    check as check_claims,
+    build_pool as build_claim_pool,
+    Vocabulary as ClaimVocabulary,
+)
 from .games_grid import (
     build_grid as build_games_grid,
     render_html as render_games_grid_html,
@@ -366,6 +371,10 @@ __all__ = [
     # point_in_time
     "capture_week_inputs",
     "missing_captures",
+    # claim_check
+    "check_claims",
+    "build_claim_pool",
+    "ClaimVocabulary",
     # games_grid
     "build_games_grid",
     "render_games_grid_html",

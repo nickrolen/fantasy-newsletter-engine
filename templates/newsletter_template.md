@@ -96,6 +96,12 @@ Remove all `[from extraction: ...]` citations to produce the final version.
 18. **NO DUPLICATE SECTION HEADERS:** When a section's required output format shows a bold header like `**What If?**` or `**Stats Corner**`, that IS the section content header -- do NOT also produce it if you're already using `### **[N]. [Section Name]**` as the section heading. Each section name should appear exactly once.
 19. **HEADLINE STYLE (Around the NBA):** Around the NBA headlines must read like actual sports news headlines -- active, specific, and narrative. Write "Kawhi Leonard Drops 41 as Clippers Rout Timberwolves", NOT "Player of the Night - Kawhi Leonard - Feb. 8". Headlines should be something you'd see on ESPN.com, not a database label or metadata format.
 20. **DATE RANGES:** Use the word "to" for date ranges in the title and subtitle (e.g., "Feb 2 to Feb 8"). Do NOT use em dashes, en dashes, arrows, or special characters for date ranges -- they can cause encoding issues in downstream rendering.
+21. **LEAGUE LORE (`LEAGUE_LORE.json`) IS THE ONLY SOURCE FOR WHAT THE NUMBERS CAN'T SAY.** History, habits, reputations, nicknames: if it isn't in the stats report, it must be an APPROVED lore entry, and the sentence that uses it ends with that entry's tag, `<!--lore:ENTRY_ID-->` (invisible to readers; the HTML generator strips it). `scripts/check_draft.py` refuses history claims ("again", "always", "first time since") with no tag or number, and tags that don't resolve.
+    - **strength "fact"** (e.g. "Benton is 6-22 in February"): true, but not evidence of a pattern. Tell it as HISTORY, never as character -- "Benton is 6-22 in February matchups", not "Benton always collapses in February". The check flags character words on a fact tag.
+    - **strength "tendency"**: survived a test against chance. May be told as character.
+    - **strength "written"**: Nick's own words. May be told as character. Its numbers are NOT sayable -- take numbers from the stats report.
+    - **kind "alias"**: an approved nickname ("Wemby") counts as the player's name.
+    - Proposed, rejected or stale entries do not exist. Do not use them.
 
 ---
 

@@ -3362,6 +3362,16 @@ def main():
         f.write(markdown)
     
     print(f"Saved: {output_path}")
+    # Keep a point-in-time copy of exactly what the writer is handed. Only
+    # adds to a capture Step 6 already made (publishable runs only).
+    try:
+        from modules.point_in_time import capture_report_outputs
+        base = Path(args.base_path)
+        if output_path.resolve().parent == (base / "output").resolve() and \
+                capture_report_outputs(base, current_week, [output_path.name]):
+            print(f"  ... copied into the week {current_week} point-in-time capture")
+    except Exception as e:
+        print(f"Warning: could not copy the .md into the capture: {e}")
     print(f"Lines: {len(markdown.splitlines())}")
     
     # Save current week's POTW winner to history file

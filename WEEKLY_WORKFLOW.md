@@ -513,7 +513,8 @@ Fill in the `[FILL IN]` placeholders in the prompts.
 3. `config\LAST_WEEK_RECAP.md` (narrative continuity)
 4. `config\RECENT_CONTENT.json` (avoid repeated headlines/phrases)
 5. `config\INJURY_OVERRIDES.json` (injury timelines)
-6. `data\weeklycontextinput_weekN.json` (only if fantasy trades happened)
+6. `config\LEAGUE_LORE.json` (the only source for history and reputations the numbers can't prove; template rule 21)
+7. `data\weeklycontextinput_weekN.json` (only if fantasy trades happened)
 
 ### The 3 Parts:
 | Part | Sections | Notes |
@@ -529,6 +530,51 @@ Fill in the `[FILL IN]` placeholders in the prompts.
 - Parts 2 and 3 run in the same chat -- no need to re-upload files
 
 **Output:** Save each part's downloaded file, then combine into `assets\WEEK{N}_DRAFT.md`
+---
+
+## Step 7.5: Claim Check (before Step 8)
+
+```cmd
+python scripts\check_draft.py --week N
+```
+
+Every number in `assets\WEEKN_DRAFT.md` must trace to this week's or last
+week's stats report, the looking-ahead file, INJURY_OVERRIDES, last week's
+draft, or an approved lore entry; every ranking ("league's highest") to a
+ranking in the sources; every history claim ("again", "always", "first time
+since") to a `<!--lore:id-->` tag. Around the NBA is left to Step 8. Report:
+`output\claim_check_weekN.md`. Exit 0 clean, 1 findings, 2 no stats report.
+
+Fix each finding or give it a source. The HTML generator prints whether the
+check ran after the draft's last edit. It never refuses to build.
+
+**Measured on the 2025-26 drafts** (weeks 17, 19-21, where the archived
+report is the one the writer had): 0-4 false positives a newsletter, and it
+catches about 9 in 10 slipped multi-digit numbers but only about half of
+slipped small counts ("4 games" -> "5") -- Step 8 still matters for those.
+It found two arithmetic errors that shipped in week 19.
+
+### Lore sittings (when you have time; not weekly)
+
+Character lore comes from you. The data supplies facts, draft loyalty and
+nicknames (60 tendency tests over nine seasons came out exactly at chance);
+the published newsletters supply the mythology already in print.
+
+```cmd
+python scripts\propose_lore.py              :: data facts, loyalty, nicknames
+python scripts\review_lore.py --sitting Benton
+python scripts\review_lore.py --revisit     :: second thoughts on rejections
+```
+
+A sitting shows one manager's career line and what the data says about him,
+walks every proposal about him, then asks what else the four of you know.
+Every decision is logged on its entry, `u` undoes the previous one, nothing
+is deleted, and it saves as you go.
+
+`config\LEAGUE_LORE.json` is NOT in git: the repository is public. Daily
+backups go to `data\lore_backups\` (also not in git). Derived entries
+recompute on every claim check, so an approved number never goes stale.
+
 ---
 
 ## Step 8: Verify the Draft (Recommended)

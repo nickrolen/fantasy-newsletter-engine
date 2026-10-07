@@ -10,6 +10,19 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 7, 2026 - Prose layer: claim check (Step 7.5) and league lore**
+
+`scripts/check_draft.py` checks a draft before Step 8: every number against
+the sources the writer was given, anchored to the player or manager it is
+about; rankings; history claims against `config/LEAGUE_LORE.json` tags; fact
+entries told as character; template rule 2 approximations. On the 2025-26
+drafts it found two arithmetic errors that shipped in week 19 (324.00 written
+as 323.00; a last-3 average of 1767.0 written as 1684.40). Lore: proposals
+from the data, tested against chance. Of 60 tendency cells scanned over nine
+seasons, 3 clear p <= 0.05 -- what chance alone produces -- and none survive
+FDR, so data-derived lore is offered as FACTS (told as history) plus draft
+loyalty counts and nicknames; character has to come from Nick.
+
 **October 6, 2026 - C2/C3 wired into Step 6 (dark launch)**
 
 Waiver plans and the trade finder (`modules/advice.py`) now run in Step 6.

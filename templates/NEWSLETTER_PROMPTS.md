@@ -37,6 +37,7 @@ Before opening the drafting chat, pull these from the **stats report markdown**:
 - `LAST_WEEK_RECAP.md`
 - `RECENT_CONTENT.json`
 - `INJURY_OVERRIDES.json`
+- `LEAGUE_LORE.json` *(the only source for history and reputations the stats report can't prove -- see template rule 21)*
 - `weeklycontextinput_weekN.json` *(only if fantasy trades happened this week)*
 
 **Prompt:**

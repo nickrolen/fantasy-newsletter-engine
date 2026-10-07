@@ -68,6 +68,9 @@ CROSS_SEASON_CONFIG = {
     # aged forward by fetch_playerlist when it seeds from an archived
     # spreadsheet.
     "config/PLAYER_AGES.json",
+    # League lore is the league's memory across seasons; derived entries
+    # recompute from history, written ones are Nick's. Never reset.
+    "config/LEAGUE_LORE.json",
 }
 
 

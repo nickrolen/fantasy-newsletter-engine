@@ -1994,6 +1994,9 @@ def build_newsletter_html(
     """Build the HTML newsletter from markdown."""
     global _paginated_table_counter
     _paginated_table_counter = 0  # Reset for each newsletter build
+    # Lore tags (<!--lore:id-->) are for the claim check, not readers.
+    markdown_text = re.sub(r"<!--\s*lore:[A-Za-z0-9_.-]+\s*-->", "",
+                           markdown_text)
     
     # Normalize all Unicode dash variants to standard ASCII for consistent parsing
     # Normalize all Unicode dash variants to standard ASCII for consistent parsing
@@ -2078,6 +2081,28 @@ def main():
         stats_report_path=getattr(args, 'stats_report', None),
     )
     print(f"Built HTML newsletter: {out} ({os.path.getsize(out)} bytes)")
+    print(claim_check_status(args.input))
+
+
+def claim_check_status(draft_path: str) -> str:
+    """One line on whether the draft was claim-checked after its last
+    edit. Informational: the generator never refuses to build."""
+    m = re.search(r"WEEK(\d+)_DRAFT", os.path.basename(draft_path))
+    if not m:
+        return "claim check: unknown week (draft not named WEEKN_DRAFT.md)"
+    root = os.path.dirname(os.path.dirname(os.path.abspath(draft_path)))
+    rep = os.path.join(root, "output", f"claim_check_week{m.group(1)}.md")
+    if not os.path.exists(rep):
+        return (f"claim check: NOT RUN -- python scripts/check_draft.py "
+                f"--week {m.group(1)}")
+    if os.path.getmtime(rep) < os.path.getmtime(draft_path):
+        return "claim check: STALE -- the draft changed after the last check"
+    with open(rep, encoding="utf-8") as f:
+        text = f.read()
+    m2 = re.search(r"\*\*(\d+) finding", text)
+    return ("claim check: clean" if "**Clean.**" in text else
+            f"claim check: {m2.group(1) if m2 else '?'} finding(s) -- "
+            f"see {rep}")
 
 
 if __name__ == "__main__":

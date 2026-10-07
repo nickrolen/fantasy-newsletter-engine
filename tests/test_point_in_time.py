@@ -231,3 +231,55 @@ def test_reset_archives_nested_captures(project, monkeypatch):
             "report_week03/PLAYERLIST.xlsx").is_file()
     deleted = {sns.rel(f) for f in sns.get_delete_files()}
     assert "config/snapshots/point_in_time/report_week03/manifest.json" in deleted
+
+
+# ---------------------------------------------------------------- outputs
+
+def _cap_outputs(tmp_path, week=5):
+    from modules.point_in_time import capture_week_inputs
+    (tmp_path / "output").mkdir(exist_ok=True)
+    return capture_week_inputs(tmp_path, week, "2026-27", {}, False)
+
+
+def test_report_outputs_are_kept_with_the_cap_outputs(tmp_path):
+    from modules.point_in_time import (capture_report_outputs,
+                                       missing_outputs, output_drift)
+    cap = _cap_outputs(tmp_path)
+    out = tmp_path / "output"
+    (out / "stats_report_week5.json").write_text('{"a": 1}')
+    (out / "looking_ahead_week5.json").write_text('{}')
+    assert missing_outputs(tmp_path, 5) == ["stats_report_week5.json",
+                                            "stats_report_week5.md"]
+    capture_report_outputs(tmp_path, 5)
+    (out / "stats_report_week5.md").write_text("# report")
+    capture_report_outputs(tmp_path, 5, ["stats_report_week5.md"])
+    assert missing_outputs(tmp_path, 5) == []
+    assert (cap / "outputs" / "stats_report_week5.json").read_text() == \
+        '{"a": 1}'
+    assert output_drift(tmp_path, 5) == []
+    (out / "stats_report_week5.json").write_text('{"a": 2}')   # a --repro
+    assert output_drift(tmp_path, 5) == ["stats_report_week5.json"]
+    assert (cap / "outputs" / "stats_report_week5.json").read_text() == \
+        '{"a": 1}'
+
+
+def test_no_capture_no_output_copy(tmp_path):
+    """A --fast report isn't what anyone published: nothing to add to."""
+    from modules.point_in_time import capture_report_outputs
+    (tmp_path / "output").mkdir()
+    (tmp_path / "output" / "stats_report_week5.json").write_text("{}")
+    assert capture_report_outputs(tmp_path, 5) is None
+    assert not (tmp_path / "config").exists()
+
+
+def test_rerunning_step6_drops_the_old_md(tmp_path):
+    from modules.point_in_time import capture_report_outputs, missing_outputs
+    _cap_outputs(tmp_path)
+    out = tmp_path / "output"
+    for n in ("stats_report_week5.json", "stats_report_week5.md"):
+        (out / n).write_text("x")
+    capture_report_outputs(tmp_path, 5,
+                           ["stats_report_week5.json", "stats_report_week5.md"])
+    _cap_outputs(tmp_path)                       # Step 6 again
+    capture_report_outputs(tmp_path, 5)      # json only, as Step 6 does
+    assert missing_outputs(tmp_path, 5) == ["stats_report_week5.md"]

@@ -112,6 +112,16 @@ These are the ones that decide something, as opposed to totalling something.
   week, preview otherwise, and any failure becomes a printed status --
   never a broken report (tests/test_advice_wiring.py). `advice_render.py`
   renders Section 10 from the JSON.
+- **`claim_check.py`** -- prose layer, item 5. Every number in a draft must
+  trace to a source record that names the same player/manager (matching
+  against the whole pool is not evidence); rankings to a ranking; history
+  claims to a lore tag. `scripts/check_draft.py` is Step 7.5.
+- **`lore.py`** -- `config/LEAGUE_LORE.json`, the only bridge for what the
+  numbers can't say. Derived entries store a definition and re-render every
+  check (never a stale number); proposals are tested against chance with
+  permutation p-values and Benjamini-Hochberg across every cell scanned.
+  `scripts/propose_lore.py`, `scripts/review_lore.py` (sittings, decision
+  log, undo). The lore file is gitignored: the repository is public.
 - **`games_grid.py`** -- C5. Lays that out as a manager x day grid led by
   Starts and Fillable, rows sorted by Starts, day cells muted. Rendered into Section 3 of the HTML straight
   from the JSON; the drafting chat sees it but must not retype it.

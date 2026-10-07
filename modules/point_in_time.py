@@ -27,6 +27,16 @@ publishing is the one that was published. --repro, --dry-run and --fast never
 write one. --fast skips the live injury fetch and the simulators, so its
 inputs are not the inputs to any line anyone read.
 
+Outputs too (10-07)
+-------------------
+The capture also keeps a copy of what the newsletter writer was handed --
+stats_report_weekNN.json, its .md and looking_ahead_weekNN.json -- under
+outputs/. Step 6 re-runs and --repro overwrite output/ in place: two of the
+six 2025-26 newsletters can no longer be claim-checked because the report
+they were written from is gone. capture_report_outputs() only ever adds to
+an existing capture (a publishable run); Step 6 replacing the capture drops
+the old .md with it, so a stale .md can't outlive the report it came from.
+
 The whole snapshots/ directory is per-season. start_new_season archives it
 into archive/<season>/config/snapshots/ and clears it.
 """
@@ -197,3 +207,68 @@ def missing_captures(base_path: Path) -> list:
     """
     return [w for w in report_weeks(base_path)
             if load_manifest(base_path, w) is None]
+
+
+OUTPUTS_SUBDIR = "outputs"
+
+
+def default_report_outputs(week: int) -> list:
+    return [f"stats_report_week{int(week)}.json",
+            f"looking_ahead_week{int(week)}.json"]
+
+
+def capture_report_outputs(base_path: Path, week: int,
+                           names: Optional[list] = None,
+                           now: Optional[datetime] = None) -> Optional[Path]:
+    """Copy output/<name> into report_weekNN/outputs/ and record each in the
+    manifest. Returns None (and copies nothing) when this week has no
+    capture: a --fast or --dry-run report is not what anyone published."""
+    base_path = Path(base_path)
+    dest = capture_dir(base_path, week)
+    manifest_path = dest / MANIFEST_NAME
+    if not manifest_path.is_file():
+        return None
+    now = now or datetime.now()
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+    out_dir = dest / OUTPUTS_SUBDIR
+    out_dir.mkdir(exist_ok=True)
+    rec = manifest.setdefault("outputs", {})
+    for name in names or default_report_outputs(week):
+        src = base_path / "output" / name
+        if not src.is_file():
+            rec[name] = {"present": False,
+                         "checked_at": now.isoformat(timespec="seconds")}
+            continue
+        shutil.copy2(src, out_dir / name)
+        rec[name] = {"present": True, "sha256": _sha256(src),
+                     "bytes": src.stat().st_size,
+                     "captured_at": now.isoformat(timespec="seconds")}
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+    return out_dir
+
+
+def output_drift(base_path: Path, week: int) -> list:
+    """Names whose live output/ copy no longer matches the captured one --
+    the report was regenerated after the capture (e.g. --repro)."""
+    manifest = load_manifest(base_path, week) or {}
+    drift = []
+    for name, rec in (manifest.get("outputs") or {}).items():
+        live = Path(base_path) / "output" / name
+        if rec.get("present") and live.is_file() and \
+                _sha256(live) != rec.get("sha256"):
+            drift.append(name)
+    return drift
+
+
+def missing_outputs(base_path: Path, week: int) -> list:
+    """What the writer was handed that the capture lacks."""
+    manifest = load_manifest(base_path, week)
+    if manifest is None:
+        return []
+    have = {n for n, r in (manifest.get("outputs") or {}).items()
+            if r.get("present")}
+    want = [f"stats_report_week{int(week)}.json",
+            f"stats_report_week{int(week)}.md"]
+    return [n for n in want if n not in have]

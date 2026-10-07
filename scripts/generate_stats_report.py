@@ -471,6 +471,9 @@ def main():
                 },
             )
             print(f"Saved point-in-time inputs to: {pit_dir}")
+            from modules.point_in_time import capture_report_outputs
+            capture_report_outputs(base_path, week)
+            print("  ... and the stats report the writer will be handed")
             if should_fetch and not injury_statuses:
                 print("  WARNING: injury fetch returned nothing; the capture records "
                       "that statuses were unavailable, not that everyone was healthy")

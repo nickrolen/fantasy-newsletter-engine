@@ -1074,8 +1074,24 @@ def _check_point_in_time_record(cfg, warnings, today=None):
     """
     from datetime import date
     sys.path.insert(0, str(PROJECT_ROOT))
-    from modules.point_in_time import missing_captures, report_weeks
+    from modules.point_in_time import (missing_captures, report_weeks,
+                                       missing_outputs, output_drift)
     failures = []
+    weeks = report_weeks(PROJECT_ROOT)
+    if weeks:
+        latest_w = max(weeks)
+        lacks = missing_outputs(PROJECT_ROOT, latest_w)
+        if lacks:
+            warnings.append(
+                f"[SNAPSHOT] the week {latest_w} capture has no copy of "
+                f"{lacks} -- run Step 6.5 (format_stats_report) so the claim "
+                "check can always be re-run against what the writer had.")
+        drift = output_drift(PROJECT_ROOT, latest_w)
+        if drift:
+            warnings.append(
+                f"[SNAPSHOT] output/{drift} changed after the week {latest_w} "
+                "capture (a re-run or --repro). The capture keeps the version "
+                "captured; if the newsletter used the new one, re-run Step 6.")
 
     missing = missing_captures(PROJECT_ROOT)
     if missing:
