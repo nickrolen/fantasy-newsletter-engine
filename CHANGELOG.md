@@ -10,6 +10,16 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 7, 2026 - Angles: max not sum, repeats, weeks with no lead**
+
+Consequence is the race an angle moved most, not the sum (margins were
+getting two bites: 11 of 23 leads). Last week's lead repeated is scored on
+its conditional rarity. A week whose best angle moved neither race, or was
+no rarer than a coin flip, gets "NO LEAD THIS WEEK" and the state of the
+races instead of a lead to inflate. 2025-26 replay: 7 no-lead weeks
+(5, 9, 10, 11, 14, 16, 21); live leads margin 7, score 5, bracket 2,
+streak 1, upset 1.
+
 **October 7, 2026 - Prose layer items 1 and 2: typed storylines, angle selector**
 
 Storyline alerts are now typed data (`modules/storylines.py`); the strings

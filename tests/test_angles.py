@@ -73,17 +73,20 @@ def test_blowout_scores_on_cup_squeaker_on_standings():
     assert c[a1]["cup"] > c[a2]["cup"]
 
 
-def test_dead_race_has_no_consequence_but_still_ranks_by_unusualness():
+def test_dead_race_has_no_consequence_and_the_week_has_no_lead():
     sm = _season("x", seed=4)
-    for m in sm:   # Nick wins everything by a mile: both races decided
-        if m["manager_a"] == "Nick":
-            m["score_a"] = 3000.0
-        if m["manager_b"] == "Nick":
-            m["score_b"] = 3000.0
+    fixed = {"Nick": 3000.0, "Hayden": 2500.0, "Benton": 2000.0,
+             "Garrett": 1500.0}     # every race decided long ago
+    for m in sm:
+        m["score_a"], m["score_b"] = fixed[m["manager_a"]], \
+            fixed[m["manager_b"]]
     c = A.consequence(sm, 21, 21, 21, HIST.sigma)
     assert c["Nick"]["cup"] < 1e-6 and c["Nick"]["standings"] < 1e-6
     sel = A.run_week(sm, 21, HIST, 21, 21)
-    assert sel["lead"] is not None and sel["lead"]["score"] > 0
+    assert sel["dead"] and "moved" in sel["dead"]
+    assert any("Standings" in x for x in sel["race_state"])
+    md = A.render_markdown(sel)
+    assert "NO LEAD THIS WEEK" in md and "Do NOT" in md
 
 
 def test_more_chances_means_less_unusual():
@@ -137,6 +140,8 @@ def test_2025_26_postseason_leads_with_the_bracket():
     leads = {w: s["lead"]["text"] for w, _, s in rows}
     assert leads[22] == "Hayden (4 seed) knocked Nick (1 seed) out of the semifinals"
     assert leads[23] == "Garrett (3 seed) won the playoff championship over Hayden (4 seed)"
+    # an expected title is still the title: a decisive game is never "no lead"
+    assert not dict((w, s["dead"]) for w, _, s in rows)[23]
 
 
 def test_bracket_stakes_come_from_the_payouts():
@@ -167,3 +172,30 @@ def test_a_score_is_a_points_story_a_streak_a_wins_story():
     A.score([sc, st], cons)
     assert sc.parts["standings"] == 0 and sc.consequence == 0.3
     assert st.parts["cup"] == 0 and st.consequence == 0.2
+
+
+def test_a_margin_gets_one_bite_not_two():
+    """Nick, 10-07: summing the Cup and standings terms let margins -- the
+    only angle eligible for both -- lead 11 of 23 weeks on arithmetic."""
+    cons = {"Nick": {"cup": 0.3, "standings": 0.3, "bracket": 0.0},
+            "Hayden": {"cup": 0.3, "standings": 0.3, "bracket": 0.0}}
+    mg = A.Angle("margin", ("Nick", "Hayden"), "m", 1.0)
+    sc = A.Angle("score", ("Nick",), "s", 1.0)
+    A.score([mg, sc], cons)
+    assert mg.consequence == sc.consequence == 0.3
+
+
+def test_last_weeks_lead_again_is_scored_on_what_is_new():
+    """Weeks 4 and 5 of 2025-26 led with "Garrett scored X, -18%" twice."""
+    import angles_report
+    rows, *_ = angles_report.replay(ROOT, "2025-26")
+    by = {w: s for w, _, s in rows}
+    assert "Garrett scored" in by[4]["lead"]["text"]
+    g5 = next(a for a in by[5]["all"] if a["text"].startswith("Garrett scored"))
+    assert g5["repeat"] and "continues last week's lead" in g5["text"]
+    assert not by[5]["lead"]["text"].startswith("Garrett scored")
+
+
+def test_a_streak_extended_is_news_only_by_the_extension():
+    p = HIST.p_streak_again(6)
+    assert 0 < p < 1 and A._u(p, 1000) < A._u(A._tail_ge(HIST.runs, 6), 1000)

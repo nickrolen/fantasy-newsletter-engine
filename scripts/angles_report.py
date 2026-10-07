@@ -35,7 +35,7 @@ def replay(base: Path, season: str):
     cup_last, reg_last = A.season_windows(season)
     od = base / "archive" / season / "output"
     import format_stats_report as fmt
-    last, rows = {}, []
+    last, rows, prev_lead = {}, [], None
     for w in sorted({m["week"] for m in sm}):
         stories = None
         f = od / f"stats_report_week{w}.json"
@@ -45,8 +45,10 @@ def replay(base: Path, season: str):
                 d, fmt.load_last_week_betting_predictions(w, od), season,
                 list(MANAGERS))
         sel = A.run_week([m for m in sm if m["week"] <= w], w, hist,
-                         cup_last, reg_last, stories, last, season)
+                         cup_last, reg_last, stories, last, season,
+                         prev_lead)
         A.update_last_used(last, sel, w)
+        prev_lead = None if sel["dead"] else sel["lead"]
         rows.append((w, bool(stories), sel))
     return rows, hist, cup_last, reg_last
 
@@ -65,16 +67,24 @@ def render(season, rows, hist, cup_last, reg_last) -> str:
            f"(counterfactual: {season} had no Cup); regular season 1-"
            f"{reg_last}. `*` = archived stats report available (adds its "
            "storylines).", ""]
-    fam = Counter(sel["lead"]["family"] for _, _, sel in rows)
+    fam = Counter(sel["lead"]["family"] for _, _, sel in rows
+                  if not sel["dead"])
     out.append("Lead families: " + ", ".join(f"{k} {v}" for k, v in
                                              fam.most_common()))
+    out.append(f"No-lead weeks: {[w for w, _, s in rows if s['dead']]}. "
+               f"Repeats of last week's lead re-scored as conditional: "
+               f"{sum(s['repeats_discounted'] for *_, s in rows)}.")
     out.append(f"Weeks where the recency tiebreak changed the order: "
                f"{sum(1 for *_, s in rows if s['recency_reordered'])} of "
                f"{len(rows)}.")
     out.append("")
     for w, st, sel in rows:
-        out.append(f"**Week {w}{'*' if st else ''}** -- lead: "
-                   f"{cell(sel['lead'])}")
+        if sel["dead"]:
+            out.append(f"**Week {w}{'*' if st else ''}** -- NO LEAD "
+                       f"({sel['dead']}). Best of it: {cell(sel['lead'])}")
+        else:
+            out.append(f"**Week {w}{'*' if st else ''}** -- lead: "
+                       f"{cell(sel['lead'])}")
         for a in sel["secondary"][:2]:
             out.append(f"  - {cell(a)}")
         out.append("")

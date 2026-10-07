@@ -34,9 +34,20 @@ and the crossing by the same remaining spread fixes that.)
 The two races give variety without a rule: a blowout's points move Cup
 seeding, a squeaker's result moves the standings.
 
-Recency only breaks ties: angles whose scores are within TIE_BAND of each
-other are ordered by how long ago their (family, manager) last led or
-featured. Nothing is held back for having been used.
+Consequence takes the race an angle moved MOST, not the sum (Nick, 10-07:
+a margin is eligible for both races and summing gave it two bites).
+
+Last week's lead told again (same subject, kind, direction) is scored on
+its conditional rarity -- given last week, how unusual is this week -- from
+how often prior seasons repeated it. Recency otherwise only breaks ties:
+angles within TIE_BAND are ordered by how long ago their (family, manager)
+last featured.
+
+A week with no lead says so (is_dead): the best angle moved neither race,
+or was no rarer than a coin flip and decided nothing. The block then tells
+the writer to open on the races (their state is printed) or on lore, not
+to build an opening out of a result -- that is how significance gets
+invented. A decisive bracket game always leads.
 """
 
 from __future__ import annotations
@@ -65,6 +76,7 @@ class History:
     sigma: float                       # weekly score SD around the week mean
     leader_gb: dict                    # week -> sorted leader margins
     team_weeks: int
+    rel_pairs: list = field(default_factory=list)   # (last week, this week)
 
     @classmethod
     def build(cls, matchups: list, regular_through: Callable) -> "History":
@@ -72,12 +84,16 @@ class History:
         by_week = defaultdict(list)
         for m in matchups:
             by_week[(m["season"], m["week"])].append(m)
+        team_rel = defaultdict(dict)
         for (s, w), ms in by_week.items():
             scores = [x for m in ms for x in (m["score_a"], m["score_b"])]
             mean = sum(scores) / len(scores)
             for x in scores:
                 rel.append(x / mean)
                 dev.append(x - mean)
+            for m in ms:
+                team_rel[(s, m["manager_a"])][w] = m["score_a"] / mean
+                team_rel[(s, m["manager_b"])][w] = m["score_b"] / mean
             margins += [abs(m["score_a"] - m["score_b"]) for m in ms]
         sigma = math.sqrt(sum(d * d for d in dev) / max(len(dev) - 1, 1))
         runs = []
@@ -99,8 +115,29 @@ class History:
                     leader[w].append(top[0] - top[1])
             for xs in seq.values():
                 runs += _run_lengths(xs)
+        pairs = [(wk[w - 1], wk[w]) for wk in team_rel.values()
+                 for w in wk if w - 1 in wk]
         return cls(sorted(margins), sorted(rel), sorted(runs), sigma,
-                   {w: sorted(v) for w, v in leader.items()}, len(rel))
+                   {w: sorted(v) for w, v in leader.items()}, len(rel),
+                   pairs)
+
+    def p_score_again(self, rel: float, direction: str) -> float:
+        """Two-sided P(a score this extreme | the same team was in the same
+        tail -- bottom or top quarter -- last week)."""
+        n = len(self.rel_scores)
+        lo, hi = self.rel_scores[n // 4], self.rel_scores[(3 * n) // 4]
+        if direction == "low":
+            cond = [c for p, c in self.rel_pairs if p <= lo]
+            k = sum(1 for c in cond if c <= rel)
+        else:
+            cond = [c for p, c in self.rel_pairs if p >= hi]
+            k = sum(1 for c in cond if c >= rel)
+        return min(1.0, 2 * k / len(cond)) if cond else 1.0
+
+    def p_streak_again(self, n: int) -> float:
+        """P(a run reaches n | it reached n-1)."""
+        prev = _tail_ge(self.runs, n - 1)
+        return _tail_ge(self.runs, n) / prev if prev else 1.0
 
 
 def _run_lengths(xs: list) -> list:
@@ -398,6 +435,10 @@ class Angle:
     parts: dict = field(default_factory=dict)
     score: float = 0.0
     source: str = "matchups"
+    direction: str = ""       # score: high/low; streak: won/lost
+    stat: float = 0.0         # score: relative score; streak: length
+    k: int = 1                # chances the week had (see _u)
+    repeat: bool = False
 
     @property
     def key(self):
@@ -409,7 +450,8 @@ class Angle:
                 "unusualness": round(self.unusualness, 3),
                 "consequence": round(self.consequence, 3),
                 "parts": {k: round(v, 3) for k, v in self.parts.items()},
-                "source": self.source}
+                "source": self.source, "direction": self.direction,
+                "repeat": self.repeat}
 
 
 def matchup_angles(season_matchups: list, week: int, hist: History,
@@ -436,7 +478,9 @@ def matchup_angles(season_matchups: list, week: int, hist: History,
             out.append(Angle("score", (mgr,),
                              f"{mgr} scored {s:.2f}, {100 * (s / mean - 1):+.0f}% "
                              f"against the week's average",
-                             _u(p, hist.team_weeks, len(scores))))
+                             _u(p, hist.team_weeks, len(scores)),
+                             direction="high" if s >= mean else "low",
+                             stat=s / mean, k=len(scores)))
     if week <= reg_last:
         seq = defaultdict(list)
         for x in sorted(season_matchups, key=lambda x: x["week"]):
@@ -452,7 +496,9 @@ def matchup_angles(season_matchups: list, week: int, hist: History,
                                  f"{mgr} has {'won' if xs[-1] else 'lost'} "
                                  f"{n} straight",
                                  _u(_tail_ge(hist.runs, n), len(hist.runs),
-                                    len(seq))))
+                                    len(seq)),
+                                 direction="won" if xs[-1] else "lost",
+                                 stat=n, k=len(seq)))
     return out
 
 
@@ -540,7 +586,11 @@ def score(angles: list[Angle], cons: dict) -> None:
         for m in who:
             c = {k: (v if k in races else 0.0)
                  for k, v in cons.get(m, {}).items()}
-            t = sum(c.values())
+            # The race it moved MOST, not the sum: a margin is eligible for
+            # both races, and summing gave it two bites where a score or a
+            # streak gets one (Nick, 10-07: margins led 11 of 23 weeks on
+            # that arithmetic).
+            t = max(c.values(), default=0.0)
             if t >= tot:
                 tot, parts = t, c
         a.parts = parts
@@ -568,16 +618,94 @@ def rank(angles: list[Angle], last_used: dict) -> tuple[list[Angle], int]:
     return out, moved
 
 
+def apply_repeats(cands: list[Angle], last_lead: Optional[dict],
+                  hist: History) -> int:
+    """Last week's lead, told again, is news only by how much it went on.
+    An angle with the same subject, kind and direction as last week's lead
+    is scored on its CONDITIONAL rarity -- given last week, how unusual is
+    this week? -- from how often prior seasons repeated it. (Nick, 10-07:
+    "Garrett scored X, -18%" led weeks 4 and 5 back to back.) Families
+    without a model of their own repetition are left alone."""
+    if not last_lead:
+        return 0
+    n = 0
+    for a in cands:
+        if (a.family, a.managers[0], a.direction) != (
+                last_lead.get("family"), (last_lead.get("managers") or [""])[0],
+                last_lead.get("direction", "")):
+            continue
+        if a.family == "score":
+            p = hist.p_score_again(a.stat, a.direction)
+        elif a.family == "streak":
+            p = hist.p_streak_again(int(a.stat))
+        else:
+            continue
+        a.unusualness = _u(p, hist.team_weeks, a.k)
+        a.repeat = True
+        a.text += " (continues last week's lead)"
+        n += 1
+    return n
+
+
+DEAD_U = math.log(2)    # no rarer than a coin flip
+
+
+def is_dead(lead: Optional[Angle]) -> Optional[str]:
+    """A week with no lead: the best angle is no rarer than a coin flip,
+    or it moved nothing. Told as a lead, it invites the writer to invent
+    significance -- the hype the voice rules out."""
+    if lead is None:
+        return "no angles"
+    if lead.consequence >= 1.0:
+        return None          # a decisive game leads, however expected
+    if lead.consequence < CONSEQUENCE_FLOOR:
+        return "nothing this week moved the Cup or standings races"
+    if lead.unusualness < DEAD_U:
+        return "nothing this week was rarer than a coin flip"
+    return None
+
+
+def race_state(season_matchups: list, week: int, cup_last: Optional[int],
+               reg_last: int) -> list[str]:
+    pts, wins = _cumulative(season_matchups, week)
+    losses = defaultdict(int)
+    for m in season_matchups:
+        if m["week"] <= min(week, reg_last):
+            loser = m["manager_b"] if m["score_a"] > m["score_b"] else \
+                m["manager_a"]
+            losses[loser] += 1
+    out = []
+    if cup_last and week <= cup_last:
+        order = sorted(pts, key=lambda x: -pts[x])
+        top = pts[order[0]]
+        out.append(f"Cup seeding race (total points, weeks 1-{cup_last}; "
+                   f"{cup_last - week} weeks left): " + " | ".join(
+                       f"{m} {pts[m]:.2f}" + ("" if i == 0 else
+                                              f" ({top - pts[m]:.2f} back)")
+                       for i, m in enumerate(order)))
+    if week <= reg_last:
+        order = sorted(wins, key=lambda x: (-wins[x], -pts[x]))
+        lead = wins[order[0]]
+        out.append(f"Standings ({reg_last - week} weeks left): " + " | ".join(
+            f"{m} {wins[m]}-{losses[m]}" + ("" if i == 0 else
+                                           f" ({lead - wins[m]} back)")
+            for i, m in enumerate(order)))
+    return out
+
+
 def select(ranked: list[Angle]) -> dict:
+    dead = is_dead(ranked[0] if ranked else None)
     return {"lead": ranked[0].as_dict() if ranked else None,
-            "secondary": [a.as_dict() for a in ranked[1:1 + SECONDARY]]}
+            "secondary": [a.as_dict() for a in ranked[1:1 + SECONDARY]],
+            "dead": dead}
 
 
 def run_week(season_matchups: list, week: int, hist: History,
              cup_last: Optional[int], reg_last: int,
              stories: Optional[list] = None,
              last_used: Optional[dict] = None,
-             season: Optional[str] = None) -> dict:
+             season: Optional[str] = None,
+             last_lead: Optional[dict] = None) -> dict:
     cands = matchup_angles(season_matchups, week, hist, reg_last)
     bcons, bangles = (bracket_week(season_matchups, week, season, hist.sigma)
                       if season else ({}, []))
@@ -587,6 +715,7 @@ def run_week(season_matchups: list, week: int, hist: History,
         nm = len([m for m in season_matchups if m["week"] == week])
         cands += storyline_angles(stories, hist, week, tw, nm, 2 * nm)
     cands = merge(cands)
+    repeats = apply_repeats(cands, last_lead, hist)
     cons = consequence(season_matchups, week, cup_last, reg_last, hist.sigma)
     for m, v in bcons.items():
         cons.setdefault(m, {"cup": 0.0, "standings": 0.0, "bracket": 0.0})
@@ -596,6 +725,8 @@ def run_week(season_matchups: list, week: int, hist: History,
     sel = select(ranked)
     sel["week"] = week
     sel["recency_reordered"] = moved
+    sel["repeats_discounted"] = repeats
+    sel["race_state"] = race_state(season_matchups, week, cup_last, reg_last)
     sel["consequence"] = cons
     sel["all"] = [a.as_dict() for a in ranked]
     return sel
@@ -656,6 +787,16 @@ def recency_from(out_dir, week: int) -> dict:
     return last
 
 
+def last_lead_from(out_dir, week: int) -> Optional[dict]:
+    import json
+    from pathlib import Path
+    f = Path(out_dir) / f"angles_week{week - 1}.json"
+    if not f.exists():
+        return None
+    sel = json.loads(f.read_text(encoding="utf-8"))
+    return None if sel.get("dead") else sel.get("lead")
+
+
 def for_report(base, season: str, week: int, stories: list) -> dict:
     """Everything format_stats_report needs: the ranked angles for this
     week, with recency from earlier weeks' files."""
@@ -667,7 +808,8 @@ def for_report(base, season: str, week: int, stories: list) -> dict:
     hist = History.build(prior, regular_season_weeks_for)
     cup_last, reg_last = season_windows(season)
     return run_week(sm, week, hist, cup_last, reg_last, stories,
-                    recency_from(Path(base) / "output", week), season)
+                    recency_from(Path(base) / "output", week), season,
+                    last_lead_from(Path(base) / "output", week))
 
 
 def render_markdown(sel: dict) -> str:
@@ -678,6 +820,18 @@ def render_markdown(sel: dict) -> str:
         return (f"{a['text']}  _(unusualness {a['unusualness']:.2f} x "
                 f"consequence {a['consequence']:.2f}"
                 f"{': ' + ', '.join(bits) if bits else ''})_")
+    if sel.get("dead"):
+        out = ["## -> ANGLES -> NO LEAD THIS WEEK", "",
+               f"Nothing this week earns a lead: {sel['dead']}. Do NOT "
+               "build an opening out of the result below -- that is how "
+               "significance gets invented. Open on the state of the races, "
+               "or on lore (an approved entry about whoever the race is "
+               "about), and keep the week's results to their sections.", ""]
+        out += [f"- {x}" for x in sel.get("race_state", [])]
+        if sel.get("lead"):
+            out += ["", f"(Best of a quiet week, for reference only: "
+                        f"{sel['lead']['text']})"]
+        return "\n".join(out) + "\n"
     out = ["## -> ANGLES -> WHAT LEADS THIS WEEK", "",
            "Ranked by how unusual (against every prior season) x how much it "
            "moved the Cup-seeding and standings races. Open the newsletter "
