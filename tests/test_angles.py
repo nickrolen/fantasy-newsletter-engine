@@ -127,3 +127,43 @@ def test_report_still_builds_when_angles_fail(tmp_path):
     block = fmt.build_angles_block(tmp_path, {"metadata": {"week": 3}}, None,
                                    3, tmp_path / "x.md")
     assert "unavailable" in block
+
+
+def test_2025_26_postseason_leads_with_the_bracket():
+    """The 4 seed knocking out the 17-4 1 seed, then the title, are the
+    stories of weeks 22-23 -- not a team's -33% score."""
+    import angles_report
+    rows, *_ = angles_report.replay(ROOT, "2025-26")
+    leads = {w: s["lead"]["text"] for w, _, s in rows}
+    assert leads[22] == "Hayden (4 seed) knocked Nick (1 seed) out of the semifinals"
+    assert leads[23] == "Garrett (3 seed) won the playoff championship over Hayden (4 seed)"
+
+
+def test_bracket_stakes_come_from_the_payouts():
+    """Champion collects, 3rd and 4th both pay: semis and final are
+    decisive (1), the third-place game decides nothing (0)."""
+    br = next(b for b in A.bracket_structure("2026-27")
+              if b["stage"] == "playoffs")
+    v = br["values"]
+    sw = {k: abs(A._expected(v, k, 1.0) - A._expected(v, k, 0.5))
+          for k in ("semis", "final", "third")}
+    assert sw["semis"] == sw["final"] > 0 and sw["third"] == 0
+    cup = next(b for b in A.bracket_structure("2026-27") if b["stage"] == "cup")
+    cw = {k: abs(A._expected(cup["values"], k, 1.0) -
+                 A._expected(cup["values"], k, 0.5)) for k in ("semis", "final")}
+    assert cw["semis"] * 2 == cw["final"]
+
+
+def test_best_of_three_series_odds():
+    assert A._p_series(0, 0, 2) == 0.5
+    assert A._p_series(1, 0, 2) == 0.75
+    assert A._p_series(2, 1, 2) == 1.0
+
+
+def test_a_score_is_a_points_story_a_streak_a_wins_story():
+    cons = {"Nick": {"cup": 0.3, "standings": 0.2, "bracket": 0.0}}
+    sc = A.Angle("score", ("Nick",), "s", 1.0)
+    st = A.Angle("streak", ("Nick",), "t", 1.0)
+    A.score([sc, st], cons)
+    assert sc.parts["standings"] == 0 and sc.consequence == 0.3
+    assert st.parts["cup"] == 0 and st.consequence == 0.2

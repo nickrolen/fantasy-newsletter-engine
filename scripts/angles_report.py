@@ -45,7 +45,7 @@ def replay(base: Path, season: str):
                 d, fmt.load_last_week_betting_predictions(w, od), season,
                 list(MANAGERS))
         sel = A.run_week([m for m in sm if m["week"] <= w], w, hist,
-                         cup_last, reg_last, stories, last)
+                         cup_last, reg_last, stories, last, season)
         A.update_last_used(last, sel, w)
         rows.append((w, bool(stories), sel))
     return rows, hist, cup_last, reg_last

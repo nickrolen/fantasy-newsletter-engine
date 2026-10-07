@@ -17,8 +17,10 @@ are unchanged. `modules/angles.py` ranks each week's angles by unusualness
 x consequence and Step 6.5 puts the ranking in the stats report .md.
 Consequence is the change in a manager's expected Cup seed (total points,
 weeks 1-21) plus expected standings seed, from scores alone -- no title
-odds. Replayed on 2025-26 (`scripts/angles_report.py`): leads split score 8,
-margin 6, streak 6, standings 2, upset 1. Two first-draft rules were
+odds. Postseason angles come from the bracket, weighted by the league's own
+stakes (payouts; the Cup's extra keeper). Replayed on 2025-26
+(`scripts/angles_report.py`), weeks 22-23 lead with the 4 seed knocking
+out the 1 seed and the title. Two first-draft rules were
 measured wrong and replaced: a flat bonus per seed crossed made weeks 3-6
 the most consequential of the season, and uncorrected tail probabilities
 let team scores (four a week against two margins) lead 10 of 23 weeks.

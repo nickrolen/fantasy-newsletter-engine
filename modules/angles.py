@@ -20,7 +20,13 @@ change in the manager's EXPECTED SEED, so they add:
              moved it.
   standings  Regular season only: the same on wins, where a gap can still
              move by sqrt(games left / 2).
-  bracket    A postseason game decides a seed outright: 1.
+  bracket    A postseason game: the change in what the manager stands to
+             win or pay, by the league's own stakes -- payouts for the
+             playoff bracket (champion collects, 3rd and 4th pay), the
+             extra keeper for the Cup -- scaled so a decisive game in that
+             bracket is 1. So a playoff semifinal and final both count 1,
+             the third-place game 0 (both sides pay either way), a Cup
+             semifinal 0.5 and the Cup final 1. Only bracket angles carry it.
 (The first version added a flat bonus per seed crossed. Measured on 2025-26
 it made weeks 3-6 -- when cumulative points cross every week and mean
 nothing -- look like the most consequential of the season. Scaling the gap
@@ -43,7 +49,6 @@ from typing import Callable, Optional
 
 from modules.storylines import FAMILY, MILESTONE_WINS, Storyline
 
-BRACKET_WEIGHT = 1.0       # a postseason game decides a seed outright
 CONSEQUENCE_FLOOR = 0.05   # a dead week still ranks by unusualness
 TIE_BAND = 0.05            # scores this close (relative) are a tie
 SECONDARY = 3              # angles shown after the lead
@@ -200,10 +205,185 @@ def consequence(season_matchups: list, week: int, cup_last: Optional[int],
             out[m]["standings"] = _expected_seed_move(
                 m, managers, lambda n: w0[m] - w0[n],
                 lambda n: w1[m] - w1[n], sd0, sd1)
-    else:
-        for m in playing:
-            out[m]["bracket"] = BRACKET_WEIGHT
     return out
+
+
+# ------------------------------------------------------------------ bracket
+
+def _p_series(wa: int, wb: int, need: int) -> float:
+    """P(side A takes the series) from (wa, wb), each game a coin flip."""
+    if wa >= need:
+        return 1.0
+    if wb >= need:
+        return 0.0
+    return 0.5 * _p_series(wa + 1, wb, need) + 0.5 * _p_series(wa, wb + 1,
+                                                              need)
+
+
+def bracket_structure(season: str) -> list:
+    """[{stage, title, seeded_by, values, rounds:[{name, kind, weeks}]}]
+    from league_config: the three-stage format from its effective season,
+    the legacy two-week single-game bracket before it."""
+    import re as _re
+    from modules.data_loader import (POSTSEASON_FORMAT, PAYOUTS, stage_weeks,
+                                     uses_three_stage_format)
+
+    def values_for(key):
+        pay = (PAYOUTS or {}).get(key) or {}
+        if pay.get("total"):
+            payers = {int(x) for x in _re.findall(
+                r"(\d)(?:st|nd|rd|th)", pay.get("paid_by") or "")}
+            return {1: float(pay["total"]), 2: 0.0,
+                    **{k: -float(pay.get("per_payer", 0)) for k in payers}}
+        return {1: 1.0}                       # a prize: the extra keeper
+
+    def kind(name):
+        n = name.lower()
+        return "third" if "third" in n else (
+            "final" if "final" in n and "semi" not in n else "semis")
+
+    out = []
+    pw = stage_weeks(season, "playoffs")
+    if pw:
+        if uses_three_stage_format(season):
+            st = POSTSEASON_FORMAT["stages"]["playoffs"]
+            rounds = [{"name": r["name"], "kind": kind(r["name"]),
+                       "weeks": tuple(r["weeks"])} for r in st["rounds"]]
+        else:
+            st = {"title": "Playoff Champion"}
+            rounds = [{"name": "Semifinals", "kind": "semis",
+                       "weeks": (pw[0], pw[0])},
+                      {"name": "Final", "kind": "final",
+                       "weeks": (pw[1], pw[1])},
+                      {"name": "Third Place", "kind": "third",
+                       "weeks": (pw[1], pw[1])}]
+        out.append({"stage": "playoffs", "title": st.get("title"),
+                    "seeded_by": "standings",
+                    "values": values_for("playoff_champion"),
+                    "rounds": rounds})
+    cw = stage_weeks(season, "cup")
+    if cw:
+        st = POSTSEASON_FORMAT["stages"]["cup"]
+        out.append({"stage": "cup", "title": st.get("title"),
+                    "seeded_by": "points",
+                    "values": values_for("cup_champion"),
+                    "rounds": [{"name": r["name"], "kind": kind(r["name"]),
+                                "weeks": tuple(r["weeks"])}
+                               for r in st["rounds"]]})
+    return out
+
+
+def _seeds(season_matchups, last_week, by):
+    pts, wins = _cumulative(season_matchups, last_week)
+    key = (lambda m: pts[m]) if by == "points" else \
+        (lambda m: (wins[m], pts[m]))
+    order = sorted(pts, key=key, reverse=True)
+    return {m: i + 1 for i, m in enumerate(order)}
+
+
+def _expected(values, kind, p):
+    v = lambda k: values.get(k, 0.0)  # noqa: E731
+    final = 0.5 * v(1) + 0.5 * v(2)
+    third = 0.5 * v(3) + 0.5 * v(4)
+    if kind == "semis":
+        return p * final + (1 - p) * third
+    if kind == "final":
+        return p * v(1) + (1 - p) * v(2)
+    return p * v(3) + (1 - p) * v(4)
+
+
+def bracket_week(season_matchups: list, week: int, season: str,
+                 hist_sigma: float) -> tuple[dict, list]:
+    """({manager: bracket consequence}, [bracket Angles]) for one week."""
+    cons, angles = {}, []
+    games_this = [m for m in season_matchups if m["week"] == week]
+    for br in bracket_structure(season):
+        rounds = br["rounds"]
+        first = min(r["weeks"][0] for r in rounds)
+        if not any(r["weeks"][0] <= week <= r["weeks"][1] for r in rounds):
+            continue
+        seeds = _seeds(season_matchups, first - 1, br["seeded_by"])
+        by_seed = {v: k for k, v in seeds.items()}
+        pts, _ = _cumulative(season_matchups, first - 1)
+        nwk = max(1, len({m["week"] for m in season_matchups
+                          if m["week"] < first}))
+        avg = {m: pts[m] / nwk for m in pts}
+        vals = br["values"]
+        semis = next(r for r in rounds if r["kind"] == "semis")
+        pairs = {"semis": [(by_seed.get(1), by_seed.get(4)),
+                           (by_seed.get(2), by_seed.get(3))]}
+
+        def series(a, b, r, upto):
+            wa = wb = 0
+            for m in season_matchups:
+                if not (r["weeks"][0] <= m["week"] <= min(upto, r["weeks"][1])):
+                    continue
+                if {m["manager_a"], m["manager_b"]} != {a, b}:
+                    continue
+                a_won = (m["score_a"] > m["score_b"]) == (m["manager_a"] == a)
+                wa, wb = wa + a_won, wb + (not a_won)
+            return wa, wb
+
+        need = (semis["weeks"][1] - semis["weeks"][0]) // 2 + 1
+        winners, losers = [], []
+        for a, b in pairs["semis"]:
+            wa, wb = series(a, b, semis, semis["weeks"][1])
+            if max(wa, wb) >= need:
+                (winners if wa > wb else losers).append(a)
+                (losers if wa > wb else winners).append(b)
+        pairs["final"] = [tuple(winners)] if len(winners) == 2 else []
+        pairs["third"] = [tuple(losers)] if len(losers) == 2 else []
+        swings = [abs(_expected(vals, k, 1.0) - _expected(vals, k, 0.5))
+                  for k in ("semis", "final", "third")]
+        norm = max(swings) or 1.0
+        for r in rounds:
+            if not (r["weeks"][0] <= week <= r["weeks"][1]):
+                continue
+            need_r = (r["weeks"][1] - r["weeks"][0]) // 2 + 1
+            for a, b in pairs.get(r["kind"], []):
+                g = next((m for m in games_this if {m["manager_a"],
+                                                    m["manager_b"]} == {a, b}),
+                         None)
+                if g is None:
+                    continue
+                w0 = series(a, b, r, week - 1)
+                w1 = series(a, b, r, week)
+                for side, (x0, y0), (x1, y1) in ((a, w0, w1),
+                                                 (b, w0[::-1], w1[::-1])):
+                    d = abs(_expected(vals, r["kind"], _p_series(x1, y1,
+                                                                 need_r)) -
+                            _expected(vals, r["kind"], _p_series(x0, y0,
+                                                                 need_r)))
+                    cons[side] = cons.get(side, 0.0) + d / norm
+                a_won = (g["score_a"] > g["score_b"]) == (g["manager_a"] == a)
+                win, lose = (a, b) if a_won else (b, a)
+                p_win = _phi((avg.get(win, 0) - avg.get(lose, 0)) /
+                             (hist_sigma * math.sqrt(2)))
+                ww, ll = w1 if a_won else w1[::-1]
+                decided = max(ww, ll) >= need_r
+                tag = f"{br['stage']} " if br["stage"] == "cup" else ""
+                sw, sl = seeds.get(win), seeds.get(lose)
+                if not decided:
+                    text = (f"{win} ({sw} seed) {'leads' if ww > ll else 'evens'}"
+                            f" the {tag}{r['name'].lower()} series with {lose} "
+                            f"({sl} seed), {ww}-{ll}")
+                elif r["kind"] == "final":
+                    title = (br["title"] or "title").replace(
+                        "Champion", "championship").replace(
+                        "Cup championship", "Cup").lower().replace(
+                        "cup", "Cup")
+                    text = (f"{win} ({sw} seed) won the {title} over "
+                            f"{lose} ({sl} seed)")
+                elif r["kind"] == "semis":
+                    text = (f"{win} ({sw} seed) knocked {lose} ({sl} seed) out "
+                            f"of the {tag}{r['name'].lower()}")
+                else:
+                    text = (f"{win} beat {lose} in the {tag}"
+                            f"{r['name'].lower()} game")
+                angles.append(Angle("bracket", (win, lose), text,
+                                    _u(p_win, 1000, max(len(games_this), 1)),
+                                    source="bracket"))
+    return cons, angles
 
 
 # ------------------------------------------------------------------ angles
@@ -336,7 +516,18 @@ def merge(angles: list[Angle]) -> list[Angle]:
 # A game's story is both teams' story; anything else is its subject's. (Max
 # over everyone named let "Nick leads by 7" ride on Benton's live race for
 # second in 2025-26 week 21.)
-PAIR_FAMILIES = {"margin", "upset", "spread"}
+PAIR_FAMILIES = {"margin", "upset", "spread", "bracket"}
+
+# Which races an angle bears on. A team score is points: the Cup race. A
+# streak or a standings lead is wins: the standings. Without this, "Nick
+# leads by 5 games" led 2025-26 week 19 on the Cup movement of Nick's
+# blowout, and a -33% score in a playoff semifinal outranked the 1 seed
+# being knocked out.
+RACES = {"score": ("cup",), "record": ("cup",),
+         "margin": ("cup", "standings"), "spread": ("cup", "standings"),
+         "upset": ("standings", "bracket"), "streak": ("standings",),
+         "standings": ("standings",), "milestone": ("standings",),
+         "bracket": ("bracket",)}
 
 
 def score(angles: list[Angle], cons: dict) -> None:
@@ -344,11 +535,13 @@ def score(angles: list[Angle], cons: dict) -> None:
         parts = {"cup": 0.0, "standings": 0.0, "bracket": 0.0}
         tot = 0.0
         who = a.managers if a.family in PAIR_FAMILIES else a.managers[:1]
+        races = RACES.get(a.family, ("cup", "standings"))
         for m in who:
-            c = cons.get(m, {})
+            c = {k: (v if k in races else 0.0)
+                 for k, v in cons.get(m, {}).items()}
             t = sum(c.values())
             if t >= tot:
-                tot, parts = t, dict(c)
+                tot, parts = t, c
         a.parts = parts
         a.consequence = tot
         a.score = a.unusualness * max(tot, CONSEQUENCE_FLOOR)
@@ -382,14 +575,21 @@ def select(ranked: list[Angle]) -> dict:
 def run_week(season_matchups: list, week: int, hist: History,
              cup_last: Optional[int], reg_last: int,
              stories: Optional[list] = None,
-             last_used: Optional[dict] = None) -> dict:
+             last_used: Optional[dict] = None,
+             season: Optional[str] = None) -> dict:
     cands = matchup_angles(season_matchups, week, hist, reg_last)
+    bcons, bangles = (bracket_week(season_matchups, week, season, hist.sigma)
+                      if season else ({}, []))
+    cands += bangles
     if stories:
         tw = 2 * len([m for m in season_matchups if m["week"] <= week])
         nm = len([m for m in season_matchups if m["week"] == week])
         cands += storyline_angles(stories, hist, week, tw, nm, 2 * nm)
     cands = merge(cands)
     cons = consequence(season_matchups, week, cup_last, reg_last, hist.sigma)
+    for m, v in bcons.items():
+        cons.setdefault(m, {"cup": 0.0, "standings": 0.0, "bracket": 0.0})
+        cons[m]["bracket"] = v
     score(cands, cons)
     ranked, moved = rank(cands, last_used or {})
     sel = select(ranked)
@@ -466,7 +666,7 @@ def for_report(base, season: str, week: int, stories: list) -> dict:
     hist = History.build(prior, regular_season_weeks_for)
     cup_last, reg_last = season_windows(season)
     return run_week(sm, week, hist, cup_last, reg_last, stories,
-                    recency_from(Path(base) / "output", week))
+                    recency_from(Path(base) / "output", week), season)
 
 
 def render_markdown(sel: dict) -> str:
