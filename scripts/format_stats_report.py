@@ -2877,249 +2877,51 @@ def format_section_10_rumor_mill(data: dict, lookups: dict, trades_context: Opti
 # MAIN FORMATTER
 # =============================================================================
 
+def build_angles_block(base: Path, data: dict, predictions: Optional[dict],
+                       week: int, output_path: Path) -> str:
+    """Rank this week's angles (modules/angles.py), save them for next
+    week's recency tiebreak, and return the markdown block. Never raises:
+    a failure is said in the block and the report still builds."""
+    try:
+        from modules import angles as ang
+        from modules.storylines import compute_storylines
+        season = _normalize_season_key(
+            (data.get("metadata") or {}).get("season_year", "")) or \
+            CURRENT_SEASON
+        stories = compute_storylines(data, predictions, CURRENT_SEASON,
+                                     list(MANAGERS))
+        sel = ang.for_report(base, season, week, stories)
+        if output_path.resolve().parent == (base / "output").resolve():
+            f = base / "output" / f"angles_week{week}.json"
+            f.write_text(json.dumps({k: v for k, v in sel.items()
+                                     if k != "consequence"}, indent=1),
+                         encoding="utf-8")
+            try:
+                from modules.point_in_time import capture_report_outputs
+                capture_report_outputs(base, week, [f.name])
+            except Exception:
+                pass
+        return ang.render_markdown(sel)
+    except Exception as e:  # noqa: BLE001
+        print(f"Warning: angles unavailable: {e}")
+        return (f"## -> ANGLES -> unavailable this week ({e}). Choose the "
+                "lead from the storyline alerts.\n")
+
+
 def compute_storyline_alerts(data: dict, lookups: dict, predictions: Optional[dict] = None) -> list[str]:
     """
-    Pre-compute narrative conclusions so Claude doesn't have to deduce them.
-    Returns a list of explicit storyline statements ready to be woven into prose.
-    
-    Args:
-        data: The stats report JSON
-        lookups: Cross-reference lookup tables
-        predictions: Optional dict of last week's betting line predictions for upset detection
+    Pre-computed narrative conclusions, as the "READ FIRST" strings.
+
+    Rendered from modules.storylines.compute_storylines, which returns the
+    same storylines as typed data for the angle selector. `lookups` is
+    unused and kept for the existing callers.
     """
-    alerts = []
-    # Defensive: build_all_time_records / build_current_streaks / build_metadata could be missing or None.
-    week = (data.get("metadata") or {}).get("week", 0)
-    streaks = data.get("current_streaks") or {}
-    atr = data.get("all_time_records") or {}
-    all_time_win_streaks = atr.get("longest_win_streaks") or {}
-    all_time_loss_streaks = atr.get("longest_loss_streaks") or {}
-    career_standings = {c["manager"]: c for c in (atr.get("career_standings") or [])}
-    
-    # Track what we've already mentioned to avoid duplicates
-    mentioned_managers = set()
-    
-    # === RECORD UPDATES (from record_updates field) ===
-    for update in data.get("record_updates", []):
-        desc = update.get("description", "")
-        val = update.get("value", "")
-        update_type = update.get("type", "")
-        
-        if "highest_weekly_team_score" in update_type:
-            # Find who scored it
-            for ms in (data.get("matchup_summaries") or []):
-                if ms["stats_a"]["total_fp"] == val:
-                    alerts.append(f" -> SEASON RECORD: {ms['manager_a']} scored {val:.2f} FP -> the highest team score of the {CURRENT_SEASON} season")
-                    break
-                elif ms["stats_b"]["total_fp"] == val:
-                    alerts.append(f" -> SEASON RECORD: {ms['manager_b']} scored {val:.2f} FP -> the highest team score of the {CURRENT_SEASON} season")
-                    break
-        elif "win_streak" in update_type:
-            if "new" in desc.lower() or "sets" in desc.lower():
-                # Parse who set it
-                for mgr in MANAGERS:
-                    if mgr.lower() in desc.lower():
-                        current = streaks.get(mgr, {}).get("win_streak", 0)
-                        all_time = all_time_win_streaks.get(mgr, {}).get("length", 0)
-                        all_time_season = all_time_win_streaks.get(mgr, {}).get("season", "")
-                        
-                        if current > all_time:
-                            alerts.append(f" -> ALL-TIME RECORD: {mgr} set a new personal best with a {current}-game win streak, surpassing their previous record of {all_time} ({all_time_season})")
-                        else:
-                            # Season record but not all-time - include context about all-time
-                            gap = all_time - current
-                            if gap == 1:
-                                alerts.append(f" -> SEASON RECORD: {mgr} set a new season-best {current}-game win streak -> just 1 win from tying their all-time record of {all_time} ({all_time_season})")
-                            elif gap == 2:
-                                alerts.append(f" -> SEASON RECORD: {mgr} set a new season-best {current}-game win streak -> 2 wins from tying their all-time record of {all_time} ({all_time_season})")
-                            else:
-                                alerts.append(f" -> SEASON RECORD: {mgr} set a new season-best {current}-game win streak (all-time record: {all_time})")
-                        mentioned_managers.add(mgr)
-                        break
-        elif "loss_streak" in update_type:
-            for mgr in MANAGERS:
-                if mgr.lower() in desc.lower():
-                    current = streaks.get(mgr, {}).get("loss_streak", 0)
-                    alerts.append(f" -> LOSING STREAK: {mgr} has now lost {current} straight")
-                    break
-    
-    # === LOSING STREAK ENDINGS ===
-    for matchup in data.get("matchup_summaries", []):
-        winner = matchup.get("winner")
-        loser = matchup.get("manager_a") if winner == matchup.get("manager_b") else matchup.get("manager_b")
-        margin = matchup.get("margin", 0)
-        
-        winner_streaks = streaks.get(winner, {})
-        season_longest_loss = winner_streaks.get("season_longest_loss_streak", 0)
-        season_longest_loss_weeks = winner_streaks.get("season_longest_loss_weeks", "")
-        current_win = winner_streaks.get("win_streak", 0)
-        
-        # If they have a win streak of 1 and had a significant losing streak that just ended
-        if current_win == 1 and season_longest_loss >= 3 and season_longest_loss_weeks:
-            try:
-                parts = season_longest_loss_weeks.split("-")
-                if len(parts) == 2:
-                    loss_start, loss_end = int(parts[0]), int(parts[1])
-                    if loss_end == week - 1:  # Lost through last week, won this week
-                        alerts.append(f" -> STREAK SNAPPED: {winner} ends {season_longest_loss}-game losing streak (weeks {loss_start}-{loss_end}) with Week {week} victory over {loser}, {matchup.get('stats_a' if winner == matchup['manager_a'] else 'stats_b', {}).get('total_fp', 0):.2f} -> {matchup.get('stats_b' if winner == matchup['manager_a'] else 'stats_a', {}).get('total_fp', 0):.2f}")
-            except (ValueError, TypeError):
-                pass
-    
-    # === UPSET DETECTION (from last week's betting lines) ===
-    if predictions:
-        for matchup in data.get("matchup_summaries", []):
-            winner = matchup.get("winner")
-            loser = matchup.get("manager_a") if winner == matchup.get("manager_b") else matchup.get("manager_b")
-            mgr_a = matchup.get("manager_a")
-            mgr_b = matchup.get("manager_b")
-            margin = matchup.get("margin", 0)
-            
-            # Look up last week's prediction for this matchup
-            key = tuple(sorted([mgr_a, mgr_b]))
-            pred = predictions.get(key)
-            
-            if pred:
-                favorite = pred.get("favorite")
-                underdog = pred.get("underdog")
-                fav_prob = pred.get("win_prob_favorite", 50)
-                dog_prob = pred.get("win_prob_underdog", 50)
-                spread = pred.get("spread", 0)
-                
-                # Upset = underdog won
-                if winner == underdog and fav_prob >= 51:  # Flag any upset where favorite had majority probability
-                    # Calculate how much of an upset it was
-                    upset_magnitude = fav_prob - 50  # How favored was the favorite?
-                    
-                    # Get actual scores
-                    winner_score = matchup.get('stats_a' if winner == mgr_a else 'stats_b', {}).get('total_fp', 0)
-                    loser_score = matchup.get('stats_b' if winner == mgr_a else 'stats_a', {}).get('total_fp', 0)
-                    
-                    if fav_prob >= 70:
-                        alerts.append(f" -> MAJOR UPSET: {winner} ({dog_prob:.0f}% win prob) stuns {loser} ({fav_prob:.0f}% favorite), {winner_score:.2f} -> {loser_score:.2f}")
-                    elif fav_prob >= 60:
-                        alerts.append(f" -> UPSET: {winner} ({dog_prob:.0f}% win prob) defeats favored {loser} ({fav_prob:.0f}%), {winner_score:.2f} -> {loser_score:.2f}")
-                    else:
-                        alerts.append(f" -> UPSET: {winner} wins as {dog_prob:.0f}% underdog over {loser} ({fav_prob:.0f}% favorite)")
-                
-                # Also flag when favorite wins but covers big spread
-                elif winner == favorite and spread and abs(spread) >= 30:
-                    # Did they cover the spread?
-                    if margin > abs(spread):
-                        alerts.append(f" -> SPREAD COVERED: {winner} beat the {abs(spread):.1f}-point spread with {margin:.2f}-point victory")
-                    elif margin < abs(spread) - 50:
-                        # They won but massively underperformed expectations
-                        alerts.append(f" -> CLOSE CALL: {winner} was favored by {abs(spread):.1f} but only won by {margin:.2f}")
-    
-    
-    # === CAREER MILESTONES ===
-    for mgr, career in career_standings.items():
-        wins = career.get("wins", 0)
-        
-        # Check if they won this week
-        won_this_week = False
-        opponent = None
-        for matchup in data.get("matchup_summaries", []):
-            if matchup.get("winner") == mgr:
-                won_this_week = True
-                opponent = matchup.get("manager_a") if mgr == matchup.get("manager_b") else matchup.get("manager_b")
-                break
-        
-        if not won_this_week:
-            continue
-        
-        # Round number milestones
-        if wins in [50, 75, 100, 125, 150, 175, 200]:
-            mgr_streaks = streaks.get(mgr, {})
-            loss_streak = mgr_streaks.get("season_longest_loss_streak", 0)
-            loss_weeks = mgr_streaks.get("season_longest_loss_weeks", "")
-            
-            # Figure out how long they were waiting
-            wait_info = ""
-            if loss_weeks and loss_streak >= 2:
-                try:
-                    parts = loss_weeks.split("-")
-                    if len(parts) == 2:
-                        loss_start, loss_end = int(parts[0]), int(parts[1])
-                        if loss_end == week - 1:
-                            weeks_waiting = loss_streak
-                            wait_info = f" after a {weeks_waiting}-week wait (stuck at {wins-1} since Week {loss_start})"
-                except (ValueError, TypeError):
-                    pass
-            
-            alerts.append(f" -> MILESTONE: {mgr} secures career win #{wins}{wait_info}")
-    
-    # === WIN STREAK CONTEXT (approaching records) ===
-    for mgr, mgr_streaks in streaks.items():
-        if mgr in mentioned_managers:
-            continue  # Already covered in record updates
-            
-        current_win = mgr_streaks.get("win_streak", 0)
-        if current_win >= 3:
-            all_time = all_time_win_streaks.get(mgr, {}).get("length", 0)
-            all_time_season = all_time_win_streaks.get(mgr, {}).get("season", "")
-            season_best = mgr_streaks.get("season_longest_win_streak", 0)
-            
-            if current_win > all_time:
-                alerts.append(f" -> ALL-TIME RECORD: {mgr}'s {current_win}-game win streak is a new personal best (previous: {all_time} in {all_time_season})")
-            elif current_win == all_time:
-                alerts.append(f" -> RECORD TIED: {mgr}'s {current_win}-game win streak ties their all-time best ({all_time_season})")
-            elif current_win == all_time - 1:
-                alerts.append(f" -> RECORD WATCH: {mgr} has won {current_win} straight -> 1 win from tying their all-time record of {all_time} ({all_time_season})")
-            elif current_win == all_time - 2 and current_win >= 4:
-                alerts.append(f" -> STREAK ALERT: {mgr} has won {current_win} straight (all-time record: {all_time})")
-    
-    # === MATCHUP CONTEXT (blowouts, close games, upsets) ===
-    biggest_blowout = atr.get("biggest_blowout", {})
-    closest_game = atr.get("closest_game", {})
-    
-    for matchup in data.get("matchup_summaries", []):
-        margin = matchup.get("margin", 0)
-        winner = matchup.get("winner")
-        loser = matchup.get("manager_a") if winner == matchup.get("manager_b") else matchup.get("manager_b")
-        
-        # Check for historic margins
-        if margin > 500:
-            if biggest_blowout.get("margin", 0) and margin > biggest_blowout["margin"]:
-                alerts.append(f" -> ALL-TIME BLOWOUT: {winner}'s {margin:.2f}-point victory over {loser} is the largest margin in league history!")
-            else:
-                alerts.append(f" -> BLOWOUT: {winner} crushed {loser} by {margin:.2f} points")
-        elif margin < 10:
-            if closest_game.get("margin", float('inf')) and margin < closest_game["margin"]:
-                alerts.append(f" -> ALL-TIME CLOSEST: {winner}'s {margin:.2f}-point victory over {loser} is the closest game in league history!")
-            else:
-                alerts.append(f" -> NAIL-BITER: {winner} edged {loser} by just {margin:.2f} points")
-        elif margin < 25:
-            alerts.append(f" -> CLOSE GAME: {winner} held off {loser} by {margin:.2f} points")
-    
-    # === STANDINGS IMPLICATIONS ===
-    standings = data.get("current_standings", [])
-    if standings:
-        leader = standings[0]
-        second = standings[1] if len(standings) > 1 else None
-        
-        if leader and second:
-            leader_record = leader.get("record", "0-0").split("-")
-            second_record = second.get("record", "0-0").split("-")
-            try:
-                leader_wins = int(leader_record[0])
-                second_wins = int(second_record[0])
-                games_back = leader_wins - second_wins
-                
-                if games_back >= 4:
-                    alerts.append(f" -> STANDINGS: {leader['manager']} leads by {games_back} games over {second['manager']} ({leader['record']} vs {second['record']})")
-            except (ValueError, IndexError):
-                pass
-    
-    # === MAGIC NUMBER ===
-    # power_rankings is None in --fast mode.
-    for pr in (data.get("power_rankings") or []):
-        if pr.get("magic_number") and pr.get("rank") == 1:
-            alerts.append(f" -> CLINCH WATCH: {pr['manager']}'s magic number is {pr['magic_number']}")
-    
-    return alerts
+    from modules.storylines import compute_storylines
+    return [s.text for s in compute_storylines(
+        data, predictions, CURRENT_SEASON, list(MANAGERS))]
 
 
-def format_stats_report(data: dict, predictions: Optional[dict] = None, prev_grades: Optional[dict] = None, player_projs: Optional[dict] = None, potw_history: Optional[list] = None, potw_career_stats: Optional[dict] = None, prev_title_odds: Optional[dict] = None, injury_timelines: Optional[dict] = None, trades: Optional[list] = None, trades_context: Optional[dict] = None, commissioner_notes: Optional[str] = None) -> str:
+def format_stats_report(data: dict, predictions: Optional[dict] = None, prev_grades: Optional[dict] = None, player_projs: Optional[dict] = None, potw_history: Optional[list] = None, potw_career_stats: Optional[dict] = None, prev_title_odds: Optional[dict] = None, injury_timelines: Optional[dict] = None, trades: Optional[list] = None, trades_context: Optional[dict] = None, commissioner_notes: Optional[str] = None, angles_block: str = "") -> str:
     """
     Format the complete stats report as newsletter-ready markdown.
     
@@ -3185,7 +2987,9 @@ def format_stats_report(data: dict, predictions: Optional[dict] = None, prev_gra
         format_section_10_rumor_mill(data, lookups, trades_context),
     ]
     
-    return header + storylines_section + commissioner_section + "\n".join(sections)
+    if angles_block:
+        angles_block = angles_block.rstrip("\n") + "\n\n---\n\n"
+    return header + storylines_section + angles_block + commissioner_section + "\n".join(sections)
 
 
 def main():
@@ -3354,7 +3158,9 @@ def main():
         print(f"Loaded commissioner note from weeklycontextinput_week{current_week}.json")
 
     print(f"Formatting Week {current_week} report...")
-    markdown = format_stats_report(data, predictions, prev_grades, player_projs, potw_history, potw_career_stats, prev_title_odds, injury_timelines, trades, trades_context, commissioner_notes)
+    angles_block = build_angles_block(Path(args.base_path), data, predictions,
+                                      current_week, output_path)
+    markdown = format_stats_report(data, predictions, prev_grades, player_projs, potw_history, potw_career_stats, prev_title_odds, injury_timelines, trades, trades_context, commissioner_notes, angles_block)
     
     # Save
     output_path.parent.mkdir(parents=True, exist_ok=True)

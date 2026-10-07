@@ -464,6 +464,12 @@ Runs inside Step 6 on every full run (skipped by `--fast`, which Section 10 then
 
 ## Step 6.5: Format Stats Report for Newsletter
 
+(Also ranks this week's angles -- what the newsletter should lead with --
+into an ANGLES block near the top of the .md, and saves
+`output\angles_weekN.json` for next week's recency tiebreak. If it fails,
+the block says so and the report still builds.)
+
+
 Converts the JSON stats report into newsletter-ready markdown, eliminating the need for Claude to do data extraction.
 
 ```cmd

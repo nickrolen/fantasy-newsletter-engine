@@ -1,0 +1,129 @@
+"""Angle selector: unusualness x consequence, recency only breaks ties."""
+
+import json
+import random
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from modules import angles as A  # noqa: E402
+
+M = ["Nick", "Hayden", "Benton", "Garrett"]
+PAIRS = [[("Nick", "Hayden"), ("Benton", "Garrett")],
+         [("Nick", "Benton"), ("Hayden", "Garrett")],
+         [("Nick", "Garrett"), ("Hayden", "Benton")]]
+
+
+def _season(name, weeks=21, seed=0, fixed=None):
+    rng = random.Random(seed)
+    out = []
+    for w in range(1, weeks + 1):
+        for a, b in PAIRS[w % 3]:
+            sa, sb = rng.gauss(1600, 150), rng.gauss(1600, 150)
+            if fixed and (w, a, b) in fixed:
+                sa, sb = fixed[(w, a, b)]
+            out.append({"season": name, "week": w, "manager_a": a,
+                        "manager_b": b, "score_a": sa, "score_b": sb})
+    return out
+
+
+HIST = A.History.build(
+    [m for i in range(9) for m in _season(f"20{10 + i}-{11 + i}", seed=i)],
+    lambda s: 21)
+
+
+def test_history_is_prior_seasons_only(tmp_path):
+    (tmp_path / "data" / "historical").mkdir(parents=True)
+    allm = _season("2024-25", seed=1) + _season("2025-26", seed=2)
+    (tmp_path / "data" / "historical" / "all_matchups.json").write_text(
+        json.dumps(allm))
+    sm, prior = A.season_matchups(tmp_path, "2025-26", 5)
+    assert {m["season"] for m in prior} == {"2024-25"}
+    assert max(m["week"] for m in sm) == 5
+
+
+def test_same_swing_matters_more_late():
+    """A 300-point week moves the Cup race more with 2 weeks left than 20."""
+    def cons(week):
+        fixed = {(week, *PAIRS[week % 3][0]): (1900, 1600),
+                 (week, *PAIRS[week % 3][1]): (1600, 1600)}
+        sm = [m for m in _season("x", fixed=fixed, seed=5)]
+        for m in sm:
+            if m["week"] < week:
+                m["score_a"] = m["score_b"] = 1600.0
+        return A.consequence(sm, week, 21, 21, HIST.sigma)
+    a, b = PAIRS[1 % 3][0][0], PAIRS[20 % 3][0][0]
+    assert cons(20)[b]["cup"] > cons(1)[a]["cup"]
+
+
+def test_blowout_scores_on_cup_squeaker_on_standings():
+    """Nick, 10-07: the blowout's points move Cup seeding; the squeaker's
+    result moves the standings. Same week, everything else level."""
+    w = 18
+    (a1, b1), (a2, b2) = PAIRS[w % 3]
+    fixed = {(w, a1, b1): (2100, 1600), (w, a2, b2): (1603, 1600)}
+    sm = _season("x", fixed=fixed, seed=3)
+    for m in sm:
+        if m["week"] < w:
+            m["score_a"], m["score_b"] = (1601.0, 1600.0) if m["week"] % 2 \
+                else (1600.0, 1601.0)
+    c = A.consequence(sm, w, 21, 21, HIST.sigma)
+    assert c[a1]["cup"] > c[a2]["cup"]
+
+
+def test_dead_race_has_no_consequence_but_still_ranks_by_unusualness():
+    sm = _season("x", seed=4)
+    for m in sm:   # Nick wins everything by a mile: both races decided
+        if m["manager_a"] == "Nick":
+            m["score_a"] = 3000.0
+        if m["manager_b"] == "Nick":
+            m["score_b"] = 3000.0
+    c = A.consequence(sm, 21, 21, 21, HIST.sigma)
+    assert c["Nick"]["cup"] < 1e-6 and c["Nick"]["standings"] < 1e-6
+    sel = A.run_week(sm, 21, HIST, 21, 21)
+    assert sel["lead"] is not None and sel["lead"]["score"] > 0
+
+
+def test_more_chances_means_less_unusual():
+    assert A._u(0.05, 1000, 4) < A._u(0.05, 1000, 1)
+
+
+def test_recency_only_breaks_ties():
+    def ang(fam, mgr, sc):
+        a = A.Angle(fam, (mgr,), f"{fam} {mgr}", 1.0)
+        a.score = sc
+        return a
+    clear = [ang("score", "Nick", 1.0), ang("streak", "Hayden", 0.5)]
+    ranked, moved = A.rank(clear, {("score", "Nick"): 20})
+    assert ranked[0].managers == ("Nick",) and moved == 0
+    tied = [ang("score", "Nick", 1.0), ang("streak", "Hayden", 0.99)]
+    ranked, moved = A.rank(tied, {("score", "Nick"): 20,
+                                  ("streak", "Hayden"): 3})
+    assert ranked[0].managers == ("Hayden",) and moved == 2
+
+
+def test_a_game_angle_counts_both_teams_a_subject_angle_only_him():
+    cons = {"Nick": {"cup": 0.0, "standings": 0.0, "bracket": 0.0},
+            "Benton": {"cup": 0.4, "standings": 0.0, "bracket": 0.0}}
+    game = A.Angle("margin", ("Nick", "Benton"), "g", 1.0)
+    lead = A.Angle("standings", ("Nick", "Benton"), "s", 1.0)
+    A.score([game, lead], cons)
+    assert game.consequence == 0.4 and lead.consequence == 0.0
+
+
+def test_replay_2025_26_runs_and_is_deterministic():
+    import angles_report
+    r1, *_ = angles_report.replay(ROOT, "2025-26")
+    r2, *_ = angles_report.replay(ROOT, "2025-26")
+    assert [s["lead"]["text"] for *_, s in r1] == \
+        [s["lead"]["text"] for *_, s in r2]
+    assert len(r1) == 23 and all(s["lead"] for *_, s in r1)
+
+
+def test_report_still_builds_when_angles_fail(tmp_path):
+    import format_stats_report as fmt
+    block = fmt.build_angles_block(tmp_path, {"metadata": {"week": 3}}, None,
+                                   3, tmp_path / "x.md")
+    assert "unavailable" in block

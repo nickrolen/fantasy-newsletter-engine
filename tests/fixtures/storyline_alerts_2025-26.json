@@ -1,0 +1,93 @@
+{
+ "16": {
+  "with_predictions": [
+   " -> STREAK SNAPPED: Garrett ends 3-game losing streak (weeks 13-15) with Week 16 victory over Benton, 1581.35 -> 1389.50",
+   " -> RECORD WATCH: Nick has won 7 straight -> 1 win from tying their all-time record of 8 (2020-21)",
+   " -> STANDINGS: Nick leads by 4 games over Benton (13-3 vs 9-7)",
+   " -> CLINCH WATCH: Nick's magic number is 2"
+  ],
+  "without": [
+   " -> STREAK SNAPPED: Garrett ends 3-game losing streak (weeks 13-15) with Week 16 victory over Benton, 1581.35 -> 1389.50",
+   " -> RECORD WATCH: Nick has won 7 straight -> 1 win from tying their all-time record of 8 (2020-21)",
+   " -> STANDINGS: Nick leads by 4 games over Benton (13-3 vs 9-7)",
+   " -> CLINCH WATCH: Nick's magic number is 2"
+  ]
+ },
+ "17": {
+  "with_predictions": [
+   " -> SEASON RECORD: Garrett set a new season-best 2-game win streak (all-time record: 7)",
+   " -> MAJOR UPSET: Garrett (28% win prob) stuns Nick (72% favorite), 1988.60 -> 1909.50",
+   " -> UPSET: Benton (35% win prob) defeats favored Hayden (65%), 1810.45 -> 1785.00",
+   " -> CLINCH WATCH: Nick's magic number is 2"
+  ],
+  "without": [
+   " -> SEASON RECORD: Garrett set a new season-best 2-game win streak (all-time record: 7)",
+   " -> CLINCH WATCH: Nick's magic number is 2"
+  ]
+ },
+ "18": {
+  "with_predictions": [
+   " -> CLOSE CALL: Nick was favored by 151.0 but only won by 15.05",
+   " -> SPREAD COVERED: Garrett beat the 308.0-point spread with 340.20-point victory",
+   " -> CLOSE GAME: Nick held off Benton by 15.05 points",
+   " -> STANDINGS: Nick leads by 7 games over Benton (17-4 vs 10-11)"
+  ],
+  "without": [
+   " -> CLOSE GAME: Nick held off Benton by 15.05 points",
+   " -> STANDINGS: Nick leads by 7 games over Benton (17-4 vs 10-11)"
+  ]
+ },
+ "19": {
+  "with_predictions": [
+   " -> MAJOR UPSET: Nick (18% win prob) stuns Hayden (82% favorite), 1913.65 -> 1440.80",
+   " -> SPREAD COVERED: Garrett beat the 399.5-point spread with 428.00-point victory",
+   " -> STANDINGS: Nick leads by 5 games over Benton (15-4 vs 10-9)"
+  ],
+  "without": [
+   " -> STANDINGS: Nick leads by 5 games over Benton (15-4 vs 10-9)"
+  ]
+ },
+ "20": {
+  "with_predictions": [
+   " -> LOSING STREAK: Benton has now lost 3 straight",
+   " -> MAJOR UPSET: Hayden (9% win prob) stuns Benton (91% favorite), 1633.55 -> 1560.55",
+   " -> STANDINGS: Nick leads by 6 games over Benton (16-4 vs 10-10)"
+  ],
+  "without": [
+   " -> LOSING STREAK: Benton has now lost 3 straight",
+   " -> STANDINGS: Nick leads by 6 games over Benton (16-4 vs 10-10)"
+  ]
+ },
+ "21": {
+  "with_predictions": [
+   " -> UPSET: Nick wins as 46% underdog over Benton (54% favorite)",
+   " -> STANDINGS: Nick leads by 7 games over Benton (17-4 vs 10-11)"
+  ],
+  "without": [
+   " -> STANDINGS: Nick leads by 7 games over Benton (17-4 vs 10-11)"
+  ]
+ },
+ "22": {
+  "with_predictions": [
+   " -> CLOSE CALL: Hayden was favored by 419.5 but only won by 311.50",
+   " -> SPREAD COVERED: Garrett beat the 254.5-point spread with 665.05-point victory",
+   " -> BLOWOUT: Garrett crushed Benton by 665.05 points",
+   " -> STANDINGS: Nick leads by 7 games over Benton (17-4 vs 10-11)"
+  ],
+  "without": [
+   " -> BLOWOUT: Garrett crushed Benton by 665.05 points",
+   " -> STANDINGS: Nick leads by 7 games over Benton (17-4 vs 10-11)"
+  ]
+ },
+ "23": {
+  "with_predictions": [
+   " -> STREAK SNAPPED: Benton ends 5-game losing streak (weeks 18-22) with Week 23 victory over Nick, 1432.00 -> 1297.60",
+   " -> CLOSE CALL: Benton was favored by 256.5 but only won by 134.40",
+   " -> STANDINGS: Nick leads by 7 games over Benton (17-4 vs 10-11)"
+  ],
+  "without": [
+   " -> STREAK SNAPPED: Benton ends 5-game losing streak (weeks 18-22) with Week 23 victory over Nick, 1432.00 -> 1297.60",
+   " -> STANDINGS: Nick leads by 7 games over Benton (17-4 vs 10-11)"
+  ]
+ }
+}

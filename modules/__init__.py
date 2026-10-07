@@ -190,6 +190,8 @@ from .simulator_playoff_odds import (
 )
 
 # Cup simulator (weeks 22-23, single elimination, seeded on points)
+from .storylines import Storyline, compute_storylines
+from .angles import run_week as rank_angles
 from .claim_check import (
     check as check_claims,
     build_pool as build_claim_pool,
@@ -371,6 +373,10 @@ __all__ = [
     # point_in_time
     "capture_week_inputs",
     "missing_captures",
+    # storylines / angles
+    "Storyline",
+    "compute_storylines",
+    "rank_angles",
     # claim_check
     "check_claims",
     "build_claim_pool",

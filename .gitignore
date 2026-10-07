@@ -175,3 +175,5 @@ config/LEAGUE_LORE.json
 data/lore_backups/
 output/claim_check_week*.md
 output/advice_preview_week*.html
+output/angles_week*.json
+output/angles_*.md

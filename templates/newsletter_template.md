@@ -102,6 +102,7 @@ Remove all `[from extraction: ...]` citations to produce the final version.
     - **strength "written"**: Nick's own words. May be told as character. Its numbers are NOT sayable -- take numbers from the stats report.
     - **kind "alias"**: an approved nickname ("Wemby") counts as the player's name.
     - Proposed, rejected or stale entries do not exist. Do not use them.
+22. **OPEN WITH THE LEAD ANGLE.** The stats report's "ANGLES" block ranks this week's stories by how unusual they are times how much they moved the Cup-seeding and standings races. The newsletter's opening (the first matchup summary's first paragraph, and the subtitle if there is one) leads with the top angle; the next ones are the secondary threads. Never print the scores. If the block says angles are unavailable, choose from the storyline alerts.
 
 ---
 

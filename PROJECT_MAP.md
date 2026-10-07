@@ -112,6 +112,16 @@ These are the ones that decide something, as opposed to totalling something.
   week, preview otherwise, and any failure becomes a printed status --
   never a broken report (tests/test_advice_wiring.py). `advice_render.py`
   renders Section 10 from the JSON.
+- **`storylines.py`** -- prose layer, item 1: the "READ FIRST" alerts as
+  typed data (kind, managers, magnitude); the strings are rendered from it,
+  byte-identical (pinned against every archived 2025-26 report).
+- **`angles.py`** -- prose layer, item 2: what leads. Score = unusualness
+  (tail probability against prior seasons, corrected for how many chances
+  the week had) x consequence (change in expected Cup seed + expected
+  standings seed, from scores alone; a postseason game = 1). Recency from
+  earlier weeks' `output/angles_weekN.json` only breaks ties. Rendered into
+  the stats report .md by Step 6.5. `scripts/angles_report.py` replays a
+  season.
 - **`claim_check.py`** -- prose layer, item 5. Every number in a draft must
   trace to a source record that names the same player/manager (matching
   against the whole pool is not evidence); rankings to a ranking; history
