@@ -85,7 +85,7 @@ class History:
     leader_gb: dict                    # week -> sorted leader margins
     team_weeks: int
     rel_pairs: list = field(default_factory=list)   # (last week, this week)
-    decided_left: dict = field(default_factory=dict)  # event -> [weeks left]
+    decided_left: dict = field(default_factory=dict)  # event -> [share left]
 
     @classmethod
     def build(cls, matchups: list, regular_through: Callable) -> "History":
@@ -133,7 +133,9 @@ class History:
             seen = set()
             for w in range(1, rt + 1):
                 for ev, mgr in decided_status(sm, w, rt) - seen:
-                    decided[ev].append(rt - w)
+                    # as a share of the regular season: 3 weeks left of
+                    # 21 is not as early as 3 of 15 (2026-27's length)
+                    decided[ev].append((rt - w) / rt)
                     seen.add((ev, mgr))
         return cls(sorted(margins), sorted(rel), sorted(runs), sigma,
                    {w: sorted(v) for w, v in leader.items()}, len(rel),
@@ -284,7 +286,7 @@ def decided_angles(season_matchups: list, week: int, reg_last: int,
     pay = _payer_places()
     for ev, m in sorted(now - before):
         ref = hist.decided_left.get(ev, [])
-        p = _tail_ge(ref, left) if ref else 0.5
+        p = _tail_ge(ref, left / reg_last) if ref else 0.5
         # Two ways a settled race is news: settled EARLY (rare timing --
         # Nick's clinch with 3 weeks left), or settled while still in
         # DOUBT (the entropy the week resolved -- a final-day tiebreak).
