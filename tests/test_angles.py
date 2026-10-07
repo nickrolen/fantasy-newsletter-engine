@@ -84,7 +84,7 @@ def test_dead_race_has_no_consequence_and_the_week_has_no_lead():
     assert c["Nick"]["cup"] < 1e-6 and c["Nick"]["standings"] < 1e-6
     sel = A.run_week(sm, 21, HIST, 21, 21)
     assert sel["dead"] and "moved" in sel["dead"]
-    assert any("Standings" in x for x in sel["race_state"])
+    assert any("Title race" in x for x in sel["race_state"])
     md = A.render_markdown(sel)
     assert "NO LEAD THIS WEEK" in md and "Do NOT" in md
 
@@ -199,3 +199,38 @@ def test_last_weeks_lead_again_is_scored_on_what_is_new():
 def test_a_streak_extended_is_news_only_by_the_extension():
     p = HIST.p_streak_again(6)
     assert 0 < p < 1 and A._u(p, 1000) < A._u(A._tail_ge(HIST.runs, 6), 1000)
+
+
+def test_the_title_clinch_leads_its_week():
+    """Nick, 10-07: "Nick locks up the championship" should lead the week
+    it happened -- week 18 of 2025-26, with 3 weeks left."""
+    import angles_report
+    rows, *_ = angles_report.replay(ROOT, "2025-26")
+    by = {w: s for w, _, s in rows}
+    assert by[18]["lead"]["text"].startswith(
+        "Nick clinched the regular-season title")
+    # the final day settles who pays, on the tiebreak (both 10-11)
+    assert "Garrett will finish 3rd or 4th and pay" in by[21]["lead"]["text"]
+
+
+def test_the_title_race_is_a_standing_thread_every_week():
+    import angles_report
+    rows, *_ = angles_report.replay(ROOT, "2025-26")
+    for w, _, s in rows:
+        if w <= 21:
+            md = A.render_markdown(s)
+            assert "Title race" in md, w
+
+
+def test_decided_is_exact_and_ties_wait_for_the_tiebreak():
+    sm = []
+    for w in range(1, 4):
+        for (a, b), (sa, sb) in zip(PAIRS[w % 3], [(2, 1), (2, 1)]):
+            sm.append({"season": "x", "week": w, "manager_a": a,
+                       "manager_b": b, "score_a": sa, "score_b": sb})
+    st = A.decided_status(sm, 2, 4)
+    assert not any(ev == "clinched_title" for ev, _ in st)
+    lead, need = A.magic_number(sm, 2, 4)
+    assert need >= 1
+    final = A.final_order(sm, 3)
+    assert len(final) == 4

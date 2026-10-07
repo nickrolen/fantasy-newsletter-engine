@@ -10,6 +10,18 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 7, 2026 - Angles: settled races lead; the title race every week**
+
+Nick's 2025-26 title clinch (week 18) never led: the selector measured how
+far the week moved expected seeds, and a near-certain race barely moves.
+Settled races are now angles of their own -- title clinched, out of the
+title, safe from the places that pay, certain to pay -- exact from wins
+and games left, ties waiting for the tiebreak (head-to-head, then points).
+The title race (with the magic number) and the Cup race are standing
+threads in every week's ANGLES block. Replay: week 18 leads "Nick clinched
+the regular-season title (14-4, 3 weeks left)"; week 21 leads with Garrett
+landing in the paying places on the final-day tiebreak.
+
 **October 7, 2026 - Angles: max not sum, repeats, weeks with no lead**
 
 Consequence is the race an angle moved most, not the sum (margins were

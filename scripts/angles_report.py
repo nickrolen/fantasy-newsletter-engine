@@ -56,8 +56,8 @@ def replay(base: Path, season: str):
 def render(season, rows, hist, cup_last, reg_last) -> str:
     def cell(a):
         p = a["parts"]
-        why = " + ".join(f"{k} {p[k]:.2f}" for k in ("cup", "standings",
-                                                     "bracket") if p[k])
+        why = " + ".join(f"{k} {p[k]:.2f}" for k in (
+            "cup", "standings", "bracket", "decided") if p.get(k))
         return (f"{a['text']} -- **{a['score']:.2f}** = u {a['unusualness']:.2f}"
                 f" x c {max(a['consequence'], A.CONSEQUENCE_FLOOR):.2f}"
                 f"{' (' + why + ')' if why else ''}")

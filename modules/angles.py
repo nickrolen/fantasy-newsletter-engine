@@ -43,6 +43,14 @@ how often prior seasons repeated it. Recency otherwise only breaks ties:
 angles within TIE_BAND are ordered by how long ago their (family, manager)
 last featured.
 
+A race settled early is an angle of its own (decided_angles): the title
+clinched, a team out of it, a team safe from the places that pay or certain
+to land in them -- exact, from wins and games left, with the payout config
+saying which places pay. It counts 1, like a decisive bracket game, and is
+as unusual as the earlier of: how early it was settled against prior
+seasons, or how much doubt the week resolved. The title race is also a
+standing thread printed every week, with the leader's magic number.
+
 A week with no lead says so (is_dead): the best angle moved neither race,
 or was no rarer than a coin flip and decided nothing. The block then tells
 the writer to open on the races (their state is printed) or on lore, not
@@ -77,6 +85,7 @@ class History:
     leader_gb: dict                    # week -> sorted leader margins
     team_weeks: int
     rel_pairs: list = field(default_factory=list)   # (last week, this week)
+    decided_left: dict = field(default_factory=dict)  # event -> [weeks left]
 
     @classmethod
     def build(cls, matchups: list, regular_through: Callable) -> "History":
@@ -117,9 +126,18 @@ class History:
                 runs += _run_lengths(xs)
         pairs = [(wk[w - 1], wk[w]) for wk in team_rel.values()
                  for w in wk if w - 1 in wk]
+        decided = defaultdict(list)
+        for s in {m["season"] for m in matchups}:
+            sm = [m for m in matchups if m["season"] == s]
+            rt = regular_through(s)
+            seen = set()
+            for w in range(1, rt + 1):
+                for ev, mgr in decided_status(sm, w, rt) - seen:
+                    decided[ev].append(rt - w)
+                    seen.add((ev, mgr))
         return cls(sorted(margins), sorted(rel), sorted(runs), sigma,
                    {w: sorted(v) for w, v in leader.items()}, len(rel),
-                   pairs)
+                   pairs, {k: sorted(v) for k, v in decided.items()})
 
     def p_score_again(self, rel: float, direction: str) -> float:
         """Two-sided P(a score this extreme | the same team was in the same
@@ -147,6 +165,157 @@ def _run_lengths(xs: list) -> list:
         if i == len(xs) - 1 or xs[i + 1] != x:
             out.append(n)
     return out
+
+
+# ------------------------------------------------------------------ decided
+#
+# A race can be settled before it's over: the title clinched, a team out of
+# it, a team safe from paying or certain to pay. Exact, from wins and games
+# left (a tie in wins counts as undecided: the points tiebreak can still go
+# either way). Which places collect and which pay comes from the payout
+# config, like the bracket stakes.
+
+def _payer_places() -> set:
+    import re as _re
+    from modules.data_loader import PAYOUTS
+    pay = (PAYOUTS or {}).get("league_champion") or {}
+    return {int(x) for x in _re.findall(r"(\d)(?:st|nd|rd|th)",
+                                         pay.get("paid_by") or "")}
+
+
+def decided_status(season_matchups: list, week: int, reg_last: int) -> set:
+    """{(event, manager)} true after `week` of the regular season."""
+    if week > reg_last:
+        return set()
+    _, wins = _cumulative([m for m in season_matchups if m["week"] <= reg_last],
+                          week)
+    managers = sorted({x for m in season_matchups
+                       for x in (m["manager_a"], m["manager_b"])})
+    left = reg_last - week
+    mx = {m: wins[m] + left for m in managers}
+    payers = _payer_places()
+    safe = (min(payers) - 1) if payers else None
+    out = set()
+    if left == 0:
+        # Season over: the tiebreak settles ties (league_config
+        # tiebreaker_rules: head-to-head, then total points).
+        order = final_order(season_matchups, reg_last)
+        for i, m in enumerate(order, 1):
+            out.add(("clinched_title" if i == 1 else "out_of_title", m))
+            if safe:
+                out.add(("safe_from_paying" if i <= safe else "will_pay", m))
+        return out
+    for m in managers:
+        others = [o for o in managers if o != m]
+        if all(wins[m] > mx[o] for o in others):
+            out.add(("clinched_title", m))
+        elif any(wins[o] > mx[m] for o in others):
+            out.add(("out_of_title", m))
+        if safe:
+            if sum(1 for o in others if mx[o] >= wins[m]) < safe:
+                out.add(("safe_from_paying", m))
+            elif sum(1 for o in others if wins[o] > mx[m]) >= safe:
+                out.add(("will_pay", m))
+    return out
+
+
+def final_order(season_matchups: list, reg_last: int) -> list:
+    """Regular-season finish: wins, then head-to-head among the tied, then
+    total points."""
+    reg = [m for m in season_matchups if m["week"] <= reg_last]
+    pts, wins = _cumulative(reg, reg_last)
+
+    def h2h(m, group):
+        return sum(1 for g in reg if {g["manager_a"], g["manager_b"]} <= group
+                   and m in (g["manager_a"], g["manager_b"])
+                   and (g["score_a"] > g["score_b"]) == (g["manager_a"] == m))
+    out = []
+    for w in sorted(set(wins.values()), reverse=True):
+        group = {m for m in wins if wins[m] == w}
+        out += sorted(group, key=lambda m: (h2h(m, group), pts[m]),
+                      reverse=True)
+    return out
+
+
+def magic_number(season_matchups: list, week: int, reg_last: int):
+    """(leader, wins the leader needs -- his wins or his rivals' losses --
+    to clinch the title outright). None once the season is over."""
+    _, wins = _cumulative([m for m in season_matchups if m["week"] <= reg_last],
+                          week)
+    if not wins or week >= reg_last:
+        return None
+    left = reg_last - week
+    lead = max(wins, key=lambda m: wins[m])
+    need = max(wins[o] + left for o in wins if o != lead) - wins[lead] + 1
+    return lead, max(0, need)
+
+
+DECIDED_TEXT = {
+    "clinched_title": "{m} clinched the regular-season title ({rec}, {left} "
+                      "weeks left)",
+    "out_of_title": "{m} is out of the title race ({rec}, {left} weeks left)",
+    "safe_from_paying": "{m} is safe: he can't finish {payers}, the places "
+                        "that pay ({rec}, {left} weeks left)",
+    "will_pay": "{m} will finish {payers} and pay ({rec}, {left} weeks "
+                "left)",
+}
+
+
+def decided_angles(season_matchups: list, week: int, reg_last: int,
+                   hist: "History") -> list:
+    if week > reg_last:
+        return []
+    now = decided_status(season_matchups, week, reg_last)
+    before = decided_status(season_matchups, week - 1, reg_last) \
+        if week > 1 else set()
+    pts, wins = _cumulative(season_matchups, min(week, reg_last))
+    games = defaultdict(int)
+    for m in season_matchups:
+        if m["week"] <= min(week, reg_last):
+            games[m["manager_a"]] += 1
+            games[m["manager_b"]] += 1
+    out = []
+    left = reg_last - week
+    # standings going into the week, for how in doubt each line still was
+    p0, w0 = _cumulative([x for x in season_matchups if x["week"] <= reg_last],
+                         week - 1)
+    order0 = sorted(w0, key=lambda x: (-w0[x], -p0[x]))
+    sd0 = math.sqrt(0.5 * (reg_last - week + 1))
+    pay = _payer_places()
+    for ev, m in sorted(now - before):
+        ref = hist.decided_left.get(ev, [])
+        p = _tail_ge(ref, left) if ref else 0.5
+        # Two ways a settled race is news: settled EARLY (rare timing --
+        # Nick's clinch with 3 weeks left), or settled while still in
+        # DOUBT (the entropy the week resolved -- a final-day tiebreak).
+        line = 1 if ev in ("clinched_title", "out_of_title") else (
+            min(pay) - 1 if pay else 1)
+        if m in order0 and len(order0) > line:
+            i = order0.index(m)
+            rival = order0[line] if i < line else order0[line - 1]
+            q = _p_ahead(w0[m] - w0[rival], sd0)
+        else:
+            q = 0.5                       # nothing played yet: fully open
+        doubt = -sum(x * math.log(x) for x in (q, 1 - q) if 0 < x < 1)
+        payers = " or ".join(_ordinal(k) for k in sorted(_payer_places()))
+        out.append(Angle("decided", (m,), DECIDED_TEXT[ev].format(
+            m=m, rec=f"{wins[m]}-{games[m] - wins[m]}", left=left,
+            payers=payers),
+            max(_u(p, max(len(ref), 1)), doubt), source="decided",
+            direction=ev))
+    return out
+
+
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def decided_consequence(season_matchups, week, reg_last) -> dict:
+    """A settled stake counts 1, like a decisive bracket game."""
+    now = decided_status(season_matchups, week, reg_last)
+    before = decided_status(season_matchups, week - 1, reg_last) \
+        if week > 1 else set()
+    return {m: 1.0 for _, m in now - before}
 
 
 def _two_sided(sorted_vals: list, x: float) -> float:
@@ -219,7 +388,7 @@ def consequence(season_matchups: list, week: int, cup_last: Optional[int],
     this = [m for m in season_matchups if m["week"] == week]
     managers = sorted({x for m in season_matchups
                        for x in (m["manager_a"], m["manager_b"])})
-    out = {m: {"cup": 0.0, "standings": 0.0, "bracket": 0.0}
+    out = {m: {"cup": 0.0, "standings": 0.0, "bracket": 0.0, "decided": 0.0}
            for m in managers}
     playing = {x for m in this for x in (m["manager_a"], m["manager_b"])}
     p0, w0 = _cumulative(season_matchups, week - 1)
@@ -574,12 +743,12 @@ RACES = {"score": ("cup",), "record": ("cup",),
          "margin": ("cup", "standings"), "spread": ("cup", "standings"),
          "upset": ("standings", "bracket"), "streak": ("standings",),
          "standings": ("standings",), "milestone": ("standings",),
-         "bracket": ("bracket",)}
+         "bracket": ("bracket",), "decided": ("decided",)}
 
 
 def score(angles: list[Angle], cons: dict) -> None:
     for a in angles:
-        parts = {"cup": 0.0, "standings": 0.0, "bracket": 0.0}
+        parts = {"cup": 0.0, "standings": 0.0, "bracket": 0.0, "decided": 0.0}
         tot = 0.0
         who = a.managers if a.family in PAIR_FAMILIES else a.managers[:1]
         races = RACES.get(a.family, ("cup", "standings"))
@@ -686,10 +855,20 @@ def race_state(season_matchups: list, week: int, cup_last: Optional[int],
     if week <= reg_last:
         order = sorted(wins, key=lambda x: (-wins[x], -pts[x]))
         lead = wins[order[0]]
-        out.append(f"Standings ({reg_last - week} weeks left): " + " | ".join(
-            f"{m} {wins[m]}-{losses[m]}" + ("" if i == 0 else
-                                           f" ({lead - wins[m]} back)")
+        status = decided_status(season_matchups, week, reg_last)
+        tag = {m: ", " + ev.replace("_", " ") for ev, m in status
+               if ev in ("clinched_title", "out_of_title")}
+        pay = {m: ", " + ev.replace("_", " ") for ev, m in status
+               if ev in ("safe_from_paying", "will_pay")}
+        out.append(f"Title race ({reg_last - week} weeks left): " + " | ".join(
+            f"{m} {wins[m]}-{losses[m]}"
+            + ("" if i == 0 else f" ({lead - wins[m]} back)")
+            + tag.get(m, "") + pay.get(m, "")
             for i, m in enumerate(order)))
+        mn = magic_number(season_matchups, week, reg_last)
+        if mn and mn[1] > 0 and not any(ev == "clinched_title"
+                                        for ev, _ in status):
+            out.append(f"{mn[0]}'s magic number for the title: {mn[1]}")
     return out
 
 
@@ -714,12 +893,16 @@ def run_week(season_matchups: list, week: int, hist: History,
         tw = 2 * len([m for m in season_matchups if m["week"] <= week])
         nm = len([m for m in season_matchups if m["week"] == week])
         cands += storyline_angles(stories, hist, week, tw, nm, 2 * nm)
+    cands += decided_angles(season_matchups, week, reg_last, hist)
     cands = merge(cands)
     repeats = apply_repeats(cands, last_lead, hist)
     cons = consequence(season_matchups, week, cup_last, reg_last, hist.sigma)
     for m, v in bcons.items():
-        cons.setdefault(m, {"cup": 0.0, "standings": 0.0, "bracket": 0.0})
+        cons.setdefault(m, {"cup": 0.0, "standings": 0.0, "bracket": 0.0, "decided": 0.0})
         cons[m]["bracket"] = v
+    for m, v in decided_consequence(season_matchups, week, reg_last).items():
+        cons.setdefault(m, {"cup": 0.0, "standings": 0.0, "bracket": 0.0, "decided": 0.0})
+        cons[m]["decided"] = v
     score(cands, cons)
     ranked, moved = rank(cands, last_used or {})
     sel = select(ranked)
@@ -832,6 +1015,9 @@ def render_markdown(sel: dict) -> str:
             out += ["", f"(Best of a quiet week, for reference only: "
                         f"{sel['lead']['text']})"]
         return "\n".join(out) + "\n"
+    threads = ["", "**Standing threads** -- where the races stand. Mention "
+               "them every week; they lead only when something is decided:",
+               ""] + [f"- {x}" for x in sel.get("race_state", [])]
     out = ["## -> ANGLES -> WHAT LEADS THIS WEEK", "",
            "Ranked by how unusual (against every prior season) x how much it "
            "moved the Cup-seeding and standings races. Open the newsletter "
@@ -840,4 +1026,6 @@ def render_markdown(sel: dict) -> str:
         out.append(f"- **Lead:** {line(sel['lead'])}")
     for a in sel.get("secondary", []):
         out.append(f"- {line(a)}")
+    if sel.get("race_state"):
+        out += threads
     return "\n".join(out) + "\n"
