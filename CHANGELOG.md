@@ -10,6 +10,19 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 8, 2026 - The voice, the four races, and lore kept private**
+
+`templates/VOICE.md` replaces "write like ESPN or The Athletic": one
+omniscient narrator, whose distinguishing clause comes from approved lore;
+every fact in it real. Around the NBA headlines are in the same voice. The
+four races (regular season, playoffs, Cup, draft order with traded picks)
+show every week from week 1, settled races kept as history. Lore never
+reaches published output: the HTML generator strips every comment and
+refuses a page with a lore reference; archived drafts are stripped; the
+drafting chat gets `output/lore_for_drafting.json` (approved only). Season
+number split into data_era_season_number (10) and league_season_number
+(12). A tied regular-season week now raises (the rules don't cover one).
+
 **October 7, 2026 - Angles: settled races lead; the title race every week**
 
 Nick's 2025-26 title clinch (week 18) never led: the selector measured how

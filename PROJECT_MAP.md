@@ -122,6 +122,12 @@ These are the ones that decide something, as opposed to totalling something.
   earlier weeks' `output/angles_weekN.json` only breaks ties. Rendered into
   the stats report .md by Step 6.5. `scripts/angles_report.py` replays a
   season.
+- **`standing_threads.py`** -- the four races, every week, display only:
+  regular season ($180 pot; read from the bottom, next year's draft order),
+  playoffs (if-it-ended-today seeds, then series; $45 per semifinal loser),
+  Cup (points race to week 21, then the bracket; the keeper prize), draft
+  order and traded picks. Settled races stay as history. Rendered in the
+  ANGLES block. The probabilistic exposure model is November.
 - **`claim_check.py`** -- prose layer, item 5. Every number in a draft must
   trace to a source record that names the same player/manager (matching
   against the whole pool is not evidence); rankings to a ranking; history

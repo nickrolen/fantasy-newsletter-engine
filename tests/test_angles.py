@@ -85,7 +85,7 @@ def test_dead_race_has_no_consequence_and_the_week_has_no_lead():
     assert c["Nick"]["cup"] < 1e-6 and c["Nick"]["standings"] < 1e-6
     sel = A.run_week(sm, 21, HIST, 21, 21)
     assert sel["dead"] and "moved" in sel["dead"]
-    assert any("Title race" in x for x in sel["race_state"])
+    assert any(x.startswith("Regular season") for x in sel["race_state"])
     md = A.render_markdown(sel)
     assert "NO LEAD THIS WEEK" in md and "Do NOT" in md
 
@@ -222,7 +222,8 @@ def test_the_title_race_is_a_standing_thread_every_week():
     for w, _, s in rows:
         if w <= 21:
             md = A.render_markdown(s)
-            assert "Title race" in md, w
+            for race in ("Regular season", "Playoffs", "Cup", "Draft order"):
+                assert race in md, (w, race)
 
 
 def test_decided_is_exact_and_ties_wait_for_the_tiebreak():
@@ -263,8 +264,13 @@ def test_live_2026_27_path_from_schedule_and_records(tmp_path):
     (tmp_path / "config" / "RECORDS.json").write_text(json.dumps(rec))
     sel = A.for_report(tmp_path, "2026-27", 3, [])
     assert sel["lead"] is not None
-    assert any("Title race (12 weeks left)" in x for x in sel["race_state"])
-    assert any("weeks 1-21" in x for x in sel["race_state"])
+    rs = sel["race_state"]
+    assert any(x.startswith("Regular season (weeks 1-15") and
+               "12 weeks left" in x for x in rs)
+    assert any(x.startswith("Playoffs (weeks 16-21") and "not set" in x
+               for x in rs)
+    assert any(x.startswith("Cup (seeded on total points, weeks 1-21") and
+               "first Cup this league has played" in x for x in rs)
 
 
 def test_every_liability_line_names_its_pot_and_window():
@@ -294,3 +300,24 @@ def test_third_place_stakes_come_from_config(monkeypatch):
     assert br["values"][3] == br["values"][4]          # pride only, for now
     cup = next(b for b in A.bracket_structure("2026-27") if b["stage"] == "cup")
     assert any(r["kind"] == "third" for r in cup["rounds"])
+
+
+def test_settled_races_stay_as_history_and_name_their_pot():
+    import angles_report
+    rows, *_ = angles_report.replay(ROOT, "2025-26")
+    by = {w: s for w, _, s in rows}
+    w23 = by[23]["race_state"]
+    assert any("clinched the regular-season title and its $180 in week 18"
+               in x for x in w23)
+    assert any("Final: Garrett won the playoff championship" in x for x in w23)
+    for x in w23:
+        if "pay" in x:
+            assert "$" in x, x
+
+
+def test_a_tied_regular_season_week_raises():
+    from modules.data_loader import UnspecifiedRule
+    sm = [{"season": "x", "week": 1, "manager_a": "Nick", "manager_b": "Hayden",
+           "score_a": 1500.0, "score_b": 1500.0}]
+    with pytest.raises(UnspecifiedRule):
+        A.check_no_ties(sm, 15)

@@ -372,10 +372,26 @@ def _cumulative(matchups, upto):
             continue
         pts[m["manager_a"]] += m["score_a"]
         pts[m["manager_b"]] += m["score_b"]
-        a_won = m["score_a"] > m["score_b"]
-        wins[m["manager_a"]] += a_won
-        wins[m["manager_b"]] += not a_won
+        # A tied week credits nobody (it used to credit manager_b). Ties in
+        # the regular season are not covered by the rules: check_no_ties()
+        # raises on them before anything reads these counts.
+        if m["score_a"] != m["score_b"]:
+            a_won = m["score_a"] > m["score_b"]
+            wins[m["manager_a"]] += a_won
+            wins[m["manager_b"]] += not a_won
     return pts, wins
+
+
+def check_no_ties(season_matchups: list, reg_last: int) -> None:
+    """A tied regular-season week: the league's rules don't say what it is
+    (none has happened since 2017-18). Raise rather than guess."""
+    for m in season_matchups:
+        if m["week"] <= reg_last and m["score_a"] == m["score_b"]:
+            from modules.data_loader import UnspecifiedRule
+            raise UnspecifiedRule(
+                f"week {m['week']}: {m['manager_a']} and {m['manager_b']} "
+                f"tied {m['score_a']}. The rules don't cover a tied "
+                "regular-season week; add one to league_config.")
 
 
 def _rank(order_key, managers):
@@ -886,44 +902,6 @@ def is_dead(lead: Optional[Angle]) -> Optional[str]:
     return None
 
 
-def race_state(season_matchups: list, week: int, cup_last: Optional[int],
-               reg_last: int) -> list[str]:
-    pts, wins = _cumulative(season_matchups, week)
-    losses = defaultdict(int)
-    for m in season_matchups:
-        if m["week"] <= min(week, reg_last):
-            loser = m["manager_b"] if m["score_a"] > m["score_b"] else \
-                m["manager_a"]
-            losses[loser] += 1
-    out = []
-    if cup_last and week <= cup_last:
-        order = sorted(pts, key=lambda x: -pts[x])
-        top = pts[order[0]]
-        out.append(f"Cup seeding race (total points, weeks 1-{cup_last}; "
-                   f"{cup_last - week} weeks left): " + " | ".join(
-                       f"{m} {pts[m]:.2f}" + ("" if i == 0 else
-                                              f" ({top - pts[m]:.2f} back)")
-                       for i, m in enumerate(order)))
-    if week <= reg_last:
-        order = sorted(wins, key=lambda x: (-wins[x], -pts[x]))
-        lead = wins[order[0]]
-        status = decided_status(season_matchups, week, reg_last)
-        tag = {m: ", " + ev.replace("_", " ") for ev, m in status
-               if ev in ("clinched_title", "out_of_title")}
-        pay = {m: ", " + ev.replace("_", " ") for ev, m in status
-               if ev in ("safe_from_paying", "will_pay")}
-        out.append(f"Title race ({reg_last - week} weeks left): " + " | ".join(
-            f"{m} {wins[m]}-{losses[m]}"
-            + ("" if i == 0 else f" ({lead - wins[m]} back)")
-            + tag.get(m, "") + pay.get(m, "")
-            for i, m in enumerate(order)))
-        mn = magic_number(season_matchups, week, reg_last)
-        if mn and mn[1] > 0 and not any(ev == "clinched_title"
-                                        for ev, _ in status):
-            out.append(f"{mn[0]}'s magic number for the title: {mn[1]}")
-    return out
-
-
 def select(ranked: list[Angle]) -> dict:
     dead = is_dead(ranked[0] if ranked else None)
     return {"lead": ranked[0].as_dict() if ranked else None,
@@ -936,7 +914,9 @@ def run_week(season_matchups: list, week: int, hist: History,
              stories: Optional[list] = None,
              last_used: Optional[dict] = None,
              season: Optional[str] = None,
-             last_lead: Optional[dict] = None) -> dict:
+             last_lead: Optional[dict] = None,
+             pick_ownership: Optional[dict] = None) -> dict:
+    check_no_ties(season_matchups, reg_last)
     cands = matchup_angles(season_matchups, week, hist, reg_last)
     bcons, bangles = (bracket_week(season_matchups, week, season, hist.sigma)
                       if season else ({}, []))
@@ -961,7 +941,9 @@ def run_week(season_matchups: list, week: int, hist: History,
     sel["week"] = week
     sel["recency_reordered"] = moved
     sel["repeats_discounted"] = repeats
-    sel["race_state"] = race_state(season_matchups, week, cup_last, reg_last)
+    from modules.standing_threads import lines as standing_lines
+    sel["race_state"] = standing_lines(season_matchups, week, season,
+                                       cup_last, reg_last, pick_ownership)
     sel["consequence"] = cons
     sel["all"] = [a.as_dict() for a in ranked]
     return sel
@@ -1042,9 +1024,13 @@ def for_report(base, season: str, week: int, stories: list) -> dict:
         raise ValueError(f"no week {week} results for {season}")
     hist = History.build(prior, regular_season_weeks_for)
     cup_last, reg_last = season_windows(season)
+    import json
+    trades = Path(base) / "config" / "TRADES.json"
+    picks = json.loads(trades.read_text(encoding="utf-8")).get(
+        "draft_pick_ownership") if trades.exists() else None
     return run_week(sm, week, hist, cup_last, reg_last, stories,
                     recency_from(Path(base) / "output", week), season,
-                    last_lead_from(Path(base) / "output", week))
+                    last_lead_from(Path(base) / "output", week), picks)
 
 
 def render_markdown(sel: dict) -> str:
@@ -1067,8 +1053,9 @@ def render_markdown(sel: dict) -> str:
             out += ["", f"(Best of a quiet week, for reference only: "
                         f"{sel['lead']['text']})"]
         return "\n".join(out) + "\n"
-    threads = ["", "**Standing threads** -- where the races stand. Mention "
-               "them every week; they lead only when something is decided:",
+    threads = ["", "**Standing threads** -- the four races, every week. "
+               "Mention where they stand; settled races stay as history; "
+               "they lead only when something is decided:",
                ""] + [f"- {x}" for x in sel.get("race_state", [])]
     out = ["## -> ANGLES -> WHAT LEADS THIS WEEK", "",
            "Ranked by how unusual (against every prior season) x how much it "
