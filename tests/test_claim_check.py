@@ -246,3 +246,23 @@ def test_approximations_break_rule_2_but_prepositions_dont():
         ["approximate_number"]
     assert cc.check("### **1. X**\n\nNick won by 58.35 over 4 games.",
                     pool, v) == []
+
+
+def test_no_lore_reference_can_reach_published_html(tmp_path):
+    """Nick, 10-08: the repo is public and the lore file is not; a tag in
+    the page source gives the entry away. Malformed tags too."""
+    import newsletter_html_generator as gen
+    md = ("## **CHS Alumni Fantasy Basketball League - Week 3 Newsletter**\n\n"
+          "### **1. Matchup Summaries**\n\nGarrett won. "
+          "<!--lore:myth-garrett-title-drought--> <!-- lore : x --> "
+          "<!--LORE:y-->\n")
+    out = tmp_path / "o.html"
+    gen.build_newsletter_html(md, str(out))
+    assert "lore" not in out.read_text(encoding="utf-8").lower()
+
+
+def test_archived_drafts_lose_their_lore_tags():
+    import start_new_season as sns
+    from pathlib import Path as P
+    assert sns._is_draft(P("assets/WEEK3_DRAFT.md"))
+    assert sns._strip_lore_tags("a <!--lore:x--> b") == "a  b"

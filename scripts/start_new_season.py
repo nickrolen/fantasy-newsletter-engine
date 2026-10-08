@@ -104,6 +104,15 @@ def rel(path: Path) -> str:
     return str(path.relative_to(PROJECT_ROOT)).replace("\\", "/")
 
 
+def _is_draft(path: Path) -> bool:
+    return path.parent.name == "assets" and path.name.endswith("_DRAFT.md")
+
+
+def _strip_lore_tags(text: str) -> str:
+    import re
+    return re.sub(r"<!--[\s\S]*?-->", "", text)
+
+
 def verify_copy(src: Path, dst: Path) -> bool:
     """Verify that dst exists and has the same size as src."""
     if not dst.exists():
@@ -209,6 +218,14 @@ def archive_phase(season: str, archive_dir: Path, execute: bool, force: bool) ->
         rel_path = src.relative_to(PROJECT_ROOT)
         dst = archive_dir / rel_path
         dst.parent.mkdir(parents=True, exist_ok=True)
+        if _is_draft(src):
+            # The archive is committed to a public repo; lore tags name
+            # private lore entries. Archive the draft without them.
+            clean = _strip_lore_tags(src.read_text(encoding="utf-8"))
+            dst.write_text(clean, encoding="utf-8")
+            if dst.read_text(encoding="utf-8") != clean:
+                failed.append((src, dst))
+            continue
         shutil.copy2(src, dst)
 
         if not verify_copy(src, dst):

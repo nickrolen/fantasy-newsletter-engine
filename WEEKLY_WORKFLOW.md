@@ -519,8 +519,9 @@ Fill in the `[FILL IN]` placeholders in the prompts.
 3. `config\LAST_WEEK_RECAP.md` (narrative continuity)
 4. `config\RECENT_CONTENT.json` (avoid repeated headlines/phrases)
 5. `config\INJURY_OVERRIDES.json` (injury timelines)
-6. `config\LEAGUE_LORE.json` (the only source for history and reputations the numbers can't prove; template rule 21)
-7. `data\weeklycontextinput_weekN.json` (only if fantasy trades happened)
+6. `templates\VOICE.md` (who is speaking -- the drafting chat reads it first)
+7. `output\lore_for_drafting.json` -- approved, current lore only (the only source for history and reputations the numbers can't prove; template rule 21). Make it first: `python scripts\review_lore.py --export`. Never upload `config\LEAGUE_LORE.json` itself: it holds proposals and rejections the writer must not see.
+8. `data\weeklycontextinput_weekN.json` (only if fantasy trades happened)
 
 ### The 3 Parts:
 | Part | Sections | Notes |

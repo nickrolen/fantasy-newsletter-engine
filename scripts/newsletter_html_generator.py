@@ -1994,9 +1994,12 @@ def build_newsletter_html(
     """Build the HTML newsletter from markdown."""
     global _paginated_table_counter
     _paginated_table_counter = 0  # Reset for each newsletter build
-    # Lore tags (<!--lore:id-->) are for the claim check, not readers.
-    markdown_text = re.sub(r"<!--\s*lore:[A-Za-z0-9_.-]+\s*-->", "",
-                           markdown_text)
+    # Lore tags (<!--lore:id-->) are for the claim check, not readers -- and
+    # not for anyone viewing source either: the repo is public, the lore
+    # file is not, and an entry id like "myth-garrett-title-drought" gives
+    # the entry away. Every HTML comment in the draft goes, not only
+    # well-formed tags, so a mistyped one can't slip through.
+    markdown_text = strip_draft_comments(markdown_text)
     
     # Normalize all Unicode dash variants to standard ASCII for consistent parsing
     # Normalize all Unicode dash variants to standard ASCII for consistent parsing
@@ -2056,10 +2059,18 @@ def build_newsletter_html(
         historical_dir=historical_dir,
     )
     
+    if re.search(r"\blore\s*:", html, re.I):
+        raise ValueError("a lore reference survived into the published HTML "
+                         "-- refusing to write it")
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html)
     
     return output_path
+
+
+def strip_draft_comments(text: str) -> str:
+    """Remove every HTML comment from a draft (lore tags live in them)."""
+    return re.sub(r"<!--[\s\S]*?-->", "", text)
 
 
 def main():

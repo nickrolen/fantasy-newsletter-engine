@@ -21,6 +21,7 @@ source: lore comes from Nick, in his own words.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from datetime import date
@@ -191,12 +192,29 @@ def sitting(lore, manager, base, save, ask=input, out=print) -> dict:
     return t
 
 
+def export(lore: dict, base: Path) -> Path:
+    """Approved, non-stale entries only, stripped to what the writer needs.
+    Proposals, rejections, evidence and decision logs stay out: what the
+    drafting chat is shown, it treats as sayable."""
+    keep = ("id", "kind", "strength", "text", "entities", "alias", "name")
+    entries = [{k: e[k] for k in keep if k in e}
+               for e in L.approved(lore)]
+    out = base / "output" / "lore_for_drafting.json"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(json.dumps({"entries": entries}, indent=1,
+                              ensure_ascii=True) + "\n", encoding="utf-8")
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     ap.add_argument("--kind", choices=["derived", "written", "alias"])
     ap.add_argument("--sitting", metavar="MANAGER")
     ap.add_argument("--revisit", action="store_true")
     ap.add_argument("--add", action="store_true")
+    ap.add_argument("--export", action="store_true",
+                    help="write output/lore_for_drafting.json: approved, "
+                         "current entries only, for the drafting chat")
     ap.add_argument("--base", default=str(ROOT))
     args = ap.parse_args(argv)
     base = Path(args.base)
@@ -205,6 +223,11 @@ def main(argv=None) -> int:
     if args.add:
         while add(lore, save):
             pass
+        return 0
+    if args.export:
+        out = export(lore, base)
+        print(f"wrote {out} ({len(json.loads(out.read_text())['entries'])} "
+              "approved entries)")
         return 0
     if args.sitting:
         t = sitting(lore, args.sitting, base, save)

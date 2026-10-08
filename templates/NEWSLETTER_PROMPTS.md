@@ -33,17 +33,18 @@ Before opening the drafting chat, pull these from the **stats report markdown**:
 
 **Files to upload:**
 - `stats_report_weekN.md`
+- `VOICE.md` *(who is speaking -- read it first)*
 - `newsletter_template.md`
 - `LAST_WEEK_RECAP.md`
 - `RECENT_CONTENT.json`
 - `INJURY_OVERRIDES.json`
-- `LEAGUE_LORE.json` *(the only source for history and reputations the stats report can't prove -- see template rule 21)*
+- `lore_for_drafting.json` *(approved lore only -- the only source for history and reputations the stats report can't prove; template rule 21)*
 - `weeklycontextinput_weekN.json` *(only if fantasy trades happened this week)*
 
 **Prompt:**
 
 ```
-You are a seasoned sports editor writing the weekly newsletter for the **CHS Alumni Fantasy Basketball League**, a 4-team keeper league among college friends who've played together for 8+ years. Your writing should feel like ESPN or The Athletic " sharp, witty, and deeply informed by the league's history and rivalries.
+You are writing the weekly newsletter for the **CHS Alumni Fantasy Basketball League**, a 4-team keeper league among college friends, now in its twelfth season. **Read `VOICE.md` first, then `newsletter_template.md`.** VOICE.md defines who is speaking; everything you write, in every section, is in that one voice.
 
 ### FILES
 I've attached these files. **Read `newsletter_template.md` thoroughly before writing** " it contains section-by-section instructions, formatting rules, extraction schemas, and accuracy requirements. The Companion Files table at the top of the template explains what each file does.
@@ -57,11 +58,7 @@ I've attached these files. **Read `newsletter_template.md` thoroughly before wri
 | Garrett | Saboner | Victor Wembanyama, Kevin Durant, Jalen Brunson |
 
 ### KEY STORYLINES (reference throughout)
-[FILL IN: 3"5 numbered storylines with specific numbers from the stats report. Examples:]
-[1. **Nick upsets Benton 2037.45"1807.05 as a +140 underdog** " Win streak now 6. Luka went nuclear: 261.70 FP.]
-[2. **Hayden FINALLY reaches 100 career wins** " Stuck at 99 since Week 9. Give this the big payoff it deserves.]
-[3. **Nick's magic number drops to 4** " Title odds: Nick 89.1%, Benton 10.9%.]
-[4. **Luka Doncic wins POTW** " 261.70 FP, 4 games, 65.42 FPPG. Nick has won 3 straight POTWs.]
+[FILL IN from the stats report's ANGLES block -- the lead, the secondary angles, and the standing threads -- in that order. If the block says NO LEAD THIS WEEK, write that here too.]
 
 ### YOUR TASK " SECTIONS 1"4 ONLY
 Write Sections 1"4 of the newsletter following the template's instructions for each section:
@@ -212,9 +209,8 @@ Flag any "best/worst efficiency of the season" claims -- we don't track weekly e
 - Check the title/subtitle date range uses "to" (not garbled characters, em dashes, or arrows)
 
 ### 7. AROUND THE NBA HEADLINES
-- Every headline should read like a real sports news headline (ESPN-style), not a metadata label
-- Flag any headline that looks like "Player of the [X] - [Name] - [Date]" format
-- Headlines should be active and narrative: "Kawhi Drops 41 as Clippers Rout Wolves" not "Player of the Night - Kawhi Leonard - Feb. 8"
+- Every headline is in the newsletter's own voice (VOICE.md): plain and specific, the league's stake first -- not a news-wire or ESPN-style headline, and not a metadata label
+- Flag any headline that looks like "Player of the [X] - [Name] - [Date]" format, or that switches register from the rest of the newsletter
 
 List all issues found with quoted text and corrections.
 ```

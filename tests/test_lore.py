@@ -1,6 +1,7 @@
 """League lore: proposals that are honest about chance, entries that can't
 go stale silently, and the review loop."""
 
+import json
 import random
 import sys
 from pathlib import Path
@@ -269,3 +270,17 @@ def test_no_code_reads_chat_exports():
     for f in list((root / "modules").glob("*.py")) + \
             list((root / "scripts").glob("*.py")):
         assert "lore_sources" not in f.read_text(encoding="utf-8"), f.name
+
+
+def test_export_holds_only_what_is_sayable(tmp_path):
+    lore = {"entries": [
+        {"id": "a", "kind": "written", "status": "approved", "text": "A",
+         "evidence": {"note": "x"}, "decisions": []},
+        {"id": "b", "kind": "written", "status": "proposed", "text": "B"},
+        {"id": "c", "kind": "written", "status": "rejected", "text": "C"},
+        {"id": "d", "kind": "derived", "status": "approved", "stale": True,
+         "text": "D"}]}
+    out = review_lore.export(lore, tmp_path)
+    got = json.loads(out.read_text())["entries"]
+    assert [e["id"] for e in got] == ["a"]
+    assert "evidence" not in got[0] and "decisions" not in got[0]

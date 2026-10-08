@@ -12,6 +12,8 @@ These files are provided alongside the stats report during drafting. Each serves
 
 | File | Purpose |
 |------|---------|
+| `VOICE.md` | **Who is speaking.** Read it first; every section is in that one voice. |
+| `lore_for_drafting.json` | Approved lore: the only source for history, habits and reputations the stats report can't prove (rule 21). Every entry in it is sayable; nothing else is. |
 | `stats_report_weekN.md` | **Single source of truth.** Every number in the newsletter must come from this file. |
 | `newsletter_template.md` | This file. Section-by-section writing guide and formatting rules. |
 | `LAST_WEEK_RECAP.md` | Last week's storylines, grades, and callbacks. Use for **narrative continuity** " continue running threads, follow up on "Looking Ahead" items, avoid repeating last week's angles or phrasing. |
@@ -94,7 +96,7 @@ Remove all `[from extraction: ...]` citations to produce the final version.
 16. **TRADE GRADE DIRECTION VERIFICATION (CRITICAL):** When grading trades in Around the NBA or Rumor Mill, you MUST re-read the trade data AFTER writing each grade to verify you haven't reversed who gained and who lost assets. Specifically: if Manager A SENT higher-value picks (e.g., 3rd + 4th rounders) and RECEIVED lower-value picks (e.g., 8th rounders), Manager A LOST draft capital -- do NOT write that they "acquired premium draft capital." This error has occurred before and is unacceptable. MANDATORY STEP: After writing trade grades, re-read the `side_a.sent_picks` and `side_b.sent_picks` fields and confirm your grade narrative matches who sent what.
 17. **TABLE HEADERS -- NO ROW COUNTS:** Table headers must match the template exactly. Do NOT append row counts like "(5)", "(30)", or "(all)" to table headers. Write `**Top Performances**`, not `**Top Performances (5)**`. This applies to ALL tables in every section.
 18. **NO DUPLICATE SECTION HEADERS:** When a section's required output format shows a bold header like `**What If?**` or `**Stats Corner**`, that IS the section content header -- do NOT also produce it if you're already using `### **[N]. [Section Name]**` as the section heading. Each section name should appear exactly once.
-19. **HEADLINE STYLE (Around the NBA):** Around the NBA headlines must read like actual sports news headlines -- active, specific, and narrative. Write "Kawhi Leonard Drops 41 as Clippers Rout Timberwolves", NOT "Player of the Night - Kawhi Leonard - Feb. 8". Headlines should be something you'd see on ESPN.com, not a database label or metadata format.
+19. **HEADLINE STYLE (Around the NBA):** Same voice as everything else (VOICE.md) -- one narrator, one register. Headlines are plain and specific with the league's stake first: write "Jokic's knee, and what three weeks without him costs Hayden", NOT a news-wire headline ("Jokic Suffers Setback as Nuggets Fall") and NOT a metadata label ("Player of the Night - Kawhi Leonard - Feb. 8"). Facts from web search are reported as such, with their date.
 20. **DATE RANGES:** Use the word "to" for date ranges in the title and subtitle (e.g., "Feb 2 to Feb 8"). Do NOT use em dashes, en dashes, arrows, or special characters for date ranges -- they can cause encoding issues in downstream rendering.
 21. **LEAGUE LORE (`LEAGUE_LORE.json`) IS THE ONLY SOURCE FOR WHAT THE NUMBERS CAN'T SAY.** History, habits, reputations, nicknames: if it isn't in the stats report, it must be an APPROVED lore entry, and the sentence that uses it ends with that entry's tag, `<!--lore:ENTRY_ID-->` (invisible to readers; the HTML generator strips it). `scripts/check_draft.py` refuses history claims ("again", "always", "first time since") with no tag or number, and tags that don't resolve.
     - **strength "fact"** (e.g. "Benton is 6-22 in February"): true, but not evidence of a pattern. Tell it as HISTORY, never as character -- "Benton is 6-22 in February matchups", not "Benton always collapses in February". The check flags character words on a fact tag.
@@ -840,7 +842,7 @@ For each storyline, you MUST:
 ```
 **Around the NBA**
 
-- **[Story 1 Headline -> must read like ESPN, e.g., "Jokic Recovery Hits Snag" or "Kawhi Drops 41 as Clippers Rout Wolves"]**
+- **[Story 1 Headline -> in voice (rule 19): plain, specific, the league's stake first]**
 
 [3-4 sentence paragraph: Real NBA context from web search, fantasy manager named, stats from extraction, forward-looking implications]
 
@@ -1120,7 +1122,7 @@ Before submitting, verify:
 - [ ] Stats Corner table headers do NOT include row counts like "(5)", "(30)", or "(all)"
 - [ ] No duplicate section name headers (e.g., `**What If?**` appearing both as a section heading AND as a standalone bold line inside the section)
 - [ ] Title/subtitle date range uses "to" (not dashes, arrows, or garbled characters)
-- [ ] Around the NBA headlines read like real sports news headlines (ESPN-style), not metadata labels like "Player of the Night - Name - Date"
+- [ ] Around the NBA headlines are in the newsletter's voice (rule 19, VOICE.md), not news-wire style and not metadata labels
 - [ ] Trade history numbers (e.g., "3 all-time deals") match the `trade_partners` data in the stats report
 
 **Continuity (check LAST_WEEK_RECAP.md and RECENT_CONTENT.json):**
