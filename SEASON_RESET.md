@@ -148,7 +148,7 @@ Phase 2 truncates `PLAYERLOG.xlsx` and `LINEUPS.xlsx` to header-only. The archiv
 ### AFTER the reset
 
 2. **Edit `config/league_config.json`:**
-   - `season.current`, `season.current_long`, `season.season_number`
+   - `season.current`, `season.current_long`, `season.data_era_season_number`, `season.league_season_number` (increment both)
    - `yahoo.current_league_key` (new Yahoo league ID)
    - `yahoo.historical_league_keys` (add the archived season)
    - `season.nba_schedule_file` (new filename)

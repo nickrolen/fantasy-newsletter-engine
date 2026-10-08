@@ -32,7 +32,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules.player_card_builder import build_player_cards
 from modules.player_card_modal import get_player_card_css, get_player_card_js, embed_player_card_data
-from modules.data_loader import MANAGER_COLORS, LEAGUE_NAME_SHORT, SEASON_NUMBER
+from modules.data_loader import MANAGER_COLORS, LEAGUE_NAME_SHORT, LEAGUE_SEASON_NUMBER
 
 # Directories
 CONFIG_DIR = PROJECT_ROOT / "config"
@@ -365,7 +365,7 @@ body {{
 <div class="prev-header">
   <div class="prev-title">{LEAGUE_NAME_SHORT} Player Cards</div>
   <div class="prev-subtitle">Tap any player to open their scouting card</div>
-  <div class="prev-count">{len(cards)} players &middot; Season {SEASON_NUMBER}</div>
+  <div class="prev-count">{len(cards)} players &middot; Season {LEAGUE_SEASON_NUMBER}</div>
 </div>
 
 {filter_html}

@@ -88,7 +88,9 @@
     "season": {
         "current": "2026-27",
         "current_long": "2026-2027",
-        "season_number": 10,
+        "data_era_season_number": 10,
+        "league_season_number": 12,
+        "_season_number_comment": "Two counts, two scopes -- the same 11-vs-9 split as career honours. data_era_season_number: seasons with Yahoo data, 2017-18 on (this is the 10th); 'all-time' in the newsletter means this era. league_season_number: the whole league, counting 2014-15 and 2015-16 (records only, no stats; 2016-17 was not played) -- this is the 12th. Every consumer picks one explicitly; there is no plain season_number.",
         "regular_season_weeks": 15,
         "playoff_start_week": 16,
         "total_weeks": 23,

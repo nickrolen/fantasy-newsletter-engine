@@ -546,7 +546,8 @@ first, then grab the league key.
 |-----|-----------|
 | `season.current` | `"2026-27"` |
 | `season.current_long` | `"2026-2027"` |
-| `season.season_number` | `10` |
+| `season.data_era_season_number` | `10` (Yahoo data era, 2017-18 on) |
+| `season.league_season_number` | `12` (whole league, incl. 2014-15 and 2015-16) |
 | `season.nba_schedule_file` | `"data/nba_schedule_2026-27.json"` |
 | `season.regular_season_weeks` / `playoff_start_week` / `total_weeks` | Re-derive from the Yahoo schedule -- 2025-26 was 21 / 22 / 23 |
 | `league_structure` | **No change needed** -- already correct for the 15-round draft (see The Roster Rule Change above) |

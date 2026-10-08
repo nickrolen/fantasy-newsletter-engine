@@ -680,7 +680,8 @@ def print_manual_checklist(season: str) -> None:
     4. Edit config/league_config.json:
        - season.current          -> new season (e.g. "2027-28")
        - season.current_long     -> new long form (e.g. "2027-2028")
-       - season.season_number    -> increment by 1
+       - season.data_era_season_number and season.league_season_number
+                                 -> increment both by 1
        - yahoo.current_league_key -> new Yahoo league ID for the new season
        - yahoo.historical_league_keys -> add "{season}" with its league key
        - season.nba_schedule_file -> new filename (e.g. "data/nba_schedule_2027-28.json")

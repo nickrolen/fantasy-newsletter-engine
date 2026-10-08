@@ -51,7 +51,8 @@
     "season": {
         "current": "YYYY-YY",
         "current_long": "YYYY-YYYY",
-        "season_number": 1,
+        "data_era_season_number": 1,
+        "league_season_number": 1,
         "regular_season_weeks": 21,
         "playoff_start_week": 22,
         "total_weeks": 23,

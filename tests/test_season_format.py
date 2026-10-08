@@ -338,3 +338,13 @@ def test_a_broken_config_is_caught(verify, cfg, mutate, expect):
     failures = verify._check_season_format(broken, [])
     assert any(expect in f for f in failures), (
         f"expected a failure mentioning {expect!r}, got {failures}")
+
+
+def test_season_numbers_name_their_scope():
+    """Nick, 10-08: 10 (the Yahoo data era) and 12 (the whole league) are
+    both right. A plain season_number hid which one it meant -- the same
+    11-vs-9 split as the career-honours bug."""
+    import modules.data_loader as dl
+    assert not hasattr(dl, "SEASON_NUMBER")
+    assert "season_number" not in dl.SEASON_CONFIG
+    assert dl.LEAGUE_SEASON_NUMBER - dl.DATA_ERA_SEASON_NUMBER == 2

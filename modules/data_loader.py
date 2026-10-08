@@ -66,7 +66,10 @@ REGULAR_SEASON_WEEKS = SEASON_CONFIG.get("regular_season_weeks", 21)
 SEASON_STRUCTURE = _LEAGUE_CONFIG.get("season_structure", {})
 PLAYOFF_START_WEEK = SEASON_CONFIG.get("playoff_start_week", 22)
 TOTAL_WEEKS = SEASON_CONFIG.get("total_weeks", 23)
-SEASON_NUMBER = SEASON_CONFIG.get("season_number", 1)
+# Two scopes, named. No plain SEASON_NUMBER: a consumer must pick one, and a
+# missing value raises at import rather than printing "Season 1".
+DATA_ERA_SEASON_NUMBER = SEASON_CONFIG["data_era_season_number"]
+LEAGUE_SEASON_NUMBER = SEASON_CONFIG["league_season_number"]
 NBA_SCHEDULE_FILE = SEASON_CONFIG.get("nba_schedule_file", "")
 
 # --- Pre-data-era history (from config) ---
