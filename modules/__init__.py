@@ -193,7 +193,7 @@ from .simulator_playoff_odds import (
 # Cup simulator (weeks 22-23, single elimination, seeded on points)
 from .storylines import Storyline, compute_storylines
 from .angles import run_week as rank_angles
-from .standing_threads import lines as standing_threads
+from .standing_threads import lines as standing_thread_lines
 from .claim_check import (
     check as check_claims,
     build_pool as build_claim_pool,
@@ -380,7 +380,7 @@ __all__ = [
     "Storyline",
     "compute_storylines",
     "rank_angles",
-    "standing_threads",
+    "standing_thread_lines",
     # claim_check
     "check_claims",
     "build_claim_pool",
