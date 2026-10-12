@@ -229,3 +229,53 @@ def test_generate_rosters_drops_placeholders(gen, token):
                                   "Jimmy Butler III", "Egor Demin"])
 def test_generate_rosters_keeps_real_players(gen, name):
     assert not gen._is_placeholder(name), f"{name!r} is a person"
+
+
+# ---------------------------------------------------------------------------
+# generate_rosters --from-draft (STATUS 10-12 sec.3 item 5): LINEUPS is empty
+# before week 1, so there was no path to opening-day rosters.
+# ---------------------------------------------------------------------------
+
+def _draft(season="2026-27", per=15, managers=MANAGERS4):
+    picks, n = [], 0
+    for r in range(per):
+        for m in managers:
+            n += 1
+            picks.append({"pick_number": n, "round": r + 1, "manager": m,
+                          "player_name": f"{m} Pick {r}"})
+    return {"season": season, "picks": picks}
+
+
+def test_from_draft_builds_every_roster(gen):
+    out = gen.rosters_from_draft(_draft(), "2026-27", MANAGERS4, 15)
+    assert {m: len(p) for m, p in out.items()} == {m: 15 for m in MANAGERS4}
+    assert out["Nick"] == sorted(out["Nick"])
+
+
+@pytest.mark.parametrize("blob,match", [
+    (_draft(season="2025-26"), "current season"),
+    (_draft(per=14), "drafts 15"),
+    ({"season": "2026-27", "picks": _draft()["picks"][:-1]}, "drafts 15"),
+])
+def test_from_draft_refuses_a_draft_that_is_not_this_seasons_full_draft(gen, blob, match):
+    with pytest.raises(gen.DraftRosterError, match=match):
+        gen.rosters_from_draft(blob, "2026-27", MANAGERS4, 15)
+
+
+def test_from_draft_refuses_a_player_picked_twice(gen):
+    blob = _draft()
+    blob["picks"][1]["player_name"] = blob["picks"][0]["player_name"]
+    with pytest.raises(gen.DraftRosterError, match="picked by both"):
+        gen.rosters_from_draft(blob, "2026-27", MANAGERS4, 15)
+
+
+def test_from_draft_refuses_once_the_season_has_lineups(gen, tmp_path):
+    import pandas as pd
+    (tmp_path / "config").mkdir()
+    (tmp_path / "data").mkdir()
+    (tmp_path / "config" / "DRAFT_PICKS_CURRENT.json").write_text(
+        json.dumps(_draft()), encoding="utf-8")
+    pd.DataFrame([{"week": 1, "manager": "Nick", "player_name": "x"}]).to_excel(
+        tmp_path / "data" / "LINEUPS.xlsx", index=False)
+    assert gen.build_from_draft(tmp_path, False) == 1
+    assert not (tmp_path / "config" / "ROSTERS.json").exists()

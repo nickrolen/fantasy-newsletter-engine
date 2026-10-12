@@ -682,9 +682,14 @@ Immediately after the draft completes:
 
 ```cmd
 py scripts\pull_current_draft.py --dry-run
-py scripts\pull_current_draft.py
-py scripts\generate_rosters.py
+py scripts\generate_rosters.py --from-draft --show-diff
+py scripts\check_rosters.py
 ```
+
+**Never run `pull_current_draft.py` without `--dry-run`** (corrected 10-12).
+It writes to `all_drafts.json`, which holds completed seasons only; an
+in-progress season there contaminates every all-time draft record. Build
+`DRAFT_PICKS_CURRENT.json` from the dry-run output.
 
 Then:
 
@@ -692,7 +697,11 @@ Then:
   teams) with real player names, and `is_keeper` set true for rounds 10-15.
   The engine now trusts that flag rather than inferring from the round number,
   so getting it right matters more than it used to.
-- Verify `config\ROSTERS.json` has 4 teams x 17 players
+- Verify `config\ROSTERS.json` has 4 teams x 15 players (`check_rosters.py`
+  says so; the 2 IL slots are not roster spots until someone is in one)
+- Check every team name still matches `manager_to_team` in config:
+  `fetch_playerlist.py` warns on rostered players owned by an unknown team.
+  Benton renamed his to "Kevin Quran't" for 2026-27.
 - Update `data\PLAYERLIST.xlsx` for the new season (`WEEKLY_WORKFLOW.md` Step 2.5)
 - **By Sun Oct 18:** repopulate `config\INJURY_OVERRIDES.json` for every
   rostered player with a known multi-week absence, and set `last_updated`

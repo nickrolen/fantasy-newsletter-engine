@@ -31,6 +31,7 @@ In `WEEKLY_WORKFLOW.md` order. Each step's real inputs and outputs:
 | 2.5 | `fetch_playerlist.py --execute` | Yahoo **website** HTML | `PLAYERLIST.xlsx`, `PLAYER_AGES.json` |
 | 2.5 | `check_playerlist.py --snapshot` | the above | a snapshot; **gate, do not skip** |
 | 3 | `generate_rosters.py --week N` | `LINEUPS.xlsx` | `ROSTERS.json` |
+| pre-wk1 | `generate_rosters.py --from-draft` | `DRAFT_PICKS_CURRENT.json` | `ROSTERS.json` |
 | 4 | `sync_transactions.py --week N --apply` | Yahoo transactions | `waivers_weekN.txt`, patches `ROSTERS.json` |
 | 5 | by hand | - | `INJURY_OVERRIDES.json`, optional `weeklycontextinput_weekN.json` |
 | 5.75 | `backfill_player_records.py` | historical JSON, logs | `RECORDS.json["all_time"]` |
