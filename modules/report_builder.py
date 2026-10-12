@@ -135,7 +135,7 @@ def get_rosters_from_lineups(lineups_df) -> dict[str, list[str]]:
     rosters_file = Path(__file__).parent.parent / "config" / "ROSTERS.json"
     if rosters_file.exists():
         try:
-            with open(rosters_file, "r") as f:
+            with open(rosters_file, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
             config_rosters = config_data.get("rosters", config_data)
             # Filter to only manager entries (lists of players)
@@ -3195,7 +3195,7 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
     draft_file = base / "config" / "DRAFT_PICKS_CURRENT.json"
     if not draft_file.exists():
         return {"drafted": [], "keepers": []}
-    with open(draft_file) as f:
+    with open(draft_file, encoding="utf-8") as f:
         draft_data = json.load(f)
     picks = draft_data.get("picks", [])
 
@@ -3203,7 +3203,7 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
     values_file = base / "config" / "DRAFT_PICK_VALUES.json"
     if not values_file.exists():
         return {"drafted": [], "keepers": []}
-    with open(values_file) as f:
+    with open(values_file, encoding="utf-8") as f:
         values_data = json.load(f)
     pick_values = values_data.get("pick_values", {})
 
@@ -3243,7 +3243,7 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
     # (e.g., "Mary Jane") are not truncated to the first word by \w+.
     _date_prefix = _re.compile(r'- \[\d{4}-\d{2}-\d{2}\]\s+(.+)$')
     for wf in sorted(_glob.glob(str(waiver_dir / "waivers_week*.txt"))):
-        for line in open(wf):
+        for line in open(wf, encoding="utf-8"):
             prefix_match = _date_prefix.match(line.strip())
             if not prefix_match:
                 continue

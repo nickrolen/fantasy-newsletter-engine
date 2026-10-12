@@ -730,7 +730,7 @@ def build_keepability_report(
     
     all_matchups_path = project_root / "data" / "historical" / "all_matchups.json"
     if all_matchups_path.exists():
-        with open(all_matchups_path, 'r') as f:
+        with open(all_matchups_path, 'r', encoding="utf-8") as f:
             all_matchups = json.load(f)
         season_lengths = get_season_lengths(all_matchups)
     else:

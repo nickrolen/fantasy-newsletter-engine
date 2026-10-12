@@ -71,7 +71,7 @@ def get_yahoo_league(base_path: Path) -> "yfa.League":
 def load_rosters(base_path: Path) -> Dict[str, List[str]]:
     """Load current rosters from config/ROSTERS.json."""
     rosters_path = base_path / 'config' / 'ROSTERS.json'
-    with open(rosters_path) as f:
+    with open(rosters_path, encoding="utf-8") as f:
         data = json.load(f)
     return data.get('rosters', {})
 
@@ -83,13 +83,13 @@ def load_playerlist(base_path: Path) -> pd.DataFrame:
 
 def load_schedule(base_path: Path) -> dict:
     """Load fantasy schedule from config/SCHEDULE.json."""
-    with open(base_path / 'config' / 'SCHEDULE.json') as f:
+    with open(base_path / 'config' / 'SCHEDULE.json', encoding="utf-8") as f:
         return json.load(f)
 
 
 def load_nba_schedule(base_path: Path) -> List[dict]:
     """Load NBA game schedule from the configured schedule file."""
-    with open(base_path / NBA_SCHEDULE_FILE) as f:
+    with open(base_path / NBA_SCHEDULE_FILE, encoding="utf-8") as f:
         return json.load(f).get('games', [])
 
 

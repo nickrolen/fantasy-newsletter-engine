@@ -257,7 +257,7 @@ if __name__ == "__main__":
     statuses = fetch_injury_statuses(oauth_file=args.oauth_file, verbose=True)
     
     if args.output:
-        with open(args.output, 'w') as f:
+        with open(args.output, 'w', encoding="utf-8") as f:
             json.dump(statuses, f, indent=2)
         print(f"\nSaved to {args.output}")
     else:

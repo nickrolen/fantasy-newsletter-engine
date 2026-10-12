@@ -62,7 +62,7 @@ def main():
     sr_path = stats_reports[0]
     print(f"Using stats report: {sr_path.name}")
 
-    with open(sr_path) as f:
+    with open(sr_path, encoding="utf-8") as f:
         sr = json.load(f)
 
     kw_players = sr.get("keeper_watch", {}).get("players", [])

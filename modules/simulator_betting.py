@@ -254,7 +254,7 @@ def get_rosters_from_lineups(lineups_df) -> dict[str, list[str]]:
     rosters_file = Path(__file__).parent.parent / "config" / "ROSTERS.json"
     if rosters_file.exists():
         try:
-            with open(rosters_file, "r") as f:
+            with open(rosters_file, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
             config_rosters = config_data.get("rosters", config_data)
             # Filter to only manager entries (lists of players)

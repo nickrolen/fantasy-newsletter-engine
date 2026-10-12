@@ -228,7 +228,7 @@ def main():
 
     # Load existing all_drafts.json
     if ALL_DRAFTS_PATH.exists():
-        with open(ALL_DRAFTS_PATH) as f:
+        with open(ALL_DRAFTS_PATH, encoding="utf-8") as f:
             all_drafts = json.load(f)
         print(f"Loaded {len(all_drafts)} existing draft entries from {ALL_DRAFTS_PATH}\n")
     else:
@@ -317,7 +317,7 @@ def main():
     all_drafts.sort(key=lambda d: (d.get("season", ""), d.get("pick_number", 0)))
 
     # Save
-    with open(ALL_DRAFTS_PATH, "w") as f:
+    with open(ALL_DRAFTS_PATH, "w", encoding="utf-8") as f:
         json.dump(all_drafts, f, indent=2)
     print(f"\nSaved {len(all_drafts)} total entries to {ALL_DRAFTS_PATH}")
     print("Done!")

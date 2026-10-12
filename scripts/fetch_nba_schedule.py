@@ -210,7 +210,7 @@ def fetch_from_bbref(season: str) -> dict:
 def load_schedule_from_file(path: Path) -> dict:
     """Load schedule from a local JSON file."""
     print(f"Loading schedule from {path}...")
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -405,7 +405,7 @@ def main():
     # Optionally save full version
     if args.keep_full:
         full_path = args.output.parent / f"{args.output.stem}_full.json"
-        with open(full_path, "w") as f:
+        with open(full_path, "w", encoding="utf-8") as f:
             json.dump(full_schedule, f)
         full_size = full_path.stat().st_size
         print(f"Saved full schedule: {full_path} ({full_size:,} bytes)")
@@ -416,7 +416,7 @@ def main():
     old = None
     if args.output.is_file():
         try:
-            with open(args.output) as f:
+            with open(args.output, encoding="utf-8") as f:
                 old = json.load(f)
         except (OSError, json.JSONDecodeError):
             old = None
@@ -431,7 +431,7 @@ def main():
 
     trimmed = stamp(trimmed, source)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w") as f:
+    with open(args.output, "w", encoding="utf-8") as f:
         json.dump(trimmed, f, indent=2)
 
     if diff:

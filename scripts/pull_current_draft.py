@@ -259,7 +259,7 @@ def main():
     # Patch all_drafts.json
     print(f"\nPatching {ALL_DRAFTS_PATH}...")
     if ALL_DRAFTS_PATH.exists():
-        with open(ALL_DRAFTS_PATH) as f:
+        with open(ALL_DRAFTS_PATH, encoding="utf-8") as f:
             all_drafts = json.load(f)
 
         # Remove any existing 2025-26 entries
@@ -273,12 +273,12 @@ def main():
         all_drafts.extend(draft)
         print(f"  Added {len(draft)} new {SEASON} entries")
 
-        with open(ALL_DRAFTS_PATH, "w") as f:
+        with open(ALL_DRAFTS_PATH, "w", encoding="utf-8") as f:
             json.dump(all_drafts, f, indent=2)
         print(f"  Saved! Total entries: {len(all_drafts)}")
     else:
         print(f"  WARNING: {ALL_DRAFTS_PATH} not found. Saving as new file.")
-        with open(ALL_DRAFTS_PATH, "w") as f:
+        with open(ALL_DRAFTS_PATH, "w", encoding="utf-8") as f:
             json.dump(draft, f, indent=2)
         print(f"  Saved {len(draft)} entries.")
 

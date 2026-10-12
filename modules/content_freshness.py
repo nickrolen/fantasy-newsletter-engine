@@ -178,7 +178,7 @@ class FreshnessTracker:
         
         if tracker.filepath.exists():
             try:
-                with open(tracker.filepath, 'r') as f:
+                with open(tracker.filepath, 'r', encoding="utf-8") as f:
                     data = json.load(f)
                 
                 # Load fun facts

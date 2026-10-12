@@ -50,7 +50,7 @@ def load_schedule(base_path: Path = None) -> dict:
         print(f"WARNING: Schedule file not found at {schedule_path}")
         return {}
     
-    with open(schedule_path, 'r') as f:
+    with open(schedule_path, 'r', encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -270,7 +270,7 @@ def build_nba_schedule_map():
             f"--output {NBA_SCHEDULE_FILE}"
         )
 
-    with open(schedule_path, "r") as f:
+    with open(schedule_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     schedule = {}

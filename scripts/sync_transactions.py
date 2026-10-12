@@ -47,7 +47,7 @@ def load_schedule(base_path: Path) -> dict:
     schedule_path = base_path / SCHEDULE_JSON_PATH
     if not schedule_path.exists():
         return {}
-    with open(schedule_path) as f:
+    with open(schedule_path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -280,7 +280,7 @@ def load_rosters(base_path: Path) -> dict:
         print(f"ERROR: {rosters_path} not found")
         return {}
     
-    with open(rosters_path) as f:
+    with open(rosters_path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -288,7 +288,7 @@ def save_rosters(rosters_data: dict, base_path: Path):
     """Save updated ROSTERS.json."""
     rosters_path = base_path / ROSTERS_JSON_PATH
     
-    with open(rosters_path, 'w') as f:
+    with open(rosters_path, 'w', encoding="utf-8") as f:
         json.dump(rosters_data, f, indent=2)
 
 
@@ -339,7 +339,7 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
             print(f"  | {line}")
         return
 
-    with open(waivers_path, 'w') as f:
+    with open(waivers_path, 'w', encoding="utf-8") as f:
         f.write("\n".join(lines))
 
     print(f"Yes Wrote {waivers_path}")

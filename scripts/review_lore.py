@@ -226,7 +226,7 @@ def main(argv=None) -> int:
         return 0
     if args.export:
         out = export(lore, base)
-        print(f"wrote {out} ({len(json.loads(out.read_text())['entries'])} "
+        print(f"wrote {out} ({len(json.loads(out.read_text(encoding='utf-8'))['entries'])} "
               "approved entries)")
         return 0
     if args.sitting:

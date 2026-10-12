@@ -262,7 +262,7 @@ def main():
         print(f"ERROR: {teams_path} not found. Run pull_historical_data.py first.")
         return
 
-    with open(teams_path) as f:
+    with open(teams_path, encoding="utf-8") as f:
         all_teams = json.load(f)
 
     # Authenticate
@@ -334,12 +334,12 @@ def main():
         if os.path.exists(OUTPUT_FILE):
             backup = OUTPUT_FILE + ".bak"
             print(f"\n  Backing up existing file to {backup}")
-            with open(OUTPUT_FILE) as f:
+            with open(OUTPUT_FILE, encoding="utf-8") as f:
                 existing = json.load(f)
-            with open(backup, "w") as f:
+            with open(backup, "w", encoding="utf-8") as f:
                 json.dump(existing, f, indent=2)
 
-        with open(OUTPUT_FILE, "w") as f:
+        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             json.dump(all_trades, f, indent=2)
         print(f"\n  Saved to {OUTPUT_FILE}")
 

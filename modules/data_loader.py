@@ -455,7 +455,7 @@ class FantasyData:
         if rosters_file.exists():
             try:
                 import json
-                with open(rosters_file, "r") as f:
+                with open(rosters_file, "r", encoding="utf-8") as f:
                     config_data = json.load(f)
                 config_rosters = config_data.get("rosters", config_data)
                 return {
