@@ -283,3 +283,20 @@ def test_rerunning_step6_drops_the_old_md(tmp_path):
     _cap_outputs(tmp_path)                       # Step 6 again
     capture_report_outputs(tmp_path, 5)      # json only, as Step 6 does
     assert missing_outputs(tmp_path, 5) == ["stats_report_week5.md"]
+
+
+@pytest.mark.parametrize("name,fails", [
+    ("Nikola Jokic", False),       # the roster spells it with the diacritic
+    ("Nikola Jokicc", True),       # matches nobody: every simulation ignores it
+])
+def test_an_override_naming_nobody_fails_the_gate(project, verify, name, fails):
+    """STATUS 10-12 sec.3 item 4: a misspelled override failed silently."""
+    import pandas as pd
+    pd.DataFrame({"player_name": ["Josh Hart"]}).to_excel(
+        project / "data" / "PLAYERLIST.xlsx", index=False)
+    _place(project, "config/ROSTERS.json", {"rosters": {"Hayden": ["Nikola Jokić"]}})
+    _place(project, "config/INJURY_OVERRIDES.json",
+           {"players": [{"player_name": name, "out_weeks": [1]}],
+            "last_updated": "2026-10-18"})
+    failures = verify._check_injury_overrides_current(CFG, [], today=date(2026, 10, 20))
+    assert any("match no rostered player" in f for f in failures) == fails, failures

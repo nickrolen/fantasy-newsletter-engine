@@ -24,6 +24,12 @@ unchanged numbers; `fetch_playerlist` now stamps the fetch into the workbook.
 Quran't" in 2026-27; the ingest scripts would have filed his rows under a
 blank manager, and now raise on an unknown team instead.
 
+INJURY_OVERRIDES names are resolved once, at load, to the spelling their
+consumers compare against (the roster's, or PLAYERLIST's for a free agent):
+a dozen readers matched exactly or lowercased, so "Nikola Jokic" missed the
+accented roster entry silently. A name that matches nobody fails the
+integrity check. `generate_rosters --from-draft` builds opening-day rosters.
+
 **October 8, 2026 - The voice, the four races, and lore kept private**
 
 `templates/VOICE.md` replaces "write like ESPN or The Athletic": one

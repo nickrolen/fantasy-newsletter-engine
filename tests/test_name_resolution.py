@@ -147,3 +147,52 @@ def test_no_ingest_path_defaults_an_unknown_team_to_a_blank_manager():
     assert not offenders, (
         f"{offenders}: TEAM_TO_MANAGER.get() turns a renamed team into a "
         f"blank manager. Use manager_for_team(), which raises.")
+
+
+# ---------------------------------------------------------------------------
+# INJURY_OVERRIDES (STATUS 10-12 sec.3 item 4): the only block-absence input,
+# matched exactly or lowercased in a dozen places
+# ---------------------------------------------------------------------------
+
+from modules.data_loader import resolve_injury_overrides  # noqa: E402
+
+ROSTERS = {"Hayden": ["Nikola Jokić", "Shai Gilgeous-Alexander"], "Nick": ["Josh Hart"]}
+OVERRIDES = {"last_updated": "2026-10-18", "players": [
+    {"player_name": "Nikola Jokic", "out_weeks": [1, 2], "notes": "knee"},
+    {"player_name": "S. Gilgeous-Alexander", "out_weeks": [3], "notes": "ankle"},
+    {"player_name": "Draymond Green", "out_weeks": [1], "notes": "free agent"},
+    {"player_name": "Nikola Jokicc", "out_weeks": [1], "notes": "typo"},
+]}
+
+
+def _resolved():
+    return resolve_injury_overrides(OVERRIDES, ROSTERS, YAHOO["player_name"])
+
+
+def test_overrides_take_the_roster_spelling_or_playerlist_for_free_agents():
+    names = [e["player_name"] for e in _resolved()["players"]]
+    assert names[:3] == ["Nikola Jokić", "Shai Gilgeous-Alexander", "Draymond Green"]
+    assert _resolved()["players"][0]["_override_spelling"] == "Nikola Jokic"
+
+
+def test_a_name_that_is_nobody_is_reported_not_dropped_silently():
+    assert _resolved()["_unresolved"] == ["Nikola Jokicc"]
+
+
+@pytest.mark.parametrize("asked", ["Nikola Jokić", "Nikola Jokic"])
+def test_the_accessors_match_across_spellings(asked):
+    data = FantasyData(injury_overrides=_resolved())
+    assert data.get_player_injury_weeks(asked) == [1, 2]
+    # Raw (unresolved) overrides still match: the accessor uses PlayerIndex.
+    raw = FantasyData(injury_overrides=OVERRIDES)
+    assert raw.get_player_injury_weeks(asked) == [1, 2]
+
+
+def test_an_exact_match_consumer_now_sees_the_injury():
+    """report_builder's matchup injuries do 'player_name in roster'. With the
+    overrides resolved at load, Jokic is out in week 1 for Hayden."""
+    from modules.report_builder import get_notable_injuries
+    out = get_notable_injuries("Hayden", 1, _resolved(), ROSTERS)
+    assert [i["player"] for i in out] == ["Nikola Jokić"]
+    # ...and the raw file is what it missed before.
+    assert get_notable_injuries("Hayden", 1, OVERRIDES, ROSTERS) == []

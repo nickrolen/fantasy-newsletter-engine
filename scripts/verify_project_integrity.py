@@ -1025,10 +1025,32 @@ def _check_injury_overrides_current(cfg, warnings, today=None):
     path = PROJECT_ROOT / "config" / "INJURY_OVERRIDES.json"
     try:
         with open(path, "r", encoding="utf-8") as f:
-            stamp = (json.load(f).get("last_updated") or "").strip()
+            blob = json.load(f)
+        stamp = (blob.get("last_updated") or "").strip()
     except Exception as e:
         failures.append(f"[INJURY] could not read config/INJURY_OVERRIDES.json: {e}")
         return failures
+
+    # Every name must be somebody. One that matches no rostered player and
+    # nothing in PLAYERLIST is ignored by every simulation -- the player it
+    # was meant for plays a full week in all of them.
+    unresolved = []
+    if blob.get("players"):
+        from modules.data_loader import load_resolved_injury_overrides
+        import contextlib, io
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                unresolved = load_resolved_injury_overrides(
+                    PROJECT_ROOT).get("_unresolved", [])
+        except Exception as e:
+            failures.append(f"[INJURY] could not check the names in "
+                            f"INJURY_OVERRIDES.json against the rosters and "
+                            f"PLAYERLIST: {type(e).__name__}: {e}")
+    if unresolved:
+        failures.append(
+            f"[INJURY] INJURY_OVERRIDES.json names {unresolved} match no "
+            "rostered player and nothing in PLAYERLIST, so every simulation "
+            "ignores them. Fix the spelling.")
 
     if not stamp:
         if today >= week1:

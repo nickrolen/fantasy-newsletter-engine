@@ -7,6 +7,7 @@ Provides a centralized data access layer for all other modules.
 
 import json
 import re
+import sys
 import unicodedata
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -351,27 +352,36 @@ class FantasyData:
             self._projection_index_src = self.playerlist
         return idx.get(player_name)
 
+    def _injury_entry(self, player_name: str):
+        """The override entry for a player, matched through PlayerIndex.
+
+        This was a lowercase comparison: "Nikola Jokic" in the overrides
+        never matched the accented roster spelling, silently.
+        """
+        idx = PlayerIndex()
+        for entry in self.injury_overrides.get("players", []):
+            for name in (entry.get("player_name"), entry.get("_override_spelling")):
+                if name and not dict.__contains__(idx, name):
+                    idx[name] = entry
+        return idx.get(player_name)
+
     def get_player_injury_weeks(self, player_name: str) -> list[int]:
         """Get weeks a player is out due to injury override."""
-        for player in self.injury_overrides.get("players", []):
-            if player["player_name"].lower() == player_name.lower():
-                return player.get("out_weeks", [])
-        return []
+        entry = self._injury_entry(player_name)
+        return entry.get("out_weeks", []) if entry else []
 
     def get_player_return_info(self, player_name: str) -> dict:
         """Get return info for a player if they have a confirmed return."""
-        for player in self.injury_overrides.get("players", []):
-            if player["player_name"].lower() == player_name.lower():
-                return_week = player.get("return_week")
-                if return_week:
-                    return {
-                        "return_week": return_week,
-                        "return_games": player.get("return_games"),
-                        "total_week_games": player.get("total_week_games"),
-                        "return_notes": player.get("return_notes", ""),
-                        "return_date": player.get("return_date"),
-                    }
-        return {}
+        player = self._injury_entry(player_name)
+        if not player or not player.get("return_week"):
+            return {}
+        return {
+            "return_week": player.get("return_week"),
+            "return_games": player.get("return_games"),
+            "total_week_games": player.get("total_week_games"),
+            "return_notes": player.get("return_notes", ""),
+            "return_date": player.get("return_date"),
+        }
 
     def is_player_available(self, player_name: str, week: int) -> bool:
         """Check if player is available for a given week."""
@@ -788,10 +798,81 @@ def load_schedule(path: Path) -> dict:
 
 
 def load_injury_overrides(path: Path) -> dict:
-    """Load INJURY_OVERRIDES.json."""
+    """Load INJURY_OVERRIDES.json, names as written. Prefer the resolved form:
+    load_resolved_injury_overrides(), or FantasyData.injury_overrides."""
     if not path.exists():
         return {"players": [], "last_updated": None}
     return load_json_file(path)
+
+
+def resolve_injury_overrides(overrides: dict, rosters: dict,
+                             playerlist_names) -> dict:
+    """INJURY_OVERRIDES with every name in the spelling its consumers use.
+
+    A dozen places read this file and every one matched names exactly (or
+    lowercased): "player_name in roster", "isin(injured)". So "Nikola Jokic"
+    typed into the overrides silently failed to match "Nikola Jokic" with
+    the diacritic on a roster -- and this is the engine's only input for
+    block absences, so the failure was a healthy player in every simulation
+    (STATUS 10-12 sec.3 item 4).
+
+    Resolving once, here, fixes all of them: a rostered player gets the
+    ROSTERS.json spelling (what the roster-side code compares against), an
+    unrostered one PLAYERLIST's (what the free-agent filters compare
+    against). The name as typed is kept in "_override_spelling". A name
+    that resolves to nobody stays as typed and is listed in "_unresolved";
+    the loader warns and verify_project_integrity fails on it.
+    """
+    on_roster = PlayerIndex({p: p for ps in (rosters or {}).values()
+                             if isinstance(ps, list) for p in ps})
+    in_list = PlayerIndex({n: n for n in (list(playerlist_names)
+                                          if playerlist_names is not None else [])})
+    out = dict(overrides or {})
+    players, unresolved = [], []
+    for entry in (overrides or {}).get("players", []):
+        entry = dict(entry)
+        typed = str(entry.get("player_name", ""))
+        hit = on_roster.get(typed) or in_list.get(typed)
+        if hit is None:
+            unresolved.append(typed)
+        elif hit != typed:
+            entry["_override_spelling"] = typed
+            entry["player_name"] = hit
+        players.append(entry)
+    out["players"] = players
+    out["_unresolved"] = unresolved
+    return out
+
+
+def _read_rosters_file(path: Path) -> dict:
+    if not Path(path).is_file():
+        return {}
+    blob = json.loads(Path(path).read_text(encoding="utf-8"))
+    rosters = blob.get("rosters", blob)
+    return {m: p for m, p in rosters.items() if isinstance(p, list)}
+
+
+def _warn_unresolved(resolved: dict) -> None:
+    missing = resolved.get("_unresolved") or []
+    if missing:
+        print(f"  WARNING: INJURY_OVERRIDES names {missing} match no rostered "
+              f"player and nothing in PLAYERLIST. They are IGNORED by every "
+              f"simulation. Fix the spelling in config/INJURY_OVERRIDES.json.",
+              file=sys.stderr)
+
+
+def load_resolved_injury_overrides(base_path=".", playerlist_names=None) -> dict:
+    """INJURY_OVERRIDES.json from base_path, resolved (resolve_injury_overrides)."""
+    base = Path(base_path)
+    raw = load_injury_overrides(base / DEFAULT_PATHS["injury_overrides"])
+    if playerlist_names is None:
+        pl = base / DEFAULT_PATHS["playerlist"]
+        playerlist_names = (pd.read_excel(pl)["player_name"].dropna().tolist()
+                            if pl.is_file() else [])
+    resolved = resolve_injury_overrides(
+        raw, _read_rosters_file(base / "config" / "ROSTERS.json"), playerlist_names)
+    _warn_unresolved(resolved)
+    return resolved
 
 
 # =============================================================================
@@ -1190,7 +1271,7 @@ def load_all_data(
         playerlist=load_playerlist(base / file_paths["playerlist"]),
         leaguehistory=load_leaguehistory(base / file_paths["leaguehistory"]),
         schedule=load_schedule(base / file_paths["schedule"]),
-        injury_overrides=load_injury_overrides(base / file_paths["injury_overrides"]),
+        injury_overrides={"players": []},     # resolved below, once PLAYERLIST is in
         records=load_records(base / file_paths["records"]),
         nba_schedule=load_nba_schedule(base / file_paths["nba_schedule"]),
         league_history_detailed=load_league_history_detailed(
@@ -1204,6 +1285,13 @@ def load_all_data(
         current_week=current_week or 0,
         base_path=base,
     )
+
+    data.injury_overrides = resolve_injury_overrides(
+        load_injury_overrides(base / file_paths["injury_overrides"]),
+        _read_rosters_file(base / "config" / "ROSTERS.json"),
+        data.playerlist["player_name"].dropna().tolist()
+        if "player_name" in data.playerlist.columns else [])
+    _warn_unresolved(data.injury_overrides)
 
     if current_week is None:
         max_week = data.playerlog["week"].max()

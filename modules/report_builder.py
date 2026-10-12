@@ -15,7 +15,8 @@ from typing import Optional, Any
 from .data_loader import (PlayerIndex, add_budget_for, FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
                           CURRENT_SEASON, classify_position_group,
                           phase_for_week, regular_season_weeks_for,
-                          is_regular_season_week, keepers_for)
+                          is_regular_season_week, keepers_for,
+                          load_resolved_injury_overrides)
 from .weekly_stats import (
     WeeklyReport,
     compute_weekly_report,
@@ -3255,14 +3256,15 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
                     break
 
     # Load OFS players from INJURY_OVERRIDES
-    ofs_players = set()
-    overrides_path = base / "config" / "INJURY_OVERRIDES.json"
-    if overrides_path.exists():
-        with open(overrides_path) as f:
-            overrides = json.load(f)
+    # Resolved names (load_resolved_injury_overrides) and PlayerIndex
+    # membership: a draft-pick spelling and an override spelling of the same
+    # player used to be two people here.
+    ofs_players = PlayerIndex()
+    if (base / "config" / "INJURY_OVERRIDES.json").exists():
+        overrides = load_resolved_injury_overrides(base)
         for inj in overrides.get("players", []):
             if inj.get("notes", "").lower().startswith("out for season"):
-                ofs_players.add(inj["player_name"])
+                ofs_players[inj["player_name"]] = True
 
     drafted = []
 

@@ -24,7 +24,7 @@ from typing import Any, Optional
 # Add project root to path for config imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from modules.data_loader import PlayerIndex, MANAGERS, CURRENT_SEASON
+from modules.data_loader import PlayerIndex, MANAGERS, CURRENT_SEASON, load_resolved_injury_overrides
 
 try:
     import openpyxl  # type: ignore
@@ -416,21 +416,15 @@ def load_injury_timelines(base_path: Path, current_week: int) -> dict:
         }, ...
     }
     """
-    # Check config/ first, then base_path directly
-    io_path = base_path / "config" / "INJURY_OVERRIDES.json"
-    if not io_path.exists():
-        io_path = base_path / "INJURY_OVERRIDES.json"
-    
-    if not io_path.exists():
+    # config/ only: the base-path fallback read a stray copy, and a parse
+    # error returned {} -- an unreadable injury file looked like no injuries.
+    # Names are resolved to the roster / PLAYERLIST spelling, and the result
+    # is a PlayerIndex, so Section 9's lookup matches across spellings.
+    if not (base_path / "config" / "INJURY_OVERRIDES.json").exists():
         return {}
-    
-    try:
-        with open(io_path, encoding="utf-8") as f:
-            io_data = json.load(f)
-    except Exception:
-        return {}
-    
-    timelines = {}
+    io_data = load_resolved_injury_overrides(base_path)
+
+    timelines = PlayerIndex()
     for p in io_data.get("players", []):
         name = p.get("player_name", "")
         out_weeks = p.get("out_weeks", [])
