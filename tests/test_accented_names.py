@@ -231,8 +231,9 @@ def test_the_gate_reports_a_rename(tmp_path):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert mod._without_suffix("Bobby Portis Jr.") == mod._without_suffix("Bobby Portis")
-    assert (mod._last_name_with_initial("S. Gilgeous-Alexander")
-            == mod._last_name_with_initial("Shai Gilgeous-Alexander"))
+    assert mod.initial_match("S. Gilgeous-Alexander", "Shai Gilgeous-Alexander")
+    # ...but two full first names are two people, however they reduce.
+    assert not mod.initial_match("Lonzo Ball", "LaMelo Ball")
 
 
 def test_free_agents_does_not_list_a_respelled_rostered_player():

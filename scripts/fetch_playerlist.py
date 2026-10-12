@@ -80,8 +80,9 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules.data_loader import (  # noqa: E402
-    CURRENT_SEASON, LEAGUE_KEY, MANAGER_TO_TEAM, normalize_player_name,
+    CURRENT_SEASON, LEAGUE_KEY, MANAGER_TO_TEAM, PlayerIndex, normalize_player_name,
 )
+from modules import playerlist_freshness  # noqa: E402
 
 PLAYERLIST = PROJECT_ROOT / "data" / "PLAYERLIST.xlsx"
 AGES = PROJECT_ROOT / "config" / "PLAYER_AGES.json"
@@ -436,7 +437,12 @@ def main():
                          "ages are a year stale by then.")
     ap.add_argument("--no-bbref-ages", action="store_true",
                     help="do not consult basketball-reference for missing ages")
+    ap.add_argument("--out", default=None,
+                    help="write the workbook here instead of data/PLAYERLIST.xlsx "
+                         "(no .bak, and the age cache is left alone). For "
+                         "checking a fetch without replacing the live file.")
     args = ap.parse_args()
+    target = Path(args.out) if args.out else PLAYERLIST
 
     league_id = league_id_from_key(args.league_key or LEAGUE_KEY)
     if not league_id:
@@ -456,6 +462,16 @@ def main():
               "made private, or Yahoo changed the players table. Fall back to "
               "the manual procedure in WEEKLY_WORKFLOW.md Step 2.5.")
         return 1
+
+    # Every rostered row must name a team config knows. A miss means a manager
+    # renamed his team in Yahoo (Benton, "Smaxey" -> "Kevin Quran't", found
+    # 10-12) and every ingest script that maps team -> manager will refuse.
+    orphans = sorted({r["player_name"] for r in taken.values() if not r["owner"]})
+    if orphans:
+        print(f"\n  WARNING: {len(orphans)} rostered player(s) on a team name "
+              f"that config manager_to_team does not know: {orphans[:5]}"
+              f"{' ...' if len(orphans) > 5 else ''}\n  Update manager_to_team "
+              f"in config/league_config.json before syncing lineups.")
 
     merged = dict(pool)
     merged.update(taken)          # a rostered row wins: it carries the owner
@@ -513,9 +529,12 @@ def main():
     if bad:
         print(f"\n  {len(bad)} row(s) with unreadable GP/FP, dropped: {bad[:5]}")
 
-    missing = [n for n in rostered_names()
-               if normalize_player_name(n) not in
-               {normalize_player_name(r["player_name"]) for r in records}]
+    # The same resolver the simulators use. Yahoo's roster endpoint and its
+    # pool endpoint spell some players differently in the same fetch ("Shai
+    # Gilgeous-Alexander" / "S. Gilgeous-Alexander"); plain normalising calls
+    # that a missing player.
+    fetched = PlayerIndex({r["player_name"]: 1 for r in records})
+    missing = [n for n in rostered_names() if n not in fetched]
     if missing:
         print(f"\n  ROSTERED BUT MISSING ({len(missing)}): {missing}")
         print("  These would get a 0.0 FPPG projection in every simulation.")
@@ -533,10 +552,17 @@ def main():
         print("\n  [DRY-RUN] Nothing written. Re-run with --execute.")
         return 0
 
-    if PLAYERLIST.is_file():
+    if target == PLAYERLIST and PLAYERLIST.is_file():
         shutil.copy2(PLAYERLIST, PLAYERLIST.with_suffix(".xlsx.bak"))
-    frame[COLUMNS].to_excel(PLAYERLIST, index=False)
-    print(f"\n  Wrote {PLAYERLIST.name} ({len(frame)} rows)")
+    # The stamp (a "_fetch" sheet) is what tells check_playerlist this file was
+    # fetched, and when, instead of inferring it from whether the numbers moved.
+    st = playerlist_freshness.write(frame[COLUMNS], target,
+                                    source=f"yahoo:{league_id}")
+    print(f"\n  Wrote {target} ({len(frame)} rows), fetched_at {st['fetched_at']}")
+    if target != PLAYERLIST:
+        print(f"\n  --out: data/PLAYERLIST.xlsx and {AGES.name} were not touched.")
+        print(f"  Check it: py scripts/check_playerlist.py --file {target}")
+        return 0
 
     payload = {
         "_comment": ("Player ages, keyed by Yahoo NBA player id. Ages are not "

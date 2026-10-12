@@ -51,8 +51,9 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules.data_loader import (  # noqa: E402
-    normalize_player_name, _without_suffix, _last_name_with_initial,
+    PlayerIndex, normalize_player_name, _without_suffix, initial_match,
 )
+from modules import playerlist_freshness  # noqa: E402
 
 PLAYERLIST = PROJECT_ROOT / "data" / "PLAYERLIST.xlsx"
 ROSTERS = PROJECT_ROOT / "config" / "ROSTERS.json"
@@ -106,7 +107,15 @@ def main():
                     help="save this file as the baseline for next week")
     ap.add_argument("--strict", action="store_true",
                     help="treat warnings as failures")
+    ap.add_argument("--file", default=None,
+                    help="check this workbook instead of data/PLAYERLIST.xlsx "
+                         "(e.g. one written by fetch_playerlist.py --out)")
     args = ap.parse_args()
+    path = Path(args.file) if args.file else PLAYERLIST
+    if args.file and args.snapshot:
+        print("  --snapshot saves the LIVE file as next week's baseline; it "
+              "cannot be combined with --file.")
+        return 1
 
     failures, warnings = [], []
 
@@ -114,11 +123,11 @@ def main():
     print("  CHECK PLAYERLIST")
     print("=" * 66)
 
-    if not PLAYERLIST.is_file():
-        print("\n  FAIL: data/PLAYERLIST.xlsx does not exist.")
+    if not path.is_file():
+        print(f"\n  FAIL: {path} does not exist.")
         return 1
     try:
-        frame = pd.read_excel(PLAYERLIST)
+        frame = pd.read_excel(path)
     except Exception as e:
         print(f"\n  FAIL: could not read it: {e}")
         return 1
@@ -169,14 +178,26 @@ def main():
     print(f"  FPPG range: {fppg.min():.1f} - {fppg.max():.1f}")
 
     # --- roster coverage ----------------------------------------------------
+    # Through PlayerIndex, the resolver the simulators use, so this check and
+    # the engine agree on who is present. Yahoo's roster and pool endpoints
+    # spell some players differently in the same fetch ("Shai Gilgeous-
+    # Alexander" / "S. Gilgeous-Alexander"); plain normalising called that a
+    # missing player while the engine -- on 10-12 -- also missed him, through
+    # a second, shorter copy of the ladder. Both now resolve the same way.
     rosters = load_rosters()
     if rosters:
-        have = set(frame["_key"])
-        absent = []
+        have = PlayerIndex({n: n for n in frame["player_name"]})
+        absent, respelled = [], []
         for manager, players in rosters.items():
             for p in players:
-                if normalize_player_name(p) not in have:
+                hit = have.get(p)
+                if hit is None:
                     absent.append(f"{p} ({manager})")
+                elif normalize_player_name(hit) != normalize_player_name(p):
+                    respelled.append(f"{p} -> {hit}")
+        if respelled:
+            print(f"  resolved by respelling ({len(respelled)}): "
+                  f"{', '.join(respelled[:6])}")
         if absent:
             failures.append(
                 f"{len(absent)} rostered player(s) missing -- each would "
@@ -198,6 +219,30 @@ def main():
                 f"assume 27): {ageless[:6]}")
     else:
         warnings.append("no age column")
+
+    # --- when it was fetched -------------------------------------------------
+    # A fact written by fetch_playerlist, not an inference from whether the
+    # numbers moved (modules/playerlist_freshness.py).
+    fresh = playerlist_freshness.assess(
+        frame.drop(columns=["_key"]), playerlist_freshness.read_stamp(path))
+    if fresh["how"] == "stamp":
+        print(f"  fetched {fresh['fetched_on']} ({fresh['age_days']} day(s) ago) "
+              f"from {fresh['source']}")
+        if fresh["stale"]:
+            failures.append(
+                f"fetched {fresh['age_days']} days ago ({fresh['fetched_on']}), "
+                f"more than {playerlist_freshness.MAX_AGE_DAYS} -- this week's "
+                f"projections were not pulled")
+    elif fresh["how"] == "mismatch":
+        warnings.append(
+            "the fetch stamp no longer matches the projections in this file "
+            "(edited after fetching?), so it was ignored and freshness is "
+            "judged by comparing against the last snapshot")
+    else:
+        warnings.append(
+            "no fetch stamp (built by hand, or before stamps existed), so "
+            "freshness is judged by comparing against the last snapshot. "
+            "fetch_playerlist.py --execute writes one.")
 
     # --- against last week --------------------------------------------------
     prev, prev_path = previous_snapshot()
@@ -223,9 +268,7 @@ def main():
         for gone in sorted(departed):
             for arrived in sorted(entered):
                 same = (_without_suffix(gone) == _without_suffix(arrived)
-                        or (_last_name_with_initial(gone)
-                            and _last_name_with_initial(gone)
-                            == _last_name_with_initial(arrived)))
+                        or initial_match(gone, arrived))
                 if same:
                     renames.append((gone, arrived))
         for gone, arrived in renames:
@@ -243,7 +286,12 @@ def main():
             # was not rebuilt. Identical to one taken today just means this
             # ran twice today, which is what happens after a re-run, and
             # Yahoo's numbers do not move between two runs an hour apart.
-            if same and _snapshot_is_from_today(prev_path):
+            if same and fresh["how"] == "stamp":
+                # The stamp already settled freshness; identical numbers just
+                # mean Yahoo has not moved a projection since the snapshot.
+                print(f"  (projections unchanged since {prev_path.name}; the "
+                      f"file itself was fetched {fresh['fetched_on']})")
+            elif same and _snapshot_is_from_today(prev_path):
                 print("  (identical to today's snapshot -- a same-day re-run, "
                       "not a stale file)")
             elif same:

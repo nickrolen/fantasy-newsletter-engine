@@ -28,7 +28,7 @@ import unicodedata
 # Add project root to path for config imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from modules.data_loader import LEAGUE_KEY, TEAM_TO_MANAGER, YAHOO_GAME_CODE
+from modules.data_loader import LEAGUE_KEY, TEAM_TO_MANAGER, YAHOO_GAME_CODE, manager_for_team
 
 
 # ---------- CONFIGURATION ----------
@@ -203,7 +203,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                 # Determine the action and team
                 if action_type == "add":
                     fantasy_team = dest_team_name
-                    manager = FANTASY_TEAM_TO_MANAGER.get(fantasy_team, "")
+                    manager = manager_for_team(fantasy_team)
                     transactions.append({
                         "type": "add",
                         "player_name": player_name,
@@ -215,7 +215,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                     })
                 elif action_type == "drop":
                     fantasy_team = source_team_name
-                    manager = FANTASY_TEAM_TO_MANAGER.get(fantasy_team, "")
+                    manager = manager_for_team(fantasy_team)
                     transactions.append({
                         "type": "drop",
                         "player_name": player_name,
@@ -228,7 +228,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                 elif action_type == "trade":
                     # For trades, we record both sides
                     if dest_team_name:
-                        manager = FANTASY_TEAM_TO_MANAGER.get(dest_team_name, "")
+                        manager = manager_for_team(dest_team_name)
                         transactions.append({
                             "type": "add",
                             "player_name": player_name,
@@ -239,7 +239,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                             "details": {"via": "trade"},
                         })
                     if source_team_name:
-                        manager = FANTASY_TEAM_TO_MANAGER.get(source_team_name, "")
+                        manager = manager_for_team(source_team_name)
                         transactions.append({
                             "type": "drop",
                             "player_name": player_name,

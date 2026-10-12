@@ -40,11 +40,12 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules.data_loader import (  # noqa: E402
-    LEAGUE_STRUCTURE, MANAGERS, normalize_player_name,
+    IL_SLOTS, LEAGUE_STRUCTURE, MANAGERS, PlayerIndex,
 )
 
 ROSTERS = PROJECT_ROOT / "config" / "ROSTERS.json"
 PLAYERLIST = PROJECT_ROOT / "data" / "PLAYERLIST.xlsx"
+LINEUPS = PROJECT_ROOT / "data" / "LINEUPS.xlsx"
 
 # Anything matching these is a slot state, not a person.
 PLACEHOLDER = re.compile(
@@ -53,9 +54,50 @@ PLACEHOLDER = re.compile(
 )
 
 
-def expected_roster_size() -> int:
-    """Every roster spot including IL -- that is what a lineup week shows."""
-    return int(LEAGUE_STRUCTURE.get("roster_size", 17))
+def active_spots() -> int:
+    """Starters plus bench: the spots every roster fills. Read, never defaulted."""
+    return int(LEAGUE_STRUCTURE["starters"]) + int(LEAGUE_STRUCTURE["bench"])
+
+
+def expected_roster_size(on_il: int = 0) -> int:
+    """15 active spots, plus each player actually sitting in an IL slot.
+
+    This used to return roster_size, 17, "including IL". That is right for a
+    lineup week and wrong for a roster: an IL slot only takes an IL-tagged
+    player, and an empty one is not a roster spot anybody holds. So it
+    warned on all four teams every preseason (15 players, "expected 17"),
+    and a warning that is always there is one nobody reads.
+    """
+    il_slots = int(LEAGUE_STRUCTURE["il_slots"])
+    if on_il < 0:
+        raise ValueError(on_il)
+    return active_spots() + min(on_il, il_slots)
+
+
+def players_on_il(rosters: dict, lineups=None) -> dict:
+    """{manager: rostered players in an IL slot in that manager's latest lineup}.
+
+    ROSTERS.json is names only, so the slot comes from LINEUPS. Preseason
+    LINEUPS is empty and nobody is on IL. A player who has since left the
+    roster no longer counts.
+    """
+    out = {m: 0 for m in rosters}
+    if lineups is None:
+        if not LINEUPS.is_file():
+            return out
+        import pandas as pd
+        lineups = pd.read_excel(LINEUPS)
+    if lineups is None or len(lineups) == 0:
+        return out
+    for manager, players in rosters.items():
+        rows = lineups[lineups["manager"] == manager]
+        if rows.empty:
+            continue
+        latest = rows[rows["date"].astype(str) == rows["date"].astype(str).max()]
+        il_names = latest[latest["slot"].astype(str).str.upper().isin(IL_SLOTS)]
+        on_roster = PlayerIndex({p: 1 for p in players})
+        out[manager] = sum(1 for n in il_names["player_name"] if n in on_roster)
+    return out
 
 
 def main() -> int:
@@ -88,16 +130,19 @@ def main() -> int:
         print("  expected; during the season it is not.")
         return 0
 
-    size = expected_roster_size()
-    print(f"  {len(rosters)} rosters, expecting {size} players each")
+    on_il = players_on_il(rosters)
+    print(f"  {len(rosters)} rosters, expecting {active_spots()} active players "
+          f"each, plus any in an IL slot")
     print()
 
     # --- every player belongs to exactly one manager ---------------------
-    owners = {}
+    owners, seen = {}, PlayerIndex()
     for manager, players in rosters.items():
         for player in players:
-            owners.setdefault(normalize_player_name(player), []).append(
-                (manager, player))
+            canonical = seen.get(player)
+            if canonical is None:
+                seen[player] = canonical = player
+            owners.setdefault(canonical, []).append((manager, player))
     for _, holders in sorted(owners.items()):
         if len(holders) > 1:
             who = ", ".join(f"{m} ({p})" for m, p in holders)
@@ -117,9 +162,12 @@ def main() -> int:
 
     # --- roster sizes ------------------------------------------------------
     for manager, players in sorted(rosters.items()):
+        size = expected_roster_size(on_il.get(manager, 0))
         if len(players) != size:
+            why = (f"{active_spots()} active + {on_il.get(manager, 0)} in an IL "
+                   f"slot in the latest lineup")
             (failures if abs(len(players) - size) > 2 else warnings).append(
-                f"{manager} has {len(players)} players, expected {size}.")
+                f"{manager} has {len(players)} players, expected {size} ({why}).")
 
     # --- every manager accounted for ---------------------------------------
     missing = [m for m in MANAGERS if m not in rosters]
@@ -134,13 +182,15 @@ def main() -> int:
         try:
             import pandas as pd
             frame = pd.read_excel(PLAYERLIST)
-            known = {normalize_player_name(n) for n in frame["player_name"]}
+            # The simulators' resolver, so this agrees with the engine about
+            # who has a projection (see check_playerlist).
+            known = PlayerIndex({n: n for n in frame["player_name"]})
             unmatched = []
             for manager, players in sorted(rosters.items()):
                 for player in players:
                     if PLACEHOLDER.match(str(player)):
                         continue
-                    if normalize_player_name(player) not in known:
+                    if player not in known:
                         unmatched.append(f"{player} ({manager})")
             if unmatched:
                 warnings.append(

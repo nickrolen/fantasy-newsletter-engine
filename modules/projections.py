@@ -14,7 +14,7 @@ import math
 import pandas as pd
 import numpy as np
 
-from .data_loader import FantasyData, MANAGERS, normalize_player_name
+from .data_loader import FantasyData, MANAGERS, PlayerIndex, normalize_player_name
 
 
 # =============================================================================
@@ -403,7 +403,9 @@ def load_player_projections(data: FantasyData) -> dict[str, PlayerProjection]:
 
         projections[name] = proj
 
-    return projections
+    # A PlayerIndex, so every roster lookup into it resolves spellings the
+    # same way (resolve_projection).
+    return PlayerIndex(projections)
 
 
 def load_team_projections(
@@ -520,18 +522,17 @@ def load_team_projections(
 def resolve_projection(player_projections: dict, name: str):
     """A player's projection, tolerant of how their name is spelled.
 
-    The roster says "Nikola Jokic"; PLAYERLIST (from Yahoo) says "Nikola
-    Jokic" with a diacritic. Exact-match lookup returned nothing and the
-    caller fell through to projected_fppg=0.0 -- silently turning the best
-    player in the league into a zero for every simulation that week.
+    Goes through PlayerIndex, the one resolver every other join uses. The
+    version this replaced stopped at accents and punctuation, so on
+    2026-10-12 -- with Yahoo writing "S. Gilgeous-Alexander" and the roster
+    "Shai Gilgeous-Alexander" -- Hayden's best player and Nick's Nickeil
+    Alexander-Walker projected 0.0 FPPG in every playoff, title and Cup
+    simulation, while FantasyData.get_player_projection, which had the full
+    ladder, returned 46.12 and 32.66. Two copies of one rule had drifted.
     """
-    if name in player_projections:
-        return player_projections[name]
-    key = normalize_player_name(name)
-    for other, proj in player_projections.items():
-        if normalize_player_name(other) == key:
-            return proj
-    return None
+    if not isinstance(player_projections, PlayerIndex):
+        player_projections = PlayerIndex(player_projections)
+    return player_projections.get(name)
 
 
 def load_all_team_projections(data: FantasyData) -> dict[str, TeamProjections]:

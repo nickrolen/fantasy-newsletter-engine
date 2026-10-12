@@ -72,6 +72,21 @@ def run(draft_text: str, week: int, out_dirs: list[Path], config: dict,
     return cc.check(draft_text, pool, vocab, lore), meta
 
 
+def historical_team_names(base) -> dict:
+    """{team name: manager} for every season in RECORDS.team_name_history."""
+    path = Path(base) / "config" / "RECORDS.json"
+    if not path.is_file():
+        return {}
+    history = json.loads(path.read_text(encoding="utf-8")).get(
+        "team_name_history", {})
+    out = {}
+    for teams in history.values():
+        for entry in (teams or {}).values():
+            if entry.get("team_name") and entry.get("manager"):
+                out[entry["team_name"]] = entry["manager"]
+    return out
+
+
 def prepare(week: int, out_dirs: list[Path], config: dict,
             lore_entries: list, roster_players=(), bases=(),
             include_recap: bool = True):
@@ -120,6 +135,11 @@ def prepare(week: int, out_dirs: list[Path], config: dict,
         raise FileNotFoundError(f"stats_report_week{week}.json not found in "
                                 f"{[str(d) for d in out_dirs]}")
     aliases = dict(config.get("manager_aliases") or {})
+    # Every name a manager's team has carried, not just this season's. Benton
+    # was "Smaxey" through 2025-26 and is "Kevin Quran't" from 2026-27; a
+    # draft about an archived week (the dry run, any recap) uses the old
+    # name, and a team name is how a table row is anchored to its manager.
+    aliases.update(historical_team_names(base))
     for e in lore_entries:
         if e.get("kind") == "alias" and e.get("status") == "approved":
             aliases[e["alias"]] = e["name"]

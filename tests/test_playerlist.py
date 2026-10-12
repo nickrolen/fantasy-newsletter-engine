@@ -410,3 +410,107 @@ def test_a_bare_row_fragment_still_parses_without_a_header():
     row = fetch.parse_rows(YAHOO_ROW, {"Big Nik Energy"})[0]
     assert row["proj_gp"] == "71"
     assert row["total_fp"] == "4,366.90"
+
+
+# ---------------------------------------------------------------------------
+# STATUS 10-12 sec.3 item 2: the gate failed a correct, fresh file twice over
+# ---------------------------------------------------------------------------
+
+def _named(names):
+    rows = _rows(len(names))
+    for r, n in zip(rows, names):
+        r["player_name"] = n
+    return rows
+
+
+def _write_stamped(mod, rows, when):
+    from datetime import datetime
+    from modules import playerlist_freshness
+    frame = pd.DataFrame(rows, columns=COLUMNS)
+    return playerlist_freshness.write(frame, mod.PLAYERLIST, "test",
+                                      now=datetime.combine(when, datetime.min.time()))
+
+
+def test_yahoos_initial_spelling_of_a_rostered_player_is_present(check, capsys):
+    """Yahoo's roster endpoint says "Shai Gilgeous-Alexander" and its pool
+    endpoint "S. Gilgeous-Alexander", in the same fetch."""
+    _write(check, _named(["S. Gilgeous-Alexander", "N. Alexander-Walker", "Josh Hart"]))
+    check.ROSTERS.write_text(json.dumps({"rosters": {
+        "Hayden": ["Shai Gilgeous-Alexander"],
+        "Nick": ["Nickeil Alexander-Walker", "Josh Hart"]}}), encoding="utf-8")
+    _run(check)
+    out = capsys.readouterr().out
+    assert "missing" not in out and "3/3 rostered players present" in out
+    assert "Shai Gilgeous-Alexander -> S. Gilgeous-Alexander" in out
+
+
+def test_a_different_player_with_the_same_initial_is_still_missing(check, capsys):
+    """Lonzo is not LaMelo. The initial step needs a real initial on one side."""
+    _write(check, _named(["LaMelo Ball", "Josh Hart"]))
+    check.ROSTERS.write_text(json.dumps({"rosters": {"Nick": ["Lonzo Ball"]}}),
+                             encoding="utf-8")
+    assert _run(check) == 1
+    assert "Lonzo Ball (Nick)" in capsys.readouterr().out
+
+
+def test_a_fresh_fetch_with_unchanged_projections_passes(check, capsys):
+    """10-12: fetched that morning, identical to 10-05 because Yahoo had not
+    moved a projection. Freshness is the fetch date, not whether numbers moved."""
+    from datetime import date, timedelta
+    rows = _rows()
+    _snapshot(check, rows, stamp=(date.today() - timedelta(days=7)).isoformat())
+    _write_stamped(check, rows, date.today())
+    assert _run(check) == 0
+    out = capsys.readouterr().out
+    assert "not regenerated" not in out and "projections unchanged since" in out
+
+
+def test_a_stale_fetch_fails_by_its_stamp(check, capsys):
+    from datetime import date, timedelta
+    _write_stamped(check, _rows(), date.today() - timedelta(days=10))
+    assert _run(check) == 1
+    assert "fetched 10 days ago" in capsys.readouterr().out
+
+
+def test_a_stamp_that_no_longer_describes_the_file_is_ignored(check, capsys):
+    """A hand edit after fetching voids the stamp -- and an identical-to-last-
+    week file is then judged exactly as an unstamped one: stale."""
+    from datetime import date, timedelta
+    from openpyxl import load_workbook
+    rows = _rows()
+    _write_stamped(check, rows, date.today())
+    wb = load_workbook(check.PLAYERLIST)
+    wb["Sheet1"]["F2"] = 31.0                           # edit a projection
+    wb["Sheet1"]["E2"] = 50
+    wb["Sheet1"]["D2"] = 1550.0
+    wb.save(check.PLAYERLIST)
+    edited = pd.read_excel(check.PLAYERLIST)
+    _snapshot(check, edited.to_dict("records"),
+              stamp=(date.today() - timedelta(days=7)).isoformat())
+    assert _run(check) == 1
+    out = capsys.readouterr().out
+    assert "no longer matches" in out and "not regenerated" in out
+
+
+def test_an_unstamped_file_says_so(check, capsys):
+    _write(check, _rows())
+    _run(check)
+    assert "no fetch stamp" in capsys.readouterr().out
+
+
+def test_the_stamp_hash_survives_an_xlsx_round_trip(tmp_path):
+    from modules import playerlist_freshness as pf
+    frame = pd.DataFrame(_rows(), columns=COLUMNS)
+    frame["player_proj_GP"] = frame["player_proj_GP"].astype(int)
+    st = pf.write(frame, tmp_path / "p.xlsx", "test")
+    back = pd.read_excel(tmp_path / "p.xlsx")
+    assert pf.content_hash(back) == st["content_sha256"]
+    assert pf.assess(back, pf.read_stamp(tmp_path / "p.xlsx"))["how"] == "stamp"
+    # The engine reads the data sheet, not the stamp.
+    assert list(back.columns) == COLUMNS
+
+
+def test_snapshot_cannot_be_taken_of_a_scratch_file(check, tmp_path):
+    other = tmp_path / "elsewhere.xlsx"
+    pd.DataFrame(_rows(), columns=COLUMNS).to_excel(other, index=False)
+    assert _run(check, ("c", "--file", str(other), "--snapshot")) == 1

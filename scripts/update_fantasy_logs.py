@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from modules.data_loader import (
     LEAGUE_KEY, CURRENT_SEASON, CURRENT_SEASON_LONG,
-    TEAM_TO_MANAGER, YAHOO_GAME_CODE, NBA_SCHEDULE_FILE,
+    TEAM_TO_MANAGER, YAHOO_GAME_CODE, NBA_SCHEDULE_FILE, manager_for_team,
 )
 
 # ---------- CONFIGURATION ----------
@@ -120,7 +120,7 @@ def build_team_meta(lg: yfa.League):
             {
                 "team_key": team_key,
                 "fantasy_team": name,
-                "manager": FANTASY_TEAM_TO_MANAGER.get(name, ""),
+                "manager": manager_for_team(name),
                 "team_obj": team_obj,
             }
         )
@@ -140,7 +140,7 @@ def get_opponent_manager(fantasy_team: str, week: int) -> str:
     opp_team = weekly.get(fantasy_team)
     if not opp_team:
         return ""
-    return FANTASY_TEAM_TO_MANAGER.get(opp_team, "")
+    return manager_for_team(opp_team)
 
 
 def strip_accents(text: str) -> str:

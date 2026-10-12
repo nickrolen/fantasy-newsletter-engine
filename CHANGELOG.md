@@ -10,6 +10,20 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 12, 2026 - One name resolver; the playerlist gate fixed; Benton's team**
+
+`check_playerlist` failed a correct, fresh file twice. "2 rostered players
+missing" was true of the engine: the simulators' `resolve_projection` stopped
+at accents, so Shai Gilgeous-Alexander and Nickeil Alexander-Walker (Yahoo:
+"S. Gilgeous-Alexander", "N. Alexander-Walker") projected 0.0 in every
+playoff, title and Cup simulation. Everything now resolves through
+`PlayerIndex`, whose initial step was itself tightened -- it had been giving
+Lonzo Ball LaMelo's projection. "Not regenerated" was inferred from
+unchanged numbers; `fetch_playerlist` now stamps the fetch into the workbook.
+`check_rosters` expects 15 plus actual IL, not 17. Benton's team is "Kevin
+Quran't" in 2026-27; the ingest scripts would have filed his rows under a
+blank manager, and now raise on an unknown team instead.
+
 **October 8, 2026 - The voice, the four races, and lore kept private**
 
 `templates/VOICE.md` replaces "write like ESPN or The Athletic": one

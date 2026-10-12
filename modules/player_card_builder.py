@@ -40,7 +40,7 @@ from typing import Optional
 
 import pandas as pd
 
-from .data_loader import CURRENT_SEASON, CURRENT_SEASON_LONG, LEAGUE_NAME_SHORT, normalize_player_name
+from .data_loader import CURRENT_SEASON, CURRENT_SEASON_LONG, LEAGUE_NAME_SHORT, PlayerIndex
 
 
 # =============================================================================
@@ -481,14 +481,15 @@ def _load_playerlist(data_dir: Path) -> dict:
     if not path.exists():
         return {}
     df = pd.read_excel(path)
-    result = {}
+    # PlayerIndex, not a second key per normalised name: that only collapsed
+    # accents, so "Shai Gilgeous-Alexander" found nothing once Yahoo began
+    # writing "S. Gilgeous-Alexander".
+    result = PlayerIndex()
     for _, row in df.iterrows():
         name = str(row.get("player_name", ""))
-        if not name:
+        if not name or dict.__contains__(result, name):
             continue
-        data = row.to_dict()
-        result[name] = data
-        result.setdefault(normalize_player_name(name), data)
+        result[name] = row.to_dict()
     return result
 
 
@@ -602,7 +603,7 @@ def _build_single_card(
 ) -> dict:
     """Build a complete player card for one player."""
 
-    plist = playerlist.get(name) or playerlist.get(normalize_player_name(name)) or {}
+    plist = playerlist.get(name) or {}
 
     # =========================================================================
     # 1. HEADER / BASIC INFO

@@ -56,10 +56,11 @@ def _run(check, rosters, argv=("c",)):
 def sandbox(check, tmp_path, monkeypatch):
     monkeypatch.setattr(check, "ROSTERS", tmp_path / "config" / "ROSTERS.json")
     monkeypatch.setattr(check, "PLAYERLIST", tmp_path / "nope.xlsx")
+    monkeypatch.setattr(check, "LINEUPS", tmp_path / "no_lineups.xlsx")
     return check
 
 
-def _full(size=17, prefix=""):
+def _full(size=15, prefix=""):
     return [f"{prefix}Player {i}" for i in range(size)]
 
 
@@ -136,6 +137,77 @@ def test_a_clean_set_of_rosters_passes(sandbox):
     rosters = {m: _full(prefix=f"{m} ") for m in
                ("Nick", "Hayden", "Benton", "Garrett")}
     assert _run(sandbox, rosters) == 0
+    # ...with nothing to warn about, either.
+    assert _run(sandbox, rosters, argv=("c", "--strict")) == 0
+
+
+# ---------------------------------------------------------------------------
+# Roster size: 15 active spots, plus whoever is actually in an IL slot
+# (STATUS 10-12 sec.3 item 3: it expected 17 and warned on every team, every
+# preseason)
+# ---------------------------------------------------------------------------
+
+MANAGERS4 = ("Nick", "Hayden", "Benton", "Garrett")
+
+
+def _lineups(tmp_path, rows):
+    import pandas as pd
+    path = tmp_path / "LINEUPS.xlsx"
+    pd.DataFrame(rows, columns=["date", "manager", "slot", "player_name"]
+                 ).to_excel(path, index=False)
+    return path
+
+
+def test_the_expected_size_is_read_from_config_not_assumed(check):
+    from modules.data_loader import LEAGUE_STRUCTURE
+    active = LEAGUE_STRUCTURE["starters"] + LEAGUE_STRUCTURE["bench"]
+    assert check.expected_roster_size() == active == 15
+    assert check.expected_roster_size(2) == active + 2
+    # An IL slot holds one player; a third IL-tagged player is not a spot.
+    assert check.expected_roster_size(5) == active + LEAGUE_STRUCTURE["il_slots"]
+
+
+def test_a_full_preseason_roster_is_15_and_clean(sandbox, capsys):
+    rosters = {m: _full(prefix=f"{m} ") for m in MANAGERS4}
+    assert _run(sandbox, rosters, argv=("c", "--strict")) == 0
+    assert "expected 17" not in capsys.readouterr().out
+
+
+def test_17_with_two_players_in_il_slots_is_clean(sandbox, tmp_path, monkeypatch):
+    rosters = {m: _full(prefix=f"{m} ") for m in MANAGERS4}
+    rosters["Nick"] = _full(size=17, prefix="Nick ")
+    monkeypatch.setattr(sandbox, "LINEUPS", _lineups(tmp_path, [
+        ("2026-11-02", "Nick", "IL", "Nick Player 15"),
+        ("2026-11-02", "Nick", "IL", "Nick Player 16"),
+        ("2026-11-01", "Nick", "IL", "Nick Player 3"),   # an older day: not now
+    ]))
+    assert _run(sandbox, rosters, argv=("c", "--strict")) == 0
+
+
+def test_17_with_nobody_on_il_is_flagged(sandbox, capsys):
+    rosters = {m: _full(prefix=f"{m} ") for m in MANAGERS4}
+    rosters["Hayden"] = _full(size=17, prefix="Hayden ")
+    assert _run(sandbox, rosters, argv=("c", "--strict")) == 1
+    assert "Hayden has 17 players, expected 15" in capsys.readouterr().out
+
+
+def test_an_il_player_who_has_left_the_roster_does_not_count(sandbox, tmp_path,
+                                                             monkeypatch, capsys):
+    rosters = {m: _full(prefix=f"{m} ") for m in MANAGERS4}
+    rosters["Nick"] = _full(size=16, prefix="Nick ")
+    monkeypatch.setattr(sandbox, "LINEUPS", _lineups(tmp_path, [
+        ("2026-11-02", "Nick", "IL", "Nick Player 15"),
+        ("2026-11-02", "Nick", "IL", "Dropped Since"),
+    ]))
+    assert _run(sandbox, rosters, argv=("c", "--strict")) == 0
+
+
+def test_a_respelled_player_on_two_rosters_is_one_player(sandbox, capsys):
+    rosters = {m: _full(prefix=f"{m} ") for m in MANAGERS4}
+    rosters["Nick"][0] = "Shai Gilgeous-Alexander"
+    rosters["Hayden"][0] = "S. Gilgeous-Alexander"
+    assert _run(sandbox, rosters) == 1
+    assert "on 2 rosters" in capsys.readouterr().out
 
 
 def test_an_empty_file_is_fine_before_the_draft(sandbox, capsys):

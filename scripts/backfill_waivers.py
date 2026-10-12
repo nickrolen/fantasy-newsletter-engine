@@ -39,7 +39,7 @@ import yahoo_fantasy_api as yfa
 # Add project root to path for config imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from modules.data_loader import LEAGUE_KEY, TEAM_TO_MANAGER, YAHOO_GAME_CODE
+from modules.data_loader import LEAGUE_KEY, TEAM_TO_MANAGER, YAHOO_GAME_CODE, manager_for_team
 
 
 # ============================================================================
@@ -178,7 +178,7 @@ def fetch_all_season_transactions(lg: yfa.League) -> list[dict]:
             else:
                 team_name = ""
 
-            manager = FANTASY_TEAM_TO_MANAGER.get(team_name, "")
+            manager = manager_for_team(team_name)
 
             if action_type in ("add", "drop") and manager:
                 results.append({
@@ -194,7 +194,7 @@ def fetch_all_season_transactions(lg: yfa.League) -> list[dict]:
                 # We create a synthetic "add" for the receiving manager, tagged
                 # "via trade" -- same logic as sync_transactions.py lines 217-240.
                 dest_team = txn_data.get("destination_team_name", "")
-                dest_mgr = FANTASY_TEAM_TO_MANAGER.get(dest_team, "")
+                dest_mgr = manager_for_team(dest_team)
                 if dest_mgr:
                     results.append({
                         "type": "add",

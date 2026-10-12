@@ -238,12 +238,18 @@ Three things are allowed to stop a week. Respect them.
 
 - `check_playerlist.py` -- every simulator runs on `projectedFPPG`. Its
   sharpest rule is that projected games remaining may not go **up**, which is
-  the signature of a shifted column.
+  the signature of a shifted column. Freshness is the fetch date stamped into
+  the workbook by `fetch_playerlist` (a `_fetch` sheet,
+  `modules/playerlist_freshness.py`), not whether the numbers moved; an
+  unstamped or hand-edited file falls back to "identical to last week =
+  stale". Roster coverage uses `PlayerIndex`, the same resolver as the
+  simulators.
 - `verify_project_integrity.py` -- syntax, file sizes (a >20% shrink is a
   FAILURE), imports, config, ASCII, and the golden master with
   `--compare-golden`.
-- `check_rosters.py` -- no duplicate ownership, no placeholders, plausible
-  sizes.
+- `check_rosters.py` -- no duplicate ownership, no placeholders, and 15
+  players (starters + bench) plus whoever sits in an IL slot in the latest
+  lineup.
 
 Step 6 itself refuses to run in season on an NBA schedule fetched more than
 8 days ago (`modules/schedule_freshness.py`; `--allow-stale-schedule`

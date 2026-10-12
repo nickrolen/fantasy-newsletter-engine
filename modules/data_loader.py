@@ -37,6 +37,29 @@ _LEAGUE_CONFIG = _load_league_config()
 MANAGERS = _LEAGUE_CONFIG["managers"]
 MANAGER_TO_TEAM = _LEAGUE_CONFIG["manager_to_team"]
 TEAM_TO_MANAGER = {v: k for k, v in MANAGER_TO_TEAM.items()}
+
+
+class UnknownTeam(KeyError):
+    """A Yahoo team name that config.manager_to_team does not know."""
+
+
+def manager_for_team(team_name: str) -> str:
+    """The manager behind a current-season Yahoo team name. Raises if unknown.
+
+    The ingest paths looked the name up with a blank-string default: a team renamed in
+    Yahoo became manager "" on every lineup row, transaction and injury
+    status, and nothing said so. Benton renamed "Smaxey" to "Kevin Quran't"
+    for 2026-27 (found 10-12, when fetch_playerlist counted 15 of 60
+    rostered players as owned by nobody); week 1 would have ingested his
+    whole team under a blank manager.
+    """
+    try:
+        return TEAM_TO_MANAGER[team_name]
+    except KeyError:
+        raise UnknownTeam(
+            f"Yahoo team {team_name!r} is not in config manager_to_team "
+            f"{sorted(TEAM_TO_MANAGER)}. A manager renamed his team: update "
+            f"manager_to_team in config/league_config.json.") from None
 MANAGER_COLORS = _LEAGUE_CONFIG.get("manager_colors", {})
 MANAGER_ALIASES = _LEAGUE_CONFIG.get("manager_aliases", {})
 LEAGUE_NAME = _LEAGUE_CONFIG.get("league_name", "Fantasy Basketball League")
@@ -310,27 +333,23 @@ class FantasyData:
     def get_player_projection(self, player_name: str) -> Optional[float]:
         """Get projected FPPG for a player from PLAYERLIST.
 
-        Matched on the normalised name, so "Nikola Jokic" and "Nikola Jokic"
-        with a diacritic are the same player.
+        Resolved through PlayerIndex, the one name resolver: exact, then
+        accents and punctuation, then a generational suffix, then a first
+        initial. This used to carry its own copy of that ladder, and the
+        copies drifted -- the simulators' copy stopped at step two.
         """
-        if self.playerlist.empty or "_name_key" not in self.playerlist.columns:
+        if self.playerlist.empty or "player_name" not in self.playerlist.columns:
             return None
-        row = self.playerlist[
-            self.playerlist["_name_key"] == normalize_player_name(player_name)]
-        if row.empty and "_name_nosuffix" in self.playerlist.columns:
-            row = self.playerlist[
-                self.playerlist["_name_nosuffix"] == _without_suffix(player_name)]
-        if row.empty and "_name_initial" in self.playerlist.columns:
-            probe = _last_name_with_initial(player_name)
-            if probe:
-                candidates = self.playerlist[
-                    self.playerlist["_name_initial"] == probe]
-                # One player only. Two who reduce the same way resolve to
-                # neither, because guessing between them is worse than a miss.
-                row = candidates if len(candidates) == 1 else row
-        if row.empty:
-            return None
-        return row.iloc[0]["projectedFPPG"]
+        idx = getattr(self, "_projection_index", None)
+        if idx is None or getattr(self, "_projection_index_src", None) is not self.playerlist:
+            idx = PlayerIndex()
+            for name, fppg in zip(self.playerlist["player_name"],
+                                  self.playerlist["projectedFPPG"]):
+                if not dict.__contains__(idx, name):   # first row wins, as before
+                    idx[name] = fppg
+            self._projection_index = idx
+            self._projection_index_src = self.playerlist
+        return idx.get(player_name)
 
     def get_player_injury_weeks(self, player_name: str) -> list[int]:
         """Get weeks a player is out due to injury override."""
@@ -535,6 +554,29 @@ def _last_name_with_initial(name) -> str:
     return first[0] + last
 
 
+_INITIAL_TOKEN = re.compile(r"^[A-Za-z]\.?$")
+
+
+def _is_abbreviated(name) -> bool:
+    """True when the first name is written as an initial: "S. Gilgeous-Alexander"."""
+    parts = _GENERATIONAL_SUFFIX.sub("", str(name or "").strip()).split()
+    return len(parts) >= 2 and bool(_INITIAL_TOKEN.match(parts[0]))
+
+
+def initial_match(a, b) -> bool:
+    """Same player, one of the two spelled with a first initial.
+
+    "Shai Gilgeous-Alexander" and "S. Gilgeous-Alexander" match. "Lonzo
+    Ball" and "LaMelo Ball" do NOT: both reduce to "lball", but neither is
+    abbreviated, so they are two people. Matching on the reduced form alone
+    resolved Lonzo to LaMelo, Danny to Draymond Green, Justin to Jrue
+    Holiday and Thaddeus to Trae Young (measured 2026-10-12 against the
+    real PLAYERLIST) -- a real player's projection handed to someone else.
+    """
+    ka, kb = _last_name_with_initial(a), _last_name_with_initial(b)
+    return bool(ka) and ka == kb and (_is_abbreviated(a) or _is_abbreviated(b))
+
+
 class PlayerIndex(dict):
     """A {player name: value} mapping that matches across accent spellings.
 
@@ -614,20 +656,26 @@ class PlayerIndex(dict):
         back as a missing projection on a keeper.
 
         Ambiguity is a miss, not a guess. Two players who reduce to the
-        same last name and initial resolve to neither.
+        same last name and initial resolve to neither, and the initial step
+        only fires when one side really is written as an initial -- "Lonzo
+        Ball" is not "LaMelo Ball" (initial_match).
         """
         if super().__contains__(key):
             return key
         hit = self._normalised.get(normalize_player_name(key))
         if hit is not None:
             return hit
-        for index, probe in ((self._nosuffix, _without_suffix(key)),
-                             (self._initial, _last_name_with_initial(key))):
-            if not probe:
-                continue
-            candidates = index.get(probe) or []
-            if len(set(candidates)) == 1:
-                return candidates[0]
+        candidates = set(self._nosuffix.get(_without_suffix(key)) or [])
+        if len(candidates) == 1:
+            return next(iter(candidates))
+        probe = _last_name_with_initial(key)
+        if probe:
+            # Only an abbreviated spelling on one side makes two names the
+            # same person; see initial_match.
+            candidates = {k for k in self._initial.get(probe) or []
+                          if initial_match(key, k)}
+            if len(candidates) == 1:
+                return next(iter(candidates))
         return None
 
     def __getitem__(self, key):
