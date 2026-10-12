@@ -688,6 +688,10 @@ class PlayerIndex(dict):
                 return next(iter(candidates))
         return None
 
+    def canonical(self, key):
+        """The stored key `key` resolves to, or None."""
+        return self._resolve(key)
+
     def __getitem__(self, key):
         resolved = self._resolve(key)
         if resolved is None:

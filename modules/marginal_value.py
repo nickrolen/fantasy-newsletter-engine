@@ -203,6 +203,19 @@ class MVContext:
     _avail: dict = field(default_factory=dict, repr=False)
     _fill: dict = field(default_factory=dict, repr=False)
     _day: dict = field(default_factory=dict, repr=False)
+    _totals: dict = field(default_factory=dict, repr=False)
+    _plain: dict = field(default_factory=dict, repr=False)
+
+    def player(self, canonical_name: str):
+        """Plain-dict lookup for a name already resolved (canonical).
+
+        The inner loops below ran every lookup through PlayerIndex, about
+        23 million resolutions for one premise check; names are resolved
+        once in roster_totals instead.
+        """
+        if not self._plain:
+            self._plain.update(dict.items(self.players))
+        return self._plain[canonical_name]
 
 
 def _week_dates(schedule_weeks: Sequence[dict]) -> dict:
@@ -334,9 +347,9 @@ def _fill_value(ctx: MVContext, names: tuple) -> tuple[float, int]:
     hit = ctx._fill.get(names)
     if hit is not None:
         return hit
-    ps = [ctx.players[n] for n in names]
+    ps = [ctx.player(n) for n in names]
     started, _b, _a = exact_fill([(p.name, p.positions, p.fppg) for p in ps])
-    val = (sum(ctx.players[n].fppg for n in started), len(started))
+    val = (sum(ctx.player(n).fppg for n in started), len(started))
     ctx._fill[names] = val
     return val
 
@@ -353,7 +366,7 @@ def _day_totals(ctx: MVContext, di: int, playing: tuple) -> tuple[np.ndarray, np
     if playing:
         masks = np.zeros(ctx.sims, dtype=np.int64)
         for bit, n in enumerate(playing):
-            masks |= _draws(ctx, ctx.players[n], d, week).astype(np.int64) << bit
+            masks |= _draws(ctx, ctx.player(n), d, week).astype(np.int64) << bit
         uniq, inverse = np.unique(masks, return_inverse=True)
         vals = np.empty((len(uniq), 2))
         for i, m in enumerate(uniq):
@@ -365,17 +378,29 @@ def _day_totals(ctx: MVContext, di: int, playing: tuple) -> tuple[np.ndarray, np
 
 
 def roster_totals(ctx: MVContext, roster: Sequence[str]) -> tuple[np.ndarray, np.ndarray, dict]:
-    """Per-simulation (points, starters) over the window, and points by week."""
-    roster = sorted(set(n for n in roster if n in ctx.players))
+    """Per-simulation (points, starters) over the window, and points by week.
+
+    Names are resolved to the context's spelling once, here; the result is
+    cached per roster, because the premise check asks for the same baseline
+    roster 3,160 times. Callers must not mutate what is returned.
+    """
+    roster = tuple(sorted({c for c in (ctx.players.canonical(n) for n in roster)
+                           if c is not None}))
+    hit = ctx._totals.get(roster)
+    if hit is not None:
+        return hit
     pts = np.zeros(ctx.sims)
     starts = np.zeros(ctx.sims)
     by_week: dict = {}
     for di, (_d, week, teams) in enumerate(ctx.days):
-        playing = tuple(n for n in roster if ctx.players[n].team in teams)
+        playing = tuple(n for n in roster if ctx.player(n).team in teams)
         p, s = _day_totals(ctx, di, playing)
         pts += p
         starts += s
         by_week[week] = by_week.get(week, 0.0) + p
+    pts.flags.writeable = False
+    starts.flags.writeable = False
+    ctx._totals[roster] = (pts, starts, by_week)
     return pts, starts, by_week
 
 
@@ -412,7 +437,7 @@ def marginal_value(
     """
     current = list(ctx.rosters[manager])
     on_roster = PlayerIndex({n: n for n in current})
-    known = PlayerIndex({n: n for n in ctx.players})
+    known = ctx.players               # already a PlayerIndex; no rebuild per call
     drop_keys, add_keys = set(), []
     for n in drops:
         if n not in on_roster:
@@ -421,7 +446,7 @@ def marginal_value(
     for n in adds:
         if n not in known:
             raise KeyError(f"{n!r} is not in the context; pass it in extra_players")
-        add_keys.append(known[n])
+        add_keys.append(known.canonical(n))
     changed = [n for n in current if n not in drop_keys] + add_keys
 
     p0, s0, w0 = roster_totals(ctx, current)

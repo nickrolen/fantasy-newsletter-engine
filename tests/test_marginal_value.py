@@ -276,3 +276,30 @@ def test_premise_stats_runs_end_to_end_on_a_small_world():
     stats = v.premise_stats(ctx, small, fas[:8])
     assert stats["swaps_examined"] == 6 * 36
     assert 0 <= stats["rank_spread"] <= 7
+
+
+# ---------------------------------------------------------------------------
+# STATUS 10-12 sec.3 item 6: the premise check spent its time resolving names
+# (23M PlayerIndex lookups) and recomputing the same baseline roster 3,160
+# times. Names now resolve once and totals are cached per roster -- which is
+# only safe if the cache cannot be corrupted and spelling cannot split it.
+# ---------------------------------------------------------------------------
+
+def test_cached_totals_are_read_only_and_shared_across_orderings():
+    ctx = _ctx(_world())
+    roster = list(ctx.rosters["Nick"])
+    pts, starts, _ = mv.roster_totals(ctx, roster)
+    with pytest.raises(ValueError):
+        pts += 1                                   # a caller cannot corrupt it
+    assert mv.roster_totals(ctx, roster)[0] is pts
+    assert mv.roster_totals(ctx, list(reversed(roster)))[0] is pts
+
+
+def test_a_cached_baseline_gives_the_same_answer_as_a_fresh_context():
+    w = _world(seed=5)
+    warm = _ctx(w)
+    for fa in w[4][:5]:                            # fill the caches first
+        mv.marginal_value(warm, "Garrett", adds=[fa])
+    fresh = _ctx(w)
+    assert (mv.marginal_value(warm, "Garrett", adds=[w[4][7]], drops=["P46"])
+            == mv.marginal_value(fresh, "Garrett", adds=[w[4][7]], drops=["P46"]))
