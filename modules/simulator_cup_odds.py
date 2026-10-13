@@ -238,9 +238,15 @@ def _play_week(data, team_projections, pairs, week, seeds, decided,
         scores = decided[week]
     scores_by_week[week] = scores
 
+    # The Cup has its own tie rule key; a tied single game goes to the
+    # higher seed, same as the bracket but read separately so the two
+    # competitions cannot drift onto one shared value.
+    from modules.data_loader import league_rule
+    tie_rule = league_rule("tiebreaker_rules", "cup_game")
+
     out = []
     for pair in pairs:
-        winner = _week_winner(pair, scores, seeds, simulated)
+        winner = _week_winner(pair, scores, seeds, tie_rule)
         out.append((winner, pair[1] if winner == pair[0] else pair[0]))
     return out
 

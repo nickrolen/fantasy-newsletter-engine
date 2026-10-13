@@ -175,17 +175,36 @@ def test_series_scores_are_round_totals_not_single_weeks(monkeypatch):
 # Ties
 # ---------------------------------------------------------------------------
 
-def test_an_actual_tied_week_goes_to_the_higher_seed():
+def test_a_tied_week_goes_to_the_higher_seed():
     assert spo._week_winner(("Nick", "Garrett"), {"Nick": 50, "Garrett": 50},
-                            SEEDS, simulated=False) == "Nick"
+                            SEEDS, "higher_seed") == "Nick"
     assert spo._week_winner(("Benton", "Hayden"), {"Benton": 50, "Hayden": 50},
-                            SEEDS, simulated=False) == "Hayden"
+                            SEEDS, "higher_seed") == "Hayden"
 
 
-def test_a_simulated_tied_week_is_a_coin_flip():
+def test_a_simulated_tied_week_is_not_a_coin_flip():
+    """It used to be, on a project-wide convention for simulated results.
+    The league rule decides a tied week outright, so a simulated tie has to
+    resolve the way a played one does: 200 rolls, one answer. A coin flip
+    gave the lower seed half of a week the rules award to the higher one."""
     seen = {spo._week_winner(("Nick", "Garrett"), {"Nick": 50, "Garrett": 50},
-                             SEEDS, simulated=True) for _ in range(200)}
-    assert seen == {"Nick", "Garrett"}
+                             SEEDS, "higher_seed") for _ in range(200)}
+    assert seen == {"Nick"}
+
+
+def test_an_unknown_tied_week_rule_raises():
+    """Code never guesses a tiebreak."""
+    with pytest.raises(ValueError):
+        spo._week_winner(("Nick", "Garrett"), {"Nick": 50, "Garrett": 50},
+                         SEEDS, "coin_flip")
+
+
+def test_both_competitions_read_their_own_tie_rule():
+    """series_week drives the bracket, cup_game the Cup. Same value today;
+    separate keys so they cannot drift onto one shared rule."""
+    from modules.data_loader import league_rule
+    assert league_rule("tiebreaker_rules", "series_week") == "higher_seed"
+    assert league_rule("tiebreaker_rules", "cup_game") == "higher_seed"
 
 
 # ---------------------------------------------------------------------------

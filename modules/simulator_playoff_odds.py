@@ -461,14 +461,19 @@ def _decided_weeks(data: FantasyData) -> dict:
 # SIMULATION CORE
 # =============================================================================
 
-def _week_winner(pair, scores, seeds, simulated):
-    """Winner of one week of a series.
+def _week_winner(pair, scores, seeds, tie_rule):
+    """Winner of one week of a series. `tie_rule` comes from the caller's own
+    tiebreaker_rules key -- series_week for the bracket, cup_game for the Cup
+    -- so the two competitions cannot drift onto one shared rule.
 
-    Ties: a SIMULATED tie is a coin flip (project-wide convention for
-    simulated results); an ACTUAL tie goes to the higher seed, which is the
-    standard rule for a played playoff game. Fractional scoring makes both
-    essentially impossible -- the rules exist so the same input always gives
-    the same answer.
+    A tie goes to the higher seed whether the week was simulated or played.
+    It used to be a coin flip when simulated, on a project-wide convention
+    for simulated results. That convention is wrong here: the league's rule
+    decides a tied week outright (Nick, 10-07), so flipping for it simulates
+    a league that does not exist and hands the lower seed half of something
+    the rules award to the higher one. Fractional scoring makes an exact tie
+    almost impossible either way; the rule exists so the same input always
+    gives the same answer.
     """
     a, b = pair
     sa, sb = scores.get(a, 0.0), scores.get(b, 0.0)
@@ -476,8 +481,8 @@ def _week_winner(pair, scores, seeds, simulated):
         return a
     if sb > sa:
         return b
-    if simulated:
-        return random.choice([a, b])
+    if tie_rule != "higher_seed":
+        raise ValueError(f"unknown tied-week rule {tie_rule!r}")
     return a if seeds.get(a, 99) <= seeds.get(b, 99) else b
 
 
@@ -492,6 +497,9 @@ def _play_series(data, team_projections, pairs, weeks, seeds, decided,
 
     Returns [(winner, loser, week_winners), ...] in the order of `pairs`.
     """
+    from modules.data_loader import league_rule
+    tie_rule = league_rule("tiebreaker_rules", "series_week")
+
     first, last = weeks
     tallies = [defaultdict(int) for _ in pairs]
     week_winner_lists = [[] for _ in pairs]
@@ -513,7 +521,7 @@ def _play_series(data, team_projections, pairs, weeks, seeds, decided,
         scores_by_week[week] = scores
 
         for i, pair in enumerate(pairs):
-            winner = _week_winner(pair, scores, seeds, simulated)
+            winner = _week_winner(pair, scores, seeds, tie_rule)
             tallies[i][winner] += 1
             week_winner_lists[i].append(winner)
 
