@@ -556,6 +556,62 @@ def _check_career_honors_agree(warnings):
     return failures
 
 
+def _check_stored_standings_reconcile(cfg, warnings):
+    """all_standings.json's regular-season finishes must be what the matchups
+    and the configured tiebreak produce.
+
+    The history grid used to re-rank on wins alone and print the commissioner
+    ahead on every tie (2021-22, 2022-23, through 2025-26). It now reads
+    regular_season_rank, which makes that field load-bearing -- so it is
+    re-derived here from all_matchups.json with angles.final_order (wins,
+    head-to-head among the tied, total points) and must agree, season by
+    season, along with each manager's regular-season W-L. Reconciled for all
+    nine seasons 2017-18 to 2025-26 on 2026-10-13.
+    """
+    failures = []
+    rules = cfg.get("tiebreaker_rules", {})
+    if (rules.get("standings"), rules.get("fallback")) != ("h2h_regular_season", "total_points"):
+        failures.append(
+            f"[STANDINGS] tiebreaker_rules standings/fallback are "
+            f"{rules.get('standings')!r}/{rules.get('fallback')!r}; this check "
+            "implements h2h_regular_season then total_points. Teach it the new "
+            "rule before trusting regular_season_rank.")
+        return failures
+    hist = PROJECT_ROOT / "data" / "historical"
+    try:
+        standings = json.loads((hist / "all_standings.json").read_text(encoding="utf-8"))
+        matchups = json.loads((hist / "all_matchups.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        failures.append(f"[STANDINGS] could not read the historical files: {e}")
+        return failures
+    from modules.angles import final_order
+    from modules.data_loader import SEASON_STRUCTURE
+    by_season = {}
+    for r in standings:
+        by_season.setdefault(r["season"], {})[r["manager"]] = r
+    for season, rows in sorted(by_season.items()):
+        reg_last = (SEASON_STRUCTURE.get(season) or {}).get("regular_through")
+        if reg_last is None:
+            failures.append(f"[STANDINGS] {season}: season_structure has no "
+                            "regular_through, so its standings cannot be checked")
+            continue
+        games = [m for m in matchups if m["season"] == season]
+        reg = [m for m in games if m["week"] <= reg_last]
+        derived = final_order(games, reg_last)
+        stored = sorted(rows, key=lambda m: rows[m].get("regular_season_rank") or 99)
+        if derived != stored:
+            failures.append(f"[STANDINGS] {season}: stored regular-season finish "
+                            f"{stored}, matchups and tiebreak give {derived}")
+        for mgr, r in rows.items():
+            w = sum(1 for m in reg if m["winner"] == mgr)
+            l = sum(1 for m in reg if m["loser"] == mgr)
+            if (r.get("reg_wins"), r.get("reg_losses")) != (w, l):
+                failures.append(f"[STANDINGS] {season} {mgr}: stored "
+                                f"{r.get('reg_wins')}-{r.get('reg_losses')}, "
+                                f"matchups give {w}-{l}")
+    return failures
+
+
 def _check_pre_data_era_reconciles(cfg, warnings):
     """Nine seasons of derived results plus two honoured ones must equal
     LEAGUEHISTORY exactly, for both honours.
@@ -1257,6 +1313,7 @@ def check_config_integrity(verbose=False):
     failures.extend(_check_no_file_survived_the_reset(warnings))
     failures.extend(_check_career_honors_agree(warnings))
     failures.extend(_check_pre_data_era_reconciles(cfg, warnings))
+    failures.extend(_check_stored_standings_reconcile(cfg, warnings))
     failures.extend(_check_potw_attribution(warnings))
     failures.extend(_check_injury_overrides_current(cfg, warnings))
     failures.extend(_check_point_in_time_record(cfg, warnings))

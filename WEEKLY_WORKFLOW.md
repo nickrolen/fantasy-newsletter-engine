@@ -611,7 +611,9 @@ python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --outp
 
 **What's new:** The `--stats-report` flag loads the JSON stats report and injects interactive Stats Corner visualizations (Positional Breakdown, Draft Value Tracker, Waiver ROI, Keeper Watch) into Section 8. If omitted, the newsletter renders normally without visualizations.
 
-**Output:** A single self-contained HTML file with embedded images, visualizations, professional styling, and responsive design. Ready to distribute!
+**Output:** A single self-contained HTML file with embedded images, visualizations, professional styling, and responsive design.
+
+**Table check (exit code 1 = do not send).** The generator then reconciles every table on the page (`modules/published_tables.py`; standalone: `python scripts\check_published_tables.py output\WEEKN_NEWSLETTER.html`). Summary columns must count the cells beside them, history grids must match the stored finishes, FPPG must be Total / GP, probabilities must sum to 100%, H2H must be antisymmetric, games-grid days must add up to 10 seats, and a row shifted under the wrong header is caught. The page is still written so you can look at it. A table with no relations defined is listed as UNCHECKED -- a new table needs a check. On the six 2025-26 newsletters it finds the two mis-ranked seasons, three scope mixes, and WEEK18's Siakam row (his total printed as FPPG); none of those can ship again.
 
 ---
 

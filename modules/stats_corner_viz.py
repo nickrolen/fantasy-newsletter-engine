@@ -14,6 +14,7 @@ Visualizations:
 
 from __future__ import annotations
 import json
+import re
 import math
 import os
 from html import escape as _html_escape
@@ -410,7 +411,7 @@ def render_waiver_roi(data: dict) -> str:
           <div class="sc-callout-card sc-best">
             <div class="sc-tcc-label">Best Pickup</div>
             <div class="sc-tcc-player">{_html(best.get("player_name", "N/A"))}</div>
-            <div class="sc-tcc-detail">{best.get("total_fp", 0):,.0f} FP &middot; {best.get("fppg", 0):.1f} FPPG across {best.get("total_games", 0)} games</div>
+            <div class="sc-tcc-detail">{best.get("total_fp", 0):,.0f} FP in {best.get("total_games", 0)} games &middot; {best.get("fppg", 0):.1f} FPPG as a starter</div>
           </div>'''
 
         regret_html = ""
@@ -452,7 +453,7 @@ def render_waiver_roi(data: dict) -> str:
         </div>
         <div class="sc-pickups-title">Notable Pickups</div>
         <table class="sc-pickup-table">
-          <thead><tr><th>Player</th><th>Total FP</th><th>FPPG</th><th>GP</th><th>Verdict</th></tr></thead>
+          <thead><tr><th>Player</th><th>Total FP</th><th>Starter FPPG</th><th>GP</th><th>Verdict</th></tr></thead>
           <tbody>{pickup_rows}</tbody>
         </table>
         <div class="sc-callouts">{best_html}{regret_html}</div>
@@ -698,6 +699,9 @@ def _series_outcomes(season_matches: list, span: tuple) -> list:
 
 
 PLACE_LABELS = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
+# The league's first season, read from season_structure (pre-Yahoo seasons
+# included), so a scope label is never a hand-typed year.
+FIRST_LEAGUE_SEASON = min(k for k in SEASON_STRUCTURE if re.fullmatch(r"\d{4}-\d{2}", k))
 STANDINGS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                               "data", "historical", "all_standings.json")
 
@@ -850,7 +854,7 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
     # Build header row
     header_cells = ['<th class="sc-hist-th sc-hist-th-mgr">MANAGER</th>']
     for s in seasons:
-        current_class = " sc-hist-current" if s == seasons[-1] else ""
+        current_class = " sc-hist-current" if s == CURRENT_SEASON else ""
         header_cells.append(f'<th class="sc-hist-th sc-hist-th-season{current_class}">{short_season(s)}</th>')
     header_cells.append(
         '<th class="sc-hist-th sc-hist-th-summary">1st</th>'
@@ -868,7 +872,7 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
         finishes = {1: 0, 2: 0, 3: 0, 4: 0}
         for s in seasons:
             info = standings.get(s, {}).get(mgr)
-            current_class = " sc-hist-current" if s == seasons[-1] else ""
+            current_class = " sc-hist-current" if s == CURRENT_SEASON else ""
             if info:
                 rank = info["rank"]
                 finishes[rank] = finishes.get(rank, 0) + 1
@@ -938,7 +942,7 @@ def _render_historical_playoff_results_grid(historical_luck: dict = None) -> str
     # Build header row
     header_cells = ['<th class="sc-hist-th sc-hist-th-mgr">MANAGER</th>']
     for s in seasons:
-        current_class = " sc-hist-current" if s == seasons[-1] else ""
+        current_class = " sc-hist-current" if s == CURRENT_SEASON else ""
         header_cells.append(f'<th class="sc-hist-th sc-hist-th-season{current_class}">{short_season(s)}</th>')
     # Summary column: Championship wins (1st place finishes)
     header_cells.append(
@@ -954,7 +958,7 @@ def _render_historical_playoff_results_grid(historical_luck: dict = None) -> str
         titles = 0
         for s in seasons:
             result = playoff_results.get(s, {}).get(mgr)
-            current_class = " sc-hist-current" if s == seasons[-1] else ""
+            current_class = " sc-hist-current" if s == CURRENT_SEASON else ""
             
             if result is None:
                 # No playoffs this season (COVID)
@@ -1032,7 +1036,7 @@ def _render_luck_index_grid(historical_luck: dict) -> str:
     # Header
     header_cells = ['<th class="sc-hist-th sc-hist-th-mgr">MANAGER</th>']
     for s in seasons:
-        current_class = " sc-hist-current" if s == seasons[-1] else ""
+        current_class = " sc-hist-current" if s == CURRENT_SEASON else ""
         header_cells.append(f'<th class="sc-hist-th sc-hist-th-season{current_class}">{short_season(s)}</th>')
     header_cells.append('<th class="sc-hist-th sc-hist-th-summary">CAREER</th>')
 
@@ -1044,7 +1048,7 @@ def _render_luck_index_grid(historical_luck: dict) -> str:
 
         for s in seasons:
             luck_val = luck_lookup.get(s, {}).get(mgr)
-            current_class = " sc-hist-current" if s == seasons[-1] else ""
+            current_class = " sc-hist-current" if s == CURRENT_SEASON else ""
             if luck_val is not None:
                 sign = "+" if luck_val > 0 else ""
                 lclass = luck_class(luck_val)
@@ -1241,11 +1245,16 @@ def _render_milestones(milestones: list) -> str:
         # None means LEAGUEHISTORY was unavailable, which is not the same as
         # zero. Printing "0 titles" for a six-time champion is the exact
         # failure this chain was cleaned up to prevent.
+        # Titles come from LEAGUEHISTORY and count every season the league
+        # has played; the record beside them counts the data era only. Two
+        # scopes on one card, so the titles say theirs (10-13: "6 titles"
+        # beside a 2017-18-on record read as six data-era firsts; it was four).
         titles = m.get("titles")
         if titles is None:
             title_str = "titles unavailable"
         else:
-            title_str = f"{titles} title{'s' if titles != 1 else ''}"
+            title_str = (f"{titles} title{'s' if titles != 1 else ''} "
+                         f"since {FIRST_LEAGUE_SEASON}")
 
         # Franchise player detail
         fp_name = m.get("franchise_player", "")

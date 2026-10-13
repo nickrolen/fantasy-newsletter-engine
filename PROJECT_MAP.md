@@ -252,6 +252,10 @@ Three things are allowed to stop a week. Respect them.
 - `check_rosters.py` -- no duplicate ownership, no placeholders, and 15
   players (starters + bench) plus whoever sits in an IL slot in the latest
   lineup.
+- `check_published_tables.py` (run by the HTML generator; exit 1) -- every
+  table on the built page reconciles with itself and with
+  `all_standings.json`. `verify_project_integrity` re-derives the stored
+  regular-season finishes from the matchups and the configured tiebreak.
 
 Step 6 itself refuses to run in season on an NBA schedule fetched more than
 8 days ago (`modules/schedule_freshness.py`; `--allow-stale-schedule`

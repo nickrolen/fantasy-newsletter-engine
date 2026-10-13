@@ -10,6 +10,21 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 13, 2026 - Every published table reconciles**
+
+`modules/published_tables.py` parses the built page and checks each
+table's relations: summary columns count their rows, finishes match the
+stored standings, FPPG = Total / GP, probabilities sum to 100%, H2H is
+antisymmetric, games-grid days add to 10 seats, and nothing sits under the
+wrong header. The HTML generator runs it and exits 1 on any finding; a table
+with no checks is listed as UNCHECKED. On the six 2025-26 newsletters it
+found, beyond the history grids: the "current" highlight on 24-25 in a
+25-26 page; Manager Profiles' title count over eleven seasons beside a
+data-era record (now "6 titles since 2014-15"); Waiver ROI's starts-only
+FPPG beside all-games Total and GP (now "Starter FPPG"); and WEEK18 printing
+Pascal Siakam's FPPG as 1859.0 from a draft row shifted one cell. Integrity
+now re-derives every stored regular-season finish from the matchups.
+
 **October 13, 2026 - The history grids published two seasons wrong**
 
 Stats Corner's Historical League Standings re-ranked each season on wins

@@ -84,3 +84,38 @@ def test_a_broken_rank_in_the_stored_standings_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(v, "STANDINGS_PATH", str(bad))
     with pytest.raises(ValueError, match="regular_season_rank"):
         v._render_historical_standings_grid({})
+
+
+def _verify_module():
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "verify_project_integrity",
+        Path(__file__).parent.parent / "scripts" / "verify_project_integrity.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_integrity_reconciles_stored_finishes_with_the_matchups(tmp_path, monkeypatch):
+    """The grid now trusts regular_season_rank, so integrity re-derives it.
+    Put back what was published for 2021-22 and the check fails."""
+    import shutil
+    from pathlib import Path
+    verify = _verify_module()
+    cfg = json.loads((Path(verify.PROJECT_ROOT) / "config" / "league_config.json")
+                     .read_text(encoding="utf-8"))
+    assert verify._check_stored_standings_reconcile(cfg, []) == []
+
+    hist = tmp_path / "data" / "historical"
+    hist.mkdir(parents=True)
+    src = Path(verify.PROJECT_ROOT) / "data" / "historical"
+    shutil.copy(src / "all_matchups.json", hist)
+    rows = json.loads((src / "all_standings.json").read_text(encoding="utf-8"))
+    for r in rows:
+        if r["season"] == "2021-22" and r["manager"] in ("Nick", "Garrett"):
+            r["regular_season_rank"] = {"Nick": 2, "Garrett": 3}[r["manager"]]
+    (hist / "all_standings.json").write_text(json.dumps(rows), encoding="utf-8")
+    monkeypatch.setattr(verify, "PROJECT_ROOT", tmp_path)
+    failures = verify._check_stored_standings_reconcile(cfg, [])
+    assert len(failures) == 1 and "2021-22" in failures[0]

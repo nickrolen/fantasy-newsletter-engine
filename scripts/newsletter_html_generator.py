@@ -2093,6 +2093,29 @@ def main():
     )
     print(f"Built HTML newsletter: {out} ({os.path.getsize(out)} bytes)")
     print(claim_check_status(args.input))
+    return table_check(out)
+
+
+def table_check(html_path: str) -> int:
+    """Reconcile every table in the built page (modules/published_tables).
+
+    The page is still written, so it can be looked at; the exit code is 1
+    when any relation fails, because each finding is a wrong number in print.
+    History grids published two seasons wrong for a year before anyone
+    noticed (10-13); this is what notices.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "check_published_tables",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "check_published_tables.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    findings = mod.check_file(Path(html_path))
+    if findings:
+        print(f"\nTABLE CHECK: {len(findings)} finding(s) -- do not send this page.")
+        return 1
+    print("table check: every checked table reconciles")
+    return 0
 
 
 def claim_check_status(draft_path: str) -> str:
@@ -2117,4 +2140,4 @@ def claim_check_status(draft_path: str) -> str:
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
