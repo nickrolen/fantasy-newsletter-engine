@@ -70,7 +70,7 @@ Write Sections 1"4 of the newsletter following the template's instructions for e
 Follow the extract'cite'write'clean workflow internally, but **output ONLY the final cleaned prose.** No extraction blocks, no citations, no working notes. Every number must come directly from the stats report " no rounding, no inventing.
 
 Start with:
-## **CHS Alumni Fantasy Basketball League ' Week [FILL IN: N] Newsletter**
+## **CHS Alumni Fantasy Basketball League — Week [FILL IN: N] Newsletter**
 **Season [FILL IN: YYYY-YY] | Week [FILL IN: N] ([FILL IN: Start Date] to [FILL IN: End Date])**
 
 Stop after Section 4. Present it as a downloadable file.
