@@ -10,6 +10,16 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 13, 2026 - check_playerlist: a shift, not a single gainer**
+
+It failed Yahoo's 10-13 refresh because six players gained projected games
+remaining (Kyrie 57 -> 60) -- normal when an injury outlook improves; the
+rule's premise was wrong. Measured: the real refresh moved 6 of 168 up and
+10 down; stats shifted one row against names move 78-82 of 175 up. It now
+fails when more than 25% gain, or GP leaves 0-82, and lists gainers as
+information. The 40% FPPG-jump warning catches none of a likely shift
+(rows are sorted by total FP, so neighbours have similar FPPG).
+
 **October 12, 2026 - One name resolver; the playerlist gate fixed; Benton's team**
 
 `check_playerlist` failed a correct, fresh file twice. "2 rostered players

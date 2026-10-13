@@ -238,8 +238,9 @@ open. It reaches `ROSTERS.json` as though it were a player.
 Three things are allowed to stop a week. Respect them.
 
 - `check_playerlist.py` -- every simulator runs on `projectedFPPG`. Its
-  sharpest rule is that projected games remaining may not go **up**, which is
-  the signature of a shifted column. Freshness is the fetch date stamped into
+  sharpest rule catches stats shifted against names: more than 25% of
+  players gaining games remaining in one week (a refresh moves a few up; a
+  shift moves about half). Freshness is the fetch date stamped into
   the workbook by `fetch_playerlist` (a `_fetch` sheet,
   `modules/playerlist_freshness.py`), not whether the numbers moved; an
   unstamped or hand-edited file falls back to "identical to last week =

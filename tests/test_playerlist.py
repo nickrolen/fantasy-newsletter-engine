@@ -203,21 +203,53 @@ def test_a_stale_file_still_fails_against_an_earlier_day(check, capsys):
     assert "not regenerated" in capsys.readouterr().out
 
 
-def test_games_remaining_going_up_fails(check, capsys):
-    """The signature of a misaligned column.
+def test_a_few_players_gaining_games_is_a_refresh_not_a_failure(check, capsys):
+    """2026-10-13: Yahoo refreshed and six of 168 players gained games
+    remaining (Kyrie 57 -> 60) as injury outlooks improved. The old rule
+    failed the file on any one of them."""
+    before = _rows(40, gp=60)
+    after = _rows(40, gp=60)
+    for i in range(3):                       # a few up...
+        after[i]["player_proj_GP"] = 63
+        after[i]["player_total_proj_FP"] = round(30.0 * 63, 2)
+    for i in range(3, 9):                    # ...more down
+        after[i]["player_proj_GP"] = 55
+        after[i]["player_total_proj_FP"] = round(30.0 * 55, 2)
+    _write(check, after)
+    _snapshot(check, before)
+    _run(check)
+    out = capsys.readouterr().out
+    assert "shifted against names" not in out
+    assert "games remaining up for 3 of 40" in out
 
-    Rest-of-season games can only burn down. A column shifted by one puts
-    somebody else's number in the GP cell, and it goes up.
-    """
-    before = _rows(5, gp=50)
-    after = _rows(5, gp=50)
-    after[1]["player_proj_GP"] = 60
-    after[1]["player_total_proj_FP"] = round(30.0 * 60, 2)
+
+def test_stats_shifted_against_names_fail(check, capsys):
+    """The real misalignment: every row's numbers belong to the row above.
+    About half the players gain games, half lose them."""
+    import random
+    rng = random.Random(4)
+    before = _rows(40)
+    for r in before:
+        r["player_proj_GP"] = rng.randint(50, 80)
+        r["player_total_proj_FP"] = round(r["projectedFPPG"] * r["player_proj_GP"], 2)
+    after = [dict(r) for r in before]
+    for i in range(len(after)):
+        src = before[i - 1]
+        for c in ("player_proj_GP", "player_total_proj_FP", "projectedFPPG"):
+            after[i][c] = src[c]
     _write(check, after)
     _snapshot(check, before)
     assert _run(check) == 1
-    out = capsys.readouterr().out
-    assert "MORE games remaining" in out and "misaligned column" in out
+    assert "shifted against names" in capsys.readouterr().out
+
+
+def test_games_remaining_beyond_a_season_fail(check, capsys):
+    rows = _rows(5)
+    rows[0]["player_proj_GP"] = 90
+    rows[0]["player_total_proj_FP"] = round(30.0 * 90, 2)
+    _write(check, rows)
+    assert _run(check) == 1
+    assert "outside 0-82" in capsys.readouterr().out
 
 
 def test_a_big_fppg_move_warns_but_does_not_block(check, capsys):

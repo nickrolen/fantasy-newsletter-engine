@@ -187,9 +187,9 @@ It is the gate. Do not generate a newsletter if it fails.
 | every rostered player present | a missing one projects 0.0 FPPG everywhere |
 | `total / GP` equals `projectedFPPG` | arithmetic error |
 | no implausible FPPG | a shifted column produces them |
-| **games remaining did not go up** | rest-of-season games only burn down; this is the signature of a misaligned column |
+| **no more than 25% of players gained games remaining** | a refresh moves a few up as injury outlooks improve (6 of 168 on 10-13); stats shifted against names move about half up. Individual gainers are listed, not failed. GP must also be 0-82 |
 | FPPG moves > 40% week over week | warned, not blocked -- projections do move |
-| file differs from an earlier day's snapshot | catches "I forgot to regenerate it"; a same-day re-run is expected to be identical and is not flagged |
+| fetched within 8 days (the stamp `fetch_playerlist` writes) | catches "I forgot to regenerate it". Without a valid stamp, a file identical to an earlier day's snapshot fails |
 | ages present | missing ones silently default to 27 in keepability |
 
 `--snapshot` saves the file as next week's baseline, which is what the

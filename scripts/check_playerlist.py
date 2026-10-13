@@ -23,8 +23,10 @@ WHAT IT COMPARES AGAINST
 ------------------------
 Itself, a week ago. config/snapshots/ keeps a copy each time this runs
 clean, and the week-over-week comparison is what catches a misaligned paste
-or scrape: projected FPPG does not move 40% in a week, and projected games
-REMAINING cannot go up.
+or scrape. A misalignment moves MOST rows at once, in no particular
+direction; a projection refresh moves a few. (It used to fail on any one
+player gaining games remaining. That happens whenever an injury outlook
+improves -- six players on 2026-10-13 -- and was wrong; see GP_UP_SHARE.)
 
 USAGE
     py scripts/check_playerlist.py
@@ -68,7 +70,20 @@ REQUIRED = ["player_name", "player_nba_team", "player_position(s)",
 FPPG_JUMP = 0.40        # 40% week-over-week change in projected FPPG
 FPPG_FLOOR = 5.0        # nobody worth listing projects below this
 FPPG_CEILING = 90.0     # nobody projects above this either
-GP_GROWTH = 2           # games REMAINING may not rise by more than this
+GP_CEILING = 82         # an NBA regular season; nobody has more remaining
+
+# Share of players present in both weeks whose projected games remaining went
+# UP, above which the file is treated as misaligned. Measured 2026-10-13:
+#   Yahoo's real refresh 10-05 -> 10-13    6 of 168 up (3.6%), 10 down
+#   stats shifted one row against names   78-82 of 175 up (45-47%)
+# In season every player's games remaining falls each week, so a legitimate
+# refresh is mostly DOWN; a shift is a coin flip either way. "How many rows
+# changed" would not work -- in season nearly all of them change. Direction
+# is the signature. The 40% FPPG jump below misses the likely shift entirely:
+# fetch_playerlist sorts by total FP, so neighbouring rows have similar FPPG
+# (0 of 175 rows jumped 40% in the simulated shift).
+GP_UP_SHARE = 0.25
+MIN_COMMON_FOR_SHARE = 20   # fewer players in common and a share means little
 
 
 def load_rosters() -> dict:
@@ -171,6 +186,11 @@ def main():
     fppg = pd.to_numeric(frame["projectedFPPG"], errors="coerce")
     low = frame[fppg < FPPG_FLOOR]["player_name"].tolist()
     high = frame[fppg > FPPG_CEILING]["player_name"].tolist()
+    gp_all = pd.to_numeric(frame["player_proj_GP"], errors="coerce")
+    gp_bad = frame[(gp_all < 0) | (gp_all > GP_CEILING)]["player_name"].tolist()
+    if gp_bad:
+        failures.append(f"{len(gp_bad)} player(s) with projected GP outside "
+                        f"0-{GP_CEILING}: {gp_bad[:5]}")
     if low:
         failures.append(f"{len(low)} player(s) below {FPPG_FLOOR} FPPG: {low[:5]}")
     if high:
@@ -299,7 +319,7 @@ def main():
                     "identical to the previous snapshot -- this file was not "
                     "regenerated this week")
 
-        jumps, grew = [], []
+        jumps, grew, compared = [], [], 0
         for _, row in joined.iterrows():
             a = pd.to_numeric(row["projectedFPPG"], errors="coerce")
             b = pd.to_numeric(row["projectedFPPG_prev"], errors="coerce")
@@ -308,17 +328,25 @@ def main():
                     jumps.append(f"{row['player_name']} {b:.1f} -> {a:.1f}")
             g = pd.to_numeric(row["player_proj_GP"], errors="coerce")
             h = pd.to_numeric(row["player_proj_GP_prev"], errors="coerce")
-            if pd.notna(g) and pd.notna(h) and g - h > GP_GROWTH:
-                grew.append(f"{row['player_name']} {h:.0f} -> {g:.0f}")
+            if pd.notna(g) and pd.notna(h):
+                compared += 1
+                if g > h:
+                    grew.append(f"{row['player_name']} {h:.0f} -> {g:.0f}")
         if jumps:
             warnings.append(
                 f"{len(jumps)} player(s) moved more than {FPPG_JUMP:.0%} in "
                 f"projected FPPG: {jumps[:6]}")
-        if grew:
+        share = len(grew) / compared if compared else 0.0
+        if compared >= MIN_COMMON_FOR_SHARE and share > GP_UP_SHARE:
             failures.append(
-                f"{len(grew)} player(s) have MORE games remaining than last "
-                f"week, which cannot happen in a rest-of-season projection -- "
-                f"this is the signature of a misaligned column: {grew[:6]}")
+                f"{len(grew)} of {compared} players ({share:.0%}) have more games "
+                f"remaining than last week. A refresh moves a few players up as "
+                f"injury outlooks improve; this many, in both directions, is the "
+                f"signature of stats shifted against names: {grew[:6]}")
+        elif grew:
+            print(f"  games remaining up for {len(grew)} of {compared} "
+                  f"({share:.0%}; outlooks improving -- not a problem): "
+                  f"{', '.join(grew[:6])}")
 
     # --- report -------------------------------------------------------------
     if warnings:
