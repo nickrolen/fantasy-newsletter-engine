@@ -470,7 +470,7 @@ def update_streaks(
 def update_h2h_records(
     records: dict,
     matchup_results: list[MatchupStats],
-    week: int = None,
+    week: int,
     season: str = None,
 ) -> None:
     """Update head-to-head season records.
@@ -486,12 +486,21 @@ def update_h2h_records(
     onward, where weeks 16-21 are the best-of-3 bracket and 22-23 the Cup.
     Both of those are postseason and neither belongs in the season series.
 
-    If `week` is None, the guard is skipped (back-compat for callers that
-    haven't yet been updated, e.g. historical backfills).
+    `week` is required. It used to default to None, which SKIPPED the guard
+    entirely and let bracket and Cup games inflate the season series -- the
+    exact corruption scripts/repair_alltime_h2h.py had to undo (the stored
+    numbers matched an all-weeks computation 6 pairs out of 6). A silently
+    skipped guard is worse than a missing argument, so this raises instead.
     """
     if season is None:
         season = CURRENT_SEASON
-    if week is not None and not is_regular_season_week(season, week):
+    if week is None:
+        raise ValueError(
+            "update_h2h_records requires `week`: without it the postseason "
+            "guard cannot run and bracket/Cup games silently inflate the "
+            "season series."
+        )
+    if not is_regular_season_week(season, week):
         # Postseason week (bracket or Cup): skip H2H accumulation entirely.
         return
 

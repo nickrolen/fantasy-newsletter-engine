@@ -36,6 +36,14 @@ import pandas as pd
 
 from .data_loader import FantasyData, MANAGERS, MANAGER_TO_TEAM
 
+# Hit/bust thresholds. Named here because the Stats Corner renderer labels
+# individual pickups with the SAME rule: when 25 was a bare literal in both
+# files, the panel could print "Bust" beside a bust_rate of 0.0%.
+# MIN_STARTS_FOR_RATES is part of the rule, not a detail -- a pickup below it
+# is not counted in either rate, so it must not be labelled as if it were.
+BUST_FPPG = 25.0
+MIN_STARTS_FOR_RATES = 3
+
 
 # =============================================================================
 # DATA CLASSES
@@ -122,7 +130,7 @@ class ManagerWaiverROI:
     fppg_vs_avg: float = 0.0         # FPPG compared to league waiver average
     net_value_vs_avg: float = 0.0    # Total FP gained/lost vs league average
     hit_rate: float = 0.0            # % of adds performing above league waiver avg
-    bust_rate: float = 0.0           # % of adds below 25 FPPG
+    bust_rate: float = 0.0           # % of adds below BUST_FPPG
     waiver_share: float = 0.0        # % of total starter FP from waiver adds
     
     # Notable transactions
@@ -613,14 +621,15 @@ def compute_waiver_roi(
         roi.fppg_vs_avg = roi.waiver_fppg - report.league_waiver_fppg
         roi.net_value_vs_avg = roi.total_starter_games * roi.fppg_vs_avg
         
-        # Hit rate: % of adds (min 3 starts) above league waiver avg
-        started_adds = [a for a in roi.adds if a.starter_games >= 3]
+        # Hit rate: % of adds (min starts) above league waiver avg
+        started_adds = [a for a in roi.adds
+                        if a.starter_games >= MIN_STARTS_FOR_RATES]
         if started_adds:
             hits = [a for a in started_adds if a.fppg >= report.league_waiver_fppg]
             roi.hit_rate = len(hits) / len(started_adds) * 100
-            
-            # Bust rate: % of adds below 25 FPPG
-            busts = [a for a in started_adds if a.fppg < 25]
+
+            # Bust rate: % of adds below BUST_FPPG
+            busts = [a for a in started_adds if a.fppg < BUST_FPPG]
             roi.bust_rate = len(busts) / len(started_adds) * 100
     
     # Calculate waiver share (% of starter FP from waiver adds)

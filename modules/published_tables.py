@@ -486,12 +486,20 @@ def check_per_game_table(t: Node, title: str, ctx: dict) -> list:
     if not fcols:
         return out
     fi = fcols[0]
-    # Total/GP = FPPG only for a column that claims to be exactly that. The
-    # waiver ROI table's FPPG is starts-only beside all-games Total and GP
-    # (10-13), so it is labelled "Starter FPPG" and checked for range only.
+    # The numerator/denominator pair must be the SAME basis as the FPPG
+    # column. Two labelled triples qualify: all-games (Total FP / GP) and
+    # starts-only (Starter FP / Starter GP). The waiver ROI table used to
+    # print starts-only FPPG beside all-games Total and GP, which reconciles
+    # to nothing, and was skipped via a "Starter FPPG" label. It now prints
+    # its own numerator and denominator, so it is checked like any other
+    # (10-13). A label is not a substitute for numbers that add up.
     plain = header[fi] == "FPPG"
-    ti = header.index("Total FP") if ("Total FP" in header and plain) else None
-    gi = header.index("GP") if ("GP" in header and plain) else None
+    ti = gi = None
+    if plain:
+        for tname, gname in (("Total FP", "GP"), ("Starter FP", "Starter GP")):
+            if tname in header and gname in header:
+                ti, gi = header.index(tname), header.index(gname)
+                break
     for r in rows[1:]:
         if len(r) != len(header):
             out.append(Finding(title, "cell count",

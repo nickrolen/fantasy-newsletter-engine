@@ -83,7 +83,13 @@ def test_a_series_is_won_on_week_wins_not_total_points(monkeypatch):
 
 def test_every_week_of_a_decided_series_is_still_played(monkeypatch):
     """A 2-0 lead does not end the series: week 18 is played anyway."""
-    scores = {w: {"Nick": 100, "Garrett": 1, "Hayden": 100, "Benton": 1}
+    # Every manager needs a DISTINCT score. The old fixture gave Nick and
+    # Hayden 100 each and Garrett and Benton 1 each, so the Final and the
+    # third-place series were tied every week -- and a tied SIMULATED week is
+    # a coin flip by project convention (see _play_series), not a seed
+    # lookup. Both tied series had to sweep by chance for the 3-0 assertion
+    # to hold, about a 6% pass rate. The test was flaky, not the bracket.
+    scores = {w: {"Nick": 100, "Hayden": 90, "Benton": 10, "Garrett": 1}
               for w in range(16, 22)}
     calls = []
     monkeypatch.setattr(spo, "simulate_week_hifi", _scripted(scores, calls))

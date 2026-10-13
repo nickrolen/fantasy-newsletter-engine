@@ -18,13 +18,13 @@ import re
 import math
 import os
 from html import escape as _html_escape
-from typing import Optional
 
 from .data_loader import (
     MANAGERS, MANAGER_TO_TEAM, MANAGER_COLORS,
-    live_picks_for,
-    CURRENT_SEASON, SEASON_STRUCTURE, stage_rounds, stage_weeks,
+    live_picks_for, keepers_for,
+    CURRENT_SEASON, SEASON_STRUCTURE,
 )
+from .waiver_roi import BUST_FPPG, MIN_STARTS_FOR_RATES
 
 
 def _html(text) -> str:
@@ -51,33 +51,6 @@ VALUE_TIERS = {
     "Too Early": {"label": "Too Early", "bg": "#9e9e9e", "color": "#fff"},
 }
 KEEPER_TIER_ORDER = ["Lock", "Strong Hold", "Stash", "Sell High", "On the Bubble", "Dynasty Stash", "Waiver Wire"]
-
-# Playoff weeks by season - playoffs are last 2 weeks of each season
-# 19-20 had NO playoffs due to COVID
-def _playoff_weeks_for(season) -> Optional[list]:
-    """Every week of `season`'s playoff bracket, or None if none was played.
-
-    Derived from league_config rather than listed here. It used to be a
-    hardcoded table of two-week brackets, which stops being true in 2026-27:
-    the bracket is six weeks (16-21) and the Cup is two more (22-23). A
-    two-element list would have been read as "weeks 16 and 23" and let weeks
-    17-22 through as regular season.
-
-    The Cup is NOT included. It is a separate competition and does not decide
-    a playoff placing.
-    """
-    span = stage_weeks(season, "playoffs")
-    if not span:
-        return None
-    return list(range(span[0], span[1] + 1))
-
-
-# Built once for every season the config knows about, current season included.
-PLAYOFF_WEEKS = {
-    season: _playoff_weeks_for(season)
-    for season in SEASON_STRUCTURE
-    if not season.startswith("_")
-}
 
 # Manager list and historical viz colors (from config)
 MANAGERS_LIST = MANAGERS
@@ -382,7 +355,7 @@ def render_waiver_roi(data: dict) -> str:
         adds_list = mdata.get("adds", [])
         seen_players = set()
         unique_adds = []
-        for a in sorted(adds_list, key=lambda a: -a.get("total_fp", 0)):
+        for a in sorted(adds_list, key=lambda a: -a.get("starter_fp", 0)):
             if a.get("player_name") not in seen_players:
                 seen_players.add(a.get("player_name"))
                 unique_adds.append(a)
@@ -390,14 +363,25 @@ def render_waiver_roi(data: dict) -> str:
         pickup_rows = ""
         for a in top_adds:
             afppg = a.get("fppg", 0)
-            verdict = "Hit" if afppg >= league_avg else ("Bust" if afppg < 25 else "Meh")
-            v_cls = "sc-good" if verdict == "Hit" else ("sc-bad" if verdict == "Bust" else "")
+            # The verdict must use the same rule AND the same population as
+            # the hit/bust rates shown above it. A bare 25 here plus no
+            # min-starts filter made Benton's panel print "Bust" beside a
+            # bust_rate of 0.0% -- the pickup was labelled but not counted.
+            if (a.get("starter_games") or 0) < MIN_STARTS_FOR_RATES:
+                verdict = f"&lt;{MIN_STARTS_FOR_RATES} starts"
+                v_cls = ""
+            elif afppg >= league_avg:
+                verdict, v_cls = "Hit", "sc-good"
+            elif afppg < BUST_FPPG:
+                verdict, v_cls = "Bust", "sc-bad"
+            else:
+                verdict, v_cls = "Meh", ""
             pickup_rows += f'''
             <tr>
               <td class="sc-player-name">{_html(a.get("player_name", ""))}</td>
-              <td class="{v_cls}">{a.get("total_fp", 0):,.0f}</td>
+              <td class="{v_cls}">{a.get("starter_fp", 0):,.0f}</td>
               <td>{afppg:.1f}</td>
-              <td>{a.get("total_games", 0)}</td>
+              <td>{a.get("starter_games", 0)}</td>
               <td><span class="{v_cls}">{verdict}</span></td>
             </tr>'''
 
@@ -411,7 +395,7 @@ def render_waiver_roi(data: dict) -> str:
           <div class="sc-callout-card sc-best">
             <div class="sc-tcc-label">Best Pickup</div>
             <div class="sc-tcc-player">{_html(best.get("player_name", "N/A"))}</div>
-            <div class="sc-tcc-detail">{best.get("total_fp", 0):,.0f} FP in {best.get("total_games", 0)} games &middot; {best.get("fppg", 0):.1f} FPPG as a starter</div>
+            <div class="sc-tcc-detail">{best.get("starter_fp", 0):,.0f} FP in {best.get("starter_games", 0)} starts &middot; {best.get("fppg", 0):.1f} FPPG as a starter</div>
           </div>'''
 
         regret_html = ""
@@ -453,7 +437,11 @@ def render_waiver_roi(data: dict) -> str:
         </div>
         <div class="sc-pickups-title">Notable Pickups</div>
         <table class="sc-pickup-table">
-          <thead><tr><th>Player</th><th>Total FP</th><th>Starter FPPG</th><th>GP</th><th>Verdict</th></tr></thead>
+          <!-- Starter FP / Starter GP, not all-games Total and GP: this FPPG
+               is starts-only, so the three numbers now reconcile and
+               check_per_game_table verifies them instead of skipping the
+               table on a "Starter FPPG" label (10-13). -->
+          <thead><tr><th>Player</th><th>Starter FP</th><th>FPPG</th><th>Starter GP</th><th>Verdict</th></tr></thead>
           <tbody>{pickup_rows}</tbody>
         </table>
         <div class="sc-callouts">{best_html}{regret_html}</div>
@@ -492,14 +480,6 @@ def render_keeper_watch(data: dict, player_cards: list = None) -> str:
         for c in player_cards:
             pc_lookup[c["player_name"]] = c
 
-    # Get top 8 per manager
-    by_manager = {}
-    for p in players:
-        mgr = p["manager"]
-        if mgr not in by_manager:
-            by_manager[mgr] = []
-        by_manager[mgr].append(p)
-
     # Include all non-Drop players (Drop tier is the noise filter)
     top_players = [p for p in players if p.get("keeper_tier", "Drop") != "Drop"]
 
@@ -512,10 +492,16 @@ def render_keeper_watch(data: dict, player_cards: list = None) -> str:
             t = p.get("keeper_tier", "On the Bubble")
             tier_counts[t] = tier_counts.get(t, 0) + 1
 
-        # Avg age of top 6
-        top6 = sorted(mgr_players, key=lambda x: -x["season_fppg"])[:6]
-        ages = [p["age"] for p in top6 if p.get("age")]
-        avg_age = sum(ages) / len(ages) if ages else 0
+        # Average age across the players this manager would actually keep.
+        # That count is per manager, not a literal 6: all four keep 6 in
+        # 2026-27, but from 2027-28 the Cup winner keeps 6 and the other
+        # three keep 5. league_config says exactly this and points at
+        # keepers_for(), so read it rather than typing the number.
+        n_keep = keepers_for(manager=mgr)
+        top_keepers = sorted(mgr_players, key=lambda x: -x["season_fppg"])[:n_keep]
+        ages = [p["age"] for p in top_keepers if p.get("age")]
+        # No ages is not age zero: "0.0" reads as a measured average.
+        avg_age_str = f"{sum(ages) / len(ages):.1f}" if ages else "-"
 
         color = MANAGER_COLORS.get(mgr, "#333")
         team = MANAGER_TEAMS.get(mgr, "")
@@ -542,7 +528,7 @@ def render_keeper_watch(data: dict, player_cards: list = None) -> str:
           <div class="sc-kw-mgr-name">{mgr}</div>
           <div class="sc-kw-mgr-team">{team}</div>
           <div class="sc-kw-pills">{tier_pills}</div>
-          <div class="sc-kw-avg-age">Avg Age (Top 6): {avg_age:.1f}</div>
+          <div class="sc-kw-avg-age">Avg Age (Top {n_keep}): {avg_age_str}</div>
         </div>''')
 
     # Build tier sections
@@ -649,55 +635,6 @@ Also add the CSS block to get_stats_corner_css() and update the orchestrator.
 # 5. LEAGUE RECORD BOOK
 # =====================================================================
 
-def _load_matchups() -> list:
-    """Load all_matchups.json from data/historical/ directory."""
-    # Get project root from module location (modules/ -> project root)
-    module_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(module_dir)
-    
-    paths_to_try = [
-        # Correct path per PROJECTSTRUCTURE.md: data/historical/all_matchups.json
-        os.path.join(project_root, 'data', 'historical', 'all_matchups.json'),
-    ]
-    for path in paths_to_try:
-        if os.path.exists(path):
-            with open(path, 'r', encoding="utf-8") as f:
-                return json.load(f)
-    return []
-
-
-def _series_outcomes(season_matches: list, span: tuple) -> list:
-    """[(winner, loser), ...] for the series played across `span`.
-
-    A "series" may be one week (every season through 2025-26, and the Cup) or
-    three (the 2026-27 bracket). Decided on WEEK WINS, not total points, and
-    the pairing is whichever two managers met in those weeks. Any week a pair
-    did not both appear in is simply not counted, so a partially played
-    series still resolves to whoever is ahead.
-    """
-    first, last = span
-    tallies = {}
-    for m in season_matches:
-        week = m.get('week')
-        if week is None or not (first <= week <= last):
-            continue
-        winner, loser = m.get('winner'), m.get('loser')
-        if not winner or not loser:
-            continue
-        key = tuple(sorted((winner, loser)))
-        tallies.setdefault(key, {})
-        tallies[key][winner] = tallies[key].get(winner, 0) + 1
-        tallies[key].setdefault(loser, 0)
-
-    out = []
-    for (a, b), wins in tallies.items():
-        if wins.get(a, 0) == wins.get(b, 0):
-            continue  # undecided -- do not invent a winner
-        winner = a if wins.get(a, 0) > wins.get(b, 0) else b
-        out.append((winner, b if winner == a else a))
-    return out
-
-
 PLACE_LABELS = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
 # The league's first season, read from season_structure (pre-Yahoo seasons
 # included), so a scope label is never a hand-typed year.
@@ -741,87 +678,13 @@ def _load_season_standings() -> dict:
     return out
 
 
-def _compute_regular_season_records() -> dict:
-    """
-    Compute regular season records (excluding playoff weeks) for each manager/season.
-    
-    Returns:
-        dict: {season: {manager: {'wins': int, 'losses': int, 'record': str}}}
-    """
-    matchups = _load_matchups()
-    if not matchups:
-        return {}
-    
-    records = {}
-    for season in sorted(set(m['season'] for m in matchups)):
-        season_matches = [m for m in matchups if m['season'] == season]
-        pweeks = PLAYOFF_WEEKS.get(season)
-        
-        # Filter to regular season only
-        if pweeks:
-            reg_matches = [m for m in season_matches if m['week'] not in pweeks]
-        else:
-            reg_matches = season_matches
-        
-        records[season] = {}
-        for mgr in MANAGERS_LIST:
-            wins = sum(1 for m in reg_matches if m['winner'] == mgr)
-            losses = sum(1 for m in reg_matches if m['loser'] == mgr)
-            records[season][mgr] = {
-                'wins': wins, 
-                'losses': losses, 
-                'record': f"{wins}-{losses}"
-            }
-    
-    return records
-
-
-def _compute_playoff_results() -> dict:
-    """
-    Compute playoff results for each manager/season.
-    
-    Playoff format:
-    - Semifinal (week 1 of playoffs): 4 teams, 2 games
-    - Finals (week 2 of playoffs): Championship (semi winners), Consolation (semi losers)
-    
-    Returns:
-        dict: {season: {manager: '1st'|'2nd'|'3rd'|'4th'|None}}
-    """
-    matchups = _load_matchups()
-    if not matchups:
-        return {}
-    
-    results = {}
-    for season in sorted(set(m['season'] for m in matchups)):
-        pweeks = PLAYOFF_WEEKS.get(season)
-        if not pweeks:
-            # No playoffs this season
-            results[season] = {mgr: None for mgr in MANAGERS_LIST}
-            continue
-        
-        season_matches = [m for m in matchups if m['season'] == season]
-        rounds = {r["name"]: r["weeks"] for r in stage_rounds(season, "playoffs")}
-        semi_span = rounds.get("Semifinals")
-        final_span = rounds.get("Final")
-        if not semi_span or not final_span:
-            results[season] = {mgr: None for mgr in MANAGERS_LIST}
-            continue
-
-        semi_pairs = _series_outcomes(season_matches, semi_span)
-        semi_winners = [w for w, _ in semi_pairs]
-        semi_losers = [l for _, l in semi_pairs]
-
-        results[season] = {}
-        for winner, loser in _series_outcomes(season_matches, final_span):
-            if winner in semi_winners and loser in semi_winners:
-                results[season][winner] = '1st'
-                results[season][loser] = '2nd'
-            elif winner in semi_losers and loser in semi_losers:
-                results[season][winner] = '3rd'
-                results[season][loser] = '4th'
-    
-    return results
-
+# _compute_regular_season_records() and _compute_playoff_results() were
+# removed here. They re-derived the standings from all_matchups.json and
+# ranked on wins alone, which is what published Nick second in 2021-22 and
+# 2022-23 (both ties, broken by MANAGERS_LIST order via a stable sort).
+# Both grids read _load_season_standings() instead, which uses the stored
+# regular_season_rank and playoff_rank and raises on a malformed set.
+# Do not reintroduce a second derivation: that is the bug, not the ranking.
 
 def _render_historical_standings_grid(historical_luck: dict) -> str:
     """
@@ -1015,19 +878,28 @@ def _render_luck_index_grid(historical_luck: dict) -> str:
     luck_lookup = {}
     for name, mdata in mgrs_data.items():
         for s in mdata.get("seasons", []):
-            luck_lookup.setdefault(s["season"], {})[name] = s.get("luck_index", 0)
+            # No default: a missing luck_index must render "-", not "+0.0".
+            luck_lookup.setdefault(s["season"], {})[name] = s.get("luck_index")
 
     managers = MANAGERS_LIST
     mgr_colors = MGR_COLORS_HIST
 
-    def luck_class(val):
+    def luck_class(val, seasons: int = 1):
         # Color bands aligned with luck_index._classify_luck: z-scored against
         # the all-play null (sigma ~= 0.333*sqrt(weeks)). For a ~20-21 week
         # season, z=1.5 ~= 2.25 wins and z=2.0 ~= 3.0 wins.
-        if val <= -3.0: return "sc-luck-very-bad"
-        elif val <= -2.25: return "sc-luck-bad"
-        elif val < 2.25: return "sc-luck-neutral"
-        elif val < 3.0: return "sc-luck-good"
+        #
+        # The bands MUST scale with the span being judged. Luck accumulates,
+        # so its spread grows as sqrt(seasons). One-season bands applied to a
+        # nine-season CAREER total called +3.0 "very lucky" (really z~0.65)
+        # and -5.3 "very unlucky" (z~-1.18) -- both entirely ordinary. The
+        # numbers were right and the colour invented the significance, which
+        # is the one thing this engine is not allowed to do.
+        k = math.sqrt(max(seasons, 1))
+        if val <= -3.0 * k: return "sc-luck-very-bad"
+        elif val <= -2.25 * k: return "sc-luck-bad"
+        elif val < 2.25 * k: return "sc-luck-neutral"
+        elif val < 3.0 * k: return "sc-luck-good"
         else: return "sc-luck-very-good"
 
     def short_season(s):
@@ -1059,11 +931,18 @@ def _render_luck_index_grid(historical_luck: dict) -> str:
             else:
                 cells.append(f'<td class="sc-hist-td{current_class}">-</td>')
 
-        # Career total
-        career_luck = mgrs_data.get(mgr, {}).get("career_luck", 0)
-        sign = "+" if career_luck > 0 else ""
-        lclass = luck_class(career_luck)
-        cells.append(f'<td class="sc-hist-td sc-hist-td-career"><span class="sc-luck-val sc-luck-career {lclass}">{sign}{career_luck:.1f}</span></td>')
+        # Career total. Judged against its own span, not one season's bands.
+        mdata = mgrs_data.get(mgr, {})
+        career_luck = mdata.get("career_luck")
+        if career_luck is None:
+            # Missing is not zero: a "+0.0" here reads as a measured result.
+            cells.append('<td class="sc-hist-td sc-hist-td-career">-</td>')
+        else:
+            span = len([x for x in mdata.get("seasons", [])
+                        if x.get("luck_index") is not None])
+            sign = "+" if career_luck > 0 else ""
+            lclass = luck_class(career_luck, span)
+            cells.append(f'<td class="sc-hist-td sc-hist-td-career"><span class="sc-luck-val sc-luck-career {lclass}">{sign}{career_luck:.1f}</span></td>')
         rows.append(f'<tr class="sc-hist-row">{"".join(cells)}</tr>')
 
     # Legend
@@ -1366,11 +1245,11 @@ def _render_leaderboard(
     note: str = "",
 ) -> str:
     """
-    Render a single top-5 leaderboard block.
+    Render a single leaderboard block (caller slices; currently top 10).
 
     Args:
         title: Record name (e.g., "Highest Weekly Team Score")
-        entries: List of entry dicts (up to 5)
+        entries: List of entry dicts, already sliced by the caller
         is_new_record: Show gold NEW! badge
         entry_type: "team" or "player" (affects how holder is displayed)
         unit: Unit label shown after title (e.g., "FP", "FPPG", "sigma (std dev)")
@@ -1401,10 +1280,11 @@ def _render_leaderboard(
 
         # Format value
         if isinstance(value, float):
-            # Show 1 decimal for margins, 2 for FPPG, 1 for scores
-            if value == int(value) and value > 100:
-                val_str = f"{value:,.1f}"
-            elif abs(value) < 10:
+            # 2 decimals only below 10 (margins, sigma); 1 decimal otherwise.
+            # The old first branch (value == int(value) and value > 100)
+            # emitted the identical format as its own else, and int(value)
+            # raises on NaN, so it was dead weight with a failure mode.
+            if abs(value) < 10:
                 val_str = f"{value:.2f}"
             else:
                 val_str = f"{value:,.1f}"

@@ -2473,7 +2473,18 @@ def build_record_book(data) -> dict:
             "seasons": honors.get(mgr, {}).get("seasons_completed"),
         })
 
-    milestones.sort(key=lambda x: x["career_wins"], reverse=True)
+    # Explicit tiebreak. sort() is stable, so ranking on career_wins alone
+    # fell back to MANAGERS order on a tie -- and MANAGERS starts with Nick.
+    # That is exactly how the historical standings grid published him second
+    # in 2021-22 and 2022-23, both ties. The 1st-4th badges on the manager
+    # cards are read off this order, and Benton and Garrett are one win
+    # apart, so a tie is not hypothetical.
+    milestones.sort(
+        key=lambda x: (x["career_wins"],
+                       x.get("win_pct") or 0,
+                       x.get("career_points") or 0),
+        reverse=True,
+    )
     result["manager_milestones"] = milestones
 
     # =========================================================================
