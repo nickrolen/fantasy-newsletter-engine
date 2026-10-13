@@ -10,6 +10,17 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 13, 2026 - The history grids published two seasons wrong**
+
+Stats Corner's Historical League Standings re-ranked each season on wins
+alone; ties went to whoever came first in MANAGERS_LIST (Nick). 2021-22 and
+2022-23 were published with Nick second; Garrett (4-3 in the regular-season
+series) and Benton (5-2) were. Both history grids now read the stored
+regular_season_rank / playoff_rank, which raise unless every season's ranks
+are exactly 1-4. Totals count only the seasons shown -- they used to add
+the two pre-data-era titles to the 1st / trophy column alone -- and the
+standings grid gains a 4th column and a footnote naming its seasons.
+
 **October 13, 2026 - check_playerlist: a shift, not a single gainer**
 
 It failed Yahoo's 10-13 refresh because six players gained projected games

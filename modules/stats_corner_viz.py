@@ -20,7 +20,7 @@ from html import escape as _html_escape
 from typing import Optional
 
 from .data_loader import (
-    MANAGERS, MANAGER_TO_TEAM, MANAGER_COLORS, PRE_DATA_ERA,
+    MANAGERS, MANAGER_TO_TEAM, MANAGER_COLORS,
     live_picks_for,
     CURRENT_SEASON, SEASON_STRUCTURE, stage_rounds, stage_weeks,
 )
@@ -697,6 +697,46 @@ def _series_outcomes(season_matches: list, span: tuple) -> list:
     return out
 
 
+PLACE_LABELS = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
+STANDINGS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              "data", "historical", "all_standings.json")
+
+
+def _load_season_standings() -> dict:
+    """{season: {manager: row}} from all_standings.json, the stored finishes.
+
+    The grids used to RE-derive the standings from all_matchups.json, ranking
+    on wins alone. sorted() is stable and MANAGERS_LIST starts with Nick, so
+    every tie on wins went to the list order: 2021-22 (Nick and Garrett
+    10-10; Garrett won the season series 4-3) and 2022-23 (Nick and Benton
+    9-12; Benton 5-2) were published with the commissioner second, through
+    week 21 of 2025-26. all_standings.json already holds regular_season_rank
+    with the real tiebreak, and playoff_rank, so they are read, not rebuilt.
+
+    Raises if a season's ranks are not exactly 1..N for its N managers --
+    a missing or duplicated rank would otherwise render as a plausible grid.
+    """
+    path = STANDINGS_PATH
+    if not os.path.exists(path):
+        return {}
+    with open(path, "r", encoding="utf-8") as f:
+        rows = json.load(f)
+    out: dict = {}
+    for r in rows:
+        out.setdefault(r["season"], {})[r["manager"]] = r
+    for season, by_mgr in out.items():
+        expected = list(range(1, len(by_mgr) + 1))
+        reg = sorted(r.get("regular_season_rank") for r in by_mgr.values())
+        if reg != expected:
+            raise ValueError(f"all_standings.json {season}: regular_season_rank "
+                             f"is {reg}, expected {expected}")
+        po = [r.get("playoff_rank") for r in by_mgr.values()]
+        if any(x is not None for x in po) and sorted(po) != expected:
+            raise ValueError(f"all_standings.json {season}: playoff_rank is "
+                             f"{po}, expected {expected} or none (no playoffs)")
+    return out
+
+
 def _compute_regular_season_records() -> dict:
     """
     Compute regular season records (excluding playoff weeks) for each manager/season.
@@ -792,27 +832,17 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
     Returns:
         HTML string for the standings grid
     """
-    # Compute regular season records from matchups
-    reg_records = _compute_regular_season_records()
-    if not reg_records:
+    stored = _load_season_standings()
+    if not stored:
         return ""
-    
-    seasons = sorted(reg_records.keys())
-    if not seasons:
-        return ""
-    
-    # Rank managers within each season by wins
+    seasons = sorted(stored)
     standings = {}  # {season: {manager: {rank, record}}}
     for season in seasons:
-        season_data = reg_records[season]
-        ranked = sorted(
-            [(mgr, data['wins'], data['record']) for mgr, data in season_data.items()],
-            key=lambda x: -x[1]  # Sort by wins descending
-        )
-        standings[season] = {}
-        for i, (mgr, wins, record) in enumerate(ranked):
-            standings[season][mgr] = {"rank": i + 1, "record": record}
-    
+        standings[season] = {
+            mgr: {"rank": int(r["regular_season_rank"]),
+                  "record": f"{int(r['reg_wins'])}-{int(r['reg_losses'])}"}
+            for mgr, r in stored[season].items()}
+
     # Shorten season labels: "2017-18" -> "17-18"
     def short_season(s):
         return s[2:]
@@ -826,6 +856,7 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
         '<th class="sc-hist-th sc-hist-th-summary">1st</th>'
         '<th class="sc-hist-th sc-hist-th-summary">2nd</th>'
         '<th class="sc-hist-th sc-hist-th-summary">3rd</th>'
+        '<th class="sc-hist-th sc-hist-th-summary">4th</th>'
     )
     
     # Build data rows
@@ -834,39 +865,28 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
         color = MGR_COLORS_HIST.get(mgr, "#888")
         cells = [f'<td class="sc-hist-td sc-hist-td-mgr" style="color:{color}">{_html(mgr)}</td>']
         
-        firsts = seconds = thirds = 0
+        finishes = {1: 0, 2: 0, 3: 0, 4: 0}
         for s in seasons:
             info = standings.get(s, {}).get(mgr)
             current_class = " sc-hist-current" if s == seasons[-1] else ""
             if info:
                 rank = info["rank"]
-                record = info["record"]
-                if rank == 1:
-                    firsts += 1
-                    cells.append(f'<td class="sc-hist-td{current_class}"><span class="sc-hist-place sc-hist-1st">{record}</span></td>')
-                elif rank == 2:
-                    seconds += 1
-                    cells.append(f'<td class="sc-hist-td{current_class}"><span class="sc-hist-place sc-hist-2nd">{record}</span></td>')
-                elif rank == 3:
-                    thirds += 1
-                    cells.append(f'<td class="sc-hist-td{current_class}"><span class="sc-hist-place sc-hist-3rd">{record}</span></td>')
-                else:
-                    cells.append(f'<td class="sc-hist-td{current_class}"><span class="sc-hist-place sc-hist-4th">{record}</span></td>')
+                finishes[rank] = finishes.get(rank, 0) + 1
+                cells.append(f'<td class="sc-hist-td{current_class}"><span class="sc-hist-place '
+                             f'sc-hist-{PLACE_LABELS[rank]}">{info["record"]}</span></td>')
             else:
                 cells.append(f'<td class="sc-hist-td{current_class}">-</td>')
-        
-        # Summary columns (add pre-data-era finishes not in data)
-        pre_era_firsts = PRE_DATA_ERA.get("titles_won", {})
-        firsts += pre_era_firsts.get(mgr, 0)
-        
-        cells.append(
-            f'<td class="sc-hist-td sc-hist-td-sum sc-hist-sum-1st">{firsts}</td>'
-            f'<td class="sc-hist-td sc-hist-td-sum sc-hist-sum-2nd">{seconds}</td>'
-            f'<td class="sc-hist-td sc-hist-td-sum sc-hist-sum-3rd">{thirds}</td>'
-        )
+
+        # Summary columns count the seasons in THIS table and nothing else.
+        # They used to add the pre-data-era titles to 1st only, so an
+        # eleven-season count sat beside nine-season 2nd/3rd counts in one
+        # row (Nick 5, Hayden 3 above eight displayed firsts). The footnote
+        # says which seasons the totals cover.
+        cells.append("".join(
+            f'<td class="sc-hist-td sc-hist-td-sum sc-hist-sum-{PLACE_LABELS[k]}">{finishes[k]}</td>'
+            for k in (1, 2, 3, 4)))
         rows.append(f'<tr class="sc-hist-row">{"".join(cells)}</tr>')
     
-    # Note: Title no longer says "(All Seasons)" - it's implied
     return f'''
     <div class="sc-mgr-section-header">Historical League Standings</div>
     <div class="sc-hist-wrapper">
@@ -878,7 +898,15 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
         </thead>
         <tbody>{"".join(rows)}</tbody>
       </table>
+      <div class="sc-hist-scope">{_scope_note(seasons)}</div>
     </div>'''
+
+
+def _scope_note(seasons) -> str:
+    """Says which seasons the totals cover, so nobody reads them as all-time."""
+    return (f"Totals count the {len(seasons)} seasons shown "
+            f"({seasons[0]} to {seasons[-1]}). 2014-15 and 2015-16, played "
+            f"before the data era, are not in this table.")
 
 
 def _render_historical_playoff_results_grid(historical_luck: dict = None) -> str:
@@ -894,10 +922,12 @@ def _render_historical_playoff_results_grid(historical_luck: dict = None) -> str
     Returns:
         HTML string for the playoff results grid
     """
-    playoff_results = _compute_playoff_results()
-    if not playoff_results:
+    stored = _load_season_standings()
+    if not stored:
         return ""
-    
+    playoff_results = {
+        season: {mgr: PLACE_LABELS.get(r.get("playoff_rank")) for mgr, r in by_mgr.items()}
+        for season, by_mgr in stored.items()}
     seasons = sorted(playoff_results.keys())
     if not seasons:
         return ""
@@ -941,10 +971,8 @@ def _render_historical_playoff_results_grid(historical_luck: dict = None) -> str
             else:
                 cells.append(f'<td class="sc-hist-td{current_class}">-</td>')
         
-        # Summary column: total titles (add pre-data-era championships)
-        pre_era_titles = PRE_DATA_ERA.get("playoff_championships", {})
-        titles += pre_era_titles.get(mgr, 0)
-        
+        # Titles in the seasons shown only (same reasoning as the standings
+        # grid); the footnote says so.
         cells.append(f'<td class="sc-hist-td sc-hist-td-sum sc-hist-sum-1st">{titles}</td>')
         rows.append(f'<tr class="sc-hist-row">{"".join(cells)}</tr>')
     
@@ -959,6 +987,7 @@ def _render_historical_playoff_results_grid(historical_luck: dict = None) -> str
         </thead>
         <tbody>{"".join(rows)}</tbody>
       </table>
+      <div class="sc-hist-scope">{_scope_note(seasons)}</div>
     </div>'''
 
 
@@ -2304,6 +2333,8 @@ def get_stats_corner_css() -> str:
 .sc-hist-sum-1st { color: #16a34a; }
 .sc-hist-sum-2nd { color: #2563eb; }
 .sc-hist-sum-3rd { color: #ea580c; }
+.sc-hist-sum-4th { color: #6b7280; }
+.sc-hist-scope { font-size: 11px; color: #6b7280; margin-top: 4px; }
 
 /* Luck values */
 .sc-luck-val {

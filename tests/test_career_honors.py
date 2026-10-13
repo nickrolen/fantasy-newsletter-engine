@@ -217,10 +217,17 @@ def test_an_extra_honoured_title_is_caught(verify):
     assert any("Garrett titles_won" in f for f in failures)
 
 
-def test_stats_corner_reads_the_new_names():
+def test_stats_corner_history_grids_do_not_mix_scopes():
+    """The grids show nine seasons. They used to add PRE_DATA_ERA honours to
+    the 1st / trophy column only, so an eleven-season count sat beside
+    nine-season counts in one row (10-13). Their totals now count the
+    seasons shown; tests/test_history_grids.py reconciles them."""
+    import inspect
+    from modules import stats_corner_viz as v
+    for fn in (v._render_historical_standings_grid,
+               v._render_historical_playoff_results_grid):
+        assert "PRE_DATA_ERA" not in inspect.getsource(fn), fn.__name__
     src = (PROJECT_ROOT / "modules" / "stats_corner_viz.py").read_text(encoding="utf-8")
-    assert 'PRE_DATA_ERA.get("titles_won"' in src
-    assert 'PRE_DATA_ERA.get("playoff_championships"' in src
     assert 'PRE_DATA_ERA.get("first_place_finishes"' not in src
     assert 'PRE_DATA_ERA.get("titles"' not in src
 
