@@ -363,7 +363,11 @@ def packet(season: str, week: int, dest: Path) -> Path:
     if ctx.exists():
         shutil.copy2(ctx, out / ctx.name)
     angles = json.loads((out / f"angles_week{week}.json").read_text(encoding="utf-8"))
-    lead = "NO LEAD" if not angles.get("lead") else "a lead"
+    # Read `dead`, not `lead`. A dead week KEEPS its best angle under "lead"
+    # as reference-only material, so `lead` is truthy either way and this
+    # line called week 16 -- the no-lead week the dry run exists to test --
+    # "a lead", contradicting the NO LEAD block in its own stats report.
+    lead = "NO LEAD" if angles.get("dead") else "a lead"
     uploads = [f for f in ("stats_report_week%d.md" % week, "VOICE.md", "newsletter_template.md",
                            "LAST_WEEK_RECAP.md", "RECENT_CONTENT.json", "INJURY_OVERRIDES.json",
                            "lore_for_drafting.json", f"weeklycontextinput_week{week}.json")
