@@ -178,3 +178,6 @@ output/advice_preview_week*.html
 output/angles_week*.json
 output/angles_*.md
 output/lore_for_drafting.json
+
+# Dry-run packets: they carry the lore export, which never reaches git
+output/dryrun/

@@ -30,11 +30,27 @@ def _json(p: Path, default):
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else default
 
 
+def current_draft(base: Path, have: set) -> list:
+    """This season's picks, once its draft has happened and if all_drafts
+    does not already hold them."""
+    blob = _json(base / "config" / "DRAFT_PICKS_CURRENT.json", {})
+    picks = [p for p in blob.get("picks", []) if p.get("player_name")]
+    if not picks or blob.get("season") != CURRENT_SEASON or CURRENT_SEASON in have:
+        return []
+    return picks
+
+
 def build_cells(base: Path, perms: int = L.PERMUTATIONS):
     hist = base / "data" / "historical"
     matchups = _json(hist / "all_matchups.json", [])
     playerlog = _json(hist / "HISTORICAL_PLAYERLOG.json", [])
     drafts = _json(hist / "all_drafts.json", [])
+    # all_drafts.json holds COMPLETED seasons only (the pull_current_draft
+    # trap); the season in progress has its draft in DRAFT_PICKS_CURRENT.json.
+    # Without it every loyalty fact was a draft behind from draft day to the
+    # season's end: on 2026-10-13 the approved lines read "of 9 drafts ...
+    # to 2025-26" two days after the tenth.
+    drafts = drafts + current_draft(base, {d.get("season") for d in drafts})
     schedule = _json(base / "config" / "SCHEDULE.json", {})
     records = _json(base / "config" / "RECORDS.json", {})
     have = {m["season"] for m in matchups}

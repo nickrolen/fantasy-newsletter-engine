@@ -284,3 +284,27 @@ def test_export_holds_only_what_is_sayable(tmp_path):
     got = json.loads(out.read_text())["entries"]
     assert [e["id"] for e in got] == ["a"]
     assert "evidence" not in got[0] and "decisions" not in got[0]
+
+
+def test_loyalty_counts_the_current_seasons_draft(tmp_path, monkeypatch):
+    """all_drafts.json holds completed seasons only; this season's draft is in
+    DRAFT_PICKS_CURRENT.json. On 2026-10-13 every loyalty line read "of 9
+    drafts" two days after the tenth."""
+    import importlib.util
+    import json as _json
+    spec = importlib.util.spec_from_file_location(
+        "propose_lore", Path(__file__).parent.parent / "scripts" / "propose_lore.py")
+    P = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(P)
+    (tmp_path / "config").mkdir()
+    old = [{"season": "2025-26", "manager": "Nick", "player_name": "A"}]
+    cur = {"season": P.CURRENT_SEASON,
+           "picks": [{"season": P.CURRENT_SEASON, "manager": "Nick", "player_name": "A"}]}
+    (tmp_path / "config" / "DRAFT_PICKS_CURRENT.json").write_text(_json.dumps(cur), encoding="utf-8")
+    assert P.current_draft(tmp_path, {d["season"] for d in old}) == cur["picks"]
+    # already rolled into all_drafts: not counted twice
+    assert P.current_draft(tmp_path, {"2025-26", P.CURRENT_SEASON}) == []
+    # before the draft: nothing
+    (tmp_path / "config" / "DRAFT_PICKS_CURRENT.json").write_text(
+        _json.dumps({"season": P.CURRENT_SEASON, "picks": []}), encoding="utf-8")
+    assert P.current_draft(tmp_path, {"2025-26"}) == []

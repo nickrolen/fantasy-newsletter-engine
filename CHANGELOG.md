@@ -10,6 +10,17 @@ This file preserves the detailed development history that was originally tracked
 
 ### October 2026
 
+**October 13, 2026 - Dry-run packets, point in time; lore counts this season's draft**
+
+`scripts/build_dryrun_packet.py` rebuilds a past week with today's code and
+every file put back to how it stood after week N-1: season data truncated,
+history without the season, LEAGUEHISTORY and RECORDS rewound, then weeks
+1..N-1 replayed through the real pipeline (records checked against the
+matchups) and week N run in --repro with its betting lines frozen. Packets
+for 2025-26 weeks 21 and 16 are in output/dryrun/ (gitignored). Loyalty
+lore read all_drafts.json only, which holds completed seasons, so every
+line was a draft behind from draft day on; it now adds DRAFT_PICKS_CURRENT.
+
 **October 13, 2026 - Every published table reconciles**
 
 `modules/published_tables.py` parses the built page and checks each
