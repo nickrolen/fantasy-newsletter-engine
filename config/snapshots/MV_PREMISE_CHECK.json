@@ -1,0 +1,19 @@
+{
+  "season": "2026-27",
+  "band": "FAIL",
+  "bands": {
+    "rank_spread": "CLEAR",
+    "gap_points": "FAIL",
+    "mutual_gain_swaps": "FAIL"
+  },
+  "stats": {
+    "rank_spread": 17,
+    "gap_points": 81.8,
+    "mutual_gain_swaps": 14,
+    "swaps_examined": 1350,
+    "free_agents": 113
+  },
+  "checked_at": "2026-10-12T10:00:45",
+  "report_week": 0,
+  "rostered_players": 60
+}
