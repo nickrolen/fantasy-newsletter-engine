@@ -266,3 +266,72 @@ def test_archived_drafts_lose_their_lore_tags():
     from pathlib import Path as P
     assert sns._is_draft(P("assets/WEEK3_DRAFT.md"))
     assert sns._strip_lore_tags("a <!--lore:x--> b") == "a  b"
+
+
+# ---------------------------------------------------------------------------
+# Completeness gates (10-14). A draft of sections 1-8 built a polished 1.7MB
+# page: table check 0 findings, claim check 2 trivial ones, and nothing said
+# two sections were absent.
+# ---------------------------------------------------------------------------
+
+def _draft_with(numbers, seven="Power Rankings"):
+    """A minimal draft carrying the given section numbers."""
+    head = ("## **CHS Alumni Fantasy Basketball League - Week 3 Newsletter**\n"
+            "**Season 2026-27 | Week 3**\n\n")
+    names = {7: seven}
+    body = "".join(
+        f"### **{n}. {names.get(n, f'Section {n}')}**\n\nSome prose.\n\n"
+        for n in numbers)
+    return head + body
+
+
+def test_an_incomplete_draft_cannot_be_built():
+    import newsletter_html_generator as gen
+    full = [n for n, _ in gen.required_sections()]
+    with pytest.raises(SystemExit) as e:
+        gen.check_sections_complete(_draft_with(full[:-2]))
+    msg = str(e.value)
+    assert "refusing to build" in msg
+    for n in full[-2:]:
+        assert f"{n}." in msg
+
+
+def test_a_complete_draft_passes_the_section_gate():
+    import newsletter_html_generator as gen
+    full = [n for n, _ in gen.required_sections()]
+    gen.check_sections_complete(_draft_with(full))
+
+
+def test_postseason_section_names_pass_the_section_gate():
+    """The gate matches section NUMBER, never name. The template's postseason
+    addendum renames 7 to "Playoff Championship Odds" from week 16 on, and
+    the published WEEK21 draft uses it; a name-based gate refused a
+    newsletter that had actually shipped."""
+    import newsletter_html_generator as gen
+    full = [n for n, _ in gen.required_sections()]
+    gen.check_sections_complete(
+        _draft_with(full, seven="Playoff Championship Odds"))
+
+
+def test_the_section_gate_has_no_override():
+    """Same rule as the premise gate: no flag, no environment variable."""
+    import inspect
+    import newsletter_html_generator as gen
+    src = inspect.getsource(gen.check_sections_complete)
+    assert "getenv" not in src and "environ" not in src
+    assert "force" not in src.lower() and "skip" not in src.lower()
+
+
+def test_a_stats_report_outside_the_project_is_an_error(tmp_path):
+    """The data base is derived from --stats-report, not --input. Pointed
+    outside the project it used to warn and carry on, producing 48 player
+    cards with draft_history empty on every one."""
+    import newsletter_html_generator as gen
+    stray = tmp_path / "nowhere" / "stats_report_week3.json"
+    stray.parent.mkdir(parents=True)
+    stray.write_text("{}", encoding="utf-8")
+    md = _draft_with([n for n, _ in gen.required_sections()])
+    with pytest.raises(SystemExit) as e:
+        gen.build_newsletter_html(md, str(tmp_path / "o.html"),
+                                  stats_report_path=str(stray))
+    assert "cannot resolve the project directories" in str(e.value)

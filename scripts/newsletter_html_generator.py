@@ -2039,12 +2039,26 @@ def build_newsletter_html(
         config_dir = project_root / "config"
         historical_dir = project_root / "data" / "historical"
         
-        # Validate that the expected directories exist
-        if not data_dir.exists():
-            print(f"  WARNING: Expected data dir not found: {data_dir}")
-            print(f"  Player cards may have incomplete data.")
-        if not config_dir.exists():
-            print(f"  WARNING: Expected config dir not found: {config_dir}")
+        # The base is derived from the STATS REPORT path, not --input. Point
+        # --stats-report somewhere outside the project and this resolves to a
+        # directory with no config/ or data/ in it. Measured 10-14: the build
+        # still produced 48 player cards and a complete-looking page, with
+        # draft_history empty on every one of them -- a card that reads as a
+        # player who was never drafted. The Stats Corner panels were fine
+        # (they come from the report itself); the player cards were hollow.
+        # Asking for a stats report means asking for that data, so a base
+        # that cannot supply it is an error rather than a warning.
+        missing_dirs = [d for d in (data_dir, config_dir) if not d.exists()]
+        if missing_dirs:
+            raise SystemExit(
+                "cannot resolve the project directories from --stats-report.\n"
+                f"  --stats-report: {sr_path}\n"
+                f"  implies project root: {project_root}\n"
+                + "".join(f"  missing: {d}\n" for d in missing_dirs)
+                + "  Pass a stats report that sits in the project's output/ "
+                  "directory, or omit --stats-report to build without "
+                  "visualisations and player cards."
+            )
     else:
         data_dir = None
         config_dir = None
@@ -2073,6 +2087,51 @@ def strip_draft_comments(text: str) -> str:
     return re.sub(r"<!--[\s\S]*?-->", "", text)
 
 
+def required_sections() -> List[Tuple[int, str]]:
+    """The sections a complete newsletter has, READ FROM THE TEMPLATE.
+
+    Derived rather than typed. A hand-written list here would be a second
+    copy of the template's section order, free to drift from it -- the same
+    shape as every other bug this project has had to chase down.
+    """
+    tpl = Path(__file__).parent.parent / "templates" / "newsletter_template.md"
+    text = tpl.read_text(encoding="utf-8")
+    found = re.findall(r"^## \*\*(\d+)\.\s*(.+?)\*\*\s*$", text, re.M)
+    if not found:
+        raise SystemExit(f"cannot read the section list from {tpl}")
+    return [(int(n), name.strip()) for n, name in found]
+
+
+def check_sections_complete(markdown_text: str) -> None:
+    """Refuse to build a newsletter that is missing sections.
+
+    10-14: a draft holding sections 1-8 built a polished 1.7MB page. The
+    table check reported 0 findings, the claim check 2 trivial ones, and
+    nothing anywhere said that Around the NBA and Rumor Mill were simply
+    absent. A page that is 80% of a newsletter must not look like a whole
+    one, so this raises instead of warning, and there is no override.
+
+    Matched on section NUMBER, never on name. The names change: the
+    template's own postseason addendum renames section 7 from "Power
+    Rankings" to "Playoff Championship Odds" from week 16 onward, and the
+    published WEEK21 draft uses that name. Gating on names refused a
+    newsletter that had actually shipped.
+    """
+    required = required_sections()
+    pattern = re.compile(r"^#{1,3}\s*\*?\*?(\d+)\.\s+[^*\n]+\*?\*?\s*$", re.M)
+    have = {int(n) for n in pattern.findall(markdown_text)}
+    missing = [(n, name) for n, name in required if n not in have]
+    if missing:
+        lines = "\n".join(
+            f"    {n}. {name} (or its postseason name)" for n, name in missing)
+        raise SystemExit(
+            f"draft is incomplete -- refusing to build.\n"
+            f"  missing {len(missing)} of {len(required)} sections:\n"
+            f"{lines}\n"
+            f"  Draft them first. A partial draft renders as a finished page."
+        )
+
+
 def main():
     ap = argparse.ArgumentParser(description="Generate an HTML newsletter from a markdown draft.")
     ap.add_argument("--input", required=True, help="Path to the markdown draft.")
@@ -2086,7 +2145,12 @@ def main():
     
     with open(args.input, "r", encoding="utf-8") as f:
         markdown_text = f.read()
-    
+
+    # Gate: every section present, before anything is rendered. Placed in
+    # main() and not in build_newsletter_html(), which tests call with
+    # deliberately partial drafts.
+    check_sections_complete(markdown_text)
+
     out = build_newsletter_html(
         markdown_text, args.output, args.helmet, args.potw, args.podium,
         stats_report_path=getattr(args, 'stats_report', None),
