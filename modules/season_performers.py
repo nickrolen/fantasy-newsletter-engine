@@ -620,13 +620,18 @@ def generate_season_performers_data(
         print(f"  Warning: No players met {min_gp_pct}% GP threshold, using all players with GP > 0")
         qualified = stats[stats['gp'] > 0].copy()
     
-    # Generate lists (top 30 for paginated display in newsletter)
-    # Best tables use all players (high totals are meaningful even with few games)
-    best_total = stats.nlargest(30, 'total_fp')
-    best_fppg = qualified.nlargest(30, 'fppg')
-    
-    # Worst tables require GP > 0 (exclude injured/out players)
+    # Generate lists (top 30 for paginated display in newsletter).
+    # EVERY table requires GP > 0. "Best by total" used to read from `stats`,
+    # which includes players who have not played a game. Measured on week 1 of
+    # 2026-27, before the season starts: Yahoo returns all 60 rostered players
+    # with gp=0 and total_points=0, and this published 30 of them tied at
+    # 0.0 FP as a "Best Performers" leaderboard while the other three tables
+    # were correctly empty. A high total from few games is still meaningful --
+    # which is why the GP% threshold is relaxed above, not removed -- but zero
+    # games is not a performance.
     played_games = stats[stats['gp'] > 0].copy()
+    best_total = played_games.nlargest(30, 'total_fp')
+    best_fppg = qualified.nlargest(30, 'fppg')
     worst_total = played_games.nsmallest(30, 'total_fp')
     worst_fppg = qualified.nsmallest(30, 'fppg')
     

@@ -559,8 +559,10 @@ def build_power_rankings(
     """Build power rankings section.
     
     When keeper_watch is provided (V2 keepability data), a keeper_quality
-    score is computed for each team (average keepability of top 5 rostered
-    players) and blended into the ranking at 20% weight.
+    score is computed for each team (average keepability of the players
+    that manager would actually keep) and used as the LAST sort term,
+    after title odds and expected wins. It breaks ties; it does not
+    override the projected finish.
     """
     from .data_loader import MANAGER_TO_TEAM
     
@@ -607,13 +609,25 @@ def build_power_rankings(
     # Sort by title odds (optionally blended with keeper quality)
     # If keeper data available: 80% title odds + 20% keeper quality (normalized)
     def sort_key(m):
-        base_odds = title_odds.title_odds[m]
-        if keeper_quality:
-            # Normalize keeper quality to same scale as title odds (0-100)
-            kq = keeper_quality.get(m, 0)
-            blended = 0.80 * base_odds + 0.20 * kq
-            return (blended, title_odds.expected_record[m][0])
-        return (base_odds, title_odds.expected_record[m][0])
+        # Title odds first, then the PROJECTED FINISH, then keeper quality.
+        #
+        # This used to be 0.80 * odds + 0.20 * keeper_quality, with expected
+        # wins only breaking an exact tie of that blend. That is fine while
+        # odds separate the field -- but once two managers are eliminated
+        # their odds are both 0.0, the 20% term becomes 100% of the signal,
+        # and keeper quality alone decides the order. Measured at week 16 of
+        # 2025-26: Hayden (4-12, keeper quality 73.1) ranked third and
+        # Garrett (6-10, keeper quality 71.3) fourth, contradicting the
+        # Projected Finish Distribution printed directly above it, which gave
+        # Garrett 81.14% to finish third and Hayden 81.26% to finish fourth.
+        # One section, two orderings, opposite conclusions.
+        #
+        # Expected wins now outranks keeper quality, so this table cannot
+        # disagree with the projection beside it. Keeper quality still breaks
+        # genuine ties, which is what it was added for.
+        return (title_odds.title_odds[m],
+                title_odds.expected_record[m][0],
+                keeper_quality.get(m, 0.0) if keeper_quality else 0.0)
     
     sorted_managers = sorted(MANAGERS, key=sort_key, reverse=True)
     

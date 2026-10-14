@@ -320,8 +320,16 @@ def check_manager_profiles(root: Node, ctx: dict) -> list:
             out.append(Finding(title, "record vs H2H",
                                f"{name}: card {rec[0]}-{rec[1]}, H2H rows sum to "
                                f"{h2h[0]}-{h2h[1]} -- two scopes for one record"))
-        titles = next((v for v in stats.values() if re.search(r"\btitles?\b", v)), None)
-        if titles and not re.search(r"season|all|since|incl", titles, re.I):
+        # The scope may be declared in the VALUE ("6 titles since 2014-15")
+        # or, since 10-14, in the stat's LABEL ("6 titles" / "Since 2014-15"),
+        # which is how the other three stats on the card are laid out. Look at
+        # both: what matters is that the scope is stated, not which span holds
+        # it. Reading the value alone flagged a card that does declare it.
+        titles_kv = next(((k, v) for k, v in stats.items()
+                          if re.search(r"\btitles?\b", v)), None)
+        titles = titles_kv[1] if titles_kv else None
+        scope_text = f"{titles_kv[0]} {titles_kv[1]}" if titles_kv else ""
+        if titles and not re.search(r"season|all|since|incl", scope_text, re.I):
             n = int(re.match(r"\d+", titles).group(0)) if re.match(r"\d+", titles) else None
             firsts = ctx.get("_firsts_shown", {}).get(name)
             if n is not None and firsts is not None and n != firsts:

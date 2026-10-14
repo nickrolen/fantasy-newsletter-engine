@@ -489,7 +489,28 @@ def parse_section(text: str, section_name: str) -> str:
                 else:
                     item_text = raw[2:]   # Remove '- '
                 i += 1
-                
+
+                # Does this bullet ADOPT a following paragraph as its body?
+                #
+                # Only when the bullet line is nothing but a bold headline.
+                # That is the template's own distinction, not a guess:
+                #   * Section 9 REQUIRED OUTPUT FORMAT is "- **[Story N
+                #     Headline]**" with the prose in a separate paragraph
+                #     beneath it -- that paragraph belongs to the bullet.
+                #   * Section 6 is bullets that carry their own prose,
+                #     followed by "[2-3 sentence summary ...]" which closes
+                #     the section and belongs to NOBODY.
+                # Treating both the same swallowed the What If summary into
+                # Benton's blunder card as grey continuation text
+                # (Nick, 10-14).
+                _stripped = item_text.strip()
+                adopts_paragraph = (
+                    _stripped.startswith('**')
+                    and _stripped.endswith('**')
+                    and len(_stripped) > 4
+                    and '**' not in _stripped[2:-2]
+                )
+
                 # Collect continuation lines (lines that follow a bullet but aren't bullets themselves)
                 # These are typically indented or are description paragraphs
                 continuation_lines = []
@@ -512,6 +533,11 @@ def parse_section(text: str, section_name: str) -> str:
                         if peek_line.startswith('**') and peek_line.endswith('**') and len(peek_line) < 120:
                             break
                         
+                        # A blank line ends the bullet unless this bullet is
+                        # a bare headline waiting for its paragraph.
+                        if not adopts_paragraph:
+                            break
+
                         # Otherwise, skip the empty line and continue collecting
                         i += 1
                         continue
@@ -941,18 +967,14 @@ def generate_html(
         </section>'''
         
         elif 'betting lines' in heading.lower():
+            # The C5 games grid used to render HERE, directly under the
+            # Betting Lines heading and ABOVE the betting lines themselves
+            # (Nick, 10-14: "that's where the BETTING LINES should be"). It
+            # now closes the Power Rankings section instead -- see below.
             content_html = parse_section(content, heading)
-            # C5 games grid, straight from the stats report -- never retyped.
-            grid_html = ""
-            if stats_report:
-                try:
-                    grid_html = render_games_grid_html(stats_report)
-                except Exception as e:
-                    print(f"  WARNING: games grid skipped: {e}")
             section_html = f'''
         <section id="{section_id}">
             <h2>{heading}</h2>
-            {grid_html}
             {content_html}
         </section>'''
         
@@ -1004,6 +1026,28 @@ def generate_html(
             {viz_bottom_html}
         </section>'''
         
+        elif ('power rankings' in heading.lower()
+              or 'playoff championship odds' in heading.lower()):
+            # Section 7, which the template's postseason addendum renames to
+            # "Playoff Championship Odds" from week 16 on -- match both or
+            # the grid vanishes for the back half of the season.
+            # C5 games grid, straight from the stats report -- never retyped.
+            # It closes this section rather than opening Betting Lines: it is
+            # a roster-planning artifact, not a betting one.
+            content_html = parse_section(content, heading)
+            grid_html = ""
+            if stats_report:
+                try:
+                    grid_html = render_games_grid_html(stats_report)
+                except Exception as e:
+                    print(f"  WARNING: games grid skipped: {e}")
+            section_html = f'''
+        <section id="{section_id}">
+            <h2>{heading}</h2>
+            {content_html}
+            {grid_html}
+        </section>'''
+
         else:
             content_html = parse_section(content, heading)
             section_html = f'''

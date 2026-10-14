@@ -1128,12 +1128,17 @@ def _render_milestones(milestones: list) -> str:
         # has played; the record beside them counts the data era only. Two
         # scopes on one card, so the titles say theirs (10-13: "6 titles"
         # beside a 2017-18-on record read as six data-era firsts; it was four).
+        # Split into value and label like the other three stats on the card.
+        # The whole sentence used to go in the VALUE span with the label left
+        # as &nbsp;, so this one item read as a paragraph where its
+        # neighbours read as numbers (Nick, 10-14).
         titles = m.get("titles")
         if titles is None:
-            title_str = "titles unavailable"
+            title_val = "&mdash;"
+            title_lbl = "Titles unavailable"
         else:
-            title_str = (f"{titles} title{'s' if titles != 1 else ''} "
-                         f"since {FIRST_LEAGUE_SEASON}")
+            title_val = f"{titles} title{'s' if titles != 1 else ''}"
+            title_lbl = f"Since {FIRST_LEAGUE_SEASON}"
 
         # Franchise player detail
         fp_name = m.get("franchise_player", "")
@@ -1183,8 +1188,8 @@ def _render_milestones(milestones: list) -> str:
                 <span class="sc-mgr-stat-label">Career FP</span>
               </div>
               <div class="sc-mgr-stat-item">
-                <span class="sc-mgr-stat-val">{title_str}</span>
-                <span class="sc-mgr-stat-label">&nbsp;</span>
+                <span class="sc-mgr-stat-val">{title_val}</span>
+                <span class="sc-mgr-stat-label">{title_lbl}</span>
               </div>
             </div>
             {franchise_html}

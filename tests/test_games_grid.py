@@ -174,7 +174,7 @@ def test_html_highlights_fillable_holes_and_escapes_names():
     assert "Benched with a game: X, Y" in out
 
 
-def test_newsletter_puts_the_grid_in_betting_lines():
+def _nhg():
     import importlib.util
     from pathlib import Path
     root = Path(__file__).parent.parent
@@ -182,10 +182,37 @@ def test_newsletter_puts_the_grid_in_betting_lines():
         "nhg", root / "scripts" / "newsletter_html_generator.py")
     nhg = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(nhg)
-    sections = [("Betting Lines", "**Nick vs Hayden**\n\nA preview.")]
-    with_grid = nhg.generate_html("t", "s", sections, stats_report=_report())
+    return nhg
+
+
+def test_newsletter_puts_the_grid_under_power_rankings_not_betting_lines():
+    """It used to render directly under the Betting Lines heading, ABOVE the
+    betting lines themselves. Nick, 10-14: that is where the betting lines
+    belong; the grid is a roster-planning artifact and closes Power Rankings.
+    """
+    nhg = _nhg()
+    betting = [("Betting Lines", "**Nick vs Hayden**\n\nA preview.")]
+    power = [("Power Rankings", "**Standings**\n\nA paragraph.")]
+    assert "Games Grid" not in nhg.generate_html(
+        "t", "s", betting, stats_report=_report()).split("<body")[1]
+    assert "Week 2 Games Grid" in nhg.generate_html(
+        "t", "s", power, stats_report=_report())
+
+
+def test_the_grid_survives_the_postseason_rename_of_section_7():
+    """The template's postseason addendum renames section 7 to "Playoff
+    Championship Odds" from week 16 on. Matching only "Power Rankings" would
+    drop the grid for the back half of every season."""
+    nhg = _nhg()
+    sections = [("Playoff Championship Odds", "**Odds**\n\nA paragraph.")]
+    assert "Week 2 Games Grid" in nhg.generate_html(
+        "t", "s", sections, stats_report=_report())
+
+
+def test_the_grid_needs_a_stats_report():
+    nhg = _nhg()
+    sections = [("Power Rankings", "**Standings**\n\nA paragraph.")]
     without = nhg.generate_html("t", "s", sections, stats_report={"x": 1})
-    assert "Week 2 Games Grid" in with_grid
     assert "Games Grid" not in without.split("<body")[1]
 
 
