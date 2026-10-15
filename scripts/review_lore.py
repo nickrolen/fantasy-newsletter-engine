@@ -32,6 +32,7 @@ sys.path.insert(0, str(ROOT))
 
 from modules import lore as L  # noqa: E402
 from modules import lore_usage
+from modules import lore_valence as LV
 
 KEYS = "[a]pprove  [e]dit  [r]eject  [s]kip  [u]ndo previous  [q]uit"
 
@@ -172,6 +173,17 @@ def dossier(lore: dict, manager: str, base: Path) -> list[str]:
                 "championships")
     except Exception as err:  # noqa: BLE001
         lines.append(f"  (career line unavailable: {err})")
+    approved = [e for e in lore.get("entries", [])
+                if e.get("status") == "approved" and e.get("kind") != "alias"]
+    c = LV.balance(approved).get(manager) or {}
+    lines.append(f"  On file, approved: {c.get('positive', 0)} positive, "
+                 f"{c.get('negative', 0)} negative, "
+                 f"{c.get('neutral', 0)} neutral.")
+    if c.get("positive") and not c.get("negative"):
+        lines.append("   -> nothing critical on file. Adding only praise here "
+                     "leaves him the one manager drawn a single way.")
+    elif c.get("negative") and not c.get("positive"):
+        lines.append("   -> nothing favourable on file.")
     facts = [e for e in lore.get("entries", [])
              if e.get("kind") == "derived" and about(e, manager)]
     if facts:
@@ -243,11 +255,29 @@ def main(argv=None) -> int:
     ap.add_argument("--week", type=int,
                     help="the week being drafted; adds weeks_since_used to "
                          "the export so the writer can avoid recent lines")
+    ap.add_argument("--balance", action="store_true",
+                    help="praise against criticism, per manager, from the "
+                         "one tally in modules/lore_valence")
     ap.add_argument("--base", default=str(ROOT))
     args = ap.parse_args(argv)
     base = Path(args.base)
     lore = L.load(base)
     save = lambda d: L.save(base, d)  # noqa: E731
+    if args.balance:
+        approved = [e for e in lore.get("entries", [])
+                    if e.get("status") == "approved" and e.get("kind") != "alias"]
+        print("Written entries -- character:")
+        print(LV.format_balance([e for e in approved
+                                 if e.get("kind") == "written"]))
+        print("\nAll approved entries -- character plus derived facts:")
+        print(LV.format_balance(approved))
+        gaps = LV.missing_labels(approved)
+        if gaps:
+            print(f"\nUnlabelled manager slots ({len(gaps)}) -- a manager "
+                  "named with no valence toward him:")
+            for eid, m in gaps:
+                print(f"  {eid} -> {m}")
+        return 0
     if args.add:
         while add(lore, save):
             pass

@@ -84,15 +84,22 @@ def test_every_approved_manager_entry_carries_a_valence():
     """Balance cannot be enforced, or even measured, on unlabelled entries.
     Aliases are NBA player nicknames and carry no manager valence.
 
+    Valence stopped being one string per entry on 10-15: an entry naming two
+    managers is favourable to one and damning to the other, so it is now a
+    mapping, manager -> label. The check therefore asks whether every manager
+    an entry NAMES is labelled, which is the question balance depends on, and
+    it lives in modules/lore_valence so there is only one tally.
+
     LEAGUE_LORE.json is gitignored -- the repo is public and the lore is not --
     so this checks the working copy when there is one and skips otherwise,
     rather than failing on a fresh clone.
     """
+    from modules import lore_valence as LV
     path = ROOT / "config" / "LEAGUE_LORE.json"
     if not path.exists():
         pytest.skip("LEAGUE_LORE.json is not in the repo by design")
     lore = json.loads(path.read_text(encoding="utf-8"))
-    missing = [e["id"] for e in lore["entries"]
-               if e.get("status") == "approved" and e.get("kind") != "alias"
-               and e.get("valence") not in ("positive", "negative", "neutral")]
-    assert missing == [], f"unlabelled: {missing[:5]}"
+    approved = [e for e in lore["entries"]
+                if e.get("status") == "approved" and e.get("kind") != "alias"]
+    gaps = LV.missing_labels(approved)
+    assert gaps == [], f"unlabelled manager slots: {gaps[:5]}"
