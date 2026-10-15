@@ -1652,7 +1652,13 @@ def format_section_3_betting_lines(data: dict, lookups: dict, player_projs: Opti
         cs_managers = consistency.get("managers", {})
         cs_a = cs_managers.get(mgr_a, {})
         cs_b = cs_managers.get(mgr_b, {})
-        if cs_a and cs_b:
+        # Both series have to be long enough to describe. Without this the
+        # early weeks printed "CV 0.0%, avg 0.0 FPPG, floor 0.0 / ceiling 0.0"
+        # per matchup, which reads as a measurement of a flat scorer. Section
+        # 8 already tells the drafter there are no volatility figures yet, so
+        # this block simply stays out rather than repeating the notice.
+        if cs_a and cs_b and not (cs_a.get("insufficient_data")
+                                  or cs_b.get("insufficient_data")):
             lines.append(f"\n**Scoring Consistency:**")
             lines.append(
                 f"- {mgr_a}: {cs_a.get('rating', '?')} "
@@ -2431,8 +2437,28 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
     # Consistency scores
     consistency = data.get("consistency_scores", {})
     cs_managers = consistency.get("managers", {})
+    # A manager with too short a series carries insufficient_data, and his
+    # numeric fields are untouched zero defaults. Printing them as statistics
+    # published "0.0% | 0.00 | 0.00 (Wk 0)" in the early weeks.
+    thin = [m for m, cs in cs_managers.items() if cs.get("insufficient_data")]
+    measured = {m: cs for m, cs in cs_managers.items()
+                if not cs.get("insufficient_data")}
+    if cs_managers and not measured:
+        weeks = max((cs.get("weeks_available", 0)
+                     for cs in cs_managers.values()), default=0)
+        lines.append("**Scoring Consistency:** not enough weeks yet "
+                     f"({weeks} on record). No volatility figures this week -- "
+                     "do NOT write about consistency, floors, ceilings or "
+                     "boom/bust weeks.")
+        lines.append("")
+        cs_managers = {}
+    elif thin:
+        cs_managers = measured
     if cs_managers:
         lines.append("**Scoring Consistency (Weekly FPPG Volatility):**")
+        if thin:
+            lines.append(f"*(No series yet for {', '.join(sorted(thin))} -- "
+                         "omitted rather than shown as zero.)*")
         lines.append("| Manager | CV | Rating | Mean FPPG | Floor | Ceiling | Boom Wks | Bust Wks | Recent Trend |")
         lines.append("|---------|-----|--------|-----------|-------|---------|----------|----------|-------------|")
         sorted_cs = sorted(cs_managers.items(), key=lambda x: x[1].get("cv", 0))

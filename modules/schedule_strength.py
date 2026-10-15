@@ -392,7 +392,30 @@ def recoverable_under_budget(
     free_agents: Optional[list[tuple[str, str, set[str], float]]],
     budget: Optional[int],
 ) -> tuple[Optional[int], list[str]]:
-    """Extra starts available by adding at most `budget` free agents.
+    """WITHDRAWN 2026-10-15, before it ever published. Do not wire this in.
+
+    THE DEFECT. A roster is full. Adding a free agent therefore requires
+    dropping someone, and the dropped player's starts are lost. This function
+    adds the candidate's positions to each day's pool and never removes
+    anybody, so it reports a GROSS gain where only a NET gain is reachable.
+    Its own signature is the proof: it is handed day_pools, free_agents and
+    budget, and never the roster, so it cannot subtract a drop even in
+    principle.
+
+    Measured: on a roster where each incumbent supplies one start and three
+    free agents each play three otherwise-empty days, this returns 9 while the
+    best legal net gain is 0. Against the real week-2 pool it returned 11 for
+    Nick where an exhaustive legal optimisation found 5.
+
+    It was published as "a floor, not a ceiling". That was wrong, and wrong by
+    construction rather than by degree. The invariant test that guarded it
+    checks recoverable <= open seats, which is the wrong constraint: the
+    binding one is the drop, not the seat.
+
+    The fix needs the roster threaded in and the objective changed to
+    net-of-replacement. Until then nothing calls this.
+
+    Extra starts available by adding at most `budget` free agents.
 
     Why this and not "fillable": fillable is max_starters(roster + EVERY free
     agent playing tonight) - started, i.e. the ceiling with unlimited adds.
@@ -590,8 +613,12 @@ def simulate_daily_lineups(
         week_pool.append(([frozenset(a[1]) for a in available],
                           len(started), set(teams_playing)))
 
-    recoverable, _rec_names = recoverable_under_budget(
-        week_pool, free_agents, add_budget)
+    # recoverable_under_budget is NOT called here any more, and its result is
+    # not published. See the WITHDRAWN note on that function: it counts the
+    # starts an add would bring without subtracting the starts of the player
+    # the add displaces, so on a full roster it overstates the reachable gain
+    # and can exceed the legal maximum. week_pool is still assembled because
+    # the corrected version needs exactly this per-day material.
 
     # Totals
     total_games = sum(player_total.values())
@@ -629,7 +656,6 @@ def simulate_daily_lineups(
     )
 
     return {
-        "recoverable_starts": recoverable,
         "total_games": total_games,
         "healthy_games": healthy_games,
         "startable_games": startable_games,

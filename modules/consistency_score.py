@@ -109,8 +109,18 @@ class PlayerConsistency:
 
 @dataclass
 class ManagerConsistency:
-    """Full consistency profile for a manager."""
+    """Full consistency profile for a manager.
+
+    An unlabelled profile of zeros is indistinguishable from a measured one,
+    and before MIN_WEEKS_FOR_CV weeks that is exactly what this returned: a
+    0.0 mean, a 0.0 floor "in week 0", and a 0.0% CV, printed as statistics.
+    `insufficient_data` and `weeks_available` say so instead.
+    """
     manager: str
+
+    # Whether there is enough of a series to describe at all.
+    weeks_available: int = 0
+    insufficient_data: bool = False
 
     # Weekly FPPG series
     weekly_fppg: list[WeekFPPG] = field(default_factory=list)
@@ -147,6 +157,8 @@ class ManagerConsistency:
     def to_dict(self) -> dict:
         d = {
             "manager": self.manager,
+            "weeks_available": self.weeks_available,
+            "insufficient_data": self.insufficient_data,
             "mean_fppg": round(self.mean_fppg, 2),
             "std_dev_fppg": round(self.std_dev_fppg, 2),
             "cv": round(self.cv, 1),
@@ -529,7 +541,12 @@ def compute_manager_consistency(
     # Build weekly FPPG series
     mc.weekly_fppg = build_weekly_fppg_series(data, manager, through_week)
 
-    if len(mc.weekly_fppg) < MIN_WEEKS_FOR_CV:
+    mc.weeks_available = len(mc.weekly_fppg)
+    if mc.weeks_available < MIN_WEEKS_FOR_CV:
+        # Say so. Every numeric field below stays at its zero default, and a
+        # consumer that cannot tell "not measured" from "measured zero" will
+        # publish a 0.0% volatility and a floor in week 0.
+        mc.insufficient_data = True
         return mc
 
     fppg_values = [wf.fppg if _is_finite_number(wf.fppg) else 0.0 for wf in mc.weekly_fppg]

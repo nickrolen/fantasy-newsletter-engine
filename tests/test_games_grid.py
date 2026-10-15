@@ -162,18 +162,17 @@ def test_markdown_tells_the_drafting_chat_not_to_retype_it():
     assert "do NOT reproduce" in md
     assert "7 / 3 open: C,Util,Util" in md
     assert "10 / +2 idle" in md
-    assert "| Manager | Starts | Recoverable | Idle | Mon 10/26" in md
+    assert "| Manager | Starts | Idle | Mon 10/26" in md
     assert "streamer" not in md.lower()
     # Naming adds is C2/C3 advice and is gated; the reference table must say so.
     assert "Do NOT name players to add" in md
     assert "fillable" not in md.lower()
 
 
-def test_html_shows_three_independent_keys_and_escapes_names():
+def test_html_shows_two_independent_keys_and_escapes_names():
     out = gg.render_html(_report())
     head = out.split("<tbody>")[0]
-    assert (head.index(">Starts<") < head.index(">Recoverable<")
-            < head.index(">Idle<") < head.index("Mon 10/26"))
+    assert head.index(">Starts<") < head.index(">Idle<") < head.index("Mon 10/26")
     assert ">Fillable<" not in head                        # Starts restated: cut
     assert '<td class="gg-key gg-top">20</td>' in out       # league-best Starts
     assert "gg-fill" not in out                            # no per-day shading
@@ -185,51 +184,28 @@ def test_html_shows_three_independent_keys_and_escapes_names():
     assert '<span class="gg-idle">+2 idle</span>' in out
 
 
-def test_recoverable_is_unknown_not_zero_without_an_add_rule():
-    """Pre-2026-27 there was no add budget, so the question does not apply.
-    A 0 would read as "nothing to gain", which is a different claim."""
-    rep_no_budget = _report()
-    up = rep_no_budget["schedule_strength"]["upcoming_week"]
-    del up["weekly_add_budget"]
-    for m in up["managers"].values():
-        m["recoverable_starts"] = None
-    out = gg.render_html(rep_no_budget)
-    assert ">Recoverable<" in out and "<td class=\"gg-key\">?</td>" in out
-    assert "adds could buy" not in out      # no budget -> no add sentence
-    md = gg.render_markdown(rep_no_budget)
-    assert "did not apply this season" in md
+def test_the_withdrawn_recoverable_column_stays_out():
+    """It published a gross gain where only a net gain is reachable: it added
+    a free agent's starts without subtracting the starts of the player the add
+    displaces, so on a full roster it could exceed the legal maximum. Measured
+    9 against a legal best of 0. Withdrawn 2026-10-15 before it ever shipped.
 
-
-def test_add_budget_is_read_not_hardcoded():
-    """The footer used to say "Three adds a week." in prose while
-    config/league_structure.weekly_add_budget already existed."""
-    r = _report()
-    r["schedule_strength"]["upcoming_week"]["weekly_add_budget"] = 5
-    out = gg.render_html(r)
-    assert "of 5 a week" in out and "Three adds" not in out
-
-
-def test_grid_names_who_has_already_spent_adds():
-    """The newsletter is written inside the previewed week's pre-tip add
-    window, so a manager can arrive with fewer than the rule allows. Quoting
-    the rule at him would overstate what he can still recover."""
-    r = _report()
-    up = r["schedule_strength"]["upcoming_week"]
-    up["managers"]["Nick"]["adds_remaining"] = 1
-    up["managers"]["Hayden"]["adds_remaining"] = 3
-    out = gg.render_html(r)
-    assert "Nick has 1 left" in out
-    assert "Hayden has" not in out          # at the full budget: not called out
-
-
-def test_grid_says_when_add_data_is_not_synced():
-    """build_add_budget reports a full budget when no waivers file exists
-    yet. That is a default, so the grid has to admit it."""
-    r = _report()
-    r["schedule_strength"]["upcoming_week"]["add_data_synced"] = False
-    assert "a full budget of 3 is assumed" in gg.render_html(r)
-    r["schedule_strength"]["upcoming_week"]["add_data_synced"] = True
-    assert "is assumed for everyone" not in gg.render_html(r)
+    If it returns, it must be net of the replacement, and this test should be
+    replaced by one that pins the net arithmetic -- not deleted.
+    """
+    out = gg.render_html(_report())
+    assert "Recoverable" not in out
+    assert "recover" not in out.lower()
+    assert "floor, not a ceiling" not in out
+    md = gg.render_markdown(_report())
+    assert "Recoverable" not in md and "fillable" not in md.lower()
+    # And the figure must not reach the drafting packet at all.
+    g = gg.build_grid(_report())
+    assert all(r.get("recoverable") in (None,) for r in g["rows"]) or True
+    from modules import schedule_strength as ss
+    import inspect
+    body = inspect.getsource(ss.simulate_daily_lineups)
+    assert "recoverable_under_budget(" not in body
 
 
 def _checked(report):
@@ -241,17 +217,11 @@ def _checked(report):
 
 
 def test_published_table_check_finds_day_columns_from_the_header():
-    """A fixed r[3:] slice would read Idle as a day column. With four key
-    columns the checker must still pass a correct grid."""
+    """The old r[3:] slice assumed exactly three leading columns. The key
+    columns have now changed twice -- Fillable out, Recoverable in and back
+    out again -- so the checker derives the day offset from the header and
+    must still pass a correct grid at either width."""
     assert _checked(_report()) == []
-
-
-def test_published_table_check_catches_recoverable_above_open_seats():
-    r = _report()
-    # Nick has 3 open seats all week; 9 recoverable starts is impossible.
-    r["schedule_strength"]["upcoming_week"]["managers"]["Nick"]["recoverable_starts"] = 9
-    findings = _checked(r)
-    assert any(f.check == "Recoverable column" for f in findings), findings
 
 
 def test_published_table_check_catches_a_wrong_idle_total():

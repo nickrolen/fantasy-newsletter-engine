@@ -12,11 +12,18 @@ per day, the number who start, and -- the point of it -- the holes.
 
 The signal is the three leading columns, not the day cells.
 
-  STARTS       games that fit a starting lineup this week.
-  RECOVERABLE  extra starts the week's add budget could actually buy.
-  IDLE         players who had a game and sat.
+  STARTS  games that fit a starting lineup this week.
+  IDLE    players who had a game and sat.
 
-FILLABLE used to sit where RECOVERABLE now is, and it was Starts restated.
+A RECOVERABLE column sat between them for a few hours on 2026-10-15 and was
+withdrawn before it published. It counted the starts an add would bring
+without subtracting the starts of the player the add displaces, so on a full
+roster it overstated the reachable gain and could exceed the legal maximum --
+the same failure as FILLABLE below, differently dressed. The computation is
+still in schedule_strength.recoverable_under_budget, unwired, with the defect
+written on it.
+
+FILLABLE used to sit there too, and it was Starts restated.
 It came from schedule_strength's max_starters(roster + EVERY free agent
 playing tonight) - started: the ceiling with unlimited adds. With a ~175-deep
 pool that ceiling is always just the day's empty seats, so across 84 measured
@@ -149,14 +156,9 @@ def _cell_text(c: dict) -> str:
     return " / ".join(parts)
 
 
-def _key_cells(r: dict) -> tuple[str, str, str]:
-    """Starts, Recoverable, Idle as text.
-
-    Recoverable renders "?" rather than 0 when the season had no add budget:
-    the question does not apply, and a 0 would read as "nothing to gain".
-    """
-    rec = "?" if r.get("recoverable") is None else str(r["recoverable"])
-    return str(r["startable"]), rec, str(r["overflow"])
+def _key_cells(r: dict) -> tuple[str, str]:
+    """Starts and Idle as text."""
+    return str(r["startable"]), str(r["overflow"])
 
 
 def render_markdown(stats_report: dict) -> str:
@@ -164,30 +166,23 @@ def render_markdown(stats_report: dict) -> str:
     grid = build_grid(stats_report)
     if grid is None:
         return ""
-    budget = grid.get("add_budget")
-    head = (["Manager", "Starts", "Recoverable", "Idle"]
-            + [d["label"] for d in grid["days"]])
-    note = (f"Recoverable = extra starts {budget} adds could buy, landing before "
-            "the week's first tip." if budget else
-            "Recoverable is blank: the weekly add rule did not apply this season.")
+    head = ["Manager", "Starts", "Idle"] + [d["label"] for d in grid["days"]]
     lines = [
         f"**Week {grid['week']} Games Grid** (rows sorted by Starts. Rendered "
         "automatically in the HTML -- do NOT reproduce it. You may cite a "
-        "manager's Starts, Recoverable or Idle in a preview. Do NOT name "
-        "players to add: naming adds is gated advice.)",
-        "",
-        note,
+        "manager's Starts or Idle in a preview. Do NOT name players to add: "
+        "naming adds is gated advice.)",
         "",
         "| " + " | ".join(head) + " |",
         "|" + "|".join(["---"] * len(head)) + "|",
-        "| NBA games | | | | " + " | ".join(
+        "| NBA games | | | " + " | ".join(
             "-" if d["nba_games"] is None else str(d["nba_games"]) for d in grid["days"]
         ) + " |",
     ]
     for r in grid["rows"]:
-        st, rec, idle = _key_cells(r)
+        st, idle = _key_cells(r)
         lines.append("| " + " | ".join(
-            [r["manager"], st, rec, idle]
+            [r["manager"], st, idle]
             + [_cell_text(c) for c in r["cells"]]) + " |")
     unmatched = sorted({p for r in grid["rows"] for p in r["unmatched_players"]})
     if unmatched:
@@ -202,26 +197,17 @@ def render_html(stats_report: dict) -> str:
     if grid is None:
         return ""
     e = html.escape
-    budget = grid.get("add_budget")
     top_starts = max((r["startable"] for r in grid["rows"]), default=0)
 
-    remaining = {r["manager"]: r.get("adds_remaining") for r in grid["rows"]}
-    spent = [m for m, n in remaining.items() if n is not None and n != budget]
-    if budget:
-        sub = ("<b>Starts</b>: games that fit a starting lineup this week. "
-               "<b>Recoverable</b>: extra starts a manager's remaining adds "
-               f"could buy, of {budget} a week. "
-               "<b>Idle</b>: players who had a game and sat.")
-    else:
-        sub = ("<b>Starts</b>: games that fit a starting lineup this week. "
-               "<b>Idle</b>: players who had a game and sat.")
+    sub = ("<b>Starts</b>: games that fit a starting lineup this week. "
+           "<b>Idle</b>: players who had a game and sat.")
 
     out = ['<div class="games-grid" data-viz="games-grid">',
            f'<div class="gg-title">Week {e(str(grid["week"]))} Games Grid</div>',
            f'<div class="gg-sub">{sub}</div>',
            '<div class="gg-scroll"><table class="gg-table"><thead><tr>'
            '<th class="gg-mgr-h">Manager</th><th class="gg-key">Starts</th>'
-           '<th class="gg-key">Recoverable</th><th class="gg-key">Idle</th>']
+           '<th class="gg-key">Idle</th>']
     for d in grid["days"]:
         n = d["nba_games"]
         sb = "" if n is None else f'<span class="gg-nba">{n} NBA</span>'
@@ -229,13 +215,11 @@ def render_html(stats_report: dict) -> str:
     out.append('</tr></thead><tbody>')
 
     for r in grid["rows"]:
-        st, rec, idle = _key_cells(r)
+        st, idle = _key_cells(r)
         s_cls = "gg-key gg-top" if r["startable"] == top_starts else "gg-key"
-        # Most recoverable and most idle are the most left on the table, not
-        # the best -- neither gets the gold marker.
+        # Most idle is the most left on the table, not the best: no marker.
         out.append(f'<tr><th class="gg-mgr">{e(r["manager"])}</th>'
                    f'<td class="{s_cls}">{st}</td>'
-                   f'<td class="gg-key">{rec}</td>'
                    f'<td class="gg-key">{idle}</td>')
         for c in r["cells"]:
             if c["off"]:
@@ -259,19 +243,7 @@ def render_html(stats_report: dict) -> str:
     out.append('</tbody></table></div>')
 
     foot = ["As of report time; rosters change after it. Injuries from "
-            "INJURY_OVERRIDES only. Free agents are Yahoo's top ~175."]
-    if budget:
-        foot.append("Recoverable spends each manager's adds still left this "
-                    "week, landing before the first tip; one made after the "
-                    "tip is held until the next matchup and cannot help this "
-                    "week. Greedy pick, so it is a floor, not a ceiling.")
-        if spent:
-            foot.append("Already spent some: "
-                        + ", ".join(f"{m} has {remaining[m]} left"
-                                    for m in sorted(spent)) + ".")
-        if grid.get("adds_synced") is False:
-            foot.append("No add data is synced for this week yet, so a full "
-                        f"budget of {budget} is assumed for everyone.")
+            "INJURY_OVERRIDES only."]
     unmatched = sorted({p for r in grid["rows"] for p in r["unmatched_players"]})
     if unmatched:
         foot.append("Not counted (no team on file): " + ", ".join(unmatched) + ".")
@@ -287,7 +259,7 @@ def get_css() -> str:
         .games-grid .gg-sub, .games-grid .gg-foot { font-size: 0.82em; color: var(--text-secondary, #666); margin: 4px 0 10px; }
         .games-grid .gg-foot { margin-top: 8px; }
         .games-grid .gg-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .games-grid .gg-table { border-collapse: collapse; width: 100%; min-width: 640px; font-variant-numeric: tabular-nums; }
+        .games-grid .gg-table { border-collapse: collapse; width: 100%; min-width: 600px; font-variant-numeric: tabular-nums; }
         .games-grid th, .games-grid td { border: 1px solid var(--border-color, #ddd); padding: 6px; text-align: center; vertical-align: middle; }
         .games-grid thead th { font-size: 0.8em; font-weight: 600; background: var(--primary-blue); color: #fff; white-space: nowrap; }
         .games-grid thead th.gg-day-h { opacity: 0.85; font-weight: 500; }
