@@ -95,6 +95,14 @@ def compute_storylines(data: dict, predictions: Optional[dict],
                     cur = streaks.get(mgr, {}).get("win_streak", 0)
                     at = at_win.get(mgr, {}).get("length", 0)
                     ats = at_win.get(mgr, {}).get("season", "")
+                    if not at:
+                        # No all-time streak on file for him, so there is no
+                        # record to beat. Defaulting length to 0 and season to
+                        # "" made every streak a record and printed
+                        # "surpassing their previous record of 0 ()".
+                        # The blowout claims below already require a stored
+                        # record before asserting one.
+                        continue
                     mag = {"streak": cur, "all_time": at}
                     if cur > at:
                         add(Storyline(
@@ -239,6 +247,10 @@ def compute_storylines(data: dict, predictions: Optional[dict],
             continue
         at = at_win.get(mgr, {}).get("length", 0)
         ats = at_win.get(mgr, {}).get("season", "")
+        if not at:
+            # Same as above: no stored record, so no record claim. This is
+            # what printed "(previous: 0 in )" in the week-16 report.
+            continue
         mag = {"streak": cur, "all_time": at}
         if cur > at:
             add(Storyline("win_streak_record", (mgr,),

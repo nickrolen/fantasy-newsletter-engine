@@ -35,3 +35,44 @@ def test_every_storyline_is_typed():
         for s in compute_storylines(d, pred, "2025-26",
                                     ["Nick", "Hayden", "Benton", "Garrett"]):
             assert s.kind in FAMILY and s.managers and s.magnitude
+
+
+# ---------------------------------------------------------------------------
+# A record claim needs a record on file
+# ---------------------------------------------------------------------------
+
+def test_no_record_on_file_makes_no_record_claim():
+    """The week-16 report published "Nick's 7-game win streak is a new
+    personal best (previous: 0 in )".
+
+    at_win defaulted length to 0 and season to "", which made cur > at true
+    for any streak of 3 or more and printed the empty parenthetical. The
+    blowout claims in the same function already require a stored record
+    before asserting one; the streak claims now do too.
+    """
+    from modules.storylines import compute_storylines
+    data = {
+        "metadata": {"week": 16},
+        "current_streaks": {"Nick": {"win_streak": 7, "loss_streak": 0}},
+        "all_time_records": {},          # nothing on file
+    }
+    out = compute_storylines(data, None, "2026-27", ["Nick"])
+    text = " ".join(s.text for s in out)
+    assert "personal best" not in text
+    assert "ALL-TIME RECORD" not in text
+    assert "previous: 0" not in text and "in )" not in text
+    assert "record of 0" not in text
+
+
+def test_a_real_record_is_still_claimed():
+    """The guard must not silence a genuine all-time streak."""
+    from modules.storylines import compute_storylines
+    data = {
+        "metadata": {"week": 16},
+        "current_streaks": {"Nick": {"win_streak": 7, "loss_streak": 0}},
+        "all_time_records": {
+            "longest_win_streaks": {"Nick": {"length": 5, "season": "2021-22"}}},
+    }
+    out = compute_storylines(data, None, "2026-27", ["Nick"])
+    text = " ".join(s.text for s in out)
+    assert "personal best" in text and "2021-22" in text and "previous: 5" in text

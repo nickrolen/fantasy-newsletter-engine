@@ -1240,20 +1240,30 @@ format and worth explaining every time it comes up.
 
 ## WHICH NEWSLETTER COVERS WHAT
 
-Each newsletter reports on the week just finished and previews the next.
+**Newsletter N covers Week N** -- the week just finished -- and previews Week
+N+1. The number is the week COVERED, never the week the newsletter goes out
+in: WEEK17_NEWSLETTER.html reports "Week 17", and the injury-timeline rule
+above reads current_week as N in a Week N newsletter.
 
-- **Week 16 newsletter:** covers Week 15 -- the REGULAR SEASON FINALE and the
-  crowning of the League Champion. This is the biggest newsletter of the year.
-  Previews the semifinal series.
-- **Weeks 17-18:** mid-series. Report the series score ("Nick leads 2-0"), not
+This list used to be numbered by publication week, one ahead of the files.
+Both numbering schemes were internally consistent, which is why it survived:
+"the Week 16 newsletter" named two different newsletters depending on
+whether you were reading the template or the output directory. It put the
+League Champion one newsletter late and named the wrong bracket stage in
+every postseason week.
+
+- **Week 15 newsletter:** the REGULAR SEASON FINALE and the crowning of the
+  League Champion. This is the biggest newsletter of the year. Previews the
+  semifinal series.
+- **Weeks 16-17:** mid-series. Report the series score ("Nick leads 2-0"), not
   just the week result.
-- **Week 19 newsletter:** covers the semifinal results. Who advanced, who fell.
-- **Weeks 20-21:** the Final and Third Place series in progress.
-- **Week 22 newsletter:** covers the end of the bracket and crowns the Playoff
+- **Week 18 newsletter:** covers the semifinal results. Who advanced, who fell.
+- **Weeks 19-20:** the Final and Third Place series in progress.
+- **Week 21 newsletter:** covers the end of the bracket and crowns the Playoff
   Champion. Introduces the Cup, its points-based seeding, and what is at stake.
-- **Week 23 newsletter:** covers the Cup semifinals; previews the Cup Final.
-- **Week 23 results / season wrap:** crowns the Cup Champion and states plainly
-  that they keep a sixth player next season while everyone else keeps five.
+- **Week 22 newsletter:** covers the Cup semifinals; previews the Cup Final.
+- **Week 23 newsletter:** crowns the Cup Champion and states plainly that they
+  keep a sixth player next season while everyone else keeps five.
 
 ---
 
@@ -1405,15 +1415,18 @@ three picks in it instead of four.
 
 ## SPECIAL NOTES
 
-**Week 16 newsletter (regular season finale coverage).** The League Champion is
+**Week 15 newsletter (regular season finale).** The League Champion is
 crowned here, along with the $180 payout and the draft order. This is the
-headline of the year -- do not bury it under a bracket preview.
+headline of the year -- do not bury it under a bracket preview. The money
+rule (rule 23) expects the $180 in THIS newsletter: week 15 is where the
+race is decided, so week 16 carries no money event and a dollar figure
+there is flagged.
 
-**Week 22 newsletter (Playoff Champion crowned, Cup introduced).** Two stories:
+**Week 21 newsletter (Playoff Champion crowned, Cup introduced).** Two stories:
 the bracket result, and the Cup nobody has played before. Explain the
 points-based seeding from scratch; it will be unfamiliar.
 
-**Week 23 / season wrap (Cup Champion crowned).** State the keeper consequence
+**Week 23 newsletter (Cup Champion crowned).** State the keeper consequence
 explicitly. Then tease the offseason: keeper decisions, the draft order from
 the regular-season standings, and next season's outlook.
 
