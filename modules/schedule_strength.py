@@ -359,6 +359,34 @@ def fill_daily_lineup_detail(
     return started, benched, remaining
 
 
+def _resolve_budgets(add_budget, managers):
+    """(league_budget, {manager: adds remaining}, add data synced?).
+
+    Accepts build_add_budget's block, a flat int, or None.
+
+    Per-manager REMAINING is the number that matters, not the league rule.
+    The newsletter is written on the Monday morning after a week closes,
+    which is inside the previewed week's free-add window and before any game
+    has tipped (build_add_budget's own docstring). A manager who has already
+    spent two of his three adds in that window can recover far less than the
+    rule allows, and quoting the rule would overstate it.
+
+    None falls back to the league rule for everyone, which is what every
+    caller outside report_builder wants.
+    """
+    if isinstance(add_budget, dict):
+        league = add_budget.get("budget")
+        per = add_budget.get("managers") or {}
+        return (
+            league,
+            {m: (per.get(m) or {}).get("remaining", league) for m in managers},
+            bool(add_budget.get("source_exists")),
+        )
+    if add_budget is None:
+        add_budget = add_budget_for()
+    return add_budget, {m: add_budget for m in managers}, None
+
+
 def recoverable_under_budget(
     day_pools: list[tuple[list, int, set[str]]],
     free_agents: Optional[list[tuple[str, str, set[str], float]]],
@@ -386,10 +414,19 @@ def recoverable_under_budget(
     the names are for tests and are NOT published -- naming adds is C2/C3
     advice, which is gated.
 
-    Returns (None, []) when the rule does not apply (no budget) or there is
-    no free-agent pool, so a missing number renders as unknown rather than 0.
+    Returns (None, []) when the rule does not apply -- no add budget that
+    season, or no free-agent pool -- so an unanswerable question renders as
+    "?" rather than 0. A budget of 0 is different: the manager has spent
+    every add he had, and 0 is the true answer.
     """
-    if not budget or budget <= 0 or not free_agents or not day_pools:
+    # None means the rule does not apply (no add budget that season) and
+    # renders "?". Zero means he has spent every add he had, and the honest
+    # answer is 0 -- a "?" there would hide a real, reachable nothing.
+    if budget is None or free_agents is None or not day_pools:
+        return None, []
+    if budget <= 0:
+        return 0, []
+    if not free_agents:
         return None, []
 
     cands: list[tuple[str, frozenset, tuple[int, ...]]] = []
@@ -760,10 +797,10 @@ def build_schedule_strength(
         player_info,
         data.injury_overrides,
         free_agents=free_agents,
-        # The rule did not exist before 2026-27, and add_budget_for returns
-        # None for those seasons, which suppresses the number rather than
-        # printing a reachable total nobody could reach.
-        add_budget=(add_budget if add_budget is not None else add_budget_for()),
+        # build_add_budget's block when report_builder passes it, so adds
+        # already spent in the previewed week's pre-tip window are subtracted.
+        # None falls back to the league rule, which is None before 2026-27.
+        add_budget=add_budget,
     )
     if "managers" in upcoming_result:
         upcoming_result["player_info_from_lineups"] = from_lineups
@@ -877,6 +914,9 @@ def _build_for_week_with_lineups(
                        if fa[0] not in out_index or out_index.get(fa[0]) is not None]
 
     # Simulate each manager's lineups
+    league_budget, remaining_by_mgr, adds_synced = _resolve_budgets(
+        add_budget, MANAGERS)
+
     managers_data: dict[str, dict] = {}
     for manager in MANAGERS:
         roster = rosters.get(manager, [])
@@ -887,8 +927,9 @@ def _build_for_week_with_lineups(
             daily_schedule=daily_schedule,
             out_players=out_players,
             free_agents=free_agents,
-            add_budget=add_budget,
+            add_budget=remaining_by_mgr.get(manager),
         )
+        result["adds_remaining"] = remaining_by_mgr.get(manager)
         managers_data[manager] = result
 
     # Add rankings
@@ -907,7 +948,8 @@ def _build_for_week_with_lineups(
             for d, teams in sorted(daily_schedule.items())
         },
         "free_agent_pool_size": None if free_agents is None else len(free_agents),
-        "weekly_add_budget": add_budget,
+        "weekly_add_budget": league_budget,
+        "add_data_synced": adds_synced,
     }
 
 

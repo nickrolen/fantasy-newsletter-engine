@@ -3660,9 +3660,12 @@ def build_stats_report(
         "historical_luck": build_historical_luck(data, week, current_season=CURRENT_SEASON),
 
         "waiver_roi": build_waiver_roi(data, week),
-        "add_budget": build_add_budget(data, week),
+        # Bound here and reused two lines down so the grid's "Recoverable"
+        # column spends each manager's REMAINING adds, not the league rule.
+        # Dict literals evaluate in source order, so _ab is set first.
+        "add_budget": (_ab := build_add_budget(data, week)),
 
-        "schedule_strength": build_schedule_strength(data, week),
+        "schedule_strength": build_schedule_strength(data, week, add_budget=_ab),
 
         "consistency_scores": build_consistency_scores(data, week),
 

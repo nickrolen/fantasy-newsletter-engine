@@ -26,7 +26,6 @@ def test_no_add_rule_is_unknown_not_zero():
     """Before 2026-27 the budget did not exist. None keeps the column blank;
     0 would claim there is nothing to gain, which is a different statement."""
     assert R(ONE_EMPTY_DAY, [FA], None) == (None, [])
-    assert R(ONE_EMPTY_DAY, [FA], 0) == (None, [])
 
 
 def test_no_free_agent_pool_is_unknown():
@@ -88,3 +87,58 @@ def test_it_never_exceeds_the_weeks_open_seats():
         holes = sum(len(SEATS) - started for _sets, started, _t in pools)
         gained, _ = R(pools, pool, 3)
         assert 0 <= gained <= holes
+
+
+# ---------------------------------------------------------------------------
+# _resolve_budgets -- one source for the number
+# ---------------------------------------------------------------------------
+
+from modules.schedule_strength import _resolve_budgets
+
+MGRS = ["Nick", "Hayden"]
+
+
+def test_a_flat_int_applies_to_everyone():
+    assert _resolve_budgets(3, MGRS) == (3, {"Nick": 3, "Hayden": 3}, None)
+
+
+def test_none_falls_back_to_the_league_rule():
+    from modules.data_loader import add_budget_for
+    league, per, synced = _resolve_budgets(None, MGRS)
+    assert league == add_budget_for()
+    assert per == {m: add_budget_for() for m in MGRS} and synced is None
+
+
+def test_build_add_budget_block_spends_remaining_not_the_rule():
+    """The bug this fixes: quoting 3 at a manager who has already used two
+    of his three adds in the previewed week's pre-tip window."""
+    block = {
+        "budget": 3,
+        "source_exists": True,
+        "managers": {"Nick": {"remaining": 1}, "Hayden": {"remaining": 3}},
+    }
+    league, per, synced = _resolve_budgets(block, MGRS)
+    assert league == 3
+    assert per == {"Nick": 1, "Hayden": 3}
+    assert synced is True
+
+
+def test_a_manager_missing_from_the_block_gets_the_league_rule():
+    block = {"budget": 3, "source_exists": False,
+             "managers": {"Nick": {"remaining": 0}}}
+    league, per, synced = _resolve_budgets(block, MGRS)
+    assert per == {"Nick": 0, "Hayden": 3} and synced is False
+
+
+def test_spending_fewer_adds_recovers_fewer_starts():
+    """End to end on the greedy: the budget is the lever."""
+    pool = [(n, "LAL", {"PG"}, 1.0) for n in "ABCDEFGH"]
+    assert R(ONE_EMPTY_DAY, pool, 3)[0] == 3
+    assert R(ONE_EMPTY_DAY, pool, 1)[0] == 1
+
+
+def test_spent_out_recovers_zero_not_unknown():
+    """A manager who used all three adds can recover nothing, and 0 says so.
+    "?" would read as "we do not know", which is a different claim."""
+    pool = [(n, "LAL", {"PG"}, 1.0) for n in "ABCDEFGH"]
+    assert R(ONE_EMPTY_DAY, pool, 0) == (0, [])

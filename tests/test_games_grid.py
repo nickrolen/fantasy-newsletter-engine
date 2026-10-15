@@ -206,7 +206,30 @@ def test_add_budget_is_read_not_hardcoded():
     r = _report()
     r["schedule_strength"]["upcoming_week"]["weekly_add_budget"] = 5
     out = gg.render_html(r)
-    assert "5 adds" in out and "Three adds" not in out
+    assert "of 5 a week" in out and "Three adds" not in out
+
+
+def test_grid_names_who_has_already_spent_adds():
+    """The newsletter is written inside the previewed week's pre-tip add
+    window, so a manager can arrive with fewer than the rule allows. Quoting
+    the rule at him would overstate what he can still recover."""
+    r = _report()
+    up = r["schedule_strength"]["upcoming_week"]
+    up["managers"]["Nick"]["adds_remaining"] = 1
+    up["managers"]["Hayden"]["adds_remaining"] = 3
+    out = gg.render_html(r)
+    assert "Nick has 1 left" in out
+    assert "Hayden has" not in out          # at the full budget: not called out
+
+
+def test_grid_says_when_add_data_is_not_synced():
+    """build_add_budget reports a full budget when no waivers file exists
+    yet. That is a default, so the grid has to admit it."""
+    r = _report()
+    r["schedule_strength"]["upcoming_week"]["add_data_synced"] = False
+    assert "a full budget of 3 is assumed" in gg.render_html(r)
+    r["schedule_strength"]["upcoming_week"]["add_data_synced"] = True
+    assert "is assumed for everyone" not in gg.render_html(r)
 
 
 def _checked(report):

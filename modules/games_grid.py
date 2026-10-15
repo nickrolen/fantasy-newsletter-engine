@@ -121,6 +121,7 @@ def build_grid(stats_report: dict) -> Optional[dict]:
             "fillable": fillable_total if has_fa else None,
             "overflow": overflow_total,
             "recoverable": md.get("recoverable_starts"),
+            "adds_remaining": md.get("adds_remaining"),
             "unmatched_players": list(md.get("unmatched_players", [])),
         })
     rows.sort(key=lambda r: (-r["startable"], r["manager"]))
@@ -131,6 +132,7 @@ def build_grid(stats_report: dict) -> Optional[dict]:
         "rows": rows,
         "has_free_agents": has_fa,
         "add_budget": upcoming.get("weekly_add_budget"),
+        "adds_synced": upcoming.get("add_data_synced"),
         "from_lineups": list(upcoming.get("player_info_from_lineups") or []),
     }
 
@@ -203,10 +205,13 @@ def render_html(stats_report: dict) -> str:
     budget = grid.get("add_budget")
     top_starts = max((r["startable"] for r in grid["rows"]), default=0)
 
+    remaining = {r["manager"]: r.get("adds_remaining") for r in grid["rows"]}
+    spent = [m for m, n in remaining.items() if n is not None and n != budget]
     if budget:
         sub = ("<b>Starts</b>: games that fit a starting lineup this week. "
-               f"<b>Recoverable</b>: extra starts the week's {budget} adds "
-               "could buy. <b>Idle</b>: players who had a game and sat.")
+               "<b>Recoverable</b>: extra starts a manager's remaining adds "
+               f"could buy, of {budget} a week. "
+               "<b>Idle</b>: players who had a game and sat.")
     else:
         sub = ("<b>Starts</b>: games that fit a starting lineup this week. "
                "<b>Idle</b>: players who had a game and sat.")
@@ -256,10 +261,17 @@ def render_html(stats_report: dict) -> str:
     foot = ["As of report time; rosters change after it. Injuries from "
             "INJURY_OVERRIDES only. Free agents are Yahoo's top ~175."]
     if budget:
-        foot.append(f"Recoverable assumes up to {budget} adds landing before the "
-                    "week's first tip; one made after it is held until the next "
-                    "matchup and cannot help this week. Greedy pick, so it is a "
-                    "floor, not a ceiling.")
+        foot.append("Recoverable spends each manager's adds still left this "
+                    "week, landing before the first tip; one made after the "
+                    "tip is held until the next matchup and cannot help this "
+                    "week. Greedy pick, so it is a floor, not a ceiling.")
+        if spent:
+            foot.append("Already spent some: "
+                        + ", ".join(f"{m} has {remaining[m]} left"
+                                    for m in sorted(spent)) + ".")
+        if grid.get("adds_synced") is False:
+            foot.append("No add data is synced for this week yet, so a full "
+                        f"budget of {budget} is assumed for everyone.")
     unmatched = sorted({p for r in grid["rows"] for p in r["unmatched_players"]})
     if unmatched:
         foot.append("Not counted (no team on file): " + ", ".join(unmatched) + ".")
