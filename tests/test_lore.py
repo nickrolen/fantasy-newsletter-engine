@@ -256,12 +256,15 @@ def test_sitting_walks_one_manager_then_takes_his_own_words(tmp_path):
          "definition": {"manager": "Garrett"}, "entities": ["Garrett"]}]}
     t = review_lore.sitting(
         lore, "Benton", tmp_path, lambda d: None,
-        ask=_answers("a", "Benton forgets his lineup when it matters.", ""),
+        ask=_answers("a", "Benton forgets his lineup when it matters.",
+                     "negative", ""),
         out=lambda *a: None)
     assert lore["entries"][1]["status"] == "proposed"      # Garrett untouched
     w = [e for e in lore["entries"] if e["kind"] == "written"]
     assert len(w) == 1 and w[0]["status"] == "approved"
     assert w[0]["entities"] == ["Benton"] and t["added"] == 1
+    # His own words arrive labelled, or the balance cannot count them.
+    assert w[0]["valence"] == {"Benton": "negative"}
 
 
 def test_no_code_reads_chat_exports():

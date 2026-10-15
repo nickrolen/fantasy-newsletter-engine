@@ -142,6 +142,19 @@ def add(lore: dict, save, ask=input, out=print, about: str = "",
          "status": "proposed", "text": text,
          "entities": [w.strip() for w in who.split(",") if w.strip()],
          "evidence": {"source": source}}
+    # One label per manager named, asked at the only moment the answer is
+    # obvious. A sentence can flatter one manager and damn another -- see
+    # modules/lore_valence -- so a single answer will not do.
+    valence = {}
+    for m in LV.managers_in(e):
+        while True:
+            v = ask(f"    Toward {m} -- {' / '.join(LV.LABELS)}? ").strip().lower()
+            if v in LV.LABELS:
+                valence[m] = v
+                break
+            out(f"    One of: {', '.join(LV.LABELS)}.")
+    if valence:
+        e["valence"] = valence
     L.decide(e, "approved")
     lore.setdefault("entries", []).append(e)
     save(lore)
