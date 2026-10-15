@@ -213,6 +213,22 @@ def main(argv=None) -> int:
     for name in meta["drift"]:
         print(f"WARNING: output/{name} changed after this week's capture; "
               "checked against the live file")
+    # Record which lore entries this draft actually used, so next week's
+    # export can prefer ones that have not run lately. The tags are the only
+    # record of what the drafting chat reached for; without this, every
+    # approved entry looks equally fresh in all 23 issues (Nick, 10-14).
+    # Season comes from the base's own config, not a module constant, so a
+    # replay records against the season it is replaying.
+    try:
+        from modules.claim_check import LORE_TAG
+        from modules import lore_usage
+        season = (config.get("season") or {}).get("current")
+        if season:
+            lore_usage.record(base, season, args.week,
+                              LORE_TAG.findall(draft.read_text(encoding="utf-8")))
+    except Exception as e:  # never let bookkeeping fail the check
+        print(f"  WARNING: lore usage not recorded: {type(e).__name__}: {e}")
+
     text = render(findings, args.week, meta)
     out = base / "output" / f"claim_check_week{args.week}.md"
     out.parent.mkdir(exist_ok=True)

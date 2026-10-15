@@ -31,6 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from modules import lore as L  # noqa: E402
+from modules import lore_usage
 
 KEYS = "[a]pprove  [e]dit  [r]eject  [s]kip  [u]ndo previous  [q]uit"
 
@@ -192,17 +193,41 @@ def sitting(lore, manager, base, save, ask=input, out=print) -> dict:
     return t
 
 
-def export(lore: dict, base: Path) -> Path:
+def export(lore: dict, base: Path, week: int = None,
+           season: str = None) -> Path:
     """Approved, non-stale entries only, stripped to what the writer needs.
     Proposals, rejections, evidence and decision logs stay out: what the
-    drafting chat is shown, it treats as sayable."""
-    keep = ("id", "kind", "strength", "text", "entities", "alias", "name")
+    drafting chat is shown, it treats as sayable.
+
+    Each entry also carries how recently it was published, so the drafting
+    chat can tell a line it has never used from one it ran last week. Without
+    this every entry looked equally fresh in all 23 issues and the same
+    characterisation of a manager could repeat all season (Nick, 10-14).
+    `valence` rides along so the writer can keep praise and criticism in
+    proportion rather than reaching for the same flattering or damning line.
+    """
+    keep = ("id", "kind", "strength", "text", "entities", "alias", "name",
+            "valence")
     entries = [{k: e[k] for k in keep if k in e}
                for e in L.approved(lore)]
+
+    note = ("Entries carry last_used_week when they have been published "
+            "before. Prefer an entry that has never run, or one that ran "
+            "long ago, over one from recent weeks.")
+    if season:
+        last = lore_usage.last_used(base, season,
+                                    before_week=week if week else None)
+        for e in entries:
+            w = last.get(e.get("id"))
+            if w is not None:
+                e["last_used_week"] = w
+                if week:
+                    e["weeks_since_used"] = int(week) - w
     out = base / "output" / "lore_for_drafting.json"
     out.parent.mkdir(exist_ok=True)
-    out.write_text(json.dumps({"entries": entries}, indent=1,
-                              ensure_ascii=True) + "\n", encoding="utf-8")
+    out.write_text(json.dumps({"_usage_note": note, "entries": entries},
+                              indent=1, ensure_ascii=True) + "\n",
+                   encoding="utf-8")
     return out
 
 
@@ -215,6 +240,9 @@ def main(argv=None) -> int:
     ap.add_argument("--export", action="store_true",
                     help="write output/lore_for_drafting.json: approved, "
                          "current entries only, for the drafting chat")
+    ap.add_argument("--week", type=int,
+                    help="the week being drafted; adds weeks_since_used to "
+                         "the export so the writer can avoid recent lines")
     ap.add_argument("--base", default=str(ROOT))
     args = ap.parse_args(argv)
     base = Path(args.base)
@@ -225,7 +253,10 @@ def main(argv=None) -> int:
             pass
         return 0
     if args.export:
-        out = export(lore, base)
+        out = export(lore, base, week=args.week,
+                     season=(json.loads((base / "config" / "league_config.json")
+                                        .read_text(encoding="utf-8"))
+                             .get("season") or {}).get("current"))
         print(f"wrote {out} ({len(json.loads(out.read_text(encoding='utf-8'))['entries'])} "
               "approved entries)")
         return 0

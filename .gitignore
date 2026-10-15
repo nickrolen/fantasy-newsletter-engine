@@ -172,6 +172,10 @@ newsletter_state.zip
 # private mythology. Never commit. (No chat logs, ever: not even ignored.)
 # --------------------------------------------
 config/LEAGUE_LORE.json
+# The usage ledger is a list of lore entry ids (myth-benton-blunders,
+# loyalty-nick-anthonydavis). The repo is public and the lore file is not;
+# a bare id gives the entry away just as a tag in the page source would.
+config/LORE_USAGE.json
 data/lore_backups/
 output/claim_check_week*.md
 output/advice_preview_week*.html
