@@ -33,7 +33,8 @@ from typing import Optional
 
 import pandas as pd
 
-from .data_loader import PlayerIndex, FantasyData, MANAGERS, TOTAL_WEEKS, roster_index
+from .data_loader import (PlayerIndex, FantasyData, MANAGERS, TOTAL_WEEKS,
+                          roster_index, add_budget_for)
 from .lineup_fill import exact_fill, max_starters, open_seats
 
 
@@ -358,6 +359,77 @@ def fill_daily_lineup_detail(
     return started, benched, remaining
 
 
+def recoverable_under_budget(
+    day_pools: list[tuple[list, int, set[str]]],
+    free_agents: Optional[list[tuple[str, str, set[str], float]]],
+    budget: Optional[int],
+) -> tuple[Optional[int], list[str]]:
+    """Extra starts available by adding at most `budget` free agents.
+
+    Why this and not "fillable": fillable is max_starters(roster + EVERY free
+    agent playing tonight) - started, i.e. the ceiling with unlimited adds.
+    With a ~175-deep pool that ceiling is always just the day's empty seats,
+    so fillable is 10*days - starts restated and carries no information of
+    its own. The league caps adds at `budget` a week, so the reachable number
+    is much smaller and is the one worth printing.
+
+    The 2026-27 rule (Nick, 10-15): 3 adds a matchup week, no rollover. An add
+    made in the pre-matchup window -- 12:01 AM on the first day until that
+    day's first tip -- starts that night. One made after the first tip is held
+    until the next matchup begins, so it cannot help the week it was made in.
+    This function therefore models adds landing BEFORE the week starts, each
+    one active on every day its NBA team plays.
+
+    Greedy, deliberately: it takes the best single add, locks it in, and
+    repeats. Any set it builds is feasible, so the result is a lower bound on
+    the true optimum, never an overstatement. Returns (extra_starts, names);
+    the names are for tests and are NOT published -- naming adds is C2/C3
+    advice, which is gated.
+
+    Returns (None, []) when the rule does not apply (no budget) or there is
+    no free-agent pool, so a missing number renders as unknown rather than 0.
+    """
+    if not budget or budget <= 0 or not free_agents or not day_pools:
+        return None, []
+
+    cands: list[tuple[str, frozenset, tuple[int, ...]]] = []
+    for name, team, pos, _proj in free_agents:
+        days = tuple(i for i, (_sets, _st, teams) in enumerate(day_pools)
+                     if team in teams)
+        if days:
+            cands.append((name, frozenset(pos), days))
+    if not cands:
+        return 0, []
+
+    def extra_for(sel: list[tuple[str, frozenset, tuple[int, ...]]]) -> int:
+        touched: set[int] = set()
+        for _n, _p, days in sel:
+            touched.update(days)
+        tot = 0
+        for i in touched:
+            sets, started, _teams = day_pools[i]
+            add = [p for _n, p, days in sel if i in days]
+            tot += max_starters(list(sets) + add) - started
+        return tot
+
+    chosen: list[tuple[str, frozenset, tuple[int, ...]]] = []
+    gained = 0
+    for _ in range(int(budget)):
+        best, best_gain = None, 0
+        taken = {c[0] for c in chosen}
+        for cand in cands:
+            if cand[0] in taken:
+                continue
+            gain = extra_for(chosen + [cand]) - gained
+            if gain > best_gain:
+                best, best_gain = cand, gain
+        if best is None:
+            break
+        chosen.append(best)
+        gained += best_gain
+    return gained, [c[0] for c in chosen]
+
+
 def simulate_daily_lineups(
     manager: str,
     roster: list[str],
@@ -365,6 +437,7 @@ def simulate_daily_lineups(
     daily_schedule: dict[date, set[str]],
     out_players: dict[str, Optional[date]],
     free_agents: Optional[list[tuple[str, str, set[str], float]]] = None,
+    add_budget: Optional[int] = None,
 ) -> dict:
     """
     Simulate optimal lineups for every game day in the period.
@@ -406,6 +479,9 @@ def simulate_daily_lineups(
     player_benched = {p: 0 for p in roster}
 
     daily_detail: list[dict] = []
+    # (roster position sets, starters, teams playing) per day, for
+    # recoverable_under_budget -- a week-level question, not a daily one.
+    week_pool: list[tuple[list, int, set[str]]] = []
 
     # A rostered player with no player_info used to be skipped silently --
     # every one of his games read as an empty slot. Name them instead.
@@ -474,6 +550,11 @@ def simulate_daily_lineups(
             detail["fillable"] = max_starters(
                 [frozenset(a[1]) for a in available] + playing) - len(started)
         daily_detail.append(detail)
+        week_pool.append(([frozenset(a[1]) for a in available],
+                          len(started), set(teams_playing)))
+
+    recoverable, _rec_names = recoverable_under_budget(
+        week_pool, free_agents, add_budget)
 
     # Totals
     total_games = sum(player_total.values())
@@ -511,6 +592,7 @@ def simulate_daily_lineups(
     )
 
     return {
+        "recoverable_starts": recoverable,
         "total_games": total_games,
         "healthy_games": healthy_games,
         "startable_games": startable_games,
@@ -613,6 +695,7 @@ def add_rankings(
 def build_schedule_strength(
     data: FantasyData,
     week: int,
+    add_budget: Optional[int] = None,
 ) -> dict:
     """
     Build the complete schedule strength analysis for the upcoming week
@@ -677,6 +760,10 @@ def build_schedule_strength(
         player_info,
         data.injury_overrides,
         free_agents=free_agents,
+        # The rule did not exist before 2026-27, and add_budget_for returns
+        # None for those seasons, which suppresses the number rather than
+        # printing a reachable total nobody could reach.
+        add_budget=(add_budget if add_budget is not None else add_budget_for()),
     )
     if "managers" in upcoming_result:
         upcoming_result["player_info_from_lineups"] = from_lineups
@@ -726,6 +813,7 @@ def _build_for_week_with_lineups(
     player_info: dict[str, dict],
     injury_overrides: dict,
     free_agents: Optional[list[tuple[str, str, set[str], float]]] = None,
+    add_budget: Optional[int] = None,
 ) -> dict:
     """
     Build schedule strength for a single fantasy week using daily
@@ -799,6 +887,7 @@ def _build_for_week_with_lineups(
             daily_schedule=daily_schedule,
             out_players=out_players,
             free_agents=free_agents,
+            add_budget=add_budget,
         )
         managers_data[manager] = result
 
@@ -818,6 +907,7 @@ def _build_for_week_with_lineups(
             for d, teams in sorted(daily_schedule.items())
         },
         "free_agent_pool_size": None if free_agents is None else len(free_agents),
+        "weekly_add_budget": add_budget,
     }
 
 

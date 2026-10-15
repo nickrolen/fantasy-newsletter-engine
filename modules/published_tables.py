@@ -549,49 +549,65 @@ def check_free_agents(t: Node, title: str, ctx: dict) -> list:
 
 
 def check_games_grid(t: Node, title: str, ctx: dict) -> list:
-    """Each day: starters + open slots = the seats in a lineup; "full" only
-    when nothing is open; fillable never exceeds open. Each row: Fillable is
-    the sum of its days' fillable slots (when known)."""
+    """Each day: starters + open seats = the seats in a lineup, and "full"
+    only when nothing is open. Each row: Idle is the sum of its days' idle
+    players, and Recoverable never exceeds the week's open seats -- you
+    cannot buy back a start there is no seat for.
+
+    Day columns are located from the header, never a fixed offset. The key
+    columns have changed once already, and the old r[3:] slice would have
+    silently validated a key column as a day.
+    """
     from modules.lineup_fill import NUM_SEATS
     out = []
     rows = _table_rows(t)
     header = [c.text() for c in rows[0]]
+    first_day = 1 + sum(1 for k in ("Starts", "Recoverable", "Idle") if k in header)
     for r in rows[1:]:
         mgr = r[0].text()
-        day_fill, known = 0, True
-        for i, c in enumerate(r[3:], start=3):
+        day_idle, holes_total = 0, 0
+        for i, c in enumerate(r[first_day:], start=first_day):
             if "gg-off" in c.classes:
                 continue
             n_node = c.find(cls="gg-n")
             started = _num(n_node.text()) if n_node else None
-            note = (c.find(cls="gg-note") or Node("x", {})).text()
-            fill = re.search(r"(\d+) fillable", note)
-            opn = re.search(r"(\d+) open", note)
-            fill_n = int(fill.group(1)) if fill else 0
-            holes = None if started is None else NUM_SEATS - int(started)
             label = header[i] if i < len(header) else f"day {i}"
             if started is None or not 0 <= started <= NUM_SEATS:
                 out.append(Finding(title, "starters", f"{mgr} {label}: {c.text()!r}"))
                 continue
+            holes = NUM_SEATS - int(started)
+            holes_total += holes
+            o_node = c.find(cls="gg-open")
+            i_node = c.find(cls="gg-idle")
+            opn = re.search(r"(\d+) open", o_node.text()) if o_node else None
+            idle = re.search(r"\+(\d+) idle", i_node.text()) if i_node else None
+            if idle:
+                day_idle += int(idle.group(1))
             if opn and int(opn.group(1)) != holes:
                 out.append(Finding(title, "open slots",
                                    f"{mgr} {label}: {int(started)} started and "
                                    f"{opn.group(1)} open of {NUM_SEATS}"))
+            if (opn is None) != (holes == 0):
+                out.append(Finding(title, "open slots",
+                                   f"{mgr} {label}: {holes} open of {NUM_SEATS} "
+                                   "not shown" if holes else
+                                   f"{mgr} {label}: no seats open but open shown"))
             if ("gg-full" in c.classes) != (holes == 0):
                 out.append(Finding(title, "full marker",
                                    f"{mgr} {label}: {int(started)} of {NUM_SEATS} "
                                    f"{'marked' if 'gg-full' in c.classes else 'not marked'} full"))
-            if fill_n > holes:
-                out.append(Finding(title, "fillable", f"{mgr} {label}: {fill_n} fillable, "
-                                   f"{holes} open"))
-            day_fill += fill_n
-        if "Fillable" in header:
-            f = _num(r[header.index("Fillable")].text())
-            if f is not None and int(f) != day_fill:
-                out.append(Finding(title, "Fillable column",
-                                   f"{mgr}: {int(f)} shown, days sum to {day_fill}"))
+        if "Idle" in header:
+            v = _num(r[header.index("Idle")].text())
+            if v is not None and int(v) != day_idle:
+                out.append(Finding(title, "Idle column",
+                                   f"{mgr}: {int(v)} shown, days sum to {day_idle}"))
+        if "Recoverable" in header:
+            v = _num(r[header.index("Recoverable")].text())
+            if v is not None and int(v) > holes_total:
+                out.append(Finding(title, "Recoverable column",
+                                   f"{mgr}: {int(v)} recoverable but only "
+                                   f"{holes_total} seats open all week"))
     return out
-
 
 def _both(*fns):
     def run(t, title, ctx):

@@ -10,14 +10,29 @@ schedule_strength.py already simulates every manager's daily lineup for the
 coming week. This module only lays it out: one row per manager, one column
 per day, the number who start, and -- the point of it -- the holes.
 
-The signal is the two leading columns, not the day cells. STARTS is the week's
-simulated started games; FILLABLE is how many empty slots a healthy free
-agent with a game that night could fill (exact matching of open seats to
-positions, count_fillable in schedule_strength). In a four-team league the
-wire is deep and Util seats are open most nights, so nearly every hole is
-fillable and per-day shading is near-uniform -- but a week like Garrett
-50/20 against Benton 39/31 separates the league at a glance. Rows sort by
-STARTS; the day cells stay muted, as the detail behind the totals.
+The signal is the three leading columns, not the day cells.
+
+  STARTS       games that fit a starting lineup this week.
+  RECOVERABLE  extra starts the week's add budget could actually buy.
+  IDLE         players who had a game and sat.
+
+FILLABLE used to sit where RECOVERABLE now is, and it was Starts restated.
+It came from schedule_strength's max_starters(roster + EVERY free agent
+playing tonight) - started: the ceiling with unlimited adds. With a ~175-deep
+pool that ceiling is always just the day's empty seats, so across 84 measured
+cells fillable equalled holes every time, and every manager's total equalled
+10 * days_with_games - starts exactly. Two of three key columns, one fact.
+Worse, it implied 22 recoverable starts in a week the league caps at 3 adds.
+RECOVERABLE asks the reachable question instead (recoverable_under_budget).
+
+IDLE is the column that was missing. It is not derivable from Starts and it
+moves: in week 17 of 2025-26, Benton 16 against Hayden 9 on identical 58
+starts and 22 holes -- Benton position-clustered, Hayden simply thin. Those
+need different fixes and the old grid could not tell them apart.
+
+Rows sort by STARTS; the day cells stay muted, as the detail behind the
+totals. Per-day shading was considered and cut: in a four-team league with a
+deep wire it is near-uniform, so it would colour noise.
 
 There is no streamer board, deliberately. One was built and cut before
 week 1: per manager it collapsed into identical pairs, and scored against
@@ -105,6 +120,7 @@ def build_grid(stats_report: dict) -> Optional[dict]:
             "holes": holes_total,
             "fillable": fillable_total if has_fa else None,
             "overflow": overflow_total,
+            "recoverable": md.get("recoverable_starts"),
             "unmatched_players": list(md.get("unmatched_players", [])),
         })
     rows.sort(key=lambda r: (-r["startable"], r["manager"]))
@@ -114,22 +130,31 @@ def build_grid(stats_report: dict) -> Optional[dict]:
         "days": days,
         "rows": rows,
         "has_free_agents": has_fa,
+        "add_budget": upcoming.get("weekly_add_budget"),
         "from_lineups": list(upcoming.get("player_info_from_lineups") or []),
     }
 
 
 def _cell_text(c: dict) -> str:
+    """One day cell for the markdown reference table."""
     if c["off"]:
         return "-"
-    text = str(c["started"])
-    if c["fillable"]:
-        slots = ",".join(c["open_slots"][: c["holes"]])
-        text += f" ({c['fillable']} fillable: {slots})"
-    elif c["holes"]:
-        text += f" ({c['holes']} open)"
+    parts = [str(c["started"])]
+    if c["holes"]:
+        parts.append(f"{c['holes']} open: {','.join(c['open_slots'][: c['holes']])}")
     if c["overflow"]:
-        text += f" +{c['overflow']} bench"
-    return text
+        parts.append(f"+{c['overflow']} idle")
+    return " / ".join(parts)
+
+
+def _key_cells(r: dict) -> tuple[str, str, str]:
+    """Starts, Recoverable, Idle as text.
+
+    Recoverable renders "?" rather than 0 when the season had no add budget:
+    the question does not apply, and a 0 would read as "nothing to gain".
+    """
+    rec = "?" if r.get("recoverable") is None else str(r["recoverable"])
+    return str(r["startable"]), rec, str(r["overflow"])
 
 
 def render_markdown(stats_report: dict) -> str:
@@ -137,22 +162,30 @@ def render_markdown(stats_report: dict) -> str:
     grid = build_grid(stats_report)
     if grid is None:
         return ""
-    head = ["Manager", "Starts", "Fillable holes"] + [d["label"] for d in grid["days"]]
+    budget = grid.get("add_budget")
+    head = (["Manager", "Starts", "Recoverable", "Idle"]
+            + [d["label"] for d in grid["days"]])
+    note = (f"Recoverable = extra starts {budget} adds could buy, landing before "
+            "the week's first tip." if budget else
+            "Recoverable is blank: the weekly add rule did not apply this season.")
     lines = [
         f"**Week {grid['week']} Games Grid** (rows sorted by Starts. Rendered "
         "automatically in the HTML -- do NOT reproduce it. You may cite a "
-        "manager's Starts and Fillable holes in a preview.)",
+        "manager's Starts, Recoverable or Idle in a preview. Do NOT name "
+        "players to add: naming adds is gated advice.)",
+        "",
+        note,
         "",
         "| " + " | ".join(head) + " |",
         "|" + "|".join(["---"] * len(head)) + "|",
-        "| NBA games | | | " + " | ".join(
+        "| NBA games | | | | " + " | ".join(
             "-" if d["nba_games"] is None else str(d["nba_games"]) for d in grid["days"]
         ) + " |",
     ]
     for r in grid["rows"]:
-        fill = "?" if r["fillable"] is None else str(r["fillable"])
+        st, rec, idle = _key_cells(r)
         lines.append("| " + " | ".join(
-            [r["manager"], str(r["startable"]), fill]
+            [r["manager"], st, rec, idle]
             + [_cell_text(c) for c in r["cells"]]) + " |")
     unmatched = sorted({p for r in grid["rows"] for p in r["unmatched_players"]})
     if unmatched:
@@ -162,61 +195,71 @@ def render_markdown(stats_report: dict) -> str:
 
 
 def render_html(stats_report: dict) -> str:
-    """The grid as an HTML block for the Betting Lines section."""
+    """The grid as an HTML block, rendered after the Power Rankings content."""
     grid = build_grid(stats_report)
     if grid is None:
         return ""
     e = html.escape
+    budget = grid.get("add_budget")
     top_starts = max((r["startable"] for r in grid["rows"]), default=0)
+
+    if budget:
+        sub = ("<b>Starts</b>: games that fit a starting lineup this week. "
+               f"<b>Recoverable</b>: extra starts the week's {budget} adds "
+               "could buy. <b>Idle</b>: players who had a game and sat.")
+    else:
+        sub = ("<b>Starts</b>: games that fit a starting lineup this week. "
+               "<b>Idle</b>: players who had a game and sat.")
 
     out = ['<div class="games-grid" data-viz="games-grid">',
            f'<div class="gg-title">Week {e(str(grid["week"]))} Games Grid</div>',
-           '<div class="gg-sub"><b>Starts</b>: simulated started games this week. '
-           '<b>Fillable</b>: empty slots a free agent with a game that night '
-           'could fill. Daily starters out of 10 to the right.</div>',
+           f'<div class="gg-sub">{sub}</div>',
            '<div class="gg-scroll"><table class="gg-table"><thead><tr>'
            '<th class="gg-mgr-h">Manager</th><th class="gg-key">Starts</th>'
-           '<th class="gg-key">Fillable</th>']
+           '<th class="gg-key">Recoverable</th><th class="gg-key">Idle</th>']
     for d in grid["days"]:
         n = d["nba_games"]
-        sub = "" if n is None else f'<span class="gg-nba">{n} NBA</span>'
-        out.append(f'<th class="gg-day-h">{e(d["label"])}{sub}</th>')
+        sb = "" if n is None else f'<span class="gg-nba">{n} NBA</span>'
+        out.append(f'<th class="gg-day-h">{e(d["label"])}{sb}</th>')
     out.append('</tr></thead><tbody>')
 
     for r in grid["rows"]:
-        fill = "?" if r["fillable"] is None else str(r["fillable"])
+        st, rec, idle = _key_cells(r)
         s_cls = "gg-key gg-top" if r["startable"] == top_starts else "gg-key"
-        f_cls = "gg-key"  # most fillable = most room, not "best": no marker
+        # Most recoverable and most idle are the most left on the table, not
+        # the best -- neither gets the gold marker.
         out.append(f'<tr><th class="gg-mgr">{e(r["manager"])}</th>'
-                   f'<td class="{s_cls}">{r["startable"]}</td>'
-                   f'<td class="{f_cls}">{fill}</td>')
+                   f'<td class="{s_cls}">{st}</td>'
+                   f'<td class="gg-key">{rec}</td>'
+                   f'<td class="gg-key">{idle}</td>')
         for c in r["cells"]:
             if c["off"]:
                 out.append('<td class="gg-day gg-off">-</td>')
                 continue
-            notes, tip = [], []
-            if c["fillable"]:
-                notes.append(f'{c["fillable"]} fillable')
+            spans, tip = [], []
+            if c["holes"]:
+                spans.append(f'<span class="gg-open">{c["holes"]} open</span>')
                 tip.append("Open: " + ", ".join(c["open_slots"][: c["holes"]]))
-            elif c["holes"]:
-                notes.append(f'{c["holes"]} open')
-                tip.append("No free agent with a game fits the open slots")
             if c["overflow"]:
-                notes.append(f'+{c["overflow"]} bench')
-                tip.append("Benched with a game: " + ", ".join(c["overflow_players"]))
+                spans.append(f'<span class="gg-idle">+{c["overflow"]} idle</span>')
+                tip.append("Had a game, sat: " + ", ".join(c["overflow_players"]))
             if c["injured_with_game"]:
                 tip.append(f'{c["injured_with_game"]} injured with a game')
-            note_html = f'<span class="gg-note">{e(" / ".join(notes))}</span>' if notes else ""
             title = f' title="{e("; ".join(tip))}"' if tip else ""
             full = " gg-full" if c["holes"] == 0 else ""
             out.append(f'<td class="gg-day{full}"{title}>'
-                       f'<span class="gg-n">{c["started"]}</span>{note_html}</td>')
+                       f'<span class="gg-n">{c["started"]}</span>'
+                       f'{"".join(spans)}</td>')
         out.append('</tr>')
     out.append('</tbody></table></div>')
 
     foot = ["As of report time; rosters change after it. Injuries from "
-            "INJURY_OVERRIDES only. Free agents are Yahoo's top ~175. Three "
-            "adds a week."]
+            "INJURY_OVERRIDES only. Free agents are Yahoo's top ~175."]
+    if budget:
+        foot.append(f"Recoverable assumes up to {budget} adds landing before the "
+                    "week's first tip; one made after it is held until the next "
+                    "matchup and cannot help this week. Greedy pick, so it is a "
+                    "floor, not a ceiling.")
     unmatched = sorted({p for r in grid["rows"] for p in r["unmatched_players"]})
     if unmatched:
         foot.append("Not counted (no team on file): " + ", ".join(unmatched) + ".")
@@ -232,7 +275,7 @@ def get_css() -> str:
         .games-grid .gg-sub, .games-grid .gg-foot { font-size: 0.82em; color: var(--text-secondary, #666); margin: 4px 0 10px; }
         .games-grid .gg-foot { margin-top: 8px; }
         .games-grid .gg-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .games-grid .gg-table { border-collapse: collapse; width: 100%; min-width: 600px; font-variant-numeric: tabular-nums; }
+        .games-grid .gg-table { border-collapse: collapse; width: 100%; min-width: 640px; font-variant-numeric: tabular-nums; }
         .games-grid th, .games-grid td { border: 1px solid var(--border-color, #ddd); padding: 6px; text-align: center; vertical-align: middle; }
         .games-grid thead th { font-size: 0.8em; font-weight: 600; background: var(--primary-blue); color: #fff; white-space: nowrap; }
         .games-grid thead th.gg-day-h { opacity: 0.85; font-weight: 500; }
@@ -244,6 +287,8 @@ def get_css() -> str:
         .games-grid .gg-day .gg-n { font-weight: 500; }
         .games-grid .gg-day.gg-full .gg-n { color: var(--text-primary, #222); font-weight: 700; }
         .games-grid .gg-n { display: block; font-size: 0.98em; }
-        .games-grid .gg-note { display: block; font-size: 0.7em; white-space: nowrap; color: var(--text-secondary, #777); }
+        .games-grid .gg-open, .games-grid .gg-idle { display: block; font-size: 0.7em; white-space: nowrap; }
+        .games-grid .gg-open { color: var(--danger-red, #b3261e); }
+        .games-grid .gg-idle { color: var(--text-secondary, #777); }
         .games-grid .gg-off { color: var(--text-secondary, #aaa); }
     """

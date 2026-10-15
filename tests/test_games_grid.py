@@ -120,13 +120,16 @@ def _report():
         "week": 2, "start_date": "2026-10-26", "end_date": "2026-10-28",
         "nba_games_by_day": {"2026-10-26": 5, "2026-10-28": 11},
         "free_agent_pool_size": 60,
+        "weekly_add_budget": 3,
         "managers": {
             "Hayden": {"startable_games": 20, "unmatched_players": [],
+                       "recoverable_starts": 0,
                        "daily_detail": [
                            {"date": "2026-10-26", "started": 10, "benched": 0,
                             "open_slots": [], "fillable": 0, "benched_players": [],
                             "injured_with_game": 0}]},
             "Nick": {"startable_games": 17, "unmatched_players": ["Deep <Guy>"],
+                     "recoverable_starts": 2,
                      "daily_detail": [
                          {"date": "2026-10-26", "started": 7, "benched": 0,
                           "open_slots": ["C", "Util", "Util"], "fillable": 3,
@@ -157,21 +160,89 @@ def test_no_data_renders_nothing():
 def test_markdown_tells_the_drafting_chat_not_to_retype_it():
     md = gg.render_markdown(_report())
     assert "do NOT reproduce" in md
-    assert "7 (3 fillable: C,Util,Util)" in md
-    assert "10 +2 bench" in md
-    assert "| Manager | Starts | Fillable holes | Mon 10/26" in md
+    assert "7 / 3 open: C,Util,Util" in md
+    assert "10 / +2 idle" in md
+    assert "| Manager | Starts | Recoverable | Idle | Mon 10/26" in md
     assert "streamer" not in md.lower()
+    # Naming adds is C2/C3 advice and is gated; the reference table must say so.
+    assert "Do NOT name players to add" in md
+    assert "fillable" not in md.lower()
 
 
-def test_html_highlights_fillable_holes_and_escapes_names():
+def test_html_shows_three_independent_keys_and_escapes_names():
     out = gg.render_html(_report())
     head = out.split("<tbody>")[0]
-    assert head.index(">Starts<") < head.index(">Fillable<") < head.index("Mon 10/26")
-    assert '<td class="gg-key gg-top">20</td>' in out     # league-best Starts
+    assert (head.index(">Starts<") < head.index(">Recoverable<")
+            < head.index(">Idle<") < head.index("Mon 10/26"))
+    assert ">Fillable<" not in head                        # Starts restated: cut
+    assert '<td class="gg-key gg-top">20</td>' in out       # league-best Starts
     assert "gg-fill" not in out                            # no per-day shading
     assert "streamer" not in out.lower()                   # board cut for week 1
     assert "Deep &lt;Guy&gt;" in out and "Deep <Guy>" not in out
-    assert "Benched with a game: X, Y" in out
+    assert "Had a game, sat: X, Y" in out
+    # A deficit and a surplus are different conditions, in different spans.
+    assert '<span class="gg-open">3 open</span>' in out
+    assert '<span class="gg-idle">+2 idle</span>' in out
+
+
+def test_recoverable_is_unknown_not_zero_without_an_add_rule():
+    """Pre-2026-27 there was no add budget, so the question does not apply.
+    A 0 would read as "nothing to gain", which is a different claim."""
+    rep_no_budget = _report()
+    up = rep_no_budget["schedule_strength"]["upcoming_week"]
+    del up["weekly_add_budget"]
+    for m in up["managers"].values():
+        m["recoverable_starts"] = None
+    out = gg.render_html(rep_no_budget)
+    assert ">Recoverable<" in out and "<td class=\"gg-key\">?</td>" in out
+    assert "adds could buy" not in out      # no budget -> no add sentence
+    md = gg.render_markdown(rep_no_budget)
+    assert "did not apply this season" in md
+
+
+def test_add_budget_is_read_not_hardcoded():
+    """The footer used to say "Three adds a week." in prose while
+    config/league_structure.weekly_add_budget already existed."""
+    r = _report()
+    r["schedule_strength"]["upcoming_week"]["weekly_add_budget"] = 5
+    out = gg.render_html(r)
+    assert "5 adds" in out and "Three adds" not in out
+
+
+def _checked(report):
+    from modules import published_tables as pt
+    body = gg.render_html(report)
+    findings, _ = pt.check_document(f"<html><body>{body}</body></html>",
+                                    {"season": None, "standings": {}})
+    return findings
+
+
+def test_published_table_check_finds_day_columns_from_the_header():
+    """A fixed r[3:] slice would read Idle as a day column. With four key
+    columns the checker must still pass a correct grid."""
+    assert _checked(_report()) == []
+
+
+def test_published_table_check_catches_recoverable_above_open_seats():
+    r = _report()
+    # Nick has 3 open seats all week; 9 recoverable starts is impossible.
+    r["schedule_strength"]["upcoming_week"]["managers"]["Nick"]["recoverable_starts"] = 9
+    findings = _checked(r)
+    assert any(f.check == "Recoverable column" for f in findings), findings
+
+
+def test_published_table_check_catches_a_wrong_idle_total():
+    """Idle is the one key column summed from the day cells, so it is the one
+    that can disagree with them."""
+    import re as _re
+    body = gg.render_html(_report())
+    # Nick's Idle total is 2; make the cell say +5 without touching the total.
+    broken = _re.sub(r'<span class="gg-idle">\+2 idle</span>',
+                     '<span class="gg-idle">+5 idle</span>', body, count=1)
+    from modules import published_tables as pt
+    findings, _ = pt.check_document(f"<html><body>{broken}</body></html>",
+                                    {"season": None, "standings": {}})
+    assert any(f.check == "Idle column" for f in findings), findings
 
 
 def _nhg():
