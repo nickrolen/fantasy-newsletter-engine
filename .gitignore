@@ -185,3 +185,7 @@ output/lore_for_drafting.json
 
 # Dry-run packets: they carry the lore export, which never reaches git
 output/dryrun/
+
+# Staged read-only copy for an external audit. Credentials and output/dryrun
+# are excluded from it; see claude/AUDIT_BRIEF. Delete after the audit.
+_audit_export/
