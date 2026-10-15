@@ -31,7 +31,7 @@ from modules import claim_check as cc  # noqa: E402
 LORE_FILE = "config/LEAGUE_LORE.json"
 KIND_ORDER = ["unsupported_number", "unsupported_superlative",
               "unsourced_history", "fact_as_tendency", "approximate_number",
-              "bad_lore_ref"]
+              "bad_lore_ref", "money_without_event", "report_card_order"]
 KIND_LABEL = {
     "unsupported_number": "Numbers with no source",
     "unsupported_superlative": "Rankings with no source",
@@ -39,6 +39,8 @@ KIND_LABEL = {
     "bad_lore_ref": "Lore tags that don't resolve",
     "fact_as_tendency": "Lore facts told as character (say it as history)",
     "approximate_number": "Approximate numbers (template rule 2: give it)",
+    "money_without_event": "Dollar figures in a week nothing was decided",
+    "report_card_order": "Report cards out of overall_score order",
 }
 
 
@@ -66,10 +68,36 @@ def load_lore(base: Path, refresh: bool = True) -> list:
 
 def run(draft_text: str, week: int, out_dirs: list[Path], config: dict,
         lore_entries: list, roster_players=(), bases=(),
-        include_recap: bool = True) -> tuple[list, dict]:
+        include_recap: bool = True, money_events=None) -> tuple[list, dict]:
+    """money_events: this week's (angles_weekN.json); None skips the money
+    rule -- main() always passes it, and refuses to run without it."""
     pool, vocab, lore, meta = prepare(week, out_dirs, config, lore_entries,
                                       roster_players, bases, include_recap)
-    return cc.check(draft_text, pool, vocab, lore), meta
+    findings = cc.check(draft_text, pool, vocab, lore)
+    cards = (meta.get("current_report") or {}).get("report_cards")
+    if cards:
+        findings += cc.report_card_findings(draft_text, cards)
+    if money_events is not None:
+        findings += cc.money_findings(draft_text, vocab, money_events)
+    return findings, meta
+
+
+def load_money_events(week: int, out_dirs: list[Path]) -> list:
+    """What decided money this week, from the ANGLES file the stats report
+    wrote. Missing is an error, not "nothing decided": the two would read
+    the same and only one of them is true."""
+    for d in out_dirs:
+        f = d / f"angles_week{week}.json"
+        if f.exists():
+            sel = json.loads(f.read_text(encoding="utf-8"))
+            if "money_events" not in sel:
+                raise FileNotFoundError(
+                    f"{f} has no money_events (written before 10-15): "
+                    f"re-run format_stats_report.py --week {week}")
+            return sel["money_events"]
+    raise FileNotFoundError(
+        f"angles_week{week}.json not found in {[str(d) for d in out_dirs]}: "
+        f"the money rule needs this week's decided events")
 
 
 def historical_team_names(base) -> dict:
@@ -107,6 +135,7 @@ def prepare(week: int, out_dirs: list[Path], config: dict,
                 players |= cc.players_in(obj)
                 if w == week:
                     found_current = True
+                    current = obj
             if m.exists():
                 mds.append((m.name, m.read_text(encoding="utf-8")))
             if j.exists() or m.exists():
@@ -150,10 +179,15 @@ def prepare(week: int, out_dirs: list[Path], config: dict,
     lore = {e.get("id"): e for e in lore_entries}
     return pool, vocab, lore, {
         "sources": [n for n, _ in reports] + [n for n, _ in mds],
-        "records": len(pool.records)}
+        "records": len(pool.records), "current_report": current}
 
 
 def render(findings: list, week: int, meta: dict) -> str:
+    unknown = {f.kind for f in findings} - set(KIND_ORDER)
+    if unknown:
+        # render() lists findings by KIND_ORDER: an unlisted kind would be
+        # counted in the total and printed nowhere.
+        raise ValueError(f"finding kind(s) {sorted(unknown)} missing from KIND_ORDER")
     c = Counter(f.kind for f in findings)
     lines = [f"# Claim check -- week {week}", "",
              f"Sources: {', '.join(meta['sources'])}; lore entries: "
@@ -203,8 +237,10 @@ def main(argv=None) -> int:
                         .read_text(encoding="utf-8"))
     lore = load_lore(base)
     try:
+        money = load_money_events(args.week, dirs)
         findings, meta = run(draft.read_text(encoding="utf-8"), args.week,
-                             dirs, config, lore, bases=[base])
+                             dirs, config, lore, bases=[base],
+                             money_events=money)
     except FileNotFoundError as e:
         print(f"claim check could not run: {e}")
         return 2

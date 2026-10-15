@@ -98,13 +98,15 @@ Remove all `[from extraction: ...]` citations to produce the final version.
 18. **NO DUPLICATE SECTION HEADERS:** When a section's required output format shows a bold header like `**What If?**` or `**Stats Corner**`, that IS the section content header -- do NOT also produce it if you're already using `### **[N]. [Section Name]**` as the section heading. Each section name should appear exactly once.
 19. **HEADLINE STYLE (Around the NBA):** Same voice as everything else (VOICE.md) -- one narrator, one register. Headlines are plain and specific with the league's stake first: write "Jokic's knee, and what three weeks without him costs Hayden", NOT a news-wire headline ("Jokic Suffers Setback as Nuggets Fall") and NOT a metadata label ("Player of the Night - Kawhi Leonard - Feb. 8"). Facts from web search are reported as such, with their date.
 20. **DATE RANGES:** Use the word "to" for date ranges in the title and subtitle (e.g., "Feb 2 to Feb 8"). Do NOT use em dashes, en dashes, arrows, or special characters for date ranges -- they can cause encoding issues in downstream rendering.
-21. **LEAGUE LORE (`LEAGUE_LORE.json`) IS THE ONLY SOURCE FOR WHAT THE NUMBERS CAN'T SAY.** History, habits, reputations, nicknames: if it isn't in the stats report, it must be an APPROVED lore entry, and the sentence that uses it ends with that entry's tag, `<!--lore:ENTRY_ID-->` (invisible to readers; the HTML generator strips it). `scripts/check_draft.py` refuses history claims ("again", "always", "first time since") with no tag or number, and tags that don't resolve.
+21. **LEAGUE LORE (`LEAGUE_LORE.json`) IS THE ONLY SOURCE FOR WHAT THE NUMBERS CAN'T SAY.** History, habits, reputations, nicknames: if it isn't in the stats report, it must be an APPROVED lore entry, and the sentence that uses it ends with that entry's tag, `<!--lore:ENTRY_ID-->` (invisible to readers; the HTML generator strips it). `scripts/check_draft.py` refuses history claims ("again", "always", "first time since") with no tag or number, and tags that don't resolve. **Placement:** a lore clause attaches to a claim the sentence makes -- a number, a result, a verdict -- and explains or complicates it. If deleting it leaves the sentence's point unchanged, it is hanging off a name: cut or move it (VOICE.md, "Where the clause goes"). Lore volume follows how many of the week's claims it bears on, never an even spread across sections.
     - **strength "fact"** (e.g. "Benton is 6-22 in February"): true, but not evidence of a pattern. Tell it as HISTORY, never as character -- "Benton is 6-22 in February matchups", not "Benton always collapses in February". The check flags character words on a fact tag.
     - **strength "tendency"**: survived a test against chance. May be told as character.
     - **strength "written"**: Nick's own words. May be told as character. Its numbers are NOT sayable -- take numbers from the stats report.
     - **kind "alias"**: an approved nickname ("Wemby") counts as the player's name.
     - Proposed, rejected or stale entries do not exist. Do not use them.
 22. **OPEN WITH THE LEAD ANGLE.** The stats report's "ANGLES" block ranks this week's stories by how unusual they are times how much they moved the Cup-seeding and standings races. The newsletter's opening (the first matchup summary's first paragraph, and the subtitle if there is one) leads with the top angle; the next ones are the secondary threads. Never print the scores. If the block says angles are unavailable, choose from the storyline alerts.
+
+23. **MONEY ONLY WHEN IT MOVED.** The ANGLES block ends with a "Money this week" line, computed from what was decided this week. If it says nothing was decided, the newsletter contains **no dollar figures** -- name a pot without its amount if you need it. `scripts/check_draft.py` flags every dollar figure in such a week (finding `money_without_event`). If something was decided, state a liability only for the managers it changed or where it separates one manager from the rest; a liability true of everyone last week and this week is not news (VOICE.md, "Money only when it moved"). Rule 23 decides *whether* to mention money; the pot-and-window rule decides *how*. Both apply.
 
 ---
 
@@ -283,6 +285,8 @@ SEASON TOTALS (from LEAGUEHISTORY - use for context/rankings):
 
 ### REQUIRED OUTPUT FORMAT (sorted by overall_score, DESCENDING -- highest score first)
 **CRITICAL: Report cards MUST be ordered by `overall_score` from the stats report, highest to lowest. This is NOT alphabetical, NOT by record, and NOT by letter grade alone (since letter grades can be subjective). Check `report_cards[].overall_score` and sort strictly descending. Example: if scores are Nick 87.9, Benton 76.7, Garrett 72.1, Hayden 69.4, the order is Nick -> Benton -> Garrett -> Hayden.**
+
+**Ties: equal `overall_score` is broken by `weekly_fp` (the week's points), higher first.** `report_cards` already arrives in this order; keep it. `check_draft.py` flags any other order (finding `report_card_order`). Two cards equal on both are a tie no rule covers: the report still builds, and `check_draft.py` flags it for Nick. Example, week 16 of 2025-26: Garrett 85.2 (B), Hayden 67.6 (C-), Nick 67.2 (C-), Benton 64.2 (D+) -> Garrett, Hayden, Nick, Benton. Hayden is ahead of Nick on score; the matching letter grade is irrelevant.
 ```
 **[Manager] ([Team]) -- [Grade]**
 
@@ -1106,7 +1110,8 @@ Before submitting, verify:
 - [ ] Trade references match SEASON TRADE LOG (no invented trade history)
 - [ ] Draft pick mentions match DRAFT PICK OWNERSHIP (no suggesting picks that were traded away)
 - [ ] Around the NBA headlines only cover events from the covered week (not prior weeks)
-- [ ] Report cards ordered by `overall_score` descending (highest first), NOT alphabetical or by record
+- [ ] Report cards ordered by `overall_score` descending (highest first), ties by `weekly_fp`; NOT alphabetical, by record or by letter grade
+- [ ] No dollar figures unless the ANGLES block's "Money this week" line names something decided this week (rule 23); every lore clause attaches to a claim, not a name (rule 21)
 - [ ] ALL superlative claims ("most", "worst", "best", "first ever", "in league history") verified against historical data -- especially luck index, streaks, scores
 - [ ] Magic number usage is correct: magic number of N means N total events (wins + rival losses), NOT "N wins"
 - [ ] Elimination status is correct: check if teams are mathematically eliminated before writing "not quite eliminated" or similar

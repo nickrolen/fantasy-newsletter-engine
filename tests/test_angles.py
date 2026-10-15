@@ -303,16 +303,92 @@ def test_third_place_stakes_come_from_config(monkeypatch):
 
 
 def test_settled_races_stay_as_history_and_name_their_pot():
+    """A settled race stays in the threads as history. Its dollar figure
+    belongs to the week it was decided (Nick, 10-14), so in week 23 the
+    week-18 clinch is history without an amount, and the week-23 title
+    carries its pot. Every line that talks about paying names the pot."""
     import angles_report
     rows, *_ = angles_report.replay(ROOT, "2025-26")
     by = {w: s for w, _, s in rows}
-    w23 = by[23]["race_state"]
+    w18 = by[18]["race_state"]
     assert any("clinched the regular-season title and its $180 in week 18"
-               in x for x in w23)
-    assert any("Final: Garrett won the playoff championship" in x for x in w23)
-    for x in w23:
-        if "pay" in x:
-            assert "$" in x, x
+               in x for x in w18)
+    w23 = by[23]["race_state"]
+    assert any("Nick clinched the regular-season title in week 18" in x
+               and "$" not in x for x in w23)
+    assert any("Final: Garrett won the playoff championship, and the $90 "
+               "playoff pot" in x for x in w23)
+    for s in by.values():
+        for x in s["race_state"]:
+            if "pay" in x:
+                assert "pot" in x, x
+
+
+def test_dollars_appear_only_in_weeks_money_was_decided():
+    """Nick, 10-14: the dry run's week 16 restated every pot although
+    nothing had moved since week 15 ("Nick could still pay $45"). Dollar
+    figures in the threads, the angles and the block are gated on this
+    week's money events, and the block tells the drafter which they are."""
+    import angles_report
+    rows, *_ = angles_report.replay(ROOT, "2025-26")
+    seen = set()
+    for w, _, s in rows:
+        md = A.render_markdown(s)
+        dollars = [x for x in s["race_state"] if "$" in x] + [
+            a["text"] for a in [s.get("lead")] + s.get("secondary", [])
+            if a and "$" in a["text"]]
+        if s["money_events"]:
+            seen.add(w)
+            assert "**Money this week:**" in md
+        else:
+            assert dollars == [], (w, dollars)
+            assert "nothing was decided" in md, w
+    assert seen == {14, 15, 17, 18, 21, 22, 23}
+    assert {w: s["money_events"] for w, _, s in rows}[16] == []
+
+
+def _bracket_season():
+    """A 2026-27 season: Nick > Hayden > Benton > Garrett in weeks 1-15,
+    then semifinals Nick v Garrett (2-0 after week 17) and Hayden v Benton
+    (1-1, settled in week 18)."""
+    strength = {"Nick": 4, "Hayden": 3, "Benton": 2, "Garrett": 1}
+    sm = []
+    for w in range(1, 16):
+        for a, b in PAIRS[w % 3]:
+            sm.append({"season": "2026-27", "week": w, "manager_a": a,
+                       "manager_b": b, "score_a": 1500 + 10 * strength[a],
+                       "score_b": 1500 + 10 * strength[b]})
+    semis = {16: ("Nick", "Hayden"), 17: ("Nick", "Benton"),
+             18: ("Garrett", "Hayden")}
+    for w, (w1, w2) in semis.items():
+        for a, b in (("Nick", "Garrett"), ("Hayden", "Benton")):
+            win = w1 if w1 in (a, b) else w2
+            sm.append({"season": "2026-27", "week": w, "manager_a": a,
+                       "manager_b": b,
+                       "score_a": 1600 if win == a else 1400,
+                       "score_b": 1600 if win == b else 1400})
+    return sm
+
+
+def test_a_series_settled_early_decides_nothing_in_its_last_game():
+    """A best-of-3 plays all three weeks. Nick beat Garrett 2-0 by week 17;
+    the week-18 game is a dead rubber, and Garrett's $45 belongs to week 17
+    alone -- in the angles and in the threads."""
+    from modules.standing_threads import money_events, lines
+    sm = _bracket_season()
+    assert ("semifinal_lost", "Garrett") in money_events(sm, 17, "2026-27", 15)
+    w18 = money_events(sm, 18, "2026-27", 15)
+    assert ("semifinal_lost", "Benton") in w18
+    assert ("semifinal_lost", "Garrett") not in w18
+    _, angles = A.bracket_week(sm, 18, "2026-27", 150.0)
+    texts = {frozenset(a.managers): a.text for a in angles}
+    dead = texts[frozenset({"Nick", "Garrett"})]
+    assert "already settled" in dead and "$" not in dead
+    assert "pays $45 into the $90 playoff pot" in texts[frozenset({"Hayden", "Benton"})]
+    threads = lines(sm, 18, "2026-27", 21, 15)
+    nick_garrett = next(x for x in threads if "Nick (1) beat Garrett (4)" in x)
+    hayden_benton = next(x for x in threads if "Hayden (2) beat Benton (3)" in x)
+    assert "$" not in nick_garrett and "$45" in hayden_benton
 
 
 def test_a_tied_regular_season_week_raises():

@@ -494,9 +494,36 @@ def build_report_cards(report: WeeklyReport, what_if: "WeeklyWhatIf" = None) -> 
             "record": stats.record_str,
         })
     
-    # Sort by overall score descending
-    cards.sort(key=lambda r: (-r["overall_score"], r["manager"]))
-    return cards
+    return report_card_order(cards)
+
+
+def report_card_order(cards: list) -> list:
+    """Report cards in published order: overall_score, highest first.
+
+    The tiebreak is the week's fantasy points (`weekly_fp`), the thing the
+    card grades. It used to be the manager's NAME -- an alphabetical rule
+    nobody made -- while the drafting prompt said "letter grade, then Total
+    FP", and report cards carry no total_fp, so that tiebreak could not run
+    at all (10-15). check_draft holds the draft to this same function.
+
+    Equal on both is a tie no rule covers. It is not resolved silently:
+    each tied card gets `tied_with`, and check_draft reports it as a finding.
+    It does not raise here, because a week with nothing played (every card
+    0 and 0.0) would then take the whole stats report down over a display
+    order. Within a tie the incoming order is kept, and labelled as such.
+    """
+    def key(c):
+        return (c["overall_score"], round(float(c["weekly_fp"]), 2))
+    groups: dict = {}
+    for c in cards:
+        groups.setdefault(key(c), []).append(c["manager"])
+    for c in cards:
+        others = [m for m in groups[key(c)] if m != c["manager"]]
+        if others:
+            c["tied_with"] = others
+        else:
+            c.pop("tied_with", None)
+    return sorted(cards, key=lambda c: (-c["overall_score"], -float(c["weekly_fp"])))
 
 
 def career_honors(leaguehistory) -> dict:

@@ -58,12 +58,12 @@ I've attached these files. **Read `newsletter_template.md` thoroughly before wri
 | Garrett | Saboner | Victor Wembanyama, Kevin Durant, Jalen Brunson |
 
 ### KEY STORYLINES (reference throughout)
-[FILL IN from the stats report's ANGLES block -- the lead, the secondary angles, and the standing threads -- in that order. If the block says NO LEAD THIS WEEK, write that here too.]
+[FILL IN from the stats report's ANGLES block -- the lead, the secondary angles, the standing threads, and the "Money this week" line -- in that order. If the block says NO LEAD THIS WEEK, write that here too. If it says no money was decided, the newsletter quotes no dollar figures (template rule 23).]
 
 ### YOUR TASK " SECTIONS 1"4 ONLY
 Write Sections 1"4 of the newsletter following the template's instructions for each section:
 1. Matchup Summaries
-2. Report Cards (ordered by letter grade descending -- highest grade first -- Total FP as tiebreaker)
+2. Report Cards (ordered by `overall_score` descending, ties by `weekly_fp` -- the order `report_cards` arrives in; NOT by letter grade. Template, Section 2)
 3. Betting Lines
 4. Player of the Week
 

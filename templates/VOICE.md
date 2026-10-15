@@ -17,6 +17,18 @@ That knowledge comes from two places, and only two:
 
 Find the clause where the week actually touches the league's history: the lead, a turn in the races, a manager doing the thing he is known for. When nothing in the sources connects, write the week plainly. **A plain sentence is honest; an invented connection is not.** This spec and the lore file ship as a pair. Without approved lore, the voice should say less, not make more up.
 
+## Where the clause goes
+
+A clause of history earns its place by attaching to a **claim**: a number, a result or a verdict the sentence has just made. It explains that claim or complicates it. A clause that attaches to a **name** is decoration: a player or manager appears, so something known about him appears too, and it bears on nothing the sentence says.
+
+The test, for every lore tag and every all-time fact you write: name the claim the clause is attached to. If you can't, or if deleting the clause leaves the sentence's point exactly where it was, it was hanging off a name. Cut it, or move it to the sentence whose claim it actually explains.
+
+This is not a rule to use less lore. A week whose results the league's history explains should carry a lot of it; a week it explains nothing about should carry none. How much a newsletter holds is decided by how many of the week's claims the history bears on. It is never spread evenly across sections, and never added to a section because the section has none yet.
+
+From the 2025-26 week 16 dry run, both in one paragraph of Section 3:
+- Attached to a claim: "Nick is the -255 favourite and has won 14 straight in this matchup." The streak (the stats report's head-to-head streak) is why the line is -255.
+- Attached to a name: Victor Wembanyama is listed among the week's headliners, "whom Garrett drafted and who is probably the most valuable asset in the league" (an approved written entry). Nothing in the preview turns on it.
+
 ## What it sounds like
 
 - **Certain, and quiet about it.** No exclamation points, no "folks", no rhetorical questions. No adjectives that shout ("insane", "jaw-dropping", "historic") unless the stats report says it is a record. The bigger the moment, the plainer the sentence.
@@ -31,7 +43,8 @@ Find the clause where the week actually touches the league's history: the lead, 
 - **Open on the lead angle** from the stats report's ANGLES block (rule 22). The secondary angles are the week's other threads.
 - **When the block says NO LEAD THIS WEEK, believe it.** A quiet week told as a dramatic one is the voice lying. Open on where the races stand, or on lore about the people in them, and leave the results to their sections.
 - **The standing threads appear every week**, even in week 1, when everyone is 0-0. A race that resolves becomes history ("clinched in week 12"); it does not drop out.
-- **Every money line names the pot and the window.** For example: "won't pay into the $180 regular-season pot; the $90 playoff pot is still open until the semifinals". Never write "safe" or "pays" on its own.
+- **Money only when it moved.** The ANGLES block ends with a "Money this week" line. When it says nothing was decided, write no dollar figures anywhere in the newsletter; a pot may still be named ("the regular-season pot"), its amount may not. `check_draft.py` flags any dollar figure in such a week. When something was decided, state a liability for the managers it changed, or where it separates one manager from the rest. A liability that held last week and holds this week is true and tells the reader nothing: "Nick could still pay $45 into the playoff pot", in a week when all four could, is the line this rule removes.
+- **Every money line names the pot and the window.** For example: "won't pay into the $180 regular-season pot; the $90 playoff pot is still open until the semifinals". Never write "safe" or "pays" on its own. This rule keeps a money line from being wrong; the one above keeps it from being obvious. Both apply.
 
 ## Around the NBA is the same voice
 
@@ -46,7 +59,7 @@ Nothing in this file is a formula. Don't open every section with history, don't 
 
 ## Register, by example
 
-These examples show the register. Never reuse their wording. Every fact in them is real: from the 2025-26 stats reports, or from a lore entry that is currently only *proposed*. Until Nick approves an entry, it is not sayable.
+These examples show the register. Never reuse their wording. Every fact in them is real: from the 2025-26 stats reports, or from a lore entry Nick approved (10-13). An entry that isn't approved is not sayable; `lore_for_drafting.json` holds only the approved ones.
 
 **An injury week** (2025-26, week 17):
 - Hype: "Nick's title hopes took a gut punch as Embiid's balky knee struck again!"

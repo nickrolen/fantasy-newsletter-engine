@@ -629,12 +629,20 @@ def bracket_week(season_matchups: list, week: int, season: str,
                              (hist_sigma * math.sqrt(2)))
                 ww, ll = w1 if a_won else w1[::-1]
                 decided = max(ww, ll) >= need_r
+                # A best-of-3 plays all three weeks. A series settled 2-0 in
+                # week 17 still has a game in week 18; that game decides
+                # nothing, and the liability belongs to week 17 only.
+                settled_before = max(w0) >= need_r
                 tag = f"{br['stage']} " if br["stage"] == "cup" else ""
                 sw, sl = seeds.get(win), seeds.get(lose)
                 if not decided:
                     text = (f"{win} ({sw} seed) {'leads' if ww > ll else 'evens'}"
                             f" the {tag}{r['name'].lower()} series with {lose} "
                             f"({sl} seed), {ww}-{ll}")
+                elif settled_before:
+                    text = (f"{win} beat {lose} in a {tag}"
+                            f"{r['name'].lower()} game the series had "
+                            f"already settled")
                 elif r["kind"] == "final":
                     title = (br["title"] or "title").replace(
                         "Champion", "championship").replace(
@@ -944,6 +952,11 @@ def run_week(season_matchups: list, week: int, hist: History,
     from modules.standing_threads import lines as standing_lines
     sel["race_state"] = standing_lines(season_matchups, week, season,
                                        cup_last, reg_last, pick_ownership)
+    # What decided money this week -- the gate for every dollar figure in
+    # the draft (check_draft reads it from angles_weekN.json).
+    from modules.standing_threads import money_events
+    sel["money_events"] = [list(e) for e in
+                           money_events(season_matchups, week, season, reg_last)]
     sel["consequence"] = cons
     sel["all"] = [a.as_dict() for a in ranked]
     return sel
@@ -1033,6 +1046,30 @@ def for_report(base, season: str, week: int, stories: list) -> dict:
                     last_lead_from(Path(base) / "output", week), picks)
 
 
+def money_line(sel: dict) -> str:
+    """The instruction the drafter reads; check_draft enforces it."""
+    ev = sel.get("money_events")
+    if ev is None:
+        raise KeyError("angles selection has no money_events")
+    if not ev:
+        return ("**Money this week: nothing was decided.** Quote no dollar "
+                "figures anywhere in the newsletter; a pot can be named "
+                "without its amount. (Checked: a dollar figure this week is a "
+                "claim-check finding.)")
+    words = {"clinched_title": "clinched the regular-season title",
+             "out_of_title": "out of the regular-season title race",
+             "safe_from_paying": "settled out of the regular-season pot's "
+                                 "paying places",
+             "will_pay": "settled into the regular-season pot's paying places",
+             "semifinal_lost": "lost his playoff semifinal",
+             "semifinal_won": "won his playoff semifinal",
+             "playoff_title": "won the playoff championship"}
+    what = "; ".join(f"{m} {words[e]}" for e, m in ev)
+    return (f"**Money this week:** {what}. Dollar figures belong to these "
+            "lines only. A liability that held last week and holds this week "
+            "is not news for anyone it applies to.")
+
+
 def render_markdown(sel: dict) -> str:
     def line(a):
         p = a["parts"]
@@ -1049,6 +1086,7 @@ def render_markdown(sel: dict) -> str:
                "or on lore (an approved entry about whoever the race is "
                "about), and keep the week's results to their sections.", ""]
         out += [f"- {x}" for x in sel.get("race_state", [])]
+        out += ["", money_line(sel)]
         if sel.get("lead"):
             out += ["", f"(Best of a quiet week, for reference only: "
                         f"{sel['lead']['text']})"]
@@ -1067,4 +1105,5 @@ def render_markdown(sel: dict) -> str:
         out.append(f"- {line(a)}")
     if sel.get("race_state"):
         out += threads
+    out += ["", money_line(sel)]
     return "\n".join(out) + "\n"

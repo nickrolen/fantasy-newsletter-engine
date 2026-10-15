@@ -687,6 +687,77 @@ def _field_extreme(n: Num, pool: Pool) -> bool:
     return False
 
 
+DOLLARS = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?")
+
+
+def money_findings(draft: str, vocab: Vocabulary, money_events,
+                   exempt_sections=EXEMPT_SECTIONS) -> list[Finding]:
+    """Dollar figures in a week where no money was decided (Nick, 10-14).
+
+    `money_events` is the week's angles_weekN.json "money_events": what
+    decided money THIS week. Empty means every pot and liability holds
+    exactly as it did last week, so a dollar figure can only restate it --
+    true of everyone and news to no one. None means the events are unknown,
+    which is not the same as none: it raises rather than passing.
+
+    Only the frequency rule is mechanical. Its sibling -- in a week that did
+    decide money, state a liability only when it changed or distinguishes
+    someone -- is a judgement about what a sentence is for, and a check
+    keyed on names would flag the good lines ("the only one still exposed")
+    with the bad. That one is VOICE.md's; the standing threads already
+    print amounts only for this week's events, so the drafter is not handed
+    the obvious ones.
+    """
+    if money_events is None:
+        raise ValueError("money_events unknown for this week")
+    if money_events:
+        return []
+    out = []
+    for u in split_units(draft, vocab):
+        if u.section in exempt_sections:
+            continue
+        m = DOLLARS.search(LORE_TAG.sub("", u.raw))
+        if m:
+            out.append(Finding("money_without_event", u.section, u.line,
+                               m.group(0), u.text[:200]))
+    return out
+
+
+CARD_HEAD = re.compile(r"^\s*\*\*([A-Z][A-Za-z]+) \([^)]*\)\s*(?:\u2014|--|-)\s*"
+                       r"[A-F][+-]?\*\*\s*$", re.M)
+SECTION_HEAD = re.compile(r"^#{2,4}\s*\*\*(\d+)\.", re.M)
+
+
+def report_card_findings(draft: str, cards: list) -> list[Finding]:
+    """Section 2's cards must run in report_builder.report_card_order.
+
+    The 10-14 dry run printed Nick before Hayden: the drafting prompt said
+    letter grade, then Total FP, while the template said overall_score
+    (67.6 Hayden, 67.2 Nick). Nick ruled for the template. The order is
+    checked, not just documented, because the drafter sorts by hand.
+    """
+    from modules.report_builder import report_card_order
+    ordered = report_card_order([dict(c) for c in cards])
+    want = [c["manager"] for c in ordered]
+    tied = sorted({c["manager"] for c in ordered if c.get("tied_with")})
+    if tied:
+        return [Finding("report_card_order", 2, 0, " = ".join(tied),
+                        f"{', '.join(tied)} tie on overall_score and weekly_fp; "
+                        "no rule orders them -- Nick decides")]
+    heads = list(SECTION_HEAD.finditer(draft))
+    start = next((h.end() for h in heads if h.group(1) == "2"), None)
+    if start is None:
+        return [Finding("report_card_order", 2, 0, "", "no Section 2 in the draft")]
+    end = next((h.start() for h in heads if h.start() > start), len(draft))
+    got = CARD_HEAD.findall(draft[start:end])
+    if got != want:
+        line = draft[:start].count("\n") + 1
+        return [Finding("report_card_order", 2, line, " > ".join(got),
+                        f"cards run {' > '.join(got)}; overall_score order "
+                        f"is {' > '.join(want)}")]
+    return []
+
+
 def _raw_digits(n: Num) -> str:
     return n.raw.replace(",", "").rstrip("%").lstrip("-+$").rstrip(
         "stndrh") or "0"

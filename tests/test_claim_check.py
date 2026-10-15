@@ -214,6 +214,10 @@ def test_script_exit_codes(tmp_path):
     (tmp_path / "output" / "stats_report_week3.json").write_text(
         json.dumps({"team_stats": [{"manager": "Nick", "weekly_fp": 1913.65}]}),
         encoding="utf-8")
+    # no ANGLES file: the money rule can't know what was decided -> refuse
+    assert check_draft.main(["--week", "3", "--base", str(tmp_path)]) == 2
+    (tmp_path / "output" / "angles_week3.json").write_text(
+        json.dumps({"money_events": []}), encoding="utf-8")
     assert check_draft.main(["--week", "3", "--base", str(tmp_path)]) == 0
     draft.write_text("### **1. X**\n\nNick scored 1931.65.\n",
                      encoding="utf-8")
@@ -335,3 +339,102 @@ def test_a_stats_report_outside_the_project_is_an_error(tmp_path):
         gen.build_newsletter_html(md, str(tmp_path / "o.html"),
                                   stats_report_path=str(stray))
     assert "cannot resolve the project directories" in str(e.value)
+
+
+# ------------------------------------------------- money (Nick, 10-14)
+
+MONEY_DRAFT = """### **1. Matchup Summaries**
+
+Nick is 13-3 and Benton is 9-7. Nick can't finish third, so he won't pay into the $180 regular-season pot.
+
+### **9. Around the NBA**
+
+Jokic signed a $212 million extension.
+"""
+
+
+def _vocab(prepared):
+    return prepared[17][1]
+
+
+def test_dollars_in_a_week_nothing_was_decided_are_findings(prepared):
+    f = cc.money_findings(MONEY_DRAFT, _vocab(prepared), [])
+    assert [(x.kind, x.section, x.token) for x in f] == [
+        ("money_without_event", 1, "$180")]          # section 9 is exempt
+
+
+def test_dollars_in_a_week_money_was_decided_pass(prepared):
+    assert cc.money_findings(MONEY_DRAFT, _vocab(prepared),
+                             [["safe_from_paying", "Nick"]]) == []
+
+
+def test_unknown_money_events_raise_rather_than_pass(prepared):
+    with pytest.raises(ValueError):
+        cc.money_findings(MONEY_DRAFT, _vocab(prepared), None)
+
+
+def test_check_draft_refuses_without_this_weeks_money_events(tmp_path):
+    with pytest.raises(FileNotFoundError, match="angles_week5.json"):
+        check_draft.load_money_events(5, [tmp_path])
+    (tmp_path / "angles_week5.json").write_text(json.dumps({"lead": None}))
+    with pytest.raises(FileNotFoundError, match="no money_events"):
+        check_draft.load_money_events(5, [tmp_path])
+    (tmp_path / "angles_week5.json").write_text(json.dumps({"money_events": []}))
+    assert check_draft.load_money_events(5, [tmp_path]) == []
+
+
+def test_every_finding_kind_is_rendered():
+    """render() lists findings by KIND_ORDER; an unlisted kind would be
+    counted and printed nowhere."""
+    f = cc.Finding("money_without_event", 1, 3, "$45", "s")
+    assert "Dollar figures in a week nothing was decided" in check_draft.render([f], 1, {"sources": [], "records": 0})
+    with pytest.raises(ValueError, match="KIND_ORDER"):
+        check_draft.render([cc.Finding("no_such_kind", 1, 1, "x", "s")], 1,
+                           {"sources": [], "records": 0})
+
+
+# ------------------------------------------- report-card order (Nick, 10-14)
+
+WEEK16_CARDS = [  # 2025-26 week 16, from the replayed stats report
+    {"manager": "Garrett", "overall_score": 85.2, "letter_grade": "B", "weekly_fp": 1581.35},
+    {"manager": "Hayden", "overall_score": 67.6, "letter_grade": "C-", "weekly_fp": 1270.75},
+    {"manager": "Nick", "overall_score": 67.2, "letter_grade": "C-", "weekly_fp": 1455.95},
+    {"manager": "Benton", "overall_score": 64.2, "letter_grade": "D+", "weekly_fp": 1389.50},
+]
+
+
+def _section2(order):
+    teams = {"Garrett": "Saboner", "Hayden": "Big Nik Energy",
+             "Nick": "Luka my Balls", "Benton": "Smaxey"}
+    grade = {c["manager"]: c["letter_grade"] for c in WEEK16_CARDS}
+    cards = "\n\n".join(f"**{m} ({teams[m]}) — {grade[m]}**\n\nText." for m in order)
+    return f"### **1. Matchup Summaries**\n\nx\n\n### **2. Report Cards**\n\n{cards}\n\n### **3. Betting Lines**\n\ny\n"
+
+
+def test_report_cards_run_by_overall_score_not_letter_then_points():
+    """The dry run's order was letter grade, then FP: Nick (C-, 1455.95)
+    ahead of Hayden (C-, 1270.75). overall_score puts Hayden first."""
+    from modules.report_builder import report_card_order
+    assert [c["manager"] for c in report_card_order(WEEK16_CARDS)] == \
+        ["Garrett", "Hayden", "Nick", "Benton"]
+    bad = cc.report_card_findings(_section2(["Garrett", "Nick", "Hayden", "Benton"]), WEEK16_CARDS)
+    assert [f.kind for f in bad] == ["report_card_order"]
+    assert cc.report_card_findings(_section2(["Garrett", "Hayden", "Nick", "Benton"]), WEEK16_CARDS) == []
+
+
+def test_the_tiebreak_is_the_weeks_points_and_a_full_tie_is_flagged():
+    from modules.report_builder import report_card_order
+    tied = [dict(c) for c in WEEK16_CARDS]
+    tied[2]["overall_score"] = tied[1]["overall_score"]          # Nick = Hayden
+    assert [c["manager"] for c in report_card_order(tied)][1:3] == ["Nick", "Hayden"]
+    tied[2]["weekly_fp"] = tied[1]["weekly_fp"]
+    out = report_card_order(tied)          # the report still builds...
+    assert {c["manager"]: c.get("tied_with") for c in out}["Nick"] == ["Hayden"]
+    f = cc.report_card_findings(_section2(["Garrett", "Hayden", "Nick", "Benton"]), tied)
+    assert [x.kind for x in f] == ["report_card_order"]   # ...and the draft is flagged
+    assert "Hayden, Nick tie" in f[0].sentence
+
+
+def test_a_draft_without_report_cards_is_a_finding():
+    f = cc.report_card_findings("### **1. Matchup Summaries**\n\nx\n", WEEK16_CARDS)
+    assert [x.kind for x in f] == ["report_card_order"]

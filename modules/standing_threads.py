@@ -18,6 +18,14 @@ history rather than dropping off. Display only -- the probabilistic model
 
 Every money line names the pot and the window (LEAGUE_RULES language rule).
 All rules and amounts come from league_config via league_rule().
+
+Dollar figures appear only in the week money was decided (Nick, 10-14).
+The dry run's week 16 printed every pot and liability again although
+nothing had moved since week 15, and the draft duly said Nick could still
+pay $45 -- true, scoped, and true of all four managers. money_events() is
+what was decided THIS week; only lines about those carry an amount. The rest
+name the pot ("the regular-season pot") without one. The language rule
+stops a liability line being wrong; this stops it being obvious.
 """
 
 from __future__ import annotations
@@ -45,6 +53,16 @@ def _records(sm, upto):
     return wins, {m: games[m] - wins[m] for m in games}
 
 
+# A settled race in a later week: history, without its dollars.
+SETTLED_HISTORY = {
+    "clinched_title": "{m} clinched the regular-season title in week {w}",
+    "out_of_title": "{m} out of the regular-season title race since week {w}",
+    "safe_from_paying": "{m} can't finish {payers} of the regular season "
+                        "(settled week {w})",
+    "will_pay": "{m} will finish {payers} of the regular season (settled "
+                "week {w})",
+}
+
 SETTLED = {
     "clinched_title": "{m} clinched the regular-season title and its ${t} in week {w}",
     "out_of_title": "{m} out of the regular-season title race since week {w}",
@@ -55,7 +73,64 @@ SETTLED = {
 }
 
 
-def regular_season(sm, week, reg_last, rules) -> list[str]:
+def _decided_series(sm, br, seeds, upto) -> dict:
+    """{round kind: [(winner, loser), ...]} for series settled by `upto`."""
+    need = lambda r: (r["weeks"][1] - r["weeks"][0]) // 2 + 1  # noqa: E731
+    by = {v: k for k, v in seeds.items()}
+    out = {}
+    semis = next(r for r in br["rounds"] if r["kind"] == "semis")
+    winners, losers = [], []
+    for s1, s2 in ((1, 4), (2, 3)):
+        a, b = by[s1], by[s2]
+        wa, wb = _series(sm, a, b, semis["weeks"], upto, seeds, br["tie"])
+        if max(wa, wb) >= need(semis):
+            w, l = (a, b) if wa > wb else (b, a)
+            out.setdefault("semis", []).append((w, l))
+            winners.append(w)
+            losers.append(l)
+    for r in br["rounds"]:
+        if r["kind"] == "semis" or upto < r["weeks"][0]:
+            continue
+        pair = winners if r["kind"] == "final" else losers
+        if len(pair) < 2:
+            continue
+        a, b = pair
+        wa, wb = _series(sm, a, b, r["weeks"], upto, seeds, br["tie"])
+        if max(wa, wb) >= need(r):
+            out.setdefault(r["kind"], []).append((a, b) if wa > wb else (b, a))
+    return out
+
+
+def money_events(sm: list, week: int, season: Optional[str],
+                 reg_last: int) -> list:
+    """[(event, manager)] that decided money THIS week, and nothing older.
+
+    Regular season: the decided_status delta (clinched or out of the title,
+    safe from or bound to pay into its pot). Playoffs: a semifinal settled
+    this week (the loser pays into the playoff pot, the winner is clear of
+    it) or the final (the champion collects). The Cup pays no money.
+    """
+    out = []
+    if 1 <= week <= reg_last:
+        now = decided_status(sm, week, reg_last)
+        before = decided_status(sm, week - 1, reg_last) if week > 1 else set()
+        out += sorted(now - before)
+    br = next((b for b in bracket_structure(season) if b["stage"] ==
+               "playoffs"), None) if season else None
+    if br and week > reg_last:
+        seeds = {m: i + 1 for i, m in enumerate(final_order(sm, reg_last))}
+        now = _decided_series(sm, br, seeds, week)
+        before = _decided_series(sm, br, seeds, week - 1)
+        for w, l in now.get("semis", []):
+            if (w, l) not in before.get("semis", []):
+                out += [("semifinal_lost", l), ("semifinal_won", w)]
+        for w, l in now.get("final", []):
+            if (w, l) not in before.get("final", []):
+                out.append(("playoff_title", w))
+    return out
+
+
+def regular_season(sm, week, reg_last, rules, money=()) -> list[str]:
     upto = min(week, reg_last)
     reg = [m for m in sm if m["week"] <= upto]
     wins, losses = _records(reg, upto)
@@ -64,9 +139,9 @@ def regular_season(sm, week, reg_last, rules) -> list[str]:
     payers = " or ".join(_ord(p) for p in rules["payer_places"])
     payers_and = " and ".join(_ord(p) for p in rules["payer_places"])
     left = reg_last - upto
-    head = (f"Regular season (weeks 1-{reg_last}; the ${rs['total']} pot -- "
-            f"{payers_and} pay ${rs['per_payer']} each -- and, read from the "
-            f"bottom, next year's draft order)")
+    head = (f"Regular season (weeks 1-{reg_last}; the regular-season pot, "
+            f"paid into by {payers_and}, and read from the bottom, next "
+            f"year's draft order)")
     if not order:
         return [f"{head}: not started."]
     lead = wins[order[0]]
@@ -84,7 +159,11 @@ def regular_season(sm, week, reg_last, rules) -> list[str]:
                                     for ev, _ in first):
         out.append(f"{mn[0]}'s magic number for the title: {mn[1]}.")
     for (ev, m), w in sorted(first.items(), key=lambda x: (x[1], x[0])):
-        out.append("Settled: " + SETTLED[ev].format(
+        if (ev, m) not in money:
+            out.append("Settled: " + SETTLED_HISTORY[ev].format(
+                m=m, w=w, payers=payers) + ".")
+            continue
+        out.append("Settled this week: " + SETTLED[ev].format(
             m=m, w=w, t=rs["total"], per=rs["per_payer"], payers=payers)
             + (f"; the ${rules['playoff_champion']['total']} playoff pot is "
                "a separate question, open until the semifinals."
@@ -105,7 +184,7 @@ def _series(sm, a, b, weeks, upto, seeds, tie):
     return wa, wb
 
 
-def bracket(sm, week, br, seeds, rules, title) -> list[str]:
+def bracket(sm, week, br, seeds, rules, title, money=()) -> list[str]:
     """Series and games of one bracket, as far as `week`."""
     by = {v: k for k, v in seeds.items()}
     semis = next(r for r in br["rounds"] if r["kind"] == "semis")
@@ -119,7 +198,7 @@ def bracket(sm, week, br, seeds, rules, title) -> list[str]:
             winners.append(w)
             losers.append(l)
             extra = ""
-            if br["stage"] == "playoffs":
+            if br["stage"] == "playoffs" and ("semifinal_lost", l) in money:
                 po = rules["playoff_champion"]
                 extra = (f" {l} pays ${po['per_payer']} into the "
                          f"${po['total']} playoff pot; {w} is clear of it.")
@@ -141,7 +220,11 @@ def bracket(sm, week, br, seeds, rules, title) -> list[str]:
         if max(wa, wb) >= need(r):
             w, l = (a, b) if wa > wb else (b, a)
             if r["kind"] == "final":
-                out.append(f"{r['name']}: {w} won the {title}, "
+                po = rules["playoff_champion"]
+                cash = (f", and the ${po['total']} playoff pot"
+                        if br["stage"] == "playoffs" and
+                        ("playoff_title", w) in money else "")
+                out.append(f"{r['name']}: {w} won the {title}{cash}, "
                            f"{max(wa, wb)}-{min(wa, wb)} over {l}.")
             else:
                 out.append(f"{r['name']}: {w} over {l}, "
@@ -151,16 +234,15 @@ def bracket(sm, week, br, seeds, rules, title) -> list[str]:
     return out
 
 
-def playoffs(sm, week, season, reg_last, rules) -> list[str]:
+def playoffs(sm, week, season, reg_last, rules, money=()) -> list[str]:
     br = next((b for b in bracket_structure(season)
                if b["stage"] == "playoffs"), None)
     if br is None:
         return []
     first = min(r["weeks"][0] for r in br["rounds"])
     last = max(r["weeks"][1] for r in br["rounds"])
-    po = rules["playoff_champion"]
-    head = (f"Playoffs (weeks {first}-{last}; the ${po['total']} pot -- each "
-            f"semifinal loser pays ${po['per_payer']})")
+    head = (f"Playoffs (weeks {first}-{last}; the playoff pot, paid into by "
+            f"each semifinal loser)")
     upto = min(week, reg_last)
     reg = [m for m in sm if m["week"] <= upto]
     order = final_order(reg, upto) if reg else []
@@ -172,7 +254,7 @@ def playoffs(sm, week, season, reg_last, rules) -> list[str]:
                 f"2 {order[1]} v 3 {order[2]}."]
     seeds = {m: i + 1 for i, m in enumerate(final_order(sm, reg_last))}
     return [f"{head}:"] + bracket(sm, week, br, seeds, rules,
-                                  "playoff championship")
+                                  "playoff championship", money)
 
 
 def cup(sm, week, season, cup_last, reg_last, rules) -> list[str]:
@@ -262,8 +344,9 @@ def lines(sm: list, week: int, season: Optional[str], cup_last: Optional[int],
     if br:
         rules["semis_end"] = next(r["weeks"][1] for r in br["rounds"]
                                   if r["kind"] == "semis")
-    out = regular_season(sm, week, reg_last, rules)
-    out += playoffs(sm, week, season, reg_last, rules)
+    money = set(money_events(sm, week, season, reg_last))
+    out = regular_season(sm, week, reg_last, rules, money)
+    out += playoffs(sm, week, season, reg_last, rules, money)
     if cup_last:
         out += cup(sm, week, season, cup_last, reg_last, rules)
     out += draft_order(sm, week, season, reg_last, pick_ownership)
