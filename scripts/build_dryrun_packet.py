@@ -183,6 +183,7 @@ def season_start_records(live: dict, archived: dict, season: str,
         if k in rec:
             rec[k] = {}
     rec["last_updated_week"] = 0
+    rec["last_history_week"] = 0
     rec["team_name_history"] = archived.get("team_name_history", rec.get("team_name_history"))
     return rec
 

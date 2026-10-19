@@ -59,6 +59,9 @@ PER_SEASON_CONFIG = {
 CROSS_SEASON_CONFIG = {
     "config/league_config.json",        # league identity; edited by hand
     "config/league_config.json.example",
+    # The injury-override template. Documentation, not state: it shows the two
+    # entry shapes and which fields are load-bearing, and carries forward.
+    "config/INJURY_OVERRIDES.json.example",
     "config/DRAFT_PICK_VALUES.json",    # rebuilt from history, not season state
     "config/ROOKIE_SEASONS.json",       # append-only reference data
     "config/SCHEDULE.json",             # replaced wholesale for the new season

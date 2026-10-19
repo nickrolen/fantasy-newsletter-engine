@@ -17,7 +17,6 @@ from .data_loader import (
     FantasyData,
     MANAGERS,
     get_position_list,
-    parse_record_string,
     classify_position_group,
 )
 
@@ -86,11 +85,11 @@ class ManagerWeekStats:
     manager: str
     fantasy_team: str
     week: int
-    
-    # Record
-    wins: int = 0
-    losses: int = 0
-    
+
+    # No W-L field: see compute_manager_week_stats. The record is rendered
+    # from data.get_manager_record() after the week is written to RECORDS,
+    # not carried on a snapshot taken while producing it.
+
     # Scoring
     total_fp: float = 0.0
     team_fppg: float = 0.0
@@ -128,11 +127,6 @@ class ManagerWeekStats:
         """Return single best performer for backwards compatibility."""
         return self.best_performers[0] if self.best_performers else None
     
-    @property
-    def record_str(self) -> str:
-        """Return record as string like '8-3'."""
-        return f"{self.wins}-{self.losses}"
-
 
 @dataclass
 class MatchupStats:
@@ -356,8 +350,11 @@ def compute_manager_week_stats(
     if not manager_plog.empty:
         fantasy_team = manager_plog.iloc[0].get("fantasy_team", "")
     
-    # Get current record
-    wins, losses = data.get_manager_record(manager)
+    # No W-L here. These stats are computed as part of PRODUCING week N's
+    # result, so any record read at this point is the season before this week
+    # -- a value derived once and never advanced. The record belongs to
+    # whoever renders it, read live from data.get_manager_record() after the
+    # week has been written to RECORDS. See build_report_cards().
     
     # Get unique players
     players = manager_plog["player_name"].unique()
@@ -508,8 +505,6 @@ def compute_manager_week_stats(
         manager=manager,
         fantasy_team=fantasy_team,
         week=week,
-        wins=wins,
-        losses=losses,
         total_fp=total_fp,
         team_fppg=team_fppg,
         total_scheduled_games=total_scheduled_games,

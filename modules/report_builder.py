@@ -25,6 +25,8 @@ from .weekly_stats import (
 from .projections import load_all_team_projections, get_underperformers
 from .records_tracker import (
     update_records_from_weekly_report,
+    RECORDS_PHASE_STATE,
+    RECORDS_PHASE_HISTORY,
     RecordUpdate,
     get_current_streaks,
     get_season_series,
@@ -311,7 +313,8 @@ def build_matchup_summary(
     return summaries
 
 
-def build_report_cards(report: WeeklyReport, what_if: "WeeklyWhatIf" = None) -> list[dict]:
+def build_report_cards(report: WeeklyReport, data: FantasyData,
+                       what_if: "WeeklyWhatIf" = None) -> list[dict]:
     """
     Build manager report cards section using the original grading formula.
     
@@ -320,6 +323,13 @@ def build_report_cards(report: WeeklyReport, what_if: "WeeklyWhatIf" = None) -> 
     - Management score: Based on bench decisions, blunders, missed flips, scheduled games
     - Waiver score: Based on waiver wire activity and production
     - Overall: Weighted combination of the above
+
+    The record on each card is read live from `data`, the same call
+    current_standings uses, rather than from a copy taken earlier in the
+    build. That is what keeps a card from printing 12-3 under a standings
+    table reading 13-3: there is one source, read once per render, and
+    `data` is required rather than optional so a caller cannot quietly fall
+    back to a stale one.
     """
     cards = []
     
@@ -491,7 +501,7 @@ def build_report_cards(report: WeeklyReport, what_if: "WeeklyWhatIf" = None) -> 
             "scheduled_games_z_score": round(sg["z_score"], 2),
             "scheduled_games_adjustment": round(games_adj, 1),
             "total_starter_games": stats.total_healthy_starter_games,
-            "record": stats.record_str,
+            "record": "{}-{}".format(*data.get_manager_record(manager)),
         })
     
     return report_card_order(cards)
@@ -3487,9 +3497,27 @@ def build_stats_report(
     # Compute weekly report
     report = compute_weekly_report(data, week, waiver_adds)
 
+    # Week N's results go into RECORDS *here*, before anything reads them.
+    #
+    # They used to go in after the simulations, which left every consumer of
+    # "where the season stands" -- the title-odds and playoff-odds sims, the
+    # betting lines, the report cards, the power rankings -- reading a file
+    # that was still at week N-1 while current_standings below was computed
+    # after the write and read week N. One report, two answers; and since the
+    # pipeline runs once a week, the disagreeing one is the one that ships.
+    #
+    # The simulations are the sharpest case: they model the weeks AFTER the
+    # completed one, so a record short by a game made expected_record sum to
+    # one less than the regular season is long.
+    #
+    # Only the state phase runs here. The derived history (title-odds trend,
+    # bench points, blunders) cannot exist yet and runs after the what-if --
+    # see the second call below.
+    record_updates = update_records_from_weekly_report(
+        data, report, season=CURRENT_SEASON, phase=RECORDS_PHASE_STATE,
+    )
+
     # Run title/playoff odds simulation
-    # NOTE: Must run BEFORE update_records_from_weekly_report() so the title-odds
-    # history (used by power-rankings trend arrows) gets written for THIS week.
     title_odds = None
     cup_odds = None
     if run_simulations:
@@ -3533,10 +3561,11 @@ def build_stats_report(
         }
     what_if = analyze_weekly_what_if(data, week, matchup_results)
 
-    # Update records AFTER simulations + what_if so we can pass title_odds,
-    # bench_points, and blunders. Doing this earlier would leave
-    # title_odds_history empty (freezing the power-rankings trend at "flat")
-    # and skip cumulative_blunders updates.
+    # The derived half of the records write, AFTER simulations + what_if so we
+    # can pass title_odds, bench_points and blunders. Running this earlier
+    # would leave title_odds_history empty (freezing the power-rankings trend
+    # at "flat") and skip cumulative_blunders -- which is exactly why the
+    # whole write used to sit here, and why only this half still does.
     title_odds_for_records = title_odds.title_odds if title_odds else None
     bench_points_for_records = {
         m: a.total_bench_points for m, a in what_if.manager_analysis.items()
@@ -3544,12 +3573,14 @@ def build_stats_report(
     blunders_for_records = {
         m: a.total_blunders for m, a in what_if.manager_analysis.items()
     } if what_if is not None else None
-    record_updates = update_records_from_weekly_report(
+    record_updates += update_records_from_weekly_report(
         data,
         report,
         title_odds=title_odds_for_records,
         bench_points=bench_points_for_records,
         blunders=blunders_for_records,
+        season=CURRENT_SEASON,
+        phase=RECORDS_PHASE_HISTORY,
     )
     
     # Generate fun facts (compute luck_index early so fun_facts can use it)
@@ -3610,7 +3641,7 @@ def build_stats_report(
         
         "team_stats": build_team_stats(report),
         
-        "report_cards": build_report_cards(report, what_if),
+        "report_cards": build_report_cards(report, data, what_if),
         
         "looking_ahead": dataclass_to_dict(betting_lines) if betting_lines else None,
         

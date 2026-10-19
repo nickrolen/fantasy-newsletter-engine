@@ -1781,6 +1781,45 @@ def update_alltime_season_fppg_top10(
 # MAIN UPDATE FUNCTION
 # =============================================================================
 
+# Phases of the weekly records write. One call used to do both jobs, and the
+# ordering that forced -- everything after the simulations -- meant the
+# simulations, the report cards and the power rankings all read a RECORDS.json
+# that was still a week behind the standings printed beside them.
+#
+#   state    what happened. W-L, head-to-head, streaks, career totals, the
+#            weekly score history get_manager_record() derives the record
+#            from. Everything downstream of the week's results needs this
+#            BEFORE it runs.
+#   history  what this week's analysis concluded. Title-odds history, bench
+#            points, blunders. These cannot exist until the simulations and
+#            the what-if have run, which is why the single call sat where it
+#            did.
+#
+# They are guarded separately. A shared watermark would let whichever phase
+# ran first mark the week done and silently skip the other -- trading a stale
+# -input bug for a missing trend-history one.
+RECORDS_PHASE_STATE = "state"
+RECORDS_PHASE_HISTORY = "history"
+RECORDS_PHASE_ALL = "all"
+RECORDS_PHASES = (RECORDS_PHASE_STATE, RECORDS_PHASE_HISTORY, RECORDS_PHASE_ALL)
+
+STATE_WATERMARK_KEY = "last_updated_week"
+HISTORY_WATERMARK_KEY = "last_history_week"
+
+
+def seed_history_watermark(records: dict) -> None:
+    """Give a pre-split RECORDS.json its history watermark, once.
+
+    Before the split both phases ran inside one block guarded by
+    `last_updated_week`, so that value is an accurate position for both. This
+    must run BEFORE either phase: seeding it afterwards would read the state
+    watermark the state phase had just advanced and skip the history phase
+    for the rest of the week.
+    """
+    if HISTORY_WATERMARK_KEY not in records:
+        records[HISTORY_WATERMARK_KEY] = records.get(STATE_WATERMARK_KEY, 0)
+
+
 def update_records_from_weekly_report(
     data: FantasyData,
     report: WeeklyReport,
@@ -1788,10 +1827,11 @@ def update_records_from_weekly_report(
     bench_points: dict[str, float] = None,
     blunders: dict[str, int] = None,
     season: str = None,
+    phase: str = RECORDS_PHASE_ALL,
 ) -> list[RecordUpdate]:
     """
     Update all records based on a weekly report.
-    
+
     Args:
         data: FantasyData container (records dict will be updated in place)
         report: WeeklyReport with this week's stats
@@ -1801,33 +1841,71 @@ def update_records_from_weekly_report(
         season: season the report belongs to (defaults to CURRENT_SEASON).
             It decides which weeks count as regular season, and that
             boundary moves from year to year -- see data_loader.SEASON_STRUCTURE.
-    
+        phase: which half of the write to run -- RECORDS_PHASE_STATE before
+            the simulations, RECORDS_PHASE_HISTORY after them, or
+            RECORDS_PHASE_ALL (the default) for both in one call, which is
+            what a caller with no simulations to interleave wants. See the
+            phase comment above.
+
     Returns:
-        List of RecordUpdates describing any records broken
+        List of RecordUpdates describing any records broken. Only the state
+        phase breaks records, so a history-only call returns an empty list.
     """
+    if phase not in RECORDS_PHASES:
+        raise ValueError(
+            f"unknown records phase {phase!r}; expected one of {RECORDS_PHASES}")
+
     records = data.records
     week = report.week
     updates = []
 
+    seed_history_watermark(records)
+
     # title_odds_history is keyed by week, so re-writing the same week is a safe
-    # overwrite (not a cumulative add). Update it BEFORE the already-processed
-    # guard so re-running a week still refreshes the odds-history entry that
-    # the power-rankings trend depends on. Without this, regenerating a report
-    # for a previously-processed week leaves title_odds_history stale (or
-    # empty, in the bug case where the records call ran before the simulation)
-    # and every manager's trend arrow gets frozen at "flat".
+    # overwrite (not a cumulative add). Update it OUTSIDE both guards so
+    # re-running a week still refreshes the odds-history entry that the
+    # power-rankings trend depends on. Without this, regenerating a report for
+    # a previously-processed week leaves title_odds_history stale and every
+    # manager's trend arrow gets frozen at "flat".
     if title_odds:
         update_title_odds_history(records, week, title_odds)
 
-    # Check if this week was already processed to prevent double-counting
-    last_week = records.get("last_updated_week", 0)
-    if last_week >= week:
-        print(f"  Note: Week {week} already processed (last_updated_week={last_week}), skipping record updates")
-        return updates
+    if phase in (RECORDS_PHASE_STATE, RECORDS_PHASE_ALL):
+        updates.extend(_record_week_results(data, report, week, season))
 
-    # Update last_updated_week
-    records["last_updated_week"] = week
-    
+    if phase in (RECORDS_PHASE_HISTORY, RECORDS_PHASE_ALL):
+        _persist_derived_history(records, week, bench_points, blunders)
+
+    return updates
+
+
+def _record_week_results(
+    data: FantasyData,
+    report: WeeklyReport,
+    week: int,
+    season: str = None,
+) -> list[RecordUpdate]:
+    """Phase `state`: write what happened in week N into RECORDS.
+
+    Everything here is a fact about a completed week, and everything
+    downstream of the week's results -- the title-odds and playoff-odds
+    simulations, the betting lines, the report cards, the power rankings,
+    the standings -- reads it. So it runs before them, not after.
+
+    Most of what it calls is cumulative (+1 a head-to-head win, extend a
+    streak), so the watermark guard below is load-bearing: without it a
+    second run of the same week would count it twice.
+    """
+    records = data.records
+    last_week = records.get(STATE_WATERMARK_KEY, 0)
+    if last_week >= week:
+        print(f"  Note: Week {week} already recorded "
+              f"({STATE_WATERMARK_KEY}={last_week}), skipping state updates")
+        return []
+
+    records[STATE_WATERMARK_KEY] = week
+    updates = []
+
     # Check single-game records
     if report.best_single_game:
         bg = report.best_single_game
@@ -1910,19 +1988,7 @@ def update_records_from_weekly_report(
     
     # Update season FPPG stats (team and positional)
     update_season_fppg_stats(records, week, report, data)
-    
-    # Title odds history already updated above the already-processed guard
-    # (it's an idempotent overwrite keyed by week, so safe to write before the
-    # guard and skip the redundant call here).
 
-    # Update cumulative bench points
-    if bench_points:
-        update_cumulative_bench_points(records, bench_points)
-    
-    # Update cumulative blunders
-    if blunders:
-        update_cumulative_blunders(records, blunders, week)
-    
     # Update all-time team record top-10 leaderboards
     update_alltime_weekly_top10s(records, report.matchups, manager_scores, week)
 
@@ -1952,8 +2018,41 @@ def update_records_from_weekly_report(
                 wg["fantasy_points"], wg.get("date", ""), CURRENT_SEASON, week,
                 rookie_seasons=rookie_seasons,
             )
-
     return updates
+
+
+def _persist_derived_history(
+    records: dict,
+    week: int,
+    bench_points: dict[str, float] = None,
+    blunders: dict[str, int] = None,
+) -> None:
+    """Phase `history`: write what week N's analysis concluded into RECORDS.
+
+    Bench points and blunders come out of the what-if, which cannot run until
+    the week's results are in -- so unlike the state phase this runs after the
+    simulations. Both are cumulative adds, hence the separate watermark: the
+    state phase has already advanced its own by the time this is called, and
+    sharing one would skip this silently.
+
+    title_odds_history is NOT written here. It is an idempotent overwrite
+    keyed by week and lives outside both guards, so a re-run refreshes it.
+    """
+    last_week = records.get(HISTORY_WATERMARK_KEY, 0)
+    if last_week >= week:
+        print(f"  Note: Week {week} history already persisted "
+              f"({HISTORY_WATERMARK_KEY}={last_week}), skipping")
+        return
+
+    records[HISTORY_WATERMARK_KEY] = week
+
+    # Update cumulative bench points
+    if bench_points:
+        update_cumulative_bench_points(records, bench_points)
+
+    # Update cumulative blunders
+    if blunders:
+        update_cumulative_blunders(records, blunders, week)
 
 
 # =============================================================================

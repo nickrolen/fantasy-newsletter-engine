@@ -911,6 +911,11 @@ def load_records(path: Path) -> dict:
         return {
             "season_year": CURRENT_SEASON_LONG,
             "last_updated_week": 0,
+            # Two watermarks: the week whose RESULTS are recorded, and the
+            # week whose DERIVED history (bench points, blunders) is. They
+            # are written at different points in the build and must be
+            # guarded apart -- see records_tracker's phase comment.
+            "last_history_week": 0,
             "title_odds_history": {},
             "season_records": {},
             "h2h_season": {},
