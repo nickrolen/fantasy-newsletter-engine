@@ -15,50 +15,19 @@ import pandas as pd
 import numpy as np
 
 from .data_loader import FantasyData, MANAGERS, PlayerIndex, normalize_player_name
+from .absence import parse_out_from
 
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
-# Injury status availability probabilities (for betting lines sim)
-# These represent the probability a player plays on any given game day
-# based on their current injury designation from Yahoo
+# Yahoo injury tags (GTD / O) are turned into missed games by modules/absence.py,
+# the one absence model (A2). The per-calendar-day decay curve and the flat
+# per-tag rates that used to live here are gone -- do not reintroduce them.
 #
 # NOTE: INJURY_OVERRIDES out_weeks is the source of truth for who's actually OUT.
 # Yahoo's INJ tag just means they have an injury designation, not that they're missing games.
-# If a player is INJ but not in out_weeks, they're expected to play.
-#
-# Only actual injury DESIGNATIONS are included here (not roster slots like IL/IL+/BN)
-INJURY_AVAILABILITY = {
-    "HEALTHY": 1.0,   # 100% - no injury designation
-    "GTD": 0.80,      # 80% - Game Time Decision (legacy flat rate)
-    "O": 0.60,        # 60% - Out for current game (legacy flat rate)
-    "INJ": 1.0,       # 100% - has injury tag but expected to play (INJURY_OVERRIDES handles actual outs)
-}
-
-# Decay-based injury availability for betting simulation.
-# Yahoo injury tags are a Monday snapshot.  A "GTD" or "O" designation
-# carries the most weight on the day it is set and fades as the week
-# progresses, because most soft-tissue issues and rest days resolve
-# within 1-3 days.
-#
-# Key is (status, days_from_week_start) -> availability probability.
-# Days beyond the last explicit entry use the final value.
-#
-# Expected games for a Mon/Wed/Fri schedule (days 0/2/4):
-#   GTD: 0.70 + 0.90 + 1.00 = 2.60 out of 3  ("usually plays 2-3")
-#   O:   0.20 + 0.60 + 0.85 = 1.65 out of 3  ("usually plays 0-2")
-INJURY_DECAY = {
-    "GTD": [
-        # day 0   1     2     3     4     5+
-        0.70, 0.80, 0.90, 0.95, 1.00, 1.00,
-    ],
-    "O": [
-        # day 0   1     2     3     4     5+
-        0.20, 0.40, 0.60, 0.75, 0.85, 0.95,
-    ],
-}
 
 # Default availability for ROS sim (everyone not in overrides)
 ROS_DEFAULT_AVAILABILITY = 0.90
@@ -230,6 +199,7 @@ class PlayerProjection:
     return_games: int = None  # Expected games in return week
     total_week_games: int = None  # Total team games in return week
     return_date: str = None  # Specific date player returns (YYYY-MM-DD)
+    out_from: Optional[date] = None  # Out on and after this date, within its week (A2)
 
     # Actual season performance (populated from PLAYERLOG)
     actual_fppg: float = None  # Actual FPPG from this season
@@ -399,6 +369,7 @@ def load_player_projections(data: FantasyData) -> dict[str, PlayerProjection]:
             return_games=return_info.get("return_games"),
             total_week_games=return_info.get("total_week_games"),
             return_date=return_info.get("return_date"),
+            out_from=parse_out_from(data.get_player_out_from(name)),
         )
 
         projections[name] = proj
@@ -599,68 +570,6 @@ def get_historical_weekly_scores(data: FantasyData, manager: str) -> list[float]
 # =============================================================================
 # AVAILABILITY CALCULATIONS
 # =============================================================================
-
-def get_injury_availability_decayed(
-    status: str,
-    days_offset: int,
-) -> float:
-    """
-    Get injury availability using the decay model.
-
-    Yahoo tags are a point-in-time snapshot (typically Monday).  Impact
-    is strongest on tag day and fades as the week progresses.
-
-    Args:
-        status: Injury status string ("GTD", "O", "HEALTHY", "INJ", ...)
-        days_offset: Days since the start of the fantasy week (0 = Monday).
-
-    Returns:
-        Probability the player is available (0.0 to 1.0).
-    """
-    status_upper = str(status).upper().strip()
-
-    curve = INJURY_DECAY.get(status_upper)
-    if curve is None:
-        # HEALTHY, INJ, or anything unrecognised -> 100%
-        return 1.0
-
-    idx = min(days_offset, len(curve) - 1)
-    idx = max(idx, 0)
-    return curve[idx]
-
-
-def get_player_availability_betting(
-    player: PlayerProjection,
-    injury_status: str = None,
-    days_offset: int = None,
-) -> float:
-    """
-    Get player availability probability for betting lines simulation.
-
-    When *days_offset* is supplied the decay model is used (recommended
-    for the daily Monte Carlo).  Without it, falls back to the legacy
-    flat constants in INJURY_AVAILABILITY for backward compatibility.
-
-    Args:
-        player: Player projection.
-        injury_status: Yahoo API status override (default: player.injury_status).
-        days_offset: Days since week start for decay model.
-    """
-    if injury_status is None:
-        injury_status = player.injury_status
-
-    status_upper = str(injury_status).upper().strip()
-
-    # Decay model (preferred)
-    if days_offset is not None:
-        return get_injury_availability_decayed(status_upper, days_offset)
-
-    # Legacy flat model
-    if status_upper in INJURY_AVAILABILITY:
-        return INJURY_AVAILABILITY[status_upper]
-
-    return INJURY_AVAILABILITY["HEALTHY"]
-
 
 def get_player_availability_ros(
     player: PlayerProjection,

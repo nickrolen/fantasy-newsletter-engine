@@ -41,15 +41,19 @@ same answer.
 
 AVAILABILITY -- one model, the simulators'
 -------------------------------------------
-  - INJURY_OVERRIDES out_weeks: unavailable.
-  - return_date in a return week: unavailable before it.
-  - otherwise per-game rate = projected_gp / max projected_gp among rostered
-    players, capped at 0.98 (simulator_title_odds' reliability model);
-  - in the window's first fantasy week a live GTD/O tag multiplies it by the
-    betting simulator's decay curve.
-It sits behind `availability()` so A2's block-absence model replaces it in
-one place. Today it is still the independent coin flip handoff 7.1 calls
-the wrong shape -- see RETRO_SIM_REQUIREMENTS.md section 3.
+  1. INJURY_OVERRIDES out_weeks, or out_from (on and after a date within its
+     week): unavailable.
+  2. return_date in a return week: unavailable before it.
+  3. a live GTD/O tag: modules/absence.py (A2). One draw of k games missed
+     per simulation, keyed by (seed, player, anchor) -- the anchor is the
+     window's first day, the week the tags were fetched for -- and his
+     first k team games from the anchor are out. Blocks, not coin flips.
+     An override entry touching that week suppresses the tag.
+  4. every game: per-game rate = projected_gp / max projected_gp among
+     rostered players, capped at 0.98 (simulator_title_odds' reliability
+     model), drawn independently per date.
+`availability()` is steps 1, 2 and 4 as a probability; `tag_missed()` is
+step 3 as a realised mask; `_draws` combines them.
 
 SPEED
 -----
@@ -76,7 +80,7 @@ import numpy as np
 
 from .data_loader import PlayerIndex, CURRENT_SEASON, stage_weeks
 from .lineup_fill import exact_fill
-from .projections import get_injury_availability_decayed
+from . import absence
 
 DEFAULT_SIMS = 400
 SHORTLIST_SIMS = 40
@@ -188,6 +192,7 @@ class MVPlayer:
     return_date: Optional[date] = None
     status: str = "HEALTHY"
     projected: bool = True              # False: not in PLAYERLIST
+    out_from: Optional[date] = None     # INJURY_OVERRIDES out_from (A2)
 
 
 @dataclass
@@ -205,6 +210,7 @@ class MVContext:
     _day: dict = field(default_factory=dict, repr=False)
     _totals: dict = field(default_factory=dict, repr=False)
     _plain: dict = field(default_factory=dict, repr=False)
+    _missed: dict = field(default_factory=dict, repr=False)
 
     def player(self, canonical_name: str):
         """Plain-dict lookup for a name already resolved (canonical).
@@ -295,7 +301,10 @@ def build_context(
             rate=float(rate), out_weeks=frozenset(p.out_weeks or []),
             return_week=p.return_week,
             return_date=(date.fromisoformat(p.return_date) if p.return_date else None),
-            status=str(statuses.get(name, "HEALTHY")).upper())
+            status=str(statuses.get(name, "HEALTHY")).upper(),
+            out_from=absence.parse_out_from(getattr(p, "out_from", None)))
+    # An unmodelled tag on anyone simulated raises here, once, naming them all.
+    absence.check_tags({n: pl.status for n, pl in dict.items(players)}, dict.keys(players))
 
     weeks = window_weeks(window, current_week, season)
     by_week = _week_dates(schedule_weeks)
@@ -310,18 +319,45 @@ def build_context(
 # Availability and fills
 # =============================================================================
 
+def _dates_of_week(ctx: MVContext, week: int) -> list:
+    return [dd for dd, w, _t in ctx.days if w == week]
+
+
 def availability(ctx: MVContext, p: MVPlayer, d: date, week: int) -> float:
-    """Probability p plays on d if his team does. The A2 seam."""
+    """Probability p plays on d if his team does, before any tag (steps 1,
+    2 and 4). The tag is a realised block, not a probability: tag_missed."""
     if week in p.out_weeks:
         return 0.0
+    if p.out_from is not None:
+        wd = _dates_of_week(ctx, week)
+        if wd and absence.out_from_applies(d, wd[0], p.out_from):
+            return 0.0
     if p.return_date is not None and week == p.return_week and d < p.return_date:
         return 0.0
-    a = p.rate
-    first_week = ctx.weeks[0] if ctx.weeks else None
-    if week == first_week and p.status in ("GTD", "O"):
-        week_start = next(dd for dd, w, _t in ctx.days if w == week)
-        a *= get_injury_availability_decayed(p.status, (d - week_start).days)
-    return a
+    return p.rate
+
+
+def tag_missed(ctx: MVContext, p: MVPlayer) -> dict:
+    """date -> bool over simulations: p is out on that date because of his
+    tag (A2). Empty when he has no chain tag or an override governs it.
+    Keyed by (seed, player, anchor), so no other question can move it."""
+    hit = ctx._missed.get(p.name)
+    if hit is not None:
+        return hit
+    out: dict = {}
+    tag = absence.chain_tag(p.status)
+    if tag is not None and ctx.days and ctx.weeks:
+        first = ctx.weeks[0]
+        if not absence.tag_suppressed(first, _dates_of_week(ctx, first), p.out_weeks,
+                                      p.return_week, p.out_from):
+            anchor = ctx.days[0][0]
+            k = absence.missed_from_uniform(
+                absence.keyed_uniforms(ctx.seed, p.name, anchor, ctx.sims), tag)
+            games = [dd for dd, _w, teams in ctx.days if p.team in teams and dd >= anchor]
+            for i, dd in enumerate(games[:absence.MAX_TAG_GAMES]):
+                out[dd] = k > i
+    ctx._missed[p.name] = out
+    return out
 
 
 def _draws(ctx: MVContext, p: MVPlayer, d: date, week: int) -> np.ndarray:
@@ -338,6 +374,9 @@ def _draws(ctx: MVContext, p: MVPlayer, d: date, week: int) -> np.ndarray:
                             digest_size=8).digest()
         rng = np.random.default_rng(int.from_bytes(h, "little"))
         out = rng.random(ctx.sims) < a
+        blocked = tag_missed(ctx, p).get(d)
+        if blocked is not None:
+            out &= ~blocked
     ctx._avail[key] = out
     return out
 

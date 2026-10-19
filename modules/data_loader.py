@@ -383,6 +383,12 @@ class FantasyData:
             "return_date": player.get("return_date"),
         }
 
+    def get_player_out_from(self, player_name: str):
+        """INJURY_OVERRIDES out_from (raw), or None: unavailable on and after
+        that date, within its fantasy week. Parsed by absence.parse_out_from."""
+        entry = self._injury_entry(player_name)
+        return entry.get("out_from") if entry else None
+
     def is_player_available(self, player_name: str, week: int) -> bool:
         """Check if player is available for a given week."""
         out_weeks = self.get_player_injury_weeks(player_name)

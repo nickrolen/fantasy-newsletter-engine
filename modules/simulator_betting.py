@@ -19,10 +19,10 @@ from .projections import (
     TeamProjections,
     load_all_team_projections,
     load_player_projections,
-    get_player_availability_betting,
-    is_player_available,
     sample_player_game_fp,
 )
+from . import absence
+from .data_loader import PlayerIndex
 from .lineup_optimizer import (
     AvailablePlayer,
     optimize_lineup,
@@ -320,6 +320,86 @@ def get_nba_games_on_date(data: FantasyData, game_date: date) -> dict[str, str]:
 
 
 # =============================================================================
+# TAG ABSENCES (A2) -- the betting simulators' side of modules/absence.py
+# =============================================================================
+
+TAG_GAME_HORIZON_DAYS = 28   # enough calendar to find any team's next 3 games
+
+
+def tag_week(data: FantasyData) -> Optional[tuple[int, list[date]]]:
+    """(week, dates) the Yahoo tags were fetched for: next week."""
+    wd = get_next_week_data(data)
+    if not wd:
+        return None
+    return wd["week"], get_dates_in_week(wd)
+
+
+def team_games_from_anchor(data: FantasyData, anchor: date) -> dict[str, list[date]]:
+    """team -> its game dates from the anchor, ascending. Cached on `data`
+    per anchor: get_nba_games_for_date scans the whole schedule."""
+    cache = data.__dict__.setdefault("_absence_team_games", {})
+    hit = cache.get(anchor)
+    if hit is None:
+        hit = {}
+        for k in range(TAG_GAME_HORIZON_DAYS):
+            d = anchor + timedelta(days=k)
+            for team in get_nba_games_on_date(data, d):
+                hit.setdefault(team, []).append(d)
+        cache[anchor] = hit
+    return hit
+
+
+def draw_tag_absences(
+    data: FantasyData,
+    team_projections: dict[str, TeamProjections],
+    injury_statuses: dict = None,
+    tag_anchor: date = None,
+    rand=None,
+) -> dict[str, frozenset]:
+    """player -> dates he misses because of his tag, for ONE simulated week.
+
+    One draw per tagged player (absence.missed_from_uniform), the first k of
+    his team's games from the anchor. Precedence: an INJURY_OVERRIDES entry
+    touching the tag's week suppresses the tag. An unmodelled tag raises.
+    The betting simulators run on the global `random` stream (no CRN here --
+    nothing differences two of these runs); marginal_value keys its draws.
+    """
+    if not injury_statuses:
+        return {}
+    statuses = injury_statuses if isinstance(injury_statuses, PlayerIndex) else PlayerIndex(injury_statuses)
+    absence.check_tags(statuses, [n for tp in team_projections.values() for n in tp.players])
+    rand = rand or random.random
+    tw = tag_week(data)
+    if tag_anchor is None and tw is None:
+        tagged = [n for tp in team_projections.values() for n in tp.players
+                  if n in statuses and absence.chain_tag(statuses[n])]
+        if tagged:
+            raise ValueError(f"tags for {tagged} but no next week to anchor them to; pass tag_anchor")
+        return {}
+    anchor = tag_anchor or tw[1][0]
+    if tw is not None and anchor in tw[1]:
+        t_week, t_dates = tw
+    else:
+        t_week, t_dates = None, [anchor]
+    games = team_games_from_anchor(data, anchor)
+    out = {}
+    for tp in team_projections.values():
+        for name, player in tp.players.items():
+            if name not in statuses:
+                continue
+            tag = absence.chain_tag(statuses[name])
+            if tag is None:
+                continue
+            if absence.tag_suppressed(t_week, t_dates, player.out_weeks,
+                                      player.return_week, player.out_from):
+                continue
+            k = absence.missed_from_uniform(rand(), tag)
+            if k:
+                out[name] = absence.missed_dates(games.get(player.nba_team.upper(), []), k)
+    return out
+
+
+# =============================================================================
 # SIMULATION CORE
 # =============================================================================
 
@@ -328,7 +408,7 @@ def simulate_manager_daily_score_hifi(
     playing_teams: set[str],
     week: int,
     game_date: date = None,
-    injury_statuses: dict[str, str] = None,
+    missed: dict = None,
     week_start_date: date = None,
 ) -> tuple[float, int, dict]:
     """
@@ -339,18 +419,15 @@ def simulate_manager_daily_score_hifi(
         playing_teams: Set of NBA teams playing today
         week: Current week number
         game_date: The specific date being simulated (for partial returns)
-        injury_statuses: Player -> injury status mapping (optional)
-        week_start_date: First day of the fantasy week (for injury decay model)
+        missed: player -> frozenset of dates he is out because of a Yahoo
+                tag, realised once per simulated week by draw_tag_absences
+                (modules/absence.py). Never drawn per day.
+        week_start_date: First day of the fantasy week (for out_from)
     
     Returns:
         (total_score, games_played, positional_breakdown)
     """
-    injury_statuses = injury_statuses or {}
-    
-    # Compute days since week start for the injury decay model
-    days_offset = None
-    if game_date is not None and week_start_date is not None:
-        days_offset = (game_date - week_start_date).days
+    missed = missed or {}
     
     # Find available players who have games today
     available = []
@@ -360,47 +437,34 @@ def simulate_manager_daily_score_hifi(
         if player.nba_team.upper() not in playing_teams:
             continue
         
-        # Check injury overrides (out_weeks from INJURY_OVERRIDES.json)
-        # These are hard outs - player is definitely not playing this week
+        # 1. INJURY_OVERRIDES hard outs: out_weeks (whole week) and out_from
+        #    (on and after a date, within its week).
         if week in player.out_weeks:
+            continue
+        if (game_date is not None and week_start_date is not None
+                and absence.out_from_applies(game_date, week_start_date, player.out_from)):
             continue
         
         # Skip players with 0 projection (injured/inactive)
         if player.projected_fppg <= 0:
             continue
         
-        # Check for partial return (player returning this week with limited games)
+        # 2. Partial return (player returning this week with limited games)
         if player.return_week == week:
             # If we have a specific return date, use it
             if player.return_date and game_date:
                 return_date_obj = datetime.strptime(player.return_date, "%Y-%m-%d").date()
                 if game_date < return_date_obj:
                     continue  # Player hasn't returned yet
-                # After return date, player is 100% available - no probabilistic check needed
             elif player.return_games and player.total_week_games:
                 # No specific return date - fall back to probabilistic availability
                 availability = player.return_games / player.total_week_games
                 if random.random() > availability:
                     continue  # Player not available today (probabilistically)
         
-        # Check injury status from Yahoo API for game-time uncertainty
-        # Uses decay model: tags hit hardest on day 1, fade through the week
-        status = injury_statuses.get(player.player_name, "HEALTHY")
-        status_upper = str(status).upper().strip()
-        
-        # Only GTD and O get probability checks
-        # INJ just means they have an injury tag - INJURY_OVERRIDES handles actual outs
-        # IL/IL+ are roster slots, not injury designations
-        if status_upper in ["GTD", "O"]:
-            from .projections import get_injury_availability_decayed, is_player_available
-            if days_offset is not None:
-                availability = get_injury_availability_decayed(status_upper, days_offset)
-            else:
-                # Fallback to flat rate if no date info
-                from .projections import INJURY_AVAILABILITY
-                availability = INJURY_AVAILABILITY.get(status_upper, 1.0)
-            if not is_player_available(availability):
-                continue
+        # 3. A GTD/O tag: the block of games drawn for this simulated week.
+        if game_date is not None and game_date in missed.get(player.player_name, ()):
+            continue
         
         available.append(AvailablePlayer(
             name=player.player_name,
@@ -446,15 +510,23 @@ def simulate_week_hifi(
     team_projections: dict[str, TeamProjections],
     week_data: dict,
     injury_statuses: dict[str, str] = None,
+    tag_anchor: date = None,
 ) -> dict[str, dict]:
     """
     Simulate one week for all managers with high fidelity.
+    
+    injury_statuses are Yahoo tags as of tag_anchor (default: the first day
+    of next week, the week they were fetched for). A tag costs a block of
+    the player's first games from the anchor (modules/absence.py), so when
+    this is called for a playoff or Cup week months away, today's tag
+    rightly costs nothing there.
     
     Returns dict mapping manager -> {score, games, positional}
     """
     week_num = week_data["week"]
     dates = get_dates_in_week(week_data)
     week_start_date = dates[0] if dates else None
+    missed = draw_tag_absences(data, team_projections, injury_statuses, tag_anchor)
     
     results = {m: {"score": 0.0, "games": 0, "G": 0.0, "F": 0.0, "C": 0.0} for m in MANAGERS}
     
@@ -465,7 +537,7 @@ def simulate_week_hifi(
         for manager in MANAGERS:
             team_proj = team_projections[manager]
             day_score, day_games, positional = simulate_manager_daily_score_hifi(
-                team_proj, playing_teams, week_num, game_date, injury_statuses,
+                team_proj, playing_teams, week_num, game_date, missed,
                 week_start_date=week_start_date,
             )
             
