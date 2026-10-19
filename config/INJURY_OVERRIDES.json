@@ -1,4 +1,55 @@
 {
-  "players": [],
-  "last_updated": ""
+  "players": [
+    {
+      "player_name": "Kon Knueppel",
+      "out_weeks": [1],
+      "notes": "Hamstring injury - out ~1 week starting week 1",
+      "return_week": 2,
+      "return_games": 4,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from hamstring injury on 10/26",
+      "return_date": "2026-10-26"
+    },
+    {
+      "player_name": "Coby White",
+      "out_weeks": [1],
+      "notes": "Calf injury - out ~2 weeks starting week 1",
+      "return_week": 2,
+      "return_games": 1,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from calf injury on 10/31",
+      "return_date": "2026-10-31"
+    },
+    {
+      "player_name": "Dejounte Murray",
+      "out_weeks": [],
+      "notes": "Toe injury - out ~1 week starting week 1",
+      "return_week": 1,
+      "return_games": 1,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from toe injury on 10/24",
+      "return_date": "2026-10-24"
+    },
+    {
+      "player_name": "Franz Wagner",
+      "out_weeks": [],
+      "notes": "Shoulder injury - out ~1 week starting week 1",
+      "return_week": 1,
+      "return_games": 1,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from shoulder injury on 10/25",
+      "return_date": "2026-10-25"
+    },
+    {
+      "player_name": "AJ Dybantsa",
+      "out_weeks": [],
+      "notes": "Ankle injury - out ~1 week starting week 1",
+      "return_week": 1,
+      "return_games": 1,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from ankle injury on 10/24",
+      "return_date": "2026-10-24"
+    }
+  ],
+  "last_updated": "2026-10-19"
 }

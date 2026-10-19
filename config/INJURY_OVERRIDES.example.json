@@ -1,0 +1,36 @@
+{
+  "_comment": "TEMPLATE -- not read by anything. Copy an entry into INJURY_OVERRIDES.json and edit. 2026-27 has 23 weeks: regular season 1-15, playoffs 16-21, Cup 22-23. Delete the two examples below and keep only real players. last_updated must be set to the date you reviewed, YYYY-MM-DD, or the integrity check fails from Week 1.",
+  "_fields": {
+    "player_name": "Must match PLAYERLIST's spelling. LOAD-BEARING.",
+    "out_weeks": "LOAD-BEARING, the main switch. Any week in this list = fully out that week. Out for the season = every week 1-23.",
+    "return_week": "LOAD-BEARING for that one week only: the week he comes back. Must be the week AFTER the last out_weeks entry -- if a week is in both, out_weeks wins and he sits the whole week. null if no known return.",
+    "return_date": "LOAD-BEARING. YYYY-MM-DD only. He is unavailable before this date and available from it, within return_week. A MALFORMED DATE IS SILENTLY IGNORED and he becomes fully available, so check this one.",
+    "return_games": "LOAD-BEARING. Games he is expected to play in return_week. Divided by total_week_games to pro-rate his projection that week.",
+    "total_week_games": "LOAD-BEARING. His NBA team's total games in return_week.",
+    "notes": "Display text. Reaches the newsletter.",
+    "return_notes": "Display text for the return. Reaches the newsletter."
+  },
+  "players": [
+    {
+      "player_name": "EXAMPLE -- out indefinitely, no known return",
+      "out_weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+      "notes": "Out for season",
+      "return_week": null,
+      "return_games": null,
+      "total_week_games": null,
+      "return_notes": "",
+      "return_date": null
+    },
+    {
+      "player_name": "EXAMPLE -- out two weeks, back partway through week 3",
+      "out_weeks": [1, 2],
+      "notes": "Knee injury - out ~2 weeks starting week 1",
+      "return_week": 3,
+      "return_games": 2,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from knee injury on 11/4",
+      "return_date": "2026-11-04"
+    }
+  ],
+  "last_updated": "YYYY-MM-DD"
+}
