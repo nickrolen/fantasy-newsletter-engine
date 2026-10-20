@@ -11,7 +11,7 @@ import random
 import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from .data_loader import FantasyData, MANAGERS, CURRENT_SEASON
 from .projections import (
@@ -95,6 +95,15 @@ class BettingLine:
     # Team names
     team_name_a: str = ""
     team_name_b: str = ""
+
+    # B2 decomposition: avg_score = banked + remaining_mean (discounted).
+    # A pre-week line has banked 0.0 and remaining_mean == avg_score.
+    banked_a: float = 0.0
+    banked_b: float = 0.0
+    remaining_mean_a: float = 0.0
+    remaining_mean_b: float = 0.0
+    projected_final_a: float = 0.0
+    projected_final_b: float = 0.0
 
 
 @dataclass
@@ -431,58 +440,117 @@ class StreamDraws:
         return self.rng.standard_normal((1, len(keys)))
 
 
+class TagBlock(NamedTuple):
+    """One tagged player's absence, all simulations at once.
+
+    games: his team's first MAX_TAG_GAMES games from the tag's anchor.
+    start: how many of those were already resolved (observed) before the
+           simulated window -- B2's as-of truncation; 0 for a full week.
+    k:     per simulation, how many MORE games he misses from games[start].
+    """
+    games: list
+    k: np.ndarray
+    start: int = 0
+    basis: str = "full chain"
+
+    def missed(self, d: date):
+        """bool over simulations, or None if d is not an open chain game."""
+        if d not in self.games:
+            return None
+        i = self.games.index(d)
+        if i < self.start:
+            return None
+        return self.k > (i - self.start)
+
+
 def tag_blocks(
     data: FantasyData,
     team_projections: dict[str, TeamProjections],
     injury_statuses: dict = None,
     draws=None,
     tag_anchor: date = None,
-) -> dict[str, tuple[list, np.ndarray]]:
-    """player -> (his team's games from the anchor, k games missed per simulation).
+    anchors: dict = None,
+    tag_week_info: tuple = None,
+    observed: dict = None,
+    as_of: date = None,
+) -> dict[str, TagBlock]:
+    """player -> TagBlock.
 
-    One draw per tagged player per simulation (absence.missed_from_uniform),
-    keyed ("absence", player, anchor) -- the same key marginal_value uses, so
-    the two engines agree on who is hurt for a given seed. He misses the
-    first k of those games. Precedence: an INJURY_OVERRIDES entry touching
-    the tag's week suppresses the tag. An unmodelled tag raises.
+    One draw per tagged player per simulation, keyed ("absence", player,
+    anchor) -- the same key marginal_value uses, so the two engines agree on
+    who is hurt for a given seed. He misses the first k of his games from
+    the anchor. Precedence: an INJURY_OVERRIDES entry touching the tag's
+    week suppresses the tag. An unmodelled tag raises.
+
+    B2 (as-of re-simulation):
+      anchors:       player -> his tag's anchor date (default: tag_anchor,
+                     else the first day of the tag week). An UNCHANGED tag
+                     keeps its original anchor; a fresh one is re-anchored
+                     by the caller (week_state.reconcile_tags).
+      tag_week_info: (week, dates) the tags belong to. Pass it mid-week:
+                     the default reads data.current_week + 1, and
+                     load_all_data advances current_week as soon as the
+                     week's first log rows land.
+      observed, as_of: player -> {date: played} from the logs (WeekState),
+                     and the date the window starts. His chain games before
+                     as_of are resolved; if the log has every one of them the
+                     chain is CONDITIONED on them (same uniform,
+                     absence.missed_distribution(tag, observed)), so a
+                     player who sat Monday and Tuesday is not charged those
+                     games again and one who played is healthy. If any is
+                     missing from the log (e.g. he was not rostered) he is
+                     not observed: the unconditional block, of which only the
+                     games still to come are simulated. TagBlock.basis says
+                     which.
     """
     if not injury_statuses:
         return {}
+    obs_idx = PlayerIndex(observed or {})
     out = {}
-    for name, tag, team_games in _tagged_players(data, team_projections, injury_statuses, tag_anchor):
-        k = absence.missed_from_uniform(draws.uniforms("absence", name, team_games[1]), tag)
-        out[name] = (team_games[0], np.asarray(k))
+    for name, tag, (games, anchor) in _tagged_players(
+            data, team_projections, injury_statuses, tag_anchor, anchors, tag_week_info):
+        resolved = [g for g in games if as_of is not None and g < as_of]
+        log = obs_idx.get(name) or {}
+        if not resolved:
+            obs, basis = (), "full chain"
+        elif all(g in log for g in resolved):
+            obs = tuple(bool(log[g]) for g in resolved)
+            basis = "conditioned on " + ", ".join(
+                f"{g.isoformat()} {'played' if v else 'missed'}" for g, v in zip(resolved, obs))
+        else:
+            obs, basis = (), "not observed in the logs: unconditional block"
+        k = absence.missed_from_uniform(draws.uniforms("absence", name, anchor), tag, obs)
+        out[name] = TagBlock(games, np.asarray(k), len(obs), basis)
     return out
 
 
-def _tagged_players(data, team_projections, injury_statuses, tag_anchor):
+def _tagged_players(data, team_projections, injury_statuses, tag_anchor,
+                    anchors=None, tag_week_info=None):
     """[(name, chain tag, (his games from the anchor, anchor))] -- everything
     about the tags that is not random. Cached on `data` by the identity of
     the inputs: the playoff and Cup simulators ask once per iteration, and
     resolving names through PlayerIndex each time cost more than simulating.
     """
     cache = data.__dict__.setdefault("_tagged_players", {})
+    anchors = anchors or {}
     key = (id(team_projections), id(injury_statuses), len(injury_statuses), tag_anchor,
-           _roster_shape(team_projections))
+           _roster_shape(team_projections), tuple(sorted((str(k), v) for k, v in anchors.items())),
+           None if tag_week_info is None else (tag_week_info[0], tuple(tag_week_info[1])))
     hit = cache.get(key)
     if hit is not None and hit[0] is team_projections and hit[1] is injury_statuses:
         return hit[2]
     statuses = injury_statuses if isinstance(injury_statuses, PlayerIndex) else PlayerIndex(injury_statuses)
     absence.check_tags(statuses, [n for tp in team_projections.values() for n in tp.players])
-    tw = tag_week(data)
-    if tag_anchor is None and tw is None:
+    tw = tag_week_info if tag_week_info is not None else tag_week(data)
+    anchor_idx = PlayerIndex(anchors)
+    if tag_anchor is None and tw is None and not anchors:
         tagged = [n for tp in team_projections.values() for n in tp.players
                   if n in statuses and absence.chain_tag(statuses[n])]
         if tagged:
             raise ValueError(f"tags for {tagged} but no next week to anchor them to; pass tag_anchor")
         cache[key] = (team_projections, injury_statuses, [])
         return []
-    anchor = tag_anchor or tw[1][0]
-    if tw is not None and anchor in tw[1]:
-        t_week, t_dates = tw
-    else:
-        t_week, t_dates = None, [anchor]
-    games = team_games_from_anchor(data, anchor)
+    default_anchor = tag_anchor or (tw[1][0] if tw is not None else None)
     out = []
     for tp in team_projections.values():
         for name, player in tp.players.items():
@@ -491,9 +559,17 @@ def _tagged_players(data, team_projections, injury_statuses, tag_anchor):
             tag = absence.chain_tag(statuses[name])
             if tag is None:
                 continue
+            anchor = anchor_idx.get(name, default_anchor)
+            if anchor is None:
+                raise ValueError(f"{name} is tagged {statuses[name]} but has no anchor date")
+            if tw is not None and (anchor in tw[1] or tag_week_info is not None):
+                t_week, t_dates = tw
+            else:
+                t_week, t_dates = None, [anchor]
             if absence.tag_suppressed(t_week, t_dates, player.out_weeks,
                                       player.return_week, player.out_from):
                 continue
+            games = team_games_from_anchor(data, anchor)
             team_games = games.get(player.nba_team.upper(), [])[:absence.MAX_TAG_GAMES]
             out.append((name, tag, (team_games, anchor)))
     cache[key] = (team_projections, injury_statuses, out)
@@ -578,9 +654,22 @@ def simulate_week_matrix(
     draws=None,
     tag_anchor: date = None,
     managers=None,
+    from_date: date = None,
+    anchors: dict = None,
+    tag_week_info: tuple = None,
+    observed: dict = None,
 ) -> dict[str, dict]:
     """
     Simulate one fantasy week, all `draws.n` simulations at once.
+
+    from_date (B2): simulate only the days on or after it -- the remainder.
+    Every draw keeps its key (player, date), so a remainder is literally the
+    full week's draws restricted to the remaining days: from_date = the
+    week's first day is bit-identical to the full week, and nothing that
+    happened before from_date can move a remaining draw. Team noise is
+    scaled by sqrt(remaining NBA game-days / the week's NBA game-days) --
+    variance in proportion to the week left; 1.0 for a full week, 0 for an
+    empty remainder. anchors / tag_week_info / observed: see tag_blocks.
 
     Returns manager -> {"score", "games", "G", "F", "C"}, each an array of
     length n. Per day, per manager: the players eligible today in projection
@@ -602,14 +691,16 @@ def simulate_week_matrix(
     week_start_date = dates[0] if dates else None
     managers = list(managers or MANAGERS)
     n = draws.n
-    blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor)
+    blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor,
+                        anchors, tag_week_info, observed, from_date)
     plan = _week_plan(data, team_projections, week_data, managers)
+    noise_scale = remaining_noise_scale(data, dates, from_date)
 
     results = {}
     for manager in managers:
         team_proj = team_projections[manager]
         res = {k: np.zeros(n) for k in ("score", "games", "G", "F", "C")}
-        days = [(d, e) for d, e in plan[manager] if e]
+        days = [(d, e) for d, e in plan[manager] if e and (from_date is None or d >= from_date)]
         game_keys = [(e[0], d) for d, es in days for e in es]
         z_all = draws.normals_many("game", game_keys) if game_keys else None
         rate_keys = [(e[0], d) for d, es in days for e in es if e[4] is not None]
@@ -625,8 +716,9 @@ def simulate_week_matrix(
                 if rate is not None:
                     avail[:, j] &= u_rate[(name, game_date)] <= rate
                 blk = blocks.get(name)
-                if blk is not None and game_date in blk[0]:
-                    avail[:, j] &= ~(blk[1] > blk[0].index(game_date))
+                out_today = blk.missed(game_date) if blk is not None else None
+                if out_today is not None:
+                    avail[:, j] &= ~out_today
             fp = np.where(mean > 0, mean + std * z_all[:, col:col + width], 0.0)
             col += width
             starters = avail & (np.cumsum(avail, axis=1) <= 10)
@@ -640,9 +732,23 @@ def simulate_week_matrix(
         # Add team-level variance
         if week_start_date is not None:
             noise = draws.normals("noise", manager, week_start_date) * team_proj.weekly_std_dev * 0.15
+            if noise_scale != 1.0:
+                noise = noise * noise_scale
             res["score"] = np.maximum(0.0, res["score"] + noise)
         results[manager] = res
     return results
+
+
+def remaining_noise_scale(data: FantasyData, dates: list, from_date: date = None) -> float:
+    """sqrt(share of the week's NBA game-days on or after from_date).
+    Exactly 1.0 for a full week (bit-identity with the pre-week line)."""
+    if from_date is None or not dates or from_date <= dates[0]:
+        return 1.0
+    game_days = [d for d in dates if _playing_teams(data, d)]
+    if not game_days:
+        return 0.0
+    left = sum(1 for d in game_days if d >= from_date)
+    return (left / len(game_days)) ** 0.5
 
 
 def simulate_week_hifi(
@@ -703,6 +809,31 @@ def run_matchup_simulation(
     scores_b = week_results[manager_b]["score"]
     assert len(scores_a) == len(scores_b) == num_simulations
 
+    return line_from_scores(manager_a, manager_b, scores_a, scores_b, draws, week_data["week"])
+
+
+def line_from_scores(
+    manager_a: str,
+    manager_b: str,
+    scores_a: np.ndarray,
+    scores_b: np.ndarray,
+    draws,
+    week: int,
+    banked_a: float = 0.0,
+    banked_b: float = 0.0,
+) -> BettingLine:
+    """A BettingLine from simulated (remaining) scores plus banked points.
+
+    Win probability is read off the TOTAL (banked + simulated): banked is a
+    constant, so it shifts the distribution and does not widen it. The
+    injury discount applies to the simulated part only -- banked points
+    already happened. With banked = 0 this is the pre-week line exactly.
+    """
+    n = len(scores_a)
+    assert len(scores_b) == n
+    total_a = scores_a + banked_a
+    total_b = scores_b + banked_b
+
     # Tie convention (project-wide): coin flip for SIMULATED ties so
     # the probability is statistically honest. This also handles the
     # degenerate all-zero week (both teams scored 0 -- e.g., no NBA
@@ -710,32 +841,30 @@ def run_matchup_simulation(
     # every simulation to manager_b and produce a 0%/100% line.
     # Keyed by the unordered pairing, so swapping A and B flips nothing.
     first = sorted((manager_a, manager_b))[0]
-    coin = draws.uniforms("tie", matchup_id(manager_a, manager_b), week_data["week"]) < 0.5
+    coin = draws.uniforms("tie", matchup_id(manager_a, manager_b), week) < 0.5
     a_wins_tie = coin if manager_a == first else ~coin
-    tie = scores_a == scores_b
-    wins_a = int(((scores_a > scores_b) | (tie & a_wins_tie)).sum())
-    wins_b = num_simulations - wins_a
+    tie = total_a == total_b
+    wins_a = int(((total_a > total_b) | (tie & a_wins_tie)).sum())
+    wins_b = n - wins_a
 
-    # Calculate statistics
-    avg_a = float(scores_a.mean())
-    avg_b = float(scores_b.mean())
-
-    std_a = float(scores_a.std())
-    std_b = float(scores_b.std())
+    std_a = float(total_a.std())
+    std_b = float(total_b.std())
 
     # Win probabilities
-    win_prob_a = wins_a / num_simulations
-    win_prob_b = wins_b / num_simulations
-    
-    # Apply injury discount to avg scores. This accounts for random
+    win_prob_a = wins_a / n
+    win_prob_b = wins_b / n
+
+    # Apply injury discount to the SIMULATED points. This accounts for random
     # mid-week injuries not captured by INJURY_OVERRIDES or GTD/O statuses.
     # The discount is applied to BOTH the spread AND the O/U (and to the
     # displayed avg_score_{a,b}) so the displayed projections reconcile:
     # spread == adj_avg_a - adj_avg_b, O/U == adj_avg_a + adj_avg_b.
     # Moneyline and win probability are not adjusted -- they depend on
     # relative strength, which a uniform discount does not change.
-    adj_avg_a = avg_a * (1 - OU_INJURY_DISCOUNT)
-    adj_avg_b = avg_b * (1 - OU_INJURY_DISCOUNT)
+    rem_a = float(scores_a.mean()) * (1 - OU_INJURY_DISCOUNT)
+    rem_b = float(scores_b.mean()) * (1 - OU_INJURY_DISCOUNT)
+    adj_avg_a = banked_a + rem_a
+    adj_avg_b = banked_b + rem_b
 
     # Spread (difference in DISCOUNTED projected scores)
     # Negative spread = favored (expected to win by that many points).
@@ -746,16 +875,16 @@ def run_matchup_simulation(
 
     # Over/Under (uses discounted avg scores)
     over_under = round((adj_avg_a + adj_avg_b) / 10) * 10  # Round to nearest 10
-    
+
     # Moneylines
     moneyline_a = probability_to_american_odds(win_prob_a)
     moneyline_b = probability_to_american_odds(win_prob_b)
-    
+
     # Get team names
     from .data_loader import MANAGER_TO_TEAM
     team_name_a = MANAGER_TO_TEAM.get(manager_a, manager_a)
     team_name_b = MANAGER_TO_TEAM.get(manager_b, manager_b)
-    
+
     return BettingLine(
         manager_a=manager_a,
         manager_b=manager_b,
@@ -772,7 +901,79 @@ def run_matchup_simulation(
         std_dev_b=std_b,
         team_name_a=team_name_a,
         team_name_b=team_name_b,
+        banked_a=banked_a,
+        banked_b=banked_b,
+        remaining_mean_a=rem_a,
+        remaining_mean_b=rem_b,
+        projected_final_a=adj_avg_a,
+        projected_final_b=adj_avg_b,
     )
+
+
+class DecidedTie(RuntimeError):
+    """A week with nothing left to play and identical banked totals."""
+
+
+@dataclass
+class RemainderResult:
+    week: int
+    as_of: date
+    seed: int
+    num_simulations: int
+    lines: list                 # BettingLine per matchup, decomposition filled
+    remaining: dict             # manager -> simulate_week_matrix arrays
+    tag_blocks: dict            # player -> TagBlock (basis says how it was drawn)
+
+
+def simulate_week_remainder(
+    data: FantasyData,
+    team_projections: dict[str, TeamProjections],
+    week_data: dict,
+    state,
+    seed: int,
+    num_simulations: int = DEFAULT_NUM_SIMULATIONS,
+    injury_statuses: dict = None,
+    anchors: dict = None,
+) -> RemainderResult:
+    """B2: the as-of line. Banked from the logs, the rest simulated.
+
+        spread_a = (banked_a - banked_b) + E[remaining_a - remaining_b]
+
+    `state` is week_state.week_state(data, week, as_of). Only days on or
+    after state.as_of are simulated, with the SAME keyed draws as the full
+    week (so as_of = the first day reproduces the pre-week line exactly, and
+    no completed day's result can move a remaining draw). Tags: `anchors`
+    from week_state.reconcile_tags, chains conditioned on what the logs saw.
+    seed is required: a live line that changes seed between refreshes moves
+    for no reason.
+
+    A4 is inherited: starters are the first ten available, no positions.
+    """
+    if seed is None:
+        raise ValueError("simulate_week_remainder needs an explicit seed")
+    week = int(week_data["week"])
+    if state.week != week:
+        raise ValueError(f"state is for week {state.week}, week_data for week {week}")
+    dates = get_dates_in_week(week_data)
+    draws = KeyedDraws(seed, num_simulations)
+    tw = (week, dates)
+    rem = simulate_week_matrix(data, team_projections, week_data, injury_statuses, draws,
+                               from_date=state.as_of, anchors=anchors, tag_week_info=tw,
+                               observed=state.observed)
+    blocks = tag_blocks(data, team_projections, injury_statuses, draws, None, anchors, tw,
+                        state.observed, state.as_of)
+    lines = []
+    for m in week_data.get("matchups", []):
+        a, b = m["manager_a"], m["manager_b"]
+        ra, rb = rem[a]["score"], rem[b]["score"]
+        ba, bb = state.banked[a], state.banked[b]
+        if not ra.any() and not rb.any() and ba == bb and not state.remaining:
+            raise DecidedTie(f"week {week} is over and {a} and {b} are tied at {ba}: a regular-season "
+                             "tie counts as neither win nor loss -- there is no line to publish")
+        lines.append(line_from_scores(a, b, ra, rb, draws, week, ba, bb))
+    return RemainderResult(week=week, as_of=state.as_of, seed=seed,
+                           num_simulations=num_simulations, lines=lines,
+                           remaining=rem, tag_blocks=blocks)
 
 
 # =============================================================================

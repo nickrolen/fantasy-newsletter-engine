@@ -175,7 +175,8 @@ def test_schedule_shift_invariance_in_the_betting_simulator():
     for tag in ("O", "GTD"):
         for u in np.linspace(0.0, 0.999, 41):
             out = sb.tag_blocks(data, teams, {"A": tag, "B": tag}, _Const(u))
-            (ga, ka), (gb, kb) = out["A"], out["B"]
+            ga, ka = out["A"].games, out["A"].k
+            gb, kb = out["B"].games, out["B"].k
             assert (ka == kb).all()
             assert ga == MWF and gb == TTS
 
@@ -345,7 +346,8 @@ def test_a_tag_only_reaches_the_first_three_games_from_its_anchor():
     data = _betting_data({"BOS": MWF + later})
     teams = {"Nick": TeamProjections("Nick", {"O1": _proj("O1", "BOS")})}
     for u in (0.0, 0.6, 0.9, 0.999):
-        games, k = sb.tag_blocks(data, teams, {"O1": "O"}, _Const(u))["O1"]
+        blk = sb.tag_blocks(data, teams, {"O1": "O"}, _Const(u))["O1"]
+        games, k = blk.games, blk.k
         assert games == MWF and 1 <= int(k[0]) <= 3
 
 

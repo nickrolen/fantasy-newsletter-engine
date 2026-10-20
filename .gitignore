@@ -189,3 +189,9 @@ output/dryrun/
 # Staged read-only copy for an external audit. Credentials and output/dryrun
 # are excluded from it; see claude/AUDIT_BRIEF. Delete after the audit.
 _audit_export/
+
+# Live as-of lines. The .json is regenerable output; the .state.json is NOT --
+# it records the week-opening tag baseline and seed, and can only be taken
+# once, on the first day. That one is committed.
+output/live_lines_week*.json
+!output/live_lines_week*.state.json
