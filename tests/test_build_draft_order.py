@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from modules.data_loader import Record
+
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
@@ -54,8 +56,8 @@ def test_order_uses_regular_season_not_final_rank(mod):
     )
     wl, pts, h2h, reg = mod.regular_season_results(rec, sched)
     assert reg == 2
-    assert wl["Nick"] == [2, 0], "playoff week must not count toward standings"
-    assert wl["Hayden"] == [0, 2]
+    assert wl["Nick"] == Record(2, 0), "playoff week must not count toward standings"
+    assert wl["Hayden"] == Record(0, 2)
     standings, _ = mod.rank_managers(wl, pts, h2h)
     assert standings[0] == "Nick"
 
@@ -71,7 +73,7 @@ def test_tie_breaks_on_regular_season_head_to_head(mod):
         scores_g.append({"week": i, "score": 1 if benton_wins else 500})
     rec, sched = _season({"Benton": scores_b, "Garrett": scores_g}, weeks, reg_weeks=7)
     wl, pts, h2h, _ = mod.regular_season_results(rec, sched)
-    assert wl["Benton"] == [4, 3] and wl["Garrett"] == [3, 4]
+    assert wl["Benton"] == Record(4, 3) and wl["Garrett"] == Record(3, 4)
     standings, notes = mod.rank_managers(wl, pts, h2h)
     assert standings[0] == "Benton"
     assert pts["Garrett"] > pts["Benton"], "points favour Garrett, h2h must win"
@@ -89,19 +91,15 @@ def test_head_to_head_excludes_playoff_meetings(mod):
     sb.append({"week": 8, "score": 1});  sg.append({"week": 8, "score": 100})   # playoff
     rec, sched = _season({"Benton": sb, "Garrett": sg}, weeks, reg_weeks=7)
     _, _, h2h, _ = mod.regular_season_results(rec, sched)
-    assert h2h["Benton"]["Garrett"] == 4
-    assert h2h["Garrett"]["Benton"] == 3, "playoff meeting must be excluded"
+    assert h2h["Benton"]["Garrett"] == Record(4, 3)
+    assert h2h["Garrett"]["Benton"] == Record(3, 4), "playoff meeting must be excluded"
 
 
 def test_slot_order_is_reverse_standings(mod):
-    wl = {"Nick": [17, 4], "Benton": [10, 11], "Garrett": [10, 11], "Hayden": [5, 16]}
+    wl = {"Nick": Record(17, 4), "Benton": Record(10, 11), "Garrett": Record(10, 11),
+          "Hayden": Record(5, 16)}
     pts = {"Nick": 3.0, "Benton": 2.0, "Garrett": 2.5, "Hayden": 1.0}
-    h2h = {"Benton": {"Garrett": 4}, "Garrett": {"Benton": 3}}
-    from collections import defaultdict
-    h = defaultdict(lambda: defaultdict(int))
-    for k, v in h2h.items():
-        for kk, vv in v.items():
-            h[k][kk] = vv
+    h = {"Benton": {"Garrett": Record(4, 3)}, "Garrett": {"Benton": Record(3, 4)}}
     standings, _ = mod.rank_managers(wl, pts, h)
     assert standings == ["Nick", "Benton", "Garrett", "Hayden"]
     assert list(reversed(standings)) == ["Hayden", "Garrett", "Benton", "Nick"]

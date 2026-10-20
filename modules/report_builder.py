@@ -32,7 +32,8 @@ from .records_tracker import (
     get_season_series,
     get_h2h_streak,
 )
-from .simulator_title_odds import run_title_odds_simulation, TitleOddsResult
+from .simulator_title_odds import (run_title_odds_simulation, TitleOddsResult,
+                                   expected_standing, format_expected_record)
 from .simulator_playoff_odds import run_playoff_odds_simulation, PlayoffOddsResult, rank_managers_by_standings
 from .simulator_cup_odds import run_cup_odds_simulation, CupOddsResult
 from .simulator_betting import generate_weekly_betting_lines, WeeklyBettingLines
@@ -501,7 +502,7 @@ def build_report_cards(report: WeeklyReport, data: FantasyData,
             "scheduled_games_z_score": round(sg["z_score"], 2),
             "scheduled_games_adjustment": round(games_adj, 1),
             "total_starter_games": stats.total_healthy_starter_games,
-            "record": "{}-{}".format(*data.get_manager_record(manager)),
+            "record": str(data.get_manager_record(manager)),
         })
     
     return report_card_order(cards)
@@ -663,14 +664,13 @@ def build_power_rankings(
         # disagree with the projection beside it. Keeper quality still breaks
         # genuine ties, which is what it was added for.
         return (title_odds.title_odds[m],
-                title_odds.expected_record[m][0],
+                expected_standing(title_odds.expected_record[m]),
                 keeper_quality.get(m, 0.0) if keeper_quality else 0.0)
     
     sorted_managers = sorted(MANAGERS, key=sort_key, reverse=True)
     
     for rank, manager in enumerate(sorted_managers, 1):
-        wins, losses = title_odds.current_records[manager]
-        exp_wins, exp_losses = title_odds.expected_record[manager]
+        record = title_odds.current_records[manager]
         
         delta = title_odds.title_odds_delta.get(manager)
         if delta is not None:
@@ -695,11 +695,11 @@ def build_power_rankings(
             "rank": rank,
             "manager": manager,
             "team_name": MANAGER_TO_TEAM.get(manager, manager),
-            "record": f"{wins}-{losses}",
+            "record": str(record),
             "title_odds": title_odds.title_odds[manager],
             "trend": trend,
             "trend_value": trend_value,
-            "expected_record": f"{exp_wins:.1f}-{exp_losses:.1f}",
+            "expected_record": format_expected_record(title_odds.expected_record[manager]),
             "magic_number": title_odds.magic_numbers.get(manager),
             "finish_distribution": title_odds.finish_distribution[manager],
             "career_record": f"{career_wins}-{career_losses}" if career_wins > 0 else None,
@@ -1868,6 +1868,17 @@ def _merge_current_season_into_alltime(all_time: dict, data) -> None:
     for mr in sorted_mrs:
         w, lo = mr.get("winner"), mr.get("loser")
         if not w or not lo:
+            # a tied week (a T) ends both managers' streaks, win or loss --
+            # interim rule, flagged to Nick 10-20; angles counts runs the same
+            for side in ("manager_a", "manager_b"):
+                mgr = mr.get(side)
+                if not mgr:
+                    continue
+                if cw[mgr] > 0:
+                    all_win_streaks.append({"length": cw[mgr], "manager": mgr, "season": cs})
+                if cl[mgr] > 0:
+                    all_loss_streaks.append({"length": cl[mgr], "manager": mgr, "season": cs})
+                cw[mgr] = cl[mgr] = 0
             continue
         cw[w] += 1
         if cl[w] > 0:
@@ -1900,8 +1911,10 @@ def _merge_current_season_into_alltime(all_time: dict, data) -> None:
     # differ by eight, and the competitive season is 15 weeks against 21
     # before it, so printing one while the reader assumes the other is now a
     # real misreading rather than a rounding error.
-    ms = defaultdict(lambda: {"wins": 0, "losses": 0, "total_fp": 0.0, "weeks": 0,
-                              "reg_wins": 0, "reg_losses": 0, "reg_weeks": 0})
+    # A tied week (winner None) is a T: `ties`/`reg_ties`, so W + L + T is
+    # always the weeks played (tiebreaker_rules.regular_season_week).
+    ms = defaultdict(lambda: {"wins": 0, "losses": 0, "ties": 0, "total_fp": 0.0, "weeks": 0,
+                              "reg_wins": 0, "reg_losses": 0, "reg_ties": 0, "reg_weeks": 0})
     for mr in matchup_results:
         in_regular = is_regular_season_week(cs, mr["week"])
         for side, score_key in [("manager_a", "score_a"), ("manager_b", "score_b")]:
@@ -1918,10 +1931,15 @@ def _merge_current_season_into_alltime(all_time: dict, data) -> None:
             ms[mr["loser"]]["losses"] += 1
             if in_regular:
                 ms[mr["loser"]]["reg_losses"] += 1
+        if not mr["winner"] and not mr["loser"]:
+            for side in ("manager_a", "manager_b"):
+                ms[mr[side]]["ties"] += 1
+                if in_regular:
+                    ms[mr[side]]["reg_ties"] += 1
     cs_ms = [
-        {"manager": mgr, "season": cs, "wins": d["wins"], "losses": d["losses"],
+        {"manager": mgr, "season": cs, "wins": d["wins"], "losses": d["losses"], "ties": d["ties"],
          "total_fp": round(d["total_fp"], 1), "weeks": d["weeks"],
-         "reg_wins": d["reg_wins"], "reg_losses": d["reg_losses"],
+         "reg_wins": d["reg_wins"], "reg_losses": d["reg_losses"], "reg_ties": d["reg_ties"],
          "reg_weeks": d["reg_weeks"],
          "fppg_per_week": round(d["total_fp"] / d["weeks"], 1) if d["weeks"] > 0 else 0}
         for mgr, d in ms.items()
@@ -3688,7 +3706,7 @@ def build_stats_report(
         "current_standings": [
             {
                 "manager": m,
-                "record": f"{data.get_manager_record(m)[0]}-{data.get_manager_record(m)[1]}",
+                "record": str(data.get_manager_record(m)),
             }
             # Use H2H-aware ranker so ties resolve via league tiebreaker_rules
             # (head-to-head regular-season series, then total points), not just
@@ -3790,10 +3808,12 @@ def _season_wl(e: dict) -> str:
     now includes a six-week bracket and a two-week Cup -- so an unlabelled
     record is the one number in the book that can honestly be read two ways.
     """
+    def wlt(w, l, t):
+        return f"{w}-{l}" + (f"-{t}" if t else "")
     if e.get("reg_weeks"):
-        return (f"{e.get('reg_wins', 0)}-{e.get('reg_losses', 0)} "
+        return (f"{wlt(e.get('reg_wins', 0), e.get('reg_losses', 0), e.get('reg_ties', 0))} "
                 f"regular season ({e['reg_weeks']} wks)")
-    return f"{e.get('wins', 0)}-{e.get('losses', 0)} all games"
+    return f"{wlt(e.get('wins', 0), e.get('losses', 0), e.get('ties', 0))} all games"
 
 
 def _season_detail(e: dict, tail: str) -> str:

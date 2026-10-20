@@ -11,6 +11,7 @@ import sys
 import unicodedata
 from pathlib import Path
 from dataclasses import dataclass, field
+from fractions import Fraction
 from typing import Optional
 from datetime import date, datetime
 
@@ -159,6 +160,155 @@ def league_rule(*path):
         node = node[key]
     return node
 
+# --- Regular-season records: W-L-T and the standings (one implementation) ---
+#
+# A tied regular-season week is a T for both managers (tiebreaker_rules.
+# regular_season_week = "tie"; Nick, 10-20, following Yahoo). A T counts as
+# tie_win_value (0.5) of a win for standings position. Everything that ranks
+# the regular season -- playoff seeding, title odds, the angles, season
+# outcomes, the draft order -- goes through Record and standings_order below.
+
+
+def regular_season_tie_value() -> Fraction:
+    """What a T is worth in wins, from the config. Raises if the rule for a
+    tied regular-season week is missing or is not "tie"."""
+    rule = league_rule("tiebreaker_rules", "regular_season_week")
+    if rule != "tie":
+        raise UnspecifiedRule(f"tiebreaker_rules.regular_season_week = {rule!r}; only 'tie' is defined")
+    return Fraction(str(league_rule("tiebreaker_rules", "tie_win_value")))
+
+
+@dataclass(frozen=True)
+class Record:
+    """A regular-season record, W-L-T.
+
+    Deliberately NOT a tuple: `w, l = record` and `record[0]` raise
+    TypeError, so a caller still written for (wins, losses) breaks loudly
+    instead of silently dropping the T.
+    """
+    wins: int = 0
+    losses: int = 0
+    ties: int = 0
+
+    @property
+    def games(self) -> int:
+        return self.wins + self.losses + self.ties
+
+    @property
+    def standing(self) -> Fraction:
+        """Wins for standings position: W + tie_win_value * T."""
+        return self.wins + regular_season_tie_value() * self.ties if self.ties else Fraction(self.wins)
+
+    @property
+    def win_pct(self) -> Fraction:
+        """(W + 0.5*T) / (W + L + T) -- Yahoo's winning percentage. 0 with no games."""
+        return self.standing / self.games if self.games else Fraction(0)
+
+    def add(self, outcome: str) -> "Record":
+        if outcome == "win":
+            return Record(self.wins + 1, self.losses, self.ties)
+        if outcome == "loss":
+            return Record(self.wins, self.losses + 1, self.ties)
+        if outcome == "tie":
+            return Record(self.wins, self.losses, self.ties + 1)
+        raise ValueError(f"unknown outcome {outcome!r}")
+
+    def __str__(self) -> str:
+        """W-L, or W-L-T once there is a tie (how Yahoo shows it)."""
+        return f"{self.wins}-{self.losses}" + (f"-{self.ties}" if self.ties else "")
+
+
+def week_outcome(score_a: float, score_b: float) -> str:
+    """"a", "b" or "tie" for a regular-season week. A tie is a T for both."""
+    if score_a > score_b:
+        return "a"
+    if score_b > score_a:
+        return "b"
+    regular_season_tie_value()          # the rule must be configured
+    return "tie"
+
+
+def results_from(scores_by_week: dict, matchups_by_week: dict, last_week: int):
+    """(records, h2h, points) over weeks 1..last_week.
+
+    scores_by_week {week: {manager: score}}; matchups_by_week {week:
+    [{manager_a, manager_b}]}. records {m: Record}; h2h {m: {opp: Record}};
+    points {m: total over those weeks}. A pairing with a missing score, or
+    with BOTH scores exactly 0, is skipped, as before: the week has not been
+    played.
+    """
+    records: dict = {}
+    h2h: dict = {}
+    points: dict = {}
+    for wk, scores in scores_by_week.items():
+        if wk > last_week:
+            continue
+        for m, sc in scores.items():
+            points[m] = points.get(m, 0.0) + sc
+        for mu in matchups_by_week.get(wk, []):
+            a, b = mu["manager_a"], mu["manager_b"]
+            sa, sb = scores.get(a), scores.get(b)
+            if sa is None or sb is None:
+                continue
+            if sa == 0 and sb == 0:
+                # Both exactly zero: nothing has been played (a preview or a
+                # preseason build writes zeros), not a 0-0 tie. Counted as no
+                # result, as it always was.
+                continue
+            o = week_outcome(sa, sb)
+            ra, rb = ("win", "loss") if o == "a" else (("loss", "win") if o == "b" else ("tie", "tie"))
+            records[a] = records.get(a, Record()).add(ra)
+            records[b] = records.get(b, Record()).add(rb)
+            h2h.setdefault(a, {})[b] = h2h.get(a, {}).get(b, Record()).add(ra)
+            h2h.setdefault(b, {})[a] = h2h.get(b, {}).get(a, Record()).add(rb)
+    return records, h2h, points
+
+
+def standings_order(records: dict, h2h: dict, points: dict, managers=None, notes=None) -> list:
+    """The regular-season standings, best first. THE ranking rule.
+
+      1. winning percentage, (W + 0.5*T) / (W + L + T)
+      2. among the managers still level: head-to-head, each one's record
+         against the others in that group, a T counting half a win
+         (tiebreaker_rules.standings = h2h_regular_season). A split series
+         -- 2-2-1 -- cannot separate them.
+      3. total points (tiebreaker_rules.fallback = total_points)
+    Still level after points, with games played: UnspecifiedRule -- the
+    rules stop there. Before any game is played everyone is level by
+    definition and the order is the MANAGERS order. `notes`, if a list, gets
+    one plain-language line per tie the rules had to break.
+    """
+    standings_rule = league_rule("tiebreaker_rules", "standings")
+    fallback_rule = league_rule("tiebreaker_rules", "fallback")
+    if standings_rule != "h2h_regular_season" or fallback_rule != "total_points":
+        raise ValueError(f"unknown tiebreak rule {standings_rule}/{fallback_rule}")
+    managers = list(managers or MANAGERS)
+    rec = {m: records.get(m, Record()) for m in managers}
+    if all(r.games == 0 for r in rec.values()):
+        return managers
+    groups: dict = {}
+    for m in managers:
+        groups.setdefault(rec[m].win_pct, []).append(m)
+    out = []
+    for pct in sorted(groups, reverse=True):
+        tied = groups[pct]
+        if len(tied) > 1:
+            within = {m: sum((h2h.get(m, {}).get(o, Record()).standing for o in tied if o != m),
+                             Fraction(0)) for m in tied}
+            tied = sorted(tied, key=lambda m: (within[m], points.get(m, 0.0)), reverse=True)
+            keys = [(within[m], points.get(m, 0.0)) for m in tied]
+            if len(set(keys)) < len(keys):
+                raise UnspecifiedRule(
+                    f"{', '.join(tied)} are level on record, head-to-head and total points; "
+                    "the rules have no further tiebreak")
+            if notes is not None:
+                how = ("head-to-head" if len({within[m] for m in tied}) == len(tied)
+                       else "total points (head-to-head could not separate them)")
+                notes.append(f"{', '.join(tied)} level at {rec[tied[0]]}: ordered on {how}")
+        out.extend(tied)
+    return out
+
+
 # --- Postseason format, keeper rules and payouts (from config) ---
 # From 2026-27 the season is three stages, not two: a 15-week regular season,
 # a six-week best-of-3 playoff bracket, then a two-week Cup. The old rule
@@ -244,28 +394,18 @@ class FantasyData:
     current_week: int = 0
     base_path: Path = field(default_factory=lambda: Path("."))
 
-    def get_manager_record(self, manager: str, include_playoffs: bool = False) -> tuple[int, int]:
-        """
-        Get current season record for a manager as (wins, losses).
-
-        By default, returns REGULAR-SEASON-ONLY records (weeks 1 through
-        REGULAR_SEASON_WEEKS). Playoff weeks do not inflate the W-L --
-        the league treats regular-season and playoff records as separate.
-
-        Records are computed from RECORDS.json weekly_scores +
-        SCHEDULE.json matchups so the result is correct regardless of
-        what LEAGUEHISTORY.xlsx contains (manually entered, may already
-        include playoff games).
-        """
+    def regular_season_results(self, include_playoffs: bool = False):
+        """(records, h2h, points) for the current season so far -- see
+        results_from. From RECORDS.json weekly_scores + SCHEDULE.json
+        matchups, regular season only unless include_playoffs."""
         if include_playoffs:
             max_week = TOTAL_WEEKS
         else:
             # Deliberately NOT self.schedule["regular_season_weeks"]: the boundary comes from league_config, not SCHEDULE.json. That file is written per season and is the PREVIOUS season's for the whole preseason, so reading week counts out of it silently applies last year's shape -- 21 regular-season weeks where 2026-27 has 15.
             max_week = regular_season_weeks_for(CURRENT_SEASON)
-
+        scores_by_week: dict = {}
         weekly_scores = self.records.get("weekly_scores", {})
-        if isinstance(weekly_scores, dict) and weekly_scores:
-            scores_by_week: dict[int, dict[str, float]] = {}
+        if isinstance(weekly_scores, dict):
             for mgr, entries in weekly_scores.items():
                 if not isinstance(entries, list):
                     continue
@@ -274,46 +414,31 @@ class FantasyData:
                     if wk is None or wk > max_week:
                         continue
                     scores_by_week.setdefault(wk, {})[mgr] = e.get("score", 0.0)
+        matchups = {wk: self.get_week_matchups(wk) for wk in scores_by_week}
+        return results_from(scores_by_week, matchups, max_week)
 
-            wins = 0
-            losses = 0
-            for wk, mgr_scores in scores_by_week.items():
-                for matchup in self.get_week_matchups(wk):
-                    ma, mb = matchup["manager_a"], matchup["manager_b"]
-                    if manager not in (ma, mb):
-                        continue
-                    sa = mgr_scores.get(ma)
-                    sb = mgr_scores.get(mb)
-                    if sa is None or sb is None:
-                        continue
-                    # Tie convention for W-L records: a tie counts as
-                    # neither a win nor a loss. This is the standard W-L
-                    # bookkeeping convention (matches Yahoo's own record
-                    # display). Ties are essentially impossible with
-                    # fractional scoring, but the rule is explicit.
-                    if manager == ma:
-                        if sa > sb:
-                            wins += 1
-                        elif sb > sa:
-                            losses += 1
-                    else:
-                        if sb > sa:
-                            wins += 1
-                        elif sa > sb:
-                            losses += 1
-            if wins or losses:
-                return (wins, losses)
+    def get_manager_record(self, manager: str, include_playoffs: bool = False) -> "Record":
+        """
+        Current season record for a manager, as a Record (W-L-T).
+
+        By default REGULAR-SEASON-ONLY (weeks 1 through the regular season's
+        last): the league treats regular-season and playoff records as
+        separate. A tied week is a T (tiebreaker_rules.regular_season_week).
+
+        Computed from RECORDS.json weekly_scores + SCHEDULE.json matchups so
+        the result is correct regardless of what LEAGUEHISTORY.xlsx contains
+        (manually entered, may already include playoff games); that file is
+        the fallback before any week is in RECORDS.
+        """
+        records, _h2h, _pts = self.regular_season_results(include_playoffs)
+        rec = records.get(manager)
+        if rec is not None and rec.games:
+            return rec
 
         row = self.leaguehistory[self.leaguehistory["manager_name"] == manager]
         if row.empty:
-            return (0, 0)
-        record_str = row.iloc[0]["record_current_season"]
-        record_str = record_str.strip("()")
-        parts = record_str.split("-")
-        try:
-            return (int(parts[0]), int(parts[1]))
-        except (ValueError, IndexError):
-            return (0, 0)
+            return Record()
+        return parse_record_string(row.iloc[0]["record_current_season"])
 
     def get_week_dates(self, week: int) -> tuple[date, date]:
         """Get start and end dates for a fantasy week."""
@@ -1379,16 +1504,20 @@ def player_eligible_for_slot(player_positions: list[str], slot: str) -> bool:
     return any(pos in eligible for pos in player_positions)
 
 
-def parse_record_string(record_str: str) -> tuple[int, int]:
-    """Parse a record string like '(8-3)' into (wins, losses)."""
-    record_str = str(record_str).strip("()")
-    parts = record_str.split("-")
-    if len(parts) != 2:
-        return (0, 0)
+def parse_record_string(record_str) -> "Record":
+    """'(8-3)' or '(7-7-1)' -> Record. The one record parser.
+
+    It used to return (wins, losses) and read anything with three parts --
+    a record with a T -- as (0, 0). Unparseable still gives Record() (0-0).
+    """
+    parts = str(record_str or "").strip().strip("()").split("-")
     try:
-        return (int(parts[0]), int(parts[1]))
+        nums = [int(x) for x in parts]
     except ValueError:
-        return (0, 0)
+        return Record()
+    if len(nums) in (2, 3):
+        return Record(*nums)
+    return Record()
 
 
 if __name__ == "__main__":
@@ -1398,8 +1527,7 @@ if __name__ == "__main__":
     try:
         data = load_all_data(base)
         for manager in MANAGERS:
-            wins, losses = data.get_manager_record(manager)
-            print(f"  {manager}: {wins}-{losses}")
+            print(f"  {manager}: {data.get_manager_record(manager)}")
     except Exception as e:
         print(f"Error: {e}")
         raise

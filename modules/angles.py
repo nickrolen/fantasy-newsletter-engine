@@ -63,6 +63,9 @@ from __future__ import annotations
 import math
 from bisect import bisect_left, bisect_right
 from collections import defaultdict
+
+from modules.data_loader import (Record, regular_season_tie_value, results_from,
+                                 standings_order, week_outcome)
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
@@ -109,16 +112,18 @@ class History:
         leader = defaultdict(list)
         for s in {m["season"] for m in matchups}:
             seq = defaultdict(list)
-            wins = defaultdict(int)
+            wins = defaultdict(float)
             for w in sorted({m["week"] for m in matchups if m["season"] == s}):
                 if w > regular_through(s):
                     continue
                 for m in by_week[(s, w)]:
-                    a_won = m["score_a"] > m["score_b"]
-                    seq[m["manager_a"]].append(a_won)
-                    seq[m["manager_b"]].append(not a_won)
-                    wins[m["manager_a"]] += a_won
-                    wins[m["manager_b"]] += not a_won
+                    # a T is its own result: it ends a W or an L run
+                    o = week_outcome(m["score_a"], m["score_b"])
+                    seq[m["manager_a"]].append({"a": "W", "b": "L"}.get(o, "T"))
+                    seq[m["manager_b"]].append({"a": "L", "b": "W"}.get(o, "T"))
+                    wa, wb = _credit(o)
+                    wins[m["manager_a"]] += wa
+                    wins[m["manager_b"]] += wb
                 top = sorted(wins.values(), reverse=True)
                 if len(top) > 1:
                     leader[w].append(top[0] - top[1])
@@ -222,21 +227,12 @@ def decided_status(season_matchups: list, week: int, reg_last: int) -> set:
 
 
 def final_order(season_matchups: list, reg_last: int) -> list:
-    """Regular-season finish: wins, then head-to-head among the tied, then
-    total points."""
+    """Regular-season finish: data_loader.standings_order -- winning
+    percentage (a T is half a win), head-to-head among the tied, total
+    points. This used to be its own copy of that rule."""
     reg = [m for m in season_matchups if m["week"] <= reg_last]
-    pts, wins = _cumulative(reg, reg_last)
-
-    def h2h(m, group):
-        return sum(1 for g in reg if {g["manager_a"], g["manager_b"]} <= group
-                   and m in (g["manager_a"], g["manager_b"])
-                   and (g["score_a"] > g["score_b"]) == (g["manager_a"] == m))
-    out = []
-    for w in sorted(set(wins.values()), reverse=True):
-        group = {m for m in wins if wins[m] == w}
-        out += sorted(group, key=lambda m: (h2h(m, group), pts[m]),
-                      reverse=True)
-    return out
+    records, h2h, pts = _records(reg, reg_last)
+    return standings_order(records, h2h, pts, sorted(records))
 
 
 def magic_number(season_matchups: list, week: int, reg_last: int):
@@ -248,7 +244,9 @@ def magic_number(season_matchups: list, week: int, reg_last: int):
         return None
     left = reg_last - week
     lead = max(wins, key=lambda m: wins[m])
-    need = max(wins[o] + left for o in wins if o != lead) - wins[lead] + 1
+    # strictly ahead of every rival's best case; with a half game (a T)
+    # in the gap the count rounds up to the next whole result
+    need = math.floor(max(wins[o] + left for o in wins if o != lead) - wins[lead]) + 1
     return lead, max(0, need)
 
 
@@ -289,12 +287,7 @@ def decided_angles(season_matchups: list, week: int, reg_last: int,
     now = decided_status(season_matchups, week, reg_last)
     before = decided_status(season_matchups, week - 1, reg_last) \
         if week > 1 else set()
-    pts, wins = _cumulative(season_matchups, min(week, reg_last))
-    games = defaultdict(int)
-    for m in season_matchups:
-        if m["week"] <= min(week, reg_last):
-            games[m["manager_a"]] += 1
-            games[m["manager_b"]] += 1
+    recs, _h2h, _pts = _records(season_matchups, min(week, reg_last))
     out = []
     left = reg_last - week
     # standings going into the week, for how in doubt each line still was
@@ -320,7 +313,7 @@ def decided_angles(season_matchups: list, week: int, reg_last: int,
         doubt = -sum(x * math.log(x) for x in (q, 1 - q) if 0 < x < 1)
         payers = " or ".join(_ordinal(k) for k in sorted(_payer_places()))
         out.append(Angle("decided", (m,), DECIDED_TEXT[ev].format(
-            m=m, rec=f"{wins[m]}-{games[m] - wins[m]}", left=left,
+            m=m, rec=str(recs.get(m, Record())), left=left,
             payers=payers, **_pot_terms(reg_last)),
             max(_u(p, max(len(ref), 1)), doubt), source="decided",
             direction=ev))
@@ -365,33 +358,45 @@ def _u(p: float, n: int, k: int = 1) -> float:
 
 # ------------------------------------------------------------------ consequence
 
+def _credit(outcome: str) -> tuple:
+    """Standings credit (a, b) for one week: 1/0, 0/1, or the T value each."""
+    if outcome == "a":
+        return 1.0, 0.0
+    if outcome == "b":
+        return 0.0, 1.0
+    t = float(regular_season_tie_value())
+    return t, t
+
+
 def _cumulative(matchups, upto):
-    pts, wins = defaultdict(float), defaultdict(int)
+    """(points, standings value) through `upto`. The value is W + 0.5*T
+    (tiebreaker_rules): a tied week is a T for both (Nick, 10-20), so it
+    can be a half. Every check below -- clinched, eliminated, safe, will
+    pay, the magic number, the standings consequence -- runs on this value,
+    and stays exact: a remaining game is still worth at most 1."""
+    pts, wins = defaultdict(float), defaultdict(float)
     for m in matchups:
         if m["week"] > upto:
             continue
         pts[m["manager_a"]] += m["score_a"]
         pts[m["manager_b"]] += m["score_b"]
-        # A tied week credits nobody (it used to credit manager_b). Ties in
-        # the regular season are not covered by the rules: check_no_ties()
-        # raises on them before anything reads these counts.
-        if m["score_a"] != m["score_b"]:
-            a_won = m["score_a"] > m["score_b"]
-            wins[m["manager_a"]] += a_won
-            wins[m["manager_b"]] += not a_won
+        wa, wb = _credit(week_outcome(m["score_a"], m["score_b"]))
+        wins[m["manager_a"]] += wa
+        wins[m["manager_b"]] += wb
     return pts, wins
 
 
-def check_no_ties(season_matchups: list, reg_last: int) -> None:
-    """A tied regular-season week: the league's rules don't say what it is
-    (none has happened since 2017-18). Raise rather than guess."""
-    for m in season_matchups:
-        if m["week"] <= reg_last and m["score_a"] == m["score_b"]:
-            from modules.data_loader import UnspecifiedRule
-            raise UnspecifiedRule(
-                f"week {m['week']}: {m['manager_a']} and {m['manager_b']} "
-                f"tied {m['score_a']}. The rules don't cover a tied "
-                "regular-season week; add one to league_config.")
+def _records(matchups, upto):
+    """({manager: Record}, h2h, points) through `upto` -- W-L-T for display
+    and for the one ranking rule (data_loader.standings_order)."""
+    by_week, pairs = defaultdict(dict), defaultdict(list)
+    for m in matchups:
+        if m["week"] > upto:
+            continue
+        by_week[m["week"]][m["manager_a"]] = m["score_a"]
+        by_week[m["week"]][m["manager_b"]] = m["score_b"]
+        pairs[m["week"]].append({"manager_a": m["manager_a"], "manager_b": m["manager_b"]})
+    return results_from(by_week, pairs, upto)
 
 
 def _rank(order_key, managers):
@@ -441,7 +446,9 @@ def consequence(season_matchups: list, week: int, cup_last: Optional[int],
                 sd0, sd1)
 
     if week <= reg_last:
-        # a wins gap moves by w_m - w_n: variance 1/2 a week
+        # a standings gap moves by w_m - w_n: variance 1/2 a week. The gap is
+        # W + 0.5*T, so it can be a half game; _p_ahead reads it as a
+        # continuous gap -- a half is half, nothing is rounded.
         sd0 = math.sqrt(0.5 * (reg_last - week + 1))
         sd1 = math.sqrt(0.5 * (reg_last - week))
         for m in playing:
@@ -542,10 +549,14 @@ def bracket_structure(season: str) -> list:
 
 
 def _seeds(season_matchups, last_week, by):
-    pts, wins = _cumulative(season_matchups, last_week)
-    key = (lambda m: pts[m]) if by == "points" else \
-        (lambda m: (wins[m], pts[m]))
-    order = sorted(pts, key=key, reverse=True)
+    """Bracket seeds: by points (the Cup), or by the regular-season
+    standings (data_loader.standings_order) -- not raw wins then points."""
+    pts, _wins = _cumulative(season_matchups, last_week)
+    if by == "points":
+        order = sorted(pts, key=lambda m: pts[m], reverse=True)
+    else:
+        records, h2h, rpts = _records(season_matchups, last_week)
+        order = standings_order(records, h2h, rpts, sorted(records))
     return {m: i + 1 for i, m in enumerate(order)}
 
 
@@ -705,6 +716,12 @@ def matchup_angles(season_matchups: list, week: int, hist: History,
     this = [m for m in season_matchups if m["week"] == week]
     for m in this:
         a, b = m["manager_a"], m["manager_b"]
+        if m["score_a"] == m["score_b"]:
+            # a T (tiebreaker_rules.regular_season_week) -- nobody "beat" anyone
+            p = _two_sided(hist.margins, 0.0)
+            out.append(Angle("margin", (a, b), f"{a} and {b} tied at {m['score_a']:.2f}",
+                             _u(p, len(hist.margins), len(this))))
+            continue
         w, l = (a, b) if m["score_a"] > m["score_b"] else (b, a)
         margin = abs(m["score_a"] - m["score_b"])
         p = _two_sided(hist.margins, margin)
@@ -731,18 +748,21 @@ def matchup_angles(season_matchups: list, week: int, hist: History,
         for x in sorted(season_matchups, key=lambda x: x["week"]):
             if x["week"] > week:
                 continue
-            a_won = x["score_a"] > x["score_b"]
-            seq[x["manager_a"]].append(a_won)
-            seq[x["manager_b"]].append(not a_won)
+            # W / L / T: a T ends a winning AND a losing streak (interim
+            # rule, flagged to Nick 10-20; History.from_matchups agrees)
+            o = week_outcome(x["score_a"], x["score_b"])
+            seq[x["manager_a"]].append({"a": "W", "b": "L"}.get(o, "T"))
+            seq[x["manager_b"]].append({"a": "L", "b": "W"}.get(o, "T"))
         for mgr, xs in seq.items():
             n = _run_lengths(xs)[-1] if xs else 0
-            if n >= 2:
+            if n >= 2 and xs[-1] in ("W", "L"):
+                won = xs[-1] == "W"
                 out.append(Angle("streak", (mgr,),
-                                 f"{mgr} has {'won' if xs[-1] else 'lost'} "
+                                 f"{mgr} has {'won' if won else 'lost'} "
                                  f"{n} straight",
                                  _u(_tail_ge(hist.runs, n), len(hist.runs),
                                     len(seq)),
-                                 direction="won" if xs[-1] else "lost",
+                                 direction="won" if won else "lost",
                                  stat=n, k=len(seq)))
     return out
 
@@ -924,7 +944,6 @@ def run_week(season_matchups: list, week: int, hist: History,
              season: Optional[str] = None,
              last_lead: Optional[dict] = None,
              pick_ownership: Optional[dict] = None) -> dict:
-    check_no_ties(season_matchups, reg_last)
     cands = matchup_angles(season_matchups, week, hist, reg_last)
     bcons, bangles = (bracket_week(season_matchups, week, season, hist.sigma)
                       if season else ({}, []))

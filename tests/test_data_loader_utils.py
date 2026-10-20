@@ -13,8 +13,10 @@ from modules.data_loader import (
 
 
 def test_parse_record_string():
-    assert parse_record_string("(10-5)") == (10, 5)
-    assert parse_record_string("10-5") == (10, 5)
+    from modules.data_loader import Record
+    assert parse_record_string("(10-5)") == Record(10, 5)
+    assert parse_record_string("10-5") == Record(10, 5)
+    assert parse_record_string("(7-7-1)") == Record(7, 7, 1)     # used to read as 0-0
 
 
 def test_get_position_list():

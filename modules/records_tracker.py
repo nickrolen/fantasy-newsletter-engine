@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from .data_loader import (FantasyData, MANAGERS, CURRENT_SEASON, REGULAR_SEASON_WEEKS,
-                          is_regular_season_week, save_records)
+                          is_regular_season_week, regular_season_tie_value, save_records)
 from .weekly_stats import WeeklyReport, MatchupStats
 
 
@@ -390,7 +390,17 @@ def update_streaks(
     for matchup in matchup_results:
         winner = matchup.winner
         if winner is None:
-            continue  # Tie - no streak changes
+            # A tied week (a T) ends both managers' streaks, win and loss --
+            # interim rule, flagged to Nick 10-20 (it used to leave them
+            # running). Same in angles and the season leaderboards.
+            for m in (matchup.manager_a, matchup.manager_b):
+                current_streaks[m]["win"] = 0
+                current_streaks[m]["loss"] = 0
+                if longest_win[m].get("active"):
+                    longest_win[m]["active"] = False
+                if longest_loss[m].get("active"):
+                    longest_loss[m]["active"] = False
+            continue
         
         loser = matchup.manager_a if winner == matchup.manager_b else matchup.manager_b
         
@@ -467,6 +477,13 @@ def update_streaks(
     return updates
 
 
+def _record_tie(ties: dict, matchup) -> None:
+    """Count a tied week under the canonical pair key, {key: ties}."""
+    a, b = sorted([matchup.manager_a, matchup.manager_b])
+    key = f"{a}_vs_{b}"
+    ties[key] = ties.get(key, 0) + 1
+
+
 def update_h2h_records(
     records: dict,
     matchup_results: list[MatchupStats],
@@ -509,6 +526,11 @@ def update_h2h_records(
     for matchup in matchup_results:
         winner = matchup.winner
         if winner is None:
+            # A tied regular-season week is a T for both (tiebreaker_rules.
+            # regular_season_week). Kept BESIDE the series, in h2h_season_ties
+            # {key: count}: h2h_season entries are read as {manager: wins}
+            # everywhere, and a "ties" key inside one would read as a manager.
+            _record_tie(records.setdefault("h2h_season_ties", {}), matchup)
             continue
 
         loser = matchup.manager_a if winner == matchup.manager_b else matchup.manager_b
@@ -562,6 +584,7 @@ def update_all_time_records(
         for matchup in matchup_results:
             winner = matchup.winner
             if winner is None:
+                _record_tie(all_time.setdefault("h2h_ties", {}), matchup)
                 continue
 
             loser = matchup.manager_a if winner == matchup.manager_b else matchup.manager_b
@@ -579,6 +602,10 @@ def update_all_time_records(
         for matchup in matchup_results:
             winner = matchup.winner
             if winner is None:
+                for m in (matchup.manager_a, matchup.manager_b):
+                    if m not in careers:
+                        careers[m] = {"total_wins": 0, "total_losses": 0, "total_points_scored": 0, "win_pct": 0}
+                    careers[m]["total_ties"] = careers[m].get("total_ties", 0) + 1
                 continue
 
             loser = matchup.manager_a if winner == matchup.manager_b else matchup.manager_b
@@ -607,12 +634,16 @@ def update_all_time_records(
         # 21 regular-season games through 2025-26 and 15 from 2026-27. A bare
         # "120-77" invites the wrong comparison; "120-77 over 197 games"
         # does not. win_pct is the era-independent comparator.
-        total_games = careers[manager]["total_wins"] + careers[manager]["total_losses"]
+        # A T is a game played and half a win (tiebreaker_rules): W + L + T
+        # games, (W + 0.5*T) / games. total_ties only appears once one exists.
+        ties = careers[manager].get("total_ties", 0)
+        total_games = careers[manager]["total_wins"] + careers[manager]["total_losses"] + ties
         careers[manager]["games_played"] = total_games
         careers[manager]["games_scope"] = "regular_season"
         if total_games > 0:
             careers[manager]["win_pct"] = round(
-                (careers[manager]["total_wins"] / total_games) * 100, 1
+                (careers[manager]["total_wins"] + float(regular_season_tie_value()) * ties)
+                / total_games * 100, 1
             )
     
     # Update highest/lowest weekly scores

@@ -43,6 +43,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from modules.data_loader import results_from, standings_order  # noqa: E402
 from modules.data_loader import (LEAGUE_STRUCTURE, MANAGERS, CURRENT_SEASON,  # noqa: E402
                                  TOTAL_ROUNDS, keepers_for, live_picks_for,
                                  regular_season_weeks_for)
@@ -92,7 +93,9 @@ def _next_season(season):
 
 
 def regular_season_results(records, schedule, season=None):
-    """(wins, losses, points, h2h) per manager over the regular season only.
+    """(records, points, h2h, reg_weeks) over the regular season only:
+    {m: Record}, {m: points}, {m: {opp: Record}} -- via
+    data_loader.results_from, so a tied week is a T for both.
 
     The boundary comes from the schedule file when it has one, and otherwise
     from that season's entry in league_config. The old fallback here read
@@ -105,57 +108,18 @@ def regular_season_results(records, schedule, season=None):
     for mgr, rows in records.get("weekly_scores", {}).items():
         for row in rows:
             scores.setdefault(int(row["week"]), {})[mgr] = float(row["score"])
-
-    wl = defaultdict(lambda: [0, 0])
-    pts = defaultdict(float)
-    h2h = defaultdict(lambda: defaultdict(int))
-    for wk in schedule.get("weeks", []):
-        w = int(wk["week"])
-        if w > reg_weeks:
-            continue
-        for mu in wk.get("matchups", []):
-            a, b = mu["manager_a"], mu["manager_b"]
-            sa, sb = scores.get(w, {}).get(a), scores.get(w, {}).get(b)
-            if sa is None or sb is None:
-                continue
-            win, lose = (a, b) if sa > sb else (b, a)
-            wl[win][0] += 1
-            wl[lose][1] += 1
-            h2h[win][lose] += 1
-    for w, per in scores.items():
-        if w > reg_weeks:
-            continue
-        for mgr, s in per.items():
-            pts[mgr] += s
-    return wl, pts, h2h, reg_weeks
+    matchups = {int(wk["week"]): wk.get("matchups", []) for wk in schedule.get("weeks", [])}
+    recs, h2h, pts = results_from(scores, matchups, reg_weeks)
+    return recs, pts, h2h, reg_weeks
 
 
-def rank_managers(wl, pts, h2h):
-    """Best-first. Ties: head-to-head, then total points."""
-    mgrs = [m for m in MANAGERS if m in wl]
-
-    def sort_key(m):
-        return (-wl[m][0], -pts[m])
-
-    ordered = sorted(mgrs, key=sort_key)
+def rank_managers(recs, pts, h2h):
+    """Best-first: data_loader.standings_order, the one ranking rule. This
+    used to be its own copy -- two-way ties only, pairwise head-to-head, and
+    a tied week credited to manager_b."""
     notes = []
-    # Resolve two-way ties on identical W-L with head-to-head.
-    i = 0
-    while i < len(ordered) - 1:
-        a, b = ordered[i], ordered[i + 1]
-        if wl[a][0] == wl[b][0] and wl[a][1] == wl[b][1]:
-            aw, bw = h2h[a][b], h2h[b][a]
-            if aw != bw:
-                winner = a if aw > bw else b
-                if winner == b:
-                    ordered[i], ordered[i + 1] = b, a
-                notes.append(f"{a} and {b} tied at {wl[a][0]}-{wl[a][1]}; "
-                             f"head-to-head {max(aw,bw)}-{min(aw,bw)} to {winner}")
-            else:
-                notes.append(f"{a} and {b} tied at {wl[a][0]}-{wl[a][1]}; "
-                             f"head-to-head split {aw}-{bw}, broken on total points")
-        i += 1
-    return ordered, notes
+    order = standings_order(recs, h2h, pts, [m for m in MANAGERS if m in recs], notes=notes)
+    return order, notes
 
 
 def main():
@@ -185,7 +149,7 @@ def main():
 
     wl, pts, h2h, reg_weeks = regular_season_results(records, schedule,
                                                      completed_season)
-    if not wl:
+    if not any(r.games for r in wl.values()):
         print("ERROR: no regular-season results found in either config/ or archive/.")
         print("       The season reset clears RECORDS.json; the standings that set")
         print("       the draft order live in archive/<season>/config/RECORDS.json.")
@@ -216,7 +180,7 @@ def main():
               f"(the live RECORDS.json was cleared by the season reset).")
     print(f"\n  Regular-season standings (weeks 1-{reg_weeks}):")
     for i, m in enumerate(standings, 1):
-        print(f"    {i}. {m:8} {wl[m][0]}-{wl[m][1]}   {pts[m]:>10,.2f} pts")
+        print(f"    {i}. {m:8} {str(wl[m]):7}  {pts[m]:>10,.2f} pts")
     for n in notes:
         print(f"    tiebreak: {n}")
 

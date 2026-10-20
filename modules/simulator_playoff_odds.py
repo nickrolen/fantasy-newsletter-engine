@@ -39,7 +39,7 @@ from collections import defaultdict
 from typing import Optional
 
 from .data_loader import (
-    FantasyData, MANAGERS, CURRENT_SEASON,
+    FantasyData, MANAGERS, CURRENT_SEASON, Record, standings_order,
     REGULAR_SEASON_WEEKS, TIEBREAKER_RULES,
     stage_weeks, stage_rounds, regular_season_weeks_for,
 )
@@ -133,7 +133,7 @@ class PlayoffOddsResult:
     expected_final_scores: dict[str, float]
 
     # Regular season records (for context)
-    current_records: dict[str, tuple[int, int]]
+    current_records: dict[str, Record]
 
     # Seeding
     seeds: dict[str, int]  # manager -> seed (1-4)
@@ -158,153 +158,23 @@ class PlayoffOddsResult:
 # HELPERS
 # =============================================================================
 
-def _regular_season_standings(data: FantasyData) -> dict:
-    """
-    Compute each manager's record and total points over the REGULAR SEASON
-    only (weeks 1..regular_season_weeks), from RECORDS weekly_scores +
-    SCHEDULE matchups.
-
-    Playoff results must not influence seeding, so we deliberately ignore any
-    week beyond regular_season_weeks. Returns {manager: {wins, losses, points}}.
-    """
-    reg_weeks = regular_season_weeks_for(CURRENT_SEASON)
-    weekly_scores = data.records.get("weekly_scores", {})
-
-    # Build {week: {manager: score}} for regular-season weeks only.
-    scores_by_week = defaultdict(dict)
-    for mgr, entries in weekly_scores.items():
-        if not isinstance(entries, list):
-            continue
-        for e in entries:
-            wk = e.get("week")
-            if wk is not None and wk <= reg_weeks:
-                scores_by_week[wk][mgr] = e.get("score", 0.0)
-
-    standings = {m: {"wins": 0, "losses": 0, "points": 0.0} for m in MANAGERS}
-    for wk, mgr_scores in scores_by_week.items():
-        for m, s in mgr_scores.items():
-            if m in standings:
-                standings[m]["points"] += s
-        for matchup in data.get_week_matchups(wk):
-            ma, mb = matchup["manager_a"], matchup["manager_b"]
-            sa, sb = mgr_scores.get(ma), mgr_scores.get(mb)
-            if sa is None or sb is None:
-                continue
-            if sa > sb:
-                standings[ma]["wins"] += 1
-                standings[mb]["losses"] += 1
-            elif sb > sa:
-                standings[mb]["wins"] += 1
-                standings[ma]["losses"] += 1
-    return standings
-
-
-def _h2h_records_within_group(
-    data: FantasyData, group: list[str]
-) -> tuple[dict[str, int], dict[str, int]]:
-    """
-    Compute head-to-head wins/losses among a tied group of managers, using
-    ONLY regular-season matchups between members of the group.
-
-    Returns (h2h_wins, h2h_games) keyed by manager. Matchups against
-    managers outside the group are ignored -- the rule is "record between
-    the tied managers," not overall record.
-    """
-    # Not from SCHEDULE.json: seeds must never move on bracket results, and
-    # a stale schedule would let weeks 16-21 into the standings that set them.
-    reg_weeks = regular_season_weeks_for(CURRENT_SEASON)
-    weekly_scores = data.records.get("weekly_scores", {})
-
-    scores_by_week: dict[int, dict[str, float]] = defaultdict(dict)
-    for mgr, entries in weekly_scores.items():
-        if not isinstance(entries, list):
-            continue
-        for e in entries:
-            wk = e.get("week")
-            if wk is not None and wk <= reg_weeks:
-                scores_by_week[wk][mgr] = e.get("score", 0.0)
-
-    group_set = set(group)
-    h2h_wins = {m: 0 for m in group}
-    h2h_games = {m: 0 for m in group}
-    for wk, mgr_scores in scores_by_week.items():
-        for matchup in data.get_week_matchups(wk):
-            ma, mb = matchup["manager_a"], matchup["manager_b"]
-            if ma not in group_set or mb not in group_set:
-                continue
-            sa, sb = mgr_scores.get(ma), mgr_scores.get(mb)
-            if sa is None or sb is None:
-                continue
-            h2h_games[ma] += 1
-            h2h_games[mb] += 1
-            if sa > sb:
-                h2h_wins[ma] += 1
-            elif sb > sa:
-                h2h_wins[mb] += 1
-    return h2h_wins, h2h_games
-
-
 def rank_managers_by_standings(data: FantasyData) -> list[str]:
     """
-    Rank managers in standings order using the configured tiebreaker rules
-    from league_config.json:
+    Managers in regular-season standings order: data_loader.standings_order
+    (winning percentage with a T as half a win, then head-to-head among the
+    tied, then total points) over the regular season ONLY -- playoff weeks
+    never influence seeding.
 
-        {"standings": "h2h_regular_season", "fallback": "total_points"}
-
-    Order: regular-season wins DESC, then (within ties) the configured
-    standings rule, then the fallback. Always returns regular-season only --
-    playoff weeks never influence seeding.
-
-    The H2H rule uses each tied manager's record against the OTHER tied
-    managers only (not their overall H2H), which is the conventional
-    interpretation of "head-to-head among tied teams."
+    Before any regular-season week is in RECORDS it falls back to the live
+    records (LEAGUEHISTORY) and the season points totals.
     """
-    reg = _regular_season_standings(data)
-
-    # If no regular-season scores yet, fall back to live records via the
-    # data_loader path (e.g. preseason or very early in the year).
-    if all(reg[m]["wins"] == 0 and reg[m]["losses"] == 0 for m in MANAGERS):
+    records, h2h, points = data.regular_season_results()
+    if not any(r.games for r in records.values()):
         season_totals = data.records.get("manager_season_totals", {})
-        live = []
-        for manager in MANAGERS:
-            wins, _ = data.get_manager_record(manager)
-            total_pts = season_totals.get(manager, {}).get("total_points", 0.0)
-            live.append((manager, wins, total_pts))
-        live.sort(key=lambda x: (x[1], x[2]), reverse=True)
-        return [m for m, _, _ in live]
-
-    from modules.data_loader import league_rule
-    standings_rule = league_rule("tiebreaker_rules", "standings")
-    fallback_rule = league_rule("tiebreaker_rules", "fallback")
-    if standings_rule != "h2h_regular_season" or fallback_rule != "total_points":
-        raise ValueError(f"unknown tiebreak rule {standings_rule}/{fallback_rule}")
-
-    # Group managers by win count.
-    by_wins: dict[int, list[str]] = defaultdict(list)
-    for m in MANAGERS:
-        by_wins[reg[m]["wins"]].append(m)
-
-    ordered: list[str] = []
-    for wins in sorted(by_wins.keys(), reverse=True):
-        tied = by_wins[wins]
-        if len(tied) == 1:
-            ordered.extend(tied)
-            continue
-
-        # Break ties.
-        if standings_rule == "h2h_regular_season":
-            h2h_wins, _ = _h2h_records_within_group(data, tied)
-        else:
-            h2h_wins = {m: 0 for m in tied}
-
-        if fallback_rule == "total_points":
-            fallback_val = {m: reg[m]["points"] for m in tied}
-        else:
-            fallback_val = {m: 0.0 for m in tied}
-
-        tied.sort(key=lambda m: (h2h_wins[m], fallback_val[m]), reverse=True)
-        ordered.extend(tied)
-    return ordered
+        records = {m: data.get_manager_record(m) for m in MANAGERS}
+        points = {m: season_totals.get(m, {}).get("total_points", 0.0) for m in MANAGERS}
+        h2h = {}
+    return standings_order(records, h2h, points, MANAGERS)
 
 
 def get_playoff_seeds(data: FantasyData) -> dict[str, int]:
@@ -769,7 +639,8 @@ def run_playoff_odds_simulation(
         round_weeks={name: list(weeks) for name, weeks in rounds.items()},
         sweep_probability=sweep_probability,
         title_odds_delta=title_odds_delta,
-        expected_record={m: current_records[m] for m in MANAGERS},
+        expected_record={m: (float(r.wins), float(r.losses), float(r.ties))
+                         for m, r in current_records.items()},
         magic_numbers={m: None for m in MANAGERS},
     )
 

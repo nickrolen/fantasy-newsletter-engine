@@ -817,6 +817,12 @@ def scores_at(matrices: dict, i: int) -> dict[int, dict[str, float]]:
     return {w: {m: float(v[i]) for m, v in ms.items()} for w, ms in matrices.items()}
 
 
+def _games(x) -> str:
+    """A games-back count: '2', or '1.5' with a half game from a T."""
+    x = float(x)
+    return str(int(x)) if x == int(x) else f"{x:.1f}"
+
+
 def matchup_id(manager_a: str, manager_b: str) -> str:
     """Order-free name for a pairing: the tie key must not depend on who is 'A'."""
     return "|".join(sorted((manager_a, manager_b)))
@@ -1288,17 +1294,18 @@ def generate_weekly_betting_lines(
         key_b, key_b_proj, injury_note_b = get_key_player(team_projections[manager_b], week=week_num)
         
         # Standings implications
-        wins_a, losses_a = data.get_manager_record(manager_a)
-        wins_b, losses_b = data.get_manager_record(manager_b)
+        # Standings value, a T as half a win: the gap can be a half game.
+        wins_a = data.get_manager_record(manager_a).standing
+        wins_b = data.get_manager_record(manager_b).standing
         
         gap = abs(wins_a - wins_b)
         if wins_a > wins_b:
             # manager_a is ahead; if manager_b loses, they'd be gap+1 games back
-            games_back = gap + 1
+            games_back = _games(gap + 1)
             implications = f"A {manager_b} loss would put them {games_back} games back of {manager_a}."
         elif wins_b > wins_a:
             # manager_b is ahead; if manager_a loses, they'd be gap+1 games back
-            games_back = gap + 1
+            games_back = _games(gap + 1)
             implications = f"A {manager_a} loss would put them {games_back} games back of {manager_b}."
         else:
             # Tied record

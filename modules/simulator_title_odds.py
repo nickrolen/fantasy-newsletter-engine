@@ -8,6 +8,7 @@ Uses simplified lineup model (top 10 by projection) for efficiency.
 Availability is computed from projected_GP / remaining_team_games.
 """
 
+import math
 import random
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -22,7 +23,9 @@ from .data_loader import (
     REGULAR_SEASON_WEEKS,
     regular_season_weeks_for,
     TIEBREAKER_RULES,
-    parse_record_string,
+    Record,
+    standings_order,
+    week_outcome,
 )
 from .projections import (
     PlayerProjection,
@@ -71,9 +74,9 @@ class SimulatedMatchup:
 @dataclass
 class SimulatedSeason:
     """Result of simulating an entire season."""
-    final_records: dict[str, tuple[int, int]]  # manager -> (wins, losses)
+    final_records: dict[str, Record]  # manager -> W-L-T
     final_points: dict[str, float]  # manager -> total points
-    h2h_records: dict[str, dict[str, int]]  # manager -> {opponent: wins}
+    h2h_records: dict[str, dict[str, Record]]  # manager -> {opponent: W-L-T}
     champion: str
     finish_order: list[str]  # 1st to 4th
 
@@ -86,13 +89,13 @@ class TitleOddsResult:
     
     # Core results
     title_odds: dict[str, float]  # manager -> % chance of winning
-    expected_record: dict[str, tuple[float, float]]  # manager -> (exp wins, exp losses)
+    expected_record: dict[str, tuple[float, float, float]]  # manager -> (exp W, exp L, exp T)
     finish_distribution: dict[str, dict[int, float]]  # manager -> {position: probability}
     
     # Supporting data
     magic_numbers: dict[str, Optional[int]]  # manager -> wins to clinch (None if N/A)
-    current_records: dict[str, tuple[int, int]]
-    h2h_records: dict[str, dict[str, int]]
+    current_records: dict[str, Record]
+    h2h_records: dict[str, dict[str, Record]]
     
     # Change from last week
     title_odds_delta: dict[str, float] = field(default_factory=dict)
@@ -611,17 +614,11 @@ def simulate_matchup(
     score_a = week_results[manager_a].score
     score_b = week_results[manager_b].score
     
-    if score_a > score_b:
-        winner = manager_a
-    elif score_b > score_a:
-        winner = manager_b
-    else:
-        # Tie - coin flip (project-wide convention for SIMULATED ties).
-        # Ties are extremely rare with fractional scoring, but we still need a
-        # statistically honest tiebreak: a simulated tie should resolve either
-        # way with equal probability. See data_loader.py docstring for the
-        # full set of tie conventions.
-        winner = random.choice([manager_a, manager_b])
+    # A tied regular-season week is a T for both, not a win for anyone
+    # (tiebreaker_rules.regular_season_week; Nick, 10-20). winner None.
+    # This used to coin-flip, on a convention overruled on 10-07.
+    outcome = week_outcome(score_a, score_b)
+    winner = manager_a if outcome == "a" else (manager_b if outcome == "b" else None)
     
     return SimulatedMatchup(
         week=week_results[manager_a].week,
@@ -634,79 +631,21 @@ def simulate_matchup(
 
 
 def apply_tiebreakers(
-    records: dict[str, tuple[int, int]],
-    h2h: dict[str, dict[str, int]],
+    records: dict[str, Record],
+    h2h: dict[str, dict[str, Record]],
     points: dict[str, float],
 ) -> list[str]:
-    """
-    Apply tiebreakers to determine final standings using TIEBREAKER_RULES.
-
-    Returns list of managers from 1st to 4th place.
-
-    Tiebreakers (driven by league_config.json):
-    1. Record (wins) DESC
-    2. Within ties: the configured "standings" rule
-       - "h2h_regular_season": combined H2H wins among the tied managers
-       - "total_points": skip straight to the fallback
-    3. Fallback "fallback" rule
-       - "total_points": total simulated points DESC
-       - anything else: zero (no fallback)
-
-    This mirrors rank_managers_by_standings() in simulator_playoff_odds.py but
-    operates on SIMULATED final standings rather than actual data.
-    """
-    from modules.data_loader import league_rule
-    standings_rule = league_rule("tiebreaker_rules", "standings")
-    fallback_rule = league_rule("tiebreaker_rules", "fallback")
-    if standings_rule != "h2h_regular_season" or fallback_rule != "total_points":
-        raise ValueError(f"unknown tiebreak rule {standings_rule}/{fallback_rule}")
-
-    # Group managers by wins
-    by_wins = defaultdict(list)
-    for manager, (wins, losses) in records.items():
-        by_wins[wins].append(manager)
-
-    final_order = []
-    for wins in sorted(by_wins.keys(), reverse=True):
-        tied_managers = by_wins[wins]
-
-        if len(tied_managers) == 1:
-            final_order.append(tied_managers[0])
-            continue
-
-        # Compute the standings-rule value for each tied manager (higher = better).
-        if standings_rule == "h2h_regular_season":
-            h2h_score = {
-                m: sum(
-                    h2h.get(m, {}).get(opp, 0)
-                    for opp in tied_managers if opp != m
-                )
-                for m in tied_managers
-            }
-        else:
-            h2h_score = {m: 0 for m in tied_managers}
-
-        # Compute the fallback value (higher = better).
-        if fallback_rule == "total_points":
-            fallback_val = {m: points.get(m, 0.0) for m in tied_managers}
-        else:
-            fallback_val = {m: 0.0 for m in tied_managers}
-
-        sorted_tied = sorted(
-            tied_managers,
-            key=lambda m: (h2h_score[m], fallback_val[m]),
-            reverse=True,
-        )
-        final_order.extend(sorted_tied)
-
-    return final_order
+    """Final standings, 1st to 4th: data_loader.standings_order -- the one
+    ranking rule (winning percentage with a T as half a win, head-to-head
+    among the tied, total points)."""
+    return standings_order(records, h2h, points, list(records))
 
 
 def simulate_full_season(
     data: FantasyData,
     team_projections: dict[str, TeamProjections],
-    current_records: dict[str, tuple[int, int]],
-    current_h2h: dict[str, dict[str, int]],
+    current_records: dict[str, Record],
+    current_h2h: dict[str, dict[str, Record]],
     current_points: dict[str, float],
     remaining_weeks: list[dict],
     availability_rates: dict[str, float] = None,
@@ -731,7 +670,7 @@ def simulate_full_season(
         SimulatedSeason with final results
     """
     # Copy current state
-    records = {m: list(r) for m, r in current_records.items()}  # Make mutable
+    records = dict(current_records)
     h2h = {m: dict(h) for m, h in current_h2h.items()}
     points = dict(current_points)
     
@@ -749,21 +688,17 @@ def simulate_full_season(
         # Simulate matchups
         for matchup_def in week_data["matchups"]:
             matchup = simulate_matchup(week_results, matchup_def)
-            
-            winner = matchup.winner
-            loser = matchup.manager_a if winner == matchup.manager_b else matchup.manager_b
-            
-            # Update records
-            records[winner][0] += 1  # wins
-            records[loser][1] += 1   # losses
-            
-            # Update H2H
-            if winner not in h2h:
-                h2h[winner] = {}
-            h2h[winner][loser] = h2h[winner].get(loser, 0) + 1
+            a, b = matchup.manager_a, matchup.manager_b
+            if matchup.winner is None:
+                ra, rb = "tie", "tie"
+            else:
+                ra, rb = ("win", "loss") if matchup.winner == a else ("loss", "win")
+            records[a] = records.get(a, Record()).add(ra)
+            records[b] = records.get(b, Record()).add(rb)
+            h2h.setdefault(a, {})[b] = h2h.get(a, {}).get(b, Record()).add(ra)
+            h2h.setdefault(b, {})[a] = h2h.get(b, {}).get(a, Record()).add(rb)
     
-    # Convert records back to tuples
-    final_records = {m: tuple(r) for m, r in records.items()}
+    final_records = dict(records)
     
     # Apply tiebreakers to determine final order
     finish_order = apply_tiebreakers(final_records, h2h, points)
@@ -802,22 +737,25 @@ def compute_magic_numbers(
     Trailing managers get None (they cannot clinch on their own wins alone),
     as do managers who are essentially eliminated (< 0.1% title odds).
     """
+    # Standings value, not raw wins: a T is half a win (Record.standing).
+    # With a half-game lead the count rounds up: the smallest whole number
+    # of (own wins + best rival losses) that puts him strictly ahead.
     magic_numbers = {}
-    max_wins = max(r[0] for r in current_records.values())
+    max_wins = max(r.standing for r in current_records.values())
 
     for manager in managers:
-        current_wins, _current_losses = current_records[manager]
+        current_wins = current_records[manager].standing
 
         if title_odds.get(manager, 0.0) < 0.1:  # Essentially eliminated
             magic_numbers[manager] = None
         elif current_wins == max_wins:
-            # Best rival = highest win total among all OTHER managers
+            # Best rival = highest standing among all OTHER managers
             best_rival_wins = max(
-                (w for m2, (w, _l) in current_records.items() if m2 != manager),
+                (r.standing for m2, r in current_records.items() if m2 != manager),
                 default=0,
             )
             lead_over_rival = current_wins - best_rival_wins
-            magic = remaining_games - lead_over_rival + 1
+            magic = math.floor(remaining_games - lead_over_rival) + 1
             magic_numbers[manager] = max(0, min(magic, remaining_games + 1))
         else:
             magic_numbers[manager] = None
@@ -864,23 +802,11 @@ def run_title_odds_simulation(
         else:
             current_points[manager] = 0.0
     
-    # Get current H2H from records
-    current_h2h = {}
-    for manager in MANAGERS:
-        current_h2h[manager] = {}
-    
-    # Parse H2H from RECORDS.json if available
-    h2h_data = data.records.get("h2h_season", {})
-    for key, record in h2h_data.items():
-        parts = key.split("_vs_")
-        if len(parts) == 2:
-            m1, m2 = parts
-            for manager, opponent in [(m1, m2), (m2, m1)]:
-                if manager in MANAGERS and opponent in MANAGERS:
-                    wins = record.get(manager.lower(), 0)
-                    if manager not in current_h2h:
-                        current_h2h[manager] = {}
-                    current_h2h[manager][opponent] = wins
+    # Current head-to-head, W-L-T, from the same weekly results as the
+    # records (data.regular_season_results). It used to be read from
+    # RECORDS.json h2h_season, which stores wins only and cannot hold a T.
+    _recs, current_h2h, _pts = data.regular_season_results()
+    current_h2h = {m: dict(current_h2h.get(m, {})) for m in MANAGERS}
     
     # Get remaining weeks
     remaining_weeks = get_remaining_weeks(data, current_week)
@@ -892,7 +818,8 @@ def run_title_odds_simulation(
             num_simulations=0,
             current_week=current_week,
             title_odds={m: (100.0 if m == finish_order[0] else 0.0) for m in MANAGERS},
-            expected_record={m: current_records[m] for m in MANAGERS},
+            expected_record={m: (float(current_records[m].wins), float(current_records[m].losses),
+                                 float(current_records[m].ties)) for m in MANAGERS},
             finish_distribution={m: {i+1: (100.0 if finish_order[i] == m else 0.0) for i in range(NUM_TEAMS)} for m in MANAGERS},
             magic_numbers={m: 0 if m == finish_order[0] else None for m in MANAGERS},
             current_records=current_records,
@@ -913,6 +840,7 @@ def run_title_odds_simulation(
     finish_counts = {m: {i: 0 for i in range(1, NUM_TEAMS + 1)} for m in MANAGERS}
     total_wins = {m: 0.0 for m in MANAGERS}
     total_losses = {m: 0.0 for m in MANAGERS}
+    total_ties = {m: 0.0 for m in MANAGERS}
     
     for sim in range(num_simulations):
         result = simulate_full_season(
@@ -935,15 +863,17 @@ def run_title_odds_simulation(
             finish_counts[manager][pos] += 1
         
         # Track records
-        for manager, (wins, losses) in result.final_records.items():
-            total_wins[manager] += wins
-            total_losses[manager] += losses
+        for manager, rec in result.final_records.items():
+            total_wins[manager] += rec.wins
+            total_losses[manager] += rec.losses
+            total_ties[manager] += rec.ties
     
     # Compute results
     title_odds = {m: (title_wins[m] / num_simulations) * 100 for m in MANAGERS}
     
     expected_record = {
-        m: (total_wins[m] / num_simulations, total_losses[m] / num_simulations)
+        m: (total_wins[m] / num_simulations, total_losses[m] / num_simulations,
+            total_ties[m] / num_simulations)
         for m in MANAGERS
     }
     
@@ -984,6 +914,19 @@ def run_title_odds_simulation(
 # OUTPUT FORMATTING
 # =============================================================================
 
+def expected_standing(expected: tuple) -> float:
+    """Expected standings value: exp W + tie_win_value * exp T."""
+    from .data_loader import regular_season_tie_value
+    w, _l, t = expected
+    return w + float(regular_season_tie_value()) * t
+
+
+def format_expected_record(expected: tuple) -> str:
+    """'9.3-5.7', or '9.3-5.6-0.1' once expected ties reach a tenth."""
+    w, l, t = expected
+    return f"{w:.1f}-{l:.1f}" + (f"-{t:.1f}" if round(t, 1) > 0 else "")
+
+
 def format_title_odds_table(result: TitleOddsResult) -> str:
     """Format title odds as a text table."""
     lines = []
@@ -993,12 +936,12 @@ def format_title_odds_table(result: TitleOddsResult) -> str:
     # Sort by title odds, then by expected wins as tiebreaker
     sorted_managers = sorted(
         MANAGERS,
-        key=lambda m: (result.title_odds[m], result.expected_record[m][0]),
+        key=lambda m: (result.title_odds[m], expected_standing(result.expected_record[m])),
         reverse=True
     )
     
     for rank, manager in enumerate(sorted_managers, 1):
-        wins, losses = result.current_records[manager]
+        record = result.current_records[manager]
         odds = result.title_odds[manager]
         
         # Trend
@@ -1010,15 +953,14 @@ def format_title_odds_table(result: TitleOddsResult) -> str:
             trend = "-"
         
         # Expected record
-        exp_w, exp_l = result.expected_record[manager]
-        exp_record = f"{exp_w:.1f}-{exp_l:.1f}"
+        exp_record = format_expected_record(result.expected_record[manager])
         
         # Magic number
         magic = result.magic_numbers.get(manager)
         magic_str = str(magic) if magic is not None else "-"
         
         lines.append(
-            f"| {rank} | {manager} | {wins}-{losses} | {odds:.1f}% | {trend} | {exp_record} | {magic_str} |"
+            f"| {rank} | {manager} | {record} | {odds:.1f}% | {trend} | {exp_record} | {magic_str} |"
         )
     
     return "\n".join(lines)

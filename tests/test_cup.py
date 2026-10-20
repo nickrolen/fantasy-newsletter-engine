@@ -16,7 +16,7 @@ import pytest
 
 import modules.simulator_cup_odds as cup
 import modules.data_loader as dl
-from modules.data_loader import MANAGERS
+from modules.data_loader import MANAGERS, Record
 
 
 SEMI = cup.CUP_SEMIFINAL_ROUND
@@ -28,7 +28,7 @@ def _data(weekly_scores=None, weeks=None, current_week=99):
         schedule={"weeks": weeks or []},
         records={"weekly_scores": weekly_scores or {}},
         current_week=current_week,
-        get_manager_record=lambda m: (0, 0),
+        get_manager_record=lambda m: Record(),
     )
 
 

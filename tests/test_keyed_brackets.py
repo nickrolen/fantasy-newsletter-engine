@@ -16,7 +16,7 @@ import pytest
 from modules import simulator_betting as sb
 from modules import simulator_cup_odds as cup
 from modules import simulator_playoff_odds as spo
-from modules.data_loader import FantasyData, MANAGERS
+from modules.data_loader import FantasyData, MANAGERS, Record
 from modules.projections import PlayerProjection, TeamProjections
 
 TEAMS = ["BOS", "NYK", "LAL", "GSW", "MIA", "DEN", "PHX", "DAL", "MIL", "OKC"]
@@ -56,7 +56,7 @@ def _world(seed=0):
 @pytest.fixture
 def world(monkeypatch):
     data, teams = _world()
-    data.get_manager_record = lambda m, include_playoffs=False: (0, 0)
+    data.get_manager_record = lambda m, include_playoffs=False: Record()
     box = {"teams": teams}
     for mod in (spo, cup):
         monkeypatch.setattr(mod, "load_all_team_projections", lambda d: box["teams"])

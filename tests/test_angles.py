@@ -391,9 +391,13 @@ def test_a_series_settled_early_decides_nothing_in_its_last_game():
     assert "$" not in nick_garrett and "$45" in hayden_benton
 
 
-def test_a_tied_regular_season_week_raises():
-    from modules.data_loader import UnspecifiedRule
+def test_a_tied_regular_season_week_is_a_t_not_a_raise():
+    """It used to raise UnspecifiedRule (the rule was missing). Nick ruled
+    10-20: a T for both, half a win each."""
     sm = [{"season": "x", "week": 1, "manager_a": "Nick", "manager_b": "Hayden",
            "score_a": 1500.0, "score_b": 1500.0}]
-    with pytest.raises(UnspecifiedRule):
-        A.check_no_ties(sm, 15)
+    assert not hasattr(A, "check_no_ties")
+    _pts, wins = A._cumulative(sm, 15)
+    assert wins["Nick"] == wins["Hayden"] == 0.5
+    recs, _h, _p = A._records(sm, 15)
+    assert str(recs["Nick"]) == "0-0-1"

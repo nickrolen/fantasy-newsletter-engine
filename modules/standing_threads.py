@@ -33,8 +33,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Optional
 
-from modules.angles import (_cumulative, _game_winner, bracket_structure,
-                            check_no_ties, decided_status, final_order,
+from modules.angles import (_cumulative, _game_winner, _records as _wlt,
+                            bracket_structure, decided_status, final_order,
                             magic_number)
 
 
@@ -42,15 +42,10 @@ def _ord(n: int) -> str:
     return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
 
 
-def _records(sm, upto):
-    """Wins and losses (check_no_ties has already refused a tied week)."""
-    _, wins = _cumulative(sm, upto)
-    games = defaultdict(int)
-    for m in sm:
-        if m["week"] <= upto:
-            games[m["manager_a"]] += 1
-            games[m["manager_b"]] += 1
-    return wins, {m: games[m] - wins[m] for m in games}
+def _back(x) -> str:
+    """Games back: '2', or '1.5' when a T leaves a half game."""
+    x = float(x)
+    return str(int(x)) if x == int(x) else f"{x:.1f}"
 
 
 # A settled race in a later week: history, without its dollars.
@@ -133,7 +128,7 @@ def money_events(sm: list, week: int, season: Optional[str],
 def regular_season(sm, week, reg_last, rules, money=()) -> list[str]:
     upto = min(week, reg_last)
     reg = [m for m in sm if m["week"] <= upto]
-    wins, losses = _records(reg, upto)
+    recs, _h2h, _pts = _wlt(reg, upto)
     order = final_order(reg, upto) if reg else []
     rs = rules["league_champion"]
     payers = " or ".join(_ord(p) for p in rules["payer_places"])
@@ -144,9 +139,9 @@ def regular_season(sm, week, reg_last, rules, money=()) -> list[str]:
             f"year's draft order)")
     if not order:
         return [f"{head}: not started."]
-    lead = wins[order[0]]
-    state = " | ".join(f"{m} {wins[m]}-{losses[m]}"
-                       + ("" if i == 0 else f" ({lead - wins[m]} back)")
+    lead = recs[order[0]].standing
+    state = " | ".join(f"{m} {recs[m]}"
+                       + ("" if i == 0 else f" ({_back(lead - recs[m].standing)} back)")
                        for i, m in enumerate(order))
     out = [f"{head}: {state}"
            + (f"; {left} weeks left." if left else "; final.")]
@@ -336,7 +331,6 @@ def rules_from_config() -> dict:
 def lines(sm: list, week: int, season: Optional[str], cup_last: Optional[int],
           reg_last: int, pick_ownership: Optional[dict] = None,
           rules: Optional[dict] = None) -> list[str]:
-    check_no_ties(sm, reg_last)
     rules = dict(rules or rules_from_config())
     # the semifinals of THIS season's bracket (2025-26's were week 22)
     br = next((b for b in bracket_structure(season) if b["stage"] ==

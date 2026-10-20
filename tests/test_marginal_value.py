@@ -194,7 +194,8 @@ def test_windows_come_from_the_season_structure():
 
 
 def test_eliminated_is_exact_and_ties_are_alive():
-    rec = {"Nick": (9, 1), "Hayden": (6, 4), "Benton": (4, 6), "Garrett": (1, 9)}
+    from modules.data_loader import Record
+    rec = {"Nick": Record(9, 1), "Hayden": Record(6, 4), "Benton": Record(4, 6), "Garrett": Record(1, 9)}
     assert not mv.title_eliminated(rec, 5, "Nick")
     assert not mv.title_eliminated(rec, 3, "Hayden")     # 9 reachable: tie, alive
     assert mv.title_eliminated(rec, 2, "Hayden")         # 8 < 9
@@ -205,7 +206,8 @@ def test_cup_column_fires_for_the_eliminated_manager_too():
     """The manager who most needs the Cup column is not the runaway leader --
     it is the one with no title path left, and that happens earlier."""
     open_race = {"Benton": {1: 2.0, 2: 30.0, 3: 50.0, 4: 18.0}}  # nothing settled
-    rec = {"Nick": (8, 1), "Hayden": (6, 3), "Benton": (3, 6), "Garrett": (1, 8)}
+    from modules.data_loader import Record
+    rec = {"Nick": Record(8, 1), "Hayden": Record(6, 3), "Benton": Record(3, 6), "Garrett": Record(1, 8)}
     assert not mv.cup_column_live(open_race, ["Benton"])
     assert mv.cup_column_live(open_race, ["Benton"], records=rec, remaining_games=4)
     assert not mv.cup_column_live(open_race, ["Benton"], records=rec, remaining_games=5)

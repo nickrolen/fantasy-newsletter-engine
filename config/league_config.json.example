@@ -42,7 +42,11 @@
     },
     "tiebreaker_rules": {
         "standings": "h2h_regular_season",
-        "fallback": "total_points"
+        "fallback": "total_points",
+        "regular_season_week": "tie",
+        "_regular_season_week": "A tied regular-season week is a T for both managers; nobody wins it (Yahoo).",
+        "tie_win_value": 0.5,
+        "_tie_win_value": "A T counts as half a win: winning percentage is (W + 0.5*T) / (W + L + T)."
     },
     "pre_data_era": {
         "first_place_finishes": {},

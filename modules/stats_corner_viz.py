@@ -707,7 +707,8 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
     for season in seasons:
         standings[season] = {
             mgr: {"rank": int(r["regular_season_rank"]),
-                  "record": f"{int(r['reg_wins'])}-{int(r['reg_losses'])}"}
+                  "record": f"{int(r['reg_wins'])}-{int(r['reg_losses'])}"
+                            + (f"-{int(r['reg_ties'])}" if r.get("reg_ties") else "")}
             for mgr, r in stored[season].items()}
 
     # Shorten season labels: "2017-18" -> "17-18"

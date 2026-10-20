@@ -397,6 +397,7 @@ def reset_records(execute: bool) -> None:
     current_season_keys = {
         "season_records",       # current season records
         "h2h_season",           # current season head-to-head
+        "h2h_season_ties",      # current season tied weeks, per pair
         "manager_season_totals",# current season totals
         "weekly_scores",        # current season weekly scores
         "season_fppg_stats",    # current season FPPG

@@ -127,13 +127,15 @@ def window_weeks(window: str, current_week: int, season: str = None) -> list[int
 def title_eliminated(records: dict, remaining_games: int, manager: str) -> bool:
     """Exact, from standings alone: can `manager` no longer finish first?
 
-    records is {manager: (wins, losses)}; remaining_games is regular-season
-    matchups left (one a week). Eliminated when his wins plus every remaining
-    game cannot reach the leader's CURRENT wins. A reachable tie counts as
-    alive -- the tiebreaker could still go his way. No simulation involved.
+    records is {manager: Record}; remaining_games is regular-season matchups
+    left (one a week). Eliminated when his standing (W + 0.5*T) plus every
+    remaining game cannot reach the leader's CURRENT standing. A reachable
+    tie counts as alive -- the tiebreaker could still go his way. Every
+    manager plays every week, so standing order is winning-percentage order.
+    No simulation involved.
     """
-    mine = records[manager][0]
-    best_other = max((w for m, (w, _l) in records.items() if m != manager), default=0)
+    mine = records[manager].standing
+    best_other = max((r.standing for m, r in records.items() if m != manager), default=0)
     return mine + remaining_games < best_other
 
 

@@ -144,10 +144,15 @@ def build_standings(season_key, rows):
         playoff_rank         the bracket finish -- the Playoff Champion
     """
     from collections import defaultdict as _dd
+    from modules.data_loader import Record, standings_order
     allw = _dd(lambda: [0, 0, 0])   # wins, losses, ties
-    regw = _dd(lambda: [0, 0])
+    regw = _dd(Record)              # regular season W-L-T
     points = _dd(float)
-    h2h = _dd(lambda: _dd(int))
+    h2h = _dd(dict)                 # {m: {opp: Record}}, regular season
+
+    def credit(m, opp, outcome):
+        regw[m] = regw[m].add(outcome)
+        h2h[m][opp] = h2h[m].get(opp, Record()).add(outcome)
 
     for r in rows:
         points[r["manager_a"]] += r["score_a"]
@@ -156,13 +161,16 @@ def build_standings(season_key, rows):
         if not r["winner"]:
             allw[r["manager_a"]][2] += 1
             allw[r["manager_b"]][2] += 1
+            # a tied regular-season week is a T for both (tiebreaker_rules)
+            if in_reg:
+                credit(r["manager_a"], r["manager_b"], "tie")
+                credit(r["manager_b"], r["manager_a"], "tie")
             continue
         allw[r["winner"]][0] += 1
         allw[r["loser"]][1] += 1
         if in_reg:
-            regw[r["winner"]][0] += 1
-            regw[r["loser"]][1] += 1
-            h2h[r["winner"]][r["loser"]] += 1
+            credit(r["winner"], r["loser"], "win")
+            credit(r["loser"], r["winner"], "loss")
 
     managers = sorted(allw)
 
@@ -176,15 +184,17 @@ def build_standings(season_key, rows):
     # tie silently falls through to points. In 2025-26 that would have ranked
     # Garrett 2nd on points when Benton had actually won the season series
     # 4-3 -- and this rank sets the draft order.
-    from itertools import groupby
-    reg_order = []
-    by_wins = sorted(managers, key=lambda m: -regw[m][0])
-    for _, group in groupby(by_wins, key=lambda m: regw[m][0]):
-        tied = list(group)
-        if len(tied) > 1:
-            within = {m: sum(h2h[m][o] for o in tied if o != m) for m in tied}
-            tied.sort(key=lambda m: (-within[m], -points[m], m))
-        reg_order.extend(tied)
+    #
+    # Since 10-20 this is data_loader.standings_order -- the one ranking rule
+    # (winning percentage with a T as half a win, then head-to-head among the
+    # tied group, then total points). Its last key used to be the manager's
+    # NAME; the rule now raises instead, since the league has no such rule.
+    reg_points = _dd(float)
+    for r in rows:
+        if is_regular_season_week(season_key, r["week"]):
+            reg_points[r["manager_a"]] += r["score_a"]
+            reg_points[r["manager_b"]] += r["score_b"]
+    reg_order = standings_order(dict(regw), dict(h2h), dict(reg_points), managers)
     reg_rank = {m: i for i, m in enumerate(reg_order, 1)}
 
     placing = _playoff_placing(season_key, rows)
@@ -206,8 +216,9 @@ def build_standings(season_key, rows):
             "losses": losses,
             "ties": ties,
             "points_for": round(points[m], 1),
-            "reg_wins": regw[m][0],
-            "reg_losses": regw[m][1],
+            "reg_wins": regw[m].wins,
+            "reg_losses": regw[m].losses,
+            "reg_ties": regw[m].ties,
             "regular_season_rank": reg_rank[m],
             "playoff_rank": placing.get(m),
         })
