@@ -34,7 +34,7 @@ COST: a full bracket is six simulated weeks rather than two, so a run is
 roughly 3x what it used to be. num_simulations is the knob.
 """
 
-import random
+import secrets
 from dataclasses import dataclass, field
 from collections import defaultdict
 from typing import Optional
@@ -48,7 +48,7 @@ from .projections import (
     TeamProjections,
     load_all_team_projections,
 )
-from .simulator_betting import simulate_week_hifi
+from .simulator_betting import week_score_matrices, scores_at
 
 
 # =============================================================================
@@ -486,14 +486,23 @@ def _week_winner(pair, scores, seeds, tie_rule):
     return a if seeds.get(a, 99) <= seeds.get(b, 99) else b
 
 
-def _play_series(data, team_projections, pairs, weeks, seeds, decided,
-                 injury_statuses, scores_by_week):
+def _week_scores(week, decided, simulated):
+    """A played week is never rolled: `decided` wins over the simulation."""
+    if week in decided:
+        return decided[week]
+    if week not in simulated:
+        raise KeyError(f"bracket week {week} is neither decided nor simulated")
+    return simulated[week]
+
+
+def _play_series(pairs, weeks, seeds, decided, simulated, scores_by_week):
     """Play one round: every week of it, for both pairings at once.
 
     `pairs` is [(a, b), (c, d)]. Both pairings play in the same weeks, so the
-    week is simulated once and read by both. Every week is played even once a
-    series is decided -- the league plays them out, and the points still count
-    toward season totals and the Cup seeding.
+    week is read once by both. Every week is played even once a series is
+    decided -- the league plays them out, and the points still count toward
+    season totals and the Cup seeding. `simulated` is this iteration's
+    {week: {manager: score}} (scores_at of the precomputed matrices).
 
     Returns [(winner, loser, week_winners), ...] in the order of `pairs`.
     """
@@ -505,19 +514,7 @@ def _play_series(data, team_projections, pairs, weeks, seeds, decided,
     week_winner_lists = [[] for _ in pairs]
 
     for week in range(first, last + 1):
-        simulated = week not in decided
-        if simulated:
-            entry = _week_entry(data, week) or {"week": week}
-            week_data = dict(entry)
-            week_data["week"] = week
-            week_data["matchups"] = [
-                {"manager_a": a, "manager_b": b} for a, b in pairs
-            ]
-            results = simulate_week_hifi(
-                data, team_projections, week_data, injury_statuses)
-            scores = {m: results[m]["score"] for m in MANAGERS}
-        else:
-            scores = decided[week]
+        scores = _week_scores(week, decided, simulated)
         scores_by_week[week] = scores
 
         for i, pair in enumerate(pairs):
@@ -534,18 +531,17 @@ def _play_series(data, team_projections, pairs, weeks, seeds, decided,
 
 
 def simulate_playoff_bracket(
-    data: FantasyData,
-    team_projections: dict[str, TeamProjections],
     semi_pairs: list,
     seeds: dict,
+    simulated: dict,
     decided: dict = None,
-    injury_statuses: dict[str, str] = None,
 ) -> PlayoffSimResult:
-    """Simulate one complete playoff bracket: semifinals, then final.
+    """Play one complete playoff bracket: semifinals, then final.
 
-    semi_pairs is [(a, b), (c, d)]. `decided` maps an already-played week to
-    its real {manager: score}; those weeks are used as-is rather than rolled
-    again, so an eliminated manager cannot pick up championship odds.
+    semi_pairs is [(a, b), (c, d)]. `simulated` is one iteration's
+    {week: {manager: score}}; `decided` maps an already-played week to its
+    real {manager: score}, used as-is rather than rolled again, so an
+    eliminated manager cannot pick up championship odds.
     """
     decided = decided or {}
     rounds = bracket_rounds()
@@ -554,8 +550,7 @@ def simulate_playoff_bracket(
 
     # --- Semifinals ---
     semi_weeks = rounds[SEMIFINAL_ROUND]
-    semi_out = _play_series(data, team_projections, semi_pairs, semi_weeks,
-                            seeds, decided, injury_statuses, scores_by_week)
+    semi_out = _play_series(semi_pairs, semi_weeks, seeds, decided, simulated, scores_by_week)
     semi_winners = [w for w, _, _ in semi_out]
     semi_losers = [l for _, l, _ in semi_out]
     for (a, b), (w, l, wk_winners) in zip(semi_pairs, semi_out):
@@ -570,8 +565,7 @@ def simulate_playoff_bracket(
     # --- Final and Third Place (same weeks) ---
     final_weeks = rounds[FINAL_ROUND]
     final_pairs = [tuple(semi_winners), tuple(semi_losers)]
-    final_out = _play_series(data, team_projections, final_pairs, final_weeks,
-                             seeds, decided, injury_statuses, scores_by_week)
+    final_out = _play_series(final_pairs, final_weeks, seeds, decided, simulated, scores_by_week)
 
     champ_winner, champ_loser, champ_weeks = final_out[0]
     consolation_winner, consolation_loser, cons_weeks = final_out[1]
@@ -639,11 +633,13 @@ def run_playoff_odds_simulation(
     Args:
         data: FantasyData container
         num_simulations: number of bracket simulations to run
-        seed: random seed for reproducibility
+        seed: keyed-draw seed (modules/crn.py). None picks one from the OS;
+              stdlib `random` is never consulted, so nothing that touched it
+              earlier can move these odds.
         injury_statuses: player -> injury status (from Yahoo, optional)
     """
-    if seed is not None:
-        random.seed(seed)
+    if seed is None:
+        seed = secrets.randbits(62)
 
     rounds = bracket_rounds()
     if not rounds:
@@ -684,11 +680,16 @@ def run_playoff_odds_simulation(
     sweeps = defaultdict(int)
     series_played = defaultdict(int)
 
-    for _ in range(num_simulations):
-        result = simulate_playoff_bracket(
-            data, team_projections, semi_pairs, seeds,
-            decided=decided, injury_statuses=injury_statuses,
-        )
+    # Every bracket week not yet played, simulated once for all iterations.
+    # The set is the same on every iteration: each round plays all its weeks,
+    # and a week's scores never depend on the pairing.
+    to_simulate = [w for w in bracket_weeks() if w not in decided]
+    matrices = week_score_matrices(data, team_projections, to_simulate, injury_statuses,
+                                   seed, num_simulations)
+
+    for i in range(num_simulations):
+        result = simulate_playoff_bracket(semi_pairs, seeds, scores_at(matrices, i),
+                                          decided=decided)
 
         title_wins[result.champ_winner] += 1
         for pos, manager in enumerate(result.finish_order, 1):

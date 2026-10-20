@@ -38,12 +38,18 @@ def _scores(per_manager_per_week):
             for m, weeks in per_manager_per_week.items()}
 
 
-def _scripted(scores_by_week, calls=None):
-    def fake(data, projections, week_data, injury_statuses=None):
-        week = week_data["week"]
+def _matrices(scores_by_week, calls=None):
+    """A stand-in for week_score_matrices: every simulation of week w scores
+    scores_by_week[w] (a callable gets (week, manager, n) for noisy weeks)."""
+    import numpy as np
+
+    def fake(data, projections, weeks, injury_statuses=None, seed=None, num_simulations=1, **kw):
         if calls is not None:
-            calls.append(week)
-        return {m: {"score": scores_by_week[week][m]} for m in MANAGERS}
+            calls.append(list(weeks))
+        if callable(scores_by_week):
+            return {w: {m: scores_by_week(w, m, num_simulations) for m in MANAGERS} for w in weeks}
+        return {w: {m: np.full(num_simulations, float(scores_by_week[w][m])) for m in MANAGERS}
+                for w in weeks}
     return fake
 
 
@@ -166,11 +172,9 @@ def test_one_bad_week_ends_it(monkeypatch):
         22: {"Nick": 1, "Garrett": 100, "Hayden": 100, "Benton": 1},
         23: {"Garrett": 100, "Hayden": 1, "Nick": 500, "Benton": 500},
     }
-    calls = []
-    monkeypatch.setattr(cup, "simulate_week_hifi", _scripted(scores, calls))
-    r = cup.simulate_cup(_data(), {}, PAIRS, SEEDS)
+    r = cup.simulate_cup(PAIRS, SEEDS, scores)
 
-    assert calls == [22, 23]
+    assert sorted(r.scores_by_week) == [22, 23]
     assert r.cup_winner == "Garrett", "the #4 seed wins it in two games"
     assert r.finish_order[0] == "Garrett" and r.finish_order[1] == "Hayden"
     assert set(r.finish_order[2:]) == {"Nick", "Benton"}, (
@@ -182,8 +186,7 @@ def test_the_week_22_losers_still_play_but_cannot_win(monkeypatch):
         22: {"Nick": 100, "Garrett": 1, "Hayden": 100, "Benton": 1},
         23: {"Nick": 1, "Hayden": 2, "Garrett": 999, "Benton": 998},
     }
-    monkeypatch.setattr(cup, "simulate_week_hifi", _scripted(scores))
-    r = cup.simulate_cup(_data(), {}, PAIRS, SEEDS)
+    r = cup.simulate_cup(PAIRS, SEEDS, scores)
     assert r.cup_winner == "Hayden"
     assert r.finish_order[2] == "Garrett", "the consolation game orders 3rd/4th"
     assert r.finish_order[3] == "Benton"
@@ -192,11 +195,21 @@ def test_the_week_22_losers_still_play_but_cannot_win(monkeypatch):
 def test_a_played_cup_week_is_not_re_rolled(monkeypatch):
     decided = {22: {"Nick": 200, "Garrett": 1, "Hayden": 200, "Benton": 1}}
     scores = {23: {"Nick": 100, "Hayden": 1, "Garrett": 5, "Benton": 4}}
-    calls = []
-    monkeypatch.setattr(cup, "simulate_week_hifi", _scripted(scores, calls))
-    r = cup.simulate_cup(_data(), {}, PAIRS, SEEDS, decided=decided)
-    assert calls == [23]
+    r = cup.simulate_cup(PAIRS, SEEDS, scores, decided=decided)
     assert r.cup_winner == "Nick"
+    # and the run only simulates the week still to come
+    calls = []
+    monkeypatch.setattr(cup, "load_all_team_projections", lambda data: {})
+    monkeypatch.setattr(cup, "resolve_completed_week", lambda data, week: decided.get(week))
+    monkeypatch.setattr(cup, "week_score_matrices", _matrices(scores, calls))
+    data = _data(_scores({m: {1: 100 + i} for i, m in enumerate(MANAGERS)}))
+    cup.run_cup_odds_simulation(data, num_simulations=4, seed=1)
+    assert calls == [[23]], "the played Cup week was rolled again"
+
+
+def test_a_cup_week_neither_decided_nor_simulated_raises():
+    with pytest.raises(KeyError, match="23"):
+        cup.simulate_cup(PAIRS, SEEDS, {22: {m: 10 + i for i, m in enumerate(MANAGERS)}})
 
 
 # ---------------------------------------------------------------------------
@@ -225,8 +238,8 @@ def test_an_unrecorded_cup_winner_is_flagged_loudly(monkeypatch):
         return None
 
     monkeypatch.setattr(cup, "load_all_team_projections", lambda data: {})
-    monkeypatch.setattr(cup, "simulate_week_hifi",
-                        _scripted({22: {m: 10 for m in MANAGERS},
+    monkeypatch.setattr(cup, "week_score_matrices",
+                        _matrices({22: {m: 10 for m in MANAGERS},
                                    23: {m: 10 for m in MANAGERS}}))
     monkeypatch.setattr(cup, "resolve_completed_week", lambda data, week: None)
     # distinct totals: this test is about the keeper note, not seeding ties
@@ -243,10 +256,10 @@ def test_an_unrecorded_cup_winner_is_flagged_loudly(monkeypatch):
 def test_odds_sum_to_one_hundred(monkeypatch):
     monkeypatch.setattr(cup, "load_all_team_projections", lambda data: {})
     monkeypatch.setattr(cup, "resolve_completed_week", lambda data, week: None)
-    import random as _r
-    def noisy(data, projections, week_data, injury_statuses=None):
-        return {m: {"score": _r.uniform(0, 100)} for m in MANAGERS}
-    monkeypatch.setattr(cup, "simulate_week_hifi", noisy)
+    import numpy as np
+    rng = np.random.default_rng(0)
+    monkeypatch.setattr(cup, "week_score_matrices",
+                        _matrices(lambda w, m, n: rng.uniform(0, 100, n)))
 
     data = _data(_scores({"Nick": {1: 400}, "Garrett": {1: 300},
                           "Benton": {1: 200}, "Hayden": {1: 100}}))

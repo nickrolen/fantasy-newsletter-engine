@@ -414,33 +414,6 @@ class KeyedDraws:
         return np.stack([self._get("z", namespace, k) for k in keys], axis=1)
 
 
-class StreamDraws:
-    """ONE simulation from an unkeyed generator, drawn in request order.
-
-    Only for simulate_week_hifi, which the playoff and Cup simulators call
-    once per iteration. It reproduces under random.seed() but it is NOT
-    common random numbers -- porting those simulators to KeyedDraws (one
-    week matrix per week, indexed by iteration) is the follow-up.
-    """
-
-    n = 1
-
-    def __init__(self, rng: np.random.Generator):
-        self.rng = rng
-
-    def uniforms(self, namespace: str, *key) -> np.ndarray:
-        return self.rng.random(1)
-
-    def normals(self, namespace: str, *key) -> np.ndarray:
-        return self.rng.standard_normal(1)
-
-    def uniforms_many(self, namespace: str, keys) -> np.ndarray:
-        return self.rng.random((1, len(keys)))
-
-    def normals_many(self, namespace: str, keys) -> np.ndarray:
-        return self.rng.standard_normal((1, len(keys)))
-
-
 class TagBlock(NamedTuple):
     """One tagged player's absence, all simulations at once.
 
@@ -529,8 +502,8 @@ def _tagged_players(data, team_projections, injury_statuses, tag_anchor,
                     anchors=None, tag_week_info=None):
     """[(name, chain tag, (his games from the anchor, anchor))] -- everything
     about the tags that is not random. Cached on `data` by the identity of
-    the inputs: the playoff and Cup simulators ask once per iteration, and
-    resolving names through PlayerIndex each time cost more than simulating.
+    the inputs: every week and every matchup of a run asks the same question,
+    and resolving names through PlayerIndex each time cost more than simulating.
     """
     cache = data.__dict__.setdefault("_tagged_players", {})
     anchors = anchors or {}
@@ -609,8 +582,8 @@ def _eligible(player, week: int, game_date: date, week_start_date: date) -> bool
 def _week_plan(data, team_projections, week_data, managers):
     """Everything about a simulated week that is not random, per manager:
     [(date, [(name, mean, std, group, return_rate or None, positions,
-    projected_fppg), ...]), ...] with players in projection order. Cached on `data` by the identity of the
-    projections: the playoff and Cup simulators ask once per iteration.
+    projected_fppg), ...]), ...] with players in projection order. Cached on
+    `data` by the identity of the projections.
     """
     cache = data.__dict__.setdefault("_week_plans", {})
     key = (id(team_projections), week_data["week"], week_data.get("start_date"), tuple(managers),
@@ -664,14 +637,6 @@ def legal_starters(avail: np.ndarray, entries: list, fills: dict) -> np.ndarray:
     n, width = avail.shape
     if width == 0:
         return avail
-    if n == 1:      # the bracket simulators' one-iteration calls: skip the numpy packing
-        idx = [j for j in range(width) if avail[0, j]]
-        players = tuple((entries[j][0], entries[j][5], entries[j][6]) for j in idx)
-        started = fills.get(players)
-        if started is None:
-            started = frozenset(exact_fill(players)[0])
-            fills[players] = started
-        return np.array([[avail[0, j] and entries[j][0] in started for j in range(width)]])
     if width > 62:
         raise ValueError(f"{width} players available on one day; the pattern key packs at most 62")
     keys = avail.astype(np.int64) @ (np.int64(1) << np.arange(width, dtype=np.int64))
@@ -798,25 +763,59 @@ def remaining_noise_scale(data: FantasyData, dates: list, from_date: date = None
     return (left / len(game_days)) ** 0.5
 
 
-def simulate_week_hifi(
+def schedule_week(data: FantasyData, week: int) -> dict:
+    """SCHEDULE.json's entry for `week`, WITHOUT its matchups.
+
+    A simulated week does not depend on who plays whom (simulate_week_matrix
+    never reads matchups), and the bracket simulators' later-round pairings
+    differ per iteration -- so a precomputed week must not carry a pairing
+    it cannot honour. Raises if the week is not in the schedule.
+    """
+    for w in data.schedule.get("weeks", []):
+        if int(w["week"]) == int(week):
+            out = {k: v for k, v in w.items() if k != "matchups"}
+            out["week"] = int(week)
+            return out
+    raise KeyError(f"week {week} is not in SCHEDULE.json; cannot simulate it")
+
+
+def week_score_matrices(
     data: FantasyData,
     team_projections: dict[str, TeamProjections],
-    week_data: dict,
-    injury_statuses: dict[str, str] = None,
+    weeks,
+    injury_statuses: dict = None,
+    seed: int = None,
+    num_simulations: int = DEFAULT_NUM_SIMULATIONS,
     tag_anchor: date = None,
-) -> dict[str, dict]:
-    """
-    ONE simulated week for all managers, for the playoff and Cup simulators
-    (which loop iterations themselves). The same model as
-    simulate_week_matrix, on a StreamDraws generator seeded from the global
-    `random` stream -- reproducible under random.seed(), not yet CRN.
+) -> dict[int, dict[str, np.ndarray]]:
+    """{week: {manager: scores[n]}} -- one keyed simulation of each week.
 
-    Returns dict mapping manager -> {score, games, G, F, C} (floats)
+    The playoff and Cup simulators precompute their weeks here once and read
+    simulation i at index i, instead of re-simulating a week per iteration.
+
+    ONE WEEK, ONE SIMULATED TRUTH (Nick, 10-20): the draws are keyed by the
+    week's own entities and dates (crn.py), never by which competition is
+    asking. So week W here at n = 10,000 is, column for column, the same week
+    a betting line prices at n = 5,000 with the same seed -- the line is this
+    matrix's first 5,000 columns (keyed streams are prefix-stable). A test
+    asserts it.
     """
-    draws = StreamDraws(np.random.default_rng(random.getrandbits(64)))
-    out = simulate_week_matrix(data, team_projections, week_data, injury_statuses,
-                               draws, tag_anchor)
-    return {m: {k: float(v[0]) for k, v in r.items()} for m, r in out.items()}
+    if seed is None:
+        raise ValueError("week_score_matrices needs an explicit seed")
+    draws = KeyedDraws(seed, num_simulations)
+    out = {}
+    for w in weeks:
+        wd = schedule_week(data, w)
+        assert "matchups" not in wd
+        res = simulate_week_matrix(data, team_projections, wd, injury_statuses, draws,
+                                   tag_anchor, managers=MANAGERS)
+        out[int(w)] = {m: res[m]["score"] for m in MANAGERS}
+    return out
+
+
+def scores_at(matrices: dict, i: int) -> dict[int, dict[str, float]]:
+    """Simulation i of every precomputed week: {week: {manager: score}}."""
+    return {w: {m: float(v[i]) for m, v in ms.items()} for w, ms in matrices.items()}
 
 
 def matchup_id(manager_a: str, manager_b: str) -> str:

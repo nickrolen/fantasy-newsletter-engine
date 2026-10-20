@@ -145,12 +145,11 @@ def test_different_seed_different_answer():
     assert _line(data, week, teams, seed=11)["avg_score_a"] != _line(data, week, teams, seed=12)["avg_score_a"]
 
 
-def test_simulate_week_hifi_reproduces_under_random_seed():
-    data, week, teams = _world()
-    random.seed(5); a = sb.simulate_week_hifi(data, teams, week)
-    random.seed(5); b = sb.simulate_week_hifi(data, teams, week)
-    random.seed(6); c = sb.simulate_week_hifi(data, teams, week)
-    assert a == b and a != c
+def test_the_one_iteration_stream_path_is_gone():
+    """simulate_week_hifi / StreamDraws drew the brackets off the global
+    stream; the brackets now read week_score_matrices. Not kept as a shim."""
+    assert not hasattr(sb, "simulate_week_hifi")
+    assert not hasattr(sb, "StreamDraws")
 
 
 # 5 -- variance reduction

@@ -167,12 +167,15 @@ def test_exact_fill_runs_once_per_distinct_pattern(monkeypatch):
 
 
 def test_the_bracket_simulators_get_legal_lineups_too():
+    """The brackets read week_score_matrices, which is simulate_week_matrix
+    for every manager: the same legal fill, column for column."""
     only_c = TeamProjections("Nick", {f"C{i}": _p(f"C{i}", "C", 40 - i) for i in range(12)})
     teams = {m: TeamProjections(m, {}) for m in ("Hayden", "Benton", "Garrett")}
     teams["Nick"] = only_c
-    random.seed(1)
-    out = sb.simulate_week_hifi(_data(), teams, WEEK)
-    assert out["Nick"]["games"] == 4 * 7
+    mats = sb.week_score_matrices(_data(), teams, [2], None, seed=1, num_simulations=50)
+    direct = sb.simulate_week_matrix(_data(), teams, WEEK, None, sb.KeyedDraws(1, 50))
+    assert (direct["Nick"]["games"] == 4 * 7).all()
+    assert np.array_equal(mats[2]["Nick"], direct["Nick"]["score"])
 
 
 def test_the_title_odds_daily_path_is_legal_too():

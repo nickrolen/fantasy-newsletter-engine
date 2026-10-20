@@ -36,14 +36,29 @@ def _data(weeks=None, current_week=99):
     )
 
 
-def _scripted(scores_by_week, calls=None):
-    """A stand-in for simulate_week_hifi that returns fixed weekly scores."""
-    def fake(data, projections, week_data, injury_statuses=None):
-        week = week_data["week"]
+def _matrices(scores_by_week, n=1, calls=None):
+    """A stand-in for week_score_matrices: every simulation of week w scores
+    scores_by_week[w]. Records which weeks it was asked to simulate."""
+    import numpy as np
+
+    def fake(data, projections, weeks, injury_statuses=None, seed=None, num_simulations=1, **kw):
         if calls is not None:
-            calls.append(week)
-        return {m: {"score": scores_by_week[week][m]} for m in MANAGERS}
+            calls.append(list(weeks))
+        return {w: {m: np.full(num_simulations, float(scores_by_week[w][m])) for m in MANAGERS}
+                for w in weeks}
     return fake
+
+
+def _run(monkeypatch, scores, decided=None, n=3):
+    """run_playoff_odds_simulation on scripted weeks; returns (result, calls)."""
+    calls = []
+    monkeypatch.setattr(spo, "load_all_team_projections", lambda data: {})
+    monkeypatch.setattr(spo, "_decided_weeks", lambda data: dict(decided or {}))
+    monkeypatch.setattr(spo, "get_playoff_seeds", lambda data: dict(SEEDS))
+    monkeypatch.setattr(spo, "get_semifinal_matchups", lambda data, seeds: (
+        [{"manager_a": a, "manager_b": b} for a, b in PAIRS], "test"))
+    monkeypatch.setattr(spo, "week_score_matrices", _matrices(scores, calls=calls))
+    return spo.run_playoff_odds_simulation(_data(current_week=15), num_simulations=n, seed=1), calls
 
 
 def _flat(week_scores):
@@ -70,8 +85,7 @@ def test_a_series_is_won_on_week_wins_not_total_points(monkeypatch):
         20: {"Nick": 100, "Garrett": 10,  "Hayden": 50,  "Benton": 10},
         21: {"Nick": 100, "Garrett": 10,  "Hayden": 50,  "Benton": 10},
     }
-    monkeypatch.setattr(spo, "simulate_week_hifi", _scripted(scores))
-    r = spo.simulate_playoff_bracket(_data(), {}, PAIRS, SEEDS)
+    r = spo.simulate_playoff_bracket(PAIRS, SEEDS, _flat(scores))
 
     assert sum(scores[w]["Garrett"] for w in (16, 17, 18)) > \
            sum(scores[w]["Nick"] for w in (16, 17, 18))
@@ -91,23 +105,20 @@ def test_every_week_of_a_decided_series_is_still_played(monkeypatch):
     # to hold, about a 6% pass rate. The test was flaky, not the bracket.
     scores = {w: {"Nick": 100, "Hayden": 90, "Benton": 10, "Garrett": 1}
               for w in range(16, 22)}
-    calls = []
-    monkeypatch.setattr(spo, "simulate_week_hifi", _scripted(scores, calls))
-    r = spo.simulate_playoff_bracket(_data(), {}, PAIRS, SEEDS)
+    r = spo.simulate_playoff_bracket(PAIRS, SEEDS, _flat(scores))
 
-    assert calls == [16, 17, 18, 19, 20, 21], "all six weeks must be simulated"
+    assert sorted(r.scores_by_week) == [16, 17, 18, 19, 20, 21], "all six weeks must be played"
     for s in r.series:
         assert len(s.week_winners) == 3, f"{s.round_name} played {len(s.week_winners)} weeks"
         assert s.games == "3-0"
 
 
 def test_both_pairings_share_one_simulation_per_week(monkeypatch):
-    """One week is one roll of the world, not one per matchup."""
+    """One week is one roll of the world, not one per matchup -- and now one
+    precompute for the whole run, not one per iteration."""
     scores = {w: {m: 10 + i for i, m in enumerate(MANAGERS)} for w in range(16, 22)}
-    calls = []
-    monkeypatch.setattr(spo, "simulate_week_hifi", _scripted(scores, calls))
-    spo.simulate_playoff_bracket(_data(), {}, PAIRS, SEEDS)
-    assert len(calls) == len(set(calls)) == 6
+    _r, calls = _run(monkeypatch, scores, n=50)
+    assert calls == [[16, 17, 18, 19, 20, 21]], "simulated once, every week, for all 50 iterations"
 
 
 # ---------------------------------------------------------------------------
@@ -122,13 +133,24 @@ def test_completed_weeks_are_never_re_simulated(monkeypatch):
     })
     scores = {w: {"Nick": 100, "Garrett": 100, "Hayden": 1, "Benton": 1}
               for w in range(19, 22)}
-    calls = []
-    monkeypatch.setattr(spo, "simulate_week_hifi", _scripted(scores, calls))
-    r = spo.simulate_playoff_bracket(_data(), {}, PAIRS, SEEDS, decided=decided)
-
-    assert calls == [19, 20, 21], "the played semifinal weeks were rolled again"
+    r = spo.simulate_playoff_bracket(PAIRS, SEEDS, _flat(scores), decided=decided)
     assert set(r.semi_winners) == {"Nick", "Hayden"}
     assert r.champ_winner == "Nick"
+    _r, calls = _run(monkeypatch, scores, decided=decided)
+    assert calls == [[19, 20, 21]], "the played semifinal weeks were rolled again"
+
+
+def test_a_decided_week_beats_a_simulated_one_for_the_same_week():
+    decided = _flat({16: {"Nick": 1, "Garrett": 500, "Hayden": 500, "Benton": 1}})
+    sim = {w: {"Nick": 100, "Garrett": 1, "Hayden": 1, "Benton": 100} for w in range(16, 22)}
+    r = spo.simulate_playoff_bracket(PAIRS, SEEDS, _flat(sim), decided=decided)
+    assert r.scores_by_week[16] == decided[16]
+
+
+def test_a_week_neither_decided_nor_simulated_raises():
+    sim = {w: {m: 10 for m in MANAGERS} for w in range(16, 21)}      # 21 missing
+    with pytest.raises(KeyError, match="21"):
+        spo.simulate_playoff_bracket(PAIRS, SEEDS, _flat(sim))
 
 
 def test_an_eliminated_manager_cannot_win_the_bracket(monkeypatch):
@@ -137,8 +159,7 @@ def test_an_eliminated_manager_cannot_win_the_bracket(monkeypatch):
                      for w in (16, 17, 18)})
     scores = {w: {"Garrett": 999, "Benton": 999, "Nick": 1, "Hayden": 1}
               for w in range(19, 22)}
-    monkeypatch.setattr(spo, "simulate_week_hifi", _scripted(scores, calls=None))
-    r = spo.simulate_playoff_bracket(_data(), {}, PAIRS, SEEDS, decided=decided)
+    r = spo.simulate_playoff_bracket(PAIRS, SEEDS, _flat(scores), decided=decided)
     assert r.champ_winner in ("Nick", "Hayden")
     assert r.finish_order[:2] == ["Nick", "Hayden"] or r.finish_order[:2] == ["Hayden", "Nick"]
     assert set(r.finish_order[2:]) == {"Garrett", "Benton"}
@@ -151,8 +172,7 @@ def test_an_eliminated_manager_cannot_win_the_bracket(monkeypatch):
 def test_third_place_is_a_series_in_the_same_weeks_as_the_final(monkeypatch):
     scores = {w: {"Nick": 100, "Garrett": 1, "Hayden": 100, "Benton": 1}
               for w in range(16, 22)}
-    monkeypatch.setattr(spo, "simulate_week_hifi", _scripted(scores))
-    r = spo.simulate_playoff_bracket(_data(), {}, PAIRS, SEEDS)
+    r = spo.simulate_playoff_bracket(PAIRS, SEEDS, _flat(scores))
 
     by_round = {s.round_name: s for s in r.series}
     assert by_round[THIRD].weeks == by_round[FINAL].weeks == (19, 21)
@@ -164,8 +184,7 @@ def test_third_place_is_a_series_in_the_same_weeks_as_the_final(monkeypatch):
 
 def test_series_scores_are_round_totals_not_single_weeks(monkeypatch):
     scores = {w: {m: 10 for m in MANAGERS} for w in range(16, 22)}
-    monkeypatch.setattr(spo, "simulate_week_hifi", _scripted(scores))
-    r = spo.simulate_playoff_bracket(_data(), {}, PAIRS, SEEDS)
+    r = spo.simulate_playoff_bracket(PAIRS, SEEDS, _flat(scores))
     assert r.semi_scores["Nick"] == 30, "three weeks at 10 points"
     assert r.final_scores["Nick"] == 30
     assert sorted(r.scores_by_week) == [16, 17, 18, 19, 20, 21]

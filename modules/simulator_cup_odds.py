@@ -25,7 +25,7 @@ Week numbers and pairings come from league_config.postseason_format via
 data_loader, never from constants here.
 """
 
-import random
+import secrets
 from dataclasses import dataclass, field
 from collections import defaultdict
 from typing import Optional
@@ -35,7 +35,7 @@ from .data_loader import (
     cup_winner, keepers_for, stage_rounds, stage_weeks,
 )
 from .projections import TeamProjections, load_all_team_projections
-from .simulator_betting import simulate_week_hifi
+from .simulator_betting import week_score_matrices, scores_at
 from .simulator_playoff_odds import (
     _matches_seeding, _seeded_pairs, _week_entry, _week_winner,
     resolve_completed_week,
@@ -223,19 +223,16 @@ def cup_round_for_week(week: int, season: str = None) -> str:
 # SIMULATION CORE
 # =============================================================================
 
-def _play_week(data, team_projections, pairs, week, seeds, decided,
-               injury_statuses, scores_by_week):
-    """One single-elimination week; returns [(winner, loser), ...] per pair."""
-    simulated = week not in decided
-    if simulated:
-        entry = _week_entry(data, week) or {"week": week}
-        week_data = dict(entry)
-        week_data["week"] = week
-        week_data["matchups"] = [{"manager_a": a, "manager_b": b} for a, b in pairs]
-        results = simulate_week_hifi(data, team_projections, week_data, injury_statuses)
-        scores = {m: results[m]["score"] for m in MANAGERS}
-    else:
+def _play_week(pairs, week, seeds, decided, simulated, scores_by_week):
+    """One single-elimination week; returns [(winner, loser), ...] per pair.
+    `simulated` is this iteration's {week: {manager: score}}; a played week
+    (`decided`) is never rolled."""
+    if week in decided:
         scores = decided[week]
+    elif week in simulated:
+        scores = simulated[week]
+    else:
+        raise KeyError(f"Cup week {week} is neither decided nor simulated")
     scores_by_week[week] = scores
 
     # The Cup has its own tie rule key; a tied single game goes to the
@@ -252,14 +249,12 @@ def _play_week(data, team_projections, pairs, week, seeds, decided,
 
 
 def simulate_cup(
-    data: FantasyData,
-    team_projections: dict,
     semi_pairs: list,
     seeds: dict,
+    simulated: dict,
     decided: dict = None,
-    injury_statuses: dict[str, str] = None,
 ) -> CupSimResult:
-    """Simulate one Cup: the two semifinals, then the final.
+    """Play one Cup: the two semifinals, then the final.
 
     The two managers knocked out in week 22 still play each other in week 23 --
     Yahoo pairs all four every week and the points count toward season
@@ -271,15 +266,13 @@ def simulate_cup(
     scores_by_week = {}
 
     semi_week = rounds[CUP_SEMIFINAL_ROUND][0]
-    semis = _play_week(data, team_projections, semi_pairs, semi_week,
-                       seeds, decided, injury_statuses, scores_by_week)
+    semis = _play_week(semi_pairs, semi_week, seeds, decided, simulated, scores_by_week)
     semi_winners = [w for w, _ in semis]
     semi_losers = [l for _, l in semis]
 
     final_week = rounds[CUP_FINAL_ROUND][0]
     final_pairs = [tuple(semi_winners), tuple(semi_losers)]
-    finals = _play_week(data, team_projections, final_pairs, final_week,
-                        seeds, decided, injury_statuses, scores_by_week)
+    finals = _play_week(final_pairs, final_week, seeds, decided, simulated, scores_by_week)
     winner, runner_up = finals[0]
     third, fourth = finals[1]
 
@@ -303,9 +296,13 @@ def run_cup_odds_simulation(
     seed: int = None,
     injury_statuses: dict[str, str] = None,
 ) -> CupOddsResult:
-    """Monte Carlo the Cup, and report what each manager is playing for."""
-    if seed is not None:
-        random.seed(seed)
+    """Monte Carlo the Cup, and report what each manager is playing for.
+
+    seed: keyed-draw seed (modules/crn.py); None picks one from the OS.
+    stdlib `random` is never consulted.
+    """
+    if seed is None:
+        seed = secrets.randbits(62)
 
     rounds = cup_rounds()
     if not rounds:
@@ -338,9 +335,14 @@ def run_cup_odds_simulation(
     finish_counts = {m: {1: 0, 2: 0, 3: 0, 4: 0} for m in MANAGERS}
     score_totals = {m: 0.0 for m in MANAGERS}
 
-    for _ in range(num_simulations):
-        result = simulate_cup(data, team_projections, semi_pairs, seeds,
-                              decided=decided, injury_statuses=injury_statuses)
+    # Each Cup week not yet played, simulated once for all iterations: both
+    # weeks are played by all four whatever the pairing.
+    to_simulate = [w for w in cup_weeks() if w not in decided]
+    matrices = week_score_matrices(data, team_projections, to_simulate, injury_statuses,
+                                   seed, num_simulations)
+
+    for i in range(num_simulations):
+        result = simulate_cup(semi_pairs, seeds, scores_at(matrices, i), decided=decided)
         cup_wins[result.cup_winner] += 1
         for w in result.semi_winners:
             semi_wins[w] += 1

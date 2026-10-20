@@ -1,7 +1,7 @@
 """
 absence.py -- A2, the absence model. The one implementation.
 
-simulator_betting (and through simulate_week_hifi the playoff and Cup
+simulator_betting (and through week_score_matrices the playoff and Cup
 simulators) and marginal_value all call this module. Nothing else in the tree
 turns a Yahoo injury tag into missed games.
 
