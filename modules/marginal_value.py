@@ -155,10 +155,10 @@ def cup_column_live(
                 keeper. In a four-team league this is the commoner case and
                 it comes earlier.
 
-    KNOWN COUPLING (A4): "settled" reads simulator_title_odds, which fields an
-    unconstrained top 10 with no position limits. At a 0.90 threshold that
-    is probably harmless, but when A4 adds positions this input moves --
-    check this trigger then. "out" uses standings only and is unaffected.
+    COUPLING (A4, checked 10-20): "settled" reads simulator_title_odds, whose
+    published path (simulate_week_historical) is a games-count model with no
+    daily lineups, so A4's positional fix does not move it. "out" uses
+    standings only and is unaffected.
 
     finish_distribution may be probabilities or percentages.
     """

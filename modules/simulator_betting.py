@@ -25,6 +25,7 @@ import numpy as np
 
 from . import absence, crn
 from .data_loader import PlayerIndex
+from .lineup_fill import exact_fill
 from .lineup_optimizer import (
     AvailablePlayer,
     optimize_lineup,
@@ -607,8 +608,8 @@ def _eligible(player, week: int, game_date: date, week_start_date: date) -> bool
 
 def _week_plan(data, team_projections, week_data, managers):
     """Everything about a simulated week that is not random, per manager:
-    [(date, [(name, mean, std, group, return_rate or None), ...]), ...] with
-    players in projection order. Cached on `data` by the identity of the
+    [(date, [(name, mean, std, group, return_rate or None, positions,
+    projected_fppg), ...]), ...] with players in projection order. Cached on `data` by the identity of the
     projections: the playoff and Cup simulators ask once per iteration.
     """
     cache = data.__dict__.setdefault("_week_plans", {})
@@ -639,11 +640,54 @@ def _week_plan(data, team_projections, week_data, managers):
                     rate = player.return_games / player.total_week_games
                 mean, std = game_fp_params(player)
                 entries.append((player.player_name, mean, std,
-                                _position_group(player.positions), rate))
+                                _position_group(player.positions), rate,
+                                frozenset(player.positions or ()), float(player.projected_fppg)))
             days.append((game_date, entries))
         plan[manager] = days
     cache[key] = (team_projections, plan)
     return plan
+
+
+def legal_starters(avail: np.ndarray, entries: list, fills: dict) -> np.ndarray:
+    """[n, width] bool: who starts, per simulation, as the legal optimal fill.
+
+    A4. A day's lineup depends only on WHO is available (positions and
+    projections are fixed), and with availability near 0.9 the distinct
+    availability rows are far fewer than the simulations. So: pack each row
+    into an integer, np.unique, run lineup_fill.exact_fill once per distinct
+    pattern (memoised in `fills` across days, weeks and calls), and scatter
+    the starter rows back through the inverse index. The fill weighs players
+    by projected_fppg -- start/sit is decided on projections, before the
+    game -- which is also the order the plan lists them in, so ties break the
+    same way they always have.
+    """
+    n, width = avail.shape
+    if width == 0:
+        return avail
+    if n == 1:      # the bracket simulators' one-iteration calls: skip the numpy packing
+        idx = [j for j in range(width) if avail[0, j]]
+        players = tuple((entries[j][0], entries[j][5], entries[j][6]) for j in idx)
+        started = fills.get(players)
+        if started is None:
+            started = frozenset(exact_fill(players)[0])
+            fills[players] = started
+        return np.array([[avail[0, j] and entries[j][0] in started for j in range(width)]])
+    if width > 62:
+        raise ValueError(f"{width} players available on one day; the pattern key packs at most 62")
+    keys = avail.astype(np.int64) @ (np.int64(1) << np.arange(width, dtype=np.int64))
+    uniq, inverse = np.unique(keys, return_inverse=True)
+    rows = np.zeros((len(uniq), width), dtype=bool)
+    for u, key in enumerate(uniq):
+        idx = [j for j in range(width) if (int(key) >> j) & 1]
+        players = tuple((entries[j][0], entries[j][5], entries[j][6]) for j in idx)
+        started = fills.get(players)
+        if started is None:
+            started = frozenset(exact_fill(players)[0])
+            fills[players] = started
+        for j in idx:
+            if entries[j][0] in started:
+                rows[u, j] = True
+    return rows[inverse.reshape(-1)]
 
 
 def simulate_week_matrix(
@@ -674,9 +718,11 @@ def simulate_week_matrix(
     Returns manager -> {"score", "games", "G", "F", "C"}, each an array of
     length n. Per day, per manager: the players eligible today in projection
     order; a per-simulation availability mask (return_games pro-rating, the
-    A2 tag block); starters = the first ten available (no positional limit:
-    A4, still open); points = keyed normal draws on game_fp_params. Then
-    team noise, floored at zero.
+    A2 tag block); starters = the optimal LEGAL lineup of the available
+    players (lineup_fill.exact_fill: PG SG G SF PF F C C UTIL UTIL, most
+    starters then most projected points -- A4), solved once per distinct
+    availability pattern (legal_starters); points = keyed normal draws on
+    game_fp_params. Then team noise, floored at zero.
 
     With KeyedDraws every number here is keyed by entity, so a manager's
     week depends only on his own roster -- never on another roster, the
@@ -695,6 +741,7 @@ def simulate_week_matrix(
                         anchors, tag_week_info, observed, from_date)
     plan = _week_plan(data, team_projections, week_data, managers)
     noise_scale = remaining_noise_scale(data, dates, from_date)
+    fills = data.__dict__.setdefault("_lineup_fills", {})
 
     results = {}
     for manager in managers:
@@ -711,7 +758,7 @@ def simulate_week_matrix(
             avail = np.ones((n, width), dtype=bool)
             mean = np.empty(width)
             std = np.empty(width)
-            for j, (name, mu, sd, _g, rate) in enumerate(entries):
+            for j, (name, mu, sd, _g, rate, _pos, _w) in enumerate(entries):
                 mean[j], std[j] = mu, sd
                 if rate is not None:
                     avail[:, j] &= u_rate[(name, game_date)] <= rate
@@ -721,7 +768,7 @@ def simulate_week_matrix(
                     avail[:, j] &= ~out_today
             fp = np.where(mean > 0, mean + std * z_all[:, col:col + width], 0.0)
             col += width
-            starters = avail & (np.cumsum(avail, axis=1) <= 10)
+            starters = legal_starters(avail, entries, fills)
             day_pts = starters * fp
             res["score"] += day_pts.sum(axis=1)
             res["games"] += starters.sum(axis=1)
@@ -947,7 +994,7 @@ def simulate_week_remainder(
     seed is required: a live line that changes seed between refreshes moves
     for no reason.
 
-    A4 is inherited: starters are the first ten available, no positions.
+    Starters are legal lineups (A4), the same fill as the pre-week line.
     """
     if seed is None:
         raise ValueError("simulate_week_remainder needs an explicit seed")

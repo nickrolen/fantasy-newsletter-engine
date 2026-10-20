@@ -33,7 +33,7 @@ from .projections import (
     sample_player_game_fp,
     ROS_DEFAULT_AVAILABILITY,
 )
-from .lineup_optimizer import AvailablePlayer, select_top_n_players
+from .lineup_optimizer import AvailablePlayer, optimize_lineup
 
 
 # =============================================================================
@@ -291,14 +291,18 @@ def simulate_manager_daily_score(
     if not available:
         return 0.0, 0
     
-    # Select top N players (simplified - no position constraints)
-    starters = select_top_n_players(available, MAX_STARTERS_PER_DAY)
+    # A4: the legal optimal lineup (PG SG G SF PF F C C UTIL UTIL), not the
+    # top ten by projection. NOTE: run_title_odds_simulation always takes the
+    # use_historical=True path (simulate_week_historical, a games-count model
+    # with no daily lineups), so this daily path is not what publishes title
+    # odds -- it is kept legal so it cannot become so by accident.
+    starters = optimize_lineup(available).starters
     
     # Sample scores for each starter
     total_score = 0.0
     for starter in starters:
         # Get the full projection for sampling
-        player_proj = team_proj.players.get(starter.name)
+        player_proj = team_proj.players.get(starter.player_name)
         if player_proj:
             sampled_fp = sample_player_game_fp(player_proj)
             total_score += sampled_fp

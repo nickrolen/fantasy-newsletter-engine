@@ -23,7 +23,7 @@ Refuses (raises) rather than guess:
   - a Yahoo fetch that fails                      (--statuses FILE or --no-tags)
 Every override used is written into the output's "assumptions".
 
-Inherits A4: starters are the ten best available, no positional limit.
+Starters are legal lineups (A4): PG SG G SF PF F C C UTIL UTIL.
 """
 
 from __future__ import annotations
@@ -43,8 +43,6 @@ from modules import simulator_betting as sb                               # noqa
 from modules import week_state as ws                                      # noqa: E402
 
 CAVEATS = [
-    "A4 (open): starters are the ten best available each day with no positional limit; "
-    "a lineup that cannot fill its slots is scored anyway.",
     "Team-level noise on the remainder is scaled by sqrt(share of the week's NBA game-days "
     "still to come).",
     "The 10% injury discount applies to the simulated remainder only, never to banked points.",
