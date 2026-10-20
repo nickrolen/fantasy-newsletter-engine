@@ -19,9 +19,11 @@ from .projections import (
     TeamProjections,
     load_all_team_projections,
     load_player_projections,
-    sample_player_game_fp,
+    game_fp_params,
 )
-from . import absence
+import numpy as np
+
+from . import absence, crn
 from .data_loader import PlayerIndex
 from .lineup_optimizer import (
     AvailablePlayer,
@@ -334,6 +336,23 @@ def tag_week(data: FantasyData) -> Optional[tuple[int, list[date]]]:
     return wd["week"], get_dates_in_week(wd)
 
 
+def _roster_shape(team_projections) -> tuple:
+    """Part of every cache key below: catches a roster edited in place.
+    The caches assume the NBA schedule and projections are not mutated
+    during a run; build new objects instead (load_all_team_projections does)."""
+    return tuple((m, id(tp.players), len(tp.players)) for m, tp in sorted(team_projections.items()))
+
+
+def _playing_teams(data: FantasyData, d: date) -> frozenset:
+    """NBA teams with a game on d. Cached on `data`: get_nba_games_for_date
+    scans the whole schedule, and the bracket simulators ask thousands of times."""
+    cache = data.__dict__.setdefault("_playing_by_date", {})
+    hit = cache.get(d)
+    if hit is None:
+        hit = cache[d] = frozenset(get_nba_games_on_date(data, d))
+    return hit
+
+
 def team_games_from_anchor(data: FantasyData, anchor: date) -> dict[str, list[date]]:
     """team -> its game dates from the anchor, ascending. Cached on `data`
     per anchor: get_nba_games_for_date scans the whole schedule."""
@@ -349,40 +368,122 @@ def team_games_from_anchor(data: FantasyData, anchor: date) -> dict[str, list[da
     return hit
 
 
-def draw_tag_absences(
+class KeyedDraws:
+    """Common random numbers for n simulations (modules/crn.py).
+
+    Each entity's draws are keyed by (seed, namespace, entity...) and come
+    back as one array of n; simulation i reads index i. Nothing depends on
+    the order of requests or on what else is simulated. Memoised per key.
+    """
+
+    def __init__(self, seed: int, n: int):
+        self.seed, self.n = int(seed), int(n)
+        self._memo: dict = {}
+
+    def _get(self, kind, namespace, key):
+        k = (kind, namespace) + tuple(key)
+        hit = self._memo.get(k)
+        if hit is None:
+            fn = crn.keyed_uniforms if kind == "u" else crn.keyed_normals
+            hit = fn(self.seed, namespace, *key, n=self.n)
+            hit.flags.writeable = False
+            self._memo[k] = hit
+        return hit
+
+    def uniforms(self, namespace: str, *key) -> np.ndarray:
+        return self._get("u", namespace, key)
+
+    def normals(self, namespace: str, *key) -> np.ndarray:
+        return self._get("z", namespace, key)
+
+    def uniforms_many(self, namespace: str, keys) -> np.ndarray:
+        """[n, len(keys)]: column j is uniforms(namespace, *keys[j])."""
+        return np.stack([self._get("u", namespace, k) for k in keys], axis=1)
+
+    def normals_many(self, namespace: str, keys) -> np.ndarray:
+        return np.stack([self._get("z", namespace, k) for k in keys], axis=1)
+
+
+class StreamDraws:
+    """ONE simulation from an unkeyed generator, drawn in request order.
+
+    Only for simulate_week_hifi, which the playoff and Cup simulators call
+    once per iteration. It reproduces under random.seed() but it is NOT
+    common random numbers -- porting those simulators to KeyedDraws (one
+    week matrix per week, indexed by iteration) is the follow-up.
+    """
+
+    n = 1
+
+    def __init__(self, rng: np.random.Generator):
+        self.rng = rng
+
+    def uniforms(self, namespace: str, *key) -> np.ndarray:
+        return self.rng.random(1)
+
+    def normals(self, namespace: str, *key) -> np.ndarray:
+        return self.rng.standard_normal(1)
+
+    def uniforms_many(self, namespace: str, keys) -> np.ndarray:
+        return self.rng.random((1, len(keys)))
+
+    def normals_many(self, namespace: str, keys) -> np.ndarray:
+        return self.rng.standard_normal((1, len(keys)))
+
+
+def tag_blocks(
     data: FantasyData,
     team_projections: dict[str, TeamProjections],
     injury_statuses: dict = None,
+    draws=None,
     tag_anchor: date = None,
-    rand=None,
-) -> dict[str, frozenset]:
-    """player -> dates he misses because of his tag, for ONE simulated week.
+) -> dict[str, tuple[list, np.ndarray]]:
+    """player -> (his team's games from the anchor, k games missed per simulation).
 
-    One draw per tagged player (absence.missed_from_uniform), the first k of
-    his team's games from the anchor. Precedence: an INJURY_OVERRIDES entry
-    touching the tag's week suppresses the tag. An unmodelled tag raises.
-    The betting simulators run on the global `random` stream (no CRN here --
-    nothing differences two of these runs); marginal_value keys its draws.
+    One draw per tagged player per simulation (absence.missed_from_uniform),
+    keyed ("absence", player, anchor) -- the same key marginal_value uses, so
+    the two engines agree on who is hurt for a given seed. He misses the
+    first k of those games. Precedence: an INJURY_OVERRIDES entry touching
+    the tag's week suppresses the tag. An unmodelled tag raises.
     """
     if not injury_statuses:
         return {}
+    out = {}
+    for name, tag, team_games in _tagged_players(data, team_projections, injury_statuses, tag_anchor):
+        k = absence.missed_from_uniform(draws.uniforms("absence", name, team_games[1]), tag)
+        out[name] = (team_games[0], np.asarray(k))
+    return out
+
+
+def _tagged_players(data, team_projections, injury_statuses, tag_anchor):
+    """[(name, chain tag, (his games from the anchor, anchor))] -- everything
+    about the tags that is not random. Cached on `data` by the identity of
+    the inputs: the playoff and Cup simulators ask once per iteration, and
+    resolving names through PlayerIndex each time cost more than simulating.
+    """
+    cache = data.__dict__.setdefault("_tagged_players", {})
+    key = (id(team_projections), id(injury_statuses), len(injury_statuses), tag_anchor,
+           _roster_shape(team_projections))
+    hit = cache.get(key)
+    if hit is not None and hit[0] is team_projections and hit[1] is injury_statuses:
+        return hit[2]
     statuses = injury_statuses if isinstance(injury_statuses, PlayerIndex) else PlayerIndex(injury_statuses)
     absence.check_tags(statuses, [n for tp in team_projections.values() for n in tp.players])
-    rand = rand or random.random
     tw = tag_week(data)
     if tag_anchor is None and tw is None:
         tagged = [n for tp in team_projections.values() for n in tp.players
                   if n in statuses and absence.chain_tag(statuses[n])]
         if tagged:
             raise ValueError(f"tags for {tagged} but no next week to anchor them to; pass tag_anchor")
-        return {}
+        cache[key] = (team_projections, injury_statuses, [])
+        return []
     anchor = tag_anchor or tw[1][0]
     if tw is not None and anchor in tw[1]:
         t_week, t_dates = tw
     else:
         t_week, t_dates = None, [anchor]
     games = team_games_from_anchor(data, anchor)
-    out = {}
+    out = []
     for tp in team_projections.values():
         for name, player in tp.players.items():
             if name not in statuses:
@@ -393,9 +494,9 @@ def draw_tag_absences(
             if absence.tag_suppressed(t_week, t_dates, player.out_weeks,
                                       player.return_week, player.out_from):
                 continue
-            k = absence.missed_from_uniform(rand(), tag)
-            if k:
-                out[name] = absence.missed_dates(games.get(player.nba_team.upper(), []), k)
+            team_games = games.get(player.nba_team.upper(), [])[:absence.MAX_TAG_GAMES]
+            out.append((name, tag, (team_games, anchor)))
+    cache[key] = (team_projections, injury_statuses, out)
     return out
 
 
@@ -403,106 +504,145 @@ def draw_tag_absences(
 # SIMULATION CORE
 # =============================================================================
 
-def simulate_manager_daily_score_hifi(
-    team_proj: TeamProjections,
-    playing_teams: set[str],
-    week: int,
-    game_date: date = None,
-    missed: dict = None,
-    week_start_date: date = None,
-) -> tuple[float, int, dict]:
+def _position_group(positions) -> str:
+    if any(p in positions for p in ["PG", "SG"]):
+        return "G"
+    if any(p in positions for p in ["SF", "PF"]):
+        return "F"
+    return "C"
+
+
+def _eligible(player, week: int, game_date: date, week_start_date: date) -> bool:
+    """Deterministic availability: INJURY_OVERRIDES steps 1-2 and projection."""
+    # 1. hard outs: out_weeks (whole week) and out_from (on/after, within its week)
+    if week in player.out_weeks:
+        return False
+    if absence.out_from_applies(game_date, week_start_date, player.out_from):
+        return False
+    # Skip players with 0 projection (injured/inactive)
+    if player.projected_fppg <= 0:
+        return False
+    # 2. partial return with a date: out before it
+    if player.return_week == week and player.return_date:
+        if game_date < datetime.strptime(player.return_date, "%Y-%m-%d").date():
+            return False
+    return True
+
+
+def _week_plan(data, team_projections, week_data, managers):
+    """Everything about a simulated week that is not random, per manager:
+    [(date, [(name, mean, std, group, return_rate or None), ...]), ...] with
+    players in projection order. Cached on `data` by the identity of the
+    projections: the playoff and Cup simulators ask once per iteration.
     """
-    Simulate a manager's score for one day with full position optimization.
-    
-    Args:
-        team_proj: Team projections
-        playing_teams: Set of NBA teams playing today
-        week: Current week number
-        game_date: The specific date being simulated (for partial returns)
-        missed: player -> frozenset of dates he is out because of a Yahoo
-                tag, realised once per simulated week by draw_tag_absences
-                (modules/absence.py). Never drawn per day.
-        week_start_date: First day of the fantasy week (for out_from)
-    
-    Returns:
-        (total_score, games_played, positional_breakdown)
+    cache = data.__dict__.setdefault("_week_plans", {})
+    key = (id(team_projections), week_data["week"], week_data.get("start_date"), tuple(managers),
+           _roster_shape(team_projections))
+    hit = cache.get(key)
+    if hit is not None and hit[0] is team_projections:
+        return hit[1]
+    week_num = week_data["week"]
+    dates = get_dates_in_week(week_data)
+    week_start_date = dates[0] if dates else None
+    plan = {}
+    for manager in managers:
+        ordered = sorted(team_projections[manager].players.values(), key=lambda p: -p.projected_fppg)
+        days = []
+        for game_date in dates:
+            playing = _playing_teams(data, game_date)
+            entries = []
+            for player in ordered:
+                if player.nba_team.upper() not in playing:
+                    continue
+                if not _eligible(player, week_num, game_date, week_start_date):
+                    continue
+                rate = None
+                # 2b. partial return without a date: pro-rated, drawn per game
+                if (player.return_week == week_num and not player.return_date
+                        and player.return_games and player.total_week_games):
+                    rate = player.return_games / player.total_week_games
+                mean, std = game_fp_params(player)
+                entries.append((player.player_name, mean, std,
+                                _position_group(player.positions), rate))
+            days.append((game_date, entries))
+        plan[manager] = days
+    cache[key] = (team_projections, plan)
+    return plan
+
+
+def simulate_week_matrix(
+    data: FantasyData,
+    team_projections: dict[str, TeamProjections],
+    week_data: dict,
+    injury_statuses: dict = None,
+    draws=None,
+    tag_anchor: date = None,
+    managers=None,
+) -> dict[str, dict]:
     """
-    missed = missed or {}
-    
-    # Find available players who have games today
-    available = []
-    
-    for player in team_proj.players.values():
-        # Check if player's team is playing
-        if player.nba_team.upper() not in playing_teams:
-            continue
-        
-        # 1. INJURY_OVERRIDES hard outs: out_weeks (whole week) and out_from
-        #    (on and after a date, within its week).
-        if week in player.out_weeks:
-            continue
-        if (game_date is not None and week_start_date is not None
-                and absence.out_from_applies(game_date, week_start_date, player.out_from)):
-            continue
-        
-        # Skip players with 0 projection (injured/inactive)
-        if player.projected_fppg <= 0:
-            continue
-        
-        # 2. Partial return (player returning this week with limited games)
-        if player.return_week == week:
-            # If we have a specific return date, use it
-            if player.return_date and game_date:
-                return_date_obj = datetime.strptime(player.return_date, "%Y-%m-%d").date()
-                if game_date < return_date_obj:
-                    continue  # Player hasn't returned yet
-            elif player.return_games and player.total_week_games:
-                # No specific return date - fall back to probabilistic availability
-                availability = player.return_games / player.total_week_games
-                if random.random() > availability:
-                    continue  # Player not available today (probabilistically)
-        
-        # 3. A GTD/O tag: the block of games drawn for this simulated week.
-        if game_date is not None and game_date in missed.get(player.player_name, ()):
-            continue
-        
-        available.append(AvailablePlayer(
-            name=player.player_name,
-            positions=player.positions,
-            projected_fp=player.projected_fppg,
-        ))
-    
-    if not available:
-        return 0.0, 0, {"G": 0, "F": 0, "C": 0}
-    
-    # Sort by projected FPPG and take top 10 (simplified - no position constraints)
-    # In practice, managers will play their best players regardless of position
-    available.sort(key=lambda x: x.projected_fp, reverse=True)
-    starters = available[:10]
-    
-    # Sample scores for each starter
-    total_score = 0.0
-    positional_fp = {"G": 0.0, "F": 0.0, "C": 0.0}
-    
-    for starter in starters:
-        player_proj = team_proj.players.get(starter.name)
-        if player_proj:
-            sampled_fp = sample_player_game_fp(player_proj)
-        else:
-            sampled_fp = starter.projected_fp
-        
-        total_score += sampled_fp
-        
-        # Track positional FP based on player's primary position
-        positions = starter.positions
-        if any(p in positions for p in ["PG", "SG"]):
-            positional_fp["G"] += sampled_fp
-        elif any(p in positions for p in ["SF", "PF"]):
-            positional_fp["F"] += sampled_fp
-        else:
-            positional_fp["C"] += sampled_fp
-    
-    return total_score, len(starters), positional_fp
+    Simulate one fantasy week, all `draws.n` simulations at once.
+
+    Returns manager -> {"score", "games", "G", "F", "C"}, each an array of
+    length n. Per day, per manager: the players eligible today in projection
+    order; a per-simulation availability mask (return_games pro-rating, the
+    A2 tag block); starters = the first ten available (no positional limit:
+    A4, still open); points = keyed normal draws on game_fp_params. Then
+    team noise, floored at zero.
+
+    With KeyedDraws every number here is keyed by entity, so a manager's
+    week depends only on his own roster -- never on another roster, the
+    order matchups are priced in, or what else is asked.
+
+    injury_statuses are Yahoo tags as of tag_anchor (default: the first day
+    of next week, the week they were fetched for). A tag costs a block of
+    the player's first games from the anchor, so a playoff or Cup week
+    months away is rightly untouched by today's tag.
+    """
+    dates = get_dates_in_week(week_data)
+    week_start_date = dates[0] if dates else None
+    managers = list(managers or MANAGERS)
+    n = draws.n
+    blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor)
+    plan = _week_plan(data, team_projections, week_data, managers)
+
+    results = {}
+    for manager in managers:
+        team_proj = team_projections[manager]
+        res = {k: np.zeros(n) for k in ("score", "games", "G", "F", "C")}
+        days = [(d, e) for d, e in plan[manager] if e]
+        game_keys = [(e[0], d) for d, es in days for e in es]
+        z_all = draws.normals_many("game", game_keys) if game_keys else None
+        rate_keys = [(e[0], d) for d, es in days for e in es if e[4] is not None]
+        u_rate = dict(zip(rate_keys, draws.uniforms_many("avail", rate_keys).T)) if rate_keys else {}
+        col = 0
+        for game_date, entries in days:
+            width = len(entries)
+            avail = np.ones((n, width), dtype=bool)
+            mean = np.empty(width)
+            std = np.empty(width)
+            for j, (name, mu, sd, _g, rate) in enumerate(entries):
+                mean[j], std[j] = mu, sd
+                if rate is not None:
+                    avail[:, j] &= u_rate[(name, game_date)] <= rate
+                blk = blocks.get(name)
+                if blk is not None and game_date in blk[0]:
+                    avail[:, j] &= ~(blk[1] > blk[0].index(game_date))
+            fp = np.where(mean > 0, mean + std * z_all[:, col:col + width], 0.0)
+            col += width
+            starters = avail & (np.cumsum(avail, axis=1) <= 10)
+            day_pts = starters * fp
+            res["score"] += day_pts.sum(axis=1)
+            res["games"] += starters.sum(axis=1)
+            for g in ("G", "F", "C"):
+                sel = [j for j, e in enumerate(entries) if e[3] == g]
+                if sel:
+                    res[g] += day_pts[:, sel].sum(axis=1)
+        # Add team-level variance
+        if week_start_date is not None:
+            noise = draws.normals("noise", manager, week_start_date) * team_proj.weekly_std_dev * 0.15
+            res["score"] = np.maximum(0.0, res["score"] + noise)
+        results[manager] = res
+    return results
 
 
 def simulate_week_hifi(
@@ -513,47 +653,22 @@ def simulate_week_hifi(
     tag_anchor: date = None,
 ) -> dict[str, dict]:
     """
-    Simulate one week for all managers with high fidelity.
-    
-    injury_statuses are Yahoo tags as of tag_anchor (default: the first day
-    of next week, the week they were fetched for). A tag costs a block of
-    the player's first games from the anchor (modules/absence.py), so when
-    this is called for a playoff or Cup week months away, today's tag
-    rightly costs nothing there.
-    
-    Returns dict mapping manager -> {score, games, positional}
-    """
-    week_num = week_data["week"]
-    dates = get_dates_in_week(week_data)
-    week_start_date = dates[0] if dates else None
-    missed = draw_tag_absences(data, team_projections, injury_statuses, tag_anchor)
-    
-    results = {m: {"score": 0.0, "games": 0, "G": 0.0, "F": 0.0, "C": 0.0} for m in MANAGERS}
-    
-    for game_date in dates:
-        games = get_nba_games_on_date(data, game_date)
-        playing_teams = set(games.keys())
-        
-        for manager in MANAGERS:
-            team_proj = team_projections[manager]
-            day_score, day_games, positional = simulate_manager_daily_score_hifi(
-                team_proj, playing_teams, week_num, game_date, missed,
-                week_start_date=week_start_date,
-            )
-            
-            results[manager]["score"] += day_score
-            results[manager]["games"] += day_games
-            results[manager]["G"] += positional["G"]
-            results[manager]["F"] += positional["F"]
-            results[manager]["C"] += positional["C"]
-    
-    # Add team-level variance
-    for manager in MANAGERS:
-        team_proj = team_projections[manager]
-        noise = random.gauss(0, team_proj.weekly_std_dev * 0.15)
-        results[manager]["score"] = max(0, results[manager]["score"] + noise)
+    ONE simulated week for all managers, for the playoff and Cup simulators
+    (which loop iterations themselves). The same model as
+    simulate_week_matrix, on a StreamDraws generator seeded from the global
+    `random` stream -- reproducible under random.seed(), not yet CRN.
 
-    return results
+    Returns dict mapping manager -> {score, games, G, F, C} (floats)
+    """
+    draws = StreamDraws(np.random.default_rng(random.getrandbits(64)))
+    out = simulate_week_matrix(data, team_projections, week_data, injury_statuses,
+                               draws, tag_anchor)
+    return {m: {k: float(v[0]) for k, v in r.items()} for m, r in out.items()}
+
+
+def matchup_id(manager_a: str, manager_b: str) -> str:
+    """Order-free name for a pairing: the tie key must not depend on who is 'A'."""
+    return "|".join(sorted((manager_a, manager_b)))
 
 
 def run_matchup_simulation(
@@ -564,47 +679,50 @@ def run_matchup_simulation(
     manager_b: str,
     num_simulations: int = DEFAULT_NUM_SIMULATIONS,
     injury_statuses: dict[str, str] = None,
+    seed: int = None,
+    week_results: dict = None,
 ) -> BettingLine:
     """
     Run Monte Carlo simulation for a single matchup.
-    
+
+    Draws are keyed (KeyedDraws(seed, num_simulations)), so this line
+    depends only on the two rosters, the tags and the seed. seed=None takes
+    one from the global `random` stream. week_results, if given, is
+    simulate_week_matrix's output for the same seed and n (a cache: the
+    answer is identical either way).
+
     Returns BettingLine with spread, O/U, and moneylines.
     """
-    scores_a = []
-    scores_b = []
-    wins_a = 0
-    wins_b = 0
-    
-    for _ in range(num_simulations):
-        results = simulate_week_hifi(data, team_projections, week_data, injury_statuses)
+    if seed is None:
+        seed = random.getrandbits(62)
+    draws = KeyedDraws(seed, num_simulations)
+    if week_results is None:
+        week_results = simulate_week_matrix(data, team_projections, week_data, injury_statuses,
+                                            draws, managers=[manager_a, manager_b])
+    scores_a = week_results[manager_a]["score"]
+    scores_b = week_results[manager_b]["score"]
+    assert len(scores_a) == len(scores_b) == num_simulations
 
-        score_a = results[manager_a]["score"]
-        score_b = results[manager_b]["score"]
+    # Tie convention (project-wide): coin flip for SIMULATED ties so
+    # the probability is statistically honest. This also handles the
+    # degenerate all-zero week (both teams scored 0 -- e.g., no NBA
+    # games in the simulated window), which would otherwise award
+    # every simulation to manager_b and produce a 0%/100% line.
+    # Keyed by the unordered pairing, so swapping A and B flips nothing.
+    first = sorted((manager_a, manager_b))[0]
+    coin = draws.uniforms("tie", matchup_id(manager_a, manager_b), week_data["week"]) < 0.5
+    a_wins_tie = coin if manager_a == first else ~coin
+    tie = scores_a == scores_b
+    wins_a = int(((scores_a > scores_b) | (tie & a_wins_tie)).sum())
+    wins_b = num_simulations - wins_a
 
-        scores_a.append(score_a)
-        scores_b.append(score_b)
-
-        # Tie convention (project-wide): coin flip for SIMULATED ties so
-        # the probability is statistically honest. This also handles the
-        # degenerate all-zero week (both teams scored 0 -- e.g., no NBA
-        # games in the simulated window), which would otherwise award
-        # every simulation to manager_b and produce a 0%/100% line.
-        if score_a > score_b:
-            wins_a += 1
-        elif score_b > score_a:
-            wins_b += 1
-        elif random.random() < 0.5:
-            wins_a += 1
-        else:
-            wins_b += 1
-    
     # Calculate statistics
-    avg_a = sum(scores_a) / num_simulations
-    avg_b = sum(scores_b) / num_simulations
-    
-    std_a = (sum((s - avg_a) ** 2 for s in scores_a) / num_simulations) ** 0.5
-    std_b = (sum((s - avg_b) ** 2 for s in scores_b) / num_simulations) ** 0.5
-    
+    avg_a = float(scores_a.mean())
+    avg_b = float(scores_b.mean())
+
+    std_a = float(scores_a.std())
+    std_b = float(scores_b.std())
+
     # Win probabilities
     win_prob_a = wins_a / num_simulations
     win_prob_b = wins_b / num_simulations
@@ -819,6 +937,9 @@ def generate_weekly_betting_lines(
     """
     if seed is not None:
         random.seed(seed)
+    # One keyed seed for every draw this week (modules/crn.py). With a fixed
+    # seed the lines are fixed; they no longer depend on matchup order.
+    draw_seed = seed if seed is not None else random.getrandbits(62)
     
     # Get next week schedule
     week_data = get_next_week_data(data)
@@ -837,6 +958,9 @@ def generate_weekly_betting_lines(
     rosters = get_rosters_from_lineups(data.lineups)
     
     previews = []
+    # Simulate the week once for every manager; each matchup reads it.
+    week_results = simulate_week_matrix(data, team_projections, week_data, injury_statuses,
+                                        KeyedDraws(draw_seed, num_simulations))
     
     for matchup_def in week_data["matchups"]:
         manager_a = matchup_def["manager_a"]
@@ -851,6 +975,8 @@ def generate_weekly_betting_lines(
             manager_b,
             num_simulations,
             injury_statuses,
+            seed=draw_seed,
+            week_results=week_results,
         )
         
         # Get season series

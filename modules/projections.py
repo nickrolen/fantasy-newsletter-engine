@@ -638,21 +638,28 @@ def sample_player_game_fp(
     Returns:
         Sampled fantasy points (can be negative; not clamped here)
     """
+    mean, std_dev = game_fp_params(player, variance_factor)
+    if mean <= 0:
+        return 0.0
+    return random.gauss(mean, std_dev)
+
+
+def game_fp_params(player: PlayerProjection, variance_factor: float = 1.0) -> tuple[float, float]:
+    """(mean, std) of one game's fantasy points -- the one definition, used
+    by sample_player_game_fp and the keyed betting simulator. mean <= 0
+    means the player scores 0.0.
+    """
     # Prefer effective_fppg (blends actual season performance with projection).
     # Falls back to projected_fppg when there's no actual data yet.
     mean = player.effective_fppg
     if mean is None or mean <= 0:
         mean = player.projected_fppg
     if mean <= 0:
-        return 0.0
-
+        return 0.0, 0.0
     # Prefer effective_std (calibrated from actuals when available),
     # otherwise the projection-derived std_dev.
     base_std = player.effective_std if player.effective_std else player.std_dev
-    std_dev = base_std * variance_factor
-
-    sampled = random.gauss(mean, std_dev)
-    return sampled
+    return mean, base_std * variance_factor
 
 
 def sample_team_weekly_variance(team: TeamProjections) -> float:

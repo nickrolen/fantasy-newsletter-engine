@@ -71,7 +71,6 @@ schedules and statuses as arguments (RETRO_SIM_REQUIREMENTS R2).
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Iterable, Optional, Sequence
@@ -80,7 +79,7 @@ import numpy as np
 
 from .data_loader import PlayerIndex, CURRENT_SEASON, stage_weeks
 from .lineup_fill import exact_fill
-from . import absence
+from . import absence, crn
 
 DEFAULT_SIMS = 400
 SHORTLIST_SIMS = 40
@@ -370,9 +369,7 @@ def _draws(ctx: MVContext, p: MVPlayer, d: date, week: int) -> np.ndarray:
     if a <= 0.0:
         out = np.zeros(ctx.sims, dtype=bool)
     else:
-        h = hashlib.blake2b(f"{ctx.seed}|{p.name}|{d.isoformat()}".encode(),
-                            digest_size=8).digest()
-        rng = np.random.default_rng(int.from_bytes(h, "little"))
+        rng = crn.keyed_rng(ctx.seed, p.name, d)   # un-namespaced; see crn.py
         out = rng.random(ctx.sims) < a
         blocked = tag_missed(ctx, p).get(d)
         if blocked is not None:

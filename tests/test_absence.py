@@ -174,10 +174,10 @@ def test_schedule_shift_invariance_in_the_betting_simulator():
     teams = {"Nick": TeamProjections("Nick", {"A": _proj("A", "BOS"), "B": _proj("B", "NYK")})}
     for tag in ("O", "GTD"):
         for u in np.linspace(0.0, 0.999, 41):
-            out = sb.draw_tag_absences(data, teams, {"A": tag, "B": tag}, rand=lambda: u)
-            assert len(out.get("A", ())) == len(out.get("B", ()))
-            assert out.get("A", frozenset()) <= set(MWF)
-            assert out.get("B", frozenset()) <= set(TTS)
+            out = sb.tag_blocks(data, teams, {"A": tag, "B": tag}, _Const(u))
+            (ga, ka), (gb, kb) = out["A"], out["B"]
+            assert (ka == kb).all()
+            assert ga == MWF and gb == TTS
 
 
 # 7 -- common random numbers
@@ -226,10 +226,10 @@ def test_a_return_date_override_switches_the_tag_off_for_that_week():
 def test_betting_simulator_respects_override_precedence():
     data = _betting_data({"BOS": MWF})
     hard = {"Nick": TeamProjections("Nick", {"H": _proj("H", "BOS", out_weeks=[1])})}
-    assert sb.draw_tag_absences(data, hard, {"H": "O"}, rand=lambda: 0.99) == {}
+    assert sb.tag_blocks(data, hard, {"H": "O"}, _Const(0.99)) == {}
     ret = {"Nick": TeamProjections("Nick", {"R": _proj("R", "BOS", return_week=1,
                                                          return_date=MWF[1].isoformat())})}
-    assert sb.draw_tag_absences(data, ret, {"R": "O"}, rand=lambda: 0.99) == {}
+    assert sb.tag_blocks(data, ret, {"R": "O"}, _Const(0.99)) == {}
 
 
 def test_suppression_rules():
@@ -281,12 +281,12 @@ def test_out_from_is_bounded_by_its_own_week():
     assert mv.availability(ctx, ctx.player("F"), nxt[0], 3) > 0
 
 
-def test_out_from_in_the_betting_daily_simulation():
-    tp = TeamProjections("Nick", {"F": _proj("F", "BOS", out_from=MWF[1])})
-    random.seed(0)
-    s0, g0, _ = sb.simulate_manager_daily_score_hifi(tp, {"BOS"}, 2, MWF[0], {}, WEEK[0])
-    s1, g1, _ = sb.simulate_manager_daily_score_hifi(tp, {"BOS"}, 2, MWF[1], {}, WEEK[0])
-    assert g0 == 1 and g1 == 0
+def test_out_from_in_the_betting_simulation():
+    data = _betting_data({"BOS": MWF}, week=2)
+    teams = {"Nick": TeamProjections("Nick", {"F": _proj("F", "BOS", out_from=MWF[1])})}
+    res = sb.simulate_week_matrix(data, teams, _week_entry(2), None, sb.KeyedDraws(1, 50),
+                                  managers=["Nick"])
+    assert (res["Nick"]["games"] == 1).all()          # Monday only
 
 
 def test_a_malformed_out_from_raises():
@@ -331,7 +331,7 @@ def test_an_unmodelled_tag_raises_in_the_betting_simulator():
     data = _betting_data({"BOS": MWF})
     teams = {"Nick": TeamProjections("Nick", {"D1": _proj("D1", "BOS")})}
     with pytest.raises(absence.UnmodelledTag):
-        sb.draw_tag_absences(data, teams, {"D1": "DTD"})
+        sb.tag_blocks(data, teams, {"D1": "DTD"}, _Const(0.5))
 
 
 def test_no_effect_tags_cost_nothing():
@@ -345,8 +345,8 @@ def test_a_tag_only_reaches_the_first_three_games_from_its_anchor():
     data = _betting_data({"BOS": MWF + later})
     teams = {"Nick": TeamProjections("Nick", {"O1": _proj("O1", "BOS")})}
     for u in (0.0, 0.6, 0.9, 0.999):
-        out = sb.draw_tag_absences(data, teams, {"O1": "O"}, rand=lambda: u)
-        assert out["O1"] <= set(MWF) and min(out["O1"]) == MWF[0]
+        games, k = sb.tag_blocks(data, teams, {"O1": "O"}, _Const(u))["O1"]
+        assert games == MWF and 1 <= int(k[0]) <= 3
 
 
 # the old model is gone and stays gone
@@ -356,6 +356,18 @@ def test_the_calendar_decay_curve_is_not_in_the_tree():
         assert not hasattr(projections, name), name
     import inspect
     assert "days_offset" not in inspect.getsource(sb)
+    assert not hasattr(sb, "draw_tag_absences")
+
+
+class _Const:
+    """A draws source returning one fixed uniform for every simulation."""
+    n = 4
+
+    def __init__(self, u):
+        self.u = u
+
+    def uniforms(self, namespace, *key):
+        return np.full(self.n, self.u)
 
 
 def _betting_data(team_dates, week=1):

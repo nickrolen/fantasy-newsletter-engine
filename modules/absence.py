@@ -82,11 +82,12 @@ P(play g_k | missed g1..g_{k-1}) by tag from those and replace CHAIN_PLAY.
 
 from __future__ import annotations
 
-import hashlib
 from datetime import date
 from typing import Iterable, Optional, Sequence
 
 import numpy as np
+
+from . import crn
 
 # Nick's stated judgement, approved 2026-10-19. NOT MEASURED -- see CALIBRATION.
 # P(play g_k | missed every earlier game in the chain), k = 1, 2, 3.
@@ -190,15 +191,11 @@ def missed_from_uniform(u, tag: str, observed: Sequence[bool] = ()):
 
 
 def keyed_uniforms(seed, player: str, anchor: date, n: int) -> np.ndarray:
-    """Common random numbers: n uniforms keyed by (seed, player, anchor).
-
-    Not by iteration order and not from a shared stream -- asking about
-    another player can never move this one's absence (C1_DESIGN CRN rule).
-    The anchor stands for the tag's week.
+    """Common random numbers: n uniforms keyed by (seed, "absence", player,
+    anchor), via modules/crn.py -- the one CRN implementation. The anchor
+    stands for the tag's week; the iteration is the array position.
     """
-    h = hashlib.blake2b(f"{seed}|absence|{player}|{anchor.isoformat()}".encode(),
-                        digest_size=8).digest()
-    return np.random.default_rng(int.from_bytes(h, "little")).random(n)
+    return crn.keyed_uniforms(seed, "absence", player, anchor, n=n)
 
 
 def team_games_from(anchor: date, team_dates: Iterable[date]) -> list:
