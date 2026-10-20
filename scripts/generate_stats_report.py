@@ -17,6 +17,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', message='Could not infer format')
 
 import argparse
+import secrets
 import sys
 import json
 import shutil
@@ -29,6 +30,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from modules.data_loader import load_all_data, save_records
 from modules.weekly_stats import load_waiver_adds
 from modules.report_builder import build_stats_report, save_stats_report
+
+
+def run_seed(requested=None) -> tuple[int, str]:
+    """(the seed this run uses, where it came from). One per run: every
+    simulator gets it, none picks its own. --seed overrides."""
+    if requested is not None:
+        return int(requested), "--seed"
+    return secrets.randbits(62), "chosen for this run"
 
 
 def main():
@@ -68,7 +77,8 @@ def main():
         "--seed",
         type=int,
         default=None,
-        help="Random seed for reproducibility",
+        help="Seed for every simulator in this run (default: chosen once per run and "
+             "recorded in the report metadata and the point-in-time capture)",
     )
     parser.add_argument(
         "--output",
@@ -129,6 +139,12 @@ def main():
     # --dry-run implies --no-save-records
     if args.dry_run:
         args.no_save_records = True
+
+    # One seed per run, chosen HERE and passed to every simulator, so a week
+    # priced in the betting lines and simulated in the bracket comes off the
+    # same keyed draws (one week, one simulated truth). The simulators refuse
+    # to pick their own. What is recorded below is the seed actually used.
+    args.seed, seed_source = run_seed(args.seed)
     
     base_path = Path(args.base_path)
     week = args.week
@@ -151,6 +167,7 @@ def main():
     print("=" * 60)
     print(f"Fantasy Basketball Newsletter - Stats Report Generator")
     print(f"Week {week}")
+    print(f"Seed {args.seed} ({seed_source})")
     if args.dry_run:
         print("*** DRY RUN - No files will be saved ***")
     print("=" * 60)

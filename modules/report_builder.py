@@ -3469,7 +3469,9 @@ def build_stats_report(
         run_simulations: Whether to run Monte Carlo simulations
         num_title_sims: Number of title odds simulations
         num_betting_sims: Number of betting line simulations
-        seed: Random seed for reproducibility
+        seed: THE seed for this run: every simulator gets it, so a week priced
+              in the betting lines and simulated in the bracket share draws.
+              Required when run_simulations is set.
         injury_statuses: Dict mapping player_name -> injury status (from Yahoo API)
         freshness_tracker: Optional tracker to filter stale/repetitive content
     
@@ -3477,6 +3479,9 @@ def build_stats_report(
         Complete stats report as dict (JSON-serializable)
     """
     waiver_adds = waiver_adds or {}
+    if run_simulations and seed is None:
+        raise ValueError("build_stats_report needs the run's seed when simulations run: "
+                         "pass seed= (generate_stats_report chooses one per run)")
     injury_statuses = injury_statuses or {}
     
     # Which stage of the season this week belongs to.
@@ -3635,6 +3640,7 @@ def build_stats_report(
                 "end": report.date_range[1].isoformat(),
             },
             "generated_at": datetime.now().isoformat(),
+            "seed": seed,
         },
         
         "matchup_summaries": build_matchup_summary(report, data.records, data=data, week=week),

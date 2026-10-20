@@ -34,7 +34,6 @@ COST: a full bracket is six simulated weeks rather than two, so a run is
 roughly 3x what it used to be. num_simulations is the knob.
 """
 
-import secrets
 from dataclasses import dataclass, field
 from collections import defaultdict
 from typing import Optional
@@ -633,13 +632,13 @@ def run_playoff_odds_simulation(
     Args:
         data: FantasyData container
         num_simulations: number of bracket simulations to run
-        seed: keyed-draw seed (modules/crn.py). None picks one from the OS;
-              stdlib `random` is never consulted, so nothing that touched it
-              earlier can move these odds.
+        seed: keyed-draw seed (modules/crn.py). Required -- the run's one
+              seed, the same the betting lines get. stdlib `random` is never
+              consulted, so nothing that touched it earlier can move these odds.
         injury_statuses: player -> injury status (from Yahoo, optional)
     """
     if seed is None:
-        seed = secrets.randbits(62)
+        raise ValueError("run_playoff_odds_simulation needs an explicit seed: one seed per run, chosen by the caller (generate_stats_report picks it) so every simulator prices the same week from the same draws")
 
     rounds = bracket_rounds()
     if not rounds:

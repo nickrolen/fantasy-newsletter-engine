@@ -25,7 +25,6 @@ Week numbers and pairings come from league_config.postseason_format via
 data_loader, never from constants here.
 """
 
-import secrets
 from dataclasses import dataclass, field
 from collections import defaultdict
 from typing import Optional
@@ -298,11 +297,11 @@ def run_cup_odds_simulation(
 ) -> CupOddsResult:
     """Monte Carlo the Cup, and report what each manager is playing for.
 
-    seed: keyed-draw seed (modules/crn.py); None picks one from the OS.
+    seed: keyed-draw seed (modules/crn.py). Required -- the run's one seed.
     stdlib `random` is never consulted.
     """
     if seed is None:
-        seed = secrets.randbits(62)
+        raise ValueError("run_cup_odds_simulation needs an explicit seed: one seed per run, chosen by the caller (generate_stats_report picks it) so every simulator prices the same week from the same draws")
 
     rounds = cup_rounds()
     if not rounds:

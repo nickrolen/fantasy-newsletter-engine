@@ -7,7 +7,6 @@ Uses full position-aware lineup optimization and granular injury statuses.
 Generates: Spread, Over/Under, Moneyline (American odds)
 """
 
-import random
 import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -846,7 +845,7 @@ def run_matchup_simulation(
     Returns BettingLine with spread, O/U, and moneylines.
     """
     if seed is None:
-        seed = random.getrandbits(62)
+        raise ValueError("run_matchup_simulation needs an explicit seed: one seed per run, chosen by the caller (generate_stats_report picks it) so every simulator prices the same week from the same draws")
     draws = KeyedDraws(seed, num_simulations)
     if week_results is None:
         week_results = simulate_week_matrix(data, team_projections, week_data, injury_statuses,
@@ -1182,11 +1181,11 @@ def generate_weekly_betting_lines(
     Returns:
         WeeklyBettingLines or None if no next week
     """
-    if seed is not None:
-        random.seed(seed)
+    if seed is None:
+        raise ValueError("generate_weekly_betting_lines needs an explicit seed: one seed per run, chosen by the caller (generate_stats_report picks it) so every simulator prices the same week from the same draws")
     # One keyed seed for every draw this week (modules/crn.py). With a fixed
     # seed the lines are fixed; they no longer depend on matchup order.
-    draw_seed = seed if seed is not None else random.getrandbits(62)
+    draw_seed = seed
     
     # Get next week schedule
     week_data = get_next_week_data(data)

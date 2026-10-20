@@ -74,7 +74,7 @@ def test_no_cup_before_2026_27():
 def test_running_a_cup_for_a_season_that_has_none_is_an_error(monkeypatch):
     monkeypatch.setattr(cup, "cup_rounds", lambda season=None: {})
     with pytest.raises(ValueError, match="no Cup configured"):
-        cup.run_cup_odds_simulation(_data())
+        cup.run_cup_odds_simulation(_data(), seed=1)
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +244,7 @@ def test_an_unrecorded_cup_winner_is_flagged_loudly(monkeypatch):
     monkeypatch.setattr(cup, "resolve_completed_week", lambda data, week: None)
     # distinct totals: this test is about the keeper note, not seeding ties
     data = _data(_scores({m: {1: 100 + i} for i, m in enumerate(MANAGERS)}))
-    result = cup.run_cup_odds_simulation(data, num_simulations=5)
+    result = cup.run_cup_odds_simulation(data, num_simulations=5, seed=1)
 
     stakes = result.keeper_stakes
     assert stakes["season_affected"] == "2027-28"

@@ -836,13 +836,16 @@ def run_title_odds_simulation(
     Args:
         data: FantasyData container
         num_simulations: Number of simulations to run
-        seed: Random seed for reproducibility (optional)
+        seed: the run's seed (required). Title odds still draw from stdlib
+              `random` (not yet ported to keyed draws), seeded here.
     
     Returns:
         TitleOddsResult with all simulation results
     """
-    if seed is not None:
-        random.seed(seed)
+    if seed is None:
+        raise ValueError("run_title_odds_simulation needs an explicit seed: one seed per run, "
+                         "chosen by the caller (generate_stats_report picks it)")
+    random.seed(seed)
     
     current_week = data.current_week
     
