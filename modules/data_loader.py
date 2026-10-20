@@ -1504,6 +1504,16 @@ def player_eligible_for_slot(player_positions: list[str], slot: str) -> bool:
     return any(pos in eligible for pos in player_positions)
 
 
+def format_games_count(x) -> str:
+    """A games count for prose: '2', or '1.5' when a T makes it a half game.
+
+    The one formatter. The betting preview's games-back lines and the
+    standings storyline both render through it, so they cannot drift.
+    """
+    x = float(x)
+    return str(int(x)) if x == int(x) else f"{x:.1f}"
+
+
 def parse_record_string(record_str) -> "Record":
     """'(8-3)' or '(7-7-1)' -> Record. The one record parser.
 

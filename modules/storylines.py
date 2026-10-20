@@ -308,15 +308,24 @@ def compute_storylines(data: dict, predictions: Optional[dict],
     st = data.get("current_standings", [])
     if st and len(st) > 1:
         lead, sec = st[0], st[1]
+        from modules.data_loader import format_games_count, parse_record_string
         try:
-            gb = int(lead.get("record", "0-0").split("-")[0]) - \
-                int(sec.get("record", "0-0").split("-")[0])
+            # Standing value, not raw wins: a T is half a win, so the lead can
+            # be a half game. This used to read field [0] of the record string,
+            # which ignored the T -- 8-6-1 over 7-8 printed a 1-game lead where
+            # the gap is 1.5, and 7-7-1 over 7-8 printed 0. It also disagreed
+            # with the betting preview's games-back line, which reads
+            # Record.standing. One record parser, one games formatter.
+            gb = (parse_record_string(lead.get("record", "0-0")).standing
+                  - parse_record_string(sec.get("record", "0-0")).standing)
             if gb >= STANDINGS_LEAD_GAMES:
                 add(Storyline("standings_lead",
                               (lead["manager"], sec["manager"]),
-                              f" -> STANDINGS: {lead['manager']} leads by {gb} "
+                              f" -> STANDINGS: {lead['manager']} leads by "
+                              f"{format_games_count(gb)} "
                               f"games over {sec['manager']} ({lead['record']} "
-                              f"vs {sec['record']})", {"games_back": gb}))
+                              f"vs {sec['record']})",
+                              {"games_back": float(gb)}))
         except (ValueError, IndexError):
             pass
 

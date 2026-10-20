@@ -132,7 +132,18 @@ def strip_season_history(src: Path, dst: Path, season: str) -> None:
 
 
 def _wl(s: str):
-    a, b = s.strip("()").split("-")[:2]
+    """(wins, losses) from a record string. Raises on a W-L-T record.
+
+    It used to take the first two fields and drop a third, which would have
+    silently thrown away a tie. LEAGUEHISTORY stores only W-L today; if that
+    changes, the rewind has to learn about ties rather than guess.
+    """
+    parts = s.strip("()").split("-")
+    if len(parts) > 2:
+        raise ValueError(
+            f"record {s!r} carries a tie; rewind_leaguehistory only handles "
+            "W-L. Teach it about ties before replaying a season with one.")
+    a, b = parts
     return int(a), int(b)
 
 

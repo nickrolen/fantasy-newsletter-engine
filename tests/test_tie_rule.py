@@ -279,3 +279,68 @@ def test_a_t_ends_a_streak():
     angles = A.matchup_angles(sm, 3, hist, 15)
     assert not any(a.family == "streak" for a in angles)
     assert any("tied at 5.00" in a.text for a in angles)
+
+
+# ---------------------------------------------------------------------------
+# The standings storyline reads standing value, not field [0] of the record
+# string (found in review of the tie-rule commit, fbc55ac)
+# ---------------------------------------------------------------------------
+
+def _standings_storyline(lead_record, second_record):
+    from modules.storylines import compute_storylines
+    data = {"metadata": {"week": 10},
+            "current_standings": [{"manager": "Nick", "record": lead_record},
+                                  {"manager": "Hayden", "record": second_record}]}
+    out = [s for s in compute_storylines(data, None, "2026-27", list(MANAGERS))
+           if s.kind == "standings_lead"]
+    return out[0] if out else None
+
+
+def test_a_half_game_lead_is_counted_and_printed_as_a_half():
+    """8-6-1 over 7-8 is 1.5 games, not 1. Reading wins alone said 1."""
+    s = _standings_storyline("8-6-1", "7-8")
+    assert s is None or s.magnitude["games_back"] == 1.5     # below the threshold
+    s = _standings_storyline("12-2-1", "7-8")
+    assert s is not None and s.magnitude["games_back"] == 5.5
+    assert "leads by 5.5 games" in s.text
+
+
+def test_a_tie_can_be_the_whole_lead():
+    """7-7-1 over 7-8 is half a game ahead; wins alone said level."""
+    from modules.storylines import compute_storylines
+    data = {"metadata": {"week": 10},
+            "current_standings": [{"manager": "Nick", "record": "7-7-1"},
+                                  {"manager": "Hayden", "record": "7-8"}]}
+    lead = (dl.parse_record_string("7-7-1").standing
+            - dl.parse_record_string("7-8").standing)
+    assert lead == Fraction(1, 2)
+    assert not [s for s in compute_storylines(data, None, "2026-27", list(MANAGERS))
+                if s.kind == "standings_lead"]          # half a game is not a lead
+
+
+def test_a_tie_free_lead_still_prints_a_whole_number():
+    """The archived strings are pinned byte-for-byte; nothing changes without a T."""
+    s = _standings_storyline("12-2", "8-6")
+    assert s is not None and "leads by 4 games" in s.text
+    assert s.magnitude["games_back"] == 4
+
+
+def test_the_games_formatter_is_shared_with_the_betting_preview():
+    """Two games-back computations drifted once; they render through one formatter."""
+    from modules import simulator_betting as sb
+    for x in (0, 1, 4, Fraction(3, 2), Fraction(11, 2), 2.0):
+        assert sb._games(x) == dl.format_games_count(x)
+    assert dl.format_games_count(4) == "4"
+    assert dl.format_games_count(Fraction(3, 2)) == "1.5"
+
+
+def test_the_dryrun_rewind_refuses_a_record_with_a_tie():
+    """It used to take the first two fields and drop the T silently."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "_bdp", ROOT / "scripts" / "build_dryrun_packet.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod._wl("(8-3)") == (8, 3)
+    with pytest.raises(ValueError, match="carries a tie"):
+        mod._wl("(7-7-1)")

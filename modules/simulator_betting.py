@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import NamedTuple, Optional
 
-from .data_loader import FantasyData, MANAGERS, CURRENT_SEASON
+from .data_loader import FantasyData, MANAGERS, CURRENT_SEASON, format_games_count
 from .projections import (
     PlayerProjection,
     TeamProjections,
@@ -819,8 +819,7 @@ def scores_at(matrices: dict, i: int) -> dict[int, dict[str, float]]:
 
 def _games(x) -> str:
     """A games-back count: '2', or '1.5' with a half game from a T."""
-    x = float(x)
-    return str(int(x)) if x == int(x) else f"{x:.1f}"
+    return format_games_count(x)
 
 
 def matchup_id(manager_a: str, manager_b: str) -> str:
