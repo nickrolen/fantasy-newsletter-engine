@@ -8,12 +8,13 @@
   },
   "stats": {
     "rank_spread": 17,
-    "gap_points": 81.8,
-    "mutual_gain_swaps": 14,
+    "gap_points": 75.8,
+    "mutual_gain_swaps": 21,
     "swaps_examined": 1350,
-    "free_agents": 113
+    "free_agents": 115
   },
-  "checked_at": "2026-10-12T10:00:45",
+  "checked_at": "2026-10-21T12:44:53",
   "report_week": 0,
-  "rostered_players": 60
+  "rostered_players": 60,
+  "sims": 3000
 }
