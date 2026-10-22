@@ -523,6 +523,36 @@ def main():
             print(f"Warning: could not write the C2/C3 preview: {e}")
 
     # -------------------------------------------------------------------------
+    # E1: the calibration log. Append what this build published, settle the
+    # weeks that have closed, and print the curve -- instrumentation for this
+    # console, never for the newsletter. Only a publishable run writes: a dry
+    # run, a repro and --fast must not touch an append-only record.
+    # -------------------------------------------------------------------------
+    from modules import calibration_log as cal
+    _lines = (report.get("metadata") or {}).get("published_lines") or []
+    if args.dry_run or args.repro or args.fast:
+        why = "--dry-run" if args.dry_run else ("--repro" if args.repro else "--fast")
+        print(f"Calibration log not written ({why} is not a publishable run); "
+              f"{len(_lines)} line(s) would have been logged")
+        print()
+    else:
+        try:
+            wrote = cal.append(_lines, base_path)
+            print(f"Logged {wrote['added']} published line(s) to {wrote['path']}"
+                  + (f" ({wrote['skipped']} already there)" if wrote["skipped"] else ""))
+            done = cal.settle(data.records, base_path)
+            if done["settled"]:
+                print(f"  Settled {done['settled']} line(s) from RECORDS.json weekly scores")
+            for row in cal.format_curve(cal.curve(base_path)):
+                print(row)
+        except cal.CalibrationConflict as e:
+            print(f"CALIBRATION LOG FAILURE: {e}")
+            print("  The published lines and RECORDS.json disagree about a played "
+                  "week. Nothing else in this report is affected, but fix it before "
+                  "the curve is read again.")
+        print()
+
+    # -------------------------------------------------------------------------
     # Point-in-time capture: freeze the inputs behind this week's lines.
     # Overwritten in place every week, unrecoverable afterwards -- see
     # modules/point_in_time.py. Only publishable runs write one.

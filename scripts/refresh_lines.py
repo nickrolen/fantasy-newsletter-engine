@@ -162,6 +162,23 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
         "lines": lines,
     }
     if not dry_run:
+        # E1: a re-issued line is a NEW calibration record with its own as-of
+        # timestamp and state hash, never an edit of the pre-week one -- the
+        # log says what was on the page when (modules/calibration_log.py).
+        from modules import calibration_log as cal
+        rosters = {m: list(v) for m, v in (data.get_current_rosters() or {}).items() if v}
+        governing = cal.overrides_governing(
+            week, sb.get_dates_in_week(entry), rosters,
+            (data.injury_overrides or {}).get("players") or [])
+        engine = cal.engine_version(base)
+        stamp = datetime.now().isoformat(timespec="seconds")
+        logged = cal.append([
+            cal.line_record(ln, week=week, seed=seed, num_simulations=sims,
+                            engine=engine, as_of=stamp, state_hash=state.state_hash,
+                            source=cal.LIVE_REFRESH, tags=live or {},
+                            overrides_governing=governing)
+            for ln in res.lines], base)
+        payload["calibration_logged"] = logged["added"]
         atomic_write_json(out_dir / f"live_lines_week{week}.json", payload)
         atomic_write_json(state_path, {"week": week, "seed": seed, "as_of": as_of.isoformat(),
                                        "tags": ws.tag_record(anchors, live)})

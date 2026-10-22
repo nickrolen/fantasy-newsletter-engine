@@ -1,0 +1,460 @@
+"""
+calibration_log.py -- E1: every line the newsletter publishes, logged at
+publish time, settled when the week closes, and scored by engine version.
+
+WHY NOT backtest_extract
+------------------------
+scripts/backtest_extract.py is RETROSPECTIVE: it parses published newsletter
+HTML to recover lines that went out, because for 2025-26 the HTML is the only
+immutable record (output/*.json gets overwritten by re-runs). It produced the
+12 lines and the -120.8 level bias in data/backtest/.
+
+This is the forward-looking twin. A line is logged as it is published, with
+everything needed to reproduce and settle it, so the curve builds itself week
+by week and nobody parses HTML again.
+
+THE FIELD THAT MATTERS MOST: WHICH ENGINE PRODUCED THE LINE
+-----------------------------------------------------------
+The -120.8 baseline was measured on an engine that no longer exists.
+output/live_lines_week1.json, generated 2026-10-20, still carries the caveat
+"the 10% injury discount applies to the simulated remainder only" -- a
+mechanism deleted on 10-21. In three days the betting path also gained
+positional lineups, a baseline injury hazard, a new tag vocabulary and a
+frozen durability prior, and the same week-1 matchup moved from +27 to +22 on
+the spread and 3030 to 2830 on the total.
+
+So a curve that pools lines from both sides of that is not a measurement of
+anything. Every record carries its ENGINE VERSION (the git commit, plus
+whether the tree was dirty) alongside the seed, the state hash and the as-of
+timestamp, and `curve()` groups by engine version. Pooling across versions
+takes an explicit mix_versions=True -- the mistake is impossible, not
+discouraged, because this is the project's defining defect aimed at the one
+artifact whose whole purpose is to stay true.
+
+APPEND-ONLY
+-----------
+A line is never rewritten. A line re-issued mid-week by a B2 refresh
+(scripts/refresh_lines.py) is a NEW record with its own as-of timestamp, so
+the log says what was on the page when. The ONE field group that fills in
+later is settlement, once and never again: re-running the same build appends
+nothing (same identity), and a settled line that disagrees with RECORDS.json
+RAISES rather than being quietly corrected -- that disagreement means the log
+and the records disagree about what happened.
+
+THE METRICS ARE NOT HERE
+------------------------
+Every statistic comes from modules/backtest_metrics.py -- score_error_stats,
+margin_error_stats, standardized_residuals, dispersion_ratio, implied_sigma,
+brier_score, log_loss, brier_skill_score, hit_rate. There is no second
+implementation of any of them in this module, and a test asserts it.
+
+WHAT THIS IS NOT
+----------------
+All four managers see these lines, so a systematic bias gets arbitraged. The
+statistical curve is one signal; who actually bets which side is the other,
+and that is D2's ledger, not this. This is instrumentation: it reports to the
+build's console, never into the newsletter, which has its own voice rules.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from datetime import date, datetime
+from pathlib import Path
+from typing import Iterable, Optional, Sequence
+
+from . import backtest_metrics as bm
+from .data_loader import CURRENT_SEASON, atomic_write_json
+
+# WORK_BREAKDOWN.md says config/PUBLISHED_LINES.json. Overridden on purpose:
+# config/ holds settings the code reads, not a growing append-only log, and
+# tests/test_start_new_season.py::test_config_dir_has_no_unclassified_files
+# requires every file there to be classified per-season or cross-season. This
+# sits beside the retrospective data instead.
+LOG_RELPATH = Path("data") / "calibration" / "published_lines.json"
+SCHEMA = 1
+
+# The source that produced a record, for reading the log by eye.
+WEEKLY_BUILD = "weekly_build"          # generate_stats_report, the pre-week line
+LIVE_REFRESH = "live_refresh"          # refresh_lines, a mid-week re-issue
+
+# What makes two records the same published line. A genuine re-issue differs
+# in as_of (and usually state_hash), so it appends; a re-run of the same build
+# matches on all of these and is skipped.
+IDENTITY = ("season", "week", "matchup_id", "engine_commit", "engine_dirty",
+            "seed", "num_simulations", "state_hash", "as_of", "source")
+
+SETTLEMENT = ("actual_a", "actual_b", "actual_source", "settled_at")
+
+
+class CalibrationConflict(RuntimeError):
+    """The log and RECORDS.json disagree about what happened."""
+
+
+class EngineVersionMix(ValueError):
+    """Asked to pool lines from different engines without saying so."""
+
+
+# =============================================================================
+# the engine that produced a line
+# =============================================================================
+
+def engine_version(base_path=".") -> dict:
+    """{"commit": short sha or None, "dirty": bool}.
+
+    `dirty` matters: on a dirty tree the commit does not identify the engine,
+    so two records can share a commit and not share a simulator. Recorded
+    rather than hidden, and it is part of the grouping key.
+    """
+    def _git(*args):
+        try:
+            out = subprocess.run(["git", *args], cwd=str(base_path),
+                                 capture_output=True, text=True, timeout=5)
+            return out.stdout.strip() if out.returncode == 0 else None
+        except Exception:
+            return None
+    commit = _git("rev-parse", "--short", "HEAD")
+    status = _git("status", "--porcelain")
+    return {"commit": commit, "dirty": bool(status) if status is not None else None}
+
+
+def engine_key(record: dict) -> str:
+    """The label a curve is grouped under."""
+    commit = record.get("engine_commit") or "unknown"
+    return f"{commit}-dirty" if record.get("engine_dirty") else commit
+
+
+# =============================================================================
+# the record
+# =============================================================================
+
+def line_record(line, *, week: int, season: str = None, seed: int,
+                num_simulations: int, engine: dict, as_of: str = None,
+                state_hash: str = None, source: str = WEEKLY_BUILD,
+                tags: dict = None, overrides_governing: dict = None) -> dict:
+    """One published line, as logged. `line` is a simulator_betting.BettingLine.
+
+    The numbers are the ones that went on the page: the spread and total are
+    the rounded, published values, and the projected scores are what the
+    newsletter printed beside them.
+    """
+    a, b = line.manager_a, line.manager_b
+    tags = dict(tags or {})
+    return {
+        "season": str(season or CURRENT_SEASON),
+        "week": int(week),
+        "manager_a": a,
+        "manager_b": b,
+        "matchup_id": _matchup_id(a, b),
+        "team_a": getattr(line, "team_name_a", a),
+        "team_b": getattr(line, "team_name_b", b),
+        # the line as published
+        "spread_a": float(line.spread_a),
+        "total": float(line.over_under),
+        "moneyline_a": int(line.moneyline_a),
+        "moneyline_b": int(line.moneyline_b),
+        "win_prob_a": float(line.win_prob_a),
+        "win_prob_b": float(line.win_prob_b),
+        "projected_a": float(line.avg_score_a),
+        "projected_b": float(line.avg_score_b),
+        "banked_a": float(getattr(line, "banked_a", 0.0) or 0.0),
+        "banked_b": float(getattr(line, "banked_b", 0.0) or 0.0),
+        # provenance: which engine, which draws, as of when
+        "engine_commit": engine.get("commit"),
+        "engine_dirty": engine.get("dirty"),
+        "seed": None if seed is None else int(seed),
+        "num_simulations": int(num_simulations),
+        "state_hash": state_hash,
+        "as_of": as_of or datetime.now().isoformat(timespec="seconds"),
+        "source": source,
+        # the inputs that move a line
+        "tags": {k: str(v) for k, v in sorted(tags.items()) if str(v).upper() != "HEALTHY"},
+        "overrides_governing": {m: bool(v) for m, v in sorted((overrides_governing or {}).items())},
+        # settlement, filled in once the week closes
+        "actual_a": None,
+        "actual_b": None,
+        "actual_source": None,
+        "settled_at": None,
+    }
+
+
+def overrides_governing(week: int, week_dates: Sequence[date], rosters: dict,
+                        override_players: Iterable[dict]) -> dict:
+    """{manager: did an INJURY_OVERRIDES entry govern his roster this week}.
+
+    One of the two inputs that move a line and are not in the line itself (the
+    other is the tags). Uses absence.override_governs, the same rule the
+    simulators apply, so the log records the condition the engine saw rather
+    than a second reading of the file.
+    """
+    from . import absence
+    from .data_loader import PlayerIndex
+    out = {m: False for m in rosters}
+    where = PlayerIndex()
+    for manager, players in (rosters or {}).items():
+        for name in players or []:
+            where[name] = manager
+    for entry in override_players or []:
+        manager = where.get(entry.get("player_name", ""))
+        if manager is None:
+            continue
+        if absence.override_governs(
+                week, week_dates, entry.get("out_weeks") or (),
+                entry.get("return_week"),
+                absence.parse_out_from(entry.get("out_from"))):
+            out[manager] = True
+    return out
+
+
+def _matchup_id(a: str, b: str) -> str:
+    """Order-free, the same convention as simulator_betting.matchup_id."""
+    return "|".join(sorted((a, b)))
+
+
+def identity(record: dict) -> tuple:
+    return tuple(record.get(k) for k in IDENTITY)
+
+
+# =============================================================================
+# the file
+# =============================================================================
+
+def log_path(base_path=".") -> Path:
+    return Path(base_path) / LOG_RELPATH
+
+
+def load_log(base_path=".") -> dict:
+    """The log, or an empty one. A corrupt file RAISES: this is an
+    append-only record, and overwriting it with a fresh one would delete
+    history that cannot be recovered."""
+    path = log_path(base_path)
+    if not path.is_file():
+        return {"schema": SCHEMA, "lines": []}
+    try:
+        blob = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise CalibrationConflict(
+            f"{path} is not readable JSON ({e}). It is the append-only record of "
+            "every published line; fix or restore it rather than letting a build "
+            "start a new one.") from None
+    blob.setdefault("schema", SCHEMA)
+    blob.setdefault("lines", [])
+    return blob
+
+
+def save_log(blob: dict, base_path=".") -> Path:
+    path = log_path(base_path)
+    blob["schema"] = blob.get("schema", SCHEMA)
+    blob["_comment"] = (
+        "Append-only: every line the newsletter published, logged at publish time. "
+        "A re-issued line is a new entry, never an edit. Metrics live in "
+        "modules/backtest_metrics.py and are grouped by engine_commit -- see "
+        "modules/calibration_log.py.")
+    atomic_write_json(path, blob)
+    return path
+
+
+def append(records: Sequence[dict], base_path=".") -> dict:
+    """Append records that are not already there. {"added", "skipped", "path"}.
+
+    Idempotent by IDENTITY, so re-running a build logs nothing twice, while a
+    mid-week re-issue (a different as_of) appends.
+    """
+    blob = load_log(base_path)
+    seen = {identity(r) for r in blob["lines"]}
+    added = 0
+    for record in records:
+        if identity(record) in seen:
+            continue
+        blob["lines"].append(record)
+        seen.add(identity(record))
+        added += 1
+    if added:
+        save_log(blob, base_path)
+    return {"added": added, "skipped": len(records) - added, "path": str(log_path(base_path))}
+
+
+# =============================================================================
+# settlement
+# =============================================================================
+
+def weekly_scores(records_json: dict) -> dict:
+    """{week: {manager: score}} from RECORDS.json weekly_scores."""
+    out: dict = {}
+    raw = (records_json or {}).get("weekly_scores") or {}
+    if isinstance(raw, dict):
+        for manager, entries in raw.items():
+            for entry in entries or []:
+                week = entry.get("week")
+                if week is None:
+                    continue
+                out.setdefault(int(week), {})[manager] = float(entry.get("score") or 0.0)
+    return out
+
+
+def settle(records_json: dict, base_path=".", today: date = None) -> dict:
+    """Fill in actuals for every unsettled line whose week has closed.
+
+    A week counts as closed when RECORDS.json has a score for both managers.
+    Idempotent. A line already settled whose actuals disagree with RECORDS
+    RAISES CalibrationConflict -- the log and the records cannot both be the
+    truth about a played week.
+    """
+    blob = load_log(base_path)
+    scores = weekly_scores(records_json)
+    stamp = (today or date.today()).isoformat()
+    settled, conflicts = 0, []
+    for record in blob["lines"]:
+        week_scores = scores.get(int(record["week"])) or {}
+        a = week_scores.get(record["manager_a"])
+        b = week_scores.get(record["manager_b"])
+        if a is None or b is None:
+            continue
+        if record.get("settled_at"):
+            if (not _same(record.get("actual_a"), a)) or (not _same(record.get("actual_b"), b)):
+                conflicts.append(
+                    f"week {record['week']} {record['manager_a']} v {record['manager_b']}: "
+                    f"the log says {record.get('actual_a')}-{record.get('actual_b')}, "
+                    f"RECORDS.json says {a}-{b}")
+            continue
+        record["actual_a"], record["actual_b"] = float(a), float(b)
+        record["actual_source"] = "RECORDS.json weekly_scores"
+        record["settled_at"] = stamp
+        settled += 1
+    if conflicts:
+        raise CalibrationConflict(
+            "settled lines disagree with RECORDS.json: " + "; ".join(conflicts) +
+            ". One of the two is wrong about a played week -- fix it rather than "
+            "letting the calibration curve average them.")
+    if settled:
+        save_log(blob, base_path)
+    return {"settled": settled, "unsettled": sum(1 for r in blob["lines"] if not r.get("settled_at")),
+            "total": len(blob["lines"])}
+
+
+def _same(x, y, tol: float = 0.01) -> bool:
+    try:
+        return abs(float(x) - float(y)) <= tol
+    except (TypeError, ValueError):
+        return False
+
+
+# =============================================================================
+# the live curve -- every statistic from backtest_metrics
+# =============================================================================
+
+def settled(lines: Iterable[dict]) -> list:
+    """Only lines with actuals. An unsettled line is a forecast, not an
+    observation, and never counts towards the curve."""
+    return [r for r in lines
+            if r.get("settled_at") and r.get("actual_a") is not None
+            and r.get("actual_b") is not None]
+
+
+def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
+          mix_versions: bool = False) -> dict:
+    """Calibration of the settled lines, BY ENGINE VERSION.
+
+    Returns {"groups": {engine key: metrics}, "unsettled": n, "engines": [...]}.
+    mix_versions=True pools every version into one group, labelled as mixed;
+    anything else keeps them apart, because the engine changed under the lines
+    (see the module docstring). Asking for one named `engine` is exact.
+    """
+    rows = list(lines if lines is not None else load_log(base_path)["lines"])
+    done = settled(rows)
+    engines = sorted({engine_key(r) for r in done})
+    if engine is not None:
+        groups = {engine: [r for r in done if engine_key(r) == engine]}
+    elif mix_versions:
+        label = "mixed (%d engine%s)" % (len(engines), "" if len(engines) == 1 else "s")
+        groups = {label: done}
+    else:
+        groups = {k: [r for r in done if engine_key(r) == k] for k in engines}
+    return {
+        "groups": {k: _metrics(v) for k, v in groups.items()},
+        "engines": engines,
+        "settled": len(done),
+        "unsettled": len(rows) - len(done),
+    }
+
+
+def _metrics(rows: Sequence[dict]) -> dict:
+    """Every number here comes from backtest_metrics."""
+    out = {"n_lines": len(rows), "weeks": sorted({int(r["week"]) for r in rows})}
+    if len(rows) < 2:
+        out["note"] = "need at least 2 settled lines for the statistics"
+        return out
+    projected = [r["projected_a"] for r in rows] + [r["projected_b"] for r in rows]
+    actual = [r["actual_a"] for r in rows] + [r["actual_b"] for r in rows]
+    proj_margin = [r["projected_a"] - r["projected_b"] for r in rows]
+    act_margin = [r["actual_a"] - r["actual_b"] for r in rows]
+    probs = [r["win_prob_a"] / 100.0 for r in rows]
+
+    out["level"] = bm.score_error_stats(projected, actual)
+    out["margin"] = bm.margin_error_stats(proj_margin, act_margin)
+    residuals = bm.standardized_residuals(proj_margin, act_margin, probs)
+    out["dispersion"] = (bm.dispersion_ratio(residuals) if len(residuals) >= 2
+                         else {"n": len(residuals),
+                               "note": "sigma is not identified on these lines"})
+    # A tied week is neither a win nor a loss (tiebreaker_rules), and the
+    # probability scores take 0/1 outcomes, so ties are dropped and counted.
+    scored = [(p, 1 if r["actual_a"] > r["actual_b"] else 0)
+              for p, r in zip(probs, rows) if r["actual_a"] != r["actual_b"]]
+    ties = len(rows) - len(scored)
+    if scored:
+        p_list = [p for p, _ in scored]
+        outcomes = [o for _, o in scored]
+        out["probability"] = {
+            "n": len(scored),
+            "ties_dropped": ties,
+            "brier": bm.brier_score(p_list, outcomes),
+            "brier_skill_vs_coin_flip": bm.brier_skill_score(p_list, outcomes),
+            "log_loss": bm.log_loss(p_list, outcomes),
+            "coin_flip_log_loss": bm.log_loss([0.5] * len(scored), outcomes),
+            "hit_rate": bm.hit_rate([p > 0.5 for p in p_list],
+                                    [bool(o) for o in outcomes]),
+        }
+    else:
+        out["probability"] = {"n": 0, "ties_dropped": ties,
+                              "note": "no decided lines yet"}
+    return out
+
+
+def format_curve(result: dict) -> list:
+    """The curve as console lines. Instrumentation for the build's output --
+    never the newsletter."""
+    out = []
+    total = result["settled"] + result["unsettled"]
+    if not total:
+        return ["  Calibration log: empty -- no line has been published yet."]
+    out.append(f"  Calibration log: {total} line(s), {result['settled']} settled, "
+               f"{result['unsettled']} awaiting a result")
+    if not result["settled"]:
+        out.append("    (no settled line yet, so there is no curve: the first "
+                   "week's lines settle on next week's build)")
+        return out
+    for key, m in sorted(result["groups"].items()):
+        if not m["n_lines"]:
+            continue
+        out.append(f"    engine {key}: {m['n_lines']} line(s), weeks "
+                   f"{m['weeks'][0]}-{m['weeks'][-1]}" if m["weeks"] else f"    engine {key}")
+        if "note" in m:
+            out.append(f"      {m['note']}")
+            continue
+        lvl, mar = m["level"], m["margin"]
+        out.append(f"      level  bias {lvl['bias']:+.1f} +/- {lvl['se_bias']:.1f} "
+                   f"(t {lvl['t_stat']:+.2f}), mae {lvl['mae']:.1f}, "
+                   f"{lvl['below']}/{lvl['n']} under projection")
+        out.append(f"      margin bias {mar['bias']:+.1f} +/- {mar['se_bias']:.1f}")
+        disp = m["dispersion"]
+        if "rms" in disp:
+            out.append(f"      spread rms {disp['rms']:.2f} "
+                       f"[{disp['ci_low']:.2f}, {disp['ci_high']:.2f}] -- {disp['verdict']}")
+        prob = m["probability"]
+        if prob.get("n"):
+            out.append(f"      probs  brier {prob['brier']:.3f} vs 0.250 coin flip "
+                       f"(skill {prob['brier_skill_vs_coin_flip']:+.3f}), "
+                       f"log loss {prob['log_loss']:.3f} vs {prob['coin_flip_log_loss']:.3f}, "
+                       f"favourite {prob['hit_rate']['correct']}/{prob['hit_rate']['n']}")
+    return out

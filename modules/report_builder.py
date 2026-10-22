@@ -3467,6 +3467,32 @@ def _run_advice_guarded(data, week, run_simulations, title_odds, keeper_watch,
                 "week": week, "publish_reason": f"{type(e).__name__}: {e}"}
 
 
+def _published_line_records(data, betting_lines, seed, num_betting_sims,
+                           injury_statuses) -> list:
+    """calibration_log records for the lines this build publishes."""
+    if betting_lines is None or not getattr(betting_lines, "matchup_previews", None):
+        return []
+    from . import calibration_log as cal
+    from .simulator_betting import get_dates_in_week, schedule_week
+    week = int(betting_lines.week)
+    try:
+        week_dates = get_dates_in_week(schedule_week(data, week))
+    except KeyError:
+        week_dates = []
+    rosters = {m: list(v) for m, v in (data.get_current_rosters() or {}).items() if v}
+    governing = cal.overrides_governing(
+        week, week_dates, rosters, (data.injury_overrides or {}).get("players") or [])
+    engine = cal.engine_version(data.base_path)
+    stamp = datetime.now().isoformat(timespec="seconds")
+    return [
+        cal.line_record(preview.betting_line, week=week, season=CURRENT_SEASON,
+                        seed=seed, num_simulations=num_betting_sims, engine=engine,
+                        as_of=stamp, source=cal.WEEKLY_BUILD,
+                        tags=injury_statuses, overrides_governing=governing)
+        for preview in betting_lines.matchup_previews
+    ]
+
+
 def build_stats_report(
     data: FantasyData,
     week: int,
@@ -3570,11 +3596,18 @@ def build_stats_report(
 
     # Run betting simulation
     betting_lines = None
+    published_lines = []
     if run_simulations:
         betting_lines = generate_weekly_betting_lines(
             data, num_simulations=num_betting_sims, seed=seed,
             injury_statuses=injury_statuses
         )
+        # E1: the calibration record of what went on the page, built HERE,
+        # where the lines are produced, and written by the caller -- a dry
+        # run must not append to an append-only log
+        # (modules/calibration_log.py, scripts/generate_stats_report.py).
+        published_lines = _published_line_records(
+            data, betting_lines, seed, num_betting_sims, injury_statuses)
 
     # What-if analysis
     matchup_results = {}
@@ -3663,6 +3696,10 @@ def build_stats_report(
             },
             "generated_at": datetime.now().isoformat(),
             "seed": seed,
+            # E1: what the betting section published, for the calibration log.
+            # The caller appends these (never a dry run) and settles the weeks
+            # that have closed -- modules/calibration_log.py.
+            "published_lines": published_lines,
         },
         
         "matchup_summaries": build_matchup_summary(report, data.records, data=data, week=week),

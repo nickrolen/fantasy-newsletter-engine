@@ -2,6 +2,16 @@
 """
 backtest_extract.py -- Build the betting-line backtest dataset.
 
+HISTORICAL ONLY, FROM 2026-27 ON
+    This recovers lines that were published BEFORE the newsletter logged them
+    itself. From the 2026-10-26 build, every published line is written at
+    publish time by modules/calibration_log.py, with the engine commit, seed,
+    state hash and as-of timestamp that this script cannot recover from HTML
+    -- and a calibration curve that cannot tell which engine produced a line
+    is not a measurement (see that module's docstring). So: use this for
+    2025-26 and earlier, and read data/calibration/published_lines.json for
+    everything since. Do not extend it to new seasons.
+
 WHAT THIS DOES
     Pairs every betting line the newsletter published with the result that
     actually happened, and writes them to data/backtest/published_lines.csv.
