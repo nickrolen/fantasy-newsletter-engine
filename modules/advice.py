@@ -466,7 +466,7 @@ def find_trades(short: mv.MVContext, full: mv.MVContext, protected: Optional[dic
     of refilling that slot (Refill.credit -- the same function C2 charges a
     drop with). The side TAKING two must drop to 17; the incoming player
     takes the spot, so the full drop cost is correct for it. The credit is
-    applied when rescoring, not in the 40-sim shortlist: a two-for-one whose
+    applied when rescoring, not in the shortlist pass: a two-for-one whose
     giver only clears WITH the credit can be missed -- missed advice, never
     bad advice.
     """

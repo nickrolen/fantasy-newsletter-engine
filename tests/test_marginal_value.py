@@ -305,3 +305,59 @@ def test_a_cached_baseline_gives_the_same_answer_as_a_fresh_context():
     fresh = _ctx(w)
     assert (mv.marginal_value(warm, "Garrett", adds=[w[4][7]], drops=["P46"])
             == mv.marginal_value(fresh, "Garrett", adds=[w[4][7]], drops=["P46"]))
+
+
+# ---------------------------------------------------------------------------
+# Nick, 10-21: the gate samples trades instead of evaluating all 1,350 from
+# both sides, states the sampling, and reports UNSTABLE rather than picking a
+# sample when two samples disagree on the band.
+# ---------------------------------------------------------------------------
+
+def test_trade_samples_are_disjoint_keyed_and_reproducible():
+    v = _validator()
+    rosters = {m: [f"{m}{i}" for i in range(15)] for m in ("Nick", "Hayden", "Benton", "Garrett")}
+    swaps, chunks = v.sampled_swaps(rosters, 300, 2, ("2026-27", 0))
+    assert len(swaps) == 1350 and [len(c) for c in chunks] == [300, 300]
+    assert not set(chunks[0]) & set(chunks[1])
+    again = v.sampled_swaps(rosters, 300, 2, ("2026-27", 0))[1]
+    assert chunks == again
+    assert chunks != v.sampled_swaps(rosters, 300, 2, ("2026-27", 5))[1]
+    # asking for every swap (or more than exist) is the full, unsampled set
+    assert v.sampled_swaps(rosters, None, 2)[1] == [swaps]
+    assert v.sampled_swaps(rosters, 700, 2)[1] == [swaps]
+
+
+def test_sampled_premise_stats_scale_and_band_each_sample():
+    v = _validator()
+    w = _world(seed=2, n_players=70)
+    projs, rosters, nba, weeks, fas = w
+    small = {m: r[:6] for m, r in rosters.items()}
+    ctx = mv.build_context(projs, small, nba, weeks, "this_week", 1,
+                           extra_players=fas[:8], sims=50)
+    full = v.premise_stats(ctx, small, fas[:8])
+    st = v.premise_stats(ctx, small, fas[:8], trade_sample=60, samples=2, sample_key=("t",))
+    assert "samples" not in full and len(st["samples"]) == 2
+    assert st["swaps_examined"] == full["swaps_examined"] == 216
+    assert (st["rank_spread"], st["gap_points"]) == (full["rank_spread"], full["gap_points"])
+    for c in st["samples"]:
+        assert c["examined"] == 60
+        assert c["estimate"] == round(c["mutual"] / 60 * 216)
+        assert c["interval_95"][0] <= c["estimate"] <= c["interval_95"][1]
+        assert c["band"] in ("CLEAR", "MARGINAL", "FAIL")
+
+
+def test_disagreeing_samples_are_unstable_and_recorded(tmp_path):
+    v = _validator()
+    base = {"rank_spread": 17, "gap_points": 300.0, "swaps_examined": 1350, "free_agents": 115}
+    agree = dict(base, mutual_gain_swaps=40, samples=[
+        {"examined": 300, "mutual": 9, "estimate": 40, "interval_95": [15, 66], "band": "CLEAR"},
+        {"examined": 300, "mutual": 10, "estimate": 45, "interval_95": [18, 72], "band": "CLEAR"}])
+    split = dict(agree, samples=[dict(agree["samples"][0]),
+                                 dict(agree["samples"][1], estimate=27, band="MARGINAL")])
+    assert v.gate_band(agree) == "CLEAR"
+    assert v.gate_band(split) == "UNSTABLE"
+    gate = v.write_gate(split, "2026-27", 0, {"Nick": ["a"]}, path=tmp_path / "g.json", sims=3000)
+    assert gate["band"] == "UNSTABLE" and gate["sampling"]["stable"] is False
+    assert gate["sims"] == 3000 and len(gate["sampling"]["samples"]) == 2
+    from modules import advice_runner as ar
+    assert ar.publish_decision(gate, "2026-27", 5, 3)[0] is False

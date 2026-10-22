@@ -185,23 +185,19 @@ def test_no_second_copy_of_the_ranking_rule():
 
 # 6 -- title odds: a simulated tied week is a T, deterministically
 def test_a_simulated_tied_week_is_a_t_with_no_coin():
-    res = {"Nick": sto.SimulatedWeek("Nick", 1, 1500.0, 40),
-           "Hayden": sto.SimulatedWeek("Hayden", 1, 1500.0, 40)}
-    m1 = sto.simulate_matchup(res, {"manager_a": "Nick", "manager_b": "Hayden"})
-    m2 = sto.simulate_matchup(res, {"manager_a": "Nick", "manager_b": "Hayden"})
+    res = {"Nick": 1500.0, "Hayden": 1500.0}
+    m1 = sto.simulate_matchup(res, {"manager_a": "Nick", "manager_b": "Hayden"}, 1)
+    m2 = sto.simulate_matchup(res, {"manager_a": "Nick", "manager_b": "Hayden"}, 1)
     assert m1.winner is None and m2.winner is None
 
 
-def test_a_simulated_season_records_the_t(monkeypatch):
-    def flat(data, tp, week_data, hist):
-        return {m: sto.SimulatedWeek(m, week_data["week"], 1000.0, 40) for m in MANAGERS}
-    monkeypatch.setattr(sto, "simulate_week_historical", flat)
+def test_a_simulated_season_records_the_t():
+    flat = {2: {m: 1000.0 for m in MANAGERS}}       # one simulation's week 2: all level
     weeks = [{"week": 2, "matchups": [{"manager_a": "Nick", "manager_b": "Hayden"},
                                       {"manager_a": "Benton", "manager_b": "Garrett"}]}]
     start = {"Nick": Record(1, 0), "Hayden": Record(0, 1), "Benton": Record(1, 0), "Garrett": Record(0, 1)}
     pts = {"Nick": 1300.0, "Hayden": 1100.0, "Benton": 1250.0, "Garrett": 1000.0}
-    runs = [sto.simulate_full_season(None, {}, start, {}, pts, weeks, historical_stats={}, use_historical=True)
-            for _ in range(2)]
+    runs = [sto.simulate_full_season(start, {}, pts, weeks, flat) for _ in range(2)]
     for r in runs:
         assert r.final_records["Nick"] == Record(1, 0, 1)
         assert r.final_records["Hayden"] == Record(0, 1, 1)

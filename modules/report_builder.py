@@ -12,6 +12,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional, Any
 
+from .data_loader import SEASON_SIMS
 from .data_loader import (PlayerIndex, add_budget_for, FantasyData, LEAGUE_STRUCTURE, MANAGERS, MANAGER_TO_TEAM,
                           CURRENT_SEASON, classify_position_group,
                           phase_for_week, regular_season_weeks_for,
@@ -3471,7 +3472,7 @@ def build_stats_report(
     week: int,
     waiver_adds: dict[str, list[str]] = None,
     run_simulations: bool = True,
-    num_title_sims: int = 10000,
+    num_title_sims: int = None,
     num_betting_sims: int = 5000,
     seed: int = None,
     injury_statuses: dict[str, str] = None,
@@ -3485,7 +3486,8 @@ def build_stats_report(
         week: Week number to report on
         waiver_adds: Dict mapping manager -> list of waiver add player names
         run_simulations: Whether to run Monte Carlo simulations
-        num_title_sims: Number of title odds simulations
+        num_title_sims: Simulations for title, playoff and Cup odds (default:
+                        config simulations.season_sims)
         num_betting_sims: Number of betting line simulations
         seed: THE seed for this run: every simulator gets it, so a week priced
               in the betting lines and simulated in the bracket share draws.
@@ -3497,6 +3499,8 @@ def build_stats_report(
         Complete stats report as dict (JSON-serializable)
     """
     waiver_adds = waiver_adds or {}
+    if num_title_sims is None:
+        num_title_sims = SEASON_SIMS
     if run_simulations and seed is None:
         raise ValueError("build_stats_report needs the run's seed when simulations run: "
                          "pass seed= (generate_stats_report chooses one per run)")
@@ -3551,7 +3555,8 @@ def build_stats_report(
             )
         else:
             title_odds = run_title_odds_simulation(
-                data, num_simulations=num_title_sims, seed=seed
+                data, num_simulations=num_title_sims, seed=seed,
+                injury_statuses=injury_statuses,
             )
         # The Cup runs after the bracket and is a separate competition with
         # its own seeding, so it gets its own simulation rather than
@@ -3613,7 +3618,6 @@ def build_stats_report(
         title_odds=title_odds.title_odds if title_odds else None,
         waiver_adds=waiver_adds,
         luck_index=luck_index_data,
-        seed=seed,
         freshness_tracker=freshness_tracker,
     )
     

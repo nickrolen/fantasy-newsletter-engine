@@ -22,7 +22,7 @@ from modules import simulator_title_odds as sto
 
 ROOT = Path(__file__).resolve().parent.parent
 SIM_CALLS = ("run_title_odds_simulation", "run_playoff_odds_simulation",
-             "run_cup_odds_simulation", "generate_weekly_betting_lines", "generate_fun_facts")
+             "run_cup_odds_simulation", "generate_weekly_betting_lines")
 
 
 def _script():

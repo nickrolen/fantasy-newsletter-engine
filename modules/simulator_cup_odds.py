@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from typing import Optional
 
+from .data_loader import SEASON_SIMS
 from .data_loader import (
     FantasyData, MANAGERS, CURRENT_SEASON,
     cup_winner, keepers_for, stage_rounds, stage_weeks,
@@ -45,7 +46,7 @@ from .simulator_playoff_odds import (
 # CONFIGURATION
 # =============================================================================
 
-DEFAULT_NUM_SIMULATIONS = 10000
+DEFAULT_NUM_SIMULATIONS = SEASON_SIMS   # config simulations.season_sims
 
 CUP_SEMIFINAL_ROUND = "Cup Semifinals"
 CUP_FINAL_ROUND = "Cup Final"

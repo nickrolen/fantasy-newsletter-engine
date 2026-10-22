@@ -39,26 +39,6 @@ from .lineup_optimizer import (
 DEFAULT_NUM_SIMULATIONS = 5000
 SPREAD_GRANULARITY = 0.5  # Round spreads to nearest 0.5
 
-# Injury discount applied to avg scores, spread, and O/U.
-# The simulator already accounts for INJURY_OVERRIDES (hard outs) and GTD/O statuses,
-# but does NOT model random mid-week injuries (the Wednesday ankle tweak, surprise
-# rest days, etc.). The league's season-long non-IL injury rate is ~14.6%, but ~3-4%
-# of that is already captured by GTD/O checks at generation time. This discount
-# covers the remaining unforeseeable absences.
-# Applied to avg_score_a, avg_score_b, spread, and over_under so the displayed
-# projections reconcile (spread == adj_avg_a - adj_avg_b, O/U == adj_avg_a +
-# adj_avg_b). Moneyline and win probability are NOT adjusted -- they depend on
-# relative strength, which a uniform discount does not change.
-#
-# RECALIBRATION NOTE (June 2026 sampling-engine fix):
-# The 0.10 value was originally calibrated against the old sampler (Normal(mu, 0.8*mu)
-# truncated at zero), where ~4% of "already modeled" depression was actually
-# truncation artifact rather than honest injury modeling. After fixing the sampler
-# (std ~= 0.35*mu, no zero floor) the empirical injury component is closer to the full
-# 14.6% - 3% GTD/O ~= 11-12% -- so 0.10 remains in the right ballpark. Leaving it
-# unchanged here; monitor backtested O/U accuracy and tune to ~0.08-0.12 if the
-# new sampler shows a directional bias.
-OU_INJURY_DISCOUNT = 0.10  # 10% -- tune up/down if O/U is still biased
 
 
 # =============================================================================
@@ -377,6 +357,105 @@ def team_games_from_anchor(data: FantasyData, anchor: date) -> dict[str, list[da
     return hit
 
 
+# =============================================================================
+# BASELINE ABSENCES -- the simulators' side of absence.BaselineBlocks
+# =============================================================================
+
+def team_season_dates(data: FantasyData) -> dict[str, list[date]]:
+    """team -> every scheduled game date this season, ascending. Cached on `data`."""
+    hit = data.__dict__.get("_team_season_dates")
+    if hit is not None:
+        return hit
+    raw = set()
+    sched = data.nba_schedule or {}
+    if "leagueSchedule" in sched:
+        for gd in sched["leagueSchedule"].get("gameDates", []):
+            for g in gd.get("games", []):
+                if str(g.get("gameDateEst", ""))[:10]:
+                    raw.add(str(g["gameDateEst"])[:10])
+    else:
+        for g in sched.get("games", []):
+            if str(g.get("date", ""))[:10]:
+                raw.add(str(g["date"])[:10])
+    out: dict = {}
+    for ds in sorted(raw):
+        d = date.fromisoformat(ds)
+        for team in _playing_teams(data, d):
+            out.setdefault(team, []).append(d)
+    data.__dict__["_team_season_dates"] = out
+    return out
+
+
+def schedule_week_dates(data: FantasyData) -> dict[int, list[date]]:
+    """{fantasy week: its dates} for every week in SCHEDULE.json. Cached."""
+    hit = data.__dict__.get("_schedule_week_dates")
+    if hit is None:
+        hit = {int(w["week"]): get_dates_in_week(w) for w in data.schedule.get("weeks", [])}
+        data.__dict__["_schedule_week_dates"] = hit
+    return hit
+
+
+def hazard_anchor(data: FantasyData, tag_anchor: date = None, tag_week_info: tuple = None) -> date:
+    """The date the baseline's rate is taken from: the first day of the week
+    the projections and tags were fetched for (the same default anchor as a
+    tag). Every simulator in one run shares it; B2 passes the week it is
+    re-pricing, whose first day is the pre-week line's anchor."""
+    if tag_anchor is not None:
+        return tag_anchor
+    if tag_week_info is not None and tag_week_info[1]:
+        return tag_week_info[1][0]
+    tw = tag_week(data)
+    if tw is None or not tw[1]:
+        raise ValueError("no next week to anchor the baseline absence rate to; pass tag_anchor")
+    return tw[1][0]
+
+
+def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
+                    managers=None, season: str = None) -> dict:
+    """player -> absence.BaselineBlocks for every rostered player with a
+    projection. Memoised on `draws` (one season chain per player per run)."""
+    params = data.__dict__.get("_baseline_params")
+    if params is None:
+        params = data.__dict__["_baseline_params"] = absence.baseline_params()
+    season = season or CURRENT_SEASON
+    dates = team_season_dates(data)
+    weeks = schedule_week_dates(data)
+    out = {}
+    for manager in (managers or team_projections.keys()):
+        for name, p in team_projections[manager].players.items():
+            team = p.nba_team.upper()
+            override = absence.override_absence(
+                weeks, dates.get(team, []), anchor, p.out_weeks, p.return_week, p.return_date,
+                p.out_from, p.return_games, p.total_week_games)
+            key = ("baseline", season, name, team, float(p.projected_gp), anchor, override)
+            hit = draws._memo.get(key)
+            if hit is None:
+                hit = absence.BaselineBlocks(draws.seed, season, name, dates.get(team, []),
+                                             anchor, p.projected_gp, draws.n, params, override)
+                draws._memo[key] = hit
+            out[name] = hit
+    return out
+
+
+def entry_available(n: int, entry: tuple, d: date, u_rate, tag_block, base_block) -> np.ndarray:
+    """bool[n]: is this plan entry available on d. Precedence (absence.py):
+    an override's pro-rate, else the tag's block on the games it covers,
+    else the baseline -- never the tag and the baseline on the same game,
+    and no baseline in a week an override governs (entry[7] False)."""
+    avail = np.ones(n, dtype=bool)
+    rate = entry[4]
+    if rate is not None:
+        avail &= u_rate <= rate
+    out_today = tag_block.missed(d) if tag_block is not None else None
+    if out_today is not None:
+        avail &= ~out_today
+    elif entry[7] and base_block is not None:
+        b = base_block.missed(d)
+        if b is not None:
+            avail &= ~b
+    return avail
+
+
 class KeyedDraws:
     """Common random numbers for n simulations (modules/crn.py).
 
@@ -581,7 +660,11 @@ def _eligible(player, week: int, game_date: date, week_start_date: date) -> bool
 def _week_plan(data, team_projections, week_data, managers):
     """Everything about a simulated week that is not random, per manager:
     [(date, [(name, mean, std, group, return_rate or None, positions,
-    projected_fppg), ...]), ...] with players in projection order. Cached on
+    projected_fppg, baseline applies, roster key), ...]), ...] with players
+    in projection order. The roster key is the name the roster (and so the
+    tag and baseline draws) use; entry[0] is PLAYERLIST's spelling, which
+    differs for a few players (S. Gilgeous-Alexander). "baseline applies" is False in a week an INJURY_OVERRIDES entry
+    governs (absence.override_governs). Cached on
     `data` by the identity of the projections.
     """
     cache = data.__dict__.setdefault("_week_plans", {})
@@ -595,8 +678,12 @@ def _week_plan(data, team_projections, week_data, managers):
     week_start_date = dates[0] if dates else None
     plan = {}
     for manager in managers:
+        roster_key = {id(p): k for k, p in team_projections[manager].players.items()}
         ordered = sorted(team_projections[manager].players.values(), key=lambda p: -p.projected_fppg)
         days = []
+        governed = {player.player_name: absence.override_governs(
+                        week_num, dates, player.out_weeks, player.return_week, player.out_from)
+                    for player in ordered}
         for game_date in dates:
             playing = _playing_teams(data, game_date)
             entries = []
@@ -613,7 +700,8 @@ def _week_plan(data, team_projections, week_data, managers):
                 mean, std = game_fp_params(player)
                 entries.append((player.player_name, mean, std,
                                 _position_group(player.positions), rate,
-                                frozenset(player.positions or ()), float(player.projected_fppg)))
+                                frozenset(player.positions or ()), float(player.projected_fppg),
+                                not governed[player.player_name], roster_key[id(player)]))
             days.append((game_date, entries))
         plan[manager] = days
     cache[key] = (team_projections, plan)
@@ -682,7 +770,8 @@ def simulate_week_matrix(
     Returns manager -> {"score", "games", "G", "F", "C"}, each an array of
     length n. Per day, per manager: the players eligible today in projection
     order; a per-simulation availability mask (return_games pro-rating, the
-    A2 tag block); starters = the optimal LEGAL lineup of the available
+    A2 tag block, and on every other game the baseline hazard -- the
+    player's season of untagged absences, absence.BaselineBlocks); starters = the optimal LEGAL lineup of the available
     players (lineup_fill.exact_fill: PG SG G SF PF F C C UTIL UTIL, most
     starters then most projected points -- A4), solved once per distinct
     availability pattern (legal_starters); points = keyed normal draws on
@@ -704,6 +793,8 @@ def simulate_week_matrix(
     blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor,
                         anchors, tag_week_info, observed, from_date)
     plan = _week_plan(data, team_projections, week_data, managers)
+    base = baseline_blocks(data, team_projections, draws,
+                           hazard_anchor(data, tag_anchor, tag_week_info), managers)
     noise_scale = remaining_noise_scale(data, dates, from_date)
     fills = data.__dict__.setdefault("_lineup_fills", {})
 
@@ -714,22 +805,19 @@ def simulate_week_matrix(
         days = [(d, e) for d, e in plan[manager] if e and (from_date is None or d >= from_date)]
         game_keys = [(e[0], d) for d, es in days for e in es]
         z_all = draws.normals_many("game", game_keys) if game_keys else None
-        rate_keys = [(e[0], d) for d, es in days for e in es if e[4] is not None]
+        rate_keys = [(e[8], d) for d, es in days for e in es if e[4] is not None]
         u_rate = dict(zip(rate_keys, draws.uniforms_many("avail", rate_keys).T)) if rate_keys else {}
         col = 0
         for game_date, entries in days:
             width = len(entries)
-            avail = np.ones((n, width), dtype=bool)
+            avail = np.empty((n, width), dtype=bool)
             mean = np.empty(width)
             std = np.empty(width)
-            for j, (name, mu, sd, _g, rate, _pos, _w) in enumerate(entries):
-                mean[j], std[j] = mu, sd
-                if rate is not None:
-                    avail[:, j] &= u_rate[(name, game_date)] <= rate
-                blk = blocks.get(name)
-                out_today = blk.missed(game_date) if blk is not None else None
-                if out_today is not None:
-                    avail[:, j] &= ~out_today
+            for j, e in enumerate(entries):
+                name = e[0]
+                mean[j], std[j] = e[1], e[2]
+                avail[:, j] = entry_available(n, e, game_date, u_rate.get((e[8], game_date)),
+                                              blocks.get(e[8]), base.get(e[8]))
             fp = np.where(mean > 0, mean + std * z_all[:, col:col + width], 0.0)
             col += width
             starters = legal_starters(avail, entries, fills)
@@ -748,6 +836,20 @@ def simulate_week_matrix(
             res["score"] = np.maximum(0.0, res["score"] + noise)
         results[manager] = res
     return results
+
+
+def availability_on(data: FantasyData, team_projections, week_data: dict, injury_statuses,
+                    draws, manager: str, player: str, d: date, tag_anchor: date = None) -> np.ndarray:
+    """bool[n]: is `player` (on `manager`'s roster) available on d -- exactly
+    what simulate_week_matrix uses. For marginal_value's agreement test."""
+    plan = _week_plan(data, team_projections, week_data, [manager])
+    entry = next((e for dd, es in plan[manager] if dd == d for e in es if e[8] == player), None)
+    if entry is None:
+        return np.zeros(draws.n, dtype=bool)
+    blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor)
+    base = baseline_blocks(data, team_projections, draws, hazard_anchor(data, tag_anchor), [manager])
+    u = draws.uniforms("avail", player, d) if entry[4] is not None else None
+    return entry_available(draws.n, entry, d, u, blocks.get(player), base.get(player))
 
 
 def remaining_noise_scale(data: FantasyData, dates: list, from_date: date = None) -> float:
@@ -875,9 +977,10 @@ def line_from_scores(
     """A BettingLine from simulated (remaining) scores plus banked points.
 
     Win probability is read off the TOTAL (banked + simulated): banked is a
-    constant, so it shifts the distribution and does not widen it. The
-    injury discount applies to the simulated part only -- banked points
-    already happened. With banked = 0 this is the pre-week line exactly.
+    constant, so it shifts the distribution and does not widen it. With
+    banked = 0 this is the pre-week line exactly. There is no flat injury
+    discount: untagged absences are simulated (absence.py, the baseline
+    hazard), so the mean already carries them -- and differently per roster.
     """
     n = len(scores_a)
     assert len(scores_b) == n
@@ -904,26 +1007,21 @@ def line_from_scores(
     win_prob_a = wins_a / n
     win_prob_b = wins_b / n
 
-    # Apply injury discount to the SIMULATED points. This accounts for random
-    # mid-week injuries not captured by INJURY_OVERRIDES or GTD/O statuses.
-    # The discount is applied to BOTH the spread AND the O/U (and to the
-    # displayed avg_score_{a,b}) so the displayed projections reconcile:
+    # The displayed projections reconcile with the simulation:
     # spread == adj_avg_a - adj_avg_b, O/U == adj_avg_a + adj_avg_b.
-    # Moneyline and win probability are not adjusted -- they depend on
-    # relative strength, which a uniform discount does not change.
-    rem_a = float(scores_a.mean()) * (1 - OU_INJURY_DISCOUNT)
-    rem_b = float(scores_b.mean()) * (1 - OU_INJURY_DISCOUNT)
+    rem_a = float(scores_a.mean())
+    rem_b = float(scores_b.mean())
     adj_avg_a = banked_a + rem_a
     adj_avg_b = banked_b + rem_b
 
-    # Spread (difference in DISCOUNTED projected scores)
+    # Spread (difference in projected scores)
     # Negative spread = favored (expected to win by that many points).
     # If A scores more on average, A is favored, so spread_a should be negative.
     raw_spread = adj_avg_a - adj_avg_b  # Positive if A scores more
     spread_a = -round(raw_spread / SPREAD_GRANULARITY) * SPREAD_GRANULARITY  # Negate: higher score = negative spread
     spread_b = -spread_a
 
-    # Over/Under (uses discounted avg scores)
+    # Over/Under
     over_under = round((adj_avg_a + adj_avg_b) / 10) * 10  # Round to nearest 10
 
     # Moneylines

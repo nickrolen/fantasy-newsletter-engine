@@ -78,6 +78,13 @@ HISTORICAL_LEAGUE_KEYS = _LEAGUE_CONFIG.get("yahoo", {}).get("historical_league_
 LEAGUE_STRUCTURE = _LEAGUE_CONFIG.get("league_structure", {})
 KEEPER_ERA_START = LEAGUE_STRUCTURE.get("keeper_era_start", "2021-22")
 
+# --- Simulation counts (from config; no fallback -- a missing key raises) ---
+SEASON_SIMS = int(_LEAGUE_CONFIG["simulations"]["season_sims"])
+MARGINAL_VALUE_SIMS = int(_LEAGUE_CONFIG["simulations"]["marginal_value_sims"])
+MARGINAL_VALUE_SHORTLIST_SIMS = int(_LEAGUE_CONFIG["simulations"]["marginal_value_shortlist_sims"])
+PREMISE_TRADE_SAMPLE = int(_LEAGUE_CONFIG["simulations"]["premise_trade_sample"])
+PREMISE_TRADE_SAMPLES = int(_LEAGUE_CONFIG["simulations"]["premise_trade_samples"])
+
 # --- Season config (from config) ---
 SEASON_CONFIG = _LEAGUE_CONFIG.get("season", {})
 CURRENT_SEASON = SEASON_CONFIG.get("current", "")

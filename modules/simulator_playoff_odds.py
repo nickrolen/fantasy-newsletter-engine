@@ -38,6 +38,7 @@ from dataclasses import dataclass, field
 from collections import defaultdict
 from typing import Optional
 
+from .data_loader import SEASON_SIMS
 from .data_loader import (
     FantasyData, MANAGERS, CURRENT_SEASON, Record, standings_order,
     REGULAR_SEASON_WEEKS, TIEBREAKER_RULES,
@@ -54,7 +55,7 @@ from .simulator_betting import week_score_matrices, scores_at
 # CONFIGURATION
 # =============================================================================
 
-DEFAULT_NUM_SIMULATIONS = 10000
+DEFAULT_NUM_SIMULATIONS = SEASON_SIMS   # config simulations.season_sims
 
 # Round names as they appear in league_config.postseason_format.
 SEMIFINAL_ROUND = "Semifinals"

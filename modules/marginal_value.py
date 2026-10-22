@@ -33,11 +33,10 @@ MV is the mean over s of total(changed) - total(current).
 
 COMMON RANDOM NUMBERS, KEYED
 ----------------------------
-A player's availability on a date in simulation s is a pure function of
-(seed, player, date, s): its own generator, seeded from a hash of the
-first three. No shared stream, so adding or dropping one player cannot
-shift anyone else's draws, and the same question twice gives exactly the
-same answer.
+A player's availability in simulation s is a pure function of the seed, the
+player and s (modules/crn.py): no shared stream, so adding or dropping one
+player cannot shift anyone else's draws, and the same question twice gives
+exactly the same answer.
 
 AVAILABILITY -- one model, the simulators'
 -------------------------------------------
@@ -49,11 +48,16 @@ AVAILABILITY -- one model, the simulators'
      window's first day, the week the tags were fetched for -- and his
      first k team games from the anchor are out. Blocks, not coin flips.
      An override entry touching that week suppresses the tag.
-  4. every game: per-game rate = projected_gp / max projected_gp among
-     rostered players, capped at 0.98 (simulator_title_odds' reliability
-     model), drawn independently per date.
-`availability()` is steps 1, 2 and 4 as a probability; `tag_missed()` is
-step 3 as a realised mask; `_draws` combines them.
+     A partial return without a date (return_games of total_week_games) is
+     pro-rated per game, keyed ("avail", player, date), as the simulator does.
+  4. every other game: the baseline hazard, absence.BaselineBlocks -- his
+     season of untagged absences, in blocks, at rate (remaining team games -
+     projected_gp) / remaining team games, keyed (seed, "baseline", season,
+     player). Not on a game the tag covers, and not in a week an override
+     governs. The SAME object the week engine uses: for one seed and n the
+     two return identical availability (tests/test_baseline_hazard.py).
+`availability()` is steps 1 and 2; `tag_missed()` is step 3; `_draws`
+combines all four.
 
 SPEED
 -----
@@ -77,13 +81,13 @@ from typing import Iterable, Optional, Sequence
 
 import numpy as np
 
-from .data_loader import PlayerIndex, CURRENT_SEASON, stage_weeks
+from .data_loader import (PlayerIndex, CURRENT_SEASON, MARGINAL_VALUE_SIMS,
+                          MARGINAL_VALUE_SHORTLIST_SIMS, stage_weeks)
 from .lineup_fill import exact_fill
 from . import absence, crn
 
-DEFAULT_SIMS = 400
-SHORTLIST_SIMS = 40
-AVAILABILITY_CAP = 0.98
+DEFAULT_SIMS = MARGINAL_VALUE_SIMS   # config simulations.marginal_value_sims (was 400)
+SHORTLIST_SIMS = MARGINAL_VALUE_SHORTLIST_SIMS   # config simulations.marginal_value_shortlist_sims (was 40)
 
 # Show the Cup-seeding column for a manager once his regular-season finish is
 # this settled: one finishing place holds at least this probability in the
@@ -157,10 +161,10 @@ def cup_column_live(
                 keeper. In a four-team league this is the commoner case and
                 it comes earlier.
 
-    COUPLING (A4, checked 10-20): "settled" reads simulator_title_odds, whose
-    published path (simulate_week_historical) is a games-count model with no
-    daily lineups, so A4's positional fix does not move it. "out" uses
-    standings only and is unaffected.
+    COUPLING: "settled" reads simulator_title_odds' finish distribution,
+    which since 10-21 comes from the betting lines' keyed week engine
+    (legal lineups, the NBA schedule, tags) over the remaining weeks. "out"
+    uses standings only.
 
     finish_distribution may be probabilities or percentages.
     """
@@ -187,13 +191,15 @@ class MVPlayer:
     team: str
     positions: frozenset
     fppg: float
-    rate: float                         # per-game availability, healthy
+    projected_gp: Optional[float]       # remaining-games GP; None if unprojected
     out_weeks: frozenset = frozenset()
     return_week: Optional[int] = None
     return_date: Optional[date] = None
     status: str = "HEALTHY"
     projected: bool = True              # False: not in PLAYERLIST
     out_from: Optional[date] = None     # INJURY_OVERRIDES out_from (A2)
+    return_games: Optional[int] = None  # INJURY_OVERRIDES partial return, no date
+    total_week_games: Optional[int] = None
 
 
 @dataclass
@@ -206,6 +212,10 @@ class MVContext:
     sims: int
     seed: int
     unprojected: list = field(default_factory=list)
+    season: str = None
+    team_dates: dict = field(default_factory=dict)   # team -> season game dates
+    week_dates: dict = field(default_factory=dict)   # every schedule week -> its dates
+    _baseline: dict = field(default_factory=dict, repr=False)
     _avail: dict = field(default_factory=dict, repr=False)
     _fill: dict = field(default_factory=dict, repr=False)
     _day: dict = field(default_factory=dict, repr=False)
@@ -277,9 +287,6 @@ def build_context(
     fallback = PlayerIndex(fallback_info or {})
 
     rostered = [n for ps in rosters.values() for n in ps]
-    gps = [p.projected_gp for n in rostered
-           if (p := proj_idx.get(n)) is not None and p.projected_gp > 0]
-    max_gp = max(gps) if gps else None
 
     players, unprojected = PlayerIndex(), []
     for name in list(dict.fromkeys(list(rostered) + list(extra_players))):
@@ -288,32 +295,35 @@ def build_context(
             team, pos = fallback.get(name, ("", ""))
             positions = frozenset(x.strip() for x in str(pos or "").split(",") if x.strip())
             players[name] = MVPlayer(name, str(team or ""), positions, 0.0,
-                                     AVAILABILITY_CAP, projected=False)
+                                     None, projected=False)
             unprojected.append(name)
             continue
-        if max_gp and p.projected_gp > 0:
-            rate = min(AVAILABILITY_CAP, p.projected_gp / max_gp)
-        else:
-            rate = 0.0 if (max_gp and p.projected_gp <= 0) else AVAILABILITY_CAP
         fppg = p.effective_fppg if (p.effective_fppg or 0) > 0 else p.projected_fppg
         players[name] = MVPlayer(
             name=name, team=str(p.nba_team).upper(),
             positions=frozenset(p.positions or []), fppg=float(fppg or 0.0),
-            rate=float(rate), out_weeks=frozenset(p.out_weeks or []),
+            projected_gp=float(p.projected_gp or 0.0), out_weeks=frozenset(p.out_weeks or []),
             return_week=p.return_week,
             return_date=(date.fromisoformat(p.return_date) if p.return_date else None),
             status=str(statuses.get(name, "HEALTHY")).upper(),
-            out_from=absence.parse_out_from(getattr(p, "out_from", None)))
+            out_from=absence.parse_out_from(getattr(p, "out_from", None)),
+            return_games=getattr(p, "return_games", None),
+            total_week_games=getattr(p, "total_week_games", None))
     # An unmodelled tag on anyone simulated raises here, once, naming them all.
     absence.check_tags({n: pl.status for n, pl in dict.items(players)}, dict.keys(players))
 
     weeks = window_weeks(window, current_week, season)
     by_week = _week_dates(schedule_weeks)
     teams = _teams_by_date(nba_schedule)
+    team_dates: dict = {}
+    for d in sorted(teams):
+        for t in teams[d]:
+            team_dates.setdefault(str(t).upper(), []).append(d)
     days = [(d, w, frozenset(teams.get(d, ()))) for w in weeks for d in by_week.get(w, [])]
     return MVContext(players=players, rosters={m: list(v) for m, v in rosters.items()},
                      window=window, weeks=weeks, days=days, sims=sims, seed=seed,
-                     unprojected=unprojected)
+                     unprojected=unprojected, season=season or CURRENT_SEASON,
+                     team_dates=team_dates, week_dates=by_week)
 
 
 # =============================================================================
@@ -325,8 +335,9 @@ def _dates_of_week(ctx: MVContext, week: int) -> list:
 
 
 def availability(ctx: MVContext, p: MVPlayer, d: date, week: int) -> float:
-    """Probability p plays on d if his team does, before any tag (steps 1,
-    2 and 4). The tag is a realised block, not a probability: tag_missed."""
+    """1.0 or 0.0: whether INJURY_OVERRIDES (steps 1 and 2) allow p on d.
+    Everything random -- the pro-rate, the tag, the baseline -- is a realised
+    mask in _draws."""
     if week in p.out_weeks:
         return 0.0
     if p.out_from is not None:
@@ -335,7 +346,35 @@ def availability(ctx: MVContext, p: MVPlayer, d: date, week: int) -> float:
             return 0.0
     if p.return_date is not None and week == p.return_week and d < p.return_date:
         return 0.0
-    return p.rate
+    return 1.0
+
+
+def baseline(ctx: MVContext, p: MVPlayer):
+    """absence.BaselineBlocks for p, or None (unprojected: valued at 0.0 and
+    given no hazard). Anchored at the window's first day -- the week the
+    projections were fetched for, the week engine's anchor too."""
+    if p.projected_gp is None or not ctx.days:
+        return None
+    hit = ctx._baseline.get(p.name)
+    if hit is None:
+        anchor = ctx.days[0][0]
+        team_dates = ctx.team_dates.get(p.team, [])
+        override = absence.override_absence(
+            ctx.week_dates, team_dates, anchor, p.out_weeks, p.return_week, p.return_date,
+            p.out_from, p.return_games, p.total_week_games)
+        hit = ctx._baseline[p.name] = absence.BaselineBlocks(
+            ctx.seed, ctx.season, p.name, team_dates, anchor,
+            p.projected_gp, ctx.sims, _baseline_params(), override)
+    return hit
+
+
+_PARAMS = []
+
+
+def _baseline_params():
+    if not _PARAMS:
+        _PARAMS.append(absence.baseline_params())
+    return _PARAMS[0]
 
 
 def tag_missed(ctx: MVContext, p: MVPlayer) -> dict:
@@ -371,11 +410,21 @@ def _draws(ctx: MVContext, p: MVPlayer, d: date, week: int) -> np.ndarray:
     if a <= 0.0:
         out = np.zeros(ctx.sims, dtype=bool)
     else:
-        rng = crn.keyed_rng(ctx.seed, p.name, d)   # un-namespaced; see crn.py
-        out = rng.random(ctx.sims) < a
+        # the same precedence as simulator_betting.entry_available
+        out = np.ones(ctx.sims, dtype=bool)
+        if (p.return_week == week and p.return_date is None
+                and p.return_games and p.total_week_games):
+            u = crn.keyed_uniforms(ctx.seed, "avail", p.name, d, n=ctx.sims)
+            out &= u <= p.return_games / p.total_week_games
         blocked = tag_missed(ctx, p).get(d)
         if blocked is not None:
             out &= ~blocked
+        elif not absence.override_governs(week, _dates_of_week(ctx, week), p.out_weeks,
+                                          p.return_week, p.out_from):
+            b = baseline(ctx, p)
+            m = b.missed(d) if b is not None else None
+            if m is not None:
+                out &= ~m
     ctx._avail[key] = out
     return out
 
@@ -413,6 +462,15 @@ def _day_totals(ctx: MVContext, di: int, playing: tuple) -> tuple[np.ndarray, np
         pts, starts = vals[inverse, 0], vals[inverse, 1]
     ctx._day[key] = (pts, starts)
     return pts, starts
+
+
+def release_caches(ctx: MVContext) -> None:
+    """Drop the per-roster and per-day result caches (availability, fills and
+    absences are kept: they are bounded by players x dates). A sweep over
+    thousands of distinct rosters -- the premise check's 2,700 swaps -- holds
+    one [sims] array per roster per day otherwise, gigabytes at 3,000 sims."""
+    ctx._day.clear()
+    ctx._totals.clear()
 
 
 def roster_totals(ctx: MVContext, roster: Sequence[str]) -> tuple[np.ndarray, np.ndarray, dict]:

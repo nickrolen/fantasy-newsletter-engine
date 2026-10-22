@@ -2306,6 +2306,11 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
     
     # Projected finish distribution
     lines.append("**Projected Finish Distribution:**")
+    # What the title-odds numbers are conditional on (handoff 10-21 section 0):
+    # the rest of the regular season simulated on today's rosters, frozen.
+    lines.append("_Every remaining regular-season week simulated on today's rosters, "
+                 "held fixed -- given no further moves. A pickup or a drop changes "
+                 "these; simulated season point totals run low for the same reason._")
     lines.append("| Team | 1st | 2nd | 3rd | 4th |")
     lines.append("|------|-----|-----|-----|-----|")
     for pr in rankings:

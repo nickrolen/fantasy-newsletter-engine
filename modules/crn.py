@@ -22,8 +22,13 @@ Namespaces in use (one per kind of draw, so two kinds never share numbers):
     game      (seed, "game", player, date)        a game's fantasy points
     noise     (seed, "noise", manager, week_start) team-level weekly noise
     tie       (seed, "tie", matchup_id, week)     simulated-tie coin flip
-marginal_value's per-date availability predates namespaces and keys
-(seed, player, date) with none; it is left byte-identical on purpose.
+    baseline  (seed, "baseline", season, player)  untagged absences, the
+                                                  whole season's chain; drawn
+                                                  as an [n, games + 1] block
+                                                  (row-major, so still
+                                                  prefix-stable in n)
+Both engines (simulator_betting, marginal_value) draw availability from these
+same keys, so for one seed and n they agree on who is out.
 """
 
 from __future__ import annotations

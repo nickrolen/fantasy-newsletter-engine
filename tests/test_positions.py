@@ -24,7 +24,9 @@ WEEK = {"week": 2, "start_date": MON.isoformat(), "end_date": (MON + timedelta(d
 
 def _p(name, pos, fp, team="BOS"):
     return PlayerProjection(player_name=name, nba_team=team, positions=pos.split(","),
-                            projected_fppg=fp, projected_gp=80.0)
+                            projected_fppg=fp, projected_gp=82.0)   # 82 of 82: no untagged absences
+                                                                    # (baseline hazard) -- these tests are
+                                                                    # about positions, not durability
 
 
 def _data(teams_days=None):
@@ -53,7 +55,7 @@ def _universal(tp):
     for n, p in tp.players.items():
         out.players[n] = PlayerProjection(player_name=n, nba_team=p.nba_team,
                                           positions=["PG", "SG", "SF", "PF", "C"],
-                                          projected_fppg=p.projected_fppg, projected_gp=80.0)
+                                          projected_fppg=p.projected_fppg, projected_gp=82.0)
     return out
 
 
@@ -178,12 +180,11 @@ def test_the_bracket_simulators_get_legal_lineups_too():
     assert np.array_equal(mats[2]["Nick"], direct["Nick"]["score"])
 
 
-def test_the_title_odds_daily_path_is_legal_too():
-    only_c = TeamProjections("Nick", {f"C{i}": _p(f"C{i}", "C", 40 - i) for i in range(12)})
-    random.seed(2)
-    _score, games = sto.simulate_manager_daily_score(only_c, {"BOS"}, 2,
-                                                     {n: 1.0 for n in only_c.players})
-    assert games == 4
+def test_title_odds_has_no_lineup_model_of_its_own():
+    """Its daily path (select_top_n_players, then optimize_lineup) is gone:
+    title odds reads week_score_matrices, the legal fill above."""
+    assert not hasattr(sto, "simulate_manager_daily_score")
+    assert not hasattr(sto, "simulate_week")
 
 
 # 6 -- the simulators no longer pick an unconstrained top ten

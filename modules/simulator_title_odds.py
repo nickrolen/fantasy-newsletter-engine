@@ -1,64 +1,59 @@
 """
-simulator_title_odds.py
+simulator_title_odds.py -- the regular-season title race, simulated.
 
-Monte Carlo simulation for rest-of-season title odds.
-Runs 10,000 simulations of remaining season to compute championship probabilities.
+Title odds are the betting lines run over every remaining regular-season
+week (Nick, 10-21: "the same thing as betting lines, but for the whole
+season"). Each remaining week is ONE keyed matrix from
+simulator_betting.week_score_matrices -- the same engine, draws and keys as
+the betting lines and the playoff and Cup brackets -- so the real NBA
+schedule, the 10-a-day cap, legal positions (A4), absence blocks (A2) and
+the live tags are all in it. Simulation i reads column i of every week,
+plays the fantasy schedule's matchups on those scores, and ranks the season
+with data_loader.standings_order (a T is half a win).
 
-Uses simplified lineup model (top 10 by projection) for efficiency.
-Availability is computed from projected_GP / remaining_team_games.
+WHAT THE NUMBER IS CONDITIONAL ON: today's rosters, frozen. "Given no
+further moves, here is where you finish." That is deliberate: it is what
+makes a waiver counterfactual readable -- drop one player, add another, and
+the odds move by exactly that move (common random numbers), not by noise.
+Modelling future adds (A5) would wash that signal out, so A5 stays deferred
+by design. For the same reason simulated season point totals run LOW: every
+injury absorbed is never replaced.
+
+This file used to carry its own week model (a per-manager games count from
+PLAYERLOG with a 1500-point default when PLAYERLOG was empty, never reading
+the NBA schedule) and seven stdlib `random` sites. Both are gone: nothing
+here draws from the global stream.
 """
 
 import math
-import random
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
 from typing import Optional
-from collections import defaultdict
 
+from .data_loader import SEASON_SIMS
 from .data_loader import (
     FantasyData,
     CURRENT_SEASON,
     MANAGERS,
     NUM_TEAMS,
-    REGULAR_SEASON_WEEKS,
     regular_season_weeks_for,
-    TIEBREAKER_RULES,
     Record,
     standings_order,
     week_outcome,
 )
-from .projections import (
-    PlayerProjection,
-    TeamProjections,
-    load_all_team_projections,
-    get_player_availability_ros,
-    is_player_available,
-    sample_player_game_fp,
-    ROS_DEFAULT_AVAILABILITY,
-)
-from .lineup_optimizer import AvailablePlayer, optimize_lineup
+from .projections import load_all_team_projections
+from .simulator_betting import week_score_matrices, scores_at
 
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
-DEFAULT_NUM_SIMULATIONS = 10000
-MAX_STARTERS_PER_DAY = 10
+DEFAULT_NUM_SIMULATIONS = SEASON_SIMS   # config simulations.season_sims
 
 
 # =============================================================================
 # DATA CLASSES
 # =============================================================================
-
-@dataclass
-class SimulatedWeek:
-    """Result of simulating one week for one manager."""
-    manager: str
-    week: int
-    score: float
-    games_played: int
-
 
 @dataclass
 class SimulatedMatchup:
@@ -126,493 +121,21 @@ def get_remaining_weeks(data: FantasyData, current_week: int) -> list[dict]:
     return remaining
 
 
-def get_dates_in_week(week_data: dict) -> list[date]:
-    """Get all dates within a fantasy week."""
-    start = datetime.strptime(week_data["start_date"], "%Y-%m-%d").date()
-    end = datetime.strptime(week_data["end_date"], "%Y-%m-%d").date()
-    
-    dates = []
-    current = start
-    while current <= end:
-        dates.append(current)
-        current += timedelta(days=1)
-    
-    return dates
-
-
-def get_nba_games_on_date(data: FantasyData, game_date: date) -> dict[str, str]:
-    """
-    Get NBA games on a date.
-    
-    Returns dict mapping team -> opponent (with @ prefix for away games)
-    """
-    games_dict = {}
-    
-    # Use the FantasyData method which handles both schedule formats
-    for game in data.get_nba_games_for_date(game_date):
-        home = (game.get("home_team") or game.get("home") or "").upper()
-        away = (game.get("away_team") or game.get("away") or "").upper()
-        if home:
-            games_dict[home] = away
-        if away:
-            games_dict[away] = f"@{home}"
-    
-    return games_dict
-
-
-def compute_remaining_team_games(
-    data: FantasyData,
-    remaining_weeks: list[dict],
-) -> dict[str, int]:
-    """
-    Compute total remaining games for each NBA team.
-    
-    Returns dict mapping NBA team abbreviation -> number of remaining games.
-    """
-    team_games = defaultdict(int)
-    
-    for week_data in remaining_weeks:
-        for game_date in get_dates_in_week(week_data):
-            for game in data.get_nba_games_for_date(game_date):
-                home = (game.get("home_team") or game.get("home") or "").upper()
-                away = (game.get("away_team") or game.get("away") or "").upper()
-                if home:
-                    team_games[home] += 1
-                if away:
-                    team_games[away] += 1
-    
-    return dict(team_games)
-
-
-def compute_player_availability_rates(
-    team_projections: dict[str, TeamProjections],
-    remaining_team_games: dict[str, int],
-    data: FantasyData = None,
-    remaining_weeks: list[dict] = None,
-) -> dict[str, float]:
-    """
-    Compute availability rate for each player based on projected GP.
-    
-    Since projected_GP is for the full NBA season (which extends beyond the 
-    fantasy season), we use it as a RELIABILITY indicator:
-    
-    availability_rate = projected_GP / max_projected_GP
-    
-    A player projected for 48 GP when the max is 50 is ~96% reliable.
-    A player projected for 35 GP when the max is 50 is ~70% reliable.
-    
-    For players with injury overrides:
-    - During out_weeks: 0% (handled in get_player_availability_ros)
-    - After return: Same reliability rate applies
-    
-    Args:
-        team_projections: Dict of manager -> TeamProjections
-        remaining_team_games: Dict of NBA team -> remaining games (for reference)
-        data: FantasyData (optional, for future enhancements)
-        remaining_weeks: List of remaining week data (optional)
-    
-    Returns dict mapping player_name -> availability rate (0.0 to 1.0)
-    """
-    availability_rates = {}
-    
-    # Find the max projected GP to establish "fully healthy" baseline
-    all_proj_gp = []
-    for team in team_projections.values():
-        for player in team.players.values():
-            if player.projected_gp > 0:
-                all_proj_gp.append(player.projected_gp)
-    
-    max_proj_gp = max(all_proj_gp) if all_proj_gp else 50.0
-    
-    for manager, team in team_projections.items():
-        for player in team.players.values():
-            if player.projected_gp <= 0:
-                # No projected GP, assume out
-                availability_rates[player.player_name] = 0.0
-                continue
-            
-            # Use projected GP as reliability indicator
-            # Higher projected GP = more reliable/healthy player
-            rate = player.projected_gp / max_proj_gp
-            
-            # Cap at reasonable bounds (never quite 100%, never below 0%)
-            rate = min(0.98, max(0.0, rate))
-            
-            availability_rates[player.player_name] = rate
-    
-    return availability_rates
-
-
 # =============================================================================
 # SIMULATION CORE
 # =============================================================================
 
-def simulate_manager_daily_score(
-    team_proj: TeamProjections,
-    playing_teams: set[str],
-    week: int,
-    availability_rates: dict[str, float] = None,
-) -> tuple[float, int]:
-    """
-    Simulate a manager's score for one day.
-    
-    Args:
-        team_proj: Team projections
-        playing_teams: Set of NBA teams playing today
-        week: Current week number (for injury override checks)
-        availability_rates: Dict mapping player_name -> availability rate.
-                           If None, uses default 90%.
-    
-    Returns:
-        (total_score, games_played)
-    """
-    if availability_rates is None:
-        availability_rates = {}
-    
-    # Find available players who have games today
-    available = []
-    
-    for player in team_proj.players.values():
-        # Check if player's team is playing
-        if player.nba_team.upper() not in playing_teams:
-            continue
-        
-        # Get player's availability rate (from projected GP / remaining games)
-        player_rate = availability_rates.get(player.player_name)
-        
-        # Check availability (injury overrides + random availability based on rate)
-        availability = get_player_availability_ros(player, week, player_rate)
-        if not is_player_available(availability):
-            continue
-        
-        available.append(AvailablePlayer(
-            name=player.player_name,
-            positions=player.positions,
-            projected_fp=player.projected_fppg,
-        ))
-    
-    if not available:
-        return 0.0, 0
-    
-    # A4: the legal optimal lineup (PG SG G SF PF F C C UTIL UTIL), not the
-    # top ten by projection. NOTE: run_title_odds_simulation always takes the
-    # use_historical=True path (simulate_week_historical, a games-count model
-    # with no daily lineups), so this daily path is not what publishes title
-    # odds -- it is kept legal so it cannot become so by accident.
-    starters = optimize_lineup(available).starters
-    
-    # Sample scores for each starter
-    total_score = 0.0
-    for starter in starters:
-        # Get the full projection for sampling
-        player_proj = team_proj.players.get(starter.player_name)
-        if player_proj:
-            sampled_fp = sample_player_game_fp(player_proj)
-            total_score += sampled_fp
-        else:
-            total_score += starter.projected_fp
-    
-    return total_score, len(starters)
-
-
-def simulate_week(
-    data: FantasyData,
-    team_projections: dict[str, TeamProjections],
-    week_data: dict,
-    availability_rates: dict[str, float] = None,
-) -> dict[str, SimulatedWeek]:
-    """
-    Simulate one week for all managers.
-    
-    Args:
-        data: FantasyData container
-        team_projections: Dict of manager -> TeamProjections
-        week_data: Week schedule data
-        availability_rates: Dict of player_name -> availability rate
-    
-    Returns dict mapping manager -> SimulatedWeek
-    """
-    week_num = week_data["week"]
-    dates = get_dates_in_week(week_data)
-    
-    # Track weekly totals per manager
-    weekly_scores = {m: 0.0 for m in MANAGERS}
-    weekly_games = {m: 0 for m in MANAGERS}
-    
-    for game_date in dates:
-        # Get teams playing today
-        games = get_nba_games_on_date(data, game_date)
-        playing_teams = set(games.keys())
-        
-        for manager in MANAGERS:
-            team_proj = team_projections[manager]
-            day_score, day_games = simulate_manager_daily_score(
-                team_proj, playing_teams, week_num, availability_rates
-            )
-            weekly_scores[manager] += day_score
-            weekly_games[manager] += day_games
-    
-    # Add team-level variance
-    for manager in MANAGERS:
-        team_proj = team_projections[manager]
-        noise = random.gauss(0, team_proj.weekly_std_dev * 0.2)
-        weekly_scores[manager] = max(0, weekly_scores[manager] + noise)
-    
-    return {
-        manager: SimulatedWeek(
-            manager=manager,
-            week=week_num,
-            score=weekly_scores[manager],
-            games_played=weekly_games[manager],
-        )
-        for manager in MANAGERS
-    }
-
-
-def compute_historical_weekly_stats(data: FantasyData) -> dict[str, dict]:
-    """
-    Compute historical weekly statistics from PLAYERLOG.
-    
-    Returns dict mapping manager -> {
-        'avg_games': float,  # Average games started per week
-        'avg_score': float,  # Average weekly score
-        'std_score': float,  # Standard deviation of weekly scores
-        'avg_fppg': float,   # Average FPPG across all started games
-    }
-    """
-    plog = data.playerlog
-    started = plog[plog['started'] == True]
-    
-    stats = {}
-    for manager in MANAGERS:
-        mgr_data = started[started['manager'] == manager]
-        
-        # Weekly aggregates
-        weekly = mgr_data.groupby('week').agg({
-            'fantasy_points': ['sum', 'count']
-        })
-        weekly.columns = ['total_fp', 'games']
-        
-        if len(weekly) > 0:
-            stats[manager] = {
-                'avg_games': weekly['games'].mean(),
-                'avg_score': weekly['total_fp'].mean(),
-                'std_score': weekly['total_fp'].std() if len(weekly) > 1 else 150.0,
-                'avg_fppg': mgr_data['fantasy_points'].mean(),
-            }
-        else:
-            stats[manager] = {
-                'avg_games': 40.0,
-                'avg_score': 1500.0,
-                'std_score': 150.0,
-                'avg_fppg': 37.0,
-            }
-    
-    return stats
-
-
-def simulate_week_historical(
-    data: FantasyData,
-    team_projections: dict[str, TeamProjections],
-    week_data: dict,
-    historical_stats: dict[str, dict] = None,
-) -> dict[str, SimulatedWeek]:
-    """
-    Simulate one week with maximum realism.
-    
-    This simulation accounts for:
-    1. Full roster depth (all 16-17 players, not just top 10)
-    2. Historical games-per-week patterns (stable across roster turnover)
-    3. Injury overrides (players out specific weeks)
-    4. Player availability based on projected_gp (injury-prone players play less)
-    5. Player-by-player variance using projected FPPG and std dev
-    6. Realistic game distribution across roster
-    
-    Key insight: projected_gp reflects expected availability. A player projected
-    for 32 GP vs 48 GP should get proportionally fewer games in our simulation.
-    This captures injury risk, rest patterns, and reliability.
-    
-    Args:
-        data: FantasyData container
-        team_projections: Dict of manager -> TeamProjections  
-        week_data: Week schedule data
-        historical_stats: Pre-computed historical stats (optional)
-    
-    Returns dict mapping manager -> SimulatedWeek
-    """
-    week_num = week_data["week"]
-    
-    if historical_stats is None:
-        historical_stats = compute_historical_weekly_stats(data)
-    
-    # Calculate league average games per week
-    league_avg_games = sum(h['avg_games'] for h in historical_stats.values()) / len(historical_stats)
-    
-    # Regression weight: how much to regress toward league average
-    # 0.0 = use full historical, 1.0 = use full league average
-    # 0.5 = blend 50/50 (assumes outliers will partially normalize)
-    REGRESSION_WEIGHT = 0.5
-    
-    results = {}
-    
-    for manager in MANAGERS:
-        team = team_projections[manager]
-        hist = historical_stats[manager]
-        
-        # Regress this manager's historical games/week toward league average
-        # This prevents punishing managers who had early injuries (they'll recover)
-        # while still giving credit to managers who consistently get more games
-        manager_hist_games = hist['avg_games']
-        manager_avg_games = manager_hist_games * (1 - REGRESSION_WEIGHT) + league_avg_games * REGRESSION_WEIGHT
-        
-        # Get all players available this week (not on injury override)
-        all_players = []
-        for p in team.players.values():
-            is_out = week_num in p.out_weeks
-            if not is_out and p.projected_fppg > 0:
-                all_players.append(p)
-        
-        if not all_players:
-            results[manager] = SimulatedWeek(manager=manager, week=week_num, score=0.0, games_played=0)
-            continue
-        
-        # Find max projected_gp to establish baseline availability
-        max_gp = max(p.projected_gp for p in all_players if p.projected_gp > 0)
-        if max_gp == 0:
-            max_gp = 50  # Fallback
-        
-        # Calculate availability rate for each player
-        # Higher projected_gp = more reliable = more games
-        player_availability = {}
-        for p in all_players:
-            if p.projected_gp > 0:
-                player_availability[p.player_name] = p.projected_gp / max_gp
-            else:
-                player_availability[p.player_name] = 0.5  # Unknown, assume average
-        
-        # Sort by availability-weighted FPPG (best effective value first)
-        all_players.sort(key=lambda p: p.projected_fppg * player_availability[p.player_name], reverse=True)
-        
-        # Calculate team's effective strength relative to full availability
-        # This affects total games (weaker effective roster = slightly fewer quality starts)
-        avg_availability = sum(player_availability[p.player_name] for p in all_players[:10]) / min(10, len(all_players))
-        
-        # Expected games: this manager's historical average, scaled by availability
-        expected_games = manager_avg_games * max(0.90, min(1.0, avg_availability))
-        
-        # Add variance to total games (week-to-week schedule variance ~8%)
-        actual_games = max(25, int(random.gauss(expected_games, expected_games * 0.08)))
-        
-        # Distribute games across roster
-        # Weight by BOTH rank AND availability
-        # A highly-available depth player might get more games than an injury-prone star
-        
-        num_players = len(all_players)
-        weights = []
-        for i, p in enumerate(all_players):
-            # Rank weight: decreases with rank
-            rank_weight = 0.95 ** i
-            
-            # Availability weight: from projected_gp
-            avail_weight = player_availability[p.player_name]
-            
-            # Combined weight: rank matters more, but availability adjusts it
-            # A top player at 65% availability gets ~65% of a full-availability top player
-            combined_weight = rank_weight * avail_weight
-            weights.append(combined_weight)
-        
-        total_weight = sum(weights)
-        if total_weight == 0:
-            total_weight = 1  # Avoid division by zero
-        
-        # First pass: allocate expected games based on weights
-        expected_games_list = []
-        for i, player in enumerate(all_players):
-            expected = actual_games * (weights[i] / total_weight)
-            expected_games_list.append(expected)
-        
-        # Second pass: add variance and cap
-        player_games = []
-        for i, (player, expected) in enumerate(zip(all_players, expected_games_list)):
-            # Add individual variance (more variance for injury-prone players)
-            avail = player_availability[player.player_name]
-            variance = max(0.5, expected * (0.10 + 0.15 * (1 - avail)))  # More variance if less reliable
-            
-            game_count = max(0, round(random.gauss(expected, variance)))
-            game_count = min(game_count, 7)  # Cap at 7 games per week
-            player_games.append([player, game_count])
-        
-        # Adjust to hit target exactly
-        current_total = sum(g for _, g in player_games)
-        diff = actual_games - current_total
-        
-        attempts = 0
-        while diff != 0 and attempts < 50:
-            if diff > 0:
-                # Need more games - add to a player under cap, weighted by availability
-                eligible = [i for i, (p, g) in enumerate(player_games) if g < 7]
-                if eligible:
-                    weights_eligible = [weights[i] for i in eligible]
-                    total_w = sum(weights_eligible)
-                    if total_w > 0:
-                        probs = [w/total_w for w in weights_eligible]
-                        idx = random.choices(eligible, weights=probs)[0]
-                        player_games[idx][1] += 1
-                        diff -= 1
-                    else:
-                        break
-                else:
-                    break
-            else:
-                # Too many games - remove from a player, prefer low-availability players
-                eligible = [i for i, (p, g) in enumerate(player_games) if g > 0]
-                if eligible:
-                    # Inverse weight - remove from less reliable players first
-                    weights_eligible = [1.0 / (weights[i] + 0.1) for i in eligible]
-                    total_w = sum(weights_eligible)
-                    probs = [w/total_w for w in weights_eligible]
-                    idx = random.choices(eligible, weights=probs)[0]
-                    player_games[idx][1] -= 1
-                    diff += 1
-                else:
-                    break
-            attempts += 1
-        
-        # Simulate each player's contribution
-        total_score = 0.0
-        total_games_played = 0
-        
-        for player, num_games in player_games:
-            for _ in range(num_games):
-                # Sample from player's distribution
-                sampled_fp = sample_player_game_fp(player)
-                total_score += sampled_fp
-                total_games_played += 1
-        
-        # Add small team-level noise (lineup decisions, late scratches, etc.)
-        team_noise = random.gauss(0, hist['std_score'] * 0.15)
-        total_score = max(0, total_score + team_noise)
-        
-        results[manager] = SimulatedWeek(
-            manager=manager,
-            week=week_num,
-            score=total_score,
-            games_played=total_games_played,
-        )
-    
-    return results
-
-
 def simulate_matchup(
-    week_results: dict[str, SimulatedWeek],
+    scores: dict[str, float],
     matchup_def: dict,
+    week: int,
 ) -> SimulatedMatchup:
-    """Simulate a single matchup given weekly scores."""
+    """One matchup, read off one simulated week's scores {manager: score}."""
     manager_a = matchup_def["manager_a"]
     manager_b = matchup_def["manager_b"]
     
-    score_a = week_results[manager_a].score
-    score_b = week_results[manager_b].score
+    score_a = scores[manager_a]
+    score_b = scores[manager_b]
     
     # A tied regular-season week is a T for both, not a win for anyone
     # (tiebreaker_rules.regular_season_week; Nick, 10-20). winner None.
@@ -621,7 +144,7 @@ def simulate_matchup(
     winner = manager_a if outcome == "a" else (manager_b if outcome == "b" else None)
     
     return SimulatedMatchup(
-        week=week_results[manager_a].week,
+        week=week,
         manager_a=manager_a,
         manager_b=manager_b,
         score_a=score_a,
@@ -642,52 +165,34 @@ def apply_tiebreakers(
 
 
 def simulate_full_season(
-    data: FantasyData,
-    team_projections: dict[str, TeamProjections],
     current_records: dict[str, Record],
     current_h2h: dict[str, dict[str, Record]],
     current_points: dict[str, float],
     remaining_weeks: list[dict],
-    availability_rates: dict[str, float] = None,
-    historical_stats: dict[str, dict] = None,
-    use_historical: bool = True,
+    week_scores: dict[int, dict[str, float]],
 ) -> SimulatedSeason:
     """
-    Simulate the remainder of the season.
-    
-    Args:
-        data: FantasyData container
-        team_projections: Projections for all teams
-        current_records: Starting records
-        current_h2h: Starting H2H records
-        current_points: Starting total points
-        remaining_weeks: List of week data dicts for remaining weeks
-        availability_rates: Dict of player_name -> availability rate
-        historical_stats: Pre-computed historical weekly stats
-        use_historical: If True, use historical-based simulation (accounts for roster turnover)
-    
-    Returns:
-        SimulatedSeason with final results
+    Play out the rest of the regular season once.
+
+    week_scores is ONE simulation's {week: {manager: score}} for every
+    remaining week -- scores_at(week_score_matrices(...), i). The fantasy
+    schedule's matchups are played on those scores; a tied week is a T for
+    both (tiebreaker_rules.regular_season_week). Raises if a remaining week
+    has no scores rather than skipping it.
     """
-    # Copy current state
     records = dict(current_records)
     h2h = {m: dict(h) for m, h in current_h2h.items()}
     points = dict(current_points)
-    
-    # Simulate each remaining week
+
     for week_data in remaining_weeks:
-        if use_historical and historical_stats is not None:
-            week_results = simulate_week_historical(data, team_projections, week_data, historical_stats)
-        else:
-            week_results = simulate_week(data, team_projections, week_data, availability_rates)
-        
-        # Update points
-        for manager, result in week_results.items():
-            points[manager] += result.score
-        
-        # Simulate matchups
+        week = int(week_data["week"])
+        if week not in week_scores:
+            raise KeyError(f"no simulated scores for regular-season week {week}")
+        scores = week_scores[week]
+        for manager, score in scores.items():
+            points[manager] = points.get(manager, 0.0) + score
         for matchup_def in week_data["matchups"]:
-            matchup = simulate_matchup(week_results, matchup_def)
+            matchup = simulate_matchup(scores, matchup_def, week)
             a, b = matchup.manager_a, matchup.manager_b
             if matchup.winner is None:
                 ra, rb = "tie", "tie"
@@ -697,18 +202,13 @@ def simulate_full_season(
             records[b] = records.get(b, Record()).add(rb)
             h2h.setdefault(a, {})[b] = h2h.get(a, {}).get(b, Record()).add(ra)
             h2h.setdefault(b, {})[a] = h2h.get(b, {}).get(a, Record()).add(rb)
-    
-    final_records = dict(records)
-    
-    # Apply tiebreakers to determine final order
-    finish_order = apply_tiebreakers(final_records, h2h, points)
-    champion = finish_order[0]
-    
+
+    finish_order = apply_tiebreakers(records, h2h, points)
     return SimulatedSeason(
-        final_records=final_records,
+        final_records=dict(records),
         final_points=points,
         h2h_records=h2h,
-        champion=champion,
+        champion=finish_order[0],
         finish_order=finish_order,
     )
 
@@ -767,46 +267,46 @@ def run_title_odds_simulation(
     data: FantasyData,
     num_simulations: int = DEFAULT_NUM_SIMULATIONS,
     seed: int = None,
+    injury_statuses: dict = None,
+    team_projections: dict = None,
 ) -> TitleOddsResult:
     """
-    Run Monte Carlo simulation for title odds.
-    
+    The regular-season title race, Monte Carlo over the remaining weeks.
+
+    Conditional on today's rosters, frozen -- see the module docstring.
+
     Args:
         data: FantasyData container
         num_simulations: Number of simulations to run
-        seed: the run's seed (required). Title odds still draw from stdlib
-              `random` (not yet ported to keyed draws), seeded here.
-    
+        seed: the run's seed (required): the same keyed draws as the betting
+              lines and brackets, so a week is one simulated truth.
+        injury_statuses: Yahoo tags, as the betting lines get them (they
+              reach the first remaining week's games through absence.py).
+        team_projections: rosters to simulate (default: today's, loaded from
+              data). Pass a changed copy to price a move -- drop one player,
+              add another -- against the same draws.
+
     Returns:
         TitleOddsResult with all simulation results
     """
     if seed is None:
         raise ValueError("run_title_odds_simulation needs an explicit seed: one seed per run, "
                          "chosen by the caller (generate_stats_report picks it)")
-    random.seed(seed)
-    
+
     current_week = data.current_week
-    
-    # Load team projections
-    team_projections = load_all_team_projections(data)
-    
-    # Get current state
-    current_records = {}
-    current_points = {}
-    for manager in MANAGERS:
-        current_records[manager] = data.get_manager_record(manager)
-        # Get total points from leaguehistory
-        row = data.leaguehistory[data.leaguehistory["manager_name"] == manager]
-        if not row.empty:
-            current_points[manager] = float(row.iloc[0].get("total_points_current_season", 0))
-        else:
-            current_points[manager] = 0.0
-    
-    # Current head-to-head, W-L-T, from the same weekly results as the
-    # records (data.regular_season_results). It used to be read from
-    # RECORDS.json h2h_season, which stores wins only and cannot hold a T.
-    _recs, current_h2h, _pts = data.regular_season_results()
+
+    if team_projections is None:
+        team_projections = load_all_team_projections(data)
+
+    # Current state, all from the weekly results (data.regular_season_results):
+    # records W-L-T, head-to-head W-L-T, and REGULAR-SEASON points -- the
+    # points tiebreak in standings_order. Points used to be read from
+    # LEAGUEHISTORY total_points_current_season, a different source from
+    # every other surface's tiebreak.
+    current_records = {m: data.get_manager_record(m) for m in MANAGERS}
+    _recs, current_h2h, reg_points = data.regular_season_results()
     current_h2h = {m: dict(current_h2h.get(m, {})) for m in MANAGERS}
+    current_points = {m: float(reg_points.get(m, 0.0)) for m in MANAGERS}
     
     # Get remaining weeks
     remaining_weeks = get_remaining_weeks(data, current_week)
@@ -826,15 +326,12 @@ def run_title_odds_simulation(
             h2h_records=current_h2h,
         )
     
-    # Compute remaining team games and player availability rates
-    remaining_team_games = compute_remaining_team_games(data, remaining_weeks)
-    availability_rates = compute_player_availability_rates(
-        team_projections, remaining_team_games, data, remaining_weeks
-    )
-    
-    # Compute historical weekly stats for historical simulation method
-    historical_stats = compute_historical_weekly_stats(data)
-    
+    # Every remaining week simulated ONCE, all iterations at once, by the
+    # betting lines' engine. Simulation i reads column i of every week.
+    matrices = week_score_matrices(data, team_projections,
+                                   [int(w["week"]) for w in remaining_weeks],
+                                   injury_statuses, seed, num_simulations)
+
     # Run simulations
     title_wins = {m: 0 for m in MANAGERS}
     finish_counts = {m: {i: 0 for i in range(1, NUM_TEAMS + 1)} for m in MANAGERS}
@@ -843,17 +340,8 @@ def run_title_odds_simulation(
     total_ties = {m: 0.0 for m in MANAGERS}
     
     for sim in range(num_simulations):
-        result = simulate_full_season(
-            data,
-            team_projections,
-            current_records,
-            current_h2h,
-            current_points,
-            remaining_weeks,
-            availability_rates,
-            historical_stats,
-            use_historical=True,  # Use historical-based simulation
-        )
+        result = simulate_full_season(current_records, current_h2h, current_points,
+                                      remaining_weeks, scores_at(matrices, sim))
         
         # Track title winner
         title_wins[result.champion] += 1

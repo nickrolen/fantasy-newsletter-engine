@@ -415,7 +415,7 @@ python scripts\generate_stats_report.py --week WEEK --fast
 
 **For maximum accuracy:**
 ```cmd
-python scripts\generate_stats_report.py --week WEEK --title-sims 10000 --betting-sims 5000
+python scripts\generate_stats_report.py --week WEEK
 ```
 
 **What it does:**
@@ -441,7 +441,7 @@ python scripts\generate_stats_report.py --week WEEK --title-sims 10000 --betting
 | `--fast` | Skip all Monte Carlo simulations |
 | `--fetch-injuries` | Force Yahoo injury fetch (auto-enabled if oauth exists) |
 | `--no-fetch-injuries` | Skip Yahoo injury fetch |
-| `--title-sims N` | Set number of title odds simulations (default: 10000) |
+| `--title-sims N` | Simulations for title, playoff and Cup odds (default: `simulations.season_sims` in league_config, 50000) |
 | `--betting-sims N` | Set number of betting line simulations (default: 5000) |
 | `--dry-run` | Don't save any files |
 | `--no-save-records` | Don't update RECORDS.json |

@@ -8,7 +8,6 @@ Used by both betting line and title odds simulations.
 from dataclasses import dataclass
 from typing import Optional
 from datetime import date
-import random
 import math
 
 import pandas as pd
@@ -28,9 +27,6 @@ from .absence import parse_out_from
 #
 # NOTE: INJURY_OVERRIDES out_weeks is the source of truth for who's actually OUT.
 # Yahoo's INJ tag just means they have an injury designation, not that they're missing games.
-
-# Default availability for ROS sim (everyone not in overrides)
-ROS_DEFAULT_AVAILABILITY = 0.90
 
 # Default standard deviation for weekly scoring (used weeks 1-4)
 DEFAULT_WEEKLY_STD_DEV = 150.0
@@ -568,86 +564,18 @@ def get_historical_weekly_scores(data: FantasyData, manager: str) -> list[float]
 
 
 # =============================================================================
-# AVAILABILITY CALCULATIONS
+# GAME SCORING PARAMETERS
 # =============================================================================
-
-def get_player_availability_ros(
-    player: PlayerProjection,
-    week: int,
-    availability_rate: float = None,
-) -> float:
-    """
-    Get player availability probability for ROS title odds simulation.
-
-    Uses projection-based model:
-    - If week is in player's out_weeks (from INJURY_OVERRIDES) -> 0%
-    - Otherwise -> availability_rate (computed from projected_GP / remaining_games)
-
-    Args:
-        player: PlayerProjection
-        week: Current week number
-        availability_rate: Pre-computed rate from projected_GP / remaining_games.
-                          If None, uses default 90%.
-    """
-    if week in player.out_weeks:
-        return 0.0
-
-    if availability_rate is not None:
-        return availability_rate
-
-    return ROS_DEFAULT_AVAILABILITY
-
-
-def is_player_available(availability: float) -> bool:
-    """Coin flip based on availability probability."""
-    return random.random() < availability
-
-
-# =============================================================================
-# SCORE SAMPLING
-# =============================================================================
-
-def sample_player_game_fp(
-    player: PlayerProjection,
-    variance_factor: float = 1.0,
-) -> float:
-    """
-    Sample a player's fantasy points for a single game.
-
-    Uses a normal distribution centered on the player's *effective* FPPG --
-    a games-weighted blend of actual season performance and preseason
-    projection (see PlayerProjection.effective_fppg). Early in the season
-    this is essentially the projection; mid-/late-season it heavily weights
-    observed performance, so a player who is actually averaging 40 FPPG on
-    a 30-FPPG projection gets simulated near their real rate.
-
-    Standard deviation is the player's effective_std when available, which
-    is calibrated against the observed game-to-game CV from keepability_v2
-    (24-42% range, median ~33%). DEFAULT_PLAYER_VARIANCE (0.35) is used as
-    the fallback for players without enough games for an empirical std.
-
-    Negative samples are allowed: real game logs include them (DNPs after
-    a starter check-in, fouled-out blowouts, etc.) and clamping at zero
-    introduces a small positive expected-value bias. Team-level totals are
-    still floored at zero downstream in the simulators.
-
-    Args:
-        player: Player projection
-        variance_factor: Multiplier for std dev (increase for more randomness)
-
-    Returns:
-        Sampled fantasy points (can be negative; not clamped here)
-    """
-    mean, std_dev = game_fp_params(player, variance_factor)
-    if mean <= 0:
-        return 0.0
-    return random.gauss(mean, std_dev)
-
+#
+# The global-random samplers that used to live here (is_player_available,
+# sample_player_game_fp, sample_team_weekly_variance,
+# get_player_availability_ros) fed title odds' old week model. Every
+# simulator now draws through modules/crn.py; only the parameters remain.
 
 def game_fp_params(player: PlayerProjection, variance_factor: float = 1.0) -> tuple[float, float]:
     """(mean, std) of one game's fantasy points -- the one definition, used
-    by sample_player_game_fp and the keyed betting simulator. mean <= 0
-    means the player scores 0.0.
+    by the keyed week engine (simulator_betting). mean <= 0 means the player
+    scores 0.0.
     """
     # Prefer effective_fppg (blends actual season performance with projection).
     # Falls back to projected_fppg when there's no actual data yet.
@@ -660,19 +588,6 @@ def game_fp_params(player: PlayerProjection, variance_factor: float = 1.0) -> tu
     # otherwise the projection-derived std_dev.
     base_std = player.effective_std if player.effective_std else player.std_dev
     return mean, base_std * variance_factor
-
-
-def sample_team_weekly_variance(team: TeamProjections) -> float:
-    """
-    Sample additional variance to add to a team's weekly score.
-
-    This captures team-level randomness beyond individual player variance.
-    Uses team's historical std dev.
-    """
-    # Use a fraction of the team std dev since player-level variance
-    # already captures some of this
-    team_noise = random.gauss(0, team.weekly_std_dev * 0.3)
-    return team_noise
 
 
 # =============================================================================

@@ -31,7 +31,20 @@ marginal_value of adding him (no drop, so the ranking is pure fit); rank is
 his position among all free agents for that manager.
 
     py scripts\\validate_marginal_value.py               # live data
-    py scripts\\validate_marginal_value.py --sims 200
+    py scripts\\validate_marginal_value.py --all-trades  # every swap (slow)
+    py scripts\\validate_marginal_value.py --no-record   # measure, write nothing
+
+SAMPLED TRADES (Nick, 10-21)
+Evaluating all 1,350 one-for-one swaps from both sides at 3,000 sims took 25
+minutes, and the gate reruns whenever rosters turn over. A band does not need
+every swap: the swaps are put in a keyed random order and the first
+premise_trade_samples x premise_trade_sample of them (config simulations) are
+split into disjoint samples. Each sample estimates the mutual-gain count as
+hits / sampled x all swaps. The gate's band is the band every sample agrees
+on; if the samples disagree the band is UNSTABLE -- reported as such, never
+one of them picked. UNSTABLE is not CLEAR, so nothing publishes. The free-agent
+measurements (rank spread, gap) are not sampled. The gate file states the
+sampling.
 """
 
 from __future__ import annotations
@@ -51,12 +64,34 @@ THRESHOLDS = {"rank_spread": 8, "gap_points": 169, "mutual_gain_swaps": 24}   # 
 CLEAR = {"rank_spread": 12, "gap_points": 253, "mutual_gain_swaps": 36}        # 3/4
 
 
-def premise_stats(ctx, rosters: dict, free_agents: list) -> dict:
-    """The three 7.2 magnitudes, measured with marginal_value."""
+def sampled_swaps(rosters: dict, size: int, samples: int, key=()) -> tuple[list, list]:
+    """(every one-for-one swap in a fixed order, `samples` disjoint lists of
+    `size` swaps). The order is a keyed permutation (modules/crn.py), so the
+    same rosters and key give the same samples."""
+    from modules import crn
+    managers = list(rosters)
+    swaps = [(a, x, b, y) for a, b in itertools.combinations(managers, 2)
+             for x, y in itertools.product(rosters[a], rosters[b])]
+    if size is None or size * samples >= len(swaps):
+        return swaps, [swaps]
+    order = crn.keyed_rng("premise_trade_sample", *key).permutation(len(swaps))
+    return swaps, [[swaps[i] for i in order[k * size:(k + 1) * size]] for k in range(samples)]
+
+
+def premise_stats(ctx, rosters: dict, free_agents: list, trade_sample: int = None,
+                  samples: int = 1, sample_key=()) -> dict:
+    """The three 7.2 magnitudes, measured with marginal_value.
+
+    trade_sample None: every swap (the 7.2 definition). Otherwise `samples`
+    disjoint samples of `trade_sample` swaps each; mutual_gain_swaps is then
+    the mean of the samples' estimates and stats["samples"] has each one.
+    """
     from modules import marginal_value as mv
     managers = list(rosters)
-    value = {m: {f: mv.marginal_value(ctx, m, adds=[f]).points for f in free_agents}
-             for m in managers}
+    value = {}
+    for m in managers:
+        value[m] = {f: mv.marginal_value(ctx, m, adds=[f]).points for f in free_agents}
+        mv.release_caches(ctx)      # memory: one cached array per roster per day
     rank = {m: {f: r for r, f in enumerate(sorted(free_agents, key=lambda f: -value[m][f]), 1)}
             for m in managers}
     spreads = [max(rank[m][f] for m in managers) - min(rank[m][f] for m in managers)
@@ -64,22 +99,47 @@ def premise_stats(ctx, rosters: dict, free_agents: list) -> dict:
     gaps = [max(value[m][f] for m in managers) - min(value[m][f] for m in managers)
             for f in free_agents]
 
-    mutual, total, best = 0, 0, None
-    for a, b in itertools.combinations(managers, 2):
-        for x, y in itertools.product(rosters[a], rosters[b]):
+    all_swaps, chunks = sampled_swaps(rosters, trade_sample, samples, sample_key)
+    total = len(all_swaps)
+    best = None
+    per = []
+    for chunk in chunks:
+        hits = 0
+        for i, (a, x, b, y) in enumerate(chunk):
+            if i % 15 == 0:
+                mv.release_caches(ctx)      # memory: one cached array per roster per day
             ga = mv.marginal_value(ctx, a, adds=[y], drops=[x]).points
             gb = mv.marginal_value(ctx, b, adds=[x], drops=[y]).points
-            total += 1
             if ga > 0 and gb > 0:
-                mutual += 1
+                hits += 1
                 if best is None or ga + gb > best[0]:
                     best = (round(ga + gb, 1), a, x, b, y)
-    return {
+        n = len(chunk)
+        p = hits / n if n else 0.0
+        half = 1.96 * (p * (1 - p) / n) ** 0.5 if n else 0.0
+        per.append({"examined": n, "mutual": hits, "estimate": round(p * total),
+                    "interval_95": [round(max(0.0, p - half) * total), round(min(1.0, p + half) * total)]})
+    sampled = len(chunks) > 1 or (chunks and len(chunks[0]) < total)
+    out = {
         "rank_spread": statistics.median(spreads) if spreads else 0,
         "gap_points": round(statistics.median(gaps), 1) if gaps else 0.0,
-        "mutual_gain_swaps": mutual, "swaps_examined": total, "best_mutual": best,
+        "mutual_gain_swaps": round(statistics.mean(c["estimate"] for c in per)) if per else 0,
+        "swaps_examined": total, "best_mutual": best,
         "free_agents": len(free_agents),
     }
+    if sampled:
+        for c in per:
+            c["band"] = overall_band(dict(out, mutual_gain_swaps=c["estimate"]))
+        out["samples"] = per
+    return out
+
+
+def gate_band(stats: dict) -> str:
+    """The band every sample agrees on, or UNSTABLE."""
+    if "samples" not in stats:
+        return overall_band(stats)
+    bands = {c["band"] for c in stats["samples"]}
+    return bands.pop() if len(bands) == 1 else "UNSTABLE"
 
 
 def verdict(stats: dict) -> list[str]:
@@ -100,21 +160,32 @@ def overall_band(stats: dict) -> str:
     return "FAIL" if "FAIL" in bands else ("MARGINAL" if "MARGINAL" in bands else "CLEAR")
 
 
-def write_gate(stats: dict, season: str, week, rosters: dict, path: Path = GATE_FILE) -> dict:
+def write_gate(stats: dict, season: str, week, rosters: dict, path: Path = GATE_FILE,
+               sims: int = None) -> dict:
     """Record the result where Step 6 reads it. Step 6 publishes C2/C3 only
     on CLEAR for the current season. There is no override: MARGINAL means
     talk, not ship (Nick, 10-06, before seeing the number)."""
     import json
     from datetime import datetime
     gate = {
-        "season": season, "band": overall_band(stats),
+        "season": season, "band": gate_band(stats),
         "bands": {k: band(stats, k) for k in THRESHOLDS},
         "stats": {k: stats[k] for k in ("rank_spread", "gap_points", "mutual_gain_swaps",
                                          "swaps_examined", "free_agents") if k in stats},
         "checked_at": datetime.now().isoformat(timespec="seconds"),
         "report_week": week,
         "rostered_players": sum(len(v) for v in rosters.values()),
+        "sims": sims,
     }
+    if "samples" in stats:
+        gate["sampling"] = {
+            "method": "disjoint keyed random samples of the one-for-one swaps; mutual-gain "
+                      "count estimated as hits / sampled x all swaps; band = the band every "
+                      "sample agrees on, else UNSTABLE. Free-agent measures are not sampled.",
+            "swaps_total": stats["swaps_examined"],
+            "samples": stats["samples"],
+            "stable": gate["band"] != "UNSTABLE",
+        }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(gate, indent=2), encoding="utf-8")
     return gate
@@ -129,6 +200,15 @@ def report(stats: dict) -> int:
     print(f"\n  ({stats['free_agents']} free agents; {stats['mutual_gain_swaps']} of "
           f"{stats['swaps_examined']} one-for-one swaps help both sides; best "
           f"{stats['best_mutual']})")
+    if "samples" in stats:
+        for i, c in enumerate(stats["samples"], 1):
+            print(f"  sample {i}: {c['mutual']} of {c['examined']} swaps -> estimate "
+                  f"{c['estimate']} (95% {c['interval_95'][0]}-{c['interval_95'][1]}), band {c['band']}")
+        if gate_band(stats) == "UNSTABLE":
+            print("\n  UNSTABLE: the samples land in different bands. The gate records "
+                  "UNSTABLE (not CLEAR, nothing publishes). Re-run with --all-trades for "
+                  "the full measurement.")
+            return 4
     bands = {k: band(stats, k) for k in THRESHOLDS}
     if "FAIL" in bands.values():
         low = [k for k, b in bands.items() if b == "FAIL"]
@@ -148,15 +228,24 @@ def report(stats: dict) -> int:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--sims", type=int, default=200)
+    ap.add_argument("--sims", type=int, default=None,
+                    help="default: config simulations.marginal_value_sims -- the count "
+                         "the advice itself runs at, so the gate measures what ships")
     ap.add_argument("--week", type=int, default=None,
                     help="current (completed) week; default from the data")
+    ap.add_argument("--all-trades", action="store_true",
+                    help="evaluate every swap from both sides instead of sampling (slow)")
+    ap.add_argument("--no-record", action="store_true",
+                    help="measure and report, but do not write the gate file")
     args = ap.parse_args()
 
     from modules.data_loader import load_all_data, free_agents
     from modules.marginal_value import build_context
     from modules.projections import load_player_projections
 
+    if args.sims is None:
+        from modules.data_loader import MARGINAL_VALUE_SIMS
+        args.sims = MARGINAL_VALUE_SIMS
     data = load_all_data(Path("."))
     rosters = data.get_current_rosters()
     if not any(rosters.values()):
@@ -167,10 +256,18 @@ def main():
     ctx = build_context(load_player_projections(data), rosters, data.nba_schedule,
                         data.schedule.get("weeks", []), "regular_season", week,
                         extra_players=fas, sims=args.sims)
-    stats = premise_stats(ctx, rosters, fas)
+    from modules.data_loader import (CURRENT_SEASON, PREMISE_TRADE_SAMPLE,
+                                     PREMISE_TRADE_SAMPLES)
+    if args.all_trades:
+        stats = premise_stats(ctx, rosters, fas)
+    else:
+        stats = premise_stats(ctx, rosters, fas, PREMISE_TRADE_SAMPLE, PREMISE_TRADE_SAMPLES,
+                              (CURRENT_SEASON, week))
     code = report(stats)
-    from modules.data_loader import CURRENT_SEASON
-    gate = write_gate(stats, CURRENT_SEASON, week, rosters)
+    if args.no_record:
+        print(f"\n  --no-record: {gate_band(stats)} measured, {GATE_FILE} untouched.")
+        return code
+    gate = write_gate(stats, CURRENT_SEASON, week, rosters, sims=args.sims)
     print(f"\n  Recorded {gate['band']} for {gate['season']} in {GATE_FILE}.")
     return code
 

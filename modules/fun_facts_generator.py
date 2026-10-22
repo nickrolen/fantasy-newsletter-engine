@@ -21,7 +21,6 @@ FIXES (v4):
 
 from dataclasses import dataclass, field
 from typing import Optional
-import random
 
 from .data_loader import FantasyData, MANAGERS
 from .weekly_stats import WeeklyReport, ManagerWeekStats
@@ -1074,7 +1073,6 @@ def generate_fun_facts(
     waiver_adds: dict[str, list[str]] = None,
     luck_index: dict = None,
     num_facts: int = 7,
-    seed: int = None,
     freshness_tracker: "FreshnessTracker" = None,
 ) -> list[FunFact]:
     """
@@ -1093,12 +1091,11 @@ def generate_fun_facts(
         waiver_adds: Dict of manager -> list of waiver pickup names
         luck_index: Dict from build_luck_index() (all-play expected wins data)
         num_facts: Number of facts to return (default 7)
-        seed: Random seed for reproducibility
         freshness_tracker: Optional FreshnessTracker to filter stale content
     """
-    if seed is not None:
-        random.seed(seed)
-    
+    # Deterministic: nothing here is random. It used to reseed the global
+    # stdlib stream with the run seed -- a side effect with no draw after
+    # it -- so the run seed was handed to a stream nobody read.
     record_updates = record_updates or []
     waiver_adds = waiver_adds or {}
     records = data.records

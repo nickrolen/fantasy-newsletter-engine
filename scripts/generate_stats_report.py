@@ -64,8 +64,9 @@ def main():
     parser.add_argument(
         "--title-sims",
         type=int,
-        default=10000,
-        help="Number of title odds simulations (default: 10000)",
+        default=None,
+        help="Simulations for title, playoff and Cup odds (default: config "
+             "simulations.season_sims, 50000)",
     )
     parser.add_argument(
         "--betting-sims",
@@ -128,6 +129,13 @@ def main():
              "limit (recorded in the point-in-time capture)",
     )
     parser.add_argument(
+        "--allow-no-injury-statuses",
+        action="store_true",
+        help="run even though the Yahoo injury statuses were not fetched or the fetch "
+             "failed: every line and odds figure is then priced with nobody tagged "
+             "(recorded in the report metadata and the point-in-time capture)",
+    )
+    parser.add_argument(
         "--repro",
         action="store_true",
         help="Repro run for the given week: use pre-week RECENT_CONTENT snapshot, do not save freshness, "
@@ -145,6 +153,9 @@ def main():
     # same keyed draws (one week, one simulated truth). The simulators refuse
     # to pick their own. What is recorded below is the seed actually used.
     args.seed, seed_source = run_seed(args.seed)
+    if args.title_sims is None:
+        from modules.data_loader import SEASON_SIMS
+        args.title_sims = SEASON_SIMS
     
     base_path = Path(args.base_path)
     week = args.week
@@ -277,32 +288,50 @@ def main():
         print()
 
     
+    # The tags change every week and every line and odds figure reads them.
+    # A failed or empty fetch is NOT "nobody is hurt": a simulating run
+    # refuses without them unless --allow-no-injury-statuses, and the outcome
+    # is recorded in the report metadata and the capture either way.
+    from modules.fetch_injury_statuses import (fetch_injury_statuses, injury_input,
+                                               InjuryStatusesUnavailable)
+    from modules.absence import UnresolvedTagName
+    from modules.projections import load_all_team_projections as _load_teams
+    injuries_needed = not args.fast and not args.repro
     if should_fetch:
         print("Fetching current injury statuses from Yahoo API...")
-        try:
-            from modules.fetch_injury_statuses import fetch_injury_statuses_safe
-            injury_statuses = fetch_injury_statuses_safe(
-                oauth_file=str(oauth_file),
-                verbose=True
-            )
-            if injury_statuses:
-                non_healthy = {k: v for k, v in injury_statuses.items() if v != "HEALTHY"}
-                print(f"  Loaded {len(injury_statuses)} player statuses ({len(non_healthy)} non-healthy)")
-            else:
-                print("  No injury statuses fetched (API unavailable or failed)")
-        except ImportError:
-            print("  Warning: fetch_injury_statuses module not found")
-        except Exception as e:
-            print(f"  Warning: Failed to fetch injury statuses: {e}")
-        print()
-    elif args.no_fetch_injuries:
-        print("Skipping injury status fetch (--no-fetch-injuries)")
-        print()
-    elif not oauth_file.exists():
-        print("Skipping injury status fetch (no oauth2.json found)")
-        print("  (Run with --fetch-injuries after setting up Yahoo OAuth to enable)")
-        print()
-    
+        _fetch = lambda: fetch_injury_statuses(oauth_file=str(oauth_file), verbose=True)
+        _why_not = None
+    else:
+        _fetch = None
+        _why_not = ("--repro" if args.repro else "--fast" if args.fast
+                    else "--no-fetch-injuries" if args.no_fetch_injuries else "no oauth2.json")
+    _rostered = [n for tp in _load_teams(data).values() for n in tp.players]
+    try:
+        injury = injury_input(_fetch, _rostered, injuries_needed,
+                              args.allow_no_injury_statuses, _why_not)
+    except InjuryStatusesUnavailable as e:
+        print(f"REFUSED: {e}")
+        sys.exit(1)
+    except UnresolvedTagName as e:
+        print(f"REFUSED: {e}")
+        sys.exit(1)
+    injury_statuses = injury.statuses
+    if injury.available:
+        nh = injury.record()["non_healthy"]
+        print(f"  Loaded {len(injury_statuses)} player statuses ({len(nh)} non-healthy)")
+        if injury.rostered_without_status:
+            print("  WARNING: no Yahoo status for rostered "
+                  + ", ".join(injury.rostered_without_status) + " (ROSTERS.json out of sync?)")
+        if injury.unmatched_healthy:
+            print("  Note: healthy Yahoo names matching no rostered player: "
+                  + ", ".join(injury.unmatched_healthy))
+    elif injury.override:
+        print(f"WARNING (overridden): no injury statuses -- {injury.problem}. "
+              "Lines and odds assume nobody is tagged.")
+    else:
+        print(f"Injury statuses not used ({injury.problem}; this run prices nothing from them)")
+    print()
+
     # Load freshness tracker for content deduplication
     freshness_tracker = None
     if not args.no_freshness:
@@ -372,6 +401,7 @@ def main():
         import traceback
         traceback.print_exc()
         sys.exit(1)
+    report.setdefault("metadata", {})["injury_statuses"] = injury.record()
     # -------------------------------------------------------------------------
     # Step 6: Repro mode -> freeze entire looking_ahead block (Option A)
     # -------------------------------------------------------------------------
@@ -485,14 +515,16 @@ def main():
                     "betting_sims": args.betting_sims,
                     "seed": args.seed,
                     "stale_schedule_override": stale,
+                    "injury_statuses_override": injury.problem if injury.override else None,
+                    "injury_statuses": injury.record(),
                 },
             )
             print(f"Saved point-in-time inputs to: {pit_dir}")
             from modules.point_in_time import capture_report_outputs
             capture_report_outputs(base_path, week)
             print("  ... and the stats report the writer will be handed")
-            if should_fetch and not injury_statuses:
-                print("  WARNING: injury fetch returned nothing; the capture records "
+            if injury.override:
+                print("  WARNING: no injury statuses (overridden); the capture records "
                       "that statuses were unavailable, not that everyone was healthy")
         except Exception as e:
             print(f"WARNING: point-in-time capture FAILED: {e}")

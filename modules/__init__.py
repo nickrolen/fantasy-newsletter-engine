@@ -84,29 +84,31 @@ from .projections import (
     load_team_projections,
     load_all_team_projections,
     compute_team_weekly_std_dev,
-    get_player_availability_ros,
-    is_player_available,
-    sample_player_game_fp,
     compute_underperformance_index,
     get_underperformers,
-    ROS_DEFAULT_AVAILABILITY,
 )
 
 # Optional: fetch_injury_statuses (requires yahoo_oauth)
 try:
     from .fetch_injury_statuses import (
         fetch_injury_statuses,
-        fetch_injury_statuses_safe,
+        injury_input,
+        InjuryFetchError,
+        InjuryStatusesUnavailable,
         normalize_injury_status,
     )
     _FETCH_INJURIES_AVAILABLE = True
 except ImportError:
     _FETCH_INJURIES_AVAILABLE = False
     # Create placeholder functions that return empty/default values
+    # No silent {}: a fetch that cannot run is a failed fetch.
+    class InjuryFetchError(RuntimeError):
+        pass
+    class InjuryStatusesUnavailable(RuntimeError):
+        pass
     def fetch_injury_statuses(*args, **kwargs):
-        return {}
-    def fetch_injury_statuses_safe(*args, **kwargs):
-        return {}
+        raise InjuryFetchError("modules.fetch_injury_statuses could not be imported")
+    injury_input = None
     def normalize_injury_status(status):
         return "HEALTHY" if not status else str(status).upper()
 
@@ -303,15 +305,13 @@ __all__ = [
     "load_team_projections",
     "load_all_team_projections",
     "compute_team_weekly_std_dev",
-    "get_player_availability_ros",
-    "is_player_available",
-    "sample_player_game_fp",
     "compute_underperformance_index",
     "get_underperformers",
-    "ROS_DEFAULT_AVAILABILITY",
     # fetch_injury_statuses (optional, requires yahoo_oauth)
     "fetch_injury_statuses",
-    "fetch_injury_statuses_safe",
+    "injury_input",
+    "InjuryFetchError",
+    "InjuryStatusesUnavailable",
     "normalize_injury_status",
     "_FETCH_INJURIES_AVAILABLE",
     # content_freshness

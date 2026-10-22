@@ -129,7 +129,7 @@ def test_a_bracket_week_is_the_betting_lines_week(tagged):
     for m in MANAGERS:
         assert np.array_equal(bracket[16][m][:5000], line_week[m]["score"]), m
     line = sb.run_matchup_simulation(data, teams, week16, "Nick", "Garrett", 5000, statuses, seed=20262027)
-    assert line.remaining_mean_a == float(bracket[16]["Nick"][:5000].mean()) * (1 - sb.OU_INJURY_DISCOUNT)
+    assert line.remaining_mean_a == float(bracket[16]["Nick"][:5000].mean())
 
 
 # Pairing independence

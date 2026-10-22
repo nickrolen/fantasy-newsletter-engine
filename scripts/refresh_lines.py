@@ -45,7 +45,8 @@ from modules import week_state as ws                                      # noqa
 CAVEATS = [
     "Team-level noise on the remainder is scaled by sqrt(share of the week's NBA game-days "
     "still to come).",
-    "The 10% injury discount applies to the simulated remainder only, never to banked points.",
+    "Untagged absences are simulated (the baseline hazard, modules/absence.py) on the "
+    "remainder only; banked points already happened.",
 ]
 
 
@@ -58,7 +59,11 @@ def _fetch_statuses(base: Path) -> dict:
         from modules.fetch_injury_statuses import fetch_injury_statuses
     except ImportError as e:
         raise RuntimeError(f"cannot fetch Yahoo tags ({e}); pass --statuses FILE or --no-tags")
-    statuses = fetch_injury_statuses(oauth_file=str(base / "oauth2.json"), verbose=False)
+    from modules.fetch_injury_statuses import InjuryFetchError
+    try:
+        statuses = fetch_injury_statuses(oauth_file=str(base / "oauth2.json"), verbose=False)
+    except InjuryFetchError as e:
+        raise RuntimeError(f"Yahoo injury fetch failed ({e}); pass --statuses FILE or --no-tags")
     if not statuses:
         raise RuntimeError("Yahoo returned no injury statuses; pass --statuses FILE or --no-tags")
     return dict(statuses)
@@ -96,6 +101,12 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
         assumptions.append("NO TAGS: priced without Yahoo injury tags (--no-tags).")
     else:
         live = statuses if statuses is not None else _fetch_statuses(base)
+        # every tag must land on a rostered player -- never silently dropped
+        from modules import absence
+        _teams = load_all_team_projections(data)
+        live, _unmatched, _missing = absence.resolve_tags(
+            live, [n for tp in _teams.values() for n in tp.players])
+        live = dict(live)
     previous = stored.get("tags") if stored else None
     anchors, events, tag_assumptions = ws.reconcile_tags(
         previous, live, as_of, week_start, assume_tags_since_week_start)

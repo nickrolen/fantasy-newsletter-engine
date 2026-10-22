@@ -331,11 +331,13 @@ def test_projected_final_is_banked_plus_remaining():
         assert line.banked_a == st.banked[line.manager_a]
 
 
-def test_the_injury_discount_never_touches_banked_points():
+def test_remaining_mean_is_the_simulated_mean_with_no_discount():
+    """The flat 10% OU_INJURY_DISCOUNT is gone (2026-10-21): absences are
+    simulated, so the remaining mean is the simulation's mean, untouched."""
     res, _ = _remainder(D[3])
     line = res.lines[0]
     raw = float(res.remaining[line.manager_a]["score"].mean())
-    assert line.remaining_mean_a == pytest.approx(raw * (1 - sb.OU_INJURY_DISCOUNT))
+    assert line.remaining_mean_a == raw
 
 
 def test_state_hash_is_stable_and_moves_with_the_logs():

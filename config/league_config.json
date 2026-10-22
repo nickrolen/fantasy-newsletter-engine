@@ -284,6 +284,26 @@
             }
         }
     },
+    "simulations": {
+        "season_sims": 50000,
+        "_season_sims": "Simulations for every season-long simulator: title odds, playoff odds, Cup odds. ONE number on purpose (Nick, 10-20: don't split): the bracket simulators read the same keyed week matrices as title odds. Raised from 10,000 on 2026-10-21 (Nick): once untagged absences were simulated, 10,000 sims moved title odds up to 0.6 points between seeds; 50,000 holds them to about 0.3 and costs about 30 seconds.",
+        "marginal_value_sims": 3000,
+        "_marginal_value_sims": "marginal_value (waiver, trade and keeper advice). Absences are persistent blocks, so one valuation's standard error at 400 sims was 15-20 points against C2's 10-point floor; at 3,000 a season-long add's is about 3.7. See claude/BASELINE_INJURY_RESULT_2026-10-21.md.",
+        "marginal_value_shortlist_sims": 200,
+        "premise_trade_sample": 300,
+        "premise_trade_samples": 2,
+        "_premise_trade_sample": "scripts/validate_marginal_value.py samples this many one-for-one swaps per sample, in this many disjoint samples, instead of all 1,350 from both sides (25 minutes at 3,000 sims). The band must agree across samples or the gate records UNSTABLE (Nick, 10-21).",
+        "_marginal_value_shortlist_sims": "The advice pre-filter: every candidate is scored at this count and only the shortlist reaches marginal_value_sims. At 40 its noise was about 30 points -- a good add could be cut before the precise check ever saw it (Nick, 10-21). 200 costs about 45 s a weekly build."
+    },
+    "absence_baseline": {
+        "_comment": "Untagged absences (modules/absence.py, the baseline hazard). Every player misses games he is not tagged for: Yahoo's player_proj_GP is his projected GP over his team's REMAINING games, so his per-game miss rate is (remaining team games - projected GP) / remaining team games. Those misses come in BLOCKS, persistent within a simulated season: an absence is short (mostly one-game rests) or long (a real injury), chosen per absence; a healthy spell between absences is memoryless. The rate is not a parameter -- it is the projection. Only the block SHAPE lives here.",
+        "nba_games_per_team": 82,
+        "_nba_games_per_team": "The NBA regular season. The schedule file lists 80 per team: the last 2 are set by the NBA Cup group stage and are added later. Yahoo projects GP over all 82, so the unscheduled games count as remaining when the rate is taken.",
+        "short_share": 0.75,
+        "short_mean_games": 1.24,
+        "long_mean_games": 9.5,
+        "_measured": "Fitted 2026-10-21 by maximum likelihood to every absence run in HISTORICAL_PLAYERLOG 2017-18..2025-26 (a team game with zero fantasy points while rostered; 2,805 complete runs plus 375 runs cut off by a roster move, treated as at-least-that-long). Two geometric components: 75% of absences average 1.24 games, 25% average 9.5. Mean absence 3.3 games. Re-fit with the same procedure; do not hand-tune these to hit the calibration bands."
+    },
     "keeper_rules": {
         "_comment": "Keeper counts are per-season and need NOT be uniform across managers. A manager's live picks = league_structure.total_rounds minus their keeper count, and keepers always occupy the LAST rounds. Any season after the last one listed in `seasons` inherits `default`.",
         "seasons": {
