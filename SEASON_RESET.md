@@ -166,7 +166,17 @@ Phase 2 truncates `PLAYERLOG.xlsx` and `LINEUPS.xlsx` to header-only. The archiv
    py scripts/pull_current_draft.py
    ```
 
-6. **Rebuild `config/DRAFT_PICKS_CURRENT.json` by hand.** Nothing writes this
+6. **Point `durability_prior.snapshot` at the new season's pre-season
+   PLAYERLIST.** Fetch a PLAYERLIST before week 1 and snapshot it
+   (`py scripts/check_playerlist.py --snapshot`), then set
+   `config/league_config.json` `durability_prior.snapshot` to that file. The
+   baseline injury hazard takes every player's durability from it, because
+   Yahoo's `player_proj_GP` column stops being a durability forecast once the
+   season starts (WEEKLY_WORKFLOW.md Step 2.5). `verify_project_integrity`
+   FAILS while the key points at a missing file, an in-season-shaped file, or
+   one taken on or after week 1.
+
+7. **Rebuild `config/DRAFT_PICKS_CURRENT.json` by hand.** Nothing writes this
    file — `pull_current_draft.py` patches `data/historical/all_drafts.json`
    only. Phase 2 emptied it, so recreate it from the Yahoo draft results,
    including the `is_keeper` flag (2025-26: rounds 1-7 drafted, 8-13 keepers).

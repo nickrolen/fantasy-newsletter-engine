@@ -40,8 +40,13 @@ requests>=2.28.0
 # --------------------------------------------
 # Uncomment if needed for development
 
-# Testing
-# pytest>=7.0.0
+# Testing -- not optional: the suite is 1,169 tests and the engine's only
+# guard against the stale-value defects this project keeps producing.
+pytest>=7.0.0
+pytest-xdist>=3.5.0     # -n 2: the suite is ~145s serially, ~95s on two cores.
+                        # A command run against the desktop VM is capped at
+                        # 180s, so -n 2 is what keeps the WHOLE suite
+                        # verifiable in one run (2026-10-22).
 # pytest-cov>=4.0.0
 
 # Code formatting

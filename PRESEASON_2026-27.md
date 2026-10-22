@@ -440,10 +440,11 @@ git tag season-2025-26-final
 ### 0.4 Run the test suite
 
 ```cmd
-py -m pytest tests\ -q
+py -m pytest tests\ -q -n 2
 ```
 
-All green before you start changing season state.
+All green before you start changing season state. (`-n 2` is the standard
+form -- WEEKLY_WORKFLOW.md Step 0b says why.)
 
 ---
 

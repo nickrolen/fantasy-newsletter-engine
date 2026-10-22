@@ -121,7 +121,10 @@ def build_advice(data, week: int, title_odds=None, keeper_watch=None,
     def ctx(window, cw, n):
         return mv.build_context(projs, rosters, data.nba_schedule, sweeks, window, cw,
                                 injury_statuses=injury_statuses, extra_players=fas,
-                                fallback_info=fb, sims=n)
+                                fallback_info=fb, sims=n,
+                                # the pre-season durability prior, the same one
+                                # the week engine reads -- never the live GP
+                                durability_prior=getattr(data, "durability_prior", None))
 
     short_n, full_n = sims
     ctxs = {"this_week": (ctx("this_week", week, short_n), ctx("this_week", week, full_n))}

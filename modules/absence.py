@@ -15,23 +15,24 @@ play-miss-play weeks no real absence has.
 THE MODEL
 ---------
 Count the player's OWN TEAM'S games from the tag's anchor date: g1, g2, g3.
-Each tag is an absorbing chain -- once he plays, the absence is over:
+Each chain tag is an absorbing chain -- once he plays, the absence is over --
+given by P(play g_k | he missed every earlier game), k = 1, 2, 3:
 
-            P(play g1)   P(play g2 | missed g1)   P(play g3 | missed g1,g2)   g4+
-    O          0.00             0.50                      0.75                1.00
-    GTD        0.60             0.55                      0.75                1.00
+    config/league_config.json absence_chain     Q (least severe), D, O
 
-GTD's g2 is LOWER than its g1 on purpose: a questionable player who then
-actually sat is in worse shape than the tag said.
-
-These six numbers (five free; O's g1 is the definition of the tag) are NICK'S
-STATED JUDGEMENT, approved 2026-10-19. THEY ARE NOT MEASURED. See CALIBRATION.
+The numbers live THERE, not here, with their provenance: they are NICK'S
+STATED JUDGEMENT (Q and O 2026-10-19, D 2026-10-22) and are NOT MEASURED.
+Q's g2 is LOWER than its g1 on purpose: a questionable player who then
+actually sat is in worse shape than the tag said. O's g1 is 0.00 by
+definition of the tag. See CALIBRATION.
 
 THE THREE-GAME CAP IS A DESIGN INVARIANT, NOT A MEDICAL CLAIM
 --------------------------------------------------------------
 An absence longer than three games is a KNOWN absence and belongs in
-INJURY_OVERRIDES. The two inputs partition the space, so a tag alone never
-costs more than MAX_TAG_GAMES games.
+INJURY_OVERRIDES. The two inputs partition the space, so a CHAIN tag alone
+never costs more than MAX_TAG_GAMES games. OFS is the one designation that
+is not a short-horizon signal, and it is deliberately exempt: it is not a
+chain at all (TAGS below).
 
 ONE DRAW, NOT A WALK
 --------------------
@@ -41,12 +42,17 @@ player, tag), mark his first k team games out. Blocks by construction, no
 state carried across days. The distribution is DERIVED from the chain in
 code (missed_distribution) -- never typed in a second time.
 
-PRECEDENCE (callers implement steps 1-2 and 4; this module owns 3)
+PRECEDENCE (callers implement steps 1-2 and 5; this module owns 3-4)
 ------------------------------------------------------------------
+  0. an OFS tag                            -> out, every remaining game.
   1. INJURY_OVERRIDES out_weeks / out_from -> out. The tag does not apply.
   2. return_date in return_week            -> out before the date.
-  3. otherwise a GTD/O tag                  -> the chain.
+  3. otherwise a Q/D/O tag                 -> the chain.
   4. otherwise the caller's per-game rate.
+OFS is step 0, ahead of the overrides, because "out for season" is not a week
+an override can hand back -- and an override that states a RETURN for him is
+a contradiction between the two inputs, so it raises
+(check_season_out_override) rather than either input quietly winning.
 An override entry that touches the tag's week (out_weeks contains it, it is
 the return_week, or out_from falls in it) SUPPRESSES the tag entirely:
 Nick's file is the better-informed input (tag_suppressed).
@@ -63,21 +69,67 @@ caller does that by passing the new anchor and no observations.
 An O player observed PLAYING g1 is a zero-probability event under the model;
 the observation wins and he is healthy.
 
-TAGS
-----
-GTD and O drive the chain. HEALTHY, INJ, IL and IL+ are explicitly no-effect
-(INJ: "has a tag, expected to play" -- INJURY_OVERRIDES carries real outs;
-IL/IL+ are roster slots, not designations). ANY OTHER TAG RAISES
-UnmodelledTag. Yahoo now returns Q (questionable) in place of GTD and P
-(probable); the old code silently treated both as healthy. Nick mapped them
-2026-10-19: Q -> the GTD chain, P -> healthy (TAG_ALIASES).
+TAGS -- THE 2026-27 VOCABULARY
+------------------------------
+Yahoo retired the old designations for 2026-27. The injury set is now
+P, Q, D, O, OFS, and only O or OFS may occupy an IL slot. Measured against
+the live API on 2026-10-22 (460 players): HEALTHY 390, O 37, Q 30, D 3, and
+no GTD, DTD, INJ, IL or IL+ anywhere. Nick ruled on the new set 2026-10-22:
+
+    Q, D, O   drive the chain (config absence_chain), least to most severe
+    P         healthy
+    OFS       out for season: not a chain at all. A hard out for every
+              remaining game, applied by setting his REMAINING PROJECTED GP
+              to 0 (effective_projected_gp), so absence_baseline's rate is
+              (remaining - 0) / remaining = 1.0 and he misses everything.
+              That reuses the hazard instead of adding a special case, and
+              it nets against the projection with no double charge.
+              MAX_TAG_GAMES DOES NOT APPLY TO IT: that invariant was written
+              when every tag was a short-horizon signal, and OFS is the
+              first that is not (season_out; missed_distribution refuses it).
+    SUSP, NA  no-effect, and LOGGED (NOTE_TAGS). They are not injury
+              designations, and the old code mapped both to O -- charging an
+              injury-shaped three-game recovery for a suspension, or for a
+              player not on an NBA roster at all. Their absence is already
+              carried by the baseline hazard, which reads
+              (remaining team games - projected_gp): a suspended or
+              unrostered player carries a reduced GP, so the hazard charges
+              those games automatically, block-shaped, with no tag rule.
+              INJURY_OVERRIDES is the backstop when Yahoo's GP has not
+              caught up -- which is why each one is named in the build
+              output and the report metadata rather than passed over.
+    retired   GTD, DTD, INJ, IL, IL+ RAISE, naming the vocabulary change:
+              seeing one now means the data source changed.
+    anything
+    else      RAISES UnmodelledTag. A silent HEALTHY is how Q went
+              unmodelled before A2, and how D would halt the 10-26 build.
+
+WHY INJURY_OVERRIDES MATTERS MORE UNDER THIS VOCABULARY
+-------------------------------------------------------
+A player a week into a six-week injury still shows only O, or even D, and
+the chain caps at three games. Measured against the live API 2026-10-22,
+free agents that appear in PLAYERLIST, by Yahoo's projected remaining GP:
+
+    HEALTHY   100 players   mean 69.6   range 59-82
+    Q           9 players   mean 69.1   range 65-75   <- no discount at all
+    O           5 players   mean 64.2   range 55-78   <- about 5 games
+
+So Yahoo's GP partly absorbs an O absence (and the baseline hazard charges
+those games), but a Q tag moves it by NOTHING. For a questionable player the
+chain's three games are therefore the ENTIRE absence signal in the system,
+and a long absence showing as Q is invisible to the engine without an
+INJURY_OVERRIDES entry. WEEKLY_WORKFLOW.md says so where that file is
+updated.
 
 CALIBRATION (not done; do not guess)
 ------------------------------------
-data/historical/HISTORICAL_PLAYERLOG.json (87,181 daily rows, is_injured and
-had_game) and claude/ABSENCE_PROFILES_REFERENCE.json (82 players classified
-by block structure) make the block lengths after a tag recoverable. Measure
-P(play g_k | missed g1..g_{k-1}) by tag from those and replace CHAIN_PLAY.
+The chain probabilities are Nick's stated judgement, in config
+absence_chain with their provenance. Measuring them from
+data/historical/HISTORICAL_PLAYERLOG.json is NOT a measurement waiting to
+be taken: the log records is_injured, not the tag that was showing, and the
+tags those seasons carried are the retired vocabulary -- so recovering Q and
+D from it needs an assumption about how GTD and DTD map onto them. That is
+a judgement for Nick (handoff 2026-10-22 sec.5), not this module's to make.
 """
 
 from __future__ import annotations
@@ -90,60 +142,249 @@ import numpy as np
 
 from . import crn
 
-# Nick's stated judgement, approved 2026-10-19. NOT MEASURED -- see CALIBRATION.
-# P(play g_k | missed every earlier game in the chain), k = 1, 2, 3.
-CHAIN_PLAY = {
-    "O":   (0.00, 0.50, 0.75),
-    "GTD": (0.60, 0.55, 0.75),
-}
-
-# Design invariant: a tag alone never costs more than this many games.
+# Design invariant: a CHAIN tag alone never costs more than this many games.
+# OFS is exempt by construction -- it is not a chain (see TAGS above).
 MAX_TAG_GAMES = 3
 
-# Tags that are explicitly not an absence signal.
-NO_EFFECT_TAGS = frozenset({"HEALTHY", "INJ", "IL", "IL+"})
+# Out for season: a hard out for every remaining game, carried by the
+# baseline hazard at projected GP 0, never by the chain.
+SEASON_OUT_TAGS = frozenset({"OFS"})
 
-# Yahoo tag -> chain. Nick, 2026-10-19: Yahoo replaced "GTD" with "Q"
-# (questionable) and added "P" (probable), which is healthy. "O" is unchanged.
-# Anything not listed here or below (e.g. DTD) still raises -- add it here.
-TAG_ALIASES: dict = {"Q": "GTD", "P": "HEALTHY"}
+# Not an absence signal.
+NO_EFFECT_TAGS = frozenset({"HEALTHY"})
+
+# No-effect, but named in the build output and the report metadata: not
+# injury designations, and the baseline hazard already carries their games
+# through projected GP. Nick, 2026-10-22.
+NOTE_TAGS = frozenset({"SUSP", "NA"})
+
+# Retired when Yahoo replaced the vocabulary for 2026-27. These RAISE: one
+# of them now means the data source changed, which is worth knowing loudly.
+RETIRED_TAGS = frozenset({"GTD", "DTD", "INJ", "IL", "IL+"})
+
+# P (probable) is healthy. Nick, 2026-10-19.
+TAG_ALIASES: dict = {"P": "HEALTHY"}
+
+
+def _validate_chain(probs: Sequence[float]) -> None:
+    assert len(probs) == MAX_TAG_GAMES, probs
+    assert all(0.0 <= p <= 1.0 for p in probs), probs
+
+
+def chain_play(config: dict = None) -> dict:
+    """config absence_chain: tag -> (p1, p2, p3). Missing raises; there is no
+    default, and the probabilities are not duplicated in code."""
+    if config is None:
+        from .data_loader import _LEAGUE_CONFIG as config
+    try:
+        raw = config["absence_chain"]
+    except KeyError:
+        raise KeyError("config/league_config.json has no absence_chain; the chain "
+                       "probabilities have no built-in default") from None
+    out = {}
+    for tag, probs in raw.items():
+        if tag.startswith("_"):
+            continue
+        probs = tuple(float(x) for x in probs)
+        _validate_chain(probs)
+        out[tag.upper()] = probs
+    if not out:
+        raise KeyError("config/league_config.json absence_chain lists no tags")
+    return out
+
+
+# P(play g_k | missed every earlier game in the chain), k = 1, 2, 3.
+CHAIN_PLAY = chain_play()
 
 
 class UnmodelledTag(ValueError):
     """A Yahoo tag the absence model has no rule for."""
 
 
-def chain_tag(status) -> Optional[str]:
-    """'GTD' or 'O' if the tag drives the chain, None if it is no-effect.
+class SeasonOutConflict(ValueError):
+    """OFS says the season is over for him; an override says he is coming back."""
 
-    Raises UnmodelledTag for anything else -- a silent HEALTHY is how Q tags
-    went unmodelled before A2.
-    """
+
+def normalised_tag(status) -> str:
+    """The tag as the model names it: upper-case, trimmed, aliases applied."""
     s = str(status if status is not None else "HEALTHY").upper().strip() or "HEALTHY"
-    s = TAG_ALIASES.get(s, s)
+    return TAG_ALIASES.get(s, s)
+
+
+def tag_kind(status) -> str:
+    """'chain', 'season_out' or 'none'. Anything else RAISES."""
+    s = normalised_tag(status)
     if s in CHAIN_PLAY:
-        return s
-    if s in NO_EFFECT_TAGS:
-        return None
+        return "chain"
+    if s in SEASON_OUT_TAGS:
+        return "season_out"
+    if s in NO_EFFECT_TAGS or s in NOTE_TAGS:
+        return "none"
+    if s in RETIRED_TAGS:
+        raise UnmodelledTag(
+            f"injury tag {status!r} was retired when Yahoo replaced the injury "
+            f"vocabulary for 2026-27. The designations are now "
+            f"{', '.join(sorted(CHAIN_PLAY) + sorted(SEASON_OUT_TAGS) + ['P']) }, with "
+            f"{', '.join(sorted(NOTE_TAGS))} separate and no-effect. Seeing {s} now means "
+            "the data source changed: check modules/fetch_injury_statuses.py "
+            "(normalize_injury_status) before mapping it to anything.")
     raise UnmodelledTag(
-        f"injury tag {status!r} has no absence rule. Add it to "
-        f"modules/absence.py TAG_ALIASES (e.g. 'Q': 'GTD'), or to NO_EFFECT_TAGS.")
+        f"injury tag {status!r} has no absence rule. The 2026-27 designations are "
+        f"{', '.join(sorted(CHAIN_PLAY) + sorted(SEASON_OUT_TAGS) + ['P'])}; "
+        f"{', '.join(sorted(NOTE_TAGS))} are no-effect. Add it to config "
+        "absence_chain (a chain), or to modules/absence.py SEASON_OUT_TAGS, "
+        "NO_EFFECT_TAGS, NOTE_TAGS or TAG_ALIASES.")
+
+
+def chain_tag(status) -> Optional[str]:
+    """The chain this tag drives, or None.
+
+    None means NO CHAIN, which is not the same as no absence: OFS returns
+    None here and is a season-long out through the baseline hazard
+    (season_out, effective_projected_gp). Raises UnmodelledTag for a tag with
+    no rule -- a silent HEALTHY is how Q went unmodelled before A2.
+    """
+    return normalised_tag(status) if tag_kind(status) == "chain" else None
+
+
+def season_out(status) -> bool:
+    """He plays no more games this season (OFS)."""
+    return tag_kind(status) == "season_out"
+
+
+def effective_projected_gp(status, projected_gp) -> float:
+    """His pre-season projected GP, or 0 for a season-long out.
+
+    This is the whole of OFS's implementation: at 0 the durability miss rate
+    is 1.0, so he misses every remaining game, and his expected misses are
+    exactly his remaining games -- with no double charge.
+    """
+    return 0.0 if season_out(status) else float(projected_gp or 0.0)
+
+
+def noted_tags(statuses: dict) -> list:
+    """['Player (SUSP)', ...] -- the no-effect tags that are not injury
+    designations. Not fatal; named so Nick can judge whether an
+    INJURY_OVERRIDES entry is warranted (2026-10-22)."""
+    out = []
+    for name in (statuses or {}):
+        if normalised_tag(statuses[name]) in NOTE_TAGS:
+            out.append(f"{name} ({str(statuses[name]).strip().upper()})")
+    return sorted(out)
+
+
+def _stated_return(return_week=None, return_date=None, return_games=None) -> str:
+    return ", ".join(f"{k}={v!r}" for k, v in
+                     (("return_week", return_week), ("return_date", return_date),
+                      ("return_games", return_games)) if v)
+
+
+SEASON_OUT_FLAG = "--allow-season-out-conflict"
+
+
+def _season_out_conflict_message(lines) -> str:
+    return (
+        "out-for-season tag against a stated return in config/INJURY_OVERRIDES.json: " +
+        "; ".join(lines) + ". One of the two inputs is stale, and nothing here guesses "
+        f"which. If Yahoo has not caught up -- a player cleared to return whose tag still "
+        f"says OFS -- pass {SEASON_OUT_FLAG}: the OVERRIDE WINS (the better-informed "
+        "input, as everywhere else in the precedence chain), the run continues, and the "
+        "conflict is recorded in the report metadata and the point-in-time capture. If the "
+        "season really is over for him, clear the return from the overrides file instead.")
+
+
+def season_out_conflict_line(player: str, status, return_week=None, return_date=None,
+                             return_games=None) -> str:
+    return (f"{player} is tagged {str(status).strip().upper()} but the overrides file returns "
+            f"him ({_stated_return(return_week, return_date, return_games)})")
+
+
+def check_season_out_override(player: str, status, return_week=None,
+                              return_date=None, return_games=None) -> None:
+    """OFS plus an INJURY_OVERRIDES entry that returns him is a contradiction
+    between the two inputs. Raise rather than silently pick one: a plain
+    `out_weeks` entry agrees with OFS and is fine, a stated RETURN does not.
+
+    This is the engines' backstop. A build resolves the conflict at its
+    boundary instead (resolve_season_out_conflicts), where the escape flag and
+    the recording live, so by the time a simulator runs there is nothing left
+    to raise about.
+    """
+    if not season_out(status):
+        return
+    if return_week is None and return_date is None and not return_games:
+        return
+    raise SeasonOutConflict(_season_out_conflict_message(
+        [season_out_conflict_line(player, status, return_week, return_date, return_games)]))
+
+
+def season_out_conflicts(statuses: dict, projections) -> list:
+    """Every OFS tag an INJURY_OVERRIDES entry states a return for.
+
+    projections: name -> anything carrying return_week / return_date /
+    return_games (a PlayerProjection, an MVPlayer). Names resolve through
+    PlayerIndex, so a Yahoo respelling cannot hide a conflict.
+    """
+    from .data_loader import PlayerIndex
+    idx = projections if isinstance(projections, PlayerIndex) else PlayerIndex(projections or {})
+    out = []
+    for name in (statuses or {}):
+        if not season_out(statuses[name]):
+            continue
+        p = idx.get(name)
+        if p is None:
+            continue
+        rw, rd, rg = (getattr(p, "return_week", None), getattr(p, "return_date", None),
+                      getattr(p, "return_games", None))
+        if rw is None and rd is None and not rg:
+            continue
+        out.append({
+            "player": str(idx.canonical(name) or name),
+            "status_key": name,
+            "tag": str(statuses[name]).strip().upper(),
+            "stated_return": _stated_return(rw, rd, rg),
+            "resolution": ("the override wins: the tag was dropped for this run, so "
+                           "config/INJURY_OVERRIDES.json governs his absence"),
+            "line": season_out_conflict_line(name, statuses[name], rw, rd, rg),
+        })
+    return sorted(out, key=lambda c: c["player"])
+
+
+def resolve_season_out_conflicts(statuses: dict, projections, allow: bool = False) -> tuple:
+    """(statuses to simulate, conflicts). Raises unless `allow`.
+
+    When allowed, the OFS tag is DROPPED for the run -- replaced by HEALTHY, so
+    the overrides file alone decides his absence and the baseline hazard carries
+    the rest of his season from his projected GP. Dropping the key instead would
+    read as "Yahoo gave no status for him", which is a different fact.
+    """
+    conflicts = season_out_conflicts(statuses, projections)
+    if not conflicts:
+        return statuses, []
+    if not allow:
+        raise SeasonOutConflict(_season_out_conflict_message([c["line"] for c in conflicts]))
+    from .data_loader import PlayerIndex
+    plain = dict(dict.items(statuses))
+    for c in conflicts:
+        # replace the key AS STORED, so one spelling does not become two
+        plain[c["status_key"]] = "HEALTHY"
+    return PlayerIndex(plain), conflicts
 
 
 def check_tags(statuses: dict, players: Iterable[str]) -> None:
     """Raise once, naming every simulated player whose tag is unmodelled."""
-    bad = []
+    bad, why = [], []
     for n in players:
         if n not in statuses:
             continue
         try:
-            chain_tag(statuses[n])
-        except UnmodelledTag:
+            tag_kind(statuses[n])
+        except UnmodelledTag as e:
             bad.append(f"{n} ({statuses[n]})")
+            why.append(str(e))
     if bad:
         raise UnmodelledTag(
-            "no absence rule for these tags: " + ", ".join(sorted(bad)) +
-            ". Map them in modules/absence.py TAG_ALIASES.")
+            "no absence rule for these tags: " + ", ".join(sorted(bad)) + ". " + why[0])
 
 
 class UnresolvedTagName(ValueError):
@@ -188,11 +429,6 @@ def resolve_tags(statuses: dict, rostered: Iterable[str]) -> tuple:
     return out, sorted(unmatched), missing
 
 
-def _validate_chain(probs: Sequence[float]) -> None:
-    assert len(probs) == MAX_TAG_GAMES, probs
-    assert all(0.0 <= p <= 1.0 for p in probs), probs
-
-
 def missed_distribution(tag: str, observed: Sequence[bool] = ()) -> tuple:
     """P(he misses exactly r MORE games from the tag), r = 0..MAX_TAG_GAMES.
 
@@ -200,6 +436,11 @@ def missed_distribution(tag: str, observed: Sequence[bool] = ()) -> tuple:
     already resolved (B2). With no observations this is the full distribution
     of games missed, the first r games, contiguous.
     """
+    if tag not in CHAIN_PLAY:
+        raise UnmodelledTag(
+            f"{tag!r} is not a chain tag, so it has no games-missed distribution. "
+            f"OFS is a season-long out carried by the baseline hazard "
+            f"(effective_projected_gp), deliberately exempt from MAX_TAG_GAMES.")
     probs = CHAIN_PLAY[tag]
     _validate_chain(probs)
     n = 0
@@ -307,12 +548,23 @@ def override_governs(week, week_dates: Sequence[date], out_weeks=(), return_week
 # durable players.
 #
 # THE LEVEL IS THE PROJECTION, NOT A PARAMETER
-#   rate = (remaining team games - projected_gp) / remaining team games
-# player_proj_GP is Yahoo's "Remaining Games (proj)" (fetch_playerlist), so
-# the denominator is his team's REMAINING games from the anchor -- not 82,
-# and not the roster's maximum projected GP (marginal_value's old
-# denominator, about 71). Remaining counts the NBA Cup games the schedule
-# file does not list yet (absence_baseline.nba_games_per_team).
+#   miss rate per team game = (82 - PRE-SEASON projected GP) / 82
+# and the expected misses over a window are that rate times the window's
+# team games. 82 is absence_baseline.nba_games_per_team, which counts the
+# NBA Cup games the schedule file does not list yet.
+#
+# The GP comes from data_loader.DurabilityPrior -- a PRE-SEASON snapshot,
+# named in config -- and NOT from the live PLAYERLIST, whose GP column stops
+# meaning "games of 82 he will play" the moment the season starts and starts
+# meaning "games of those remaining", marked down only for a known absence
+# (measured 2026-10-22: sd 4.9 pre-season against 2.74 live, and taking it
+# live would drop this rate from about 16% to about 1.5%). It is also not
+# the roster's maximum projected GP, which was marginal_value's old
+# denominator, about 71.
+#
+# A RATE, not a count of games, is also what makes a mid-season anchor
+# right: with 40 games left a pre-season projection of 69 is not "69 of the
+# 40 remaining", it is a durability of 69/82 applied to those 40.
 #
 # THE SHAPE IS MEASURED (config absence_baseline)
 # Absences are blocks. A two-state chain over the player's TEAM GAMES:
@@ -341,8 +593,9 @@ def override_governs(week, week_dates: Sequence[date], out_weeks=(), return_week
 #     already counts (Nick, 10-21: Knueppel, out weeks 1-2, 70 GP). So the
 #     override's expected missed games come OUT of the projection's misses,
 #     and the rest are spread over the games no override governs:
-#       rate = (remaining - gp - override misses) / (remaining - governed games)
-#     Total expected misses stay exactly remaining - gp (override_absence).
+#       rate = (miss rate x remaining - override misses) / (remaining - governed)
+#     Total expected misses stay exactly miss rate x remaining
+#     (override_absence).
 
 
 @dataclass(frozen=True)
@@ -389,18 +642,36 @@ def remaining_team_games(team_dates: Iterable[date], anchor: date, params: Basel
     return sum(1 for d in dates if d >= anchor) + unscheduled
 
 
-def baseline_rate(projected_gp: float, remaining: int, override: tuple = (0, 0.0)) -> float:
+def durability_miss_rate(prior_gp: float, params: BaselineParams) -> float:
+    """Games missed per team game, from a PRE-SEASON projected GP: the one
+    place a player's durability becomes a number.
+
+    (82 - gp) / 82, clamped. A GP above a full season (or a prior that has
+    nothing for him and falls back high) is no misses, never a negative rate.
+    claude/DURABILITY_BLEND_DESIGN.md replaces this with a posterior that
+    learns from the season; everything downstream takes a rate either way.
+    """
+    full = float(params.games_per_team)
+    if full <= 0:
+        return 0.0
+    return min(1.0, max(0.0, (full - float(prior_gp)) / full))
+
+
+def baseline_rate(miss_rate: float, remaining: int, override: tuple = (0, 0.0)) -> float:
     """Per-game miss probability on the games no override governs.
 
-    override = (games governed by INJURY_OVERRIDES, expected games those
-    entries take), from override_absence. A projection above the remaining
-    games (a PLAYERLIST a few days stale) is no misses, never a negative rate.
+    miss_rate is the durability prior (durability_miss_rate), so the expected
+    misses over the window are miss_rate x remaining. override = (games
+    governed by INJURY_OVERRIDES, expected games those entries take), from
+    override_absence; those games come out of the expectation AND out of the
+    denominator, so the total stays miss_rate x remaining.
     """
     governed, override_missed = override
     open_games = remaining - governed
     if open_games <= 0:
         return 0.0
-    return min(1.0, max(0.0, (remaining - float(projected_gp) - override_missed) / open_games))
+    expected = max(0.0, float(miss_rate)) * remaining
+    return min(1.0, max(0.0, (expected - override_missed) / open_games))
 
 
 def override_absence(week_dates: dict, team_dates: Iterable[date], anchor: date,
@@ -494,17 +765,29 @@ class BaselineBlocks:
     team_dates: every scheduled game of his team this season (the chain runs
     over all of them, so its draws do not depend on the anchor). anchor: the
     first day being simulated; only the RATE depends on it.
+
+    miss_rate: his durability as a per-team-game probability
+    (durability_miss_rate of a PRE-SEASON projected GP).
+
+    season_out (OFS): he misses every remaining game, overrides included. His
+    miss_rate is already 1.0 (effective_projected_gp zeroes his GP first), so
+    the mask is all ones; the flag is what tells the callers to skip the
+    override gate as well, because "out for season" is not a week an
+    INJURY_OVERRIDES entry can hand back (check_season_out_override raises if
+    one tries).
     """
 
     def __init__(self, seed, season: str, player: str, team_dates: Iterable[date],
-                 anchor: date, projected_gp: float, n: int, params: BaselineParams,
-                 override: tuple = (0, 0.0)):
+                 anchor: date, miss_rate: float, n: int, params: BaselineParams,
+                 override: tuple = (0, 0.0), season_out: bool = False):
         self.player = player
+        self.season_out = bool(season_out)
         self.dates = sorted(set(team_dates))
         self._index = {d: i for i, d in enumerate(self.dates)}
         self.remaining = remaining_team_games(self.dates, anchor, params)
         self.override = override
-        self.rate = baseline_rate(projected_gp, self.remaining, override)
+        self.miss_rate = float(miss_rate)
+        self.rate = baseline_rate(miss_rate, self.remaining, override)
         u = crn.keyed_rng(seed, "baseline", season, player).random((int(n), params.games_per_team + 1))
         mask = baseline_mask(u, self.rate, len(self.dates), params)
         self._packed = np.packbits(mask, axis=1)

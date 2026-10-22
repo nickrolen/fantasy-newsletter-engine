@@ -58,6 +58,35 @@ If you make a deliberate structural change (add/remove modules, intentionally re
 py scripts\verify_project_integrity.py --baseline
 ```
 
+## Step 0b: The test suite
+
+**Once per machine** (and after any `requirements.txt` change):
+
+```cmd
+py -m pip install -r requirements.txt
+```
+
+`-n 2` needs `pytest-xdist`, which that line installs along with everything
+else; `py -m pip install pytest-xdist` on its own does just this. Without it
+the command below fails with `error: unrecognized arguments: -n` -- that is a
+missing package, not a broken suite.
+
+Then, every week:
+
+```cmd
+py -m pytest tests\ -q -n 2
+```
+
+**Always `-n 2`.** The suite is around 1,180 tests and takes about 145 seconds
+in one process, which is over the 180-second cap on a single command run
+against this machine from an automated session -- so a serial run cannot be
+verified in one go any more. On two cores it is about 90 seconds. The time is
+spread evenly across the suite, with the slowest single test at 7.8 seconds:
+there is nothing concentrated to fix, and nothing is marked slow or skipped to
+get the number down.
+
+Exit code 0 with no failures is the bar. A failure is a stop, not a warning.
+
 ---
 
 ## Step 0: Update NBA Schedule
@@ -239,6 +268,27 @@ carries ages forward from the previous file; adds any rostered player missing
 from the top ~125 using placeholder projections; and writes the seven columns
 above. Then run `check_playerlist.py` -- the gate is the same either way.
 
+### What the refetch does and does not change
+
+PLAYERLIST does two jobs, and only one of them survives the season starting:
+
+| column | job | where the engine reads it |
+|---|---|---|
+| `projectedFPPG`, `player_total_proj_FP` | scoring | **live, this file** -- they refresh correctly |
+| `player_proj_GP` | the injury hazard's durability prior | **a pre-season snapshot**, named in `league_config.json` `durability_prior.snapshot` |
+
+The GP column changes meaning once the season starts: before week 1 it is
+projected games out of 82 with a durability haircut on everyone (sd ~4.9, 31%
+of players within one game of the median); after it, it is games out of those
+**remaining**, marked down only for a player Yahoo already knows is hurt (sd
+2.74, 96% within one game). Measured 2026-10-22.
+
+So the hazard freezes its durability to a pre-season file. **Refetching is
+safe** -- it updates scoring and leaves durability alone -- and
+`check_playerlist.py` reports which shape the file has, confirms the configured
+prior is a different, pre-season file, and fails if it is not. The report
+metadata and the point-in-time capture record which snapshot was used.
+
 ---
 
 ## Step 3: Generate Rosters File
@@ -317,6 +367,49 @@ block-absence input. `verify_project_integrity` enforces it:
 | 14 days before Week 1 | warning, with the due date | - |
 | **Due: 2 days before Week 1** (Sun Oct 18, 2026) | | |
 | From Week 1 on | **FAILURE** | warning if > 8 days old; FAILURE if it predates the season |
+
+### Priority: a long absence showing as `Q`
+
+Yahoo's 2026-27 injury designations are **P, Q, D, O, OFS** (`GTD`, `DTD`,
+`INJ`, `IL` and `IL+` are retired and now raise). Only `OFS` says anything
+about a timeline: `Q`, `D` and `O` cost a block of at most **three** of the
+player's team games, so a player a week into a six-week injury still shows
+`O`, or even `D`, and the engine expects him back almost immediately.
+
+Measured against the live API on 2026-10-22, free agents that appear in
+`PLAYERLIST`, by Yahoo's projected remaining GP:
+
+| tag | players | mean GP | range |
+|---|---|---|---|
+| HEALTHY | 100 | 69.6 | 59-82 |
+| `Q` | 9 | **69.1** | 65-75 |
+| `O` | 5 | 64.2 | 55-78 |
+
+Yahoo's GP partly absorbs an `O` absence -- about five games, which the
+baseline hazard then charges -- but **a `Q` tag moves it by nothing**. So for a
+questionable player the chain's three games are the entire absence signal in
+the system, and **a long absence showing as `Q` is invisible to the engine
+without an entry in this file.**
+
+So, in order:
+
+1. **Players tagged `Q`, `D` or `O` whose absence will run beyond three games**
+   -- they need an `out_weeks` entry; nothing else in the engine knows.
+2. **Anyone the build named as `TAG NOTED: <player> (SUSP|NA)`.** Those are not
+   injury designations and get no absence rule. Their games are carried by
+   Yahoo's projected GP, which may not have caught up -- judge whether an
+   entry is warranted.
+3. **A player tagged `OFS`** needs no entry: it zeroes his remaining projected
+   games and he misses the rest of the season.
+   - A `return_week` on an `OFS` player is a contradiction between the two
+     inputs, and the build refuses rather than guess which is right.
+   - **If Yahoo is the stale one** -- he is cleared to play and the tag has not
+     caught up -- pass `--allow-season-out-conflict`. The override wins, the
+     tag is dropped for that run, and the conflict is recorded in the report
+     metadata and the point-in-time capture. Do not delete the return from
+     this file to get the build to run: this file is the better-informed
+     input, which is the whole premise of the precedence chain.
+   - If the season really is over for him, clear the return instead.
 
 ### What to check:
 
@@ -447,6 +540,8 @@ python scripts\generate_stats_report.py --week WEEK
 | `--no-save-records` | Don't update RECORDS.json |
 | `--no-freshness` | Disable content repetition tracking |
 | `--allow-stale-schedule` | Run on an NBA schedule older than 8 days in season (recorded in the capture) |
+| `--allow-no-injury-statuses` | Run with no Yahoo injury tags: a failed or skipped fetch would otherwise refuse, because every line and odds figure would be priced with nobody hurt (recorded in the capture) |
+| `--allow-season-out-conflict` | Run with a player tagged `OFS` whom this file returns: the **override wins** and the tag is dropped for the run (recorded in the capture) |
 
 ---
 

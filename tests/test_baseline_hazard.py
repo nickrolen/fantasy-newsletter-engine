@@ -158,8 +158,10 @@ def _season_dates(n_games, start=date(2026, 10, 20), every=2):
 
 
 def _blocks(gp, n_games=82, n=4000, anchor=None, player="X", seed=SEED):
+    """Blocks for a player whose PRE-SEASON projected GP is `gp`."""
     dates = _season_dates(n_games)
-    return absence.BaselineBlocks(seed, "2026-27", player, dates, anchor or dates[0], gp, n, P)
+    return absence.BaselineBlocks(seed, "2026-27", player, dates, anchor or dates[0],
+                                  absence.durability_miss_rate(gp, P), n, P)
 
 
 def test_parameters_live_in_config_and_missing_raises():
@@ -180,19 +182,35 @@ def test_expected_misses_are_team_games_minus_projected_gp(gp):
     b = _blocks(gp)
     missed = b.season_mask().sum(axis=1)
     assert b.remaining == 82
+    assert b.miss_rate == pytest.approx((82 - gp) / 82)
     assert missed.mean() == pytest.approx(82 - gp, abs=max(0.05, 4 * missed.std() / np.sqrt(len(missed))))
 
 
-def test_the_denominator_is_remaining_team_games_including_unscheduled():
-    """player_proj_GP is REMAINING games (fetch_playerlist's S_PSR view).
-    The file lists 80 of 82; the 2 Cup games count as remaining."""
+def test_the_window_counts_the_unscheduled_cup_games():
+    """The file lists 80 of 82 team games; the 2 NBA Cup games are not
+    scheduled yet and still count in the window the rate is applied over."""
     dates = _season_dates(80)
     anchor = dates[30]
-    b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, anchor, 40, 4000, P)
+    b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, anchor,
+                               absence.durability_miss_rate(40, P), 4000, P)
     assert b.remaining == 50 + 2
-    assert b.rate == pytest.approx((52 - 40) / 52)
+    assert b.rate == pytest.approx((82 - 40) / 82)
     rest = b.season_mask()[:, 30:].sum(axis=1)
-    assert rest.mean() == pytest.approx(50 * (52 - 40) / 52, abs=0.4)
+    assert rest.mean() == pytest.approx(50 * (82 - 40) / 82, abs=0.5)
+
+
+def test_a_mid_season_anchor_keeps_the_prior_s_rate():
+    """The prior is a RATE out of 82, not a count against the games left: at
+    the All-Star break a 69-GP player is still missing ~16% of his games, not
+    zero (which is what (remaining - 69) / remaining would have given)."""
+    dates = _season_dates(82)
+    for anchor_i, remaining in ((0, 82), (42, 40), (72, 10)):
+        b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[anchor_i],
+                                   absence.durability_miss_rate(69, P), 4000, P)
+        assert b.remaining == remaining
+        assert b.rate == pytest.approx((82 - 69) / 82, abs=1e-12)
+        window = b.season_mask()[:, anchor_i:].sum(axis=1)
+        assert window.mean() == pytest.approx(remaining * 13 / 82, abs=0.6)
 
 
 def test_marginal_value_no_longer_divides_by_the_roster_max():
@@ -296,7 +314,7 @@ def test_a_tagged_player_is_not_charged_twice():
     data, teams, weeks = _week_world()
     anchor = date.fromisoformat(weeks[0]["start_date"])
     draws = sb.KeyedDraws(SEED, 4000)
-    statuses = {"P0Nick": "GTD"}
+    statuses = {"P0Nick": "Q"}
     dates = [d for w in weeks for d in sb.get_dates_in_week(w)]
     out = np.stack([~sb.availability_on(data, teams, weeks[(d - anchor).days // 7], statuses, draws,
                                          "Nick", "P0Nick", d, anchor) for d in dates], axis=1)
@@ -305,11 +323,11 @@ def test_a_tagged_player_is_not_charged_twice():
     # on the chain's games the tag alone decides
     for i, d in enumerate(tag.games):
         assert np.array_equal(out[:, dates.index(d)], tag.missed(d))
-    # first game: GTD's 40%, not 40% + 60% x rate
+    # first game: Q's 40%, not 40% + 60% x rate
     assert out[:, 0].mean() == pytest.approx(0.40, abs=0.025)
     # the rule, in expectation: tag block + rate x the games it does not cover
-    expected = absence.expected_missed("GTD") + base.rate * (len(dates) - 3)
-    double = absence.expected_missed("GTD") + base.rate * len(dates)
+    expected = absence.expected_missed("Q") + base.rate * (len(dates) - 3)
+    double = absence.expected_missed("Q") + base.rate * len(dates)
     got = out.sum(axis=1).mean()
     assert got == pytest.approx(expected, abs=0.5)
     assert abs(got - double) > abs(got - expected) + 0.3

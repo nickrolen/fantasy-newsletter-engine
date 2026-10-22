@@ -43,19 +43,25 @@ AVAILABILITY -- one model, the simulators'
   1. INJURY_OVERRIDES out_weeks, or out_from (on and after a date within its
      week): unavailable.
   2. return_date in a return week: unavailable before it.
-  3. a live GTD/O tag: modules/absence.py (A2). One draw of k games missed
+  3. a live Q/D/O tag: modules/absence.py (A2). One draw of k games missed
      per simulation, keyed by (seed, player, anchor) -- the anchor is the
      window's first day, the week the tags were fetched for -- and his
      first k team games from the anchor are out. Blocks, not coin flips.
      An override entry touching that week suppresses the tag.
      A partial return without a date (return_games of total_week_games) is
      pro-rated per game, keyed ("avail", player, date), as the simulator does.
-  4. every other game: the baseline hazard, absence.BaselineBlocks -- his
-     season of untagged absences, in blocks, at rate (remaining team games -
-     projected_gp) / remaining team games, keyed (seed, "baseline", season,
-     player). Not on a game the tag covers, and not in a week an override
-     governs. The SAME object the week engine uses: for one seed and n the
-     two return identical availability (tests/test_baseline_hazard.py).
+  4. an OFS tag: out for season, applied as projected GP 0 so the hazard
+     below charges every remaining game (absence.effective_projected_gp).
+  5. every other game: the baseline hazard, absence.BaselineBlocks -- his
+     season of untagged absences, in blocks, at (82 - his PRE-SEASON
+     projected GP) / 82 a game, keyed (seed, "baseline", season, player). Not
+     on a game the tag covers, and not in a week an override governs. The
+     durability comes from the context's DurabilityPrior, the same pre-season
+     snapshot the week engine reads -- NOT from the live PLAYERLIST, whose GP
+     column changes meaning in season
+     (claude/HANDOFF_DURABILITY_PRIOR_2026-10-22.md). For one seed and n the
+     two engines return identical availability
+     (tests/test_baseline_hazard.py).
 `availability()` is steps 1 and 2; `tag_missed()` is step 3; `_draws`
 combines all four.
 
@@ -213,6 +219,7 @@ class MVContext:
     seed: int
     unprojected: list = field(default_factory=list)
     season: str = None
+    durability_prior: object = None                  # data_loader.DurabilityPrior
     team_dates: dict = field(default_factory=dict)   # team -> season game dates
     week_dates: dict = field(default_factory=dict)   # every schedule week -> its dates
     _baseline: dict = field(default_factory=dict, repr=False)
@@ -268,6 +275,7 @@ def build_context(
     injury_statuses: Optional[dict] = None,
     extra_players: Iterable[str] = (),
     fallback_info: Optional[dict] = None,
+    durability_prior=None,
     sims: int = DEFAULT_SIMS,
     seed: int = 20261006,
     season: str = None,
@@ -281,6 +289,12 @@ def build_context(
     fallback_info:   name -> (nba_team, positions) for rostered players
                      PLAYERLIST lacks (from LINEUPS); valued at 0.0 and
                      listed in ctx.unprojected
+    durability_prior: data_loader.DurabilityPrior for the baseline hazard --
+                     a PRE-SEASON snapshot, passed IN (nothing here opens a
+                     file). None means each player's own projected_gp is his
+                     prior, which is right for a pre-season or point-in-time
+                     file and wrong for a live in-season one; the live advice
+                     path passes data.durability_prior (advice_runner).
     """
     proj_idx = PlayerIndex(projections)
     statuses = PlayerIndex(injury_statuses or {})
@@ -323,6 +337,7 @@ def build_context(
     return MVContext(players=players, rosters={m: list(v) for m, v in rosters.items()},
                      window=window, weeks=weeks, days=days, sims=sims, seed=seed,
                      unprojected=unprojected, season=season or CURRENT_SEASON,
+                     durability_prior=durability_prior,
                      team_dates=team_dates, week_dates=by_week)
 
 
@@ -352,19 +367,28 @@ def availability(ctx: MVContext, p: MVPlayer, d: date, week: int) -> float:
 def baseline(ctx: MVContext, p: MVPlayer):
     """absence.BaselineBlocks for p, or None (unprojected: valued at 0.0 and
     given no hazard). Anchored at the window's first day -- the week the
-    projections were fetched for, the week engine's anchor too."""
+    projections were fetched for, the week engine's anchor too. The durability
+    comes from ctx.durability_prior (a pre-season snapshot) and an OFS tag
+    zeroes it, exactly as in the week engine."""
     if p.projected_gp is None or not ctx.days:
         return None
     hit = ctx._baseline.get(p.name)
     if hit is None:
         anchor = ctx.days[0][0]
         team_dates = ctx.team_dates.get(p.team, [])
+        absence.check_season_out_override(p.name, p.status, p.return_week, p.return_date,
+                                          p.return_games)
         override = absence.override_absence(
             ctx.week_dates, team_dates, anchor, p.out_weeks, p.return_week, p.return_date,
             p.out_from, p.return_games, p.total_week_games)
+        prior = ctx.durability_prior
+        prior_gp = (prior.gp_for(p.name, p.projected_gp)[0] if prior is not None
+                    else p.projected_gp)
         hit = ctx._baseline[p.name] = absence.BaselineBlocks(
             ctx.seed, ctx.season, p.name, team_dates, anchor,
-            p.projected_gp, ctx.sims, _baseline_params(), override)
+            absence.durability_miss_rate(
+                absence.effective_projected_gp(p.status, prior_gp), _baseline_params()),
+            ctx.sims, _baseline_params(), override, absence.season_out(p.status))
     return hit
 
 
@@ -407,8 +431,9 @@ def _draws(ctx: MVContext, p: MVPlayer, d: date, week: int) -> np.ndarray:
     if hit is not None:
         return hit
     a = availability(ctx, p, d, week)
-    if a <= 0.0:
-        out = np.zeros(ctx.sims, dtype=bool)
+    b0 = baseline(ctx, p)
+    if a <= 0.0 or (b0 is not None and b0.season_out):
+        out = np.zeros(ctx.sims, dtype=bool)        # OFS: every remaining game
     else:
         # the same precedence as simulator_betting.entry_available
         out = np.ones(ctx.sims, dtype=bool)
@@ -421,7 +446,7 @@ def _draws(ctx: MVContext, p: MVPlayer, d: date, week: int) -> np.ndarray:
             out &= ~blocked
         elif not absence.override_governs(week, _dates_of_week(ctx, week), p.out_weeks,
                                           p.return_week, p.out_from):
-            b = baseline(ctx, p)
+            b = b0
             m = b.missed(d) if b is not None else None
             if m is not None:
                 out &= ~m

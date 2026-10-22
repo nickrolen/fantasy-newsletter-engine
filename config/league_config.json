@@ -17,7 +17,7 @@
         "Nick": "Luka my Balls",
         "Hayden": "Big Nik Energy",
         "Benton": "Kevin Quran't",
-        "Garrett": "Saboner"
+        "Garrett": "Blink-183"
     },
     "manager_aliases": {
         "nick": "Nick",
@@ -294,6 +294,22 @@
         "premise_trade_samples": 2,
         "_premise_trade_sample": "scripts/validate_marginal_value.py samples this many one-for-one swaps per sample, in this many disjoint samples, instead of all 1,350 from both sides (25 minutes at 3,000 sims). The band must agree across samples or the gate records UNSTABLE (Nick, 10-21).",
         "_marginal_value_shortlist_sims": "The advice pre-filter: every candidate is scored at this count and only the shortlist reaches marginal_value_sims. At 40 its noise was about 30 points -- a good add could be cut before the precise check ever saw it (Nick, 10-21). 200 costs about 45 s a weekly build."
+    },
+    "durability_prior": {
+        "snapshot": "config/snapshots/PLAYERLIST_2026-10-13.xlsx",
+        "_comment": "WHERE THE BASELINE HAZARD GETS player_proj_GP, and deliberately NOT the live data/PLAYERLIST.xlsx. The column changes meaning when the season starts: PRE-SEASON it is projected games out of 82 with a durability haircut on everyone (measured 2026-10-22 across all three stored snapshots: mean 69.1-69.3, sd 4.9-5.0, 31% of players within one game of the median), IN-SEASON it is games out of those REMAINING, marked down only for players Yahoo already knows are hurt (a fresh fetch the same day: mean 77.7, sd 2.74, 96% within one game of the median; GP correlates 0.52 against the stored file while FPPG correlates 0.97 -- only GP breaks). Taking it live in-season drops the hazard from about 16% to about 1.5% a game, which switches the injury model off and puts title odds back to Hayden at 78% (claude/HANDOFF_DURABILITY_PRIOR_2026-10-22.md).",
+        "_which": "The NEWEST PRE-SEASON snapshot, named here rather than inferred from a directory listing, so the prior cannot change under a run that did not ask it to. Scoring inputs (projectedFPPG, total projected FP) still come live from data/PLAYERLIST.xlsx -- those refresh correctly.",
+        "_next_season": "A new season sets this once, in the preseason checklist, to that season's first snapshot: take a PLAYERLIST before week 1 (py scripts/check_playerlist.py --snapshot) and point this key at it. verify_project_integrity FAILS when the file is missing, or when its GP column has lost its pre-season dispersion, or when it was taken after the season's first week started. PRESEASON_2026-27.md and SEASON_RESET.md say so.",
+        "flat_gp_share_max": 0.80,
+        "_flat_gp_share_max": "Refuse a GP column with more than this share of players within one game of the median -- that is the in-season shape (96% today) rather than the pre-season one (31%). Used by scripts/check_playerlist.py and by the prior loader itself."
+    },
+    "absence_chain": {
+        "_comment": "Yahoo injury designations that drive the absence chain (modules/absence.py): P(he plays game k of his team's games from the tag's anchor | he missed every earlier one), for k = 1, 2, 3. The 2026-27 vocabulary is P, Q, D, O, OFS. P is healthy, OFS is a season-long out carried by absence_baseline (projected GP 0), and these three drive the chain.",
+        "O": [0.00, 0.50, 0.75],
+        "Q": [0.60, 0.55, 0.75],
+        "D": [0.25, 0.45, 0.70],
+        "_stated": "NICK'S STATED JUDGEMENT, NOT MEASURED. O and Q approved 2026-10-19 (as O and GTD, before Yahoo renamed GTD to Q); D added 2026-10-22, between Q and O at every game. Q's second game is deliberately LOWER than its first: a questionable player who then actually sat is in worse shape than the tag said.",
+        "_calibration": "Do not guess these from the historical log. It records is_injured, not the tag that was showing, and the tags it would have carried are the retired GTD/DTD vocabulary -- so measuring Q and D from it needs an assumption about how the old names map onto the new ones. That is a judgement for Nick, not a measurement (claude/HANDOFF_YAHOO_TAGS_2026-10-22.md sec.5)."
     },
     "absence_baseline": {
         "_comment": "Untagged absences (modules/absence.py, the baseline hazard). Every player misses games he is not tagged for: Yahoo's player_proj_GP is his projected GP over his team's REMAINING games, so his per-game miss rate is (remaining team games - projected GP) / remaining team games. Those misses come in BLOCKS, persistent within a simulated season: an absence is short (mostly one-game rests) or long (a real injury), chosen per absence; a healthy spell between absences is memoryless. The rate is not a parameter -- it is the projection. Only the block SHAPE lives here.",

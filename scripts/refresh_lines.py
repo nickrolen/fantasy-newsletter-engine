@@ -21,6 +21,7 @@ Refuses (raises) rather than guess:
   - mid-week with no tag record for the week      (--assume-tags-since-week-start)
   - a different --seed from the week's recorded one (--reseed)
   - a Yahoo fetch that fails                      (--statuses FILE or --no-tags)
+  - an OFS tag the overrides file returns          (--allow-season-out-conflict)
 Every override used is written into the output's "assumptions".
 
 Starters are legal lineups (A4): PG SG G SF PF F C C UTIL UTIL.
@@ -71,7 +72,8 @@ def _fetch_statuses(base: Path) -> dict:
 
 def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATIONS, seed=None,
             statuses=None, no_tags=False, allow_missing_days=False,
-            assume_tags_since_week_start=False, reseed=False, dry_run=False, data=None) -> dict:
+            assume_tags_since_week_start=False, reseed=False, dry_run=False, data=None,
+            allow_season_out_conflict=False) -> dict:
     base = Path(base_path)
     as_of = as_of or date.today()
     data = data or load_all_data(base, current_week=None)
@@ -106,6 +108,15 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
         _teams = load_all_team_projections(data)
         live, _unmatched, _missing = absence.resolve_tags(
             live, [n for tp in _teams.values() for n in tp.players])
+        # an OFS tag the overrides file returns: refuse, or let the override
+        # win and say so in the assumptions (the same escape the weekly build
+        # has as --allow-season-out-conflict)
+        live, _conflicts = absence.resolve_season_out_conflicts(
+            live, {n: p for tp in _teams.values() for n, p in tp.players.items()},
+            allow_season_out_conflict)
+        for c in _conflicts:
+            assumptions.append(f"SEASON-OUT OVERRIDDEN: {c['line']} -- {c['resolution']} "
+                               "(--allow-season-out-conflict).")
         live = dict(live)
     previous = stored.get("tags") if stored else None
     anchors, events, tag_assumptions = ws.reconcile_tags(
@@ -168,12 +179,16 @@ def main(argv=None):
     ap.add_argument("--no-tags", action="store_true")
     ap.add_argument("--allow-missing-days", action="store_true")
     ap.add_argument("--assume-tags-since-week-start", action="store_true")
+    ap.add_argument("--allow-season-out-conflict", action="store_true",
+                    help="a player tagged OFS whom INJURY_OVERRIDES returns: the override "
+                         "wins, the tag is dropped, and the line's assumptions say so")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--base-path", default=".")
     a = ap.parse_args(argv)
     st = json.loads(Path(a.statuses).read_text(encoding="utf-8")) if a.statuses else None
     p = refresh(a.base_path, a.week, a.as_of, a.sims, a.seed, st, a.no_tags, a.allow_missing_days,
-                a.assume_tags_since_week_start, a.reseed, a.dry_run)
+                a.assume_tags_since_week_start, a.reseed, a.dry_run,
+                allow_season_out_conflict=a.allow_season_out_conflict)
     print(f"Week {p['week']} as of {p['as_of']}  seed {p['seed']}  state {p['state_hash']}")
     for ln in p["lines"]:
         print(f"  {ln['matchup']:22s} {ln['manager_a']} {ln['spread_a']:+.1f}  "

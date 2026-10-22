@@ -53,7 +53,8 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules.data_loader import (  # noqa: E402
-    PlayerIndex, normalize_player_name, _without_suffix, initial_match,
+    DURABILITY_PRIOR, FLAT_GP_SHARE_MAX, PlayerIndex, gp_column_is_flat,
+    normalize_player_name, _without_suffix, initial_match,
 )
 from modules import playerlist_freshness  # noqa: E402
 
@@ -84,6 +85,40 @@ GP_CEILING = 82         # an NBA regular season; nobody has more remaining
 # (0 of 175 rows jumped 40% in the simulated shift).
 GP_UP_SHARE = 0.25
 MIN_COMMON_FOR_SHARE = 20   # fewer players in common and a share means little
+
+# THE GP COLUMN CARRIES TWO DIFFERENT MEANINGS, one per season phase, and the
+# baseline injury hazard only works on one of them (measured 2026-10-22):
+#
+#   pre-season   projected games of 82, with a durability haircut on everyone
+#                -> sd 4.9-5.0, 54 of 175 players (31%) within one game of
+#                   the median. THIS is a durability forecast.
+#   in-season    games of those REMAINING, marked down only for a player
+#                Yahoo already knows is hurt
+#                -> sd 2.74, 191 of 200 (96%) within one game of the median.
+#                   NOT a durability forecast at all.
+#
+# Both are correct files; which one you have depends only on the date. So the
+# check is not "flat is bad", it is "flat must agree with the phase":
+#   flat before week 1  -> the scrape is broken, or Yahoo switched early: FAIL
+#   flat in season      -> expected, and reported. The engine is protected
+#                          because the hazard reads config durability_prior (a
+#                          pre-season snapshot), never this file -- so the
+#                          check confirms THAT instead, and fails if the
+#                          configured prior is this file or is itself flat.
+# Refusing every in-season file would leave Step 2.5 permanently red while the
+# file it rejects is perfectly good for the only thing it is still used for:
+# scoring (projectedFPPG correlates 0.97 across the same refresh that breaks
+# GP at 0.52).
+
+
+def _first_week_start():
+    """Week 1's start date from config/SCHEDULE.json, or None."""
+    try:
+        blob = json.loads((PROJECT_ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+        starts = [str(w["start_date"])[:10] for w in blob.get("weeks", []) if w.get("start_date")]
+        return date.fromisoformat(min(starts)) if starts else None
+    except (OSError, json.JSONDecodeError, KeyError, ValueError):
+        return None
 
 
 def load_rosters() -> dict:
@@ -196,6 +231,60 @@ def main():
     if high:
         failures.append(f"{len(high)} player(s) above {FPPG_CEILING} FPPG: {high[:5]}")
     print(f"  FPPG range: {fppg.min():.1f} - {fppg.max():.1f}")
+
+    # --- the GP column's meaning, against the season phase ------------------
+    flat, shape = gp_column_is_flat(frame["player_proj_GP"])
+    first_week_start = _first_week_start()
+    in_season = first_week_start is not None and date.today() >= first_week_start
+    print(f"  GP shape: median {shape['median']:.0f}, {shape['within_one']}/{shape['n']} "
+          f"players ({shape['share']:.0%}) within one game of it "
+          f"-- {'in-season' if flat else 'pre-season'} shaped")
+    if flat and first_week_start is None:
+        warnings.append(
+            f"the projected-GP column is flat ({shape['within_one']}/{shape['n']}, "
+            f"{shape['share']:.0%} within one game of the median) and config/SCHEDULE.json "
+            "does not say when week 1 starts, so it cannot be told from the in-season "
+            "shape, which is normal")
+    elif flat and not in_season:
+        failures.append(
+            f"the projected-GP column is in-season shaped before week 1 "
+            f"({first_week_start}): {shape['within_one']} of {shape['n']} players "
+            f"({shape['share']:.0%}) are within one game of the median "
+            f"{shape['median']:.0f}, above the {FLAT_GP_SHARE_MAX:.0%} limit, where a "
+            f"pre-season file sits near 31%. Either the scrape is misaligned or Yahoo "
+            f"switched the column to games-remaining early -- and the baseline injury "
+            f"hazard needs the pre-season meaning for its durability prior")
+    if flat and in_season:
+        print("    (expected in season; the durability prior is taken from "
+              f"{DURABILITY_PRIOR.get('snapshot')}, not from this file)")
+    prior_rel = DURABILITY_PRIOR.get("snapshot")
+    prior_path = PROJECT_ROOT / str(prior_rel or "")
+    if not prior_rel:
+        failures.append("config durability_prior.snapshot is not set; the baseline injury "
+                        "hazard has no durability prior")
+    elif not prior_path.is_file():
+        failures.append(f"config durability_prior.snapshot ({prior_rel}) is not a file; "
+                        "the baseline injury hazard has no durability prior")
+    elif prior_path.resolve() == PLAYERLIST.resolve():
+        failures.append("config durability_prior.snapshot points at the LIVE PLAYERLIST. "
+                        "It must be a pre-season snapshot: in season this file's GP column "
+                        "is games remaining, which switches the injury hazard off")
+    else:
+        try:
+            prior_flat, prior_shape = gp_column_is_flat(
+                pd.read_excel(prior_path)["player_proj_GP"])
+        except Exception as e:
+            failures.append(f"could not read the durability prior {prior_rel}: {e}")
+        else:
+            if prior_flat:
+                failures.append(
+                    f"the durability prior {prior_rel} is in-season shaped "
+                    f"({prior_shape['within_one']}/{prior_shape['n']}, "
+                    f"{prior_shape['share']:.0%} within one game of the median) and is "
+                    "not a durability forecast. Point it at a snapshot from before week 1")
+            else:
+                print(f"  durability prior: {prior_rel} "
+                      f"({prior_shape['share']:.0%} flat, pre-season shaped)")
 
     # --- roster coverage ----------------------------------------------------
     # Through PlayerIndex, the resolver the simulators use, so this check and

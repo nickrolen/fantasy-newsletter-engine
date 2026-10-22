@@ -43,6 +43,16 @@ def _load(name):
 def check(tmp_path, monkeypatch):
     mod = _load("check_playerlist")
     monkeypatch.setattr(mod, "PROJECT_ROOT", tmp_path)
+    # A real tree always has the durability prior the hazard reads and a
+    # SCHEDULE that says when week 1 starts; the GP-shape check compares the
+    # file against that date (HANDOFF_DURABILITY_PRIOR_2026-10-22).
+    import shutil
+    from modules.data_loader import DURABILITY_PRIOR
+    (tmp_path / "config" / "snapshots").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(PROJECT_ROOT / DURABILITY_PRIOR["snapshot"],
+                 tmp_path / DURABILITY_PRIOR["snapshot"])
+    shutil.copy2(PROJECT_ROOT / "config" / "SCHEDULE.json",
+                 tmp_path / "config" / "SCHEDULE.json")
     monkeypatch.setattr(mod, "PLAYERLIST", tmp_path / "PLAYERLIST.xlsx")
     monkeypatch.setattr(mod, "ROSTERS", tmp_path / "ROSTERS.json")
     monkeypatch.setattr(mod, "SNAPSHOTS", tmp_path / "snapshots")
@@ -50,10 +60,14 @@ def check(tmp_path, monkeypatch):
 
 
 def _rows(n=6, fppg=30.0, gp=50):
+    """GP varies by row: a pre-season column has a durability haircut spread
+    across players, and a flat one is the in-season meaning the GP-shape check
+    refuses before week 1."""
     return [{
         "player_name": f"Player {i}", "player_nba_team": "DEN",
-        "player_position(s)": "PG", "player_total_proj_FP": round(fppg * gp, 2),
-        "player_proj_GP": gp, "projectedFPPG": fppg, "age": 25,
+        "player_position(s)": "PG",
+        "player_total_proj_FP": round(fppg * (gp - i % 5), 2),
+        "player_proj_GP": gp - i % 5, "projectedFPPG": fppg, "age": 25,
     } for i in range(n)]
 
 

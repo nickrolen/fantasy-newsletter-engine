@@ -53,7 +53,13 @@ def _world(seed=0):
     return data, teams
 
 
-def _odds(data, teams, seed=7, n=2000, statuses=None):
+def _odds(data, teams, seed=7, n=400, statuses=None):
+    """Most tests here compare one run against another EXACTLY -- same seed,
+    swapped rosters, a reseeded stdlib random -- and an exact comparison is
+    worth the same at any n, so n is pure cost. 400 keeps the file inside a
+    suite that has to run in one command; the two tests that assert a
+    MAGNITUDE rather than an equality pass their own, larger n.
+    """
     return sto.run_title_odds_simulation(data, n, seed, statuses, teams)
 
 
@@ -89,14 +95,14 @@ def test_a_title_odds_week_is_the_betting_lines_week(monkeypatch):
     data, teams = _world()
     seen = _capture(monkeypatch)
     statuses = {"Nick0": "O", "Hayden4": "Q"}
-    _odds(data, teams, seed=20262027, n=6000, statuses=statuses)
+    _odds(data, teams, seed=20262027, n=1200, statuses=statuses)
     week1 = data.schedule["weeks"][0]
-    line = sb.simulate_week_matrix(data, teams, week1, statuses, sb.KeyedDraws(20262027, 5000))
+    line = sb.simulate_week_matrix(data, teams, week1, statuses, sb.KeyedDraws(20262027, 1000))
     for m in MANAGERS:
-        assert np.array_equal(seen[0][1][m][:5000], line[m]["score"]), m
-    bracket_path = sb.week_score_matrices(data, teams, [3], statuses, 20262027, 5000)
+        assert np.array_equal(seen[0][1][m][:1000], line[m]["score"]), m
+    bracket_path = sb.week_score_matrices(data, teams, [3], statuses, 20262027, 1000)
     for m in MANAGERS:
-        assert np.array_equal(seen[0][3][m][:5000], bracket_path[3][m]), m
+        assert np.array_equal(seen[0][3][m][:1000], bracket_path[3][m]), m
 
 
 # 2 -- the feature: one wire move moves the number, slightly and reproducibly
@@ -106,13 +112,13 @@ def test_one_waiver_move_moves_the_odds_slightly_and_reproducibly():
     -- same positions, same NBA team, so it is purely the upgrade. His odds
     rise, by single digits, and by exactly the same amount every run."""
     data, teams = _world(1)
-    base = _odds(data, teams).title_odds
+    base = _odds(data, teams, n=600).title_odds
     worst = min(teams["Benton"].players.values(), key=lambda p: p.projected_fppg)
     pickup = PlayerProjection(player_name="WireGuy", nba_team=worst.nba_team, positions=list(worst.positions),
                               projected_fppg=worst.projected_fppg + 4.0, projected_gp=70.0)
     moved = _swap(teams, "Benton", worst.player_name, pickup)
-    a = _odds(data, moved).title_odds
-    b = _odds(data, moved).title_odds
+    a = _odds(data, moved, n=600).title_odds
+    b = _odds(data, moved, n=600).title_odds
     delta = a["Benton"] - base["Benton"]
     assert 0.0 < delta < 10.0, delta                      # up, and single-digit points
     assert a == b                                         # the identical delta, every time
@@ -164,9 +170,22 @@ def test_no_playerlog_calibration_and_no_1500_point_default():
 
 # 6 -- reproducible and still random
 def test_same_seed_same_odds_different_seed_different_odds():
+    """Same seed, identical odds -- that is the reproducibility guarantee.
+
+    A different seed must change the simulation, but the ODDS are a count over
+    n, and in this world only two managers have any chance, so two seeds can
+    land on the same count: seeds 3 and 4 both give Nick 37.75% at n = 400,
+    and 4 and 5 collide at n = 800. Raising n only makes that rarer, never
+    impossible, so the second half of the claim is asserted where it is exact
+    -- the weeks the odds are built from.
+    """
     data, teams = _world()
     assert _odds(data, teams, seed=3).title_odds == _odds(data, teams, seed=3).title_odds
-    assert _odds(data, teams, seed=3).title_odds != _odds(data, teams, seed=4).title_odds
+    a = sb.week_score_matrices(data, teams, [1, 2], None, 3, 400)
+    b = sb.week_score_matrices(data, teams, [1, 2], None, 4, 400)
+    for w in (1, 2):
+        for m in MANAGERS:
+            assert not np.array_equal(a[w][m], b[w][m]), (w, m)
 
 
 # 7 -- the dead branch is gone, by name
@@ -209,12 +228,23 @@ def test_the_public_shape_is_unchanged():
     assert all(abs(g - WEEKS) < 1e-9 for g in exp_games)              # W + L + T = games left
 
 
-def test_tags_reach_title_odds():
+def test_tags_reach_title_odds(monkeypatch):
+    """An O tag costs at most three of his team's games (MAX_TAG_GAMES), so
+    over a 15-week season it moved expected wins by 0.02 -- this test used to
+    assert that, which is a noise-sized gap it could fail on either side at
+    any n. The tag's effect is large and unambiguous where it actually lands:
+    the week it is anchored to. So compare THAT week's simulated points, from
+    the matrices title odds itself used."""
     data, teams = _world()
+    seen = _capture(monkeypatch)
     star = max(teams["Hayden"].players.values(), key=lambda p: p.projected_fppg).player_name
-    healthy = _odds(data, teams, n=1500).expected_record["Hayden"][0]
-    out = _odds(data, teams, n=1500, statuses={star: "O"}).expected_record["Hayden"][0]
-    assert out < healthy
+    _odds(data, teams)
+    _odds(data, teams, statuses={star: "O"})
+    healthy, tagged = seen
+    anchor_week = min(healthy)
+    assert tagged[anchor_week]["Hayden"].mean() < healthy[anchor_week]["Hayden"].mean() - 1.0
+    for m in ("Nick", "Benton", "Garrett"):               # and nobody else moves
+        assert np.array_equal(healthy[anchor_week][m], tagged[anchor_week][m]), m
 
 
 # 9 -- fun facts: nothing random, nothing reseeded

@@ -45,23 +45,66 @@ class UnknownTeam(KeyError):
     """A Yahoo team name that config.manager_to_team does not know."""
 
 
-def manager_for_team(team_name: str) -> str:
-    """The manager behind a current-season Yahoo team name. Raises if unknown.
+_TEAM_KEY_MANAGERS: dict = {}
 
-    The ingest paths looked the name up with a blank-string default: a team renamed in
-    Yahoo became manager "" on every lineup row, transaction and injury
-    status, and nothing said so. Benton renamed "Smaxey" to "Kevin Quran't"
-    for 2026-27 (found 10-12, when fetch_playerlist counted 15 of 60
-    rostered players as owned by nobody); week 1 would have ingested his
-    whole team under a blank manager.
+
+def team_key_managers(season: str = None, base_path="." ) -> dict:
+    """{Yahoo team key: manager} for a season, from RECORDS.team_name_history.
+
+    The TEAM KEY survives a rename and the display name does not, which is
+    why the history is keyed on it. Cached by (file stamp, season).
     """
+    season = season or CURRENT_SEASON
+    path = Path(base_path) / DEFAULT_PATHS["records"]
+    stamp = _file_stamp(path)
+    hit = _TEAM_KEY_MANAGERS.get((stamp, season))
+    if hit is None:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                records = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            records = {}
+        history = (records.get("team_name_history") or {}).get(season) or {}
+        hit = {str(k): v["manager"] for k, v in history.items()
+               if isinstance(v, dict) and v.get("manager")}
+        _TEAM_KEY_MANAGERS[(stamp, season)] = hit
+    return hit
+
+
+def manager_for_team(team_name: str, team_key: str = None, season: str = None,
+                     base_path=".") -> str:
+    """The manager behind a current-season Yahoo team. Raises if unknown.
+
+    PREFER THE TEAM KEY. Pass it wherever Yahoo gives you one: a key survives
+    a rename, a display name does not. Garrett renamed "Saboner" to
+    "Blink-183" for 2026-27 (found 10-22, the same way Benton's rename was
+    found 10-12: fetch_playerlist counted 15 of 60 rostered players as owned
+    by nobody), and a key-keyed lookup would not have noticed. The keys come
+    from RECORDS.team_name_history, which records them per season.
+
+    The name is the fallback, and it RAISES when it misses. The ingest paths
+    used to look it up with a blank-string default: a renamed team became
+    manager "" on every lineup row, transaction and injury status, and
+    nothing said so. Week 1 would have ingested a whole team under a blank
+    manager.
+    """
+    if team_key:
+        hit = team_key_managers(season, base_path).get(str(team_key))
+        if hit:
+            return hit
     try:
         return TEAM_TO_MANAGER[team_name]
     except KeyError:
+        known = sorted(team_key_managers(season, base_path))
         raise UnknownTeam(
-            f"Yahoo team {team_name!r} is not in config manager_to_team "
-            f"{sorted(TEAM_TO_MANAGER)}. A manager renamed his team: update "
-            f"manager_to_team in config/league_config.json.") from None
+            f"Yahoo team {team_name!r}"
+            + (f" (key {team_key})" if team_key else "")
+            + f" is not in config manager_to_team {sorted(TEAM_TO_MANAGER)}"
+            + (f", and that key is not in RECORDS.team_name_history for "
+               f"{season or CURRENT_SEASON} {known}" if team_key else "")
+            + ". A manager renamed his team: update manager_to_team in "
+              "config/league_config.json (and add the season's team keys to "
+              "RECORDS.team_name_history).") from None
 MANAGER_COLORS = _LEAGUE_CONFIG.get("manager_colors", {})
 MANAGER_ALIASES = _LEAGUE_CONFIG.get("manager_aliases", {})
 LEAGUE_NAME = _LEAGUE_CONFIG.get("league_name", "Fantasy Basketball League")
@@ -77,6 +120,10 @@ HISTORICAL_LEAGUE_KEYS = _LEAGUE_CONFIG.get("yahoo", {}).get("historical_league_
 # --- League structure (from config) ---
 LEAGUE_STRUCTURE = _LEAGUE_CONFIG.get("league_structure", {})
 KEEPER_ERA_START = LEAGUE_STRUCTURE.get("keeper_era_start", "2021-22")
+
+# --- The durability prior (from config; no fallback -- a missing key raises) ---
+DURABILITY_PRIOR = _LEAGUE_CONFIG["durability_prior"]
+FLAT_GP_SHARE_MAX = float(DURABILITY_PRIOR["flat_gp_share_max"])
 
 # --- Simulation counts (from config; no fallback -- a missing key raises) ---
 SEASON_SIMS = int(_LEAGUE_CONFIG["simulations"]["season_sims"])
@@ -400,6 +447,12 @@ class FantasyData:
     season_year: str = ""
     current_week: int = 0
     base_path: Path = field(default_factory=lambda: Path("."))
+    # The baseline hazard's durability input, frozen to a pre-season snapshot
+    # (load_durability_prior). None -- the default, and what a synthetic world
+    # or a retro-sim harness gets -- means the projections' OWN projected_gp
+    # is the prior, which is right only for a file whose GP column is still
+    # pre-season. load_all_data always sets it.
+    durability_prior: Optional["DurabilityPrior"] = None
 
     def regular_season_results(self, include_playoffs: bool = False):
         """(records, h2h, points) for the current season so far -- see
@@ -899,6 +952,169 @@ def free_agents(playerlist: pd.DataFrame, rosters: dict) -> pd.DataFrame:
     return playerlist[mask].copy()
 
 
+# =============================================================================
+# THE DURABILITY PRIOR -- projected GP, from a pre-season file, on purpose
+# =============================================================================
+#
+# PLAYERLIST does two jobs and only one of them survives the season starting:
+#
+#   projectedFPPG, total projected FP   the scoring inputs. Taken LIVE; they
+#                                       refresh correctly (FPPG correlates
+#                                       0.97 across a mid-season refresh).
+#   player_proj_GP                      the durability prior. Taken from a
+#                                       PRE-SEASON SNAPSHOT, because the
+#                                       column's MEANING changes in season:
+#                                       projected games out of 82 with a
+#                                       haircut on everyone becomes games out
+#                                       of those remaining, marked down only
+#                                       for a known current absence.
+#
+# Measured 2026-10-22: stored snapshots mean 69.1 GP, sd 4.9, 31% of players
+# within one game of the median; a fresh fetch the same day mean 77.7, sd
+# 2.74, 96% within one game. The hazard rate reads
+# (82 - gp) / 82, so live-in-season turns 16% a game into 1.5% -- the injury
+# model switches itself off and the level bias comes back
+# (claude/HANDOFF_DURABILITY_PRIOR_2026-10-22.md).
+#
+# One seam: this object answers "how durable is he", and nothing else does.
+# claude/DURABILITY_BLEND_DESIGN.md replaces its answer with a posterior
+# later; the callers do not change when it does.
+
+
+def gp_dispersion(values) -> dict:
+    """How flat a projected-GP column is: {n, median, within_one, share}.
+
+    `share` is the fraction of players within one game of the median. A
+    pre-season column has a durability haircut spread across players (0.31 on
+    every stored snapshot); an in-season one is nearly everyone's remaining
+    games (0.96 on a fresh fetch), and is not a durability forecast at all.
+    """
+    gp = pd.to_numeric(pd.Series(list(values)), errors="coerce").dropna()
+    if gp.empty:
+        return {"n": 0, "median": None, "within_one": 0, "share": None}
+    median = float(gp.median())
+    within = int((gp - median).abs().le(1).sum())
+    return {"n": int(len(gp)), "median": median, "within_one": within,
+            "share": within / len(gp)}
+
+
+def gp_column_is_flat(values, limit: float = None) -> tuple:
+    """(is it flat, the dispersion). Flat means in-season shaped: refuse it."""
+    d = gp_dispersion(values)
+    limit = FLAT_GP_SHARE_MAX if limit is None else limit
+    return (d["share"] is not None and d["share"] > limit), d
+
+
+class DurabilityPrior:
+    """Each player's pre-season projected GP, and where it came from.
+
+    gp_for(name) resolves through PlayerIndex and falls back to the league
+    MEDIAN pre-season GP for a player the snapshot does not have -- a
+    mid-season pickup. Never to "perfectly durable": that is the defect this
+    class exists to prevent, one player at a time. Every fallback is recorded
+    and reported.
+    """
+
+    def __init__(self, gp: dict, source: str, note: str = "", dispersion: dict = None):
+        self.gp = gp if isinstance(gp, PlayerIndex) else PlayerIndex(gp or {})
+        self.source = str(source)
+        self.note = note
+        self.dispersion = dispersion or gp_dispersion(dict.values(self.gp))
+        self.median_gp = self.dispersion.get("median")
+        self.fallbacks: dict = {}
+
+    def gp_for(self, name: str, own: float = None):
+        """(projected GP, fell back?). `own` is the player's GP in the live
+        file: used only when there is no snapshot at all (source == "")."""
+        hit = self.gp.get(name)
+        if hit is not None:
+            return float(hit), False
+        if not self.source and own is not None:
+            return float(own), False
+        self.fallbacks[str(name)] = self.median_gp
+        return self.median_gp, True
+
+    def record(self) -> dict:
+        return {
+            "source": self.source or "the run's own projections (no snapshot)",
+            "players": self.dispersion.get("n"),
+            "median_gp": self.median_gp,
+            "flat_gp_share": (None if self.dispersion.get("share") is None
+                              else round(self.dispersion["share"], 3)),
+            "note": self.note,
+            "median_fallbacks": sorted(self.fallbacks),
+        }
+
+    def __repr__(self):
+        return f"DurabilityPrior({self.source!r}, {self.dispersion.get('n')} players)"
+
+
+class DurabilityPriorError(RuntimeError):
+    """The configured durability prior cannot be used."""
+
+
+# The snapshot is a few hundred rows of xlsx, 0.1 s a read, and every
+# load_all_data wants it. Keyed by (path, mtime, size); a fresh
+# DurabilityPrior is built per call, so one run's median fallbacks never
+# show up in another's record.
+_DURABILITY_PRIOR_CACHE: dict = {}
+
+
+def load_durability_prior(base_path: Path = Path("."), config: dict = None) -> DurabilityPrior:
+    """config durability_prior.snapshot -> DurabilityPrior. No silent fallback.
+
+    A missing key, a missing file or a GP column with in-season dispersion all
+    RAISE: running on the live file instead is exactly the bug
+    (HANDOFF_DURABILITY_PRIOR_2026-10-22). The snapshot is NAMED in config, not
+    picked from a directory listing, so nothing re-chooses it mid-season.
+    """
+    cfg = DURABILITY_PRIOR if config is None else config.get("durability_prior", {})
+    rel = (cfg or {}).get("snapshot")
+    if not rel:
+        raise DurabilityPriorError(
+            "config/league_config.json durability_prior.snapshot is not set. The "
+            "baseline injury hazard needs a PRE-SEASON PLAYERLIST for its durability "
+            "prior; the live file's GP column means something else in season.")
+    path = Path(base_path) / rel
+    if not path.is_file():
+        raise DurabilityPriorError(
+            f"the durability prior {rel} is missing. Point "
+            "config/league_config.json durability_prior.snapshot at a pre-season "
+            "PLAYERLIST snapshot (py scripts/check_playerlist.py --snapshot writes one).")
+    stamp = _file_stamp(path)
+    cached = _DURABILITY_PRIOR_CACHE.get(stamp)
+    if cached is not None:
+        gp, dispersion, flat = cached            # parsed once per process per file
+    else:
+        try:
+            frame = pd.read_excel(path)
+        except Exception as e:
+            raise DurabilityPriorError(f"could not read the durability prior {rel}: {e}") from e
+        for col in ("player_name", "player_proj_GP"):
+            if col not in frame.columns:
+                raise DurabilityPriorError(f"the durability prior {rel} has no {col} column")
+        gp = {}
+        for name, value in zip(frame["player_name"], frame["player_proj_GP"]):
+            v = pd.to_numeric(value, errors="coerce")
+            if pd.notna(name) and pd.notna(v) and float(v) > 0:
+                gp[str(name)] = float(v)
+        if not gp:
+            raise DurabilityPriorError(f"the durability prior {rel} has no usable projected GP")
+        flat, dispersion = gp_column_is_flat(gp.values())
+        if stamp is not None:
+            _DURABILITY_PRIOR_CACHE[stamp] = (gp, dispersion, flat)
+    if flat:
+        raise DurabilityPriorError(
+            f"{rel} is not a pre-season file: {dispersion['within_one']} of "
+            f"{dispersion['n']} players ({dispersion['share']:.0%}) are within one game "
+            f"of the median {dispersion['median']:.0f}, above the "
+            f"{FLAT_GP_SHARE_MAX:.0%} limit. In season Yahoo's GP column is games "
+            "REMAINING, not a durability forecast, and using it would switch the "
+            "injury hazard off. Point durability_prior.snapshot at a snapshot taken "
+            "before week 1.")
+    return DurabilityPrior(gp, rel, str((cfg or {}).get("_which", "")).split(".")[0], dispersion)
+
+
 def load_playerlist(path: Path) -> pd.DataFrame:
     """Load and validate PLAYERLIST.xlsx."""
     required = [
@@ -1386,15 +1602,47 @@ def load_all_matchups(path: Path) -> list:
         return []
 
 
+def _file_stamp(path: Path):
+    """(resolved path, mtime_ns, size) -- the key a parse cache can trust.
+    None when the file is not there."""
+    try:
+        st = Path(path).stat()
+    except OSError:
+        return None
+    return (str(Path(path).resolve()), st.st_mtime_ns, st.st_size)
+
+
+_HISTORICAL_PLAYERLOG_CACHE: dict = {}
+
+
 def load_historical_playerlog(path: Path) -> list:
-    """Load HISTORICAL_PLAYERLOG.json for multi-year keepability scoring."""
+    """Load HISTORICAL_PLAYERLOG.json for multi-year keepability scoring.
+
+    CACHED PER PROCESS by (path, mtime, size). The parse is 1.5 s of a 1.7 s
+    load_all_data -- 87,181 rows -- and a process that loads the data twice
+    paid it twice: the test suite loads it in a dozen fixtures, and a
+    backtest or dry-run packet loads it once per simulated week. An edited
+    file re-parses, because the stamp changes.
+
+    The rows are read-only everywhere (keepability_v2 and report_builder
+    iterate them). The LIST is copied per call so a caller that appends
+    cannot reach another caller's data; the row dicts are shared, which is
+    why nothing may mutate them in place.
+    """
     if not path.exists():
         return []
+    stamp = _file_stamp(path)
+    hit = _HISTORICAL_PLAYERLOG_CACHE.get(stamp)
+    if hit is not None:
+        return list(hit)
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         print(f"  Loaded {len(data):,} rows from HISTORICAL_PLAYERLOG.json")
-        return data
+        if stamp is not None:
+            _HISTORICAL_PLAYERLOG_CACHE.clear()      # one season's file at a time
+            _HISTORICAL_PLAYERLOG_CACHE[stamp] = data
+        return list(data)
     except Exception as e:
         print(f"  WARNING: Failed to load HISTORICAL_PLAYERLOG.json: {e}")
         return []
@@ -1431,6 +1679,8 @@ def load_all_data(
         season_year=season_year,
         current_week=current_week or 0,
         base_path=base,
+        # frozen to a pre-season snapshot; see load_durability_prior
+        durability_prior=load_durability_prior(base),
     )
 
     data.injury_overrides = resolve_injury_overrides(

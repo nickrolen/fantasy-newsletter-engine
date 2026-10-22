@@ -262,7 +262,7 @@ def parse_all_betting_lines(lines_list: List[tuple]) -> dict:
     
     for label, value in lines_list:
         if label == 'Line':
-            # Parse: "Saboner -167.5 (Luka my Balls +167.5) | O/U: 3890"
+            # Parse: "Blink-183 -167.5 (Luka my Balls +167.5) | O/U: 3890"
             ou_match = re.search(r'\|\s*O/U:\s*([\d.]+)', value)
             if ou_match:
                 data['over_under'] = ou_match.group(1)
@@ -275,7 +275,7 @@ def parse_all_betting_lines(lines_list: List[tuple]) -> dict:
                 data['team2_spread'] = (t2.strip(), s2)
                 
         elif label == 'Win Prob':
-            # Parse: "Luka my Balls 27.9% | Saboner 72.1%"
+            # Parse: "Luka my Balls 27.9% | Blink-183 72.1%"
             parts = value.split('|')
             if len(parts) == 2:
                 match1 = re.search(r'([\d.]+%)', parts[0])
@@ -291,7 +291,7 @@ def parse_all_betting_lines(lines_list: List[tuple]) -> dict:
                 data['prob_team2'] = name2
                     
         elif label == 'Moneyline':
-            # Parse: "Luka my Balls +260 | Saboner -260"
+            # Parse: "Luka my Balls +260 | Blink-183 -260"
             parts = value.split('|')
             if len(parts) == 2:
                 match1 = re.search(r'([+-][\d]+)', parts[0])
@@ -306,7 +306,7 @@ def parse_all_betting_lines(lines_list: List[tuple]) -> dict:
                 data['ml_team2'] = name2
                     
         elif label == 'Avg Score':
-            # Parse: "Luka my Balls 1860.9 | Saboner 2028.5"
+            # Parse: "Luka my Balls 1860.9 | Blink-183 2028.5"
             parts = value.split('|')
             if len(parts) == 2:
                 match1 = re.search(r'([\d.]+)', parts[0])

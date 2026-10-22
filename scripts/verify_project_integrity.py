@@ -22,6 +22,7 @@ import ast
 import importlib
 import json
 import os
+import re
 import sys
 import traceback
 from pathlib import Path
@@ -1232,6 +1233,63 @@ def _check_nba_schedule_fresh(cfg, warnings, today=None):
     return []
 
 
+def _check_durability_prior(cfg, warnings):
+    """The baseline injury hazard's durability prior must be a PRE-SEASON
+    PLAYERLIST snapshot, named in config.
+
+    The GP column means projected games of 82 before week 1 and games of those
+    REMAINING after it, so an in-season file as the prior drops the hazard from
+    about 16% a game to about 1.5% and switches the injury model off
+    (claude/HANDOFF_DURABILITY_PRIOR_2026-10-22.md). This is also what a new
+    season has to set: the preseason checklist points this key at that season's
+    own snapshot, and these three checks are what notice if it does not.
+    """
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from modules.data_loader import gp_column_is_flat
+    import pandas as pd
+    out = []
+    prior = cfg.get("durability_prior") or {}
+    rel = prior.get("snapshot")
+    if not rel:
+        return ["[DURABILITY] config durability_prior.snapshot is not set: the baseline "
+                "injury hazard has no durability prior"]
+    path = PROJECT_ROOT / rel
+    if not path.is_file():
+        return [f"[DURABILITY] durability_prior.snapshot {rel} does not exist. Take a "
+                "PLAYERLIST before week 1 (py scripts/check_playerlist.py --snapshot) "
+                "and point the key at it"]
+    try:
+        frame = pd.read_excel(path)
+    except Exception as e:
+        return [f"[DURABILITY] could not read durability_prior.snapshot {rel}: {e}"]
+    if "player_proj_GP" not in frame.columns:
+        return [f"[DURABILITY] durability_prior.snapshot {rel} has no player_proj_GP column"]
+    flat, shape = gp_column_is_flat(frame["player_proj_GP"])
+    if flat:
+        out.append(f"[DURABILITY] durability_prior.snapshot {rel} is in-season shaped: "
+                   f"{shape['within_one']} of {shape['n']} players ({shape['share']:.0%}) "
+                   f"within one game of the median {shape['median']:.0f}. In season Yahoo's "
+                   "GP column is games remaining, not a durability forecast -- point the "
+                   "key at a snapshot taken before week 1")
+    # taken before the season started?
+    found = re.search(r"(\d{4}-\d{2}-\d{2})", Path(rel).name)
+    starts = [str(w.get("start_date"))[:10] for w in _schedule_weeks() if w.get("start_date")]
+    if found and starts:
+        taken, week1 = found.group(1), min(starts)
+        if taken >= week1:
+            out.append(f"[DURABILITY] durability_prior.snapshot {rel} was taken on {taken}, "
+                       f"on or after week 1 ({week1}). The prior must predate the season")
+    return out
+
+
+def _schedule_weeks():
+    try:
+        blob = json.loads((PROJECT_ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+        return blob.get("weeks", []) or []
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
 def check_config_integrity(verbose=False):
     """Verify league_config.json structural invariants."""
     failures = []
@@ -1318,6 +1376,7 @@ def check_config_integrity(verbose=False):
     failures.extend(_check_injury_overrides_current(cfg, warnings))
     failures.extend(_check_point_in_time_record(cfg, warnings))
     failures.extend(_check_nba_schedule_fresh(cfg, warnings))
+    failures.extend(_check_durability_prior(cfg, warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"

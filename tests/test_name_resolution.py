@@ -133,6 +133,32 @@ def test_an_unknown_team_raises():
     assert manager_for_team(MANAGER_TO_TEAM["Benton"]) == "Benton"
 
 
+def test_the_team_key_wins_over_the_display_name():
+    """Garrett renamed Saboner -> Blink-183 for 2026-27 (10-22), the second
+    rename in ten days. A key survives a rename and a name does not, so an
+    ingest path holding a Yahoo team key resolves from RECORDS'
+    team_name_history first -- and still raises when neither matches."""
+    import json
+    from modules.data_loader import CURRENT_SEASON, team_key_managers
+    keys = team_key_managers()
+    assert keys, "RECORDS.team_name_history has no entry for this season"
+    assert set(keys.values()) == set(MANAGER_TO_TEAM), keys
+    history = json.loads((ROOT / "config" / "RECORDS.json").read_text(encoding="utf-8"))
+    recorded = history["team_name_history"][CURRENT_SEASON]
+    for key, manager in keys.items():
+        # the key resolves, even under a name nobody has seen before
+        assert manager_for_team("Renamed Yesterday", team_key=key) == manager
+        # and the recorded display name agrees with config today
+        assert recorded[key]["team_name"] == MANAGER_TO_TEAM[manager], key
+    with pytest.raises(UnknownTeam, match="team_name_history"):
+        manager_for_team("Nobody's Team", team_key=f"{CURRENT_SEASON}.t.99")
+
+
+def test_the_ingest_path_passes_the_key_it_already_has():
+    src = (ROOT / "scripts" / "update_fantasy_logs.py").read_text(encoding="utf-8")
+    assert "manager_for_team(name, team_key=team_key)" in src
+
+
 def test_team_names_are_unique():
     assert len(set(MANAGER_TO_TEAM.values())) == len(MANAGER_TO_TEAM)
 

@@ -276,8 +276,9 @@ built: `RETRO_SIM_REQUIREMENTS.md`. Read it before touching the harness or A2.
 ## 8. If you are picking this up again
 
 Run `python scripts/verify_project_integrity.py --compare-golden`, then
-`python -m pytest tests/ -q`. If both are clean the engine is sound and
-anything odd is data.
+`python -m pytest tests/ -q -n 2` (two cores: about 95 seconds against 145
+serially -- see WEEKLY_WORKFLOW.md Step 0b). If both are clean the engine is
+sound and anything odd is data.
 
 The recurring failure in this project is not broken code. It is a value
 derived once and never advanced, quietly disagreeing with its source. Stale

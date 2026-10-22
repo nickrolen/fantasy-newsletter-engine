@@ -136,6 +136,13 @@ def main():
              "(recorded in the report metadata and the point-in-time capture)",
     )
     parser.add_argument(
+        "--allow-season-out-conflict",
+        action="store_true",
+        help="run even though a player tagged OFS (out for season) has a return in "
+             "config/INJURY_OVERRIDES.json: the OVERRIDE WINS and the tag is dropped "
+             "for this run (recorded in the report metadata and the capture)",
+    )
+    parser.add_argument(
         "--repro",
         action="store_true",
         help="Repro run for the given week: use pre-week RECENT_CONTENT snapshot, do not save freshness, "
@@ -216,6 +223,13 @@ def main():
         print(f"WARNING (overridden): {stale}")
         print()
 
+    if data.durability_prior is not None:
+        _dp = data.durability_prior.record()
+        print(f"  Durability prior: {_dp['source']} ({_dp['players']} players, "
+              f"median {_dp['median_gp']:.0f} GP)")
+        if _dp["median_fallbacks"]:
+            print("    no pre-season entry, using the median: "
+                  + ", ".join(_dp["median_fallbacks"]))
     print(f"  PLAYERLOG: {len(data.playerlog)} rows")
     print(f"  LINEUPS: {len(data.lineups)} rows")
     print(f"  PLAYERLIST: {len(data.playerlist)} players")
@@ -294,7 +308,7 @@ def main():
     # is recorded in the report metadata and the capture either way.
     from modules.fetch_injury_statuses import (fetch_injury_statuses, injury_input,
                                                InjuryStatusesUnavailable)
-    from modules.absence import UnresolvedTagName
+    from modules.absence import SeasonOutConflict, UnresolvedTagName
     from modules.projections import load_all_team_projections as _load_teams
     injuries_needed = not args.fast and not args.repro
     if should_fetch:
@@ -305,14 +319,18 @@ def main():
         _fetch = None
         _why_not = ("--repro" if args.repro else "--fast" if args.fast
                     else "--no-fetch-injuries" if args.no_fetch_injuries else "no oauth2.json")
-    _rostered = [n for tp in _load_teams(data).values() for n in tp.players]
+    _teams = _load_teams(data)
+    _rostered = [n for tp in _teams.values() for n in tp.players]
+    _projs = {n: p for tp in _teams.values() for n, p in tp.players.items()}
     try:
         injury = injury_input(_fetch, _rostered, injuries_needed,
-                              args.allow_no_injury_statuses, _why_not)
+                              args.allow_no_injury_statuses, _why_not,
+                              projections=_projs,
+                              allow_season_out_conflict=args.allow_season_out_conflict)
     except InjuryStatusesUnavailable as e:
         print(f"REFUSED: {e}")
         sys.exit(1)
-    except UnresolvedTagName as e:
+    except (UnresolvedTagName, SeasonOutConflict) as e:
         print(f"REFUSED: {e}")
         sys.exit(1)
     injury_statuses = injury.statuses
@@ -325,6 +343,16 @@ def main():
         if injury.unmatched_healthy:
             print("  Note: healthy Yahoo names matching no rostered player: "
                   + ", ".join(injury.unmatched_healthy))
+        for one in injury.season_out_conflicts:
+            print(f"WARNING (overridden): {one['line']} -- {one['resolution']} "
+                  f"(--allow-season-out-conflict).")
+        for one in injury.noted:
+            # SUSP / NA: no absence rule, and the baseline hazard already
+            # charges their games through Yahoo's projected GP. Named loudly
+            # so an INJURY_OVERRIDES entry can be judged (Nick, 10-22).
+            print(f"  TAG NOTED: {one} is not an injury designation -- no chain, "
+                  "no hard out. The absence is carried by his projected games; "
+                  "add an INJURY_OVERRIDES entry if Yahoo's GP has not caught up.")
     elif injury.override:
         print(f"WARNING (overridden): no injury statuses -- {injury.problem}. "
               "Lines and odds assume nobody is tagged.")
@@ -402,6 +430,10 @@ def main():
         traceback.print_exc()
         sys.exit(1)
     report.setdefault("metadata", {})["injury_statuses"] = injury.record()
+    # Which pre-season snapshot the baseline injury hazard took its durability
+    # from. Recorded, not inferred from a directory listing at runtime.
+    if data.durability_prior is not None:
+        report["metadata"]["durability_prior"] = data.durability_prior.record()
     # -------------------------------------------------------------------------
     # Step 6: Repro mode -> freeze entire looking_ahead block (Option A)
     # -------------------------------------------------------------------------
@@ -516,6 +548,9 @@ def main():
                     "seed": args.seed,
                     "stale_schedule_override": stale,
                     "injury_statuses_override": injury.problem if injury.override else None,
+                    "season_out_override": [c["line"] for c in injury.season_out_conflicts] or None,
+                    "durability_prior": (data.durability_prior.record()
+                                         if data.durability_prior is not None else None),
                     "injury_statuses": injury.record(),
                 },
             )

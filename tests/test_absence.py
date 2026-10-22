@@ -59,7 +59,8 @@ def _missed_counts(ctx, name):
 # 6 -- the distribution is derived from the chain, and it is the brief's table
 @pytest.mark.parametrize("tag,table", [
     ("O", (0.0, 0.5, 0.375, 0.125)),
-    ("GTD", (0.6, 0.22, 0.135, 0.045)),
+    ("Q", (0.6, 0.22, 0.135, 0.045)),
+    ("D", (0.25, 0.3375, 0.28875, 0.12375)),
 ])
 def test_derived_distribution_is_the_handoff_table_and_sums_to_one(tag, table):
     dist = absence.missed_distribution(tag)
@@ -67,7 +68,7 @@ def test_derived_distribution_is_the_handoff_table_and_sums_to_one(tag, table):
     assert dist == pytest.approx(table, abs=1e-12)
 
 
-@pytest.mark.parametrize("tag", ["O", "GTD"])
+@pytest.mark.parametrize("tag", ["O", "Q", "D"])
 def test_derived_distribution_matches_walking_the_chain(tag):
     """Walk the absorbing chain game by game; the one-draw table must agree."""
     rng = random.Random(5)
@@ -86,12 +87,13 @@ def test_derived_distribution_matches_walking_the_chain(tag):
 
 def test_expected_games_missed():
     assert absence.expected_missed("O") == pytest.approx(1.625)
-    assert absence.expected_missed("GTD") == pytest.approx(0.625)
+    assert absence.expected_missed("Q") == pytest.approx(0.625)
+    assert absence.expected_missed("D") == pytest.approx(1.28625)
 
 
 def test_inverse_cdf_is_the_distribution():
     u = np.random.default_rng(1).random(400_000)
-    for tag in ("O", "GTD"):
+    for tag in ("O", "Q", "D"):
         k = absence.missed_from_uniform(u, tag)
         freq = np.bincount(k, minlength=4) / len(u)
         assert freq == pytest.approx(absence.missed_distribution(tag), abs=0.004)
@@ -103,7 +105,7 @@ def tagged_world():
     projs = {"Out": _proj("Out", "BOS"), "Gtd": _proj("Gtd", "NYK"),
              "Fine": _proj("Fine", "LAL")}
     dates = {"BOS": MWF + [WEEK[6]], "NYK": TTS + [WEEK[6]], "LAL": MWF}
-    ctx = _ctx(projs, {"Nick": list(projs)}, dates, {"Out": "O", "Gtd": "GTD"})
+    ctx = _ctx(projs, {"Nick": list(projs)}, dates, {"Out": "O", "Gtd": "Q"})
     return ctx
 
 
@@ -137,7 +139,7 @@ def test_a_healthy_player_has_no_tag_block(tagged_world):
 
 
 def test_marginal_value_frequencies_match_the_model(tagged_world):
-    for name, tag in (("Out", "O"), ("Gtd", "GTD")):
+    for name, tag in (("Out", "O"), ("Gtd", "Q")):
         k, _ = _missed_counts(tagged_world, name)
         freq = np.bincount(k, minlength=4) / len(k)
         assert freq == pytest.approx(absence.missed_distribution(tag), abs=0.03)
@@ -150,7 +152,7 @@ def test_same_tag_same_games_different_calendar_days_identical_distribution():
     The old curve gave these 0.20/0.60/0.85 and 0.40/0.75/0.95. Keyed on the
     player only, the realised blocks are identical draw for draw.
     """
-    for tag in ("O", "GTD"):
+    for tag in ("O", "Q", "D"):
         projs = {"A": _proj("A", "BOS"), "B": _proj("B", "NYK")}
         ctx = _ctx(projs, {"Nick": ["A", "B"]}, {"BOS": MWF, "NYK": TTS},
                    {"A": tag, "B": tag}, sims=3000)
@@ -172,7 +174,7 @@ def test_schedule_shift_invariance_in_the_betting_simulator():
     """Same uniforms, same tag, teams on shifted days: same games missed."""
     data = _betting_data({"BOS": MWF, "NYK": TTS})
     teams = {"Nick": TeamProjections("Nick", {"A": _proj("A", "BOS"), "B": _proj("B", "NYK")})}
-    for tag in ("O", "GTD"):
+    for tag in ("O", "Q", "D"):
         for u in np.linspace(0.0, 0.999, 41):
             out = sb.tag_blocks(data, teams, {"A": tag, "B": tag}, _Const(u))
             ga, ka = out["A"].games, out["A"].k
@@ -186,8 +188,8 @@ def test_a_players_absence_does_not_depend_on_what_else_is_asked():
     projs = {"T": _proj("T", "BOS"), "U": _proj("U", "NYK"), "V": _proj("V", "LAL"),
              "FA": _proj("FA", "NYK")}
     dates = {"BOS": MWF, "NYK": TTS, "LAL": MWF}
-    st = {"T": "GTD", "U": "O", "FA": "GTD"}
-    alone = _ctx({"T": projs["T"]}, {"Nick": ["T"]}, dates, {"T": "GTD"})
+    st = {"T": "Q", "U": "O", "FA": "Q"}
+    alone = _ctx({"T": projs["T"]}, {"Nick": ["T"]}, dates, {"T": "Q"})
     k_alone, _ = _missed_counts(alone, "T")
     busy = _ctx(projs, {"Nick": ["T", "V"], "Hayden": ["U"]}, dates, st, extra_players=["FA"])
     mv.marginal_value(busy, "Nick", adds=["FA"], drops=["V"])
@@ -208,9 +210,9 @@ def test_adding_a_player_leaves_the_tagged_players_draws_alone():
 
 
 # 8 -- precedence
-def test_an_override_hard_out_beats_a_gtd_tag():
+def test_an_override_hard_out_beats_a_questionable_tag():
     projs = {"H": _proj("H", "BOS", out_weeks=[2])}
-    ctx = _ctx(projs, {"Nick": ["H"]}, {"BOS": MWF}, {"H": "GTD"})
+    ctx = _ctx(projs, {"Nick": ["H"]}, {"BOS": MWF}, {"H": "Q"})
     assert mv.tag_missed(ctx, ctx.player("H")) == {}
     assert all(not mv._draws(ctx, ctx.player("H"), d, 2).any() for d in MWF)
 
@@ -243,7 +245,7 @@ def test_suppression_rules():
 
 # 9 -- observed truncation (the B2 interface; B2 has not landed)
 def test_played_an_earlier_game_is_healthy_for_the_rest_of_the_week():
-    for tag in ("O", "GTD"):
+    for tag in ("O", "Q", "D"):
         assert absence.missed_distribution(tag, observed=[True]) == (1.0, 0.0, 0.0, 0.0)
         assert absence.missed_distribution(tag, observed=[False, True]) == (1.0, 0.0, 0.0, 0.0)
 
@@ -251,9 +253,9 @@ def test_played_an_earlier_game_is_healthy_for_the_rest_of_the_week():
 def test_observed_misses_continue_the_chain_rather_than_restart_it():
     # missed g1 and g2 -> g3 at 0.75, then certain
     assert absence.missed_distribution("O", [False, False]) == pytest.approx((0.75, 0.25, 0, 0))
-    assert absence.missed_distribution("GTD", [False, False]) == pytest.approx((0.75, 0.25, 0, 0))
-    # GTD missed g1 -> g2 at 0.55, g3 at 0.75
-    assert absence.missed_distribution("GTD", [False]) == pytest.approx(
+    assert absence.missed_distribution("Q", [False, False]) == pytest.approx((0.75, 0.25, 0, 0))
+    # Q missed g1 -> g2 at 0.55, g3 at 0.75
+    assert absence.missed_distribution("Q", [False]) == pytest.approx(
         (0.55, 0.45 * 0.75, 0.45 * 0.25, 0))
     # three misses observed: the tag has nothing left to say
     assert absence.missed_distribution("O", [False] * 3) == (1.0, 0.0, 0.0, 0.0)
@@ -305,20 +307,22 @@ def test_out_from_flows_from_the_overrides_file():
 
 
 # tags the model has no rule for
-def test_yahoo_q_is_the_gtd_chain_and_p_is_healthy():
-    """Nick, 2026-10-19: Yahoo's Q replaced GTD; P is new and healthy."""
-    assert absence.chain_tag("Q") == "GTD"
-    assert absence.chain_tag("q ") == "GTD"
+def test_the_live_vocabulary_drives_the_chain_and_p_is_healthy():
+    """Nick, 2026-10-19 and 2026-10-22: Q replaced GTD, D is new, P healthy.
+    The full 2026-27 set is pinned in tests/test_yahoo_tags.py."""
+    assert absence.chain_tag("Q") == "Q"
+    assert absence.chain_tag("q ") == "Q"
+    assert absence.chain_tag("D") == "D"
     assert absence.chain_tag("P") is None
     assert absence.chain_tag("O") == "O"
 
 
-def test_q_in_marginal_value_is_the_gtd_block():
+def test_q_in_marginal_value_is_the_questionable_block():
     projs = {"Q1": _proj("Q1", "BOS"), "P1": _proj("P1", "NYK")}
     ctx = _ctx(projs, {"Nick": ["Q1", "P1"]}, {"BOS": MWF, "NYK": TTS}, {"Q1": "Q", "P1": "P"})
     k, _ = _missed_counts(ctx, "Q1")
     assert np.bincount(k, minlength=4) / len(k) == pytest.approx(
-        absence.missed_distribution("GTD"), abs=0.03)
+        absence.missed_distribution("Q"), abs=0.03)
     assert mv.tag_missed(ctx, ctx.player("P1")) == {}
 
 
@@ -336,7 +340,7 @@ def test_an_unmodelled_tag_raises_in_the_betting_simulator():
 
 
 def test_no_effect_tags_cost_nothing():
-    for tag in ("HEALTHY", "INJ", "IL", "IL+", None, ""):
+    for tag in ("HEALTHY", "SUSP", "NA", "P", None, ""):
         assert absence.chain_tag(tag) is None
 
 

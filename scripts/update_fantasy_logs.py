@@ -120,7 +120,8 @@ def build_team_meta(lg: yfa.League):
             {
                 "team_key": team_key,
                 "fantasy_team": name,
-                "manager": manager_for_team(name),
+                # by KEY first: it survives a rename, the name does not
+                "manager": manager_for_team(name, team_key=team_key),
                 "team_obj": team_obj,
             }
         )

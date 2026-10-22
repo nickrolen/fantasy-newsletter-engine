@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import NamedTuple, Optional
 
-from .data_loader import FantasyData, MANAGERS, CURRENT_SEASON, format_games_count
+from .data_loader import (DurabilityPrior, FantasyData, MANAGERS, CURRENT_SEASON,
+                          format_games_count)
 from .projections import (
     PlayerProjection,
     TeamProjections,
@@ -411,12 +412,28 @@ def hazard_anchor(data: FantasyData, tag_anchor: date = None, tag_week_info: tup
 
 
 def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
-                    managers=None, season: str = None) -> dict:
+                    managers=None, season: str = None, injury_statuses=None,
+                    prior=None) -> dict:
     """player -> absence.BaselineBlocks for every rostered player with a
-    projection. Memoised on `draws` (one season chain per player per run)."""
+    projection. Memoised on `draws` (one season chain per player per run).
+
+    prior: data_loader.DurabilityPrior, the ONE place a player's durability
+    becomes a number. Defaults to `data.durability_prior` -- a PRE-SEASON
+    snapshot, because the live PLAYERLIST's GP column means something else in
+    season (HANDOFF_DURABILITY_PRIOR_2026-10-22). With neither, each player's
+    own projected_gp is the prior, which is what a synthetic world and a
+    retro-sim harness want.
+
+    injury_statuses is read for OFS only: it zeroes the player's projected GP
+    (absence.effective_projected_gp), which is how a season-long out is
+    applied. The chain tags do not reach here."""
     params = data.__dict__.get("_baseline_params")
     if params is None:
         params = data.__dict__["_baseline_params"] = absence.baseline_params()
+    statuses = (injury_statuses if injury_statuses is None or isinstance(injury_statuses, PlayerIndex)
+                else PlayerIndex(injury_statuses))
+    if prior is None:
+        prior = getattr(data, "durability_prior", None) or DurabilityPrior({}, "")
     season = season or CURRENT_SEASON
     dates = team_season_dates(data)
     weeks = schedule_week_dates(data)
@@ -424,14 +441,22 @@ def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
     for manager in (managers or team_projections.keys()):
         for name, p in team_projections[manager].players.items():
             team = p.nba_team.upper()
+            status = statuses.get(name) if statuses is not None else None
+            absence.check_season_out_override(name, status, p.return_week, p.return_date,
+                                              p.return_games)
+            prior_gp, _fell_back = prior.gp_for(name, p.projected_gp)
+            gp = absence.effective_projected_gp(status, prior_gp)
+            miss_rate = absence.durability_miss_rate(gp, params)
+            out_for_season = absence.season_out(status)
             override = absence.override_absence(
                 weeks, dates.get(team, []), anchor, p.out_weeks, p.return_week, p.return_date,
                 p.out_from, p.return_games, p.total_week_games)
-            key = ("baseline", season, name, team, float(p.projected_gp), anchor, override)
+            key = ("baseline", season, name, team, miss_rate, anchor, override, out_for_season)
             hit = draws._memo.get(key)
             if hit is None:
                 hit = absence.BaselineBlocks(draws.seed, season, name, dates.get(team, []),
-                                             anchor, p.projected_gp, draws.n, params, override)
+                                             anchor, miss_rate, draws.n, params, override,
+                                             out_for_season)
                 draws._memo[key] = hit
             out[name] = hit
     return out
@@ -439,9 +464,12 @@ def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
 
 def entry_available(n: int, entry: tuple, d: date, u_rate, tag_block, base_block) -> np.ndarray:
     """bool[n]: is this plan entry available on d. Precedence (absence.py):
-    an override's pro-rate, else the tag's block on the games it covers,
-    else the baseline -- never the tag and the baseline on the same game,
-    and no baseline in a week an override governs (entry[7] False)."""
+    a season-long out (OFS) first, then an override's pro-rate, else the
+    tag's block on the games it covers, else the baseline -- never the tag
+    and the baseline on the same game, and no baseline in a week an override
+    governs (entry[7] False)."""
+    if base_block is not None and base_block.season_out:
+        return np.zeros(n, dtype=bool)      # OFS: every remaining game
     avail = np.ones(n, dtype=bool)
     rate = entry[4]
     if rate is not None:
@@ -794,7 +822,8 @@ def simulate_week_matrix(
                         anchors, tag_week_info, observed, from_date)
     plan = _week_plan(data, team_projections, week_data, managers)
     base = baseline_blocks(data, team_projections, draws,
-                           hazard_anchor(data, tag_anchor, tag_week_info), managers)
+                           hazard_anchor(data, tag_anchor, tag_week_info), managers,
+                           injury_statuses=injury_statuses)
     noise_scale = remaining_noise_scale(data, dates, from_date)
     fills = data.__dict__.setdefault("_lineup_fills", {})
 
@@ -847,7 +876,8 @@ def availability_on(data: FantasyData, team_projections, week_data: dict, injury
     if entry is None:
         return np.zeros(draws.n, dtype=bool)
     blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor)
-    base = baseline_blocks(data, team_projections, draws, hazard_anchor(data, tag_anchor), [manager])
+    base = baseline_blocks(data, team_projections, draws, hazard_anchor(data, tag_anchor), [manager],
+                           injury_statuses=injury_statuses)
     u = draws.uniforms("avail", player, d) if entry[4] is not None else None
     return entry_available(draws.n, entry, d, u, blocks.get(player), base.get(player))
 

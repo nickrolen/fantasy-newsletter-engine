@@ -3,7 +3,7 @@
 fetch_injury_statuses.py
 
 Fetches current injury statuses for all rostered players from Yahoo Fantasy API.
-Returns a dict mapping player_name -> injury status (e.g., "GTD", "O", "HEALTHY").
+Returns a dict mapping player_name -> injury status (e.g., "Q", "O", "HEALTHY").
 
 Used by generate_stats_report.py to provide accurate injury data to betting simulations.
 
@@ -17,10 +17,11 @@ returned, the player-details call failing) -- it never returns {} to mean
 HEALTHY included, so "fetched, nobody tagged" is a full dict of HEALTHY and
 "failed" is an exception: the two can no longer look alike.
 
-injury_input() is the one decision for a build: resolve the names, and if
-the tags are needed but unavailable, refuse unless the caller passed the
-explicit override. Its record() goes into the report metadata and the
-point-in-time capture either way.
+injury_input() is the one decision for a build: resolve the names, settle any
+out-for-season tag that contradicts the overrides file, and if the tags are
+needed but unavailable, refuse unless the caller passed the explicit override.
+Its record() goes into the report metadata and the point-in-time capture
+either way.
 """
 
 import unicodedata
@@ -68,40 +69,50 @@ def get_league(oauth) -> "yfa.League":
 
 def normalize_injury_status(status: Optional[str]) -> str:
     """
-    Normalize Yahoo injury status to standard format.
-    
-    Yahoo returns various formats like:
-    - "GTD" (Game Time Decision)
-    - "O" (Out)
-    - "INJ" (Injured)
-    - "IL" (Injured List)
-    - "IL+" (Injured List Plus)
-    - None or "" (Healthy)
-    
-    Returns uppercase normalized status or "HEALTHY" if no injury.
+    Normalize a Yahoo injury status to the designation modules/absence.py names.
+
+    THE 2026-27 VOCABULARY (measured against the live API 2026-10-22)
+        P    probable      -> healthy
+        Q    questionable  -> the chain
+        D    doubtful      -> the chain
+        O    out           -> the chain
+        OFS  out for season-> a season-long out
+    Only O and OFS may occupy an IL slot. SUSP (suspended) and NA (not on an
+    NBA roster) are NOT injury designations: they pass through unchanged and
+    absence.py treats them as no-effect and logs them. Until 2026-10-22 both
+    were mapped to O here, which charged an injury-shaped three-game recovery
+    for a suspension.
+
+    The retired designations (GTD, DTD, INJ, IL, IL+) are deliberately NOT
+    mapped: anything unknown passes through unchanged so absence.py raises on
+    it, naming the vocabulary change. This function normalises spelling; it
+    does not decide policy.
+
+    Returns the upper-case designation, or "HEALTHY" for no tag.
     """
     if not status or str(status).strip() == "":
         return "HEALTHY"
-    
+
     status_upper = str(status).strip().upper()
-    
-    # Map common variations
+
+    # Long forms Yahoo has been seen to use for the live designations.
     status_map = {
-        "GTD": "GTD",
-        "GAME TIME DECISION": "GTD",
-        "DTD": "DTD",
-        "DAY TO DAY": "DTD",
-        "DAY-TO-DAY": "DTD",
+        "P": "P",
+        "PROBABLE": "P",
+        "Q": "Q",
+        "QUESTIONABLE": "Q",
+        "D": "D",
+        "DOUBTFUL": "D",
         "O": "O",
         "OUT": "O",
-        "INJ": "INJ",
-        "INJURED": "INJ",
-        "IL": "IL",
-        "IL+": "IL+",
-        "SUSP": "O",  # Suspended treated as Out
-        "NA": "O",    # Not Available treated as Out
+        "OFS": "OFS",
+        "OUT FOR SEASON": "OFS",
+        "OUT FOR THE SEASON": "OFS",
+        "SUSP": "SUSP",
+        "SUSPENDED": "SUSP",
+        "NA": "NA",
     }
-    
+
     return status_map.get(status_upper, status_upper)
 
 
@@ -117,8 +128,11 @@ def fetch_injury_statuses(
         verbose: If True, print progress information
     
     Returns:
-        Dict mapping player_name -> injury status
-        Status is one of: "HEALTHY", "GTD", "DTD", "O", "INJ", "IL", "IL+"
+        Dict mapping player_name -> injury status, one for every rostered
+        player (HEALTHY included: "fetched, nobody tagged" is a full dict of
+        HEALTHY, never an empty one -- see the module docstring).
+        Status is one of "HEALTHY", "P", "Q", "D", "O", "OFS", or the
+        non-injury "SUSP" / "NA" (normalize_injury_status).
     """
     if not YAHOO_API_AVAILABLE:
         raise InjuryFetchError("yahoo_oauth / yahoo_fantasy_api are not installed")
@@ -239,6 +253,8 @@ class InjuryInput:
     override: bool = False               # ran anyway (--allow-no-injury-statuses)
     unmatched_healthy: list = field(default_factory=list)
     rostered_without_status: list = field(default_factory=list)
+    noted: list = field(default_factory=list)   # SUSP / NA: no-effect, logged
+    season_out_conflicts: list = field(default_factory=list)   # OFS vs a stated return
 
     def record(self) -> dict:
         return {
@@ -249,18 +265,33 @@ class InjuryInput:
             "override": self.override,
             "unmatched_healthy": list(self.unmatched_healthy),
             "rostered_without_status": list(self.rostered_without_status),
+            # Not injury designations and not an absence rule: the baseline
+            # hazard already carries their games through projected GP. Named
+            # here so an INJURY_OVERRIDES entry can be judged (Nick, 10-22).
+            "noted_tags": list(self.noted),
+            # OFS against a stated return, resolved in the overrides file's
+            # favour because --allow-season-out-conflict was passed.
+            "season_out_override": bool(self.season_out_conflicts),
+            "season_out_conflicts": list(self.season_out_conflicts),
         }
 
 
 def injury_input(fetch: Optional[Callable[[], dict]], rostered, needed: bool,
-                 allow_missing: bool = False, not_fetched_reason: Optional[str] = None) -> InjuryInput:
-    """Fetch (if `fetch` is given), resolve names, and decide.
+                 allow_missing: bool = False, not_fetched_reason: Optional[str] = None,
+                 projections=None, allow_season_out_conflict: bool = False) -> InjuryInput:
+    """Fetch (if `fetch` is given), resolve names, settle OFS, and decide.
 
     needed: this run prices lines/odds from the tags (simulations on, not
     --repro). Unavailable tags on a needed run RAISE InjuryStatusesUnavailable
     unless allow_missing -- then the run goes ahead on no tags and the record
     says so. A tag whose name matches no rostered player raises
     absence.UnresolvedTagName (never a dropped tag).
+
+    projections (name -> PlayerProjection, with INJURY_OVERRIDES applied):
+    an OFS tag the overrides file states a return for raises
+    absence.SeasonOutConflict, unless allow_season_out_conflict -- then the
+    OVERRIDE WINS, the tag is dropped for this run, and record() carries the
+    conflict for the report metadata and the capture.
     """
     from . import absence
     problem = None
@@ -284,7 +315,10 @@ def injury_input(fetch: Optional[Callable[[], dict]], rostered, needed: bool,
                 "and the point-in-time capture).")
         return InjuryInput({}, False, problem, override=needed)
     resolved, unmatched, missing = absence.resolve_tags(raw, rostered)
-    return InjuryInput(resolved, True, None, False, unmatched, missing)
+    resolved, conflicts = absence.resolve_season_out_conflicts(
+        resolved, projections, allow_season_out_conflict)
+    return InjuryInput(resolved, True, None, False, unmatched, missing,
+                       absence.noted_tags(resolved), conflicts)
 
 
 if __name__ == "__main__":

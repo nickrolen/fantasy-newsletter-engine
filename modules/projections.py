@@ -21,9 +21,10 @@ from .absence import parse_out_from
 # CONFIGURATION
 # =============================================================================
 
-# Yahoo injury tags (GTD / O) are turned into missed games by modules/absence.py,
-# the one absence model (A2). The per-calendar-day decay curve and the flat
-# per-tag rates that used to live here are gone -- do not reintroduce them.
+# Yahoo injury tags (Q / D / O, and OFS) are turned into missed games by
+# modules/absence.py, the one absence model (A2). The per-calendar-day decay
+# curve and the flat per-tag rates that used to live here are gone -- do not
+# reintroduce them.
 #
 # NOTE: INJURY_OVERRIDES out_weeks is the source of truth for who's actually OUT.
 # Yahoo's INJ tag just means they have an injury designation, not that they're missing games.
