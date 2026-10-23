@@ -689,6 +689,48 @@ def _field_extreme(n: Num, pool: Pool) -> bool:
 
 DOLLARS = re.compile(r"\$\s?\d[\d,]*(?:\.\d+)?")
 
+# VOICE.md: "banked" and "expected remaining" never appear as LABELS. The
+# decomposition ships as the engine renders it ("912 -> 1498"); a label names
+# the machinery instead of the score.
+#
+# A label is the word sitting next to its value: followed by a colon or
+# equals, by a figure, by a table separator, or by a tag boundary
+# ("<th>Banked</th><td>912"). So "he banked 912 before Thursday" IS flagged
+# -- a figure beside the word is the pattern this rule removes, whatever the
+# surrounding grammar -- while "he banked the win" is prose and is not.
+SCORE_LABELS = re.compile(
+    r"\b(banked|expected\s+remaining|remaining\s+expected)\b"
+    r"\s*(?=[:=|<]|[-\u2013\u2014]\s*\d|\d)",
+    re.IGNORECASE)
+
+
+def score_label_findings(text: str, vocab: "Vocabulary" = None,
+                         exempt_sections=()) -> list[Finding]:
+    """VOICE.md: "banked" / "expected remaining" as a LABEL, anywhere.
+
+    A label is the word next to its value -- see SCORE_LABELS for what counts
+    and what does not.
+
+    One implementation, two consumers: check_draft.py runs it over a drafted
+    newsletter beside money_findings, and the live-line page's tests run it
+    over the rendered HTML (modules/live_lines_page.py). `vocab` splits a
+    newsletter draft into sections when one is given; without it each line of
+    the text is a unit, which is what a rendered page is.
+    """
+    out = []
+    if vocab is not None:
+        units = [(u.section, u.line, u.raw, u.text) for u in split_units(text, vocab)]
+    else:
+        units = [(0, i, line, line) for i, line in enumerate(text.splitlines(), 1)]
+    for section, line, raw, sentence in units:
+        if section in exempt_sections:
+            continue
+        m = SCORE_LABELS.search(LORE_TAG.sub("", raw))
+        if m:
+            out.append(Finding("score_label", section, line,
+                               m.group(0).strip(), sentence[:200]))
+    return out
+
 
 def money_findings(draft: str, vocab: Vocabulary, money_events,
                    exempt_sections=EXEMPT_SECTIONS) -> list[Finding]:

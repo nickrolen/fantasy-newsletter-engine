@@ -150,7 +150,8 @@ def week_state(
                    f"the daily log has not appended (run update_fantasy_logs.py --date {iso})")
             if not allow_missing_days:
                 raise MissingLogDay(msg + ". Refusing to bank zero; --allow-missing-days to override.")
-            assumptions.append(f"ASSUMED: {msg}; banked 0.0 for them that day (--allow-missing-days).")
+            assumptions.append(f"ASSUMED: {msg}; counted no points for them that "
+                               "day (--allow-missing-days).")
 
         # starters with a game, per LINEUPS -- PLAYERLOG must have each of them
         lu_started = lu_d[~lu_d["slot"].astype(str).str.upper().isin(["BN", "IL", "IL+", "", "NAN", "NONE"])] if len(lu_d) else lu_d
@@ -170,7 +171,8 @@ def week_state(
                     banked[r.manager] += fp
                     by_player[r.manager][name] = by_player[r.manager].get(name, 0.0) + fp
         elif len(want):
-            assumptions.append(f"{iso}: PLAYERLOG has no rows; banked from LINEUPS slots.")
+            assumptions.append(f"{iso}: PLAYERLOG has no rows; the day's points come "
+                               "from LINEUPS slots.")
             for r in lu_started.itertuples():
                 name = canon(r.player_name)
                 fp = pd.to_numeric(r.fantasy_points, errors="coerce")

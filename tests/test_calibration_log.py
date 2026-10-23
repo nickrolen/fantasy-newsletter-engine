@@ -186,14 +186,18 @@ def test_the_curve_groups_by_engine_and_pools_only_when_asked(tmp_path):
     assert list(one["groups"]) == ["abc1234"] and one["groups"]["abc1234"]["n_lines"] == 2
 
 
-def test_a_dirty_tree_is_its_own_engine():
+def test_a_dirty_tree_is_its_own_engine_and_so_is_an_unknown_one():
     """On a dirty tree the commit does not identify the simulator, so the
-    lines are not pooled with the clean commit's."""
+    lines are not pooled with the clean commit's -- and if git cannot say,
+    that is a THIRD label, not a quiet "clean". Rounding an unknown answer
+    down to the safe-looking one is the mistake this field exists to stop."""
     assert cal.engine_key(_rec(engine={"commit": "abc1234", "dirty": True})) == "abc1234-dirty"
     assert cal.engine_key(_rec(engine=ENGINE)) == "abc1234"
-    assert cal.engine_key({"engine_commit": None}) == "unknown"
+    assert cal.engine_key({"engine_commit": "abc1234", "engine_dirty": None}) == "abc1234-unknown"
+    assert cal.engine_key({"engine_commit": None}) == "unknown-unknown"
     live = cal.engine_version(ROOT)
-    assert live["commit"] and isinstance(live["dirty"], bool)
+    assert live["commit"], "git could not name the commit"
+    assert live["dirty"] in (True, False), "git could not say whether the tree is dirty"
 
 
 # =============================================================================

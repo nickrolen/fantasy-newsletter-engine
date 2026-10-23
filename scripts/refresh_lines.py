@@ -152,8 +152,17 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
             "display_b": f"{ln.banked_b:.0f} \u2192 {ln.projected_final_b:.0f}",
             "std_dev_a": round(ln.std_dev_a, 2), "std_dev_b": round(ln.std_dev_b, 2),
         })
+    # Which engine produced these numbers. ONE definition, shared with E1's
+    # calibration log (modules/calibration_log.engine_version / engine_key):
+    # a payload from a retired engine carries retired caveats, and the page
+    # refuses to render it (modules/live_lines_page.py).
+    from modules import calibration_log as _cal
+    _engine = _cal.engine_version(base)
     payload = {
         "week": week, "as_of": as_of.isoformat(),
+        "engine": {"commit": _engine["commit"], "dirty": _engine["dirty"],
+                   "key": _cal.engine_key({"engine_commit": _engine["commit"],
+                                           "engine_dirty": _engine["dirty"]})},
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "seed": seed, "num_simulations": sims, "state_hash": state.state_hash,
         "completed_dates": [d.isoformat() for d in state.completed],

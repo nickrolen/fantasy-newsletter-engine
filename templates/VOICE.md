@@ -44,6 +44,15 @@ From the 2025-26 week 16 dry run, both in one paragraph of Section 3:
 - **When the block says NO LEAD THIS WEEK, believe it.** A quiet week told as a dramatic one is the voice lying. Open on where the races stand, or on lore about the people in them, and leave the results to their sections.
 - **The standing threads appear every week**, even in week 1, when everyone is 0-0. A race that resolves becomes history ("clinched in week 12"); it does not drop out.
 - **Money only when it moved.** The ANGLES block ends with a "Money this week" line. When it says nothing was decided, write no dollar figures anywhere in the newsletter; a pot may still be named ("the regular-season pot"), its amount may not. `check_draft.py` flags any dollar figure in such a week. When something was decided, state a liability for the managers it changed, or where it separates one manager from the rest. A liability that held last week and holds this week is true and tells the reader nothing: "Nick could still pay $45 into the playoff pot", in a week when all four could, is the line this rule removes.
+- **"Banked" and "expected remaining" never appear as labels.** A live line
+  decomposes into points already scored plus the simulated rest, and the
+  decomposition is shown as the engine renders it -- `912 -> 1498`, the score
+  and where it is heading. A page or a sentence printing `Banked: 912 |
+  Remaining: 586` has the same numbers and the wrong voice: it names the
+  machinery instead of the thing a reader wants. This covers the newsletter
+  and the live-line page (`modules/live_lines_page.py`);
+  `claim_check.score_label_findings` flags it, and `check_draft.py` runs that
+  check with the money one.
 - **Every money line names the pot and the window.** For example: "won't pay into the $180 regular-season pot; the $90 playoff pot is still open until the semifinals". Never write "safe" or "pays" on its own. This rule keeps a money line from being wrong; the one above keeps it from being obvious. Both apply.
 
 ## Around the NBA is the same voice

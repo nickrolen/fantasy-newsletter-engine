@@ -79,6 +79,9 @@ def run(draft_text: str, week: int, out_dirs: list[Path], config: dict,
         findings += cc.report_card_findings(draft_text, cards)
     if money_events is not None:
         findings += cc.money_findings(draft_text, vocab, money_events)
+        # VOICE.md: the decomposition ships as "912 -> 1498", never as a
+        # "Banked:" label. Same check the live-line page's tests run.
+        findings += cc.score_label_findings(draft_text, vocab)
     return findings, meta
 
 

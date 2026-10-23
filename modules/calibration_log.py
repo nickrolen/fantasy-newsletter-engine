@@ -100,29 +100,60 @@ class EngineVersionMix(ValueError):
 # the engine that produced a line
 # =============================================================================
 
+_ENGINE_VERSION: dict = {}
+
+
 def engine_version(base_path=".") -> dict:
     """{"commit": short sha or None, "dirty": bool}.
 
     `dirty` matters: on a dirty tree the commit does not identify the engine,
     so two records can share a commit and not share a simulator. Recorded
     rather than hidden, and it is part of the grouping key.
+
+    CACHED PER PROCESS per path. `git status --porcelain` takes about 4
+    seconds on a repo mounted over the desktop bridge, and a run asks for
+    the engine once per logged line and once per rendered page -- which made
+    the live-line page's tests 160 seconds on their own. One run is one
+    engine by definition (E1 records one engine per line), so re-reading it
+    mid-process cannot tell us anything the first read did not.
     """
+    key = str(Path(base_path).resolve())
+    hit = _ENGINE_VERSION.get(key)
+    if hit is not None:
+        return dict(hit)
+
     def _git(*args):
         try:
+            # 20s, not 5: `git status --porcelain` takes about 4 seconds on a
+            # repo mounted over the desktop bridge, and two of them at once
+            # (a parallel test run) pushed past a 5-second limit -- which
+            # returned dirty=None, an engine whose dirtiness is UNKNOWN.
             out = subprocess.run(["git", *args], cwd=str(base_path),
-                                 capture_output=True, text=True, timeout=5)
+                                 capture_output=True, text=True, timeout=20)
             return out.stdout.strip() if out.returncode == 0 else None
         except Exception:
             return None
     commit = _git("rev-parse", "--short", "HEAD")
     status = _git("status", "--porcelain")
-    return {"commit": commit, "dirty": bool(status) if status is not None else None}
+    out = {"commit": commit, "dirty": bool(status) if status is not None else None}
+    _ENGINE_VERSION[key] = out
+    return dict(out)
 
 
 def engine_key(record: dict) -> str:
-    """The label a curve is grouped under."""
+    """The label a curve is grouped under.
+
+    Three states, not two: clean is the bare commit, dirty is suffixed, and
+    UNKNOWN dirtiness (git could not say) gets its own label rather than
+    being filed as clean. A dirty tree pooled with the clean commit's lines
+    is the exact mistake this field exists to prevent, so an unknown answer
+    must not round down to the safe-looking one.
+    """
     commit = record.get("engine_commit") or "unknown"
-    return f"{commit}-dirty" if record.get("engine_dirty") else commit
+    dirty = record.get("engine_dirty")
+    if dirty is None:
+        return f"{commit}-unknown"
+    return f"{commit}-dirty" if dirty else commit
 
 
 # =============================================================================
