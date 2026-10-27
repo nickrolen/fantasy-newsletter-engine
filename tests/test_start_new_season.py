@@ -53,6 +53,11 @@ PER_SEASON_CONFIG = {
     "config/RECORDS.json",
     "config/DRAFT_PICKS_CURRENT.json",
     "config/LAST_WEEK_RECAP.md",
+    # Which weeks update_leaguehistory has already applied. start_new_season
+    # already classifies it per-season (its archive list calls it the
+    # "per-season applied-weeks ledger") and reset_applied_weeks_ledger
+    # clears it; this set just had not caught up.
+    "config/.leaguehistory_applied_weeks.json",
 }
 
 # Files under config/ that deliberately carry across seasons.
