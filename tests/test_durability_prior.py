@@ -49,16 +49,44 @@ def test_dispersion_tells_the_two_meanings_apart():
     assert gp_dispersion([])["share"] is None
 
 
-def test_every_stored_snapshot_is_pre_season_shaped_and_the_limit_sits_between():
-    """3: the guard passes all three stored snapshots. Their measured share is
-    0.31 and a fresh in-season fetch is 0.96, so 0.80 is not a near miss."""
-    shares = {}
+def _week1_start():
+    blob = json.loads((ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+    return date.fromisoformat(min(str(w["start_date"])[:10] for w in blob["weeks"]))
+
+
+def _snapshots():
+    """{name: date taken} for every stored PLAYERLIST snapshot. A name that
+    does not carry its date is a failure, not a skip: undated, it cannot be
+    told pre-season from in-season."""
+    out = {}
     for path in sorted((ROOT / "config" / "snapshots").glob("PLAYERLIST_*.xlsx")):
-        flat, shape = gp_column_is_flat(pd.read_excel(path)["player_proj_GP"])
-        shares[path.name] = round(shape["share"], 3)
-        assert not flat, (path.name, shape)
+        stem = path.stem.removeprefix("PLAYERLIST_")
+        try:
+            out[path.name] = date.fromisoformat(stem)
+        except ValueError:
+            pytest.fail(f"{path.name}: snapshot names carry the date taken (PLAYERLIST_YYYY-MM-DD.xlsx)")
+    return out
+
+
+def test_every_pre_season_snapshot_is_pre_season_shaped_and_the_limit_sits_between():
+    """3: the guard passes every snapshot taken BEFORE WEEK 1. Their measured
+    share is 0.31 and a fresh in-season fetch is 0.96, so 0.80 is not a near miss.
+
+    Only before week 1: from 10-27 Step 2.5 stores a snapshot every week, and
+    an in-season one is flat by design (GP is games remaining) -- those are what
+    the blend's k/(k+20) work is measured against, not durability priors. The
+    real guard is the next assertion: the prior config names is one of these."""
+    week1 = _week1_start()
+    pre = {n: d for n, d in _snapshots().items() if d < week1}
+    shares = {}
+    for name in pre:
+        frame = pd.read_excel(ROOT / "config" / "snapshots" / name)
+        flat, shape = gp_column_is_flat(frame["player_proj_GP"])
+        shares[name] = round(shape["share"], 3)
+        assert not flat, (name, shape)
     assert len(shares) >= 3, shares
     assert max(shares.values()) < 0.5, shares
+    assert Path(DURABILITY_PRIOR["snapshot"]).name in pre, (DURABILITY_PRIOR["snapshot"], sorted(pre))
     assert FLAT_GP_SHARE_MAX == DURABILITY_PRIOR["flat_gp_share_max"] == 0.80
 
 

@@ -139,14 +139,54 @@ def test_reality_check_fails_with_nobody_ever_hurt(seasons, history_bands):
     assert m["rel_cv"] < history_bands["rel_cv"][0]
 
 
-# 5 -- durability is rewarded; the section-1 asymmetry is the regression test
-def test_durability_is_rewarded(seasons):
-    on = {m: float(seasons[0][0][i].sum(axis=1).mean()) for i, m in enumerate(MANAGERS)}
-    off = {m: float(seasons[1][0][i].sum(axis=1).mean()) for i, m in enumerate(MANAGERS)}
-    assert on["Garrett"] / on["Hayden"] > off["Garrett"] / off["Hayden"] + 0.01
-    spread = lambda d: max(d.values()) / min(d.values()) - 1
-    assert spread(on) < spread(off)
-    assert spread(on) < 0.05, on
+# 5 -- durability is rewarded: the MECHANISM, on a frozen league
+#
+# This used to assert on the live rosters that the hazard pulls the managers'
+# season totals closer together (spread on < spread off, and under 5%). That
+# held for the week-1 rosters only because the less durable rosters were also
+# the stronger ones; after the 10-26 roster churn it read 0.183 on against
+# 0.144 off. An accident of composition written as an invariant. What the
+# hazard must do does not depend on who is rostered: a roster loses the share
+# of its points its players miss, so equal rosters that differ only in
+# durability end the season apart, in that order, by that much.
+# (SUITE_REPAIR_RESULT_2026-10-27 records the live numbers.)
+DURABILITY_GP = {"Nick": 66.0, "Hayden": 78.0, "Benton": 72.0, "Garrett": 72.0}
+
+
+def _durability_league(hazard, monkeypatch, n=2000, n_weeks=4):
+    """{manager: mean points over weeks 2..n_weeks}: four identical
+    three-guard rosters (BOS, every day, no bench) differing ONLY in
+    projected GP."""
+    data, teams, weeks = _week_world(n_weeks=n_weeks)
+    for m, gp in DURABILITY_GP.items():
+        for pp in teams[m].players.values():
+            pp.projected_gp = gp
+    if not hazard:
+        monkeypatch.setattr(sb, "baseline_blocks", lambda *a, **k: {})
+    anchor = date.fromisoformat(weeks[0]["start_date"])
+    draws = sb.KeyedDraws(SEED, n)
+    tot = {m: 0.0 for m in MANAGERS}
+    for w in weeks[1:]:
+        r = sb.simulate_week_matrix(data, teams, w, {}, draws, managers=MANAGERS, tag_anchor=anchor)
+        for m in MANAGERS:
+            tot[m] += float(r[m]["score"].mean())
+    if not hazard:
+        monkeypatch.undo()
+    return tot
+
+
+def test_durability_is_rewarded(monkeypatch):
+    off = _durability_league(False, monkeypatch)
+    on = _durability_league(True, monkeypatch)
+    # without the hazard, durability is worth nothing: identical rosters
+    assert max(off.values()) / min(off.values()) - 1 < 0.01, off
+    # with it, each roster keeps the share of games its players play
+    for m, gp in DURABILITY_GP.items():
+        rate = absence.durability_miss_rate(gp, P)
+        assert 1 - on[m] / off[m] == pytest.approx(rate, abs=0.015), (m, on, off)
+    # so the durable roster gains on the fragile one, in order
+    assert on["Hayden"] / on["Nick"] > off["Hayden"] / off["Nick"] + 0.10
+    assert on["Hayden"] > on["Benton"] > on["Nick"]
 
 
 # =============================================================================
@@ -377,15 +417,24 @@ def test_an_override_is_not_charged_twice():
 
 # 7 -- one availability model
 def test_marginal_value_and_the_week_engine_agree_on_live_data(live):
+    """One availability model. MV is built here exactly as advice_runner
+    builds it -- WITH the frozen durability prior. Until 10-27 this test left
+    it out, so MV read each player's LIVE projected GP while the week engine
+    read the pre-season snapshot. They agreed only while data/PLAYERLIST.xlsx
+    was byte-identical to that snapshot; the 10-26 refresh split them
+    (Derrick White: 73 -> 77.2 GP, 15 of 300 draws). The same omission was in
+    scripts/validate_marginal_value.py, the premise gate -- fixed there, and
+    guarded by the next test."""
     data, teams = live
     from modules.projections import load_player_projections
     rosters = {m: list(teams[m].players) for m in MANAGERS}
-    tags = {"Kon Knueppel": "Q"}
+    tags = {sorted(rosters["Garrett"])[0]: "Q"}      # whoever is rostered today
     ctx = mv.build_context(load_player_projections(data), rosters, data.nba_schedule,
                            data.schedule["weeks"], "regular_season", data.current_week,
-                           injury_statuses=tags, sims=300, seed=SEED)
+                           injury_statuses=tags, sims=300, seed=SEED,
+                           durability_prior=data.durability_prior)
     draws = sb.KeyedDraws(SEED, 300)
-    checked = 0
+    checked = unprojected = 0
     for week in (1, 2, 9):
         wd = sb.schedule_week(data, week)
         for d in sb.get_dates_in_week(wd):
@@ -394,28 +443,68 @@ def test_marginal_value_and_the_week_engine_agree_on_live_data(live):
                     p = ctx.player(ctx.players.canonical(name))
                     if p.team not in sb._playing_teams(data, d):
                         continue
-                    a = mv._draws(ctx, p, d, week)
                     b = sb.availability_on(data, teams, wd, tags, draws, m, name, d)
-                    assert np.array_equal(a, b), (name, d)
+                    if (teams[m].players[name].projected_fppg or 0) <= 0:
+                        # No projection (Yahoo's 0 GP / 0.00 FPPG row: Acuff,
+                        # Boozer on 10-27). The week engine leaves him out of
+                        # the plan, which availability_on reports as never
+                        # available; MV draws his availability but values him
+                        # at 0.0. There is no availability to compare -- what
+                        # must agree is that NEITHER engine scores him.
+                        assert not b.any() and p.fppg == 0.0, (name, d, p.fppg)
+                        unprojected += 1
+                        continue
+                    a = mv._draws(ctx, p, d, week)
+                    assert np.array_equal(a, b), (name, d, int((a != b).sum()))
                     checked += 1
-    assert checked > 400
+    assert checked > 400, (checked, unprojected)
 
 
-def test_tags_and_absences_follow_the_roster_spelling(live):
-    """Hayden's roster says Shai Gilgeous-Alexander, PLAYERLIST says
+def test_every_real_data_marginal_value_context_reads_the_frozen_prior():
+    """build_context's durability_prior=None means "each player's own
+    projected GP is his prior" -- right for a synthetic world, wrong for real
+    data in season, where that column is games REMAINING. Every caller outside
+    the tests must pass it explicitly; the premise gate did not."""
+    callers = []
+    for f in sorted([*(ROOT / "modules").glob("*.py"), *(ROOT / "scripts").glob("*.py")]):
+        tree = ast.parse(f.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                fn = node.func
+                name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", None)
+                if name == "build_context":
+                    callers.append(f.name)
+                    assert any(k.arg == "durability_prior" for k in node.keywords), (
+                        f"{f.name}:{node.lineno} builds a marginal-value context without "
+                        "durability_prior")
+    assert {"advice_runner.py", "validate_marginal_value.py"} <= set(callers), callers
+
+
+def test_tags_and_absences_follow_the_roster_spelling():
+    """The roster says Shai Gilgeous-Alexander, PLAYERLIST says
     S. Gilgeous-Alexander. The draws are keyed by the roster's name; before
-    10-21 the engine looked his tag up by PLAYERLIST's and never charged it."""
-    data, teams = live
-    name = "Shai Gilgeous-Alexander"
-    assert teams["Hayden"].players[name].player_name != name
-    wd = sb.schedule_week(data, 1)
-    first = next(d for d in sb.get_dates_in_week(wd) if "OKC" in sb._playing_teams(data, d))
+    10-21 the engine looked his tag up by PLAYERLIST's and never charged it.
+
+    A synthetic two-spelling roster, not the live one: Yahoo respelled him in
+    full on 10-26, which made the live premise false and the old test red.
+    Whether the guard has a case to bite on must not depend on what Yahoo
+    calls people this week."""
+    data, teams, weeks = _week_world()
+    name, listed = "Shai Gilgeous-Alexander", "S. Gilgeous-Alexander"
+    old = teams["Hayden"].players.pop("P0Hayden")
+    teams["Hayden"].players[name] = PlayerProjection(
+        player_name=listed, nba_team="BOS", positions=["PG"],
+        projected_fppg=old.projected_fppg, projected_gp=old.projected_gp)
+    assert teams["Hayden"].players[name].player_name != name     # the premise, by construction
+    anchor = date.fromisoformat(weeks[0]["start_date"])
+    first = sb.get_dates_in_week(weeks[0])[0]
     draws = sb.KeyedDraws(SEED, 300)
-    out = sb.availability_on(data, teams, wd, {name: "O"}, draws, "Hayden", name, first)
-    assert not out.any()
-    healthy = sb.availability_on(data, teams, wd, {}, draws, "Hayden", name, first)
-    base = sb.baseline_blocks(data, teams, draws, sb.hazard_anchor(data), ["Hayden"])[name]
-    assert np.array_equal(healthy, ~base.missed(first))
+    out = sb.availability_on(data, teams, weeks[0], {name: "O"}, draws, "Hayden", name, first, anchor)
+    assert not out.any()                                          # the tag is charged
+    healthy = sb.availability_on(data, teams, weeks[0], {}, draws, "Hayden", name, first, anchor)
+    base = sb.baseline_blocks(data, teams, draws, anchor, ["Hayden"])
+    assert name in base and listed not in base                    # keyed by the roster
+    assert np.array_equal(healthy, ~base[name].missed(first))
 
 
 # 8 -- the flat discount is gone
@@ -442,11 +531,19 @@ def test_baseline_draws_are_keyed_by_player_not_by_who_asks():
 def test_another_managers_roster_change_moves_nothing(live):
     data, teams = live
     from modules.projections import load_player_projections
+    from modules.data_loader import free_agents
     allp = load_player_projections(data)
+    # chosen at runtime from whoever is rostered and available today -- a
+    # named player goes red the day he is dropped (Hartenstein, 10-26)
+    drop = sorted(n for n, pp in teams["Nick"].players.items() if (pp.projected_fppg or 0) > 0)[0]
+    rosters = {m: list(teams[m].players) for m in MANAGERS}
+    pool = [n for n in free_agents(data.playerlist, rosters)["player_name"]
+            if n in allp and (allp[n].projected_fppg or 0) > 0]
+    add = max(pool, key=lambda n: (allp[n].projected_fppg, n))
     changed = dict(teams)
     import copy
     t = copy.copy(teams["Nick"]); t.players = dict(t.players)
-    del t.players["Isaiah Hartenstein"]; t.players["Damian Lillard"] = allp["Damian Lillard"]
+    del t.players[drop]; t.players[add] = allp[add]
     changed["Nick"] = t
     wd = sb.schedule_week(data, 6)
     r0 = sb.simulate_week_matrix(data, teams, wd, {}, sb.KeyedDraws(SEED, 500))

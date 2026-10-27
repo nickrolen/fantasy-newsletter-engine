@@ -255,7 +255,14 @@ def main():
     week = args.week if args.week is not None else (data.current_week or 0)
     ctx = build_context(load_player_projections(data), rosters, data.nba_schedule,
                         data.schedule.get("weeks", []), "regular_season", week,
-                        extra_players=fas, sims=args.sims)
+                        extra_players=fas, sims=args.sims,
+                        # the frozen pre-season prior the week engine and the
+                        # advice read. Without it every player's durability is
+                        # his LIVE projected GP -- games remaining, in season --
+                        # and on 10-26's refresh that measured the gate at a
+                        # mean miss rate of 0.114 against the engine's 0.157
+                        # (SUITE_REPAIR_RESULT_2026-10-27).
+                        durability_prior=data.durability_prior)
     from modules.data_loader import (CURRENT_SEASON, PREMISE_TRADE_SAMPLE,
                                      PREMISE_TRADE_SAMPLES)
     if args.all_trades:
