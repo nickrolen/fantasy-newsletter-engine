@@ -271,11 +271,41 @@ class TeamProjections:
 # ACTUAL PERFORMANCE LOADING
 # =============================================================================
 
+def appearances(playerlog: pd.DataFrame) -> pd.DataFrame:
+    """The started rows on which the player actually PLAYED.
+
+    `started` means a lineup slot was occupied, not that he played: a player
+    in the lineup whose NBA team played and who sat scores 0.0 on that row.
+    `is_injured` is defined as exactly that row -- had a game, scored 0.0
+    (scripts/rollup_season_to_history.py) -- so excluding it leaves the games
+    he appeared in. The historical log also carries off-day rows (had_game
+    False, also 0.0); the live log has no had_game column because it only
+    ever holds game days. Both are excluded here, so either log is safe.
+
+    Missing is_injured raises rather than counting every slot: that silent
+    default is the bug this exists to prevent (HANDOFF_DNP_FIX_2026-10-23).
+    """
+    if "is_injured" not in playerlog.columns:
+        raise ValueError("PLAYERLOG has no is_injured column, so a missed game cannot "
+                         "be told from an appearance; refusing to average lineup slots")
+    mask = (playerlog["started"] == True) & (playerlog["is_injured"] == False)
+    if "had_game" in playerlog.columns:
+        mask &= playerlog["had_game"] == True
+    return playerlog[mask]
+
+
 def compute_actual_stats(data: FantasyData) -> dict[str, dict]:
     """
-    Compute actual season stats from PLAYERLOG.
+    Compute actual season stats from PLAYERLOG: per game he PLAYED.
 
-    Only counts games where player started (was in active lineup).
+    Counts appearances, not lineup slots (appearances()). The engine prices
+    whether he plays as its own term -- tags, INJURY_OVERRIDES, the baseline
+    hazard -- so the scoring side must be E[fp | he plays]. Averaging the
+    slots he sat in as zeros charged every absence twice: 8.7% off
+    actual_fppg and +19% on actual_std across nine seasons, and Jokic read
+    0.00 after one missed game (REVIEW_PROJECTION_VS_ACTUALS_RESULT_2026-10-23).
+    'games' is his appearance count, so a player with misses and no
+    appearances has none and effective_fppg falls back to his projection.
 
     Returns dict mapping player_name -> {
         'actual_fppg': float,
@@ -284,8 +314,7 @@ def compute_actual_stats(data: FantasyData) -> dict[str, dict]:
         'total_fp': float,
     }
     """
-    # Filter to started games only
-    started = data.playerlog[data.playerlog['started'] == True].copy()
+    started = appearances(data.playerlog).copy()
 
     if started.empty:
         return {}
