@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "lines": [],
+  "_comment": "Append-only: every line the newsletter published, logged at publish time. A re-issued line is a new entry, never an edit. Metrics live in modules/backtest_metrics.py and are grouped by engine_commit -- see modules/calibration_log.py."
+}
