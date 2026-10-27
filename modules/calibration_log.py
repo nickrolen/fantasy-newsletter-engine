@@ -103,12 +103,55 @@ class EngineVersionMix(ValueError):
 _ENGINE_VERSION: dict = {}
 
 
+# WHAT "THE ENGINE" IS -- the paths whose changes change the simulator.
+# Dirtiness is checked against these and nothing else (HANDOFF_ENGINE_KEY_SCOPE
+# 2026-10-23). The whole tree was wrong in both directions of the build:
+#   - a refresh writes output/live_lines_weekN*.json and
+#     data/calibration/published_lines.json -- its OWN outputs -- so the render
+#     that follows read "<commit>-dirty" and refused the payload just priced;
+#   - the weekly workflow writes into config/ every week (fetch_playerlist ->
+#     PLAYER_AGES.json, check_playerlist --snapshot -> config/snapshots/,
+#     update_leaguehistory -> .leaguehistory_applied_weeks.json, the build ->
+#     RECENT_CONTENT.json, format_stats_report -> POTW_HISTORY.json and
+#     LAST_WEEK_RECAP.md) and INJURY_OVERRIDES.json is edited by hand. Those
+#     are inputs and newsletter state, not the simulator; counting them would
+#     have marked every line of every week "-dirty".
+# So: the code, the one config file that holds the simulator's parameters,
+# and the frozen durability prior league_config names (engine_paths). Inputs
+# belong to the state hash and to the line record, not to this key.
+ENGINE_PATHS = ("modules", "scripts", "config/league_config.json")
+
+
+def engine_paths(base_path=".") -> list:
+    """ENGINE_PATHS plus the durability-prior snapshot league_config names.
+
+    That snapshot is a frozen engine input (data_loader.load_durability_prior):
+    overwriting it in place changes every hazard, so it counts. The weekly
+    snapshots beside it do not. A league_config that cannot be read adds
+    nothing here -- the file itself is in ENGINE_PATHS, so an edit to it is
+    already dirty.
+    """
+    paths = list(ENGINE_PATHS)
+    try:
+        conf = json.loads((Path(base_path) / "config" / "league_config.json")
+                          .read_text(encoding="utf-8"))
+        snap = (conf.get("durability_prior") or {}).get("snapshot")
+    except (OSError, ValueError, AttributeError):
+        snap = None
+    if snap:
+        paths.append(str(snap).replace("\\", "/"))
+    return paths
+
+
 def engine_version(base_path=".") -> dict:
     """{"commit": short sha or None, "dirty": bool}.
 
-    `dirty` matters: on a dirty tree the commit does not identify the engine,
-    so two records can share a commit and not share a simulator. Recorded
-    rather than hidden, and it is part of the grouping key.
+    `dirty` matters: on a dirty engine the commit does not identify the
+    simulator, so two records can share a commit and not share a simulator.
+    Recorded rather than hidden, and it is part of the grouping key.
+
+    "Dirty" means a change under engine_paths() -- the simulator's code and
+    parameters -- not anywhere in the tree. See ENGINE_PATHS for why.
 
     CACHED PER PROCESS per path. `git status --porcelain` takes about 4
     seconds on a repo mounted over the desktop bridge, and a run asks for
@@ -134,7 +177,7 @@ def engine_version(base_path=".") -> dict:
         except Exception:
             return None
     commit = _git("rev-parse", "--short", "HEAD")
-    status = _git("status", "--porcelain")
+    status = _git("status", "--porcelain", "--", *engine_paths(base_path))
     out = {"commit": commit, "dirty": bool(status) if status is not None else None}
     _ENGINE_VERSION[key] = out
     return dict(out)
