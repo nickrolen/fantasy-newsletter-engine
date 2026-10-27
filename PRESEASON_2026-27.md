@@ -703,7 +703,7 @@ Then:
 - Check every team name still matches `manager_to_team` in config:
   `fetch_playerlist.py` warns on rostered players owned by an unknown team.
   Benton renamed his to "Kevin Quran't" for 2026-27.
-- Update `data\PLAYERLIST.xlsx` for the new season (`WEEKLY_WORKFLOW.md` Step 2.5)
+- Update `data\PLAYERLIST.xlsx` for the new season (`WEEKLY_WORKFLOW.md` Step 4.75)
 - **By Sun Oct 18:** repopulate `config\INJURY_OVERRIDES.json` for every
   rostered player with a known multi-week absence, and set `last_updated`
   (`WEEKLY_WORKFLOW.md` Step 5)

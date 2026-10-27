@@ -1,0 +1,25 @@
+{
+  "_comment": "Patches on Yahoo PLAYERLIST rows that are wrong UPSTREAM. Applied by scripts/fetch_playerlist.py after parsing and before writing, so they survive every refetch; scripts/check_playerlist.py lists the live ones and FAILS on any past review_by, or whose Yahoo row no longer matches 'replaces' (upstream may be fixed). Keyed by Yahoo player id. 'set' may name projectedFPPG (a number) and player_proj_GP (a number, or \"team\": the most games remaining Yahoo projects for any teammate in the same fetch). Total FP is derived, FPPG x GP. See modules/projection_overrides.py.",
+  "overrides": [
+    {
+      "yahoo_id": "10592",
+      "player_name": "Cameron Boozer",
+      "set": {"projectedFPPG": 33.17, "player_proj_GP": "team"},
+      "replaces": {"player_proj_GP": 0.0, "player_total_proj_FP": 0.0},
+      "reason": "Yahoo's rest-of-season view (S_PSR) reports 0 GP / 0.00 FP for a healthy rostered player (Benton)",
+      "source": "Yahoo next-7-days view (S_PS7), fetched 2026-10-27: 99.51 FP over 3 GP = 33.17 FPPG. Pre-season snapshot 2026-10-13: 32.49.",
+      "added": "2026-10-27",
+      "review_by": "2026-11-03"
+    },
+    {
+      "yahoo_id": "10582",
+      "player_name": "Darius Acuff Jr.",
+      "set": {"projectedFPPG": 30.91, "player_proj_GP": "team"},
+      "replaces": {"player_proj_GP": 0.0, "player_total_proj_FP": 0.0},
+      "reason": "Yahoo's rest-of-season view (S_PSR) reports 0 GP / 0.00 FP for a healthy rostered player (Hayden)",
+      "source": "Yahoo next-7-days view (S_PS7), fetched 2026-10-27: 92.73 FP over 3 GP = 30.91 FPPG. Pre-season snapshot 2026-10-13: 28.07.",
+      "added": "2026-10-27",
+      "review_by": "2026-11-03"
+    }
+  ]
+}

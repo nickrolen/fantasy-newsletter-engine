@@ -74,21 +74,56 @@ def expected_roster_size(on_il: int = 0) -> int:
     return active_spots() + min(on_il, il_slots)
 
 
-def players_on_il(rosters: dict, lineups=None) -> dict:
-    """{manager: rostered players in an IL slot in that manager's latest lineup}.
+def live_il_names(oauth_file=None) -> dict:
+    """{manager: [players in an IL slot right now]}, from Yahoo's live rosters
+    (lg.to_team(key).roster(), the selected_position update_fantasy_logs
+    reads). Managers resolved by team KEY, which survives a rename. Raises
+    when the league cannot be reached; the caller falls back and says so."""
+    from modules.fetch_injury_statuses import OAuth2, YAHOO_API_AVAILABLE, get_league, strip_accents
+    from modules.data_loader import manager_for_team
+    from modules.yahoo_auth import build_oauth
+    if not YAHOO_API_AVAILABLE:
+        raise RuntimeError("yahoo_oauth / yahoo_fantasy_api are not installed")
+    oauth_file = Path(oauth_file or PROJECT_ROOT / "oauth2.json")
+    if not oauth_file.is_file():
+        raise RuntimeError(f"no {oauth_file.name}")
+    lg = get_league(build_oauth(str(oauth_file), OAuth2=OAuth2))
+    out = {}
+    for key, team in lg.teams().items():
+        manager = manager_for_team(team["name"], key, base_path=PROJECT_ROOT)
+        out[manager] = [strip_accents(p["name"]) for p in lg.to_team(key).roster()
+                        if str(p.get("selected_position", "")).upper() in IL_SLOTS]
+    return out
 
-    ROSTERS.json is names only, so the slot comes from LINEUPS. Preseason
-    LINEUPS is empty and nobody is on IL. A player who has since left the
-    roster no longer counts.
+
+def players_on_il(rosters: dict, lineups=None, live=None) -> tuple:
+    """({manager: rostered players in an IL slot}, where that came from).
+
+    live: {manager: [names in an IL slot now]} (live_il_names) -- TODAY's IL,
+    and the source whenever the league is reachable. Without it, the latest
+    day in LINEUPS, which only exists for weeks already played: an IL move
+    made today is invisible to it. On 10-26 that warned Garrett and Nick had
+    16 players "with 0 in an IL slot" when Flagg, Knueppel and Banchero had
+    all gone to IL that morning (HANDOFF_STALE_GATES sec.3). So the source is
+    always named, and the fallback says what it cannot see.
+
+    ROSTERS.json is names only. A player who has since left the roster does
+    not count, whichever source.
     """
     out = {m: 0 for m in rosters}
+    if live is not None:
+        for manager, players in rosters.items():
+            on_roster = PlayerIndex({p: 1 for p in players})
+            out[manager] = sum(1 for n in live.get(manager, []) if n in on_roster)
+        return out, "the live Yahoo roster"
     if lineups is None:
         if not LINEUPS.is_file():
-            return out
+            return out, "nothing (no live roster and no LINEUPS.xlsx): nobody counted on IL"
         import pandas as pd
         lineups = pd.read_excel(LINEUPS)
     if lineups is None or len(lineups) == 0:
-        return out
+        return out, "nothing (no live roster and LINEUPS is empty): nobody counted on IL"
+    latest_day = str(lineups["date"].astype(str).max())[:10]
     for manager, players in rosters.items():
         rows = lineups[lineups["manager"] == manager]
         if rows.empty:
@@ -97,7 +132,8 @@ def players_on_il(rosters: dict, lineups=None) -> dict:
         il_names = latest[latest["slot"].astype(str).str.upper().isin(IL_SLOTS)]
         on_roster = PlayerIndex({p: 1 for p in players})
         out[manager] = sum(1 for n in il_names["player_name"] if n in on_roster)
-    return out
+    return out, (f"the latest lineup in LINEUPS.xlsx ({latest_day}) -- IL moves made "
+                 "after it are not seen")
 
 
 def main() -> int:
@@ -130,9 +166,16 @@ def main() -> int:
         print("  expected; during the season it is not.")
         return 0
 
-    on_il = players_on_il(rosters)
+    try:
+        live, live_problem = live_il_names(), None
+    except Exception as e:
+        live, live_problem = None, f"{type(e).__name__}: {e}"
+    on_il, il_source = players_on_il(rosters, live=live)
     print(f"  {len(rosters)} rosters, expecting {active_spots()} active players "
           f"each, plus any in an IL slot")
+    print(f"  IL membership from {il_source}")
+    if live_problem:
+        print(f"    (the live roster was not reachable: {live_problem})")
     print()
 
     # --- every player belongs to exactly one manager ---------------------
@@ -165,7 +208,7 @@ def main() -> int:
         size = expected_roster_size(on_il.get(manager, 0))
         if len(players) != size:
             why = (f"{active_spots()} active + {on_il.get(manager, 0)} in an IL "
-                   f"slot in the latest lineup")
+                   f"slot, per {il_source}")
             (failures if abs(len(players) - size) > 2 else warnings).append(
                 f"{manager} has {len(players)} players, expected {size} ({why}).")
 

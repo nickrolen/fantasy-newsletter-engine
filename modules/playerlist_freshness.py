@@ -74,9 +74,18 @@ def stamp(frame: pd.DataFrame, source: str, now: Optional[datetime] = None) -> d
 
 
 def write(frame: pd.DataFrame, path, source: str,
-          now: Optional[datetime] = None) -> dict:
-    """Write the data sheet and its stamp. Returns the stamp."""
+          now: Optional[datetime] = None, extra: Optional[dict] = None) -> dict:
+    """Write the data sheet and its stamp. Returns the stamp.
+
+    extra: further key -> string value pairs recorded with the fetch (the
+    projection overrides applied, and the Yahoo values they replaced). They
+    never enter the content hash, which covers the data sheet only.
+    """
     s = stamp(frame, source, now)
+    for k, v in (extra or {}).items():
+        if k in s:
+            raise KeyError(f"stamp key {k!r} is reserved")
+        s[k] = v
     with pd.ExcelWriter(path, engine="openpyxl") as xw:
         frame.to_excel(xw, sheet_name=DATA_SHEET, index=False)
         pd.DataFrame(sorted(s.items()), columns=["key", "value"]).to_excel(

@@ -4,7 +4,7 @@ fetch_playerlist.py -- build data/PLAYERLIST.xlsx from Yahoo.
 
 WHAT THIS REPLACES
 ------------------
-Step 2.5 of the weekly workflow: open Yahoo, sort by projected rest-of-season
+Step 4.75 of the weekly workflow (2.5 until 10-27): open Yahoo, sort by projected rest-of-season
 fantasy points, select ~125 rows, paste the mess into an LLM, have it parse
 out five fields, compute FPPG, carry ages forward, cross-check the rosters,
 and write the spreadsheet. Every week. It is the only manual step left in the
@@ -83,6 +83,7 @@ from modules.data_loader import (  # noqa: E402
     CURRENT_SEASON, LEAGUE_KEY, MANAGER_TO_TEAM, PlayerIndex, normalize_player_name,
 )
 from modules import playerlist_freshness  # noqa: E402
+from modules import projection_overrides  # noqa: E402
 
 PLAYERLIST = PROJECT_ROOT / "data" / "PLAYERLIST.xlsx"
 AGES = PROJECT_ROOT / "config" / "PLAYER_AGES.json"
@@ -460,7 +461,7 @@ def main():
     if not taken and not pool:
         print("\n  REFUSED: no player rows parsed at all. Either the league was "
               "made private, or Yahoo changed the players table. Fall back to "
-              "the manual procedure in WEEKLY_WORKFLOW.md Step 2.5.")
+              "the manual procedure in WEEKLY_WORKFLOW.md Step 4.75.")
         return 1
 
     # Every rostered row must name a team config knows. A miss means a manager
@@ -512,6 +513,23 @@ def main():
             "_owner": r["owner"],
         })
 
+    # Patches on rows Yahoo has wrong upstream (config/PROJECTION_OVERRIDES.json).
+    # Applied here, after parsing and before anything is written, so a
+    # refetch cannot silently undo them; what Yahoo actually said goes into
+    # the stamp, so the file still records the upstream row.
+    entries = projection_overrides.load(PROJECT_ROOT / "config" / "PROJECTION_OVERRIDES.json")
+    applied, unapplied = projection_overrides.apply(records, entries)
+    if entries:
+        print(f"\n  Projection overrides ({len(applied)} applied, {len(unapplied)} not):")
+        for a in applied:
+            y, n = a["yahoo"], a["now"]
+            flag = "" if a["replaces_matches"] else "   <-- Yahoo's row has CHANGED since this was written"
+            print(f"    {a['player_name']}: Yahoo {y['player_proj_GP']:g} GP / {y['projectedFPPG']:.2f} FPPG"
+                  f" -> {n['player_proj_GP']:g} GP / {n['projectedFPPG']:.2f} FPPG"
+                  f" (review by {a['review_by']}){flag}")
+        for u in unapplied:
+            print(f"    NOT APPLIED -- {u['player_name']}: {u['why']}")
+
     records.sort(key=lambda r: -r["player_total_proj_FP"])
     frame = pd.DataFrame(records)
 
@@ -556,8 +574,10 @@ def main():
         shutil.copy2(PLAYERLIST, PLAYERLIST.with_suffix(".xlsx.bak"))
     # The stamp (a "_fetch" sheet) is what tells check_playerlist this file was
     # fetched, and when, instead of inferring it from whether the numbers moved.
-    st = playerlist_freshness.write(frame[COLUMNS], target,
-                                    source=f"yahoo:{league_id}")
+    st = playerlist_freshness.write(
+        frame[COLUMNS], target, source=f"yahoo:{league_id}",
+        extra={projection_overrides.STAMP_KEY:
+               projection_overrides.stamp_value(applied, unapplied)})
     print(f"\n  Wrote {target} ({len(frame)} rows), fetched_at {st['fetched_at']}")
     if target != PLAYERLIST:
         print(f"\n  --out: data/PLAYERLIST.xlsx and {AGES.name} were not touched.")

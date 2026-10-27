@@ -172,7 +172,7 @@ Phase 2 truncates `PLAYERLOG.xlsx` and `LINEUPS.xlsx` to header-only. The archiv
    `config/league_config.json` `durability_prior.snapshot` to that file. The
    baseline injury hazard takes every player's durability from it, because
    Yahoo's `player_proj_GP` column stops being a durability forecast once the
-   season starts (WEEKLY_WORKFLOW.md Step 2.5). `verify_project_integrity`
+   season starts (WEEKLY_WORKFLOW.md Step 4.75). `verify_project_integrity`
    FAILS while the key points at a missing file, an in-season-shaped file, or
    one taken on or after week 1.
 

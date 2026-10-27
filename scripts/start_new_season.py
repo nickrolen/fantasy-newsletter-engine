@@ -156,6 +156,7 @@ def get_archive_files() -> list[Path]:
         "config/ROSTERS.json",
         "config/TRADES.json",
         "config/INJURY_OVERRIDES.json",
+        "config/PROJECTION_OVERRIDES.json",         # this season's patches on Yahoo rows
         "config/RECORDS.json",
         "config/SCHEDULE.json",         # the season actually played; replaced each year
         "config/league_config.json",    # snapshot copy (original is never modified)
@@ -304,6 +305,26 @@ def reset_injury_overrides(execute: bool) -> None:
         print(f"    OK  {rel(path)}")
     else:
         print(f"    {rel(path)} -> empty players list")
+
+
+def reset_projection_overrides(execute: bool) -> None:
+    """Reset PROJECTION_OVERRIDES.json to an empty list, keeping its comment.
+
+    Each entry patches a row Yahoo had wrong THIS season and carries a review
+    date; none of them describes next season's projections.
+    """
+    path = PROJECT_ROOT / "config" / "PROJECTION_OVERRIDES.json"
+    if not path.exists():
+        print(f"    SKIP {rel(path)} -- file not found")
+        return
+    blob = json.loads(path.read_text(encoding="utf-8"))
+    empty = {"_comment": blob.get("_comment", ""), "overrides": []}
+    if execute:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(empty, f, indent=2)
+        print(f"    OK  {rel(path)}")
+    else:
+        print(f"    {rel(path)} -> empty overrides list")
 
 
 def reset_rosters(execute: bool) -> None:
@@ -532,6 +553,7 @@ def reset_phase(execute: bool, upcoming_draft_year: int = None) -> None:
     reset_recent_content(execute)
     reset_potw_history(execute)
     reset_injury_overrides(execute)
+    reset_projection_overrides(execute)
     reset_rosters(execute)
     reset_trades(execute, upcoming_draft_year)
     reset_records(execute)

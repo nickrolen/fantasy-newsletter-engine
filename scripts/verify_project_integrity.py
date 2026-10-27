@@ -1065,6 +1065,28 @@ INJURY_OVERRIDES_MAX_AGE_DAYS = 8
 PLAYERLIST_SNAPSHOT_MAX_AGE_DAYS = 8
 
 
+def _dead_or_typo(names, cutoff=0.8):
+    """[(name, nearest rostered/PLAYERLIST name or None)] for override names
+    that resolved to nobody. They have ALREADY been through PlayerIndex's
+    respelling pass, so a near miss on what is left (difflib, on normalised
+    names) is the evidence for a typo; none is the evidence for a player who
+    is simply gone (HANDOFF_STALE_GATES sec.6)."""
+    from modules.data_loader import closest_player_name
+    pool = set()
+    try:
+        blob = json.loads((PROJECT_ROOT / "config" / "ROSTERS.json").read_text(encoding="utf-8"))
+        for players in (blob.get("rosters") or {}).values():
+            pool.update(players)
+    except Exception:
+        pass
+    try:
+        import pandas as pd
+        pool.update(pd.read_excel(PROJECT_ROOT / "data" / "PLAYERLIST.xlsx")["player_name"].astype(str))
+    except Exception:
+        pass
+    return [(name, closest_player_name(name, pool, cutoff)) for name in names]
+
+
 def _check_injury_overrides_current(cfg, warnings, today=None):
     """last_updated is the review stamp. Empty players[] can be legitimate;
     an empty last_updated means nobody looked."""
@@ -1104,10 +1126,22 @@ def _check_injury_overrides_current(cfg, warnings, today=None):
                             f"INJURY_OVERRIDES.json against the rosters and "
                             f"PLAYERLIST: {type(e).__name__}: {e}")
     if unresolved:
-        failures.append(
-            f"[INJURY] INJURY_OVERRIDES.json names {unresolved} match no "
-            "rostered player and nothing in PLAYERLIST, so every simulation "
-            "ignores them. Fix the spelling.")
+        for name, near in _dead_or_typo(unresolved):
+            if near:
+                failures.append(
+                    f"[INJURY] INJURY_OVERRIDES.json names {name!r}. Names that match no rostered "
+                    f"player and nothing in PLAYERLIST are ignored by every simulation. "
+                    f"Probably a TYPO: it is close to {near!r}. If that is who it is for, fix "
+                    "the spelling -- until then he plays a full week in every simulation.")
+            else:
+                failures.append(
+                    f"[INJURY] INJURY_OVERRIDES.json names {name!r}, and it can match no rostered "
+                    "player and nothing in PLAYERLIST, even after the respelling pass "
+                    "(accents, suffixes, initials), and nothing there is close to it. Almost "
+                    "certainly a DEAD ENTRY, not a typo: a player off every roster whom Yahoo has "
+                    "dropped from its player list (out for the season -- Jalen Williams 10-26, "
+                    "Cason Wallace 10-27). Remove the entry. Only if he is in fact rostered is "
+                    "this a spelling problem.")
 
     if not stamp:
         if today >= week1:
@@ -1206,11 +1240,11 @@ def _check_point_in_time_record(cfg, warnings, today=None):
     if newest is None:
         warnings.append(
             "[SNAPSHOT] no PLAYERLIST_<date>.xlsx in config/snapshots. Run "
-            "py scripts\\check_playerlist.py --snapshot (Step 2.5).")
+            "py scripts\\check_playerlist.py --snapshot (Step 4.75).")
     elif (today - newest).days > PLAYERLIST_SNAPSHOT_MAX_AGE_DAYS:
         warnings.append(
             f"[SNAPSHOT] newest PLAYERLIST snapshot is {newest}, "
-            f"{(today - newest).days} days old. Step 2.5's --snapshot was "
+            f"{(today - newest).days} days old. Step 4.75's --snapshot was "
             "skipped; that week's projections are unrecorded.")
     return failures
 

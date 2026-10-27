@@ -58,6 +58,9 @@ PER_SEASON_CONFIG = {
     # "per-season applied-weeks ledger") and reset_applied_weeks_ledger
     # clears it; this set just had not caught up.
     "config/.leaguehistory_applied_weeks.json",
+    # Patches on THIS season's Yahoo rows, each with a review date
+    # (HANDOFF_STALE_GATES sec.4): archived, then emptied.
+    "config/PROJECTION_OVERRIDES.json",
 }
 
 # Files under config/ that deliberately carry across seasons.

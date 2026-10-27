@@ -778,6 +778,18 @@ def initial_match(a, b) -> bool:
     return bool(ka) and ka == kb and (_is_abbreviated(a) or _is_abbreviated(b))
 
 
+
+def closest_player_name(name: str, pool, cutoff: float = 0.8):
+    """The name in `pool` nearest to `name`, or None -- for SUGGESTING what a
+    name that resolved to nobody was probably meant to be (a typo), never for
+    resolving one: PlayerIndex resolves, this only advises. Compared on
+    normalised names, so an accent or a suffix is not a near miss but an
+    exact one, and it lives here so no other file grows its own matching."""
+    import difflib
+    by_norm = {normalize_player_name(n): n for n in pool}
+    hit = difflib.get_close_matches(normalize_player_name(name), list(by_norm), n=1, cutoff=cutoff)
+    return by_norm[hit[0]] if hit else None
+
 class PlayerIndex(dict):
     """A {player name: value} mapping that matches across accent spellings.
 

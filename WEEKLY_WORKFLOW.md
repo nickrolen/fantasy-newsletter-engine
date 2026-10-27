@@ -154,7 +154,79 @@ python scripts\update_leaguehistory.py --week WEEK
 
 ---
 
-## Step 2.5: Update PLAYERLIST
+## Step 3: Generate Rosters File
+
+Creates a baseline `config\ROSTERS.json` from the week's LINEUPS data.
+
+```cmd
+python scripts\generate_rosters.py --week WEEK --show-diff
+```
+
+**What it does:**
+- Reads LINEUPS.xlsx, finds all unique players per manager for the given week
+- Writes to `config\ROSTERS.json`
+- `--show-diff` shows changes from the previous week's rosters
+
+**Why this matters:** ROSTERS.json is the source of truth for all roster-dependent analysis (Slump Watch, Hot Streaks, Betting Lines, Title Odds, etc.).
+
+**Note:** If a player was traded mid-week, both the pre-trade and post-trade rosters may appear, inflating player counts. Step 4 fixes this.
+
+---
+
+## Step 4: Sync Waiver Transactions
+
+Updates ROSTERS.json with waiver/trade moves and creates the waivers file for the newsletter.
+
+```cmd
+:: Dry run first -> see what it finds without changing anything
+python scripts\sync_transactions.py --week WEEK
+
+:: Apply if everything looks right
+python scripts\sync_transactions.py --week WEEK --apply
+```
+
+**What it does (two parts):**
+1. **Waivers file:** Finds all Yahoo transactions during the week, writes adds to `data\waivers_weekN.txt`
+2. **ROSTERS.json:** Applies ALL transactions since the week's start (including post-week moves like Monday morning pickups)
+
+**After running, verify ROSTERS.json:**
+
+```cmd
+python scripts\check_rosters.py
+```
+
+This is a gate. Exit 1 means do not continue. It checks the three things
+that used to be a manual eyeball and were therefore never actually checked:
+
+- **No player on two rosters.** A mid-week trade or claim puts a player in
+  both managers' lineups, so `generate_rosters` lists him twice and
+  `sync_transactions` is supposed to resolve it. When it does not, every
+  simulator projects his points for both teams. Matching ignores accents,
+  so a duplicate is caught whichever spelling each side uses.
+- **No empty-slot placeholders.** `(Empty)` is what LINEUPS records for an
+  open roster spot, not a player.
+- **Roster sizes.** One off is a warning (a drop before an add); more is a
+  failure.
+
+It also warns about rostered players missing from PLAYERLIST, since those
+project 0.0 FPPG -- usually a fresh waiver pickup, occasionally a real
+problem. At this point PLAYERLIST is still last week's; Step 4.75 refreshes
+it and its check is the authoritative coverage test.
+
+**Known edge case (fixed Feb 2026):** Same-day add-then-drop was processed in reverse order. The fix sorts transactions by Unix timestamp instead of date. If you see this bug, make sure you're using the updated `sync_transactions.py`.
+
+---
+
+## Step 4.75: Update PLAYERLIST
+
+**Runs after the roster gate (Step 4.5), not before it.** The check's roster
+coverage is only as current as `config\ROSTERS.json`, which Steps 3-4 rebuild.
+Until 10-27 this was Step 2.5, so it was judged against *last week's* rosters on
+any week with waiver activity: on 10-26 it failed on Jalen Williams, whom Garrett
+had dropped that morning, and missed Cameron Boozer, whom Benton had picked up at
+0.0 FPPG. The check now fails if ROSTERS.json was synced in an earlier fantasy
+week than the fetch, so the order cannot slip back quietly. Dependency order:
+0 -> 1 -> 2 -> 3 -> 4 -> 4.5 -> **4.75** -> 5.
 
 PLAYERLIST holds rest-of-season projections for the top ~175 fantasy players.
 Every simulator runs on the `projectedFPPG` column, so this file being right
@@ -289,67 +361,23 @@ safe** -- it updates scoring and leaves durability alone -- and
 prior is a different, pre-season file, and fails if it is not. The report
 metadata and the point-in-time capture record which snapshot was used.
 
----
+### Projection overrides (`config/PROJECTION_OVERRIDES.json`)
 
-## Step 3: Generate Rosters File
+When Yahoo's rest-of-season row is wrong **upstream** -- on 10-26 it gave two
+healthy rostered rookies, Cameron Boozer and Darius Acuff Jr., 0 GP and 0.00 FP,
+and every simulation valued them at zero -- do **not** edit `PLAYERLIST.xlsx`:
+the next `--execute` rewrites it and the patch vanishes silently. Add an entry
+to `config/PROJECTION_OVERRIDES.json` instead (Yahoo id, the fields set, the
+Yahoo values it replaces, a reason, a source, and a `review_by` date).
 
-Creates a baseline `config\ROSTERS.json` from the week's LINEUPS data.
-
-```cmd
-python scripts\generate_rosters.py --week WEEK --show-diff
-```
-
-**What it does:**
-- Reads LINEUPS.xlsx, finds all unique players per manager for the given week
-- Writes to `config\ROSTERS.json`
-- `--show-diff` shows changes from the previous week's rosters
-
-**Why this matters:** ROSTERS.json is the source of truth for all roster-dependent analysis (Slump Watch, Hot Streaks, Betting Lines, Title Odds, etc.).
-
-**Note:** If a player was traded mid-week, both the pre-trade and post-trade rosters may appear, inflating player counts. Step 4 fixes this.
-
----
-
-## Step 4: Sync Waiver Transactions
-
-Updates ROSTERS.json with waiver/trade moves and creates the waivers file for the newsletter.
-
-```cmd
-:: Dry run first -> see what it finds without changing anything
-python scripts\sync_transactions.py --week WEEK
-
-:: Apply if everything looks right
-python scripts\sync_transactions.py --week WEEK --apply
-```
-
-**What it does (two parts):**
-1. **Waivers file:** Finds all Yahoo transactions during the week, writes adds to `data\waivers_weekN.txt`
-2. **ROSTERS.json:** Applies ALL transactions since the week's start (including post-week moves like Monday morning pickups)
-
-**After running, verify ROSTERS.json:**
-
-```cmd
-python scripts\check_rosters.py
-```
-
-This is a gate. Exit 1 means do not continue. It checks the three things
-that used to be a manual eyeball and were therefore never actually checked:
-
-- **No player on two rosters.** A mid-week trade or claim puts a player in
-  both managers' lineups, so `generate_rosters` lists him twice and
-  `sync_transactions` is supposed to resolve it. When it does not, every
-  simulator projects his points for both teams. Matching ignores accents,
-  so a duplicate is caught whichever spelling each side uses.
-- **No empty-slot placeholders.** `(Empty)` is what LINEUPS records for an
-  open roster spot, not a player.
-- **Roster sizes.** One off is a warning (a drop before an add); more is a
-  failure.
-
-It also warns about rostered players missing from PLAYERLIST, since those
-project 0.0 FPPG -- usually a fresh waiver pickup, occasionally a real
-problem.
-
-**Known edge case (fixed Feb 2026):** Same-day add-then-drop was processed in reverse order. The fix sorts transactions by Unix timestamp instead of date. If you see this bug, make sure you're using the updated `sync_transactions.py`.
+- `fetch_playerlist` applies it after parsing and before writing, and records
+  what Yahoo actually said in the file's fetch stamp.
+- `check_playerlist` lists every live override and **fails** when one is past
+  its `review_by`, or when Yahoo's row no longer matches what the entry was
+  written against (upstream may be fixed -- review it, don't let it mask a real
+  number).
+- A good source for the replacement FPPG is Yahoo's next-7-days view
+  (`stat1=S_PS7`), which stayed populated when the rest-of-season row broke.
 
 ---
 
@@ -753,8 +781,6 @@ for %d in (YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD YYYY-MM-DD YYY
 :: Step 2: Update league history
 python scripts\update_leaguehistory.py --week N
 
-:: Step 2.5: Update PLAYERLIST (paste raw Yahoo data into Claude chat)
-
 :: Step 3: Generate rosters
 python scripts\generate_rosters.py --week N --show-diff
 
@@ -763,6 +789,10 @@ python scripts\sync_transactions.py --week N --apply
 
 :: Step 4.5: Gate -- rosters must be sane before anything reads them
 python scripts\check_rosters.py
+
+:: Step 4.75: Update PLAYERLIST (after the rosters: its coverage check reads them)
+python scripts\fetch_playerlist.py --execute
+python scripts\check_playerlist.py --snapshot
 
 :: Step 5: Manually update config\INJURY_OVERRIDES.json
 :: Step 5.5: Optionally create data\weeklycontextinput_weekN.json

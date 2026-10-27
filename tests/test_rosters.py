@@ -57,6 +57,11 @@ def sandbox(check, tmp_path, monkeypatch):
     monkeypatch.setattr(check, "ROSTERS", tmp_path / "config" / "ROSTERS.json")
     monkeypatch.setattr(check, "PLAYERLIST", tmp_path / "nope.xlsx")
     monkeypatch.setattr(check, "LINEUPS", tmp_path / "no_lineups.xlsx")
+    # the live Yahoo roster is real state too: unreachable in the sandbox, so
+    # these tests exercise the LINEUPS fallback they were written for
+    def _unreachable():
+        raise RuntimeError("sandbox: no live roster")
+    monkeypatch.setattr(check, "live_il_names", _unreachable)
     return check
 
 

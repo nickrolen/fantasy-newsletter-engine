@@ -28,11 +28,12 @@ In `WEEKLY_WORKFLOW.md` order. Each step's real inputs and outputs:
 | 0 | `fetch_nba_schedule.py` | basketball-reference (cdn.nba.com 403s) | the file `league_config.season.nba_schedule_file` names |
 | 1 | `update_fantasy_logs.py --date D` | Yahoo API, once per day | appends `LINEUPS.xlsx`, `PLAYERLOG.xlsx` |
 | 2 | `update_leaguehistory.py --week N` | the two logs | `LEAGUEHISTORY.xlsx` |
-| 2.5 | `fetch_playerlist.py --execute` | Yahoo **website** HTML | `PLAYERLIST.xlsx`, `PLAYER_AGES.json` |
-| 2.5 | `check_playerlist.py --snapshot` | the above | a snapshot; **gate, do not skip** |
 | 3 | `generate_rosters.py --week N` | `LINEUPS.xlsx` | `ROSTERS.json` |
 | pre-wk1 | `generate_rosters.py --from-draft` | `DRAFT_PICKS_CURRENT.json` | `ROSTERS.json` |
 | 4 | `sync_transactions.py --week N --apply` | Yahoo transactions | `waivers_weekN.txt`, patches `ROSTERS.json` |
+| 4.5 | `check_rosters.py` | `ROSTERS.json`, live Yahoo roster (IL) | nothing; **gate** |
+| 4.75 | `fetch_playerlist.py --execute` | Yahoo **website** HTML, `PROJECTION_OVERRIDES.json` | `PLAYERLIST.xlsx`, `PLAYER_AGES.json` |
+| 4.75 | `check_playerlist.py --snapshot` | the above, `ROSTERS.json` | a snapshot (always, when asked); **gate, do not skip** |
 | 5 | by hand | - | `INJURY_OVERRIDES.json`, optional `weeklycontextinput_weekN.json` |
 | 5.75 | `backfill_player_records.py` | historical JSON, logs | `RECORDS.json["all_time"]` |
 | 6 | `generate_stats_report.py --week N` | nearly everything | `stats_report_weekN.json`, `RECORDS.json`, `RECENT_CONTENT.json`, `snapshots/point_in_time/report_weekNN/` |
