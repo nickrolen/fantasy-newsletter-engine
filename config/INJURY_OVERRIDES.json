@@ -32,6 +32,168 @@
       "return_date": "2026-12-14"
     },
     {
+      "player_name": "Jaren Jackson Jr.",
+      "out_weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "notes": "Knee injury - out ~7 weeks starting week 1",
+      "return_week": 8,
+      "return_games": 4,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from knee injury on 12/14",
+      "return_date": "2026-12-14"
+    },
+    {
+      "player_name": "Brandon Ingram",
+      "out_weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "notes": "Achilles injury - out ~7 weeks starting week 1",
+      "return_week": 8,
+      "return_games": 3,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from achilles injury on 12/14",
+      "return_date": "2026-12-14"
+    },
+    {
+      "player_name": "Anthony Edwards",
+      "out_weeks": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "notes": "Knee injury - out ~12 weeks starting week 2",
+      "return_week": 14,
+      "return_games": 4,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from knee injury on 01/25",
+      "return_date": "2027-01-25"
+    },
+    {
+      "player_name": "Jimmy Butler III",
+      "out_weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "notes": "Knee injury - out ~13 weeks starting week 1",
+      "return_week": 14,
+      "return_games": 3,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from knee injury on 01/25",
+      "return_date": "2027-01-25"
+    },
+    {
+      "player_name": "Jalen Williams",
+      "out_weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
+      ],
+      "notes": "Knee injury - out ~21 weeks starting week 1",
+      "return_week": 22,
+      "return_games": 3,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from knee injury on 03/29",
+      "return_date": "2027-03-29"
+    },
+    {
+      "player_name": "Cason Wallace",
+      "out_weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
+      ],
+      "notes": "Shoulder injury - out ~21 weeks starting week 1",
+      "return_week": 22,
+      "return_games": 3,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from shoulder injury on 03/29",
+      "return_date": "2027-03-29"
+    },
+    {
+      "player_name": "Kawhi Leonard",
+      "out_weeks": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "notes": "Knee injury - out ~4 weeks starting week 2",
+      "return_week": 6,
+      "return_games": 3,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from knee injury on 11/23",
+      "return_date": "2026-11-23"
+    },
+    {
       "player_name": "Jalen Duren",
       "out_weeks": [
         1,
@@ -43,6 +205,20 @@
       "return_week": 5,
       "return_games": 4,
       "total_week_games": 4,
+      "return_notes": "Possibly returning from hamstring injury on 11/17",
+      "return_date": "2026-11-17"
+    },
+    {
+      "player_name": "Tyrese Haliburton",
+      "out_weeks": [
+        2,
+        3,
+        4
+      ],
+      "notes": "Hamstring injury - out ~3 weeks starting week 2",
+      "return_week": 5,
+      "return_games": 3,
+      "total_week_games": 3,
       "return_notes": "Possibly returning from hamstring injury on 11/17",
       "return_date": "2026-11-17"
     },
@@ -89,5 +265,5 @@
       "return_date": "2026-11-10"
     }
   ],
-  "last_updated": "2026-10-27"
+  "last_updated": "2026-10-28"
 }
