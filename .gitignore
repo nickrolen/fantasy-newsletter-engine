@@ -195,3 +195,10 @@ _audit_export/
 # once, on the first day. That one is committed.
 output/live_lines_week*.json
 !output/live_lines_week*.state.json
+
+# Staging area for files a builder session could not delete (device_bash cannot
+# rm inside a connected folder). On 2026-10-28 a bundle left here for a timing
+# run held config/LEAGUE_LORE.json and the lore backups -- gitignored files, in
+# a tarball git would have staged on "git add -A", in a public repo.
+_to_delete/
+*.tgz
