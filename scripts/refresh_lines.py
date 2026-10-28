@@ -24,6 +24,12 @@ Refuses (raises) rather than guess:
   - an OFS tag the overrides file returns          (--allow-season-out-conflict)
 Every override used is written into the output's "assumptions".
 
+Each refresh also appends its tag events to output/live_lines_weekN.tag_log.jsonl
+(B3): the state file drops a cleared tag and the line's tag_events are
+overwritten, so the log is what explains a line's movement afterwards.
+The scheduled nightly run is scripts/refresh_service.py, built on prepare()
+and price() below.
+
 Starters are legal lineups (A4): PG SG G SF PF F C C UTIL UTIL.
 """
 
@@ -33,6 +39,7 @@ import argparse
 import json
 import secrets
 import sys
+from types import SimpleNamespace
 from datetime import date, datetime
 from pathlib import Path
 
@@ -70,10 +77,23 @@ def _fetch_statuses(base: Path) -> dict:
     return dict(statuses)
 
 
-def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATIONS, seed=None,
-            statuses=None, no_tags=False, allow_missing_days=False,
-            assume_tags_since_week_start=False, reseed=False, dry_run=False, data=None,
-            allow_season_out_conflict=False) -> dict:
+class Prepared(SimpleNamespace):
+    """Everything a line is priced from, gathered and checked, nothing written:
+    base, data, week, entry, as_of, seed, out_dir, state_path, live, anchors,
+    events, assumptions, teams, state. B3's scheduled service computes its
+    cache key from this before deciding whether to price at all.
+
+    A namespace, not a dataclass: this script is also loaded by file path
+    (spec_from_file_location, as tests/test_yahoo_tags.py does), and a
+    dataclass under `from __future__ import annotations` needs its module in
+    sys.modules to resolve its fields."""
+
+
+def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_tags=False,
+            allow_missing_days=False, assume_tags_since_week_start=False, reseed=False,
+            dry_run=False, data=None, allow_season_out_conflict=False) -> Prepared:
+    """The checks and inputs of a refresh, in the order refresh() has always
+    run them; raises exactly where it did. Writes nothing."""
     base = Path(base_path)
     as_of = as_of or date.today()
     data = data or load_all_data(base, current_week=None)
@@ -98,6 +118,7 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
                            f"{as_of}; use --dry-run to price an earlier date")
 
     # --- tags
+    teams = load_all_team_projections(data)
     if no_tags:
         live = {}
         assumptions.append("NO TAGS: priced without Yahoo injury tags (--no-tags).")
@@ -105,14 +126,13 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
         live = statuses if statuses is not None else _fetch_statuses(base)
         # every tag must land on a rostered player -- never silently dropped
         from modules import absence
-        _teams = load_all_team_projections(data)
         live, _unmatched, _missing = absence.resolve_tags(
-            live, [n for tp in _teams.values() for n in tp.players])
+            live, [n for tp in teams.values() for n in tp.players])
         # an OFS tag the overrides file returns: refuse, or let the override
         # win and say so in the assumptions (the same escape the weekly build
         # has as --allow-season-out-conflict)
         live, _conflicts = absence.resolve_season_out_conflicts(
-            live, {n: p for tp in _teams.values() for n, p in tp.players.items()},
+            live, {n: p for tp in teams.values() for n, p in tp.players.items()},
             allow_season_out_conflict)
         for c in _conflicts:
             assumptions.append(f"SEASON-OUT OVERRIDDEN: {c['line']} -- {c['resolution']} "
@@ -123,10 +143,38 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
         previous, live, as_of, week_start, assume_tags_since_week_start)
     assumptions += tag_assumptions
 
-    # --- state and the line
-    teams = load_all_team_projections(data)
+    # --- the played state
     state = ws.week_state(data, week, as_of, teams, allow_missing_days=allow_missing_days)
     assumptions += list(state.assumptions)
+    return Prepared(base=base, data=data, week=week, entry=entry, as_of=as_of, seed=int(seed),
+                    out_dir=out_dir, state_path=state_path, live=live, anchors=anchors,
+                    events=events, assumptions=assumptions, teams=teams, state=state)
+
+
+def cache_key(p: Prepared, sims: int) -> dict:
+    """B3's cache key for the line `p` would price (week_state.line_cache_key):
+    the played state AND every other input -- tags, projections, governing
+    overrides, schedule, assumptions, seed, simulation count, engine."""
+    from modules import calibration_log as _cal
+    return ws.line_cache_key(
+        state_hash=p.state.state_hash,
+        tags=ws.tags_fingerprint(p.live, p.anchors),
+        projections=ws.projections_fingerprint(p.teams),
+        overrides=ws.governing_overrides(p.data, p.week, sb.get_dates_in_week(p.entry), p.teams),
+        schedule=ws.schedule_fingerprint(p.data, p.entry),
+        assumptions=p.assumptions, seed=p.seed, num_simulations=sims,
+        engine=_cal.engine_version(p.base))
+
+
+def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
+          produced_by: str = "refresh_lines (manual)", extra: dict = None) -> dict:
+    """Simulate the remainder and, unless dry_run, write the line, the week's
+    state, the calibration records and the tag log. `extra` is merged into
+    the payload before it is written (B3: the run that produced it, the
+    cache key)."""
+    data, week, entry, as_of, seed = p.data, p.week, p.entry, p.as_of, p.seed
+    live, anchors, events, assumptions = p.live, p.anchors, p.events, list(p.assumptions)
+    teams, state, base, out_dir = p.teams, p.state, p.base, p.out_dir
     res = sb.simulate_week_remainder(data, teams, entry, state, seed, sims, live or None, anchors)
     basis = {n: b.basis for n, b in res.tag_blocks.items()}
     for e in events:
@@ -170,6 +218,7 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
         "assumptions": assumptions, "tag_events": events, "caveats": CAVEATS,
         "lines": lines,
     }
+    payload.update(extra or {})
     if not dry_run:
         # E1: a re-issued line is a NEW calibration record with its own as-of
         # timestamp and state hash, never an edit of the pre-week one -- the
@@ -189,9 +238,22 @@ def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATION
             for ln in res.lines], base)
         payload["calibration_logged"] = logged["added"]
         atomic_write_json(out_dir / f"live_lines_week{week}.json", payload)
-        atomic_write_json(state_path, {"week": week, "seed": seed, "as_of": as_of.isoformat(),
-                                       "tags": ws.tag_record(anchors, live)})
+        atomic_write_json(p.state_path, {"week": week, "seed": seed, "as_of": as_of.isoformat(),
+                                         "tags": ws.tag_record(anchors, live)})
+        # B3: the tag events accumulate; the line's own copy is overwritten
+        ws.append_tag_log(out_dir, week, as_of=as_of, generated_at=payload["generated_at"],
+                          produced_by=produced_by, seed=seed, state_hash=state.state_hash,
+                          events=events)
     return payload
+
+
+def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATIONS, seed=None,
+            statuses=None, no_tags=False, allow_missing_days=False,
+            assume_tags_since_week_start=False, reseed=False, dry_run=False, data=None,
+            allow_season_out_conflict=False) -> dict:
+    p = prepare(base_path, week, as_of, seed, statuses, no_tags, allow_missing_days,
+                assume_tags_since_week_start, reseed, dry_run, data, allow_season_out_conflict)
+    return price(p, sims, dry_run)
 
 
 def main(argv=None):

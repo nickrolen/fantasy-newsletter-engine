@@ -224,6 +224,15 @@ def reconcile_tags(previous: Optional[dict], live: dict, as_of: date, week_start
     With no previous record: at the week's start every tag is anchored there
     (the baseline); mid-week that is unknowable, so it RAISES unless
     assume_since_week_start, which is then stated as an assumption.
+
+    KNOWN LIMITATION, CONSIDERED AND LEFT (Nick, 10-22): every new or changed
+    tag gets a new anchor, and a cleared-then-returned tag counts as new. A
+    chronic case -- a player who picks up a Q most mornings and plays anyway
+    (Embiid) -- is therefore re-anchored again and again, and each fresh
+    anchor restarts his chain at as_of. Not handled now, deliberately: it
+    needs a rule for when a returning tag is "the same" absence, and nobody
+    has written one. The per-week tag log (append_tag_log) keeps the history
+    that would let such a rule be measured.
     """
     assumptions = []
     live_chain = {}
@@ -268,3 +277,129 @@ def reconcile_tags(previous: Optional[dict], live: dict, as_of: date, week_start
 def tag_record(anchors: dict, live: dict) -> dict:
     """What to store for the next refresh: {player: {tag, anchor}}."""
     return {n: {"tag": str(live[n]), "anchor": a.isoformat()} for n, a in sorted(anchors.items())}
+
+
+# =============================================================================
+# B3: the line's cache key, and the tag log
+# =============================================================================
+#
+# state_hash is a fingerprint of the week's PLAYED state -- the logs as of a
+# date -- and stays exactly that. A cache keyed on it alone would serve a
+# stale line after precisely the changes a refresh exists to catch: a fresh
+# tag (tags are not in the state at all), a PLAYERLIST refresh (games
+# remaining depend on a player's NBA team, not his projection), an
+# INJURY_OVERRIDES edit, a new seed, an engine change. line_cache_key names
+# every input to the line explicitly instead.
+
+def _sha(obj) -> str:
+    return hashlib.sha256(json.dumps(obj, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+def projections_fingerprint(team_projections: dict) -> str:
+    """Every field of every PlayerProjection the line was simulated from --
+    roster membership, NBA team, positions, projected and actual FPPG/GP and
+    spread, and the override fields load_all_team_projections copies onto
+    them -- plus each team's weekly spread. config/PROJECTION_OVERRIDES.json
+    reaches the line only through PLAYERLIST (fetch_playerlist applies it),
+    so it is covered here, by what it changed, and only once it has."""
+    from dataclasses import asdict
+    out = {}
+    for m, tp in sorted(team_projections.items()):
+        out[m] = {"weekly_std_dev": repr(float(tp.weekly_std_dev)),
+                  "players": {n: asdict(p) for n, p in sorted(tp.players.items())}}
+    return _sha(out)
+
+
+def tags_fingerprint(live: dict, anchors: dict) -> str:
+    """The tags the line was priced on, raw, and the anchor each chain tag
+    was given -- the tag record plus the non-chain statuses that still reach
+    the simulator."""
+    return _sha({"live": {str(n): str(t) for n, t in sorted((live or {}).items())},
+                 "anchors": {str(n): a.isoformat() for n, a in sorted((anchors or {}).items())}})
+
+
+def governing_overrides(data: FantasyData, week: int, week_dates, team_projections: dict) -> list:
+    """The INJURY_OVERRIDES entries that govern a rostered player this week
+    (absence.override_governs -- the rule the simulator applies), whole.
+    Whole, not a per-manager yes/no: moving a return_week inside a governing
+    entry changes the line without changing whether it governs."""
+    names = PlayerIndex({n: n for tp in team_projections.values() for n in tp.players})
+    out = []
+    for entry in (data.injury_overrides or {}).get("players") or []:
+        if names.get(entry.get("player_name", "")) is None:
+            continue
+        if absence.override_governs(week, week_dates, entry.get("out_weeks") or (),
+                                    entry.get("return_week"),
+                                    absence.parse_out_from(entry.get("out_from"))):
+            out.append(entry)
+    return sorted(out, key=lambda e: json.dumps(e, sort_keys=True, default=str))
+
+
+def schedule_fingerprint(data: FantasyData, week_entry_: dict) -> str:
+    """The fantasy week (its dates and matchups) and the NBA schedule. Neither
+    is in state_hash beyond per-player game COUNTS: a postponed game that moves
+    a day changes the daily lineup fill without changing a count, and the
+    matchups decide which totals a line compares."""
+    games = sorted((str(g.get("date"))[:10], str(g.get("home")), str(g.get("away")))
+                   for g in (data.nba_schedule or {}).get("games", []))
+    return _sha({"week": {k: week_entry_.get(k) for k in ("week", "start_date", "end_date", "matchups")},
+                 "nba_games": games})
+
+
+def line_cache_key(*, state_hash: str, tags: str, projections: str, overrides: list,
+                   schedule: str, assumptions, seed: int, num_simulations: int,
+                   engine: dict) -> dict:
+    """{"key": str, "parts": {...}, "cacheable": bool, "why_not": str|None}.
+
+    parts: state_hash (the played state), tags, projections, overrides (the
+    governing INJURY_OVERRIDES entries), schedule, assumptions (every
+    override flag a refresh records), seed, num_simulations, engine (E1's
+    calibration_log.engine_version: commit + dirtiness over engine_paths).
+
+    A dirty or unknown engine is NOT cacheable: the commit does not identify
+    the code, so two different uncommitted simulators would share a key.
+    Such a run always recomputes; it never serves a cached line."""
+    engine = dict(engine or {})
+    parts = {"state_hash": state_hash, "tags": tags, "projections": projections,
+             "overrides": _sha(overrides or []), "schedule": schedule,
+             "assumptions": _sha(sorted(str(a) for a in (assumptions or ()))),
+             "seed": int(seed), "num_simulations": int(num_simulations),
+             "engine_commit": engine.get("commit"), "engine_dirty": engine.get("dirty")}
+    why_not = None
+    if not engine.get("commit"):
+        why_not = "engine commit unknown (git could not say)"
+    elif engine.get("dirty") is None:
+        why_not = "engine dirtiness unknown (git could not say)"
+    elif engine.get("dirty"):
+        why_not = f"engine {engine.get('commit')}-dirty: the commit does not identify the code"
+    return {"key": _sha(parts), "parts": parts, "cacheable": why_not is None, "why_not": why_not}
+
+
+def tag_log_path(out_dir, week: int):
+    from pathlib import Path
+    return Path(out_dir) / f"live_lines_week{week}.tag_log.jsonl"
+
+
+def append_tag_log(out_dir, week: int, *, as_of: date, generated_at: str, produced_by: str,
+                   seed: int, state_hash: str, events: list) -> int:
+    """Append one refresh's tag events to the week's log, one JSON line per
+    event with the refresh it came from. The week's state file keeps only the
+    live anchors (a cleared tag is deleted from it, correctly) and the line's
+    own tag_events are overwritten each refresh; this is what still says,
+    a week later, why the line moved. Returns the number of lines added."""
+    path = tag_log_path(out_dir, week)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [json.dumps({"as_of": as_of.isoformat(), "generated_at": generated_at,
+                        "produced_by": produced_by, "seed": seed, "state_hash": state_hash,
+                        **e}, sort_keys=True, default=str) for e in events]
+    if rows:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("\n".join(rows) + "\n")
+    return len(rows)
+
+
+def read_tag_log(out_dir, week: int) -> list:
+    path = tag_log_path(out_dir, week)
+    if not path.exists():
+        return []
+    return [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]

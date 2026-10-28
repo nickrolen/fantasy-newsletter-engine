@@ -194,6 +194,11 @@ _audit_export/
 # it records the week-opening tag baseline and seed, and can only be taken
 # once, on the first day. That one is committed.
 output/live_lines_week*.json
+# B3: the midnight refresh service's run log and captured console. The week's
+# tag log (live_lines_weekN.tag_log.jsonl) is NOT ignored: like the state file
+# it is history that cannot be regenerated -- it is what still shows a cleared
+# tag -- so it is committed with it.
+output/refresh_service.*
 !output/live_lines_week*.state.json
 
 # Staging area for files a builder session could not delete (device_bash cannot

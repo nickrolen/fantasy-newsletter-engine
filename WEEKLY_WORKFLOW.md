@@ -767,6 +767,75 @@ This prevents future newsletters from reusing the same phrasing or angles. The p
 
 ---
 
+## Live line: the midnight refresh (B3)
+
+Outside the weekly sequence. Once a day, at midnight, Windows Task Scheduler
+re-prices this week's live line: it pulls the day just finished into the logs,
+fetches the Yahoo tags, and writes `output\live_lines_weekN.json` -- **only if
+something that moves the line changed**. Make any `config\INJURY_OVERRIDES.json`
+edit before midnight; the run picks it up with everything else. Manual refresh
+(`py scripts\refresh_lines.py`) is unchanged and still works any time.
+
+**Create the task (once):**
+```cmd
+schtasks /Create /TN "Newsletter\Live line midnight refresh" /SC DAILY /ST 00:00 /F ^
+  /TR "cmd /c cd /d C:\Users\1429524\Desktop\newsletter && py scripts\refresh_service.py --trigger scheduled >> output\refresh_service.out 2>&1"
+```
+`schtasks` cannot set two settings that matter on a desktop; set them once in PowerShell:
+```powershell
+Set-ScheduledTask -TaskName "Live line midnight refresh" -TaskPath "\Newsletter\" -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun)
+```
+(`-StartWhenAvailable`: a midnight missed while the PC was off runs at the next
+start. `-WakeToRun`: wake from sleep for it.) The task runs as you, when you are
+logged on -- the Yahoo token in `oauth2.json` is yours.
+
+**Run it by hand, same arguments:**
+```cmd
+py scripts\refresh_service.py --trigger scheduled
+py scripts\refresh_service.py --skip-log-pull          :: logs already pulled
+py scripts\refresh_service.py --as-of 2026-11-04       :: price a given day
+schtasks /Run /TN "Newsletter\Live line midnight refresh"
+```
+
+**What a run does:**
+1. Runs `update_fantasy_logs.py --date D` for every completed day of the week
+   LINEUPS does not cover yet (at midnight: yesterday; on a rerun: nothing).
+   **Close `PLAYERLOG.xlsx` and `LINEUPS.xlsx` before you go to bed** -- Excel
+   holding them open makes the pull fail, and the run with it.
+2. Checks everything a manual refresh checks (the week's seed, the tags and
+   their anchors, every completed day in the logs) and refuses where it refuses.
+3. Computes the line's **cache key**: the played state, the tags, the
+   projections, the INJURY_OVERRIDES entries that govern this week, the
+   schedule, the seed, the simulation count and the engine commit. Same key as
+   the line on disk: nothing is written. A dirty engine always re-prices.
+4. Otherwise prices and writes the line, the week's state, the calibration
+   records, and the tag log.
+
+**Files (all in `output\`, all untracked):**
+| file | what |
+|---|---|
+| `live_lines_weekN.json` | the line; `produced_by` names the run, `cache` holds the key |
+| `live_lines_weekN.runs.json` | every run: outcome (`priced`, `unchanged`, `failed`), the error, the days pulled; `line_produced_by` and `failed_since_line` |
+| `live_lines_weekN.tag_log.jsonl` | every tag event of every refresh, manual or scheduled -- a tag that cleared is still here |
+| `refresh_service.log` | one line per run; a refusal with its traceback |
+| `refresh_service.out` | the console output Task Scheduler captured |
+
+**When a run fails** (Yahoo down, a missing log day, an unmodelled tag, a pull
+that failed): it writes nothing to the line, logs `REFUSED` with the reason,
+and exits 1 -- Task Scheduler shows "Last Run Result 0x1". The line on disk is
+the last good one; `failed_since_line` in the runs file lists the failures since.
+Fix the cause, then run it by hand.
+
+**Known limitations:** a game still in progress when a day is pulled is logged
+as it stood and is not pulled again. By midnight Arizona time the late West
+Coast games have normally finished; a manual pull earlier in the evening is
+where this bites. A player tagged `Q` most
+mornings who plays anyway is re-anchored at every fresh tag (considered, left
+for now: see `week_state.reconcile_tags`). Disable the task in the offseason:
+outside every fantasy week a run fails (`... is in no fantasy week`).
+
+---
+
 ## Quick Reference: Complete Command Sequence
 
 ```cmd
