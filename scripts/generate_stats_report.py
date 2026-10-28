@@ -337,6 +337,9 @@ def main():
     if injury.available:
         nh = injury.record()["non_healthy"]
         print(f"  Loaded {len(injury_statuses)} player statuses ({len(nh)} non-healthy)")
+        _fa = injury.record()["free_agents"]
+        print(f"  Free agents: {_fa['count']} PLAYERLIST free agents tagged "
+              f"({len(_fa['non_healthy'] or [])} non-healthy) -- the stand-in level reads them")
         if injury.rostered_without_status:
             print("  WARNING: no Yahoo status for rostered "
                   + ", ".join(injury.rostered_without_status) + " (ROSTERS.json out of sync?)")

@@ -36,6 +36,7 @@ import pandas as pd
 from .data_loader import (PlayerIndex, FantasyData, MANAGERS, TOTAL_WEEKS,
                           roster_index, add_budget_for)
 from .lineup_fill import exact_fill, max_starters, open_seats
+from .absence import parse_return_date
 
 
 # Date parsing warnings: avoid silently dropping NBA games when schedule dates are malformed.
@@ -923,15 +924,11 @@ def _build_for_week_with_lineups(
             # return_date and available on or after it.
             ret_week = entry.get("return_week")
             if ret_week == week_num:
-                raw_ret_date = entry.get("return_date")
-                if raw_ret_date:
-                    try:
-                        ret_date = datetime.strptime(
-                            raw_ret_date, "%Y-%m-%d"
-                        ).date()
-                        out_players[player_name] = ret_date
-                    except ValueError:
-                        pass  # Bad date format -- treat as fully available
+                # A malformed date RAISES, naming him: it used to be
+                # caught here and treated as "fully available".
+                ret_date = parse_return_date(entry.get("return_date"), player_name)
+                if ret_date is not None:
+                    out_players[player_name] = ret_date
 
     # An injured free agent cannot fill a hole either.
     if free_agents is not None:

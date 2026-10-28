@@ -73,6 +73,10 @@ class ILSlotsError(RuntimeError):
     """The IL file is missing, stale or names someone who is not rostered."""
 
 
+class UntaggedPoolPlayer(RuntimeError):
+    """A free agent who could set the stand-in level has no Yahoo tag."""
+
+
 # =============================================================================
 # the rules, read -- never defaulted
 # =============================================================================
@@ -176,8 +180,8 @@ def _out_for_week(p, week) -> bool:
 
 
 def _return_date(p):
-    rd = getattr(p, "return_date", None)
-    return date.fromisoformat(str(rd)[:10]) if rd else None
+    from .absence import parse_return_date
+    return parse_return_date(getattr(p, "return_date", None), getattr(p, "player_name", None))
 
 
 def _available_from(p, week, day) -> bool:
@@ -232,7 +236,7 @@ def standin(name: str, like, level: float, gp: float):
                             projected_gp=float(gp), standin=True)
 
 
-def _pool_at_open(state, players, week, day, start_week, tag_idx) -> list:
+def _pool_at_open(rostered, players, week, day, start_week, tag_idx, assume_healthy) -> list:
     """[(-effective_fppg, name)] best first: the free agents AS THE WINDOW
     OPENS, before any of its drops.
 
@@ -245,26 +249,36 @@ def _pool_at_open(state, players, week, day, start_week, tag_idx) -> list:
     lowest-projected players, which almost never rank inside the top few
     free agents (10-28: the best of them, Randle at 33.2, against a 35.2
     stand-in level)."""
-    from .data_loader import PlayerIndex
-    rostered = PlayerIndex({n: n for s in state.values() for n in s["active"] + s["il"]
-                            if n not in s["standins"]})
-    pool = []
+    pool, untagged = [], []
     for name, p in players.items():
         if rostered.get(name) is not None:
             continue
         if _covered(p, week, day):
             continue
-        tag = tag_idx.get(name)
-        if tag == "OFS" or (tag == "O" and week == start_week + 1):
-            continue
         if p.projected_fppg <= 0:
             continue
+        tag = tag_idx.get(name)
+        if tag is None and not assume_healthy:
+            # Raise, don't default (Nick, 10-28): an untagged free agent is
+            # not a healthy one -- he may be out for the season.
+            untagged.append(name)
+            continue
+        if tag == "OFS" or (tag == "O" and week == start_week + 1):
+            continue
         pool.append((-_proj(p), name))
+    if untagged:
+        raise UntaggedPoolPlayer(
+            f"week {week}: no Yahoo tag for {len(untagged)} free agent(s) in the stand-in pool "
+            f"({', '.join(sorted(untagged)[:8])}{' ...' if len(untagged) > 8 else ''}). "
+            "The tags must come from fetch_injury_statuses, which covers every PLAYERLIST free "
+            "agent (Tags.free_agents); a plain dict or a pre-10-28 statuses file carries "
+            "rostered players only. A run priced without tags passes Tags.none().")
     return sorted(pool)
 
 
 def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, players,
-          statuses: dict, rules: dict, standin_gp: float, order: list = None) -> dict:
+          statuses: dict, rules: dict, standin_gp: float, order: list = None,
+          assume_healthy: bool = False) -> dict:
     """{week: {manager: {"active", "il", "added", "dropped", "waiting", "standins"}}}
     from start_week (the IL file's week, locked) through the last window.
 
@@ -272,7 +286,10 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
     windows:    [(week, window day)] for every week after start_week, in order
     players:    a PlayerIndex {name: PlayerProjection} over every rostered and
                 PLAYERLIST player (override fields, effective_fppg)
-    statuses:   {name: Yahoo tag} as of the run
+    statuses:   {name: Yahoo tag} as of the run, for every player who can be in
+                the pool: rostered players (a drop rejoins it) AND free agents.
+                A pool player with no tag RAISES (UntaggedPoolPlayer) unless
+                assume_healthy -- a run explicitly priced without tags.
     standin_gp: a stand-in's projected GP (the durability prior's median_gp)
     order:      ignored by the result -- kept so a test can hand in any order
                 and show the plan does not move
@@ -310,12 +327,19 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
 
     for week, day in windows:
         week = int(week)
-        # The pool as the window opens -- read before any manager moves, used
-        # only if somebody needs a stand-in (then it must be deep enough).
-        pool = _pool_at_open(state, players, week, day, start_week, tag_idx)
+        # The pool as the window opens -- its rostered set snapshot before any
+        # manager moves; read only if somebody needs a stand-in (then it must
+        # be deep enough, and every player in it tagged).
+        at_open = PlayerIndex({n: n for s in state.values() for n in s["active"] + s["il"]
+                               if n not in s["standins"]})
         k = rules["replacement_rank"]
+        cache = {}
 
-        def level_now():
+        def level_now(at_open=at_open, week=week, day=day, cache=cache):
+            if "pool" not in cache:
+                cache["pool"] = _pool_at_open(at_open, players, week, day, start_week, tag_idx,
+                                              assume_healthy)
+            pool = cache["pool"]
             if len(pool) < k:
                 raise ValueError(f"week {week}: only {len(pool)} free agents in the pool, "
                                  f"fewer than replacement_rank {k}")
@@ -435,7 +459,11 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     from .crn import key_string
     from .projections import load_player_projections, populate_actual_stats
     from .data_loader import PlayerIndex
-    fp = key_string(id(team_projections), *sorted(f"{k}={v}" for k, v in (statuses or {}).items()))
+    fa = getattr(statuses, "free_agents", None)
+    assume = bool(getattr(statuses, "free_agents_assumed_healthy", False))
+    fp = key_string(id(team_projections), *sorted(f"{k}={v}" for k, v in (statuses or {}).items()),
+                    "free_agents", *sorted(f"{k}={v}" for k, v in (fa or {}).items()),
+                    f"assumed={assume}", f"fa_fetched={fa is not None}")
     cache = data.__dict__.setdefault("_roster_plans", {})
     hit = cache.get(fp)
     if hit is not None and hit[0] is team_projections:
@@ -455,7 +483,8 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     start = int(il["fantasy_week"])
     gp = standin_gp(data, team_projections)
     plan = build(start_week=start, il_slots=il.get("slots") or {}, rosters=rosters,
-                 windows=windows_for(data, start), players=players, statuses=statuses or {},
+                 windows=windows_for(data, start), players=players,
+                 statuses={**dict(fa or {}), **dict(statuses or {})}, assume_healthy=assume,
                  rules=rules(), standin_gp=gp, order=[m for m in pick_order() if m in rosters])
     made = {n: p for w in plan.values() for v in w.values() for n, p in v["standins"].items()}
     run = Run(start_week=start, plan=plan, players=players, standins=made, standin_gp=gp)

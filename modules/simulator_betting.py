@@ -455,7 +455,7 @@ def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
             out_for_season = absence.season_out(status)
             override = absence.override_absence(
                 weeks, dates.get(team, []), anchor, p.out_weeks, p.return_week, p.return_date,
-                p.out_from, p.return_games, p.total_week_games)
+                p.out_from, p.return_games, p.total_week_games, player=name)
             key = ("baseline", season, name, team, miss_rate, anchor, override, out_for_season)
             hit = draws._memo.get(key)
             if hit is None:
@@ -685,7 +685,7 @@ def _eligible(player, week: int, game_date: date, week_start_date: date) -> bool
         return False
     # 2. partial return with a date: out before it
     if player.return_week == week and player.return_date:
-        if game_date < datetime.strptime(player.return_date, "%Y-%m-%d").date():
+        if game_date < absence.parse_return_date(player.return_date, player.player_name):
             return False
     return True
 

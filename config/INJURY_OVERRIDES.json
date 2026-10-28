@@ -2,6 +2,7 @@
   "players": [
     {
       "player_name": "Coby White",
+      "nba_team": "CHA",
       "out_weeks": [
         1,
         2
@@ -15,6 +16,7 @@
     },
     {
       "player_name": "Paolo Banchero",
+      "nba_team": "ORL",
       "out_weeks": [
         1,
         2,
@@ -33,6 +35,7 @@
     },
     {
       "player_name": "Jaren Jackson Jr.",
+      "nba_team": "UTA",
       "out_weeks": [
         1,
         2,
@@ -51,6 +54,7 @@
     },
     {
       "player_name": "Brandon Ingram",
+      "nba_team": "LAC",
       "out_weeks": [
         1,
         2,
@@ -69,6 +73,7 @@
     },
     {
       "player_name": "Anthony Edwards",
+      "nba_team": "MIN",
       "out_weeks": [
         2,
         3,
@@ -92,6 +97,7 @@
     },
     {
       "player_name": "Jimmy Butler III",
+      "nba_team": "GSW",
       "out_weeks": [
         1,
         2,
@@ -116,6 +122,7 @@
     },
     {
       "player_name": "Jalen Williams",
+      "nba_team": "OKC",
       "out_weeks": [
         1,
         2,
@@ -148,6 +155,7 @@
     },
     {
       "player_name": "Cason Wallace",
+      "nba_team": "OKC",
       "out_weeks": [
         1,
         2,
@@ -180,6 +188,7 @@
     },
     {
       "player_name": "Kawhi Leonard",
+      "nba_team": "TOR",
       "out_weeks": [
         2,
         3,
@@ -195,6 +204,7 @@
     },
     {
       "player_name": "Jalen Duren",
+      "nba_team": "DET",
       "out_weeks": [
         1,
         2,
@@ -210,6 +220,7 @@
     },
     {
       "player_name": "Tyrese Haliburton",
+      "nba_team": "IND",
       "out_weeks": [
         2,
         3,
@@ -224,6 +235,7 @@
     },
     {
       "player_name": "Jusuf Nurkic",
+      "nba_team": "UTA",
       "out_weeks": [
         1,
         2,
@@ -238,6 +250,7 @@
     },
     {
       "player_name": "Jalen Suggs",
+      "nba_team": "ORL",
       "out_weeks": [
         1,
         2,
@@ -252,6 +265,7 @@
     },
     {
       "player_name": "Keegan Murray",
+      "nba_team": "SAC",
       "out_weeks": [
         1,
         2,

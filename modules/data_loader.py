@@ -1225,9 +1225,13 @@ def _read_rosters_file(path: Path) -> dict:
 def _warn_unresolved(resolved: dict) -> None:
     missing = resolved.get("_unresolved") or []
     if missing:
-        print(f"  WARNING: INJURY_OVERRIDES names {missing} match no rostered "
-              f"player and nothing in PLAYERLIST. They are IGNORED by every "
-              f"simulation. Fix the spelling in config/INJURY_OVERRIDES.json.",
+        # Overrides describe injuries, not rosters (10-28): an entry for a
+        # player on no roster and not in PLAYERLIST is inert until he
+        # reappears. Whether the name is a real player at all is integrity's
+        # check (scripts/verify_project_integrity.py, against the NBA reference).
+        print(f"  Note: INJURY_OVERRIDES entries for {missing} match no rostered player "
+              f"and nothing in PLAYERLIST: inert until they reappear. (A name that is no "
+              f"NBA player at all fails verify_project_integrity.)",
               file=sys.stderr)
 
 

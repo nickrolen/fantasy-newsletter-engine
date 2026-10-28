@@ -3553,7 +3553,10 @@ def build_stats_report(
     if run_simulations and seed is None:
         raise ValueError("build_stats_report needs the run's seed when simulations run: "
                          "pass seed= (generate_stats_report chooses one per run)")
-    injury_statuses = injury_statuses or {}
+    # `is None`, not `or`: an empty Tags (a run priced without tags) carries
+    # free_agents_assumed_healthy, and `or {}` would drop it.
+    if injury_statuses is None:
+        injury_statuses = {}
     
     # Which stage of the season this week belongs to.
     #

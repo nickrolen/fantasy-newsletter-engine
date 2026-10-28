@@ -318,7 +318,7 @@ def build_context(
             positions=frozenset(p.positions or []), fppg=float(fppg or 0.0),
             projected_gp=float(p.projected_gp or 0.0), out_weeks=frozenset(p.out_weeks or []),
             return_week=p.return_week,
-            return_date=(date.fromisoformat(p.return_date) if p.return_date else None),
+            return_date=absence.parse_return_date(p.return_date, name),
             status=str(statuses.get(name, "HEALTHY")).upper(),
             out_from=absence.parse_out_from(getattr(p, "out_from", None)),
             return_games=getattr(p, "return_games", None),
@@ -380,7 +380,7 @@ def baseline(ctx: MVContext, p: MVPlayer):
                                           p.return_games)
         override = absence.override_absence(
             ctx.week_dates, team_dates, anchor, p.out_weeks, p.return_week, p.return_date,
-            p.out_from, p.return_games, p.total_week_games)
+            p.out_from, p.return_games, p.total_week_games, player=p.name)
         prior = ctx.durability_prior
         prior_gp = (prior.gp_for(p.name, p.projected_gp)[0] if prior is not None
                     else p.projected_gp)

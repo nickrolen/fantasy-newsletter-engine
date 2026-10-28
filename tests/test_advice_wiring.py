@@ -47,7 +47,10 @@ def failed_report():
     # The IL state, stated (tests/il_state.py): the weekly suite (Step 0b)
     # runs before the roster sync refreshes data/IL_SLOTS.json.
     data.il_slots = il_state.as_last_synced(2)
-    report = rb.build_stats_report(data, 1, run_simulations=True,
+    # Priced without tags, stated (Tags.none): the roster plan's stand-in
+    # pool needs free agents' tags or this statement, never a silent default.
+    from modules.fetch_injury_statuses import Tags as _Tags
+    report = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
                                    num_title_sims=100, num_betting_sims=100, seed=1)
     mp.undo()
     return report

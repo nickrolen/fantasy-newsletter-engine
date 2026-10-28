@@ -8,6 +8,7 @@ replacement-level STAND-IN, at most the add budget per week; an IL player is
 activated at the first window he is healthy, and a midweek return sits out
 the rest of that week.
 """
+import importlib
 import json
 from datetime import date, timedelta
 from pathlib import Path
@@ -22,6 +23,8 @@ from modules import roster_plan as rp
 from modules import simulator_betting as sb
 from modules.data_loader import MANAGERS, PlayerIndex
 from modules.projections import PlayerProjection, TeamProjections, projection_error_sd
+
+fis = importlib.import_module("modules.fetch_injury_statuses")
 
 ROOT = Path(__file__).parent.parent
 
@@ -57,8 +60,12 @@ def _league(extra=None, fa=12, size=15, top=40.0):
 
 
 def _build(players, rosters, il=None, statuses=None, order=None, rules=None):
+    """Every player stated HEALTHY unless `statuses` says otherwise: the pool
+    must be tagged (an untagged free agent raises)."""
+    tags = {n: "HEALTHY" for n in players}
+    tags.update(statuses or {})
     return rp.build(start_week=2, il_slots=il or {}, rosters=rosters, windows=WINDOWS,
-                    players=PlayerIndex(players), statuses=statuses or {},
+                    players=PlayerIndex(players), statuses=tags,
                     rules=rules or RULES, standin_gp=GP, order=order or list(MANAGERS))
 
 
@@ -318,6 +325,8 @@ def test_moves_never_see_the_persistent_error(monkeypatch):
 
 # 11 -- one plan for the pass and the line; order cannot move the odds
 def _moving_world(monkeypatch):
+    """(data, teams, tags): two managers lose their best player for weeks
+    10-11, a free-agent pool of eight, everyone tagged HEALTHY."""
     from test_season_sim import _world
     data, teams = _world(recorded_through=8)
     data.il_slots = rp.no_il(9)
@@ -330,19 +339,22 @@ def _moving_world(monkeypatch):
                                      "player_position(s)": "PG", "projectedFPPG": 30.0 - j,
                                      "player_proj_GP": 70.0, "player_total_proj_FP": 0.0}
                                     for j in range(8)])
-    return data, teams
+    tags = fis.Tags({n: "HEALTHY" for tp in teams.values() for n in tp.players},
+                    {f"Free{j}": "HEALTHY" for j in range(8)})
+    return data, teams, tags
 
 
 def test_the_season_pass_and_the_betting_line_read_one_plan(monkeypatch):
     """With moves in play the pass's week equals the line's week, column for column."""
     import modules.season_sim as ss
-    data, teams = _moving_world(monkeypatch)
+    data, teams, tags = _moving_world(monkeypatch)
     seen = []
     real = sb.week_score_matrices
     monkeypatch.setattr(ss, "week_score_matrices",
                         lambda *a, **k: seen.append(real(*a, **k)) or seen[-1])
-    ss.run_season(data, num_simulations=300, seed=7, team_projections=teams, through="regular")
-    run = rp.for_run(data, teams, None)
+    ss.run_season(data, num_simulations=300, seed=7, team_projections=teams, through="regular",
+                  injury_statuses=tags)
+    run = rp.for_run(data, teams, tags)
     assert run.plan[10]["Hayden"]["added"] and run.plan[10]["Nick"]["added"], "the plan moved people"
     tp, mask = rp.week_rosters(run, teams, 10)
     line = sb.simulate_week_matrix(data, tp, sb.schedule_week(data, 10), None,
@@ -356,10 +368,10 @@ def test_reversing_the_manager_order_leaves_the_plan_and_the_odds_bit_identical(
     out = []
     for order in (list(MANAGERS), list(reversed(MANAGERS))):
         monkeypatch.setattr(rp, "pick_order", lambda o=order: list(o))
-        data, teams = _moving_world(monkeypatch)
+        data, teams, tags = _moving_world(monkeypatch)
         sp = ss.run_season(data, num_simulations=400, seed=11, team_projections=teams,
-                           through="regular")
-        out.append((rp.for_run(data, teams, None).plan, sp.reg_points, sp.title_result().title_odds))
+                           through="regular", injury_statuses=tags)
+        out.append((rp.for_run(data, teams, tags).plan, sp.reg_points, sp.title_result().title_odds))
     (pa, ra, oa), (pb, rb_, ob) = out
     assert pa == pb and pa[10]["Nick"]["added"] and pa[10]["Hayden"]["added"]
     assert np.array_equal(ra, rb_) and oa == ob
@@ -382,7 +394,7 @@ def test_edwards_end_to_end_on_the_real_inputs(monkeypatch):
     ae = teams["Nick"].players.get("Anthony Edwards")
     if ae is None or str(ae.return_date)[:10] != "2027-01-25":
         pytest.skip("the 10-28 inputs have changed: Edwards' override or roster moved")
-    run = rp.for_run(data, teams, {})
+    run = rp.for_run(data, teams, fis.Tags.none())     # plan shape, not tags: stated none
     plan = run.plan
     assert "Anthony Edwards" not in plan[2]["Nick"]["il"], "week 2 is locked"
     assert "Anthony Edwards" in plan[3]["Nick"]["il"]
@@ -403,4 +415,4 @@ def test_edwards_end_to_end_on_the_real_inputs(monkeypatch):
         assert data.durability_prior.gp.canonical(name) is None
     monkeypatch.setattr(rp, "pick_order", lambda: list(reversed(MANAGERS)))
     data.__dict__.pop("_roster_plans", None)
-    assert rp.for_run(data, teams, {}).plan == plan
+    assert rp.for_run(data, teams, fis.Tags.none()).plan == plan

@@ -303,13 +303,20 @@ def test_the_workflow_fetches_playerlist_after_the_roster_gate():
     assert "## Step 2.5" not in doc
 
 
-def test_a_dead_override_is_not_called_a_spelling_mistake():
-    vpi = _load("verify_project_integrity")
-    found = dict(vpi._dead_or_typo(["Cason Wallace", "Derik White"]))
-    assert found["Cason Wallace"] is None               # gone from Yahoo: remove it
-    assert found["Derik White"] == "Derrick White"      # a near miss: a typo
+def test_an_unrostered_override_is_inert_not_dead_and_a_typo_is_still_a_typo(tmp_path):
+    """Overrides describe injuries, not rosters (STATUS_2026-10-28). The 10-27
+    check called Cason Wallace a DEAD ENTRY and said "Remove the entry"; that
+    was the overruled theory. Now: a real NBA player on no roster is one
+    inert line, a near miss is a typo, and the old text is gone."""
+    from modules import nba_reference as nr
+    ref = nr.Reference(tmp_path, cache={"fetched_at": "2026-10-28", "seasons": {
+        "this_season": {"players": {"Cason Wallace": "OKC", "Derrick White": "BOS"}}}},
+        playerlist={}, rostered=[])
+    assert ref.resolve("Cason Wallace") and not ref.in_league_files("Cason Wallace")
+    assert ref.resolve("Derik White") is None and ref.near("Derik White") == "Derrick White"
+    assert "Probably a typo" in ref.unknown_message("Derik White")
     src = (ROOT / "scripts" / "verify_project_integrity.py").read_text(encoding="utf-8")
-    assert "DEAD ENTRY" in src and "Probably a TYPO" in src
+    assert "DEAD ENTRY" not in src and "Remove the entry" not in src
 
 
 # 5 -- the shift check reads the NBA team, which the calendar does not move

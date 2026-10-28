@@ -113,7 +113,10 @@ def runs():
         # The IL state, stated: this test is about plumbing, and the weekly suite
         # (Step 0b) runs before the roster sync refreshes data/IL_SLOTS.json.
         data.il_slots = il_state.as_last_synced(2)
-        rep = rb.build_stats_report(data, 1, run_simulations=True,
+        # Priced without tags, stated (Tags.none): the roster plan's stand-in
+        # pool needs free agents' tags or this statement, never a silent default.
+        from modules.fetch_injury_statuses import Tags as _Tags
+        rep = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
                                     num_title_sims=60, num_betting_sims=200, seed=seed)
         out.append((rep, list(got)))
     mp.undo()

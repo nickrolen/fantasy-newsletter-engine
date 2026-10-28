@@ -135,7 +135,7 @@ a judgement for Nick (handoff 2026-10-22 sec.5), not this module's to make.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Iterable, Optional, Sequence
 
 import numpy as np
@@ -507,6 +507,26 @@ def parse_out_from(value) -> Optional[date]:
         raise ValueError(f"INJURY_OVERRIDES out_from {value!r} is not YYYY-MM-DD")
 
 
+def parse_return_date(value, player: str = None) -> Optional[date]:
+    """INJURY_OVERRIDES return_date: YYYY-MM-DD (a longer ISO string is read
+    by its first ten characters), a date, or null. A malformed date RAISES,
+    naming the player. The ONE parser for return_date: every site that reads
+    one goes through here, so none can treat a typo as "fully available"
+    (schedule_strength did, until 10-28)."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value).strip()[:10])
+    except ValueError:
+        who = f" for {player}" if player else ""
+        raise ValueError(f"INJURY_OVERRIDES return_date {value!r}{who} is not YYYY-MM-DD "
+                         "(config/INJURY_OVERRIDES.json)") from None
+
+
 def out_from_applies(d: date, week_start: date, out_from: Optional[date]) -> bool:
     """out_from: unavailable on and after it, within ITS fantasy week.
 
@@ -677,7 +697,7 @@ def baseline_rate(miss_rate: float, remaining: int, override: tuple = (0, 0.0)) 
 def override_absence(week_dates: dict, team_dates: Iterable[date], anchor: date,
                      out_weeks=(), return_week=None, return_date: Optional[date] = None,
                      out_from: Optional[date] = None, return_games=None,
-                     total_week_games=None) -> tuple:
+                     total_week_games=None, player: str = None) -> tuple:
     """(team games on/after the anchor in weeks an override governs, the
     expected number of those he misses because of it).
 
@@ -687,8 +707,7 @@ def override_absence(week_dates: dict, team_dates: Iterable[date], anchor: date,
     a date -> out with probability 1 - return_games / total_week_games.
     """
     teams = set(team_dates)
-    if isinstance(return_date, str):
-        return_date = date.fromisoformat(return_date[:10])
+    return_date = parse_return_date(return_date, player)
     governed, missed = 0, 0.0
     for week, dates in week_dates.items():
         if not dates or not override_governs(week, dates, out_weeks, return_week, out_from):

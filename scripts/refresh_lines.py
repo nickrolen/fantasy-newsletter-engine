@@ -75,7 +75,7 @@ def _fetch_statuses(base: Path) -> dict:
         raise RuntimeError(f"Yahoo injury fetch failed ({e}); pass --statuses FILE or --no-tags")
     if not statuses:
         raise RuntimeError("Yahoo returned no injury statuses; pass --statuses FILE or --no-tags")
-    return dict(statuses)
+    return statuses          # a Tags: the free agents ride along for the roster plan
 
 
 class Prepared(SimpleNamespace):
@@ -121,11 +121,16 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
 
     # --- tags
     teams = load_all_team_projections(data)
+    from modules.fetch_injury_statuses import Tags
     if no_tags:
         live = {}
+        plan_tags = Tags.none()
         assumptions.append("NO TAGS: priced without Yahoo injury tags (--no-tags).")
     else:
         live = statuses if statuses is not None else _fetch_statuses(base)
+        if not isinstance(live, Tags):
+            live = Tags.from_json(live)
+        free_agents = live.free_agents
         # every tag must land on a rostered player -- never silently dropped
         from modules import absence
         live, _unmatched, _missing = absence.resolve_tags(
@@ -140,6 +145,8 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
             assumptions.append(f"SEASON-OUT OVERRIDDEN: {c['line']} -- {c['resolution']} "
                                "(--allow-season-out-conflict).")
         live = dict(live)
+        # The roster plan reads the free agents' tags apart (stand-in level).
+        plan_tags = Tags(live, free_agents)
     previous = stored.get("tags") if stored else None
     anchors, events, tag_assumptions = ws.reconcile_tags(
         previous, live, as_of, week_start, assume_tags_since_week_start)
@@ -147,7 +154,7 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
 
     # --- the week's rosters under the league's IL rules (roster_plan): the plan
     # the season pass and the weekly build read, so a live line is that week
-    teams, il_mask = roster_plan.week_rosters(roster_plan.for_run(data, teams, live),
+    teams, il_mask = roster_plan.week_rosters(roster_plan.for_run(data, teams, plan_tags),
                                               teams, week)
 
     # --- the played state
@@ -277,7 +284,10 @@ def main(argv=None):
     ap.add_argument("--sims", type=int, default=sb.DEFAULT_NUM_SIMULATIONS)
     ap.add_argument("--seed", type=int)
     ap.add_argument("--reseed", action="store_true")
-    ap.add_argument("--statuses", help="JSON {player: tag} instead of fetching Yahoo")
+    ap.add_argument("--statuses", help="JSON instead of fetching Yahoo: {\"rostered\": {player: tag}, "
+                                       "\"free_agents\": {player: tag}} (fetch_injury_statuses "
+                                       "--output writes it); a flat {player: tag} file has no "
+                                       "free agents, and the roster plan refuses it")
     ap.add_argument("--no-tags", action="store_true")
     ap.add_argument("--allow-missing-days", action="store_true")
     ap.add_argument("--assume-tags-since-week-start", action="store_true")

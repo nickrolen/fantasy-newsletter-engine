@@ -1065,26 +1065,55 @@ INJURY_OVERRIDES_MAX_AGE_DAYS = 8
 PLAYERLIST_SNAPSHOT_MAX_AGE_DAYS = 8
 
 
-def _dead_or_typo(names, cutoff=0.8):
-    """[(name, nearest rostered/PLAYERLIST name or None)] for override names
-    that resolved to nobody. They have ALREADY been through PlayerIndex's
-    respelling pass, so a near miss on what is left (difflib, on normalised
-    names) is the evidence for a typo; none is the evidence for a player who
-    is simply gone (HANDOFF_STALE_GATES sec.6)."""
-    from modules.data_loader import closest_player_name
-    pool = set()
+def _check_override_entries(blob, warnings, today, base=None):
+    """Every INJURY_OVERRIDES entry, against the NBA and the schedules.
+
+    THE POLICY (STATUS_2026-10-28): the file describes injuries, not rosters.
+    So a name FAILS only when it matches no NBA player at all (the cached
+    reference, modules/nba_reference.py: PLAYERLIST, ROSTERS.json and
+    basketball-reference's lists), with a typo hint when one is close. An
+    entry for a real player on no roster and not in PLAYERLIST is fine and
+    inert until he reappears; it gets one line here, not a failure.
+
+    The shape is checked as assertions (modules/injury_entries.shape_problems):
+    out_weeks contiguous, return_week one after the last, return_date parses
+    and falls in return_week, and with nba_team the two game counts match the
+    NBA schedule. No nba_team: a warning that those are unverified. A return
+    that has passed: a warning."""
+    from datetime import date as _date
+    from modules import injury_entries as ie, nba_reference as nr
+    base = Path(base or PROJECT_ROOT)
+    failures = []
+    entries = list(blob.get("players") or [])
+    if not entries:
+        return failures
     try:
-        blob = json.loads((PROJECT_ROOT / "config" / "ROSTERS.json").read_text(encoding="utf-8"))
-        for players in (blob.get("rosters") or {}).values():
-            pool.update(players)
-    except Exception:
-        pass
+        ref = nr.Reference(base)
+    except nr.ReferenceMissing as e:
+        return [f"[INJURY] cannot check the names in INJURY_OVERRIDES.json: {e}"]
+    for e in entries:
+        name = str(e.get("player_name", ""))
+        if ref.resolve(name) is None:
+            failures.append(f"[INJURY] INJURY_OVERRIDES.json: {ref.unknown_message(name)} "
+                            "Every simulation ignores an entry for nobody.")
+    inert = [str(e.get("player_name")) for e in entries
+             if ref.resolve(str(e.get("player_name"))) is not None
+             and not ref.in_league_files(str(e.get("player_name")))]
+    if inert:
+        warnings.append(f"[INJURY] {len(inert)} override(s) for players on no roster and not in "
+                        f"PLAYERLIST ({', '.join(inert)}): inert until they reappear -- as "
+                        "intended (overrides describe injuries, not rosters; 10-28).")
     try:
-        import pandas as pd
-        pool.update(pd.read_excel(PROJECT_ROOT / "data" / "PLAYERLIST.xlsx")["player_name"].astype(str))
-    except Exception:
-        pass
-    return [(name, closest_player_name(name, pool, cutoff)) for name in names]
+        schedule = json.loads((base / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+        nba = json.loads((base / "data" / "nba_schedule_2026-27.json").read_text(encoding="utf-8"))
+    except Exception as err:
+        return failures + [f"[INJURY] cannot check override shapes: no schedule ({err})"]
+    games = ie.team_games(nba)
+    for e in entries:
+        fail, warn = ie.shape_problems(e, schedule, games, today or _date.today())
+        failures += [f"[INJURY] INJURY_OVERRIDES.json {x}" for x in fail]
+        warnings += [f"[INJURY] INJURY_OVERRIDES.json {x}" for x in warn]
+    return failures
 
 
 def _check_injury_overrides_current(cfg, warnings, today=None):
@@ -1110,38 +1139,8 @@ def _check_injury_overrides_current(cfg, warnings, today=None):
         failures.append(f"[INJURY] could not read config/INJURY_OVERRIDES.json: {e}")
         return failures
 
-    # Every name must be somebody. One that matches no rostered player and
-    # nothing in PLAYERLIST is ignored by every simulation -- the player it
-    # was meant for plays a full week in all of them.
-    unresolved = []
-    if blob.get("players"):
-        from modules.data_loader import load_resolved_injury_overrides
-        import contextlib, io
-        try:
-            with contextlib.redirect_stderr(io.StringIO()):
-                unresolved = load_resolved_injury_overrides(
-                    PROJECT_ROOT).get("_unresolved", [])
-        except Exception as e:
-            failures.append(f"[INJURY] could not check the names in "
-                            f"INJURY_OVERRIDES.json against the rosters and "
-                            f"PLAYERLIST: {type(e).__name__}: {e}")
-    if unresolved:
-        for name, near in _dead_or_typo(unresolved):
-            if near:
-                failures.append(
-                    f"[INJURY] INJURY_OVERRIDES.json names {name!r}. Names that match no rostered "
-                    f"player and nothing in PLAYERLIST are ignored by every simulation. "
-                    f"Probably a TYPO: it is close to {near!r}. If that is who it is for, fix "
-                    "the spelling -- until then he plays a full week in every simulation.")
-            else:
-                failures.append(
-                    f"[INJURY] INJURY_OVERRIDES.json names {name!r}, and it can match no rostered "
-                    "player and nothing in PLAYERLIST, even after the respelling pass "
-                    "(accents, suffixes, initials), and nothing there is close to it. Almost "
-                    "certainly a DEAD ENTRY, not a typo: a player off every roster whom Yahoo has "
-                    "dropped from its player list (out for the season -- Jalen Williams 10-26, "
-                    "Cason Wallace 10-27). Remove the entry. Only if he is in fact rostered is "
-                    "this a spelling problem.")
+    # Every name must be an NBA player, and every entry well formed.
+    failures.extend(_check_override_entries(blob, warnings, today))
 
     if not stamp:
         if today >= week1:

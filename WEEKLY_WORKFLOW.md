@@ -383,7 +383,45 @@ Yahoo values it replaces, a reason, a source, and a `review_by` date).
 
 ## Step 5: Update INJURY_OVERRIDES.json (MANUAL)
 
-Open `config\INJURY_OVERRIDES.json` and update based on current injury news.
+After the roster sync (Step 4, which also writes `data\IL_SLOTS.json`) and the
+PLAYERLIST update (Step 4.75), before the build (Step 6). **The file describes
+injuries, not rosters** (10-28): every player with a timeline longer than the
+three games a Yahoo tag models goes in, rostered or not.
+
+**First, the review lists** (read-only; fetches this week's tags, free agents
+included):
+
+```cmd
+python scripts\overrides.py check
+```
+
+1. Tagged `O` or `OFS` with no override, rostered first, by projected FPPG.
+2. In an IL slot with no override.
+3. Entries whose return date has passed -- remove them.
+4. Entries whose name matches no NBA player -- fix the spelling.
+
+**Exit 1 only on lists 3 and 4.** Lists 1 and 2 are for you to judge: a short
+`O` is what the tag chain is for, and a healthy or short-term player in an IL
+slot is normal. Anyone on list 1 or 2 who will miss more than three games
+needs an entry.
+
+**Then add or change entries with the helper**, which works out `out_weeks`,
+`return_week`, `return_games` and `total_week_games` from his NBA team's
+schedule and the fantasy weeks (week 7 and week 17 are 14 days), stores
+`nba_team`, shows you the entry and asks before writing:
+
+```cmd
+python scripts\overrides.py add "Tyrese Haliburton" --out 2026-10-27 --back 2026-11-17 --notes "hamstring"
+python scripts\overrides.py add "Some Player" --out 2026-11-04 --season --notes "ACL"
+```
+
+`--season` is out for the rest of the season: out through the last fantasy
+week, no return. `--replace` overwrites an existing entry; `--team` is needed
+only when it cannot find his NBA team. It reads a cached list of NBA names
+(`data\NBA_PLAYER_REFERENCE.json`); refresh it with
+`python scripts\overrides.py refresh-reference` when a rookie is missing.
+Editing the file by hand still works; `verify_project_integrity` checks every
+entry's shape against the schedules either way.
 
 **Then set `"last_updated": "YYYY-MM-DD"` to today**, even if nothing changed.
 It is the review stamp: an empty `players` list can be correct, an empty
@@ -884,7 +922,9 @@ python scripts\check_rosters.py
 python scripts\fetch_playerlist.py --execute
 python scripts\check_playerlist.py --snapshot
 
-:: Step 5: Manually update config\INJURY_OVERRIDES.json
+:: Step 5: Review the overrides (exit 1 only on a passed return or an unknown name), then add/fix entries
+python scripts\overrides.py check
+:: python scripts\overrides.py add "Player Name" --out YYYY-MM-DD --back YYYY-MM-DD --notes "..."
 :: Step 5.5: Optionally create data\weeklycontextinput_weekN.json
 
 :: Step 5.75: Refresh all-time records (Record Book)
