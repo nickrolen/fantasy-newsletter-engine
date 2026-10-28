@@ -17,6 +17,7 @@ import pytest
 import modules.simulator_cup_odds as cup
 import modules.data_loader as dl
 from modules.data_loader import MANAGERS, Record
+from season_world import decided_world
 
 
 SEMI = cup.CUP_SEMIFINAL_ROUND
@@ -197,12 +198,12 @@ def test_a_played_cup_week_is_not_re_rolled(monkeypatch):
     scores = {23: {"Nick": 100, "Hayden": 1, "Garrett": 5, "Benton": 4}}
     r = cup.simulate_cup(PAIRS, SEEDS, scores, decided=decided)
     assert r.cup_winner == "Nick"
-    # and the run only simulates the week still to come
+    # and the run only simulates the week still to come. Since Phase 2 the
+    # Cup is a readout of the season pass, so the world it runs in is the
+    # one where week 22 has been played: regular season and bracket too.
     calls = []
-    monkeypatch.setattr(cup, "load_all_team_projections", lambda data: {})
-    monkeypatch.setattr(cup, "resolve_completed_week", lambda data, week: decided.get(week))
-    monkeypatch.setattr(cup, "week_score_matrices", _matrices(scores, calls))
-    data = _data(_scores({m: {1: 100 + i} for i, m in enumerate(MANAGERS)}))
+    bracket = {w: {"Nick": 100, "Hayden": 90, "Benton": 80, "Garrett": 70} for w in range(16, 22)}
+    data = decided_world(monkeypatch, scores, decided={**bracket, **decided}, calls=calls)
     cup.run_cup_odds_simulation(data, num_simulations=4, seed=1)
     assert calls == [[23]], "the played Cup week was rolled again"
 
@@ -237,13 +238,9 @@ def test_an_unrecorded_cup_winner_is_flagged_loudly(monkeypatch):
     def fake_run(data, **kw):
         return None
 
-    monkeypatch.setattr(cup, "load_all_team_projections", lambda data: {})
-    monkeypatch.setattr(cup, "week_score_matrices",
-                        _matrices({22: {m: 10 for m in MANAGERS},
-                                   23: {m: 10 for m in MANAGERS}}))
-    monkeypatch.setattr(cup, "resolve_completed_week", lambda data, week: None)
-    # distinct totals: this test is about the keeper note, not seeding ties
-    data = _data(_scores({m: {1: 100 + i} for i, m in enumerate(MANAGERS)}))
+    # distinct totals (decided_world's points): this test is about the
+    # keeper note, not seeding ties
+    data = decided_world(monkeypatch, {w: {m: 10 for m in MANAGERS} for w in range(16, 24)})
     result = cup.run_cup_odds_simulation(data, num_simulations=5, seed=1)
 
     stakes = result.keeper_stakes
@@ -254,15 +251,10 @@ def test_an_unrecorded_cup_winner_is_flagged_loudly(monkeypatch):
 
 
 def test_odds_sum_to_one_hundred(monkeypatch):
-    monkeypatch.setattr(cup, "load_all_team_projections", lambda data: {})
-    monkeypatch.setattr(cup, "resolve_completed_week", lambda data, week: None)
     import numpy as np
     rng = np.random.default_rng(0)
-    monkeypatch.setattr(cup, "week_score_matrices",
-                        _matrices(lambda w, m, n: rng.uniform(0, 100, n)))
-
-    data = _data(_scores({"Nick": {1: 400}, "Garrett": {1: 300},
-                          "Benton": {1: 200}, "Hayden": {1: 100}}))
+    # bracket weeks noisy too: every iteration's Cup seeding moves
+    data = decided_world(monkeypatch, lambda w, m, n: rng.uniform(0, 100, n))
     result = cup.run_cup_odds_simulation(data, num_simulations=200, seed=7)
     assert abs(sum(result.cup_odds.values()) - 100.0) < 1e-6
     for m in MANAGERS:

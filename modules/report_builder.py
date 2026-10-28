@@ -36,7 +36,9 @@ from .records_tracker import (
 from .simulator_title_odds import (run_title_odds_simulation, TitleOddsResult,
                                    expected_standing, format_expected_record)
 from .simulator_playoff_odds import run_playoff_odds_simulation, PlayoffOddsResult, rank_managers_by_standings
-from .simulator_cup_odds import run_cup_odds_simulation, CupOddsResult
+from .simulator_cup_odds import run_cup_odds_simulation, CupOddsResult, cup_rounds
+from .simulator_playoff_odds import bracket_rounds
+from .season_sim import run_season
 from .simulator_betting import generate_weekly_betting_lines, WeeklyBettingLines
 from .what_if_analyzer import analyze_weekly_what_if, WeeklyWhatIf
 from .fun_facts_generator import generate_fun_facts, FunFact
@@ -3570,29 +3572,32 @@ def build_stats_report(
         data, report, season=CURRENT_SEASON, phase=RECORDS_PHASE_STATE,
     )
 
-    # Run title/playoff odds simulation
+    # The season: ONE pass over weeks 1-23 (season_sim.run_season), so title
+    # odds, the bracket and the Cup are three readouts of the same imagined
+    # seasons -- iteration i is one season, its bracket seeded from its own
+    # standings and its Cup from its own points. They used to be three Monte
+    # Carlos on three streams, each assuming today's seeds.
+    #
+    # The pass goes as deep as the season's format does: a season with no
+    # bracket or no Cup configured stops at the last stage it has, which is
+    # exactly what the separate drivers used to price.
     title_odds = None
     cup_odds = None
+    season_pass = None
     if run_simulations:
-        if use_playoff_odds:
-            title_odds = run_playoff_odds_simulation(
-                data, num_simulations=num_title_sims, seed=seed,
-                injury_statuses=injury_statuses,
-            )
-        else:
-            title_odds = run_title_odds_simulation(
-                data, num_simulations=num_title_sims, seed=seed,
-                injury_statuses=injury_statuses,
-            )
-        # The Cup runs after the bracket and is a separate competition with
-        # its own seeding, so it gets its own simulation rather than
-        # overwriting the playoff odds. By Cup weeks the bracket is already
-        # decided, so title_odds above is settled rather than a forecast.
+        through = ("cup" if bracket_rounds() and cup_rounds()
+                   else "playoffs" if bracket_rounds() else "regular")
+        season_pass = run_season(
+            data, num_simulations=num_title_sims, seed=seed,
+            injury_statuses=injury_statuses, through=through,
+        )
+        title_odds = season_pass.playoff_result() if use_playoff_odds else season_pass.title_result()
+        # The Cup is a separate competition with its own seeding (points over
+        # weeks 1-21), so it is its own readout rather than overwriting the
+        # playoff odds. By Cup weeks the bracket is decided, so title_odds
+        # above is settled rather than a forecast.
         if in_cup:
-            cup_odds = run_cup_odds_simulation(
-                data, num_simulations=num_title_sims, seed=seed,
-                injury_statuses=injury_statuses,
-            )
+            cup_odds = season_pass.cup_result()
 
     # Run betting simulation
     betting_lines = None

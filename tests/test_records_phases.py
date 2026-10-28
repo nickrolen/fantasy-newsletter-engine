@@ -194,8 +194,7 @@ def test_state_precedes_the_simulations_and_history_follows_the_what_if():
 
     state = src.index("RECORDS_PHASE_STATE")
     history = src.index("RECORDS_PHASE_HISTORY")
-    first_sim = min(src.index("run_playoff_odds_simulation"),
-                    src.index("run_title_odds_simulation"))
+    first_sim = src.index("run_season(")      # the one season pass (Phase 2)
     what_if = src.index("analyze_weekly_what_if")
 
     assert state < first_sim, "the state write moved after the simulations"

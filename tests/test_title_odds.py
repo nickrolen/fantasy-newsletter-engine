@@ -15,6 +15,7 @@ import pytest
 
 from modules import fun_facts_generator as ff
 from modules import simulator_betting as sb
+from modules import season_sim as ss
 from modules import simulator_title_odds as sto
 from modules.data_loader import FantasyData, MANAGERS, Record
 from modules.projections import PlayerProjection, TeamProjections
@@ -73,15 +74,17 @@ def _swap(teams, manager, drop, add):
 
 
 def _capture(monkeypatch):
-    """Spy on the matrices title odds actually reads."""
+    """Spy on the matrices title odds actually reads. Since Phase 2 title
+    odds is a readout of the season pass, which draws its weeks through
+    season_sim's week_score_matrices -- so that is where the spy goes."""
     seen = []
-    real = sto.week_score_matrices
+    real = ss.week_score_matrices
 
     def spy(*a, **k):
         out = real(*a, **k)
         seen.append(out)
         return out
-    monkeypatch.setattr(sto, "week_score_matrices", spy)
+    monkeypatch.setattr(ss, "week_score_matrices", spy)
     return seen
 
 

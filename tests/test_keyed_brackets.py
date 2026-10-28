@@ -55,16 +55,25 @@ def _world(seed=0):
 
 @pytest.fixture
 def world(monkeypatch):
+    """The synthetic league with its regular season decided (weeks 1-15
+    recorded, seeds = SEEDS). Since Phase 2 the bracket and the Cup are
+    readouts of one season pass, which seeds every iteration from that
+    iteration's standings -- so the world carries the standings, not a
+    patched get_playoff_seeds."""
+    import modules.projections as proj
     data, teams = _world()
-    data.get_manager_record = lambda m, include_playoffs=False: Record()
+    data.records["weekly_scores"] = {
+        m: [{"week": w, "score": 1000.0 + 10 * i} for w in range(1, 16)]
+        for i, m in enumerate(MANAGERS)}
+    standings = {"Nick": Record(12, 3, 0), "Hayden": Record(9, 6, 0),
+                 "Benton": Record(6, 9, 0), "Garrett": Record(3, 12, 0)}
+    data.get_manager_record = lambda m, include_playoffs=False: standings[m]
+    data.regular_season_results = lambda include_playoffs=False: (
+        dict(standings), {m: {} for m in MANAGERS},
+        {m: 15 * (1000.0 + 10 * i) for i, m in enumerate(MANAGERS)})
     box = {"teams": teams}
-    for mod in (spo, cup):
-        monkeypatch.setattr(mod, "load_all_team_projections", lambda d: box["teams"])
-    monkeypatch.setattr(spo, "_decided_weeks", lambda d: {})
-    monkeypatch.setattr(spo, "get_playoff_seeds", lambda d: dict(SEEDS))
-    monkeypatch.setattr(spo, "get_semifinal_matchups", lambda d, s: (
-        [{"manager_a": a, "manager_b": b} for a, b in PAIRS], "test"))
-    monkeypatch.setattr(cup, "resolve_completed_week", lambda d, w: None)
+    monkeypatch.setattr(proj, "load_all_team_projections", lambda d: box["teams"])
+    monkeypatch.setattr(spo, "resolve_completed_week", lambda d, w: None)
     return data, box
 
 
@@ -156,7 +165,8 @@ def test_stdlib_random_cannot_move_the_odds(world):
 
 
 def test_neither_bracket_module_draws_from_stdlib_random():
-    for mod in (spo, cup):
+    from modules import season_sim
+    for mod in (spo, cup, season_sim):
         src = inspect.getsource(mod)
         assert "import random" not in src and "random." not in src.replace("stdlib `random`", ""), mod.__name__
 
@@ -208,7 +218,10 @@ def test_each_bracket_week_is_simulated_once_per_run(world, monkeypatch):
     monkeypatch.setattr(sb, "simulate_week_matrix", count)
     spo.run_playoff_odds_simulation(data, num_simulations=500, seed=1)
     cup.run_cup_odds_simulation(data, num_simulations=500, seed=1)
-    assert calls == [16, 17, 18, 19, 20, 21, 22, 23]
+    # Each readout here is its own pass (the playoff one stops after the
+    # bracket); within a pass every week is drawn once for all 500
+    # iterations. The weekly build makes ONE pass and reads both off it.
+    assert calls == [16, 17, 18, 19, 20, 21] + [16, 17, 18, 19, 20, 21, 22, 23]
 
 
 def test_a_week_missing_from_the_schedule_raises():

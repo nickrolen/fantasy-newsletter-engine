@@ -27,6 +27,8 @@ here draws from the global stream.
 
 import math
 from dataclasses import dataclass, field
+
+import numpy as np
 from typing import Optional
 
 from .data_loader import SEASON_SIMS
@@ -42,6 +44,10 @@ from .data_loader import (
 )
 from .projections import load_all_team_projections
 from .simulator_betting import week_score_matrices, scores_at
+from .season_sim import (  # noqa: F401  (re-exported: the regular-season rules layer)
+    SimulatedMatchup, SimulatedSeason, apply_tiebreakers, run_season,
+    simulate_full_season, simulate_matchup,
+)
 
 
 # =============================================================================
@@ -55,26 +61,9 @@ DEFAULT_NUM_SIMULATIONS = SEASON_SIMS   # config simulations.season_sims
 # DATA CLASSES
 # =============================================================================
 
-@dataclass
-class SimulatedMatchup:
-    """Result of simulating a single matchup."""
-    week: int
-    manager_a: str
-    manager_b: str
-    score_a: float
-    score_b: float
-    winner: Optional[str]
-
-
-@dataclass
-class SimulatedSeason:
-    """Result of simulating an entire season."""
-    final_records: dict[str, Record]  # manager -> W-L-T
-    final_points: dict[str, float]  # manager -> total points
-    h2h_records: dict[str, dict[str, Record]]  # manager -> {opponent: W-L-T}
-    champion: str
-    finish_order: list[str]  # 1st to 4th
-
+# SimulatedMatchup, SimulatedSeason, simulate_matchup, apply_tiebreakers and
+# simulate_full_season live in season_sim now (Phase 2 lifted them there to
+# carry the season past week 15); imported back below under the same names.
 
 @dataclass
 class TitleOddsResult:
@@ -122,104 +111,12 @@ def get_remaining_weeks(data: FantasyData, current_week: int) -> list[dict]:
 
 
 # =============================================================================
-# SIMULATION CORE
-# =============================================================================
-
-def simulate_matchup(
-    scores: dict[str, float],
-    matchup_def: dict,
-    week: int,
-) -> SimulatedMatchup:
-    """One matchup, read off one simulated week's scores {manager: score}."""
-    manager_a = matchup_def["manager_a"]
-    manager_b = matchup_def["manager_b"]
-    
-    score_a = scores[manager_a]
-    score_b = scores[manager_b]
-    
-    # A tied regular-season week is a T for both, not a win for anyone
-    # (tiebreaker_rules.regular_season_week; Nick, 10-20). winner None.
-    # This used to coin-flip, on a convention overruled on 10-07.
-    outcome = week_outcome(score_a, score_b)
-    winner = manager_a if outcome == "a" else (manager_b if outcome == "b" else None)
-    
-    return SimulatedMatchup(
-        week=week,
-        manager_a=manager_a,
-        manager_b=manager_b,
-        score_a=score_a,
-        score_b=score_b,
-        winner=winner,
-    )
-
-
-def apply_tiebreakers(
-    records: dict[str, Record],
-    h2h: dict[str, dict[str, Record]],
-    points: dict[str, float],
-) -> list[str]:
-    """Final standings, 1st to 4th: data_loader.standings_order -- the one
-    ranking rule (winning percentage with a T as half a win, head-to-head
-    among the tied, total points)."""
-    return standings_order(records, h2h, points, list(records))
-
-
-def simulate_full_season(
-    current_records: dict[str, Record],
-    current_h2h: dict[str, dict[str, Record]],
-    current_points: dict[str, float],
-    remaining_weeks: list[dict],
-    week_scores: dict[int, dict[str, float]],
-) -> SimulatedSeason:
-    """
-    Play out the rest of the regular season once.
-
-    week_scores is ONE simulation's {week: {manager: score}} for every
-    remaining week -- scores_at(week_score_matrices(...), i). The fantasy
-    schedule's matchups are played on those scores; a tied week is a T for
-    both (tiebreaker_rules.regular_season_week). Raises if a remaining week
-    has no scores rather than skipping it.
-    """
-    records = dict(current_records)
-    h2h = {m: dict(h) for m, h in current_h2h.items()}
-    points = dict(current_points)
-
-    for week_data in remaining_weeks:
-        week = int(week_data["week"])
-        if week not in week_scores:
-            raise KeyError(f"no simulated scores for regular-season week {week}")
-        scores = week_scores[week]
-        for manager, score in scores.items():
-            points[manager] = points.get(manager, 0.0) + score
-        for matchup_def in week_data["matchups"]:
-            matchup = simulate_matchup(scores, matchup_def, week)
-            a, b = matchup.manager_a, matchup.manager_b
-            if matchup.winner is None:
-                ra, rb = "tie", "tie"
-            else:
-                ra, rb = ("win", "loss") if matchup.winner == a else ("loss", "win")
-            records[a] = records.get(a, Record()).add(ra)
-            records[b] = records.get(b, Record()).add(rb)
-            h2h.setdefault(a, {})[b] = h2h.get(a, {}).get(b, Record()).add(ra)
-            h2h.setdefault(b, {})[a] = h2h.get(b, {}).get(a, Record()).add(rb)
-
-    finish_order = apply_tiebreakers(records, h2h, points)
-    return SimulatedSeason(
-        final_records=dict(records),
-        final_points=points,
-        h2h_records=h2h,
-        champion=finish_order[0],
-        finish_order=finish_order,
-    )
-
-
-# =============================================================================
 # MAIN SIMULATION
 # =============================================================================
 
 def compute_magic_numbers(
     current_records: dict,
-    remaining_games: int,
+    remaining_games,
     title_odds: dict,
     managers: list[str],
 ) -> dict:
@@ -240,23 +137,35 @@ def compute_magic_numbers(
     # Standings value, not raw wins: a T is half a win (Record.standing).
     # With a half-game lead the count rounds up: the smallest whole number
     # of (own wins + best rival losses) that puts him strictly ahead.
+    # remaining_games: {manager: regular-season games he has left}, computed
+    # off the season pass (Phase 2). It used to be one int, len(matchups) // 2
+    # per week -- right only for four teams who all play every week. An int
+    # is still accepted and means the same count for everyone.
+    if not isinstance(remaining_games, dict):
+        remaining_games = {m: int(remaining_games) for m in managers}
     magic_numbers = {}
     max_wins = max(r.standing for r in current_records.values())
 
     for manager in managers:
         current_wins = current_records[manager].standing
+        games_left = remaining_games.get(manager, 0)
 
         if title_odds.get(manager, 0.0) < 0.1:  # Essentially eliminated
             magic_numbers[manager] = None
         elif current_wins == max_wins:
-            # Best rival = highest standing among all OTHER managers
-            best_rival_wins = max(
-                (r.standing for m2, r in current_records.items() if m2 != manager),
+            # The threat is the best total a RIVAL can still reach -- his
+            # standing plus HIS games left. Each own win or threat loss
+            # closes one; clinched once the leader's standing is strictly
+            # past it. With one count for everyone this was the old
+            # games_left - lead + 1; with per-manager counts the leader's
+            # own games are the wrong ones (Phase 2: a rival with a game in
+            # hand was called clinched against).
+            threat = max(
+                (r.standing + remaining_games.get(m2, 0)
+                 for m2, r in current_records.items() if m2 != manager),
                 default=0,
             )
-            lead_over_rival = current_wins - best_rival_wins
-            magic = math.floor(remaining_games - lead_over_rival) + 1
-            magic_numbers[manager] = max(0, min(magic, remaining_games + 1))
+            magic_numbers[manager] = max(0, math.floor(threat - current_wins) + 1)
         else:
             magic_numbers[manager] = None
 
@@ -270,130 +179,51 @@ def run_title_odds_simulation(
     injury_statuses: dict = None,
     team_projections: dict = None,
 ) -> TitleOddsResult:
-    """
-    The regular-season title race, Monte Carlo over the remaining weeks.
+    """The regular-season title race: a READOUT of the season pass
+    (season_sim.run_season), stopped after the regular season -- a later
+    stage cannot move it. Conditional on today's rosters, frozen.
 
-    Conditional on today's rosters, frozen -- see the module docstring.
-
-    Args:
-        data: FantasyData container
-        num_simulations: Number of simulations to run
-        seed: the run's seed (required): the same keyed draws as the betting
-              lines and brackets, so a week is one simulated truth.
-        injury_statuses: Yahoo tags, as the betting lines get them (they
-              reach the first remaining week's games through absence.py).
-        team_projections: rosters to simulate (default: today's, loaded from
-              data). Pass a changed copy to price a move -- drop one player,
-              add another -- against the same draws.
-
-    Returns:
-        TitleOddsResult with all simulation results
+    seed is required: the same keyed draws as the betting lines and brackets.
+    team_projections: rosters to simulate (default: today's). Pass a changed
+    copy to price a move -- drop one player, add another -- on the same draws.
     """
     if seed is None:
         raise ValueError("run_title_odds_simulation needs an explicit seed: one seed per run, "
                          "chosen by the caller (generate_stats_report picks it)")
+    return run_season(data, num_simulations, seed, injury_statuses, team_projections,
+                      through="regular").title_result()
 
-    current_week = data.current_week
 
-    if team_projections is None:
-        team_projections = load_all_team_projections(data)
-
-    # Current state, all from the weekly results (data.regular_season_results):
-    # records W-L-T, head-to-head W-L-T, and REGULAR-SEASON points -- the
-    # points tiebreak in standings_order. Points used to be read from
-    # LEAGUEHISTORY total_points_current_season, a different source from
-    # every other surface's tiebreak.
+def title_readout(sp) -> TitleOddsResult:
+    """TitleOddsResult from a season pass: the regular-season marginals."""
+    data, n, managers = sp.data, sp.num_simulations, sp.managers
+    current_week = sp.current_week
     current_records = {m: data.get_manager_record(m) for m in MANAGERS}
-    _recs, current_h2h, reg_points = data.regular_season_results()
-    current_h2h = {m: dict(current_h2h.get(m, {})) for m in MANAGERS}
-    current_points = {m: float(reg_points.get(m, 0.0)) for m in MANAGERS}
-    
-    # Get remaining weeks
-    remaining_weeks = get_remaining_weeks(data, current_week)
-    
-    if not remaining_weeks:
-        # Season is over
-        finish_order = apply_tiebreakers(current_records, current_h2h, current_points)
-        return TitleOddsResult(
-            num_simulations=0,
-            current_week=current_week,
-            title_odds={m: (100.0 if m == finish_order[0] else 0.0) for m in MANAGERS},
-            expected_record={m: (float(current_records[m].wins), float(current_records[m].losses),
-                                 float(current_records[m].ties)) for m in MANAGERS},
-            finish_distribution={m: {i+1: (100.0 if finish_order[i] == m else 0.0) for i in range(NUM_TEAMS)} for m in MANAGERS},
-            magic_numbers={m: 0 if m == finish_order[0] else None for m in MANAGERS},
-            current_records=current_records,
-            h2h_records=current_h2h,
-        )
-    
-    # Every remaining week simulated ONCE, all iterations at once, by the
-    # betting lines' engine. Simulation i reads column i of every week.
-    matrices = week_score_matrices(data, team_projections,
-                                   [int(w["week"]) for w in remaining_weeks],
-                                   injury_statuses, seed, num_simulations)
-
-    # Run simulations
-    title_wins = {m: 0 for m in MANAGERS}
-    finish_counts = {m: {i: 0 for i in range(1, NUM_TEAMS + 1)} for m in MANAGERS}
-    total_wins = {m: 0.0 for m in MANAGERS}
-    total_losses = {m: 0.0 for m in MANAGERS}
-    total_ties = {m: 0.0 for m in MANAGERS}
-    
-    for sim in range(num_simulations):
-        result = simulate_full_season(current_records, current_h2h, current_points,
-                                      remaining_weeks, scores_at(matrices, sim))
-        
-        # Track title winner
-        title_wins[result.champion] += 1
-        
-        # Track finish positions
-        for pos, manager in enumerate(result.finish_order, 1):
-            finish_counts[manager][pos] += 1
-        
-        # Track records
-        for manager, rec in result.final_records.items():
-            total_wins[manager] += rec.wins
-            total_losses[manager] += rec.losses
-            total_ties[manager] += rec.ties
-    
-    # Compute results
-    title_odds = {m: (title_wins[m] / num_simulations) * 100 for m in MANAGERS}
-    
-    expected_record = {
-        m: (total_wins[m] / num_simulations, total_losses[m] / num_simulations,
-            total_ties[m] / num_simulations)
-        for m in MANAGERS
-    }
-    
-    finish_distribution = {
-        m: {pos: (count / num_simulations) * 100 for pos, count in positions.items()}
-        for m, positions in finish_counts.items()
-    }
-    
-    # Compute magic numbers
-    remaining_games = sum(len(w["matchups"]) // 2 for w in remaining_weeks)  # games per manager
-    magic_numbers = compute_magic_numbers(
-        current_records, remaining_games, title_odds, MANAGERS
-    )
-    
-    # Get delta from last week (if available)
+    first = np.bincount(sp.reg_finish[:, 0], minlength=len(managers))
+    title_odds = {m: float(first[j]) / n * 100 for j, m in enumerate(managers)}
+    expected_record = {m: (float(sp.reg_wins[:, j].mean()), float(sp.reg_losses[:, j].mean()),
+                           float(sp.reg_ties[:, j].mean())) for j, m in enumerate(managers)}
+    finish_distribution = {}
+    for j, m in enumerate(managers):
+        places = (sp.reg_finish == j).argmax(axis=1)
+        counts = np.bincount(places, minlength=NUM_TEAMS)
+        finish_distribution[m] = {pos + 1: float(counts[pos]) / n * 100 for pos in range(NUM_TEAMS)}
+    magic_numbers = compute_magic_numbers(current_records, sp.remaining_games, title_odds, MANAGERS)
     title_odds_delta = {}
-    last_week_key = f"week_{current_week - 1}"
-    if last_week_key in data.records.get("title_odds_history", {}):
-        last_odds = data.records["title_odds_history"][last_week_key]
+    last_odds = data.records.get("title_odds_history", {}).get(f"week_{current_week - 1}")
+    if last_odds:
         for manager in MANAGERS:
             if manager in last_odds:
                 title_odds_delta[manager] = title_odds[manager] - last_odds[manager]
-    
     return TitleOddsResult(
-        num_simulations=num_simulations,
+        num_simulations=n,
         current_week=current_week,
         title_odds=title_odds,
         expected_record=expected_record,
         finish_distribution=finish_distribution,
         magic_numbers=magic_numbers,
         current_records=current_records,
-        h2h_records=current_h2h,
+        h2h_records={m: dict(h) for m, h in sp.current_h2h.items()},
         title_odds_delta=title_odds_delta,
     )
 

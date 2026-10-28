@@ -285,6 +285,8 @@ def appearances(playerlog: pd.DataFrame) -> pd.DataFrame:
     Missing is_injured raises rather than counting every slot: that silent
     default is the bug this exists to prevent (HANDOFF_DNP_FIX_2026-10-23).
     """
+    if playerlog.empty:
+        return playerlog        # no rows: nothing to misclassify, nothing to refuse
     if "is_injured" not in playerlog.columns:
         raise ValueError("PLAYERLOG has no is_injured column, so a missed game cannot "
                          "be told from an appearance; refusing to average lineup slots")

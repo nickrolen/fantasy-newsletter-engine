@@ -296,14 +296,18 @@ def run_cup_odds_simulation(
     seed: int = None,
     injury_statuses: dict[str, str] = None,
 ) -> CupOddsResult:
-    """Monte Carlo the Cup, and report what each manager is playing for.
-
-    seed: keyed-draw seed (modules/crn.py). Required -- the run's one seed.
-    stdlib `random` is never consulted.
-    """
+    """The Cup: a READOUT of the season pass (season_sim.run_season), and what
+    each manager is playing for. Every iteration seeds its Cup on THAT
+    iteration's points over weeks 1-21, ties to the better regular-season
+    finish. seed is required: the run's one seed."""
     if seed is None:
         raise ValueError("run_cup_odds_simulation needs an explicit seed: one seed per run, chosen by the caller (generate_stats_report picks it) so every simulator prices the same week from the same draws")
+    _require_cup()
+    from .season_sim import run_season
+    return run_season(data, num_simulations, seed, injury_statuses, through="cup").cup_result()
 
+
+def _require_cup():
     rounds = cup_rounds()
     if not rounds:
         raise ValueError(
@@ -313,63 +317,14 @@ def run_cup_odds_simulation(
     for required in (CUP_SEMIFINAL_ROUND, CUP_FINAL_ROUND):
         if required not in rounds:
             raise ValueError(f"postseason_format.cup is missing '{required}'")
+    return rounds
 
-    current_week = data.current_week
-    team_projections = load_all_team_projections(data)
 
-    seeds = get_cup_seeds(data)
-    points = cup_seeding_points(data)
-    semi_dicts, pairing_source = get_cup_semifinal_matchups(data, seeds)
-    if len(semi_dicts) != 2:
-        raise ValueError(f"expected 2 Cup semifinals, got {len(semi_dicts)}")
-    semi_pairs = [(m["manager_a"], m["manager_b"]) for m in semi_dicts]
-
-    decided = {}
-    for week in cup_weeks():
-        scores = resolve_completed_week(data, week)
-        if scores:
-            decided[week] = scores
-
-    cup_wins = {m: 0 for m in MANAGERS}
-    semi_wins = {m: 0 for m in MANAGERS}
-    finish_counts = {m: {1: 0, 2: 0, 3: 0, 4: 0} for m in MANAGERS}
-    score_totals = {m: 0.0 for m in MANAGERS}
-
-    # Each Cup week not yet played, simulated once for all iterations: both
-    # weeks are played by all four whatever the pairing.
-    to_simulate = [w for w in cup_weeks() if w not in decided]
-    matrices = week_score_matrices(data, team_projections, to_simulate, injury_statuses,
-                                   seed, num_simulations)
-
-    for i in range(num_simulations):
-        result = simulate_cup(semi_pairs, seeds, scores_at(matrices, i), decided=decided)
-        cup_wins[result.cup_winner] += 1
-        for w in result.semi_winners:
-            semi_wins[w] += 1
-        for pos, manager in enumerate(result.finish_order, 1):
-            finish_counts[manager][pos] += 1
-        for week_scores in result.scores_by_week.values():
-            for m in MANAGERS:
-                score_totals[m] += week_scores.get(m, 0.0)
-
-    cup_odds = {m: (cup_wins[m] / num_simulations) * 100 for m in MANAGERS}
-
-    semi_matchups = []
-    for (ma, mb) in semi_pairs:
-        semi_matchups.append({
-            "manager_a": ma, "manager_b": mb,
-            "win_prob_a": round((semi_wins[ma] / num_simulations) * 100, 1),
-            "win_prob_b": round((semi_wins[mb] / num_simulations) * 100, 1),
-            "seed_a": seeds[ma], "seed_b": seeds[mb],
-            "weeks": list(rounds[CUP_SEMIFINAL_ROUND]),
-            "format": "single game",
-            "pairing_source": pairing_source,
-        })
-
-    # What the Cup is for: the winner keeps one more player next season.
+def keeper_stakes() -> dict:
+    """What the Cup is for: the winner keeps one more player next season."""
     next_season = _next_season(CURRENT_SEASON)
     base = keepers_for(next_season)
-    keeper_stakes = {
+    return {
         "season_affected": next_season,
         "base_keepers": min(base.values()) if base else None,
         "winner_keepers": (min(base.values()) + 1) if base else None,
@@ -379,32 +334,66 @@ def run_cup_odds_simulation(
                  "built with one keeper missing."),
     }
 
+
+def cup_readout(sp) -> CupOddsResult:
+    """CupOddsResult from a season pass. seeds / semi_matchups describe the
+    MOST LIKELY Cup bracket (share in pairing_probability, win probabilities
+    conditional on it); seeding_points is each manager's expected points over
+    the seeding window -- his actual total once weeks 1-21 are played."""
+    import numpy as np
+    from .simulator_playoff_odds import modal_seeding
+    rounds = _require_cup()
+    data, n, managers = sp.data, sp.num_simulations, sp.managers
+    wins = np.bincount(sp.cup_finish[:, 0], minlength=len(managers))
+    cup_odds = {m: float(wins[j]) / n * 100 for j, m in enumerate(managers)}
+    finish = {}
+    for j, m in enumerate(managers):
+        places = (sp.cup_finish == j).argmax(axis=1)
+        counts = np.bincount(places, minlength=4)
+        finish[m] = {pos + 1: float(counts[pos]) / n * 100 for pos in range(4)}
+    seeds, share, mask = modal_seeding(sp.cup_seeds, managers)
+    seed_pairs = [[1, 4], [2, 3]]
+    for rnd in stage_rounds(CURRENT_SEASON, "cup"):
+        if rnd["name"] == CUP_SEMIFINAL_ROUND:
+            seed_pairs = rnd.get("seeds", seed_pairs)
+            break
+    source = ("points over weeks 1-21" if share == 1.0 else
+              f"season pass: the most likely Cup bracket, {share:.1%} of simulated seasons")
+    winners_in = sp.cup_semi_winners[mask]
+    semi_matchups = []
+    for a, b in _seeded_pairs(seeds, seed_pairs):
+        ia, ib = managers.index(a), managers.index(b)
+        semi_matchups.append({
+            "manager_a": a, "manager_b": b,
+            "win_prob_a": round(float((winners_in == ia).any(axis=1).mean()) * 100, 1),
+            "win_prob_b": round(float((winners_in == ib).any(axis=1).mean()) * 100, 1),
+            "seed_a": seeds[a], "seed_b": seeds[b],
+            "weeks": list(rounds[CUP_SEMIFINAL_ROUND]),
+            "format": "single game",
+            "pairing_source": source,
+            "pairing_probability": round(share * 100, 1),
+        })
     cup_odds_delta = {}
-    history = data.records.get("cup_odds_history", {})
-    last = history.get(f"week_{current_week - 1}")
+    last = data.records.get("cup_odds_history", {}).get(f"week_{sp.current_week - 1}")
     if isinstance(last, dict):
         for m in MANAGERS:
             if m in last:
                 cup_odds_delta[m] = cup_odds[m] - last[m]
-
     weeks_counted = max(len(cup_weeks()), 1)
     return CupOddsResult(
-        num_simulations=num_simulations,
-        current_week=current_week,
-        cup_round=cup_round_for_week(current_week),
+        num_simulations=n,
+        current_week=sp.current_week,
+        cup_round=cup_round_for_week(sp.current_week),
         cup_odds=cup_odds,
-        finish_distribution={
-            m: {pos: (c / num_simulations) * 100 for pos, c in positions.items()}
-            for m, positions in finish_counts.items()
-        },
+        finish_distribution=finish,
         semi_matchups=semi_matchups,
         seeds=seeds,
-        seeding_points=points,
+        seeding_points={m: float(sp.cup_points[:, j].mean()) for j, m in enumerate(managers)},
         seeding_weeks=cup_seeding_weeks(),
-        round_weeks={name: list(weeks) for name, weeks in rounds.items()},
-        keeper_stakes=keeper_stakes,
-        expected_scores={m: score_totals[m] / (num_simulations * weeks_counted)
-                         for m in MANAGERS},
+        round_weeks={nm: list(w) for nm, w in rounds.items()},
+        keeper_stakes=keeper_stakes(),
+        expected_scores={m: float(sp.cup_week_points[:, j].mean()) / weeks_counted
+                         for j, m in enumerate(managers)},
         cup_odds_delta=cup_odds_delta,
     )
 

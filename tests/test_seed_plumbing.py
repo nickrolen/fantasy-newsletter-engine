@@ -21,8 +21,11 @@ from modules import simulator_playoff_odds as spo
 from modules import simulator_title_odds as sto
 
 ROOT = Path(__file__).resolve().parent.parent
-SIM_CALLS = ("run_title_odds_simulation", "run_playoff_odds_simulation",
-             "run_cup_odds_simulation", "generate_weekly_betting_lines")
+# What build_stats_report calls. Since Phase 2 title odds, the bracket and the
+# Cup are readouts of one season pass, so the build makes one run_season call
+# where it used to make three driver calls; the drivers themselves still take
+# and require the seed (test 4 below).
+SIM_CALLS = ("run_season", "generate_weekly_betting_lines")
 
 
 def _script():

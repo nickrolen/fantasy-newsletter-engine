@@ -17,6 +17,7 @@ import pytest
 
 import modules.simulator_playoff_odds as spo
 from modules.data_loader import MANAGERS, Record
+from season_world import decided_world
 
 
 SEMI = spo.SEMIFINAL_ROUND
@@ -50,15 +51,11 @@ def _matrices(scores_by_week, n=1, calls=None):
 
 
 def _run(monkeypatch, scores, decided=None, n=3):
-    """run_playoff_odds_simulation on scripted weeks; returns (result, calls)."""
+    """run_playoff_odds_simulation on scripted weeks over a decided regular
+    season (seeds 1-4 = SEEDS, pairs = PAIRS); returns (result, calls)."""
     calls = []
-    monkeypatch.setattr(spo, "load_all_team_projections", lambda data: {})
-    monkeypatch.setattr(spo, "_decided_weeks", lambda data: dict(decided or {}))
-    monkeypatch.setattr(spo, "get_playoff_seeds", lambda data: dict(SEEDS))
-    monkeypatch.setattr(spo, "get_semifinal_matchups", lambda data, seeds: (
-        [{"manager_a": a, "manager_b": b} for a, b in PAIRS], "test"))
-    monkeypatch.setattr(spo, "week_score_matrices", _matrices(scores, calls=calls))
-    return spo.run_playoff_odds_simulation(_data(current_week=15), num_simulations=n, seed=1), calls
+    data = decided_world(monkeypatch, scores, decided=decided, calls=calls)
+    return spo.run_playoff_odds_simulation(data, num_simulations=n, seed=1), calls
 
 
 def _flat(week_scores):
