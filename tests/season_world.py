@@ -21,6 +21,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from modules import roster_plan
 from modules.data_loader import MANAGERS, Record
 
 STANDINGS = {"Nick": Record(12, 3, 0), "Hayden": Record(9, 6, 0),
@@ -65,4 +66,5 @@ def decided_world(monkeypatch, scores_by_week, decided=None, calls=None,
         regular_season_results=lambda include_playoffs=False: (
             dict(standings), {m: {} for m in MANAGERS}, dict(points)),
         get_manager_record=lambda m: standings[m],
+        il_slots=roster_plan.no_il(16),      # this world's IL state: nobody in a slot
     )

@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from modules import simulator_betting as sb
+from modules import roster_plan
 from modules import week_state as ws
 from modules.data_loader import FantasyData
 from modules.projections import PlayerProjection, TeamProjections
@@ -76,8 +77,12 @@ def _data(through=MON, current_week=1, **kw):
     week = {"week": 2, "start_date": MON.isoformat(), "end_date": D[6].isoformat(),
             "matchups": [{"manager_a": "Nick", "manager_b": "Benton"},
                          {"manager_a": "Hayden", "manager_b": "Garrett"}]}
-    return FantasyData(schedule={"weeks": [week]}, nba_schedule={"games": games},
-                       playerlog=pl, lineups=lu, current_week=current_week), week
+    data = FantasyData(schedule={"weeks": [week]}, nba_schedule={"games": games},
+                       playerlog=pl, lineups=lu, current_week=current_week)
+    # This world's IL state, stated: nobody in an IL slot (roster_plan reads
+    # data/IL_SLOTS.json otherwise, and refuses when it is missing).
+    data.il_slots = roster_plan.no_il(2)
+    return data, week
 
 
 def _remainder(as_of, statuses=None, anchors=None, **kw):

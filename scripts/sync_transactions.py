@@ -406,12 +406,22 @@ def main():
     parser.add_argument(
         "--week",
         type=int,
-        required=True,
-        help="Fantasy week number to process (required)",
+        required=False,
+        help="Fantasy week number to process (required unless --il-only)",
+    )
+    parser.add_argument(
+        "--il-only",
+        action="store_true",
+        help="only refresh data/IL_SLOTS.json (who sits in an IL slot now) from "
+             "Yahoo's live rosters; ROSTERS.json and the waivers files are untouched",
     )
     
     args = parser.parse_args()
     base_path = Path(args.base_path)
+    if args.il_only:
+        return write_il_file(base_path)
+    if args.week is None:
+        parser.error("--week is required unless --il-only")
     
     # Load schedule to get week date ranges
     schedule = load_schedule(base_path)
@@ -514,7 +524,7 @@ def main():
     
     if not changes:
         print("\nNo changes to apply to ROSTERS.json.")
-        return 0
+        return write_il_file(base_path) if args.apply else 0
     
     print(f"\nChanges to apply to ROSTERS.json ({len(changes)}):")
     for change in changes:
@@ -531,6 +541,34 @@ def main():
     for manager, players in updated_rosters.get("rosters", {}).items():
         print(f"  {manager}: {len(players)} players")
     
+    return write_il_file(base_path) if args.apply else 0
+
+
+def write_il_file(base_path: Path) -> int:
+    """data/IL_SLOTS.json: who sits in an IL slot right now, from Yahoo's live
+    selected_position (check_rosters.live_il_names). The simulator's roster
+    plan reads this file and nothing else, and refuses one from an earlier
+    fantasy week -- so it is written on every --apply sync, changes or not.
+    A failed fetch writes nothing and exits non-zero."""
+    import datetime as _dt
+    import importlib.util
+    from modules import roster_plan
+    spec = importlib.util.spec_from_file_location(
+        "check_rosters", Path(__file__).resolve().parent / "check_rosters.py")
+    cr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cr)
+    try:
+        slots = cr.live_il_names(base_path / "oauth2.json")
+    except Exception as e:
+        print(f"ERROR: could not read the live IL slots from Yahoo ({e}); "
+              f"{roster_plan.IL_FILE} NOT written")
+        return 2
+    now = _dt.datetime.now()
+    week = roster_plan.fantasy_week_on(load_schedule(base_path), now.date())
+    path = roster_plan.write_il_slots(base_path, slots, week, now)
+    on = {m: v for m, v in slots.items() if v}
+    print(f"\nWrote {path} (fantasy week {week}): "
+          + (", ".join(f"{m}: {', '.join(v)}" for m, v in sorted(on.items())) or "nobody on IL"))
     return 0
 
 

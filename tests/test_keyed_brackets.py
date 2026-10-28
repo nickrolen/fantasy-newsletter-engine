@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from modules import roster_plan
 from modules import simulator_betting as sb
 from modules import simulator_cup_odds as cup
 from modules import simulator_playoff_odds as spo
@@ -41,7 +42,7 @@ def _world(seed=0):
     teams = {}
     for m in MANAGERS:
         ps = {}
-        for j in range(13):
+        for j in range(15):          # a full 15: the roster plan has no spot to fill
             n = f"{m}{j}"
             ps[n] = PlayerProjection(player_name=n, nba_team=rng.choice(TEAMS),
                                      positions=rng.choice(POS).split(","),
@@ -50,6 +51,7 @@ def _world(seed=0):
     scores = {m: [{"week": 1, "score": 1000.0 + 10 * i}] for i, m in enumerate(MANAGERS)}
     data = FantasyData(schedule={"weeks": weeks}, nba_schedule={"games": games},
                        records={"weekly_scores": scores}, current_week=15)
+    data.il_slots = roster_plan.no_il(16)       # this world's IL state: nobody in a slot
     return data, teams
 
 

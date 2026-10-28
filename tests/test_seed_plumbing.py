@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+import il_state
 import modules.advice_runner as ar
 import modules.data_loader as dl
 import modules.report_builder as rb
@@ -109,6 +110,9 @@ def runs():
     for seed in (3, 3, 4):
         got.clear()
         data = dl.load_all_data(ROOT, current_week=1)
+        # The IL state, stated: this test is about plumbing, and the weekly suite
+        # (Step 0b) runs before the roster sync refreshes data/IL_SLOTS.json.
+        data.il_slots = il_state.as_last_synced(2)
         rep = rb.build_stats_report(data, 1, run_simulations=True,
                                     num_title_sims=60, num_betting_sims=200, seed=seed)
         out.append((rep, list(got)))

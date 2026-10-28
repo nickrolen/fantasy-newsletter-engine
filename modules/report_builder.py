@@ -3498,12 +3498,15 @@ def _published_line_records(data, betting_lines, seed, num_betting_sims,
     except KeyError:
         entry = {"week": week}
     teams = load_all_team_projections(data)
+    from .roster_plan import for_run, week_rosters
+    teams, il_mask = week_rosters(for_run(data, teams, injury_statuses), teams, week)
     key = ws.line_cache_key(
         state_hash=None, tags=ws.tags_fingerprint(injury_statuses or {}, {}),
         projections=ws.projections_fingerprint(teams),
         overrides=ws.governing_overrides(data, week, week_dates, teams),
         schedule=ws.schedule_fingerprint(data, entry), assumptions=(),
-        seed=seed, num_simulations=num_betting_sims, engine=engine)
+        seed=seed, num_simulations=num_betting_sims, engine=engine,
+        il={m: sorted(v) for m, v in sorted((il_mask or {}).items())})
     return [
         cal.line_record(preview.betting_line, week=week, season=CURRENT_SEASON,
                         seed=seed, num_simulations=num_betting_sims, engine=engine,

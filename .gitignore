@@ -101,6 +101,9 @@ data/LEAGUEHISTORY.xlsx
 # Config Files - Dynamic State
 # --------------------------------------------
 config/ROSTERS.json
+# Who sits in an IL slot now (sync_transactions.py, read by modules/roster_plan.py).
+# Live league state, like ROSTERS.json.
+data/IL_SLOTS.json
 config/RECORDS.json
 
 # --------------------------------------------

@@ -49,6 +49,7 @@ from modules.data_loader import load_all_data, atomic_write_json          # noqa
 from modules.projections import load_all_team_projections                 # noqa: E402
 from modules import simulator_betting as sb                               # noqa: E402
 from modules import week_state as ws                                      # noqa: E402
+from modules import roster_plan                                           # noqa: E402
 
 CAVEATS = [
     "Team-level noise on the remainder is scaled by sqrt(share of the week's NBA game-days "
@@ -80,7 +81,8 @@ def _fetch_statuses(base: Path) -> dict:
 class Prepared(SimpleNamespace):
     """Everything a line is priced from, gathered and checked, nothing written:
     base, data, week, entry, as_of, seed, out_dir, state_path, live, anchors,
-    events, assumptions, teams, state. B3's scheduled service computes its
+    events, assumptions, teams (that week's, under the roster plan), state,
+    il_mask. B3's scheduled service computes its
     cache key from this before deciding whether to price at all.
 
     A namespace, not a dataclass: this script is also loaded by file path
@@ -143,12 +145,18 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
         previous, live, as_of, week_start, assume_tags_since_week_start)
     assumptions += tag_assumptions
 
+    # --- the week's rosters under the league's IL rules (roster_plan): the plan
+    # the season pass and the weekly build read, so a live line is that week
+    teams, il_mask = roster_plan.week_rosters(roster_plan.for_run(data, teams, live),
+                                              teams, week)
+
     # --- the played state
     state = ws.week_state(data, week, as_of, teams, allow_missing_days=allow_missing_days)
     assumptions += list(state.assumptions)
     return Prepared(base=base, data=data, week=week, entry=entry, as_of=as_of, seed=int(seed),
                     out_dir=out_dir, state_path=state_path, live=live, anchors=anchors,
-                    events=events, assumptions=assumptions, teams=teams, state=state)
+                    events=events, assumptions=assumptions, teams=teams, state=state,
+                    il_mask=il_mask or {})
 
 
 def cache_key(p: Prepared, sims: int) -> dict:
@@ -163,7 +171,8 @@ def cache_key(p: Prepared, sims: int) -> dict:
         overrides=ws.governing_overrides(p.data, p.week, sb.get_dates_in_week(p.entry), p.teams),
         schedule=ws.schedule_fingerprint(p.data, p.entry),
         assumptions=p.assumptions, seed=p.seed, num_simulations=sims,
-        engine=_cal.engine_version(p.base))
+        engine=_cal.engine_version(p.base),
+        il={m: sorted(v) for m, v in sorted((p.il_mask or {}).items())})
 
 
 def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
@@ -178,7 +187,8 @@ def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
     data, week, entry, as_of, seed = p.data, p.week, p.entry, p.as_of, p.seed
     live, anchors, events, assumptions = p.live, p.anchors, p.events, list(p.assumptions)
     teams, state, base, out_dir = p.teams, p.state, p.base, p.out_dir
-    res = sb.simulate_week_remainder(data, teams, entry, state, seed, sims, live or None, anchors)
+    res = sb.simulate_week_remainder(data, teams, entry, state, seed, sims, live or None, anchors,
+                                     il_mask=p.il_mask or None)
     basis = {n: b.basis for n, b in res.tag_blocks.items()}
     for e in events:
         if e["anchor"] is None:

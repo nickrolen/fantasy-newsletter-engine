@@ -241,6 +241,10 @@ class PlayerProjection:
     actual_games: int = 0  # Games played this season
     actual_std: float = None  # Actual standard deviation
 
+    # A replacement-level stand-in from the roster plan (roster_plan.standin):
+    # his projected_gp IS his durability prior, never looked up by name.
+    standin: bool = False
+
     def __post_init__(self):
         if self.out_weeks is None:
             self.out_weeks = []

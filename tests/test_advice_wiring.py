@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+import il_state
 from modules import advice_runner as ar
 from modules import advice_render as rr
 
@@ -43,6 +44,9 @@ def failed_report():
     mp.setattr(dl, "ADVICE_PUBLISH_FROM_WEEK", 1)
     mp.setattr(rb, "build_season_performers", lambda *a, **k: {})   # no Yahoo in tests
     data = dl.load_all_data(ROOT, current_week=1)
+    # The IL state, stated (tests/il_state.py): the weekly suite (Step 0b)
+    # runs before the roster sync refreshes data/IL_SLOTS.json.
+    data.il_slots = il_state.as_last_synced(2)
     report = rb.build_stats_report(data, 1, run_simulations=True,
                                    num_title_sims=100, num_betting_sims=100, seed=1)
     mp.undo()

@@ -441,10 +441,15 @@ def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
     for manager in (managers or team_projections.keys()):
         for name, p in team_projections[manager].players.items():
             team = p.nba_team.upper()
-            status = statuses.get(name) if statuses is not None else None
-            absence.check_season_out_override(name, status, p.return_week, p.return_date,
-                                              p.return_games)
-            prior_gp, _fell_back = prior.gp_for(name, p.projected_gp)
+            if getattr(p, "standin", False):
+                # roster_plan's stand-in: no tag, and the prior's median GP
+                # stated on him -- not a lookup, so never a 'fallback'.
+                status, prior_gp = None, float(p.projected_gp)
+            else:
+                status = statuses.get(name) if statuses is not None else None
+                absence.check_season_out_override(name, status, p.return_week, p.return_date,
+                                                  p.return_games)
+                prior_gp, _fell_back = prior.gp_for(name, p.projected_gp)
             gp = absence.effective_projected_gp(status, prior_gp)
             miss_rate = absence.durability_miss_rate(gp, params)
             out_for_season = absence.season_out(status)
@@ -805,9 +810,14 @@ def simulate_week_matrix(
     anchors: dict = None,
     tag_week_info: tuple = None,
     observed: dict = None,
+    il_mask: dict = None,
 ) -> dict[str, dict]:
     """
     Simulate one fantasy week, all `draws.n` simulations at once.
+
+    il_mask: {manager: names in an IL slot this week} (roster_plan): they
+    score nothing all week, healthy or not -- an IL slot is fixed for the
+    week (LEAGUE_RULES, 2026-27 IL rule 5). A mask, not a roster removal.
 
     from_date (B2): simulate only the days on or after it -- the remainder.
     Every draw keeps its key (player, date), so a remainder is literally the
@@ -854,7 +864,13 @@ def simulate_week_matrix(
     for manager in managers:
         team_proj = team_projections[manager]
         res = {k: np.zeros(n) for k in ("score", "games", "G", "F", "C")}
-        days = [(d, e) for d, e in plan[manager] if e and (from_date is None or d >= from_date)]
+        # An IL occupant is off the week entirely: his entries are dropped
+        # before any draw is taken, so a masked roster is bit-identical to the
+        # roster without him (keyed draws: nobody else's draws move).
+        on_il = (il_mask or {}).get(manager) or ()
+        days = [(d, [e for e in es if e[8] not in on_il]) for d, es in plan[manager]
+                if from_date is None or d >= from_date]
+        days = [(d, es) for d, es in days if es]
         game_keys = [(e[0], d) for d, es in days for e in es]
         z_all = draws.normals_many("game", game_keys) if game_keys else None
         rate_keys = [(e[8], d) for d, es in days for e in es if e[4] is not None]
@@ -947,8 +963,13 @@ def week_score_matrices(
     seed: int = None,
     num_simulations: int = DEFAULT_NUM_SIMULATIONS,
     tag_anchor: date = None,
+    plan=None,
 ) -> dict[int, dict[str, np.ndarray]]:
     """{week: {manager: scores[n]}} -- one keyed simulation of each week.
+
+    plan: a roster_plan.Run. Each week is then played with that week's
+    rosters (IL moves, pickups, activations) and its IL slots masked; without
+    one, every week is played with team_projections as given.
 
     The playoff and Cup simulators precompute their weeks here once and read
     simulation i at index i, instead of re-simulating a week per iteration.
@@ -967,8 +988,12 @@ def week_score_matrices(
     for w in weeks:
         wd = schedule_week(data, w)
         assert "matchups" not in wd
-        res = simulate_week_matrix(data, team_projections, wd, injury_statuses, draws,
-                                   tag_anchor, managers=MANAGERS)
+        tp, mask = team_projections, None
+        if plan is not None:
+            from .roster_plan import week_rosters
+            tp, mask = week_rosters(plan, team_projections, w)
+        res = simulate_week_matrix(data, tp, wd, injury_statuses, draws,
+                                   tag_anchor, managers=MANAGERS, il_mask=mask)
         out[int(w)] = {m: res[m]["score"] for m in MANAGERS}
     return out
 
@@ -1141,6 +1166,7 @@ def simulate_week_remainder(
     num_simulations: int = DEFAULT_NUM_SIMULATIONS,
     injury_statuses: dict = None,
     anchors: dict = None,
+    il_mask: dict = None,
 ) -> RemainderResult:
     """B2: the as-of line. Banked from the logs, the rest simulated.
 
@@ -1166,7 +1192,7 @@ def simulate_week_remainder(
     tw = (week, dates)
     rem = simulate_week_matrix(data, team_projections, week_data, injury_statuses, draws,
                                from_date=state.as_of, anchors=anchors, tag_week_info=tw,
-                               observed=state.observed)
+                               observed=state.observed, il_mask=il_mask)
     blocks = tag_blocks(data, team_projections, injury_statuses, draws, None, anchors, tw,
                         state.observed, state.as_of)
     lines = []
@@ -1356,8 +1382,13 @@ def generate_weekly_betting_lines(
     
     week_num = week_data["week"]
     
-    # Load projections
+    # Load projections, then the week's rosters under the league's IL rules
+    # (roster_plan): the same plan the season pass reads, so this line is the
+    # pass's week, column for column.
     team_projections = load_all_team_projections(data)
+    from .roster_plan import for_run, week_rosters
+    team_projections, il_mask = week_rosters(for_run(data, team_projections, injury_statuses),
+                                             team_projections, week_num)
     
     # Get H2H records
     h2h_data = data.records.get("h2h_season", {})
@@ -1368,7 +1399,7 @@ def generate_weekly_betting_lines(
     previews = []
     # Simulate the week once for every manager; each matchup reads it.
     week_results = simulate_week_matrix(data, team_projections, week_data, injury_statuses,
-                                        KeyedDraws(draw_seed, num_simulations))
+                                        KeyedDraws(draw_seed, num_simulations), il_mask=il_mask)
     
     for matchup_def in week_data["matchups"]:
         manager_a = matchup_def["manager_a"]

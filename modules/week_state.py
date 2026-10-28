@@ -348,7 +348,7 @@ def schedule_fingerprint(data: FantasyData, week_entry_: dict) -> str:
 
 def line_cache_key(*, state_hash: str, tags: str, projections: str, overrides: list,
                    schedule: str, assumptions, seed: int, num_simulations: int,
-                   engine: dict) -> dict:
+                   engine: dict, il: dict = None) -> dict:
     """{"key": str, "parts": {...}, "cacheable": bool, "why_not": str|None}.
 
     parts: state_hash (the played state), tags, projections, overrides (the
@@ -363,6 +363,7 @@ def line_cache_key(*, state_hash: str, tags: str, projections: str, overrides: l
     parts = {"state_hash": state_hash, "tags": tags, "projections": projections,
              "overrides": _sha(overrides or []), "schedule": schedule,
              "assumptions": _sha(sorted(str(a) for a in (assumptions or ()))),
+             "il": _sha(il or {}),
              "seed": int(seed), "num_simulations": int(num_simulations),
              "engine_commit": engine.get("commit"), "engine_dirty": engine.get("dirty")}
     why_not = None

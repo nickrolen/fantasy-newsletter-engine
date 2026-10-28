@@ -12,6 +12,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from modules import roster_plan
 from modules import season_sim as ss
 from modules import simulator_betting as sb
 from modules import simulator_playoff_odds as spo
@@ -47,7 +48,7 @@ def _world(recorded_through=8, seed=0, strength=None):
     teams = {}
     for m in MANAGERS:
         ps = {}
-        for j in range(13):
+        for j in range(15):          # a full 15: the roster plan has no spot to fill
             n = f"{m}{j}"
             ps[n] = PlayerProjection(player_name=n, nba_team=rng.choice(TEAMS),
                                      positions=rng.choice(POS).split(","),
@@ -58,6 +59,7 @@ def _world(recorded_through=8, seed=0, strength=None):
                   for w in range(1, recorded_through + 1)] for m in MANAGERS}
     data = FantasyData(schedule={"weeks": weeks}, nba_schedule={"games": games},
                        records={"weekly_scores": scores}, current_week=recorded_through)
+    data.il_slots = roster_plan.no_il(1)        # this world's IL state: nobody in a slot
     return data, teams
 
 
@@ -311,6 +313,8 @@ def _scripted(monkeypatch, recs, weeks, scores):
         return {w: {m: np.full(num_simulations, float(scores.get(w, {}).get(m, 100.0)))
                     for m in MANAGERS} for w in wks}
     monkeypatch.setattr(ss, "week_score_matrices", fake)
+    for wk in weeks:     # the roster plan's move windows are each week's first day
+        wk.setdefault("start_date", (FIRST + timedelta(days=7 * (wk["week"] - 1))).isoformat())
     last = 15 - len(weeks)
     return SimpleNamespace(
         schedule={"weeks": weeks},
@@ -320,6 +324,7 @@ def _scripted(monkeypatch, recs, weeks, scores):
         regular_season_results=lambda include_playoffs=False: (
             dict(recs), {m: {} for m in MANAGERS}, {m: 1000.0 for m in MANAGERS}),
         get_manager_record=lambda m: recs[m],
+        il_slots=roster_plan.no_il(1),
     )
 
 
@@ -479,7 +484,7 @@ def test_the_in_progress_week_is_banked_plus_remainder_not_dropped(monkeypatch):
     monkeypatch.setattr(wsm, "week_state", lambda d, w, as_of, tp=None: SimpleNamespace(
         banked=banked, assumptions=("test",)))
 
-    def remainder(d, tp, entry, state, seed, n, statuses=None, anchors=None):
+    def remainder(d, tp, entry, state, seed, n, statuses=None, anchors=None, il_mask=None):
         seen.update(week=entry["week"], seed=seed, n=n)
         return SimpleNamespace(remaining={m: {"score": np.full(n, 1.0)} for m in MANAGERS})
     monkeypatch.setattr(sb, "simulate_week_remainder", remainder)

@@ -38,9 +38,12 @@ with every field they always had.
 
 FROZEN ROSTERS
 --------------
-No future adds, drops or trades: the pass is "given no further moves". That
-keeps a waiver counterfactual readable (one move, same draws). It also means
-simulated point totals run LOW -- an injury absorbed is never replaced -- and
+No future adds, drops or trades except the moves the league's rules force
+(modules/roster_plan.py): a player out on an override goes to IL with one
+replacement-level pickup, and an IL player is activated at the first window
+he is healthy. Otherwise the rosters are held as they are. That keeps a
+waiver counterfactual readable (one move, same draws). It also means
+simulated point totals run LOW -- a short absence is never replaced -- and
 the bias falls on all four managers roughly equally, so the odds are fair and
 absolute season totals are not. Played weeks replace projected ones as the
 season goes, so totals converge on the real figures by the end. Say so
@@ -328,16 +331,22 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         to_sim += [w for w in bracket_weeks(season) if w not in decided_bracket]
     if play_cup:
         to_sim += [w for w in cup_weeks(season) if w not in decided_cup]
-    mats = week_score_matrices(data, team_projections, to_sim, injury_statuses, seed, n) if to_sim else {}
+    # the league's IL rules (roster_plan): one plan for the run, shared by every
+    # iteration and by the betting lines
+    from .roster_plan import for_run, week_rosters
+    plan = for_run(data, team_projections, injury_statuses)
+    mats = (week_score_matrices(data, team_projections, to_sim, injury_statuses, seed, n, plan=plan)
+            if to_sim else {})
 
     # --- in-progress regular weeks: B2, banked + the remainder ---------------
     from .week_state import week_state
     in_progress = {}
     for w in pending:
         as_of = _as_of_for(data, w)
-        state = week_state(data, w, as_of, team_projections)
-        rem = simulate_week_remainder(data, team_projections, reg_entries[w], state, seed, n,
-                                      injury_statuses)
+        tp_w, mask_w = week_rosters(plan, team_projections, w)
+        state = week_state(data, w, as_of, tp_w)
+        rem = simulate_week_remainder(data, tp_w, reg_entries[w], state, seed, n,
+                                      injury_statuses, il_mask=mask_w)
         mats[w] = {m: float(state.banked.get(m, 0.0)) + np.asarray(rem.remaining[m]["score"], float)
                    for m in managers}
         in_progress[w] = {"as_of": as_of.isoformat(), "banked": dict(state.banked),
