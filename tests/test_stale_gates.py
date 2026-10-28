@@ -310,3 +310,63 @@ def test_a_dead_override_is_not_called_a_spelling_mistake():
     assert found["Derik White"] == "Derrick White"      # a near miss: a typo
     src = (ROOT / "scripts" / "verify_project_integrity.py").read_text(encoding="utf-8")
     assert "DEAD ENTRY" in src and "Probably a TYPO" in src
+
+
+# 5 -- the shift check reads the NBA team, which the calendar does not move
+# (HANDOFF two small fixes, 2026-10-28). Both files are real Yahoo fetches two
+# days apart; the old in-season GP-share comparison failed this pair at 28%.
+def _live_pair(check, live=None):
+    shutil.copy2(SNAP / "PLAYERLIST_2026-10-26.xlsx", check.SNAPSHOTS / "PLAYERLIST_2026-10-26.xlsx")
+    frame = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx") if live is None else live
+    _fetched(check, frame, datetime(2026, 10, 28, 0, 30))
+    _rosters(check, frame["player_name"].head(10), "2026-10-26T23:04:00")
+
+
+def test_an_ordinary_pair_of_fetches_days_apart_does_not_fail(check, capsys):
+    _live_pair(check)
+    assert _run(check, []) == 0
+    out = capsys.readouterr().out
+    assert "no player changed NBA team" in out
+    assert "GP direction not compared: in season" in out           # says which, and why
+    assert "larger share" not in out
+
+
+def test_a_shifted_live_file_fails_and_names_the_rows(check, capsys):
+    _live_pair(check, _shift(_frame(SNAP / "PLAYERLIST_2026-10-28.xlsx")))
+    assert _run(check, []) == 1
+    out = capsys.readouterr().out
+    assert "on a different NBA team than last week" in out and "not trades" in out
+    assert "Luka Don" in out and "LAL -> DEN" in out
+
+
+def test_a_shift_confined_to_a_few_rows_still_fails_on_its_neighbours(check, capsys):
+    live = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx")
+    part = pd.concat([live.iloc[:-12], _shift(live.iloc[-13:])]).reset_index(drop=True)
+    _live_pair(check, part)
+    assert _run(check, []) == 1
+    assert "on the team the player in the next or previous row had" in capsys.readouterr().out
+
+
+def test_a_real_trade_is_reported_not_failed(check, capsys):
+    live = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx").copy()
+    i = live.index[live["player_name"].str.startswith("Luka")][0]
+    j = live.index[live["player_name"] == "Jayson Tatum"][0]
+    live.loc[i, "player_nba_team"] = "MIA"                     # nobody near him was MIA
+    live.loc[j, "player_nba_team"] = "POR"
+    _live_pair(check, live)
+    assert _run(check, []) == 0
+    out = capsys.readouterr().out
+    assert "2 player(s) changed NBA teams" in out and "LAL -> MIA" in out and "BOS -> POR" in out
+
+
+def test_the_pre_season_path_still_fails_a_shift_at_the_measured_rate(check, capsys):
+    import re
+    shutil.copy2(SNAP / "PLAYERLIST_2026-10-05.xlsx", check.SNAPSHOTS / "PLAYERLIST_2026-10-05.xlsx")
+    real = _frame(SNAP / "PLAYERLIST_2026-10-13.xlsx").sort_values(
+        "player_total_proj_FP", ascending=False).reset_index(drop=True)
+    _fetched(check, _shift(real), datetime(2026, 10, 13, 16, 0))
+    assert _run(check, []) == 1
+    out = capsys.readouterr().out
+    rate = re.search(r"players \((\d+)%\) have a larger share", out)
+    assert rate and 44 <= int(rate.group(1)) <= 50, out          # measured 47% on 10-27
+    assert "compared as a share of games remaining (both files pre-season shaped)" in out

@@ -195,7 +195,7 @@ def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFA
                                  else "inputs changed: " + ", ".join(
                                      k for k, v in key["parts"].items()
                                      if ((on_disk.get("cache") or {}).get("parts") or {}).get(k) != v))
-            rl.price(p, sims, produced_by=run_id,
+            rl.price(p, sims, produced_by=run_id, key=key,
                      extra={"produced_by": {"run_id": run_id, "trigger": trigger,
                                             "started_at": started},
                             "cache": key})

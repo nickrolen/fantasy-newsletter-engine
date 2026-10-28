@@ -3486,10 +3486,28 @@ def _published_line_records(data, betting_lines, seed, num_betting_sims,
         week, week_dates, rosters, (data.injury_overrides or {}).get("players") or [])
     engine = cal.engine_version(data.base_path)
     stamp = datetime.now().isoformat(timespec="seconds")
+    # The record's identity: the same line key B3's refresh service caches on
+    # (week_state.line_cache_key), over the inputs this pre-week line was
+    # priced from. A pre-week line has no played state, so state_hash is None.
+    # Re-running the build with nothing changed -- Step 7 drafts iteratively --
+    # appends nothing; a tag, override or projection that moved appends.
+    from . import week_state as ws
+    from .projections import load_all_team_projections
+    try:
+        entry = schedule_week(data, week)
+    except KeyError:
+        entry = {"week": week}
+    teams = load_all_team_projections(data)
+    key = ws.line_cache_key(
+        state_hash=None, tags=ws.tags_fingerprint(injury_statuses or {}, {}),
+        projections=ws.projections_fingerprint(teams),
+        overrides=ws.governing_overrides(data, week, week_dates, teams),
+        schedule=ws.schedule_fingerprint(data, entry), assumptions=(),
+        seed=seed, num_simulations=num_betting_sims, engine=engine)
     return [
         cal.line_record(preview.betting_line, week=week, season=CURRENT_SEASON,
                         seed=seed, num_simulations=num_betting_sims, engine=engine,
-                        as_of=stamp, source=cal.WEEKLY_BUILD,
+                        line_key=key["key"], as_of=stamp, source=cal.WEEKLY_BUILD,
                         tags=injury_statuses, overrides_governing=governing)
         for preview in betting_lines.matchup_previews
     ]

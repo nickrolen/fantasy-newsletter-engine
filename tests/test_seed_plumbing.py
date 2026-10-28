@@ -135,3 +135,16 @@ def test_the_same_seed_gives_the_same_lines_and_odds(runs):
 
 def test_a_different_seed_gives_different_numbers(runs):
     assert _numbers(runs[0][0]) != _numbers(runs[2][0])
+
+
+def test_the_build_logs_a_rerun_once_and_a_new_seed_again(runs):
+    """The weekly build's calibration records take their identity from the
+    line key (calibration_log.IDENTITY): the same build twice is the same
+    record, a different seed is a different one -- whatever the clock said."""
+    from modules import calibration_log as cal
+    keys = [{r["matchup_id"]: r["line_key"] for r in rep["metadata"]["published_lines"]}
+            for rep, _got in runs]
+    assert keys[0] and keys[0] == keys[1]
+    assert all(keys[2][m] != k for m, k in keys[0].items())
+    ids = [{cal.identity(r) for r in rep["metadata"]["published_lines"]} for rep, _got in runs]
+    assert ids[0] == ids[1] and not (ids[0] & ids[2])

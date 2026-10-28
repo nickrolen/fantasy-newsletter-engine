@@ -167,11 +167,14 @@ def cache_key(p: Prepared, sims: int) -> dict:
 
 
 def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
-          produced_by: str = "refresh_lines (manual)", extra: dict = None) -> dict:
+          produced_by: str = "refresh_lines (manual)", extra: dict = None,
+          key: dict = None) -> dict:
     """Simulate the remainder and, unless dry_run, write the line, the week's
     state, the calibration records and the tag log. `extra` is merged into
     the payload before it is written (B3: the run that produced it, the
-    cache key)."""
+    cache key). `key` is cache_key(p, sims) if the caller already has it; it
+    is also each calibration record's identity."""
+    key = key or cache_key(p, sims)
     data, week, entry, as_of, seed = p.data, p.week, p.entry, p.as_of, p.seed
     live, anchors, events, assumptions = p.live, p.anchors, p.events, list(p.assumptions)
     teams, state, base, out_dir = p.teams, p.state, p.base, p.out_dir
@@ -232,7 +235,8 @@ def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
         stamp = datetime.now().isoformat(timespec="seconds")
         logged = cal.append([
             cal.line_record(ln, week=week, seed=seed, num_simulations=sims,
-                            engine=engine, as_of=stamp, state_hash=state.state_hash,
+                            engine=engine, line_key=key["key"], as_of=stamp,
+                            state_hash=state.state_hash,
                             source=cal.LIVE_REFRESH, tags=live or {},
                             overrides_governing=governing)
             for ln in res.lines], base)

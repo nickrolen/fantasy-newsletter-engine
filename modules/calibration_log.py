@@ -37,7 +37,7 @@ A line is never rewritten. A line re-issued mid-week by a B2 refresh
 (scripts/refresh_lines.py) is a NEW record with its own as-of timestamp, so
 the log says what was on the page when. The ONE field group that fills in
 later is settlement, once and never again: re-running the same build appends
-nothing (same identity), and a settled line that disagrees with RECORDS.json
+nothing (same line key -- see IDENTITY), and a settled line that disagrees with RECORDS.json
 RAISES rather than being quietly corrected -- that disagreement means the log
 and the records disagree about what happened.
 
@@ -79,11 +79,30 @@ SCHEMA = 1
 WEEKLY_BUILD = "weekly_build"          # generate_stats_report, the pre-week line
 LIVE_REFRESH = "live_refresh"          # refresh_lines, a mid-week re-issue
 
-# What makes two records the same published line. A genuine re-issue differs
-# in as_of (and usually state_hash), so it appends; a re-run of the same build
-# matches on all of these and is skipped.
-IDENTITY = ("season", "week", "matchup_id", "engine_commit", "engine_dirty",
-            "seed", "num_simulations", "state_hash", "as_of", "source")
+# What makes two records the same published line: the LINE KEY, which is
+# week_state.line_cache_key -- the same answer B3's refresh service uses to
+# decide that nothing changed, over the played state, the tags, the
+# projections used, the governing INJURY_OVERRIDES entries, the schedule, the
+# assumptions, the seed, the simulation count and the engine. One definition:
+# if the cache says the line is unchanged, the log does not append.
+#
+# It used to be a parallel tuple ending in `as_of`, and as_of is a wall-clock
+# timestamp to the second -- so "idempotent" held only for a rerun inside the
+# same second (two minutes apart on 2026-10-23: both kept), while the tuple
+# could not see a tag or an override at all. Dropping as_of or truncating it to
+# the day would have fixed the first and kept the second: a tag change the same
+# day, same state and seed, would have been skipped as a duplicate.
+#
+# A dirty or unknown engine's key cannot vouch for the code (two uncommitted
+# simulators share it), so for those records the published numbers join the
+# identity: the same inputs and the same numbers are one record; different
+# numbers from the "same" engine are two.
+IDENTITY = ("season", "week", "matchup_id", "source", "line_key")
+PUBLISHED = ("spread_a", "total", "moneyline_a", "moneyline_b", "win_prob_a", "win_prob_b",
+             "projected_a", "projected_b", "banked_a", "banked_b")
+# Records written before 2026-10-28 carry no line_key; they keep the old tuple.
+LEGACY_IDENTITY = ("season", "week", "matchup_id", "engine_commit", "engine_dirty",
+                   "seed", "num_simulations", "state_hash", "as_of", "source")
 
 SETTLEMENT = ("actual_a", "actual_b", "actual_source", "settled_at")
 
@@ -204,7 +223,7 @@ def engine_key(record: dict) -> str:
 # =============================================================================
 
 def line_record(line, *, week: int, season: str = None, seed: int,
-                num_simulations: int, engine: dict, as_of: str = None,
+                num_simulations: int, engine: dict, line_key: str, as_of: str = None,
                 state_hash: str = None, source: str = WEEKLY_BUILD,
                 tags: dict = None, overrides_governing: dict = None) -> dict:
     """One published line, as logged. `line` is a simulator_betting.BettingLine.
@@ -212,7 +231,14 @@ def line_record(line, *, week: int, season: str = None, seed: int,
     The numbers are the ones that went on the page: the spread and total are
     the rounded, published values, and the projected scores are what the
     newsletter printed beside them.
+
+    line_key is week_state.line_cache_key(...)["key"] for the inputs this line
+    was priced from -- the record's identity (IDENTITY). Required: a record
+    without one cannot be told apart from a rerun.
     """
+    if not line_key:
+        raise ValueError("line_record needs line_key (week_state.line_cache_key): it is the "
+                         "record's identity, and without it a rerun logs the same line twice")
     a, b = line.manager_a, line.manager_b
     tags = dict(tags or {})
     return {
@@ -240,6 +266,7 @@ def line_record(line, *, week: int, season: str = None, seed: int,
         "seed": None if seed is None else int(seed),
         "num_simulations": int(num_simulations),
         "state_hash": state_hash,
+        "line_key": str(line_key),
         "as_of": as_of or datetime.now().isoformat(timespec="seconds"),
         "source": source,
         # the inputs that move a line
@@ -287,7 +314,13 @@ def _matchup_id(a: str, b: str) -> str:
 
 
 def identity(record: dict) -> tuple:
-    return tuple(record.get(k) for k in IDENTITY)
+    """What makes two records the same published line (see IDENTITY)."""
+    if not record.get("line_key"):
+        return ("legacy",) + tuple(record.get(k) for k in LEGACY_IDENTITY)
+    out = tuple(record.get(k) for k in IDENTITY)
+    if record.get("engine_dirty") is not False:          # dirty, or unknown
+        out += tuple(record.get(k) for k in PUBLISHED)
+    return out
 
 
 # =============================================================================
@@ -332,8 +365,10 @@ def save_log(blob: dict, base_path=".") -> Path:
 def append(records: Sequence[dict], base_path=".") -> dict:
     """Append records that are not already there. {"added", "skipped", "path"}.
 
-    Idempotent by IDENTITY, so re-running a build logs nothing twice, while a
-    mid-week re-issue (a different as_of) appends.
+    Idempotent by IDENTITY (the line key), so re-running a build with nothing
+    changed logs nothing twice -- a minute later or a day later -- while a
+    re-issue whose inputs moved (a new day's played state, a tag, an override,
+    a projection) appends.
     """
     blob = load_log(base_path)
     seen = {identity(r) for r in blob["lines"]}

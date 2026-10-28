@@ -47,6 +47,12 @@ def _rec(base_kwargs=None, **over):
                   overrides_governing={"Nick": False, "Benton": True})
     kwargs.update({k: v for k, v in over.items() if k not in FakeLine.__annotations__})
     kwargs.update(base_kwargs or {})
+    # stand-in for week_state.line_cache_key: it covers the engine, the seed,
+    # the simulation count and the state, so a test record's key does too
+    kwargs.setdefault("line_key", "key-{commit}-{dirty}-w{w}-s{s}-n{n}-{h}".format(
+        commit=kwargs["engine"].get("commit"), dirty=kwargs["engine"].get("dirty"),
+        w=kwargs["week"], s=kwargs["seed"], n=kwargs["num_simulations"],
+        h=kwargs.get("state_hash")))
     return cal.line_record(line, **kwargs)
 
 
@@ -314,3 +320,85 @@ def test_the_build_updates_records_before_it_settles():
     state_phase = rb.index("phase=RECORDS_PHASE_STATE")
     lines_built = rb.index("published_lines = _published_line_records(")
     assert state_phase < lines_built
+
+
+# =============================================================================
+# 2026-10-28 -- identity is the line key, not a wall-clock timestamp
+# =============================================================================
+
+def test_the_same_line_twice_appends_once_even_minutes_apart(tmp_path):
+    """The 10-23 duplicates: same line, logged 00:36:52 and 00:38:59."""
+    first = _rec(as_of="2026-10-23T00:36:52")
+    assert cal.append([first], tmp_path)["added"] == 1
+    assert cal.append([first], tmp_path)["added"] == 0
+    later = _rec(as_of="2026-10-23T00:38:59")
+    assert cal.append([later], tmp_path)["added"] == 0
+    next_day = _rec(as_of="2026-10-24T09:00:00")
+    assert cal.append([next_day], tmp_path)["added"] == 0      # nothing it was priced from moved
+    assert len(cal.load_log(tmp_path)["lines"]) == 1
+
+
+def test_a_record_without_a_line_key_is_refused():
+    with pytest.raises(ValueError, match="line_key"):
+        _rec(line_key=None)
+
+
+def test_a_dirty_engine_keeps_lines_apart_only_when_the_numbers_differ(tmp_path):
+    dirty = {"commit": "abc1234", "dirty": True}
+    assert cal.append([_rec(engine=dirty)], tmp_path)["added"] == 1
+    assert cal.append([_rec(engine=dirty, as_of="2026-11-02T09:00:00")], tmp_path)["added"] == 0
+    assert cal.append([_rec(engine=dirty, spread_a=19.5)], tmp_path)["added"] == 1
+
+
+def test_a_legacy_record_keeps_its_old_identity():
+    r = _rec()
+    r.pop("line_key")
+    assert cal.identity(r)[0] == "legacy" and "2026-11-02T08:00:00" in cal.identity(r)
+
+
+# Through the real writer: refresh_lines on the synthetic week of test_live_lines
+@pytest.fixture
+def live(monkeypatch, tmp_path):
+    import importlib
+    import sys
+    sys.path.insert(0, str(ROOT / "scripts"))
+    sys.path.insert(0, str(ROOT / "tests"))
+    rl = importlib.import_module("refresh_lines")
+    from test_live_lines import _data, _teams
+    monkeypatch.setattr(rl, "load_all_team_projections", lambda data: _teams())
+    monkeypatch.setattr(cal, "engine_version", lambda base=".": dict(ENGINE))
+
+    def run(as_of, statuses=None, overrides=None, **kw):
+        data, _ = _data(through=as_of)
+        if overrides is not None:
+            data.injury_overrides = {"players": overrides}
+        return rl.refresh(tmp_path, week=2, as_of=as_of, sims=300, data=data,
+                          statuses=statuses or {"Nikola Jokić": "O"}, **kw)
+    run.n = lambda: len(cal.load_log(tmp_path)["lines"])
+    return run
+
+
+def test_a_rerun_after_a_pause_appends_nothing_and_a_moved_input_appends(live):
+    import time
+    from test_live_lines import D, MON
+    live(MON, seed=5)
+    assert live.n() == 2                                   # two matchups
+    time.sleep(1.2)                                        # a later wall-clock second
+    out = live(MON)
+    assert out["calibration_logged"] == 0 and live.n() == 2
+    live(MON, statuses={"Nikola Jokić": "O", "B1": "O"})   # a tag, same day, same state
+    assert live.n() == 4
+    live(D[2], statuses={"Nikola Jokić": "O", "B1": "O"})  # the state moved: a real re-issue
+    assert live.n() == 6
+    live(D[2], seed=6, reseed=True, statuses={"Nikola Jokić": "O", "B1": "O"})
+    assert live.n() == 8                                   # a new seed
+
+
+def test_an_input_that_cannot_move_the_line_appends_nothing_and_one_that_can_does(live):
+    from test_live_lines import MON
+    live(MON, seed=5)
+    live(MON, overrides=[{"player_name": "N2", "out_weeks": [9]}])        # governs week 9 only
+    live(MON, overrides=[{"player_name": "Not Rostered", "out_weeks": [2]}])
+    assert live.n() == 2
+    live(MON, overrides=[{"player_name": "N2", "out_weeks": [2]}])        # governs this week
+    assert live.n() == 4

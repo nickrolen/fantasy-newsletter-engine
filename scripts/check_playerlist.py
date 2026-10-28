@@ -23,10 +23,12 @@ WHAT IT COMPARES AGAINST
 ------------------------
 Itself, a week ago. config/snapshots/ keeps a copy each time this runs
 clean, and the week-over-week comparison is what catches a misaligned paste
-or scrape. A misalignment moves MOST rows at once, in no particular
-direction; a projection refresh moves a few. (It used to fail on any one
-player gaining games remaining. That happens whenever an injury outlook
-improves -- six players on 2026-10-13 -- and was wrong; see GP_UP_SHARE.)
+or scrape. A misalignment puts nearly every row on the wrong NBA team; a
+week of trades moves a handful (TEAM_CHANGE_SHARE). Before week 1 the
+direction of GP is checked too (GP_UP_SHARE). This is the check's third
+specification: GP direction on raw GP broke at week 1, and as a share of
+games remaining it broke with the calendar -- in season it failed two
+ordinary days and passed a real shift. Both are recorded at the constants.
 
 USAGE
     py scripts/check_playerlist.py
@@ -75,8 +77,36 @@ FPPG_FLOOR = 5.0        # nobody worth listing projects below this
 FPPG_CEILING = 90.0     # nobody projects above this either
 GP_CEILING = 82         # an NBA regular season; nobody has more remaining
 
-# Share of players present in both weeks whose projected games remaining went
-# UP, above which the file is treated as misaligned. Measured 2026-10-13:
+# A SHIFT IS DETECTED ON THE NBA TEAM (HANDOFF_TWO_SMALL_FIXES 2026-10-28).
+# Stats moved one row against names scramble every column against its name,
+# and the one column that does not drift with the calendar is the player's
+# NBA team: it changes only on a trade. Measured 2026-10-28, names matched
+# against the previous snapshot:
+#   every real pair on file -- 09-25->10-05, 10-05->10-13, 10-13->10-26,
+#   10-26->10-28 -- pre-season and in season          0 players changed team
+#   one-row shift of the live file (either direction)  165 of 168 (98%)
+#   one-row shift of the pre-season 10-13 file         164 of 167 (98%)
+#   a shift confined to the last 12 rows               10 changed, 9 of them
+#                                                      onto a NEIGHBOUR's team
+# So a file fails when more than TEAM_CHANGE_SHARE of the players in common
+# changed team, or when NEIGHBOUR_TEAM_FAILS or more changed onto the team
+# the player in the next or previous ROW had last week -- the shape of a
+# partial shift. A real trade lands on a neighbour's team by chance only
+# (about 2 in 30): it is reported by name, not failed.
+#
+# Why not total/GP == FPPG: it cannot see a shift. The three stat columns
+# move TOGETHER, so every shifted row is still internally consistent
+# (measured: the shifted live file passes it).
+TEAM_CHANGE_SHARE = 0.20
+NEIGHBOUR_TEAM_FAILS = 5
+
+# GP DIRECTION, PRE-SEASON FILES ONLY. Share of players present in both weeks
+# whose projected games remaining went UP, above which the file is treated as
+# misaligned. It no longer runs in season: there the denominator (games
+# remaining) shrinks with the calendar, so ordinary days push shares UP --
+# the 10-26 -> 10-28 pair read 48 of 169 (28%) up with identical GP, and
+# failed -- while a real one-row shift read 14%. The signal pointed the wrong
+# way. In a pre-season file it works. Measured 2026-10-13:
 #   Yahoo's real refresh 10-05 -> 10-13    6 of 168 up (3.6%), 10 down
 #   stats shifted one row against names   78-82 of 175 up (45-47%)
 # In season every player's games remaining falls each week, so a legitimate
@@ -227,6 +257,32 @@ def gp_shares(frame, on: date, team_dates: dict) -> pd.Series:
             cache[t] = absence.remaining_team_games(team_dates[t], on, params)
         out.append(float(g) / cache[t] if cache[t] else float("nan"))
     return pd.Series(out, index=frame.index)
+
+
+def team_changes(frame, prev) -> dict:
+    """Players (matched by name) whose NBA team differs from the previous
+    snapshot. {"compared", "changed": [line], "neighbour": [line]}: the
+    second list is those whose NEW team is the team the player in the row
+    before or after them had in the snapshot -- a misaligned scrape's
+    signature, which a trade matches only by chance."""
+    pk = dict(zip(prev["player_name"].apply(normalize_player_name),
+                  prev["player_nba_team"].astype(str).str.upper()))
+    keys = list(frame["player_name"].apply(normalize_player_name))
+    names = list(frame["player_name"])
+    teams = list(frame["player_nba_team"].astype(str).str.upper())
+    compared, changed, neighbour = 0, [], []
+    for i, k in enumerate(keys):
+        if k not in pk:
+            continue
+        compared += 1
+        if pk[k] == teams[i]:
+            continue
+        line = f"{names[i]} {pk[k]} -> {teams[i]}"
+        changed.append(line)
+        near = {pk.get(keys[j]) for j in (i - 1, i + 1) if 0 <= j < len(keys)}
+        if teams[i] in near:
+            neighbour.append(line)
+    return {"compared": compared, "changed": changed, "neighbour": neighbour}
 
 
 def _snapshot_date(path):
@@ -579,25 +635,54 @@ def main():
                     "identical to the previous snapshot -- this file was not "
                     "regenerated this week")
 
-        # Like with like: GP as a share of games remaining on each file's date.
+        # A shift, by NBA team: runs on every pair, any phase.
+        tc = team_changes(frame, prev)
+        t_share = len(tc["changed"]) / tc["compared"] if tc["compared"] else 0.0
+        print(f"  shift check: NBA team per player against {prev_path.name} "
+              f"(the one column the calendar does not move)")
+        if tc["compared"] >= MIN_COMMON_FOR_SHARE and (
+                t_share > TEAM_CHANGE_SHARE or len(tc["neighbour"]) >= NEIGHBOUR_TEAM_FAILS):
+            failures.append(
+                f"{len(tc['changed'])} of {tc['compared']} players ({t_share:.0%}) are on a "
+                f"different NBA team than last week, {len(tc['neighbour'])} of them on the "
+                f"team the player in the next or previous row had -- stats shifted against "
+                f"names, not trades: {tc['changed'][:6]}")
+        elif tc["changed"]:
+            print(f"  {len(tc['changed'])} player(s) changed NBA teams (trades -- not a "
+                  f"problem; check rosters and projections for them): "
+                  f"{', '.join(tc['changed'])}")
+        else:
+            print(f"  no player changed NBA team ({tc['compared']} compared)")
+
+        # GP direction: pre-season files only (see GP_UP_SHARE).
         prev_flat, _prev_shape = gp_column_is_flat(prev["player_proj_GP"])
         regime_change = flat and not prev_flat
+        pre_season_pair = not flat and not prev_flat
         live_on = (date.fromisoformat(str(fresh["fetched_on"])[:10])
                    if fresh["how"] == "stamp" else date.today())
         prev_on = _snapshot_date(prev_path)
         tdates = team_game_dates()
-        by_share = tdates is not None and prev_on is not None
+        by_share = pre_season_pair and tdates is not None and prev_on is not None
         if by_share:
             frame["_gp_share"] = gp_shares(frame, live_on, tdates)
             prev["_gp_share"] = gp_shares(prev, prev_on, tdates)
             joined = frame.merge(prev, on="_key", suffixes=("", "_prev"))
-        else:
-            warnings.append("GP compared raw, not as a share of games remaining: "
+            print("  GP direction: compared as a share of games remaining "
+                  "(both files pre-season shaped)")
+        elif regime_change:
+            print(f"  GP not compared: {prev_path.name} is pre-season shaped and this "
+                  "file is in-season shaped -- the column changed meaning at week 1 (games of 82 "
+                  "with a durability haircut -> games remaining). Expected once a season.")
+        elif flat:
+            print("  GP direction not compared: in season, games remaining fall with the "
+                  "calendar and every team's denominator shrinks, so shares rise on ordinary "
+                  "days; the NBA-team check above is the shift check")
+        elif prev_flat:
+            print(f"  GP direction not compared: {prev_path.name} is in-season shaped and this "
+                  "file is not -- out of order; the NBA-team check above still ran")
+        elif pre_season_pair:
+            warnings.append("GP direction compared raw, not as a share of games remaining: "
                             f"{'no NBA schedule' if tdates is None else 'the snapshot name has no date'}")
-        if regime_change:
-            print(f"  GP not compared: {prev_path.name} is pre-season shaped and this file is "
-                  "in-season shaped -- the column changed meaning at week 1 (games of 82 with "
-                  "a durability haircut -> games remaining). Expected once a season.")
 
         jumps, grew, compared = [], [], 0
         for _, row in joined.iterrows():
@@ -606,7 +691,7 @@ def main():
             if pd.notna(a) and pd.notna(b) and b > 0:
                 if abs(a - b) / b > FPPG_JUMP:
                     jumps.append(f"{row['player_name']} {b:.1f} -> {a:.1f}")
-            if regime_change:
+            if not pre_season_pair:
                 continue
             g = pd.to_numeric(row["player_proj_GP"], errors="coerce")
             h = pd.to_numeric(row["player_proj_GP_prev"], errors="coerce")
