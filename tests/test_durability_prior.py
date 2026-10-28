@@ -21,6 +21,7 @@ import pandas as pd
 import pytest
 
 from modules import absence
+from modules import miss_rate as mr
 from modules import marginal_value as mv
 from modules import simulator_betting as sb
 from modules.data_loader import (DURABILITY_PRIOR, FLAT_GP_SHARE_MAX, DurabilityPrior,
@@ -120,35 +121,40 @@ def _refreshed(team_projections, gp=77.7):
     return out
 
 
+def _history():
+    return json.loads((ROOT / "data" / "historical" / "HISTORICAL_PLAYERLOG.json")
+                      .read_text(encoding="utf-8"))
+
+
 def _season(data, teams, n=400):
+    """(mean prior miss rate, the simulated per-game miss rate, weeks 1-15)."""
     draws = sb.KeyedDraws(SEED, n)
     anchor = sb.hazard_anchor(data)
-    rates, G = [], []
     base = sb.baseline_blocks(data, teams, draws, anchor, MANAGERS)
     rates = [base[n_].rate for m in MANAGERS for n_ in teams[m].players]
-    for w in range(1, 16):
-        r = sb.simulate_week_matrix(data, teams, sb.schedule_week(data, w), {}, draws,
-                                    managers=MANAGERS, tag_anchor=anchor)
-        G.append(np.stack([r[m]["games"] for m in MANAGERS]))
-    return float(np.mean(rates)), float(np.stack(G, 2).mean())
+    miss = mr.simulated(data, teams, range(1, 16), {}, draws, anchor, MANAGERS)
+    return float(np.mean(rates)), miss["rate"]
 
 
 def test_the_reality_check_holds_when_playerlist_is_refreshed(live):
-    """Started games per manager-week stays in the historical 40.5-42.6 band
-    with the live file AND with an in-season refreshed one -- and leaves it
-    without the prior, which is the defect this change exists to stop."""
+    """The simulated per-game miss rate stays inside the range real seasons
+    produced with the live file AND with an in-season refreshed one -- and
+    leaves it without the prior, which is the defect this change exists to
+    stop. (It used started games per manager-week in 40.5-42.6; five bench
+    slots retired that as a gate -- tests/test_baseline_hazard.py sec.1.)"""
     data, teams = live
+    lo, hi = mr.band(data.historical_playerlog or _history(), mr.HISTORY_WEEKS)
     kept = data.durability_prior
     try:
-        rate_now, games_now = _season(data, teams)
-        rate_fresh, games_fresh = _season(data, _refreshed(teams))
-        assert 40.5 <= games_now <= 42.6, games_now
-        assert 40.5 <= games_fresh <= 42.6, games_fresh
+        rate_now, miss_now = _season(data, teams)
+        rate_fresh, miss_fresh = _season(data, _refreshed(teams))
+        assert lo <= miss_now <= hi, (miss_now, lo, hi)
+        assert lo <= miss_fresh <= hi, (miss_fresh, lo, hi)
         assert rate_fresh == pytest.approx(rate_now, abs=1e-9)
         data.durability_prior = DurabilityPrior({}, "")       # the defect
-        rate_off, games_off = _season(data, _refreshed(teams))
+        rate_off, miss_off = _season(data, _refreshed(teams))
         assert rate_off < 0.07 < rate_now
-        assert games_off > 42.6
+        assert miss_off < lo, (miss_off, lo)
     finally:
         data.durability_prior = kept
 

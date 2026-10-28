@@ -18,6 +18,7 @@ import pytest
 
 from modules import absence
 from modules import marginal_value as mv
+from modules import miss_rate as mr
 from modules import simulator_betting as sb
 from modules.data_loader import FantasyData, MANAGERS
 from modules.projections import PlayerProjection, TeamProjections
@@ -83,32 +84,46 @@ def history_bands():
         per_season[s] = float(np.mean(cvs))
     return {"games": (float(games.mean()), float(games_last2.mean())),
             "ppg": float(pts.sum() / games.sum()),
-            "rel_cv": (min(per_season.values()), max(per_season.values()))}
+            "rel_cv": (min(per_season.values()), max(per_season.values())),
+            # the hazard's own quantity: per-game miss rate, every rostered
+            # team game, weeks 1-15 -- the range real seasons produced
+            "miss": mr.band(rows, mr.HISTORY_WEEKS),
+            "miss_pooled": mr.pooled(rows)[2],
+            "per_day": mr.started_per_manager_day(rows)}
 
 
 def _season(data, teams, n=500, hazard=True, monkeypatch=None):
-    """[manager, n, week] scores and started games over weeks 1-15, no tags."""
+    """([manager, n, week] scores, started games, the simulated per-game miss
+    rate, manager-days) over weeks 1-15, no tags -- one set of draws for all."""
     if not hazard:
         monkeypatch.setattr(sb, "baseline_blocks", lambda *a, **k: {})
     draws = sb.KeyedDraws(SEED, n)
     anchor = date.fromisoformat(sb.schedule_week(data, 1)["start_date"])
-    S, G = [], []
+    S, G, days = [], [], 0
     for w in range(1, 16):
-        r = sb.simulate_week_matrix(data, teams, sb.schedule_week(data, w), {}, draws,
+        wd = sb.schedule_week(data, w)
+        r = sb.simulate_week_matrix(data, teams, wd, {}, draws,
                                     managers=MANAGERS, tag_anchor=anchor)
         S.append(np.stack([r[m]["score"] for m in MANAGERS]))
         G.append(np.stack([r[m]["games"] for m in MANAGERS]))
+        days += len(sb.get_dates_in_week(wd))
+    miss = mr.simulated(data, teams, range(1, 16), {}, draws, anchor, MANAGERS)
     if not hazard:
         monkeypatch.undo()
-    return np.stack(S, 2), np.stack(G, 2)
+    return np.stack(S, 2), np.stack(G, 2), miss, days
 
 
-def _metrics(S, G):
+def _metrics(S, G, miss=None, days=None):
     rel = S / S.mean(axis=0, keepdims=True)
-    return {"games": float(G.mean()),
-            "ppg": float(S.sum() / G.sum()),
-            "raw_cv": float((S.std(axis=2, ddof=1) / S.mean(axis=2)).mean()),
-            "rel_cv": float((rel.std(axis=2, ddof=1) / rel.mean(axis=2)).mean())}
+    out = {"games": float(G.mean()),
+           "ppg": float(S.sum() / G.sum()),
+           "raw_cv": float((S.std(axis=2, ddof=1) / S.mean(axis=2)).mean()),
+           "rel_cv": float((rel.std(axis=2, ddof=1) / rel.mean(axis=2)).mean())}
+    if miss is not None:
+        out["miss"] = miss["rate"]
+    if days:
+        out["per_day"] = float(G.sum(axis=2).mean() / days)
+    return out
 
 
 @pytest.fixture(scope="module")
@@ -120,11 +135,33 @@ def seasons(live):
     return on, off
 
 
-# 1 -- the reality check: inside the measured bands, and the defect fails it
-def test_reality_started_games_and_dispersion_inside_the_historical_bands(seasons, history_bands):
+# 1 -- the reality check
+#
+# WHY STARTED GAMES IS NO LONGER A GATE (HANDOFF_HAZARD_CHECK_2026-10-27). It
+# was: started scoring games per manager-week inside [nine-season mean,
+# last-two-season mean]. 2026-27 runs FIVE bench slots, most of the history
+# THREE (2025-26 switched midseason), and depth absorbs absences: a starter
+# sits, a bench player fills the slot, the game is still started. Per
+# manager-day, so week length drops out:
+#
+#     nine seasons                          5.566
+#     last two                              5.761
+#     best season ever (2023-24)            5.841
+#     2026-27 week 1, actual                6.708
+#     engine on 10-27 (42.83 a week)        6.12
+#     engine with no hazard (48.6 a week)   6.94
+#
+# Reality sits 3.5% under the no-injury ceiling, so any upper edge that passes
+# a correct engine also passes one where nobody is ever hurt -- the check
+# below would stop biting. No threshold fixes that; widening the band to pass
+# 42.83 is exactly the wrong repair. Started games is REPORTED (the next test
+# prints it); the gate is the per-game MISS RATE, which depth cannot mask.
+# Re-derive a started-games band from this season once there are four to six
+# weeks of five-bench data.
+
+def test_reality_dispersion_and_points_per_started_game_inside_the_historical_bands(
+        seasons, history_bands):
     m = _metrics(*seasons[0])
-    lo, hi = history_bands["games"]
-    assert lo <= m["games"] <= hi, (m, history_bands)
     lo, hi = history_bands["rel_cv"]
     assert lo <= m["rel_cv"] <= hi, (m, history_bands)
     # points per started game is a roster-strength property (2026-27's
@@ -132,10 +169,32 @@ def test_reality_started_games_and_dispersion_inside_the_historical_bands(season
     assert abs(m["ppg"] / history_bands["ppg"] - 1) < 0.04, (m, history_bands)
 
 
+def test_started_games_is_reported_not_gated(seasons, history_bands):
+    """Printed in every run (-s shows it; scripts/hazard_check.py prints it
+    for a build). Asserted only to be a number, never to sit in a band."""
+    on, off = _metrics(*seasons[0]), _metrics(*seasons[1])
+    lines = mr.report_started_games(history_bands["per_day"], None, on["per_day"], off["per_day"])
+    print("\n".join(lines))
+    assert 0 < on["per_day"] < off["per_day"]
+    assert "not a gate" in lines[0]
+
+
+def test_reality_miss_rate_inside_the_range_real_seasons_produced(seasons, history_bands):
+    """The hazard checked on what it models: the share of rostered team games
+    a player misses, weeks 1-15, against the per-season range of the same
+    quantity in nine seasons of the log (measured inside the test)."""
+    m = _metrics(*seasons[0])
+    lo, hi = history_bands["miss"]
+    print(f"\nsimulated miss rate {m['miss']:.4f}; real seasons, weeks 1-15: "
+          f"{lo:.4f}-{hi:.4f}; pooled, all weeks: {history_bands['miss_pooled']:.4f}")
+    assert lo <= m["miss"] <= hi, (m["miss"], history_bands["miss"])
+
+
 def test_reality_check_fails_with_nobody_ever_hurt(seasons, history_bands):
-    """The check bites: the pre-fix engine is outside both bands."""
+    """The check bites, at any bench depth: with the hazard off the only
+    misses left are INJURY_OVERRIDES entries, far below any real season."""
     m = _metrics(*seasons[1])
-    assert m["games"] > history_bands["games"][1] + 4
+    assert m["miss"] < history_bands["miss"][0] / 3, (m["miss"], history_bands["miss"])
     assert m["rel_cv"] < history_bands["rel_cv"][0]
 
 
