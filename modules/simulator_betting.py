@@ -770,6 +770,29 @@ def legal_starters(avail: np.ndarray, entries: list, fills: dict) -> np.ndarray:
     return rows[inverse.reshape(-1)]
 
 
+def _projection_error_multipliers(draws, team_proj, keys) -> dict:
+    """{roster key: [n] multiplier m on the player's level}, one per player
+    per simulated SEASON -- the engine being wrong about who is good.
+
+        m = exp(tau(k) z - tau(k)^2 / 2),   z = draws.normals("projection_error", player)
+
+    Mean-preserving (E[m] = 1: expected totals do not move; only certainty
+    does), multiplicative, independent across players (Nick, 10-28), and
+    keyed by the player alone -- no week, date or anchor -- so iteration i
+    gives a player the same m in every week of its season, a week in the
+    season pass equals that week in a betting line, and the draw moves with
+    the player on a trade or a pickup. tau(k) narrows with his appearances
+    (projections.projection_error_sd)."""
+    from .projections import projection_error_sd
+    out = {}
+    for key in keys:
+        p = team_proj.players.get(key)
+        tau = projection_error_sd(getattr(p, "actual_games", 0) if p is not None else 0)
+        z = draws.normals("projection_error", key)
+        out[key] = np.exp(tau * z - 0.5 * tau * tau)
+    return out
+
+
 def simulate_week_matrix(
     data: FantasyData,
     team_projections: dict[str, TeamProjections],
@@ -836,6 +859,7 @@ def simulate_week_matrix(
         z_all = draws.normals_many("game", game_keys) if game_keys else None
         rate_keys = [(e[8], d) for d, es in days for e in es if e[4] is not None]
         u_rate = dict(zip(rate_keys, draws.uniforms_many("avail", rate_keys).T)) if rate_keys else {}
+        level = _projection_error_multipliers(draws, team_proj, {e[8] for _d, es in days for e in es})
         col = 0
         for game_date, entries in days:
             width = len(entries)
@@ -847,7 +871,12 @@ def simulate_week_matrix(
                 mean[j], std[j] = e[1], e[2]
                 avail[:, j] = entry_available(n, e, game_date, u_rate.get((e[8], game_date)),
                                               blocks.get(e[8]), base.get(e[8]))
-            fp = np.where(mean > 0, mean + std * z_all[:, col:col + width], 0.0)
+            # m: the player's true level relative to his projection, ONE draw
+            # per player per simulated season (see _projection_error_multipliers).
+            # Both moments scale: m*mean + m*std*z. Lineups never see it --
+            # legal_starters fills from availability and the projection.
+            m = np.stack([level[e[8]] for e in entries], axis=1)
+            fp = np.where(mean > 0, m * (mean + std * z_all[:, col:col + width]), 0.0)
             col += width
             starters = legal_starters(avail, entries, fills)
             day_pts = starters * fp

@@ -47,6 +47,33 @@ DEFAULT_PLAYER_VARIANCE = 0.35
 # PlayerProjection.effective_fppg for the measurements behind it.
 
 
+def projection_error_sd(actual_games) -> float:
+    """tau(k): the sd of a player's TRUE level around effective_fppg, as a
+    fraction of that level, after k = actual_games appearances (the same k
+    effective_fppg shrinks on).
+
+        tau(0) = DEFAULT_PLAYER_VARIANCE / sqrt(k0) * projection_error.scale
+        tau(k) = tau(0) * sqrt(k0 / (k + k0))
+
+    Derived from the shrinkage curve, not chosen: in the normal model behind
+    k/(k+k0), k0 = sigma_game^2 / tau^2, so the persistent error and the
+    curve are ONE model and cannot drift apart -- change k0 and the width
+    follows. 7.8% at k=0 with the engine's constants (0.35, k0 = 20); 5.5% at
+    20 games, 3.9% at 60. The routes measured so far: CV 0.35 / k0 24.5
+    (against Yahoo) 7.1%; CV 0.337 (measured) / k0 20, 7.5%; the 10-21
+    illustration, 7% (HANDOFF_PERSISTENT_ERROR_2026-10-28).
+
+    Same tau for everyone, rookies included -- a rookie's error is surely
+    wider; deferred. Raises if projection_error.scale is missing."""
+    from .data_loader import league_rule
+    scale = float(league_rule("projection_error", "scale"))
+    if scale < 0:
+        raise ValueError(f"projection_error.scale must be >= 0, not {scale}")
+    k0 = shrinkage_k0()
+    k = float(actual_games or 0)
+    return DEFAULT_PLAYER_VARIANCE / math.sqrt(k0) * scale * math.sqrt(k0 / (k + k0))
+
+
 def shrinkage_k0() -> float:
     """league_config projection_shrinkage.k0_games, in games. Raises if the
     key is missing (data_loader.UnspecifiedRule) -- no default in code."""

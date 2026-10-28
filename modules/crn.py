@@ -22,6 +22,9 @@ Namespaces in use (one per kind of draw, so two kinds never share numbers):
     game      (seed, "game", player, date)        a game's fantasy points
     noise     (seed, "noise", manager, week_start) team-level weekly noise
     tie       (seed, "tie", matchup_id, week)     simulated-tie coin flip
+    projection_error (seed, "projection_error", player)  his true level for
+                                                  the whole simulated season
+                                                  (one draw; no week, no date)
     baseline  (seed, "baseline", season, player)  untagged absences, the
                                                   whole season's chain; drawn
                                                   as an [n, games + 1] block
