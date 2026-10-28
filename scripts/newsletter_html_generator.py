@@ -16,6 +16,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -2184,6 +2185,10 @@ def main():
     ap.add_argument("--potw", default=None, help="Optional Player of the Week image.")
     ap.add_argument("--podium", default=None, help="Optional podium image for POTW section.")
     ap.add_argument("--stats-report", default=None, help="Path to stats_report_weekN.json for Stats Corner visualizations.")
+    ap.add_argument("--no-log", action="store_true",
+                    help="a preview build: write the page but do not log its betting lines "
+                         "to data/calibration/published_lines.json (this step is what "
+                         "publishes them)")
     
     args = ap.parse_args()
     
@@ -2201,7 +2206,54 @@ def main():
     )
     print(f"Built HTML newsletter: {out} ({os.path.getsize(out)} bytes)")
     print(claim_check_status(args.input))
-    return table_check(out)
+    status = table_check(out)
+    log_published_lines(getattr(args, "stats_report", None), sendable=status == 0,
+                        preview=args.no_log)
+    return status
+
+
+def log_published_lines(stats_report_path, *, sendable: bool, preview: bool = False) -> dict:
+    """E1: append this week's lines to the calibration log -- AT PUBLISH.
+
+    Called only after the page has been written (build_newsletter_html raises
+    first otherwise, so a failed write logs nothing). The records were built
+    by Step 6 and travel in the stats report's metadata.published_lines with
+    their line_key; their identity is that key, so building the page twice
+    logs once. Refuses -- logs nothing, says why -- for a preview (--no-log),
+    a page the table check says not to send, and a report Step 6 did not mark
+    publishable (--dry-run, --repro, --fast, or a report from before the mark
+    existed): the guard Step 6 used to apply to its own append.
+
+    Returns {"logged": int, "skipped": int, "why_not": str|None}."""
+    def no(why):
+        print(f"calibration log: NOT written -- {why}")
+        return {"logged": 0, "skipped": 0, "why_not": why}
+    if not stats_report_path:
+        return no("no --stats-report, so no lines to log; this week's lines are not in the "
+                  "record until the page is built with one")
+    if preview:
+        return no("--no-log (a preview build)")
+    if not sendable:
+        return no("the table check says not to send this page; fix it and build again")
+    sr_path = Path(stats_report_path).resolve()
+    with open(sr_path, "r", encoding="utf-8") as f:
+        meta = (json.load(f).get("metadata") or {})
+    if meta.get("publishable") is not True:
+        mode = meta.get("run_mode") or "unmarked (a report from before Step 9 logged)"
+        return no(f"the stats report is not publishable (Step 6 run mode: {mode}); "
+                  "regenerate it with a normal Step 6 run")
+    lines = list(meta.get("published_lines") or [])
+    if not lines:
+        return no("the stats report carries no published lines")
+    from modules import calibration_log as cal
+    stamp = datetime.now().isoformat(timespec="seconds")
+    for r in lines:
+        r.setdefault("published_at", stamp)
+    root = sr_path.parent.parent
+    wrote = cal.append(lines, root)
+    print(f"calibration log: {wrote['added']} line(s) logged to {wrote['path']}"
+          + (f" ({wrote['skipped']} already there)" if wrote["skipped"] else ""))
+    return {"logged": wrote["added"], "skipped": wrote["skipped"], "why_not": None}
 
 
 def table_check(html_path: str) -> int:

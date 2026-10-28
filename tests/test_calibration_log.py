@@ -85,8 +85,10 @@ def test_every_published_matchup_is_logged_from_the_builder(tmp_path):
     rb = (ROOT / "modules" / "report_builder.py").read_text(encoding="utf-8")
     assert "_published_line_records(" in rb and '"published_lines": published_lines' in rb
     src = (ROOT / "scripts" / "generate_stats_report.py").read_text(encoding="utf-8")
-    assert "cal.append(_lines, base_path)" in src and "cal.settle(data.records, base_path)" in src
-    assert "Calibration log not written" in src        # dry run / repro / fast
+    assert "cal.append(" not in src and "cal.settle(data.records, base_path)" in src
+    assert "Calibration log not touched" in src        # dry run / repro / fast
+    gen = (ROOT / "scripts" / "newsletter_html_generator.py").read_text(encoding="utf-8")
+    assert "cal.append(lines, root)" in gen             # Step 9 publishes (2026-10-28)
     refresh = (ROOT / "scripts" / "refresh_lines.py").read_text(encoding="utf-8")
     assert "cal.line_record(" in refresh and "source=cal.LIVE_REFRESH" in refresh
 
@@ -314,8 +316,9 @@ def test_the_build_updates_records_before_it_settles():
     src = (ROOT / "scripts" / "generate_stats_report.py").read_text(encoding="utf-8")
     build_at = src.index("report = build_stats_report(")
     settle_at = src.index("cal.settle(data.records, base_path)")
-    append_at = src.index("cal.append(_lines, base_path)")
-    assert build_at < append_at < settle_at
+    assert build_at < settle_at
+    # the lines are appended at Step 9, after this build and its settlement
+    assert "cal.append(" not in src
     rb = (ROOT / "modules" / "report_builder.py").read_text(encoding="utf-8")
     state_phase = rb.index("phase=RECORDS_PHASE_STATE")
     lines_built = rb.index("published_lines = _published_line_records(")

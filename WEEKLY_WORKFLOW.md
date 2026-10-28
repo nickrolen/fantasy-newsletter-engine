@@ -553,6 +553,13 @@ python scripts\generate_stats_report.py --week WEEK
    week 4. A re-run replaces it; `--fast`, `--repro` and `--dry-run` never
    write one. **The last run before you publish must be a full run**, or that
    week's record is lost -- integrity fails on a latest report with no capture.
+8. **Produces the calibration records -- does not log them.** Each betting line
+   it prices goes into the report as `metadata.published_lines`, with its
+   `line_key`, and the report is marked `publishable` (a `--dry-run`, `--repro`
+   or `--fast` run is not). **Step 9 is what publishes them** to
+   `data\calibration\published_lines.json`. So rerun this step as often as
+   drafting needs: a line nobody saw never enters the record. It still settles
+   last week's published lines against RECORDS.json and prints the curve.
 
 **Runtime:** ~30-60 seconds with sims, ~5-10 seconds with `--fast`
 
@@ -564,7 +571,7 @@ python scripts\generate_stats_report.py --week WEEK
 | `--no-fetch-injuries` | Skip Yahoo injury fetch |
 | `--title-sims N` | Simulations for title, playoff and Cup odds (default: `simulations.season_sims` in league_config, 50000) |
 | `--betting-sims N` | Set number of betting line simulations (default: 5000) |
-| `--dry-run` | Don't save any files |
+| `--dry-run` | Don't save any files (its report is never logged at Step 9) |
 | `--no-save-records` | Don't update RECORDS.json |
 | `--no-freshness` | Disable content repetition tracking |
 | `--allow-stale-schedule` | Run on an NBA schedule older than 8 days in season (recorded in the capture) |
@@ -736,6 +743,20 @@ python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --outp
 
 **Output:** A single self-contained HTML file with embedded images, visualizations, professional styling, and responsive design.
 
+**This step publishes the betting lines.** Once the page is written it appends
+the lines in the stats report's `metadata.published_lines` (built by Step 6) to
+`data\calibration\published_lines.json`, the calibration record of what went out.
+Building the page twice logs them once -- a record's identity is its `line_key`,
+not the clock. It logs nothing, and says why, when:
+- the page fails the table check below (it must not be sent; fix it and rebuild),
+- the stats report is from a `--dry-run`, `--repro` or `--fast` Step 6 run,
+- `--no-log` is passed -- a **preview build**, for looking at a page before it is final,
+- there is no `--stats-report`.
+
+So the last build of the page must use the stats report from the last full
+Step 6 run. The live line (`refresh_lines.py`, the midnight refresh) logs at
+refresh time instead: a refreshed line goes straight onto the page.
+
 **Table check (exit code 1 = do not send).** The generator then reconciles every table on the page (`modules/published_tables.py`; standalone: `python scripts\check_published_tables.py output\WEEKN_NEWSLETTER.html`). Summary columns must count the cells beside them, history grids must match the stored finishes, FPPG must be Total / GP, probabilities must sum to 100%, H2H must be antisymmetric, games-grid days must add up to 10 seats, and a row shifted under the wrong header is caught. The page is still written so you can look at it. A table with no relations defined is listed as UNCHECKED -- a new table needs a check. On the six 2025-26 newsletters it finds the two mis-ranked seasons, three scope mixes, and WEEK18's Siakam row (his total printed as FPPG); none of those can ship again.
 
 ---
@@ -878,7 +899,7 @@ python scripts\format_stats_report.py --week N
 :: Step 7: Draft newsletter with Claude (open NEWSLETTER_PROMPTS.md, fill in placeholders, run 3 parts in new chat)
 :: Step 8: Verify draft with VERIFICATION_TEMPLATE.md
 
-:: Step 9: Generate HTML
+:: Step 9: Generate HTML -- this publishes the week's betting lines to data\calibration\published_lines.json (--no-log for a preview)
 python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --potw assets\potw.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
 
 :: Step 10: Update config\LAST_WEEK_RECAP.md and config\RECENT_CONTENT.json

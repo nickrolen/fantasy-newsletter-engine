@@ -430,6 +430,14 @@ def main():
         traceback.print_exc()
         sys.exit(1)
     report.setdefault("metadata", {})["injury_statuses"] = injury.record()
+    # Whether this report's lines may be published. Step 9 logs the lines in
+    # metadata.published_lines when it builds the page, and refuses to for a
+    # report that is not publishable -- the guard that used to sit on the
+    # append here travels with the report (HANDOFF_LOG_AT_PUBLISH 2026-10-28).
+    run_mode = ("dry-run" if args.dry_run else "repro" if args.repro
+                else "fast" if args.fast else "publish")
+    report["metadata"]["run_mode"] = run_mode
+    report["metadata"]["publishable"] = run_mode == "publish"
     # Which pre-season snapshot the baseline injury hazard took its durability
     # from. Recorded, not inferred from a directory listing at runtime.
     if data.durability_prior is not None:
@@ -523,23 +531,27 @@ def main():
             print(f"Warning: could not write the C2/C3 preview: {e}")
 
     # -------------------------------------------------------------------------
-    # E1: the calibration log. Append what this build published, settle the
-    # weeks that have closed, and print the curve -- instrumentation for this
-    # console, never for the newsletter. Only a publishable run writes: a dry
-    # run, a repro and --fast must not touch an append-only record.
+    # E1: the calibration log. This step PRODUCES the records -- they travel in
+    # metadata.published_lines -- and Step 9 (newsletter_html_generator.py)
+    # PUBLISHES them, appending once the page is written. Step 7 runs this
+    # report more than once; a line logged here would include drafts nobody
+    # saw, and a draft superseded because its number looked wrong biases the
+    # very record E1 keeps (Nick, 10-28: log at Step 9). What stays here is
+    # settlement -- last week's published lines against RECORDS.json -- and
+    # the curve, and only on a publishable run: a dry run, a repro and --fast
+    # must not touch an append-only record.
     # -------------------------------------------------------------------------
     from modules import calibration_log as cal
     _lines = (report.get("metadata") or {}).get("published_lines") or []
     if args.dry_run or args.repro or args.fast:
         why = "--dry-run" if args.dry_run else ("--repro" if args.repro else "--fast")
-        print(f"Calibration log not written ({why} is not a publishable run); "
-              f"{len(_lines)} line(s) would have been logged")
+        print(f"Calibration log not touched ({why} is not a publishable run); "
+              f"{len(_lines)} line(s) in this report, which Step 9 will refuse to log")
         print()
     else:
+        print(f"{len(_lines)} line(s) ready for the calibration log -- Step 9 logs them "
+              "when it builds the page (newsletter_html_generator.py --stats-report)")
         try:
-            wrote = cal.append(_lines, base_path)
-            print(f"Logged {wrote['added']} published line(s) to {wrote['path']}"
-                  + (f" ({wrote['skipped']} already there)" if wrote["skipped"] else ""))
             done = cal.settle(data.records, base_path)
             if done["settled"]:
                 print(f"  Settled {done['settled']} line(s) from RECORDS.json weekly scores")
