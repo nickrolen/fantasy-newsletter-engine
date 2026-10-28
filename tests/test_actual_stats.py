@@ -84,12 +84,13 @@ def _proj(stats_rows, projected=30.0):
 # 2 -- one appearance and one miss: strictly above what a zero would imply
 def test_one_appearance_one_miss_is_priced_above_the_zero():
     p = _proj([("A", 40.0, True, False), ("A", 0.0, True, True)])
-    # what the slot average produced: mean 20 over "2 games", weight 0.2
-    with_zero = 0.2 * 20.0 + 0.8 * 30.0
+    # what the slot average produced: mean 20 over "2 games", weight k/(k+k0)
+    # = 2/22 (projection_shrinkage.k0_games = 20; see test_shrinkage_curve)
+    with_zero = (2 / 22) * 20.0 + (20 / 22) * 30.0
     assert p.effective_fppg > with_zero
-    # and exactly the one game he played, at weight 1/10
+    # and exactly the one game he played, at weight 1/21
     assert p.actual_games == 1
-    assert p.effective_fppg == pytest.approx(0.1 * 40.0 + 0.9 * 30.0)
+    assert p.effective_fppg == pytest.approx((1 / 21) * 40.0 + (20 / 21) * 30.0)
 
 
 # 3 -- misses only: no appearances, so the projection

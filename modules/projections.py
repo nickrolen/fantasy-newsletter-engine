@@ -42,8 +42,19 @@ DEFAULT_WEEKLY_STD_DEV = 150.0
 # with zero-truncation to add a ~4% positive bias to expected scores.)
 DEFAULT_PLAYER_VARIANCE = 0.35
 
-# Minimum games for using actual FPPG instead of projection
-MIN_GAMES_FOR_ACTUAL = 10
+# How season-to-date FPPG and the projection are blended: ONE curve,
+# k / (k + k0), k0 from league_config projection_shrinkage.k0_games -- see
+# PlayerProjection.effective_fppg for the measurements behind it.
+
+
+def shrinkage_k0() -> float:
+    """league_config projection_shrinkage.k0_games, in games. Raises if the
+    key is missing (data_loader.UnspecifiedRule) -- no default in code."""
+    from .data_loader import league_rule
+    k0 = float(league_rule("projection_shrinkage", "k0_games"))
+    if not k0 > 0:
+        raise ValueError(f"projection_shrinkage.k0_games must be > 0, not {k0}")
+    return k0
 
 # Path to editable rosters file
 from pathlib import Path
@@ -218,28 +229,52 @@ class PlayerProjection:
 
     @property
     def effective_fppg(self) -> float:
-        """
-        Get the FPPG to use for simulations.
+        """The FPPG every simulated game is drawn around: the projection,
+        shrunk toward season-to-date actuals by ONE curve,
 
-        Uses actual season FPPG if player has MIN_GAMES_FOR_ACTUAL games,
-        otherwise uses projection (or blend for players with some games).
+            weight on actuals = k / (k + k0),   k = actual_games,
+            k0 = league_config projection_shrinkage.k0_games (20).
+
+        No threshold and no branch: the projection keeps weight at every k,
+        however large (at 40 games, 1/3; at 100, 1/6).
+
+        WHAT IT REPLACED (2026-10-28, HANDOFF_SHRINKAGE_CURVE): a linear ramp
+        to MIN_GAMES_FOR_ACTUAL = 10 games, then pure actuals -- the
+        projection discarded entirely. 10 was chosen, not measured. The
+        measured optimum weight at ten games is about 0.42, not 1.00, and ten
+        games was the engine's single worst cutoff (26% above the achievable
+        error there). Scrapping actuals instead (weight 0, proposed 10-23 and
+        withdrawn) is worse still: pooled over k = 1..30, RMSE 4.81 against
+        the cliff's 4.66, 29% worse at thirty games
+        (REVIEW_PROJECTION_VS_ACTUALS_RESULT_2026-10-23).
+
+        THE MEASUREMENTS BEHIND k0, each against a different prior:
+          league mean                 k0 =  4.7   (weight 0.68 at k=10; 589 player-seasons)
+          prior-season FPPG           k0 = 13     (weight 0.42 at k=10; 401 player-seasons)
+          the real Yahoo projection   k0 = 24.5   (weight 0.31 at k=10; 21 players)
+        The better the prior, the more the actuals are shrunk, as it must be.
+        k/(k+13) is oracle-identical at every cutoff on the nine-season
+        backtest and k/(k+20) within 0.03 RMSE of it everywhere. 20 is the
+        safer end: the nine-season work stands prior-season FPPG in for a
+        projection -- a worse prior than Yahoo's -- which biases every weight
+        it reports upward, and the one test against Yahoo implies 24.5.
+        Revisit with this season's settled data, starting from these numbers.
         """
-        if self.actual_fppg is None or self.actual_games == 0:
+        if self.actual_fppg is None or not self.actual_games:
             return self.projected_fppg
-
-        if self.actual_games >= MIN_GAMES_FOR_ACTUAL:
-            # Use actual performance
-            return self.actual_fppg
-        else:
-            # Blend: weight toward actual as games increase
-            weight = self.actual_games / MIN_GAMES_FOR_ACTUAL
-            return weight * self.actual_fppg + (1 - weight) * self.projected_fppg
+        k = float(self.actual_games)
+        weight = k / (k + shrinkage_k0())
+        return weight * self.actual_fppg + (1 - weight) * self.projected_fppg
 
     @property
     def effective_std(self) -> float:
-        """Get the standard deviation to use for simulations."""
-        if self.actual_std is not None and self.actual_games >= MIN_GAMES_FOR_ACTUAL:
-            return self.actual_std
+        """The per-game spread every simulated game uses: std_dev (the
+        projection times DEFAULT_PLAYER_VARIANCE), at every k.
+
+        It no longer switches to the player's measured spread (actual_std):
+        split-half reliability of a player's own variance is 0.17 (measured
+        2026-10-28), so a ten-game estimate is about 86% noise. actual_std is
+        still computed and kept for the reports that print it."""
         return self.std_dev
 
 
@@ -609,15 +644,15 @@ def game_fp_params(player: PlayerProjection, variance_factor: float = 1.0) -> tu
     by the keyed week engine (simulator_betting). mean <= 0 means the player
     scores 0.0.
     """
-    # Prefer effective_fppg (blends actual season performance with projection).
+    # effective_fppg: the projection shrunk toward actuals by k/(k+k0).
     # Falls back to projected_fppg when there's no actual data yet.
     mean = player.effective_fppg
     if mean is None or mean <= 0:
         mean = player.projected_fppg
     if mean <= 0:
         return 0.0, 0.0
-    # Prefer effective_std (calibrated from actuals when available),
-    # otherwise the projection-derived std_dev.
+    # effective_std: the projection-derived std_dev at every k (a player's
+    # own measured spread is too noisy to use -- see effective_std).
     base_std = player.effective_std if player.effective_std else player.std_dev
     return mean, base_std * variance_factor
 
