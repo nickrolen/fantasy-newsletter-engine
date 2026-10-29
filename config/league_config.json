@@ -108,7 +108,9 @@
             "overrides_bands": ["FAIL", "MARGINAL"],
             "reason": "Nick, 10-29: ship Section 10 in week 3; do our best."
         },
-        "_advice_premise_override_comment": "Nick, 10-29, after the premise gate came back FAIL (gap points 78.7 vs 169 needed, mutual-gain swaps 22 vs 24; C2C3_GATE_RESULT_2026-10-29): publish Section 10 anyway. The gate keeps running and recording; every build prints 'published on Nick's override of a FAIL premise gate (10-29)'. Remove this key to return to CLEAR-only."
+        "_advice_premise_override_comment": "Nick, 10-29, after the premise gate came back FAIL (gap points 78.7 vs 169 needed, mutual-gain swaps 22 vs 24; C2C3_GATE_RESULT_2026-10-29): publish Section 10 anyway. The gate keeps running and recording; every build prints 'published on Nick's override of a FAIL premise gate (10-29)'. Remove this key to return to CLEAR-only.",
+        "stream_drop_pool": 4,
+        "_stream_drop_pool_comment": "Nick, 10-29: a one-week stream (Section 10's this-week plan) may only drop one of the bottom N ACTIVE players on the roster by PROJECTED points per game (the PLAYERLIST pre-season projection, not actual-blended). No keeper protection: a projected keeper in the bottom N is on the block. IL occupants are not ranked (dropping one frees no active spot for the add); a player with no projection is never a drop. Fixed from the roster at the start of the plan; players the plan adds never join it. Season moves are not limited by it. Required: missing or below 1 raises (STREAM_DROPS_RESULT_2026-10-29)."
     },
     "season_structure": {
         "_comment": "Per-season week layout. season.regular_season_weeks describes ONLY the current season; historical seasons varied and the engine must not assume one shape for all time. regular_through = last regular-season week. bracket = a postseason bracket was played.",

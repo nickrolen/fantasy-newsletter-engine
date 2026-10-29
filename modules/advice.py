@@ -54,7 +54,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional, Sequence
 
 from . import marginal_value as mv
-from .data_loader import PlayerIndex, add_budget_for
+from .data_loader import PlayerIndex, add_budget_for, stream_drop_pool
 
 FLOOR_PER_WEEK = 10.0
 SE_MULT = 2.0
@@ -125,6 +125,7 @@ class WaiverPlan:
     protected: list
     protected_asof_week: Optional[int]
     note: str = ""
+    stream_pool: list = field(default_factory=list)   # who the this_week plan may drop
 
 
 @dataclass
@@ -359,10 +360,27 @@ def _rec(res, ctx, manager, add, drop, step, alt) -> Rec:
                           if alt else None))
 
 
+def droppable(ctx: mv.MVContext, manager: str, protected: Optional[list],
+              il: Optional[set] = None) -> Optional[list]:
+    """The players on his roster the regular_season list may drop, in
+    roster order; None when there is no keepability (then no drop advice
+    at all, this week included). The this_week stream ranks its own pool
+    instead -- stream_candidates(), no keeper protection. Never a
+    protected keeper, never an IL occupant (rules 1-2), and never a player
+    with no projection: C1 values him at 0.0, so he would always look like
+    the free drop -- we cannot know that."""
+    if protected is None:
+        return None
+    prot = PlayerIndex({p: 1 for p in protected})
+    for p in list(ctx.unprojected) + list(il or []):
+        prot[p] = 1
+    return [p for p in ctx.rosters[manager] if p not in prot]
+
+
 def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
                 protected: Optional[list], adds_remaining: int,
                 protected_week: Optional[int], replacement_rank: Optional[int] = None,
-                il: Optional[set] = None) -> WaiverPlan:
+                il: Optional[set] = None, stream_pool_size: Optional[int] = None) -> WaiverPlan:
     """C2 for one manager. ctxs: {window: (short_ctx, full_ctx)}; the key
     "rest_of_season" (regular season from NEXT week) plus replacement_rank
     turn on the drop-above-replacement charge for the this_week plan.
@@ -370,24 +388,22 @@ def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
     il: his players in an IL slot. Never a drop: leaving an IL slot frees no
     ACTIVE spot, so (add X, drop an IL player) would put one more player in
     15 active spots (LEAGUE_RULES 2026-27, rules 1-2). Every (add, drop) is
-    active-for-active, so every plan keeps the roster's active count."""
+    active-for-active, so every plan keeps the roster's active count.
+
+    stream_pool_size: the this_week plan (a one-week stream) may only drop
+    one of the bottom N ACTIVE players by projected points per game -- see
+    stream_candidates() and stream_pool(). Keepability does not protect
+    anyone there (Nick, 10-29). None reads season.stream_drop_pool
+    (required). The regular_season list is not limited by it, and still
+    never drops a protected keeper."""
+    if stream_pool_size is None:
+        stream_pool_size = stream_drop_pool()
     roster = list(ctxs["this_week"][1].rosters[manager])
     note = ""
-    prot = PlayerIndex({p: 1 for p in (protected or [])})
-    # A rostered player with no projection is valued at 0.0 by C1, so he
-    # would always look like the free drop. We cannot know that; never
-    # recommend dropping him.
-    unknown = set(ctxs["this_week"][1].unprojected)
-    if unknown:
-        prot = PlayerIndex({**{p: 1 for p in (protected or [])}, **{p: 1 for p in unknown}})
-    if il:
-        prot = PlayerIndex({**dict(prot), **{p: 1 for p in il}})
-    if protected is None:
-        drop_pool = None
+    drop_pool = droppable(ctxs["this_week"][1], manager, protected, il)
+    if drop_pool is None:
         note = ("No keepability this week, so no drop advice: values are before "
                 "whatever you drop.")
-    else:
-        drop_pool = [p for p in roster if p not in prot]
 
     # this_week: sequential plan. Never drop a protected keeper, and never
     # drop someone this same plan just added.
@@ -398,9 +414,15 @@ def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
             raise ValueError("rest_of_season given without replacement_rank; "
                              "use replacement_k(season, managers)")
         refill = Refill(*ctxs["rest_of_season"], free_agents, replacement_rank)
+    # The stream pool is fixed here, from the roster as it stands: a player
+    # this plan adds never joins it, and once a pool player is dropped the
+    # next step picks from the pool players still on the roster. No keeper
+    # protection: a projected keeper in the bottom N is on the block.
+    spool = ([] if drop_pool is None else
+             stream_pool(full, stream_candidates(full, manager, il), stream_pool_size))
     plan, cur, pool, added = [], list(roster), list(free_agents), set()
     for step in range(1, max(0, adds_remaining) + 1):
-        dp = None if drop_pool is None else [p for p in cur if p not in prot and p not in added]
+        dp = None if drop_pool is None else [p for p in cur if p in spool and p not in added]
         scored = _best_pairs(short, full, manager, cur, pool, dp, refill=refill,
                              plan_adds=sorted(added), base_roster=roster)
         if not scored or not clears(scored[0][0], full):
@@ -429,7 +451,33 @@ def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
                 season.append(_rec(s[0], full, manager, s[1], s[2], i + 1, alt))
     return WaiverPlan(manager=manager, adds_remaining=adds_remaining, this_week=plan,
                       regular_season=season, protected=list(protected or []),
-                      protected_asof_week=protected_week, note=note)
+                      protected_asof_week=protected_week, note=note, stream_pool=spool)
+
+
+def stream_candidates(ctx: mv.MVContext, manager: str, il: Optional[set] = None) -> list:
+    """Who a one-week stream ranks: his ACTIVE players with a projection.
+
+    Anyone may be dropped, but an IL occupant cannot be the drop in a
+    this-week (add, drop): dropping him frees an IL slot, not an active one,
+    so the add would be a 16th active player (rules 1-2). He is not ranked,
+    so he cannot take a pool place he could never use. A player with no
+    projection has no number to rank by and is valued at 0.0 by C1 (the
+    free drop he may not be); he is never a drop. Keepability plays no part."""
+    skip = PlayerIndex({p: 1 for p in list(ctx.unprojected) + list(il or [])})
+    return [p for p in ctx.rosters[manager] if p not in skip]
+
+
+def stream_pool(ctx: mv.MVContext, candidates: Sequence[str], n: int) -> list:
+    """The bottom n of `candidates` by PROJECTED points per game (Yahoo's
+    projected FPPG from PLAYERLIST, refreshed each fetch, MVPlayer.projected_fppg -- not the
+    actual-blended effective_fppg, not durability- or schedule-adjusted),
+    lowest first; ties by name (Nick, 10-29)."""
+    if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+        raise ValueError(f"stream pool size must be an integer >= 1, got {n!r}")
+    missing = [p for p in candidates if ctx.players[p].projected_fppg is None]
+    if missing:
+        raise ValueError(f"no projected_fppg to rank the stream pool by: {missing}")
+    return sorted(candidates, key=lambda p: (ctx.players[p].projected_fppg, p))[:n]
 
 
 def mark_contested(plans: list) -> None:

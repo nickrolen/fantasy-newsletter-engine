@@ -178,12 +178,20 @@ def test_a_star_with_no_games_this_week_is_not_cut_to_stream():
                                     extra_players=fas, sims=n)
         ctxs = {"this_week": (ctx("this_week", 1, 40), ctx("this_week", 1, 200)),
                 "rest_of_season": (ctx("regular_season", 2, 40), ctx("regular_season", 2, 200))}
-        naive = adv.waiver_plan("Nick", {"this_week": ctxs["this_week"]}, fas, [], 1, 1)
-        fixed = adv.waiver_plan("Nick", ctxs, fas, [], 1, 1, replacement_rank=2)
+        # The whole roster in the stream pool: this tests the refill charge
+        # alone. With the bottom-4 pool (STREAM_DROPS 10-29) Star is never a
+        # stream drop at all -- a second guard, tested in test_stream_drops.
+        everyone = len(roster)
+        naive = adv.waiver_plan("Nick", {"this_week": ctxs["this_week"]}, fas, [], 1, 1,
+                                stream_pool_size=everyone)
+        fixed = adv.waiver_plan("Nick", ctxs, fas, [], 1, 1, replacement_rank=2,
+                                stream_pool_size=everyone)
+        pooled = adv.waiver_plan("Nick", {"this_week": ctxs["this_week"]}, fas, [], 1, 1)
     finally:
         mv.stage_weeks = mv_stage
     assert naive.this_week and naive.this_week[0].drop == "Star"      # the bug, reproduced
     assert all(r.drop != "Star" for r in fixed.this_week)             # and fixed
+    assert "Star" not in pooled.stream_pool and all(r.drop != "Star" for r in pooled.this_week)
 
 
 def test_rest_of_season_without_a_replacement_rank_refuses():

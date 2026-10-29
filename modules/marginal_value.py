@@ -209,6 +209,7 @@ class MVPlayer:
     out_from: Optional[date] = None     # INJURY_OVERRIDES out_from (A2)
     return_games: Optional[int] = None  # INJURY_OVERRIDES partial return, no date
     total_week_games: Optional[int] = None
+    projected_fppg: Optional[float] = None  # Yahoo's projected FPPG (PLAYERLIST, refreshed each fetch), no blend with actuals
 
 
 @dataclass
@@ -325,7 +326,8 @@ def build_context(
             status=str(statuses.get(name, "HEALTHY")).upper(),
             out_from=absence.parse_out_from(getattr(p, "out_from", None)),
             return_games=getattr(p, "return_games", None),
-            total_week_games=getattr(p, "total_week_games", None))
+            total_week_games=getattr(p, "total_week_games", None),
+            projected_fppg=None if p.projected_fppg is None else float(p.projected_fppg))
     # An unmodelled tag on anyone simulated raises here, once, naming them all.
     absence.check_tags({n: pl.status for n, pl in dict.items(players)}, dict.keys(players))
 

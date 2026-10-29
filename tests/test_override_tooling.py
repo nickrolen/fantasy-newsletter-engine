@@ -188,7 +188,11 @@ def test_add_preserves_everything_else_byte_for_byte(tmp_path):
                    "notes": "hamstring", "return_week": 5, "return_games": 2,
                    "total_week_games": 3, "return_date": "2026-11-17"}
     after["last_updated"] = original["last_updated"]
-    assert json.dumps(after, indent=2).encode() == before
+    # written by the same writer, so the platform's newline is the same on
+    # both sides (Windows text mode writes CRLF; a plain json.dumps never does)
+    again = p / "config" / "rewritten.json"
+    atomic_write_json(again, after)
+    assert again.read_bytes() == before
     # --replace overwrites in place; without it, refused
     assert _add(p, "Alpha Player", back="2026-11-16") == 2
     assert _add(p, "Alpha Player", back="2026-11-16", replace=True) == 0

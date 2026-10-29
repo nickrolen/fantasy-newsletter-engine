@@ -181,6 +181,21 @@ COMMISSIONER = _LEAGUE_CONFIG.get("commissioner")
 ADVICE_PUBLISH_FROM_WEEK = SEASON_CONFIG.get("advice_publish_from_week")
 
 
+def stream_drop_pool(season_config=None) -> int:
+    """season.stream_drop_pool: a one-week stream (C2's this_week plan) may
+    only drop one of this many players -- the bottom of the roster by
+    projected points per game (Nick, 10-29). Required: missing or below 1
+    RAISES; a stream rule must not fall back to a number nobody chose."""
+    cfg = SEASON_CONFIG if season_config is None else season_config
+    if "stream_drop_pool" not in cfg:
+        raise UnspecifiedRule("season.stream_drop_pool is missing from config/league_config.json "
+                       "(how many bottom-of-roster players a one-week stream may drop)")
+    n = cfg["stream_drop_pool"]
+    if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+        raise ValueError(f"season.stream_drop_pool must be an integer >= 1, got {n!r}")
+    return n
+
+
 def add_budget_for(season=None):
     """Adds allowed per team per week, or None if the rule did not exist.
 

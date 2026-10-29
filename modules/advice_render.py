@@ -21,6 +21,8 @@ from __future__ import annotations
 import html
 from typing import Optional
 
+from .data_loader import stream_drop_pool
+
 _e = html.escape
 
 
@@ -224,7 +226,9 @@ def render_html(advice: Optional[dict]) -> str:
     bar = advice.get("bar", {})
     out.append(f'<div class="adv-foot">Shown only when worth at least {bar.get("per_week", 10):g} points '
                f'a week of the window and clear of simulation noise. Values are over the regular season '
-               f'unless marked this week. One add, applied in order; drops never touch next season\'s keepers.</div>')
+               f'unless marked this week. One add, applied in order. Season drops never touch next season\'s keepers; '
+               f'one-week streams only drop from the bottom {stream_drop_pool()} of a roster by projected points per game, '
+               f'keepers included.</div>')
     out.append('</div>')
     return "\n".join(out)
 
