@@ -93,7 +93,7 @@ def test_leave_one_out_never_fits_on_the_held_out_season(monkeypatch):
         seen.append({lab[0] for lab in ros.labels})
         return real(ros, *a, **k)
     monkeypatch.setattr(M, "fit", spy)
-    res = F.loso(snaps, F.SPECS["age linear"], "end")
+    res = F.loso(snaps, F.SPECS["age linear"], "end", M.load_params()["level_prior"])
     assert list(res) == list(kh.DECISIONS) and len(seen) == len(kh.DECISIONS)
     for held, decisions in zip(kh.DECISIONS, seen):
         assert held not in decisions and decisions == set(kh.DECISIONS) - {held}
@@ -111,7 +111,9 @@ def test_week_2_features_read_nothing_after_week_2():
     b = kh.snapshot(cut, "2025-26", "week2", ages, check=False)
     assert [asdict(c) for c in a.candidates] == [asdict(c) for c in b.candidates]
     feats = F.SPECS["age linear"]
-    assert np.array_equal(M.design(a.candidates, feats), M.design(b.candidates, feats))
+    lp = M.load_params()["level_prior"]
+    assert np.array_equal(M.design(a.candidates, feats, level_prior=lp),
+                          M.design(b.candidates, feats, level_prior=lp))
 
 
 # 4 -- the shrinkage: 13 against last season, 4.7 against the league mean
@@ -130,11 +132,12 @@ def test_the_shrinkage_uses_the_measured_constants_and_returns_the_prior_at_zero
 def test_refitting_gives_the_same_parameters_file(tmp_path):
     a, b = tmp_path / "a.json", tmp_path / "b.json"
     for out in (a, b):
-        F.main(["--specs", "age linear", "--no-live", "--params", str(out), "--fit-date", "2026-10-29",
+        F.main(["--priors", "P1", "P3", "--no-live", "--params", str(out), "--fit-date", "2026-10-29",
                 "--baseline", str(tmp_path / "none.json")])
     assert a.read_bytes() == b.read_bytes()
     params = M.load_params(a)
-    assert params["shrinkage"]["k0_prior_season"] == 13.0 and params["shrinkage"]["k0_league_mean"] == 4.7
+    assert params["level_prior"]["spec"] == "P3" and params["level_prior"]["k0_league_mean"] == 4.7
+    assert params["level_prior"]["k0_prior"] == 10.0 and "measured" in params["level_prior"]["k0_prior_source"]
     assert params["fitted_on"] == list(kh.DECISIONS) and len(params["dataset_sha256"]) == 64
     for p in M.POINTS:
         assert set(params["points"][p]["se"]) == set(params["features"])
@@ -142,7 +145,7 @@ def test_refitting_gives_the_same_parameters_file(tmp_path):
 
 def test_the_committed_parameters_file_loads_and_predicts():
     params = M.load_params()
-    assert params["specification"] == "age linear"
+    assert params["specification"] == "age linear" and params["level_prior"]["spec"] == "P3"
     snaps = F.dataset()
     by = snaps[("2026-27", "end")].by_manager()
     out = M.predict(by, "end", 6, params)
@@ -159,7 +162,9 @@ def test_predict_refuses_a_missing_or_malformed_parameters_file(tmp_path):
     with pytest.raises(M.ParamsError, match="not valid JSON"):
         M.load_params(bad)
     good = M.load_params()
-    for breaks in ({"version": 2}, {"points": {}},
+    for breaks in ({"version": 2}, {"points": {}}, {"level_prior": None},
+                   {"level_prior": {**good["level_prior"], "k0_prior": None}},
+                   {"level_prior": {**good["level_prior"], "spec": "P9"}},
                    {"points": {**good["points"], "end": {**good["points"]["end"], "coef": {"kept": 1.0}}}},
                    {"points": {**good["points"], "mid": {**good["points"]["mid"],
                                                          "coef": {**good["points"]["mid"]["coef"], "age": "x"}}}}):
@@ -180,3 +185,87 @@ def test_in_the_2021_22_decision_no_candidate_was_kept_the_season_before():
         assert all(c.draft_rank == c.draft_pick for c in cands if c.draft_rank)   # 2020-21: rank = pick
     later = snaps[("2022-23", "end")].candidates
     assert all(c.draft_rank == 24 + c.draft_pick for c in later if c.draft_rank)
+
+
+# ---------------------------------------------------------------------------
+# step B2: the level's prior over more than one season
+# ---------------------------------------------------------------------------
+LINES = [("2025-26", 36, 40.9), ("2024-25", 67, 48.1), ("2023-24", 72, 49.1)]
+
+
+def test_the_prior_is_games_weighted_over_exactly_the_stated_seasons():
+    assert M.prior_from_lines("2026-27", LINES, "P1") == (40.9, [LINES[0]])
+    p2, used = M.prior_from_lines("2026-27", LINES, "P2")
+    assert used == LINES[:2] and p2 == pytest.approx((36 * 40.9 + 67 * 48.1) / 103)
+    p3, used = M.prior_from_lines("2026-27", LINES, "P3")
+    assert used == LINES and p3 == pytest.approx((36 * 40.9 + 67 * 48.1 + 72 * 49.1) / 175)
+    p3r, _ = M.prior_from_lines("2026-27", LINES, "P3r")
+    assert p3r == pytest.approx((3 * 36 * 40.9 + 2 * 67 * 48.1 + 72 * 49.1) / (108 + 134 + 72))
+    # the window is counted in calendar seasons: a missed season still uses up a place
+    gap = [("2024-25", 67, 48.1), ("2023-24", 72, 49.1)]
+    assert M.prior_from_lines("2026-27", gap, "P1") == (None, [])
+    assert M.prior_from_lines("2026-27", gap, "P2") == (48.1, [gap[0]])
+    # P1 keeps step B's 10-game floor; the games-weighted priors take any appearances
+    thin = [("2025-26", 4, 30.0)]
+    assert M.prior_from_lines("2026-27", thin, "P1")[0] is None
+    assert M.prior_from_lines("2026-27", thin, "P3")[0] == 30.0
+    with pytest.raises(ValueError, match="not before"):
+        M.prior_from_lines("2025-26", LINES, "P3")              # only seasons before the as-of season
+    with pytest.raises(M.PriorError):
+        M.prior_from_lines("2026-27", LINES, "P4")
+
+
+def test_previous_lines_are_whole_seasons_before_the_as_of_season():
+    inputs = kh.Inputs.load(ROOT)
+    lines = kh.previous_lines(inputs, "2026-27")("Domantas Sabonis")
+    assert [s for s, _, _ in lines] == ["2025-26", "2024-25", "2023-24"]
+    assert lines[0][1] == 19 and lines[0][2] == pytest.approx(33.07, abs=0.01)
+    assert all(s < "2026-27" for s, _, _ in lines)
+    snaps = F.dataset()
+    for (d, p), snap in snaps.items():
+        for c in snap.candidates[:20]:
+            assert all(s < c.season for s, _, _ in c.prev_lines) and len(c.prev_lines) <= kh.PREV_SEASONS
+
+
+def _cand(prev, games=0, fppg=None, league_mean=33.0, season="2026-27"):
+    return kh.Candidate(decision="2027-28", season=season, point="week2", as_of="x", manager="Nick", player="X",
+                        kept_next=False, kept=False, draft_round=None, undrafted=True, acquired="pickup",
+                        stint_start="x", games=games, fppg=fppg, fppg_rank=1, team_games=games,
+                        availability=None, days_rostered=1, first_day="x", prev_games=None, prev_fppg=None,
+                        age=25, prev_lines=prev, league_mean=league_mean)
+
+
+def test_no_previous_season_takes_the_league_mean_and_its_own_k0():
+    lp = {"spec": "P3", "k0_prior": 10.0, "k0_league_mean": 4.7}
+    lvl, prior, k0, kind, used = M.level_of(_cand([], games=5, fppg=40.0), lp)
+    assert (prior, k0, kind, used) == (33.0, 4.7, "league mean", [])
+    assert lvl == pytest.approx(5 / 9.7 * 40 + 4.7 / 9.7 * 33)
+    lvl, prior, k0, kind, used = M.level_of(_cand(LINES, games=10, fppg=50.0), lp)
+    assert k0 == 10.0 and kind == "P3" and lvl == pytest.approx(0.5 * 50 + 0.5 * prior)
+    assert M.level_of(_cand(LINES), lp)[0] == pytest.approx(prior)          # zero games: the prior
+
+
+def test_each_specs_k0_comes_from_the_parameters_and_a_missing_one_raises():
+    params = M.load_params()
+    lp = M.level_config(params)
+    assert lp["k0_prior"] == 10.0 and lp["spec"] == "P3" and lp["k0_league_mean"] == 4.7
+    for broken in ({}, {"level_prior": {"spec": "P3", "k0_league_mean": 4.7}},
+                   {"level_prior": {"spec": "P3", "k0_prior": 0, "k0_league_mean": 4.7}}):
+        with pytest.raises(M.PriorError):
+            M.level_config(broken)
+    with pytest.raises(M.PriorError):
+        M.design([_cand(LINES)], ["level"])                                   # no prior given
+    with pytest.raises(M.PriorError):
+        M.design([_cand(LINES)], ["level"], level_prior={"spec": "P3"})
+    # the same candidate under another k0 gives another level: nothing is hard-wired
+    a = M.design([_cand(LINES, games=4, fppg=30.0)], ["level"], level_prior={**lp, "k0_prior": 10.0})
+    b = M.design([_cand(LINES, games=4, fppg=30.0)], ["level"], level_prior={**lp, "k0_prior": 20.0})
+    assert a[0, 0] != b[0, 0]
+
+
+def test_k0_is_measured_the_way_13_was():
+    inputs = kh.Inputs.load(ROOT)
+    r = F.measure_k0(F.k0_pairs(inputs, "P1"))
+    assert 10 <= r["k0"] <= 14 and r["player_seasons_at_k10"] > 400      # 13 measured 10-23 on 401
+    pairs = {10: [(40.0, 40.0, 30.0)] * 5}                                 # first-k is right: k0 small
+    assert F.measure_k0(pairs)["k0"] == 0.5

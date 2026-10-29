@@ -64,6 +64,7 @@ TRADE_WINDOW_DAYS = 3        # a trade shows on the receiving roster within this
 K0_PRIOR_SEASON = 13.0
 K0_LEAGUE_MEAN = 4.7
 PRIOR_MIN_GAMES = 10
+PREV_SEASONS = 3            # how far back prev_lines reach (step B2)
 
 
 def shrunk_level(fppg, games: int, prev_fppg, prev_games, league_mean: float) -> tuple:
@@ -348,6 +349,10 @@ class Candidate:
     level: Optional[float] = None    # shrunk_level(): FPPG so far toward the prior
     level_prior: Optional[float] = None
     level_prior_kind: Optional[str] = None
+    prev_lines: list = field(default_factory=list)  # [(season, games, fppg)] for up to PREV_SEASONS
+                                                    # seasons before this one, newest first; only
+                                                    # seasons with appearances (rostered in this league)
+    league_mean: Optional[float] = None             # rostered players' FPPG this season, so far
     team_flips: int = 0              # times his rows' nba_team changes; > 2 means the log
                                      # alternates teams after an NBA trade, and had_game /
                                      # is_injured (so team_games, availability) are unreliable
@@ -389,6 +394,35 @@ def _season_line(rows: list) -> tuple:
     """(games, fppg) from one player's rows."""
     pts = [r["fantasy_points"] for r in rows if appeared(r)]
     return len(pts), (sum(pts) / len(pts) if pts else None)
+
+
+def previous_lines(inputs: Inputs, season: str, n_seasons: int = PREV_SEASONS):
+    """A function name -> [(season, games, fppg)] for the n_seasons seasons
+    before `season`, newest first, only those in which he appeared (the log
+    covers a player only while he is rostered in this league). Whole seasons:
+    every one of them ends before `season` starts."""
+    seasons, s = [], season
+    for _ in range(n_seasons):
+        s = prev_season(s)
+        seasons.append(s)
+    per = []
+    for s in seasons:
+        rows: dict = {}
+        for r in inputs.log.get(s, []):
+            rows.setdefault(r["player_name"], []).append(r)
+        per.append((s, rows, PlayerIndex({k: k for k in rows})))
+
+    def lines(name: str) -> list:
+        out = []
+        for s, rows, idx in per:
+            hit = idx.canonical(name)
+            if hit is None:
+                continue
+            g, f = _season_line(rows[hit])
+            if g:
+                out.append((s, g, round(f, 4)))
+        return out
+    return lines
 
 
 def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = None,
@@ -450,6 +484,7 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
     for r in inputs.log.get(prev_season(season), []):
         prev_by_player.setdefault(r["player_name"], []).append(r)
     prev_names = PlayerIndex({n: n for n in prev_by_player})
+    back = previous_lines(inputs, season)
 
     snap = Snapshot(decision, point, week, as_of, rosters, keepers, ceiling, absent)
     for m, roster in sorted(rosters.items()):
@@ -487,7 +522,8 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
                 age=age, age_source=age_source, team_flips=flips,
                 draft_pick=pick_now.get(n),
                 draft_rank=None if n not in pick_now else kept_league + pick_now[n],
-                level=round(level, 3), level_prior=round(prior, 3), level_prior_kind=prior_kind))
+                level=round(level, 3), level_prior=round(prior, 3), level_prior_kind=prior_kind,
+                prev_lines=back(n), league_mean=round(league_mean, 4)))
         order = sorted(mine, key=lambda c: (c.fppg is None, -(c.fppg or 0.0), c.player))
         for i, c in enumerate(order, 1):
             c.fppg_rank = i
@@ -541,6 +577,7 @@ def live_snapshot(inputs: Inputs, season: str, rosters: dict, ages: Optional[dic
         n = names.canon(p["player_name"], p.get("player_key")) or p["player_name"]
         pick_of[n] = p
     pick_idx = PlayerIndex({n: n for n in pick_of})
+    back = previous_lines(inputs, season)
     trades_to = {(mv["player_name"], mv["to_manager"]) for t in inputs.trades
                  if t.get("season") == season for mv in t.get("players", [])}
     out = Snapshot(next_season(season), "live", base.week, last,
@@ -569,7 +606,8 @@ def live_snapshot(inputs: Inputs, season: str, rosters: dict, ages: Optional[dic
                 age=age, age_source=age_source,
                 draft_pick=None if (not pk or kept) else int(pk["pick_number"]),
                 draft_rank=None if (not pk or kept) else kept_league + int(pk["pick_number"]),
-                level=round(level, 3), level_prior=round(prior, 3), level_prior_kind=kind))
+                level=round(level, 3), level_prior=round(prior, 3), level_prior_kind=kind,
+                prev_lines=back(raw), league_mean=round(league_mean, 4)))
     for m in rosters:
         mine = sorted([c for c in out.candidates if c.manager == m],
                       key=lambda c: (c.fppg is None, -(c.fppg or 0.0), c.player))

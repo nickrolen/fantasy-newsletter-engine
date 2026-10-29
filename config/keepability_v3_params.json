@@ -1,6 +1,6 @@
 {
   "age_center": 27.0,
-  "dataset_sha256": "ad1ca7bf10f3f59b47e0f1d58b63bd27adbe084ce9b1ead6145f09b3a2dcfec4",
+  "dataset_sha256": "451f214c9234730f0faefaa70a5aaac103f2e4b58791fc9760e65c4ff9653e61",
   "feature_text": {
     "age": "age that season - 27",
     "availability": "games / his team's games while rostered so far; missing -> that snapshot's mean",
@@ -26,19 +26,27 @@
     "2025-26",
     "2026-27"
   ],
+  "level_prior": {
+    "k0_league_mean": 4.7,
+    "k0_league_mean_source": "measured 10-23 against the league mean (variance components, 589 player-seasons)",
+    "k0_prior": 10.0,
+    "k0_prior_source": "measured 2026-10-29 on this run's playerlog, the method of REVIEW_PROJECTION_VS_ACTUALS_RESULT_2026-10-23 s4: 485 player-seasons at k=10, 3845 (k, player-season) pairs",
+    "spec": "P3",
+    "text": "the last three seasons, games-weighted"
+  },
   "points": {
     "end": {
       "coef": {
-        "age": -0.414957,
-        "availability": 0.00247,
-        "kept": 0.916539,
-        "level": 0.490938,
-        "log_draft_rank": -0.624145,
-        "undrafted": -1.495262
+        "age": -0.438705,
+        "availability": -0.010162,
+        "kept": 1.134885,
+        "level": 0.501346,
+        "log_draft_rank": -0.749416,
+        "undrafted": -1.320974
       },
       "loglik_per_roster": {
-        "held_out": -3.3179,
-        "in_sample": -3.1005,
+        "held_out": -3.1655,
+        "in_sample": -2.9374,
         "uniform": -8.9252
       },
       "missing_keepers": {
@@ -47,26 +55,26 @@
       "n_players": 382,
       "n_rosters": 24,
       "se": {
-        "age": 0.060782,
-        "availability": 0.934512,
-        "kept": 0.412235,
-        "level": 0.065348,
-        "log_draft_rank": 0.64068,
-        "undrafted": 0.497816
+        "age": 0.062973,
+        "availability": 0.945082,
+        "kept": 0.419051,
+        "level": 0.066082,
+        "log_draft_rank": 0.659542,
+        "undrafted": 0.497995
       }
     },
     "mid": {
       "coef": {
-        "age": -0.382182,
-        "availability": 1.37431,
-        "kept": 0.646516,
-        "level": 0.435845,
-        "log_draft_rank": -0.652383,
-        "undrafted": -1.183949
+        "age": -0.407512,
+        "availability": 1.346461,
+        "kept": 0.882208,
+        "level": 0.442929,
+        "log_draft_rank": -0.795828,
+        "undrafted": -1.040821
       },
       "loglik_per_roster": {
-        "held_out": -3.6673,
-        "in_sample": -3.3562,
+        "held_out": -3.5225,
+        "in_sample": -3.1452,
         "uniform": -8.4175
       },
       "missing_keepers": {
@@ -77,26 +85,26 @@
       "n_players": 370,
       "n_rosters": 24,
       "se": {
-        "age": 0.058037,
-        "availability": 0.863935,
-        "kept": 0.403705,
-        "level": 0.059793,
-        "log_draft_rank": 0.62165,
-        "undrafted": 0.531718
+        "age": 0.060266,
+        "availability": 0.893745,
+        "kept": 0.40538,
+        "level": 0.059969,
+        "log_draft_rank": 0.643094,
+        "undrafted": 0.53446
       }
     },
     "week2": {
       "coef": {
-        "age": -0.291818,
-        "availability": 1.778053,
-        "kept": 0.904881,
-        "level": 0.272373,
-        "log_draft_rank": -1.021839,
-        "undrafted": -1.892367
+        "age": -0.354457,
+        "availability": 1.726158,
+        "kept": 1.0948,
+        "level": 0.309661,
+        "log_draft_rank": -1.197862,
+        "undrafted": -1.695311
       },
       "loglik_per_roster": {
-        "held_out": -4.3194,
-        "in_sample": -3.8804,
+        "held_out": -3.9196,
+        "in_sample": -3.5525,
         "uniform": -7.8416
       },
       "missing_keepers": {
@@ -108,12 +116,12 @@
       "n_players": 367,
       "n_rosters": 24,
       "se": {
-        "age": 0.051655,
-        "availability": 0.690204,
-        "kept": 0.384184,
-        "level": 0.048157,
-        "log_draft_rank": 0.578343,
-        "undrafted": 0.722501
+        "age": 0.056728,
+        "availability": 0.704712,
+        "kept": 0.376726,
+        "level": 0.048208,
+        "log_draft_rank": 0.610941,
+        "undrafted": 0.758128
       }
     }
   },
@@ -122,14 +130,8 @@
     "sd": 2.5
   },
   "rank_center": 36.0,
-  "shrinkage": {
-    "k0_league_mean": 4.7,
-    "k0_prior_season": 13.0,
-    "prior_min_games": 10,
-    "source": "measured 10-23/10-28 against these priors (REVIEW_PROJECTION_VS_ACTUALS_RESULT_2026-10-23, SHRINKAGE_CURVE_RESULT_2026-10-28); reused, not refit"
-  },
   "specification": "age linear",
   "version": 3,
-  "why": "highest summed held-out log-likelihood (leave one season out, all three points) among: age linear, age + young, age quadratic, age + young + trade",
+  "why": "features: step B's comparison (age linear). Level prior: highest summed held-out log-likelihood among P1, P2, P3, P3r without losing hits to P1 (step B2)",
   "young_age": 23
 }

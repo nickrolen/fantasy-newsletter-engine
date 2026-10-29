@@ -47,6 +47,82 @@ YOUNG_AGE = 23
 
 
 # ---------------------------------------------------------------------------
+# the level's prior (step B2): one season, or several, games-weighted
+# ---------------------------------------------------------------------------
+
+PRIOR_SPECS = {
+    "P1":  {"seasons": 1, "min_games": 10, "recency": None,
+            "text": "last season's FPPG, if he played 10+ games then (step B)"},
+    "P2":  {"seasons": 2, "min_games": 1, "recency": None,
+            "text": "the last two seasons, games-weighted"},
+    "P3":  {"seasons": 3, "min_games": 1, "recency": None,
+            "text": "the last three seasons, games-weighted"},
+    "P3r": {"seasons": 3, "min_games": 1, "recency": (3, 2, 1),
+            "text": "the last three seasons, games x recency 3:2:1 (stated before fitting, not tuned)"},
+}
+
+
+class PriorError(KeyError):
+    pass
+
+
+def prior_from_lines(season: str, lines: Sequence, spec: str) -> tuple:
+    """(prior FPPG or None, [(season, games, fppg) used]) from a player's
+    previous seasons in the log (keeper_history.previous_lines: newest first,
+    seasons he appeared in). Only seasons BEFORE `season`, within the spec's
+    window counted in calendar seasons; each weighted by its games (and, for
+    P3r, by recency). None: nothing in the window -- the caller falls back to
+    the league mean."""
+    if spec not in PRIOR_SPECS:
+        raise PriorError(f"unknown prior spec {spec!r}")
+    cfg = PRIOR_SPECS[spec]
+    used, num, den = [], 0.0, 0.0
+    for ls, games, fppg in lines:
+        back = int(season[:4]) - int(str(ls)[:4])
+        if back < 1:
+            raise ValueError(f"prior line {ls} is not before {season}")
+        if back > cfg["seasons"] or games < cfg["min_games"]:
+            continue
+        w = games * (cfg["recency"][back - 1] if cfg["recency"] else 1)
+        num += w * fppg
+        den += w
+        used.append((ls, games, fppg))
+    return (num / den if den else None), used
+
+
+def level_config(params: Optional[dict]) -> dict:
+    """{spec, k0_prior, k0_league_mean} from the parameters file's
+    "level_prior". Missing or incomplete RAISES: each spec's k0 is measured
+    and recorded, never a code constant."""
+    lp = (params or {}).get("level_prior")
+    if not isinstance(lp, dict):
+        raise PriorError("the parameters have no level_prior (spec and its measured k0)")
+    need = [k for k in ("spec", "k0_prior", "k0_league_mean") if not isinstance(lp.get(k), (str, int, float))]
+    if need or lp["spec"] not in PRIOR_SPECS:
+        raise PriorError(f"level_prior is incomplete or unknown: missing {need}, spec {lp.get('spec')!r}")
+    for k in ("k0_prior", "k0_league_mean"):
+        if not (isinstance(lp[k], (int, float)) and lp[k] > 0):
+            raise PriorError(f"level_prior.{k} must be a positive number, got {lp[k]!r}")
+    return lp
+
+
+def level_of(c, lp: dict) -> tuple:
+    """(level, prior, k0, prior kind, seasons used) for one candidate: FPPG so
+    far shrunk toward the spec's prior, w = k / (k + k0), k = games so far
+    (bench games count); the prior itself at zero games."""
+    prior, used = prior_from_lines(c.season, c.prev_lines, lp["spec"])
+    if prior is None:
+        if c.league_mean is None:
+            raise ValueError(f"{c.player}: no prior and no league mean")
+        prior, k0, kind = float(c.league_mean), float(lp["k0_league_mean"]), "league mean"
+    else:
+        k0, kind = float(lp["k0_prior"]), lp["spec"]
+    k = int(c.games or 0)
+    w = k / (k + k0)
+    return ((w * float(c.fppg) + (1 - w) * prior) if k else prior), prior, k0, kind, used
+
+
+# ---------------------------------------------------------------------------
 # features
 # ---------------------------------------------------------------------------
 
@@ -60,7 +136,7 @@ FEATURES = {
                                      if (c.draft_rank and not c.kept) else 0.0),
     "undrafted":       lambda c, m: float(_undrafted(c)),
     "undrafted_trade": lambda c, m: float(_undrafted(c) and c.acquired == "trade"),
-    "level":           lambda c, m: float(c.level),
+    "level":           lambda c, m: float(level_of(c, m["level_prior"])[0]),
     "availability":    lambda c, m: float(c.availability) if c.availability is not None else m["availability"],
     "age":             lambda c, m: float(c.age) - AGE_CENTER,
     "young":           lambda c, m: float(c.age <= YOUNG_AGE),
@@ -81,15 +157,18 @@ FEATURE_TEXT = {
 }
 
 
-def fill_values(cands) -> dict:
+def fill_values(cands, level_prior: Optional[dict] = None) -> dict:
     """Snapshot-level values for missing inputs (point-in-time: from the same
-    snapshot)."""
+    snapshot), and the level's prior configuration."""
     av = [c.availability for c in cands if c.availability is not None]
-    return {"availability": float(np.mean(av)) if av else 1.0}
+    return {"availability": float(np.mean(av)) if av else 1.0, "level_prior": level_prior}
 
 
-def design(cands, features: Sequence[str], fill: Optional[dict] = None) -> np.ndarray:
-    fill = fill or fill_values(cands)
+def design(cands, features: Sequence[str], fill: Optional[dict] = None,
+           level_prior: Optional[dict] = None) -> np.ndarray:
+    fill = fill or fill_values(cands, level_prior)
+    if "level" in features:
+        level_config({"level_prior": fill.get("level_prior")})          # raises if missing
     unknown = [f for f in features if f not in FEATURES]
     if unknown:
         raise KeyError(f"unknown features {unknown}")
@@ -321,10 +400,14 @@ def load_params(path=None) -> dict:
         params = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
         raise ParamsError(f"{path} is not valid JSON: {e}") from e
-    need = ("version", "features", "points", "shrinkage", "fitted_on", "dataset_sha256")
+    need = ("version", "features", "points", "level_prior", "fitted_on", "dataset_sha256")
     gone = [k for k in need if k not in params]
     if gone or params.get("version") != 3:
         raise ParamsError(f"{path} is malformed: missing {gone} or version != 3")
+    try:
+        level_config(params)
+    except PriorError as e:
+        raise ParamsError(f"{path}: {e}") from e
     for pt in POINTS:
         blob = params["points"].get(pt)
         if not isinstance(blob, dict) or "coef" not in blob or "missing_keepers" not in blob:
@@ -348,7 +431,7 @@ def predict(rosters: dict, point: str, K: int, params: Optional[dict] = None,
     beta = np.array([blob["coef"][f] for f in feats])
     mans = sorted(rosters)
     allc = [c for m in mans for c in rosters[m]]
-    fill = fill_values(allc)
+    fill = fill_values(allc, level_config(params))
     ros = Rosters([design(rosters[m], feats, fill) for m in mans],
                   [np.zeros(len(rosters[m]), dtype=bool) for m in mans], [0] * len(mans))
     missing = {int(k): v for k, v in blob["missing_keepers"].items()}
