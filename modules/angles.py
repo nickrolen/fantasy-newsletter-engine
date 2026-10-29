@@ -177,10 +177,14 @@ def _run_lengths(xs: list) -> list:
 # ------------------------------------------------------------------ decided
 #
 # A race can be settled before it's over: the title clinched, a team out of
-# it, a team safe from paying or certain to pay. Exact, from wins and games
-# left (a tie in wins counts as undecided: the points tiebreak can still go
-# either way). Which places collect and which pay comes from the payout
-# config, like the bracket stakes.
+# it, a team safe from paying or certain to pay. ONE implementation decides
+# all four: season_sim.regular_season_exact, a max-flow over the ACTUAL
+# remaining pairings -- rivals who play each other cannot all win
+# (HANDOFF_ONE_CLINCH_RULE, 10-28; this used to be a per-rival bound,
+# max = wins + weeks left, here and a leader-only bound in marginal_value).
+# A reachable tie in standing is undecided: the tiebreak can still go either
+# way. A T is half a win. Which places collect and which pay comes from the
+# payout config, like the bracket stakes.
 
 def _payer_places() -> set:
     import re as _re
@@ -190,16 +194,36 @@ def _payer_places() -> set:
                                          pay.get("paid_by") or "")}
 
 
-def decided_status(season_matchups: list, week: int, reg_last: int) -> set:
-    """{(event, manager)} true after `week` of the regular season."""
+def regular_pairings(season_matchups: list, reg_last: int, pairings=None) -> dict:
+    """{week: [(a, b)]} for the regular season: the played matchups, with
+    `pairings` ({week, manager_a, manager_b} dicts -- the schedule) filling
+    the weeks not played yet."""
+    out: dict = defaultdict(list)
+    for src in (pairings or [], season_matchups):
+        for m in src:
+            w = int(m["week"])
+            if w > reg_last:
+                continue
+            pair = (m["manager_a"], m["manager_b"])
+            if pair not in out[w] and pair[::-1] not in out[w]:
+                out[w].append(pair)
+    return dict(out)
+
+
+def decided_status(season_matchups: list, week: int, reg_last: int, pairings=None) -> set:
+    """{(event, manager)} true after `week` of the regular season.
+
+    Before the season ends, every event comes from
+    season_sim.regular_season_exact over the games still to play, so it needs
+    the remaining PAIRINGS: from `season_matchups` when they hold the whole
+    regular season (a past season), else from `pairings` (this season's
+    schedule). A remaining week with no pairing RAISES -- falling back to a
+    count of weeks left is the bound this replaced."""
     if week > reg_last:
         return set()
-    _, wins = _cumulative([m for m in season_matchups if m["week"] <= reg_last],
-                          week)
     managers = sorted({x for m in season_matchups
                        for x in (m["manager_a"], m["manager_b"])})
     left = reg_last - week
-    mx = {m: wins[m] + left for m in managers}
     payers = _payer_places()
     safe = (min(payers) - 1) if payers else None
     out = set()
@@ -212,16 +236,30 @@ def decided_status(season_matchups: list, week: int, reg_last: int) -> set:
             if safe:
                 out.add(("safe_from_paying" if i <= safe else "will_pay", m))
         return out
+    from .season_sim import regular_season_exact
+    by_week = regular_pairings(season_matchups, reg_last, pairings)
+    managers = sorted(set(managers) | {x for ps in by_week.values() for p in ps for x in p})
+    missing = [w for w in range(week + 1, reg_last + 1)
+               if len(by_week.get(w, [])) * 2 < len(managers)]
+    if missing:
+        raise ValueError(f"decided_status: no pairings for regular-season week(s) {missing}; "
+                         "pass the season's schedule (pairings=) -- clinch and elimination "
+                         "are decided over the games left, not a count of weeks")
+    remaining = [p for w in range(week + 1, reg_last + 1) for p in by_week[w]]
+    records, _h2h, _pts = _records([m for m in season_matchups if m["week"] <= reg_last], week)
+    records = {m: records.get(m, Record()) for m in managers}
+    exact = regular_season_exact(records, remaining,
+                                 tuple(sorted(payers)) if payers else (len(managers) + 1,))
     for m in managers:
-        others = [o for o in managers if o != m]
-        if all(wins[m] > mx[o] for o in others):
+        title, pot = exact[m]["title"], exact[m]["league_pot"]
+        if title == "clinched":
             out.add(("clinched_title", m))
-        elif any(wins[o] > mx[m] for o in others):
+        elif title == "eliminated":
             out.add(("out_of_title", m))
         if safe:
-            if sum(1 for o in others if mx[o] >= wins[m]) < safe:
+            if pot == "safe":
                 out.add(("safe_from_paying", m))
-            elif sum(1 for o in others if wins[o] > mx[m]) >= safe:
+            elif pot == "will_pay":
                 out.add(("will_pay", m))
     return out
 
@@ -237,7 +275,13 @@ def final_order(season_matchups: list, reg_last: int) -> list:
 
 def magic_number(season_matchups: list, week: int, reg_last: int):
     """(leader, wins the leader needs -- his wins or his rivals' losses --
-    to clinch the title outright). None once the season is over."""
+    to clinch the title outright). None once the season is over.
+
+    The CONVENTIONAL magic number: a count against each rival's best case
+    (wins + weeks left), not a decision. It can exceed what the exact check
+    needs -- rivals who play each other cannot all win -- so it is never used
+    to say clinched or out; decided_status does that (regular_season_exact),
+    and the threads stop printing it once the title is clinched."""
     _, wins = _cumulative([m for m in season_matchups if m["week"] <= reg_last],
                           week)
     if not wins or week >= reg_last:
@@ -281,11 +325,11 @@ def _pot_terms(reg_last: int) -> dict:
 
 
 def decided_angles(season_matchups: list, week: int, reg_last: int,
-                   hist: "History") -> list:
+                   hist: "History", pairings=None) -> list:
     if week > reg_last:
         return []
-    now = decided_status(season_matchups, week, reg_last)
-    before = decided_status(season_matchups, week - 1, reg_last) \
+    now = decided_status(season_matchups, week, reg_last, pairings)
+    before = decided_status(season_matchups, week - 1, reg_last, pairings) \
         if week > 1 else set()
     recs, _h2h, _pts = _records(season_matchups, min(week, reg_last))
     out = []
@@ -324,10 +368,10 @@ def _ordinal(n: int) -> str:
     return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
 
 
-def decided_consequence(season_matchups, week, reg_last) -> dict:
+def decided_consequence(season_matchups, week, reg_last, pairings=None) -> dict:
     """A settled stake counts 1, like a decisive bracket game."""
-    now = decided_status(season_matchups, week, reg_last)
-    before = decided_status(season_matchups, week - 1, reg_last) \
+    now = decided_status(season_matchups, week, reg_last, pairings)
+    before = decided_status(season_matchups, week - 1, reg_last, pairings) \
         if week > 1 else set()
     return {m: 1.0 for _, m in now - before}
 
@@ -943,7 +987,11 @@ def run_week(season_matchups: list, week: int, hist: History,
              last_used: Optional[dict] = None,
              season: Optional[str] = None,
              last_lead: Optional[dict] = None,
-             pick_ownership: Optional[dict] = None) -> dict:
+             pick_ownership: Optional[dict] = None,
+             pairings: Optional[list] = None) -> dict:
+    """pairings: the regular season's schedule ({week, manager_a,
+    manager_b}), for the weeks season_matchups has not played yet -- the
+    exact clinch check needs who plays whom (decided_status)."""
     cands = matchup_angles(season_matchups, week, hist, reg_last)
     bcons, bangles = (bracket_week(season_matchups, week, season, hist.sigma)
                       if season else ({}, []))
@@ -952,14 +1000,14 @@ def run_week(season_matchups: list, week: int, hist: History,
         tw = 2 * len([m for m in season_matchups if m["week"] <= week])
         nm = len([m for m in season_matchups if m["week"] == week])
         cands += storyline_angles(stories, hist, week, tw, nm, 2 * nm)
-    cands += decided_angles(season_matchups, week, reg_last, hist)
+    cands += decided_angles(season_matchups, week, reg_last, hist, pairings)
     cands = merge(cands)
     repeats = apply_repeats(cands, last_lead, hist)
     cons = consequence(season_matchups, week, cup_last, reg_last, hist.sigma)
     for m, v in bcons.items():
         cons.setdefault(m, {"cup": 0.0, "standings": 0.0, "bracket": 0.0, "decided": 0.0})
         cons[m]["bracket"] = v
-    for m, v in decided_consequence(season_matchups, week, reg_last).items():
+    for m, v in decided_consequence(season_matchups, week, reg_last, pairings).items():
         cons.setdefault(m, {"cup": 0.0, "standings": 0.0, "bracket": 0.0, "decided": 0.0})
         cons[m]["decided"] = v
     score(cands, cons)
@@ -970,12 +1018,13 @@ def run_week(season_matchups: list, week: int, hist: History,
     sel["repeats_discounted"] = repeats
     from modules.standing_threads import lines as standing_lines
     sel["race_state"] = standing_lines(season_matchups, week, season,
-                                       cup_last, reg_last, pick_ownership)
+                                       cup_last, reg_last, pick_ownership,
+                                       pairings=pairings)
     # What decided money this week -- the gate for every dollar figure in
     # the draft (check_draft reads it from angles_weekN.json).
     from modules.standing_threads import money_events
     sel["money_events"] = [list(e) for e in
-                           money_events(season_matchups, week, season, reg_last)]
+                           money_events(season_matchups, week, season, reg_last, pairings)]
     sel["consequence"] = cons
     sel["all"] = [a.as_dict() for a in ranked]
     return sel
@@ -1022,6 +1071,26 @@ def season_matchups(base, season: str, week: int) -> list:
     return [m for m in sm if m["week"] <= week], prior
 
 
+def season_pairings(base, season: str) -> list:
+    """The season's pairings, {week, manager_a, manager_b}: every game of a
+    past season from all_matchups.json, or this season's SCHEDULE.json (its
+    regular-season weeks are what the exact clinch check reads)."""
+    import json
+    from pathlib import Path
+    base = Path(base)
+    hist = base / "data" / "historical" / "all_matchups.json"
+    allm = json.loads(hist.read_text(encoding="utf-8")) if hist.exists() else []
+    played = [{"week": m["week"], "manager_a": m["manager_a"], "manager_b": m["manager_b"]}
+              for m in allm if m["season"] == season]
+    if played:
+        return played
+    sched = base / "config" / "SCHEDULE.json"
+    blob = json.loads(sched.read_text(encoding="utf-8")) if sched.exists() else {}
+    return [{"week": int(w["week"]), "manager_a": p.get("manager_a"),
+             "manager_b": p.get("manager_b")}
+            for w in blob.get("weeks", []) for p in w.get("matchups", [])]
+
+
 def recency_from(out_dir, week: int) -> dict:
     """(family, manager) -> last week it was selected, from the angles
     files of the previous RECENCY_LOOKBACK weeks."""
@@ -1062,7 +1131,8 @@ def for_report(base, season: str, week: int, stories: list) -> dict:
         "draft_pick_ownership") if trades.exists() else None
     return run_week(sm, week, hist, cup_last, reg_last, stories,
                     recency_from(Path(base) / "output", week), season,
-                    last_lead_from(Path(base) / "output", week), picks)
+                    last_lead_from(Path(base) / "output", week), picks,
+                    pairings=season_pairings(base, season))
 
 
 def money_line(sel: dict) -> str:

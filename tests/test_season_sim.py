@@ -278,8 +278,8 @@ def test_a_tie_is_half_a_win_in_the_arithmetic():
 
 
 def test_rivals_who_play_each_other_cannot_both_win():
-    """The leader-only bound (marginal_value.title_eliminated) calls Benton
-    alive: 8 + 3 = 11 reaches Nick's 10. But Nick and Hayden play each other
+    """A leader-only bound (marginal_value.title_eliminated before 10-28)
+    called Benton alive: 8 + 3 = 11 reaches Nick's 10. But Nick and Hayden play each other
     twice, so one of them reaches 11 -- and Benton then needs the rest. The
     flow over the real pairings sees it."""
     recs = {"Nick": R(10, 2), "Hayden": R(10, 2), "Benton": R(8, 4), "Garrett": R(0, 12)}
@@ -287,8 +287,8 @@ def test_rivals_who_play_each_other_cannot_both_win():
              ("Nick", "Hayden"), ("Benton", "Garrett"),
              ("Nick", "Hayden"), ("Benton", "Garrett")]
     from modules.marginal_value import title_eliminated
-    assert not title_eliminated(recs, 3, "Benton")
     assert ss.regular_season_exact(recs, pairs)["Benton"]["title"] == "eliminated"
+    assert title_eliminated(recs, pairs, "Benton")   # one rule since 10-28
     # Nick and Hayden split 3 games: someone reaches 11.5 at least; Benton's best is 11
     recs["Benton"] = R(9, 3)                       # best 12: alive (Nick 2-1 -> 12 ties)
     assert ss.regular_season_exact(recs, pairs)["Benton"]["title"] == "alive"

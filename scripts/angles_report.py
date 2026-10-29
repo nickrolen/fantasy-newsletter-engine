@@ -46,7 +46,7 @@ def replay(base: Path, season: str):
                 list(MANAGERS))
         sel = A.run_week([m for m in sm if m["week"] <= w], w, hist,
                          cup_last, reg_last, stories, last, season,
-                         prev_lead)
+                         prev_lead, pairings=sm)
         A.update_last_used(last, sel, w)
         prev_lead = None if sel["dead"] else sel["lead"]
         rows.append((w, bool(stories), sel))

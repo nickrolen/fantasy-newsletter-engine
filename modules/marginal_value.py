@@ -134,26 +134,29 @@ def window_weeks(window: str, current_week: int, season: str = None) -> list[int
     return list(range(nxt, last + 1))
 
 
-def title_eliminated(records: dict, remaining_games: int, manager: str) -> bool:
-    """Exact, from standings alone: can `manager` no longer finish first?
+def title_eliminated(records: dict, remaining_pairs: list, manager: str) -> bool:
+    """Exact: can `manager` no longer finish first?
 
-    records is {manager: Record}; remaining_games is regular-season matchups
-    left (one a week). Eliminated when his standing (W + 0.5*T) plus every
-    remaining game cannot reach the leader's CURRENT standing. A reachable
-    tie counts as alive -- the tiebreaker could still go his way. Every
-    manager plays every week, so standing order is winning-percentage order.
-    No simulation involved.
+    records is {manager: Record}; remaining_pairs is every regular-season
+    game left, [(a, b)] -- the season pass's SeasonPass.remaining_pairs. The
+    decision is season_sim.regular_season_exact's, the one clinch rule
+    (HANDOFF_ONE_CLINCH_RULE, 10-28): a max-flow over the actual pairings,
+    so rivals who play each other cannot all win. A reachable tie counts as
+    alive -- the tiebreaker could still go his way. A T is half a win.
+
+    It used to take a COUNT of games left and compare against the leader
+    only, which called a manager alive when the rivals ahead of him played
+    each other. A count cannot carry who plays whom, so the argument changed.
     """
-    mine = records[manager].standing
-    best_other = max((r.standing for m, r in records.items() if m != manager), default=0)
-    return mine + remaining_games < best_other
+    from .season_sim import regular_season_exact
+    return regular_season_exact(records, list(remaining_pairs))[manager]["title"] == "eliminated"
 
 
 def cup_column_live(
     finish_distribution: dict,
     managers: Iterable[str],
     records: Optional[dict] = None,
-    remaining_games: Optional[int] = None,
+    remaining_pairs: Optional[list] = None,
 ) -> bool:
     """Should a trade involving `managers` show the Cup-seeding column?
 
@@ -181,8 +184,8 @@ def cup_column_live(
             scale = 100.0 if sum(vals) > 1.5 else 1.0
             if max(vals) / scale >= CUP_COLUMN_SETTLED:
                 return True
-        if records and remaining_games is not None and m in records:
-            if title_eliminated(records, remaining_games, m):
+        if records and remaining_pairs is not None and m in records:
+            if title_eliminated(records, remaining_pairs, m):
                 return True
     return False
 

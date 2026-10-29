@@ -216,10 +216,14 @@ def test_nothing_raises_on_a_tied_regular_season_week():
           for w, a, b, sa, sb in [(1, "Nick", "Hayden", 1500.0, 1500.0), (1, "Benton", "Garrett", 1400.0, 1300.0),
                                   (2, "Nick", "Benton", 1200.0, 1100.0), (2, "Hayden", "Garrett", 1300.0, 1000.0)]]
     assert not hasattr(A, "check_no_ties")
-    A.decided_status(sm, 2, 15)
+    # the rest of the regular season's pairings: the exact clinch check reads them
+    rest = [{"week": w, "manager_a": a, "manager_b": b} for w in range(3, 16)
+            for a, b in ((("Nick", "Garrett"), ("Hayden", "Benton")) if w % 2 else
+                         (("Nick", "Hayden"), ("Benton", "Garrett")))]
+    A.decided_status(sm, 2, 15, pairings=rest)
     # Nick and Hayden both 1-0-1, series 0-0-1: total points (Hayden 2800) decide
     assert A.final_order(sm, 2)[:2] == ["Hayden", "Nick"]
-    lines = st.regular_season(sm, 2, 15, st.rules_from_config())
+    lines = st.regular_season(sm, 2, 15, st.rules_from_config(), pairings=rest)
     assert "Nick 1-0-1" in lines[0] and "Hayden 1-0-1" in lines[0]
 
 
@@ -270,8 +274,10 @@ def test_careers_and_series_keep_the_t():
 def test_a_t_ends_a_streak():
     sm = [{"season": "x", "week": w, "manager_a": "Nick", "manager_b": "Hayden",
            "score_a": sa, "score_b": sb} for w, sa, sb in [(1, 9, 1), (2, 9, 1), (3, 5, 5)]]
+    # each toy season's regular season is the weeks it has: History judges
+    # what was decided over the games actually left (decided_status)
     hist = A.History.build(sm + [{"season": "y", "week": 1, "manager_a": "Nick", "manager_b": "Hayden",
-                                  "score_a": 3.0, "score_b": 4.0}], lambda s: 15)
+                                  "score_a": 3.0, "score_b": 4.0}], lambda s: 3 if s == "x" else 1)
     angles = A.matchup_angles(sm, 3, hist, 15)
     assert not any(a.family == "streak" for a in angles)
     assert any("tied at 5.00" in a.text for a in angles)

@@ -84,6 +84,10 @@ class TitleOddsResult:
     # Change from last week
     title_odds_delta: dict[str, float] = field(default_factory=dict)
 
+    # Every regular-season game left, [(a, b)] -- the pairings the exact
+    # clinch check (season_sim.regular_season_exact) reads
+    remaining_pairs: Optional[list] = None      # None: not known -- never "no games left"
+
 
 # =============================================================================
 # SCHEDULE HELPERS
@@ -225,6 +229,7 @@ def title_readout(sp) -> TitleOddsResult:
         current_records=current_records,
         h2h_records={m: dict(h) for m, h in sp.current_h2h.items()},
         title_odds_delta=title_odds_delta,
+        remaining_pairs=list(sp.remaining_pairs),
     )
 
 

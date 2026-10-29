@@ -232,8 +232,11 @@ def test_decided_is_exact_and_ties_wait_for_the_tiebreak():
         for (a, b), (sa, sb) in zip(PAIRS[w % 3], [(2, 1), (2, 1)]):
             sm.append({"season": "x", "week": w, "manager_a": a,
                        "manager_b": b, "score_a": sa, "score_b": sb})
-    st = A.decided_status(sm, 2, 4)
+    week4 = [{"week": 4, "manager_a": a, "manager_b": b} for a, b in PAIRS[4 % 3]]
+    st = A.decided_status(sm, 2, 4, pairings=week4)
     assert not any(ev == "clinched_title" for ev, _ in st)
+    with pytest.raises(ValueError, match="no pairings for regular-season week"):
+        A.decided_status(sm, 2, 4)                  # week 4 unknown: refuse, never a count
     lead, need = A.magic_number(sm, 2, 4)
     assert need >= 1
     final = A.final_order(sm, 3)
@@ -254,7 +257,7 @@ def test_live_2026_27_path_from_schedule_and_records(tmp_path):
     sched = {"weeks": [{"week": w, "start_date": "2026-10-19",
                         "matchups": [{"manager_a": a, "manager_b": b}
                                      for a, b in PAIRS[w % 3]]}
-                       for w in (1, 2, 3)]}
+                       for w in range(1, 16)]}     # the regular season's pairings
     rec = {"weekly_scores": {}}
     for m in sm:
         for side in ("a", "b"):

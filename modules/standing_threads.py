@@ -97,7 +97,7 @@ def _decided_series(sm, br, seeds, upto) -> dict:
 
 
 def money_events(sm: list, week: int, season: Optional[str],
-                 reg_last: int) -> list:
+                 reg_last: int, pairings=None) -> list:
     """[(event, manager)] that decided money THIS week, and nothing older.
 
     Regular season: the decided_status delta (clinched or out of the title,
@@ -107,8 +107,8 @@ def money_events(sm: list, week: int, season: Optional[str],
     """
     out = []
     if 1 <= week <= reg_last:
-        now = decided_status(sm, week, reg_last)
-        before = decided_status(sm, week - 1, reg_last) if week > 1 else set()
+        now = decided_status(sm, week, reg_last, pairings)
+        before = decided_status(sm, week - 1, reg_last, pairings) if week > 1 else set()
         out += sorted(now - before)
     br = next((b for b in bracket_structure(season) if b["stage"] ==
                "playoffs"), None) if season else None
@@ -125,7 +125,7 @@ def money_events(sm: list, week: int, season: Optional[str],
     return out
 
 
-def regular_season(sm, week, reg_last, rules, money=()) -> list[str]:
+def regular_season(sm, week, reg_last, rules, money=(), pairings=None) -> list[str]:
     upto = min(week, reg_last)
     reg = [m for m in sm if m["week"] <= upto]
     recs, _h2h, _pts = _wlt(reg, upto)
@@ -148,7 +148,7 @@ def regular_season(sm, week, reg_last, rules, money=()) -> list[str]:
     mn = magic_number(sm, upto, reg_last)
     first = {}
     for w in range(1, upto + 1):
-        for ev, m in decided_status(sm, w, reg_last):
+        for ev, m in decided_status(sm, w, reg_last, pairings):
             first.setdefault((ev, m), w)
     if mn and mn[1] > 0 and not any(ev == "clinched_title"
                                     for ev, _ in first):
@@ -330,7 +330,7 @@ def rules_from_config() -> dict:
 
 def lines(sm: list, week: int, season: Optional[str], cup_last: Optional[int],
           reg_last: int, pick_ownership: Optional[dict] = None,
-          rules: Optional[dict] = None) -> list[str]:
+          rules: Optional[dict] = None, pairings: Optional[list] = None) -> list[str]:
     rules = dict(rules or rules_from_config())
     # the semifinals of THIS season's bracket (2025-26's were week 22)
     br = next((b for b in bracket_structure(season) if b["stage"] ==
@@ -338,8 +338,8 @@ def lines(sm: list, week: int, season: Optional[str], cup_last: Optional[int],
     if br:
         rules["semis_end"] = next(r["weeks"][1] for r in br["rounds"]
                                   if r["kind"] == "semis")
-    money = set(money_events(sm, week, season, reg_last))
-    out = regular_season(sm, week, reg_last, rules, money)
+    money = set(money_events(sm, week, season, reg_last, pairings))
+    out = regular_season(sm, week, reg_last, rules, money, pairings)
     out += playoffs(sm, week, season, reg_last, rules, money)
     if cup_last:
         out += cup(sm, week, season, cup_last, reg_last, rules)

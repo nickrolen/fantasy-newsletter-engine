@@ -193,13 +193,18 @@ def test_windows_come_from_the_season_structure():
         mv.window_weeks("ros", 1)
 
 
+def _weeks(k):
+    """k weeks of Nick v Garrett and Hayden v Benton: Nick and Hayden never meet."""
+    return [("Nick", "Garrett"), ("Hayden", "Benton")] * k
+
+
 def test_eliminated_is_exact_and_ties_are_alive():
     from modules.data_loader import Record
     rec = {"Nick": Record(9, 1), "Hayden": Record(6, 4), "Benton": Record(4, 6), "Garrett": Record(1, 9)}
-    assert not mv.title_eliminated(rec, 5, "Nick")
-    assert not mv.title_eliminated(rec, 3, "Hayden")     # 9 reachable: tie, alive
-    assert mv.title_eliminated(rec, 2, "Hayden")         # 8 < 9
-    assert mv.title_eliminated(rec, 4, "Benton")
+    assert not mv.title_eliminated(rec, _weeks(5), "Nick")
+    assert not mv.title_eliminated(rec, _weeks(3), "Hayden")     # 9 reachable: tie, alive
+    assert mv.title_eliminated(rec, _weeks(2), "Hayden")         # 8 < 9
+    assert mv.title_eliminated(rec, _weeks(4), "Benton")
 
 
 def test_cup_column_fires_for_the_eliminated_manager_too():
@@ -209,8 +214,9 @@ def test_cup_column_fires_for_the_eliminated_manager_too():
     from modules.data_loader import Record
     rec = {"Nick": Record(8, 1), "Hayden": Record(6, 3), "Benton": Record(3, 6), "Garrett": Record(1, 8)}
     assert not mv.cup_column_live(open_race, ["Benton"])
-    assert mv.cup_column_live(open_race, ["Benton"], records=rec, remaining_games=4)
-    assert not mv.cup_column_live(open_race, ["Benton"], records=rec, remaining_games=5)
+    assert mv.cup_column_live(open_race, ["Benton"], records=rec, remaining_pairs=_weeks(4))
+    assert not mv.cup_column_live(open_race, ["Benton"], records=rec, remaining_pairs=_weeks(5))
+    assert not mv.cup_column_live(open_race, ["Benton"], records=rec)      # pairs unknown
 
 
 def test_cup_column_is_a_condition_not_a_week():

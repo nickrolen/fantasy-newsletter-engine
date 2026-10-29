@@ -148,8 +148,9 @@ def build_advice(data, week: int, title_odds=None, keeper_watch=None,
     if "regular_season" in ctxs:
         records = getattr(title_odds, "current_records", None) if title_odds else None
         finish = getattr(title_odds, "finish_distribution", None) if title_odds else None
-        reg = stage_weeks(CURRENT_SEASON, "regular_season")
-        remaining = (reg[1] - week) if reg else None
+        # the games left as PAIRINGS, from the same season pass as the
+        # records -- the exact elimination check needs who plays whom
+        remaining = getattr(title_odds, "remaining_pairs", None) if title_odds else None
         cup_ctx = ctx("cup_seeding", week, full_n) if mv.window_weeks("cup_seeding", week) else None
         refill = adv.Refill(*ctxs["regular_season"], fas, k)
         trades, tcounts = adv.find_trades(
