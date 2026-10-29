@@ -232,10 +232,11 @@ class Refill:
     Two callers, same function:
       C2  a streaming drop's cost above replacement
               cost(d) = max(0, -MV(roster: add r_k, drop d)), r_k ranked on roster - d
-      C3  a two-for-one: the side GIVING two ends at 16 with an open slot and
+      C3  a two-for-one: the side GIVING two ends one active spot short and
           is credited MV(roster_after: add r_k). (The side taking two has no
-          slot to refill -- it is at 18 and must drop to 17, and the incoming
-          player takes that spot -- so its full drop cost is correct.)
+          spot to refill -- it is one over the 15 active spots and must drop,
+          and the incoming player takes that spot -- so its full drop cost is
+          correct.)
 
     Screen: candidates are each manager's top k + REFILL_SCREEN_EXTRA free
     agents by marginal value against his roster as given. The k-th best of a
@@ -360,10 +361,16 @@ def _rec(res, ctx, manager, add, drop, step, alt) -> Rec:
 
 def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
                 protected: Optional[list], adds_remaining: int,
-                protected_week: Optional[int], replacement_rank: Optional[int] = None) -> WaiverPlan:
+                protected_week: Optional[int], replacement_rank: Optional[int] = None,
+                il: Optional[set] = None) -> WaiverPlan:
     """C2 for one manager. ctxs: {window: (short_ctx, full_ctx)}; the key
     "rest_of_season" (regular season from NEXT week) plus replacement_rank
-    turn on the drop-above-replacement charge for the this_week plan."""
+    turn on the drop-above-replacement charge for the this_week plan.
+
+    il: his players in an IL slot. Never a drop: leaving an IL slot frees no
+    ACTIVE spot, so (add X, drop an IL player) would put one more player in
+    15 active spots (LEAGUE_RULES 2026-27, rules 1-2). Every (add, drop) is
+    active-for-active, so every plan keeps the roster's active count."""
     roster = list(ctxs["this_week"][1].rosters[manager])
     note = ""
     prot = PlayerIndex({p: 1 for p in (protected or [])})
@@ -373,6 +380,8 @@ def waiver_plan(manager: str, ctxs: dict, free_agents: Sequence[str],
     unknown = set(ctxs["this_week"][1].unprojected)
     if unknown:
         prot = PlayerIndex({**{p: 1 for p in (protected or [])}, **{p: 1 for p in unknown}})
+    if il:
+        prot = PlayerIndex({**dict(prot), **{p: 1 for p in il}})
     if protected is None:
         drop_pool = None
         note = ("No keepability this week, so no drop advice: values are before "
@@ -456,26 +465,35 @@ def find_trades(short: mv.MVContext, full: mv.MVContext, protected: Optional[dic
                 keep_idx: PlayerIndex, commissioner: Optional[str],
                 cup_ctx: Optional[mv.MVContext] = None,
                 cup_live=lambda a, b: False,
-                refill: Optional[Refill] = None) -> tuple[list, dict]:
+                refill: Optional[Refill] = None, il: Optional[dict] = None) -> tuple[list, dict]:
     """All eligible trades (best first) and the search counts.
 
     Eligibility: BOTH sides clear the same bar as C2 -- points > 2 SE and
     >= FLOOR_PER_WEEK x weeks (clears()). One bar, stated once.
 
-    Two-for-ones: the side GIVING two ends at 16 and is credited the value
-    of refilling that slot (Refill.credit -- the same function C2 charges a
-    drop with). The side TAKING two must drop to 17; the incoming player
-    takes the spot, so the full drop cost is correct for it. The credit is
+    Two-for-ones: the side GIVING two ends one active spot short and is
+    credited the value of refilling it (Refill.credit -- the same function C2
+    charges a drop with). The side TAKING two is one over the 15 active spots
+    (LEAGUE_RULES 2026-27, rule 1) and must drop; the incoming player takes
+    the spot, so the full drop cost is correct for it.
+
+    IL occupants (il: {manager: names}) are never sent, received or dropped:
+    an IL slot holds only an O or OFS player and is fixed for the week, and a
+    player leaving one frees no ACTIVE spot (rules 1, 2, 5). With them out,
+    a one-for-one keeps both active counts and a two-for-one leaves the taker
+    exactly full after his drop -- every trade shown leaves both rosters legal. The credit is
     applied when rescoring, not in the shortlist pass: a two-for-one whose
     giver only clears WITH the credit can be missed -- missed advice, never
     bad advice.
     """
     managers = list(full.rosters)
     prot = {m: PlayerIndex({p: 1 for p in (protected or {}).get(m, [])}) for m in managers}
+    on_il = {m: set((il or {}).get(m) or ()) for m in managers}
     considered, candidates = 0, []
 
     for a, b in itertools.combinations(managers, 2):
-        ra, rb = list(short.rosters[a]), list(short.rosters[b])
+        ra = [p for p in short.rosters[a] if p not in on_il[a]]
+        rb = [p for p in short.rosters[b] if p not in on_il[b]]
         ones = []
         for x, y in itertools.product(ra, rb):
             ga = _side(short, a, [x], [y], None).points
@@ -492,7 +510,8 @@ def find_trades(short: mv.MVContext, full: mv.MVContext, protected: Optional[dic
                                key=lambda p: -mv.marginal_value(short, giver, drops=[p]).points)
                 for x2 in cheap[:TWO_FOR_ONE_EXTRA]:
                     gives2 = give1 + [x2]
-                    excl = set(get1) | {p for p in short.rosters[taker] if p in prot[taker]}
+                    excl = (set(get1) | {p for p in short.rosters[taker] if p in prot[taker]}
+                            | on_il[taker])
                     d = _least_costly_drop(short, taker, excl)
                     g_giver = _side(short, giver, gives2, get1, None).points
                     g_taker = _side(short, taker, get1, gives2, d).points

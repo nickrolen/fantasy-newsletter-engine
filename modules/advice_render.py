@@ -73,7 +73,13 @@ def render_markdown(advice: Optional[dict], managers: list) -> str:
     out = [f"**TRADE FINDER AND WAIVER PLANS -- for week {advice['for_week']}** "
            "(rendered automatically in the HTML -- do NOT reproduce the tables. You "
            "may cite them. NEVER call a trade fair or say both sides 'win': gains "
-           "are against not trading; always say who moves ahead of whom.)", ""]
+           "are against not trading; always say who moves ahead of whom. NEVER say a "
+           "player is worth far more to one manager than another, or that a move is "
+           "'tailored': each number is one move's value for one roster, and the premise "
+           "that values differ much by roster measured FAIL this season. Moves made in "
+           "the Monday window take effect that week; a mid-week add takes effect the "
+           "following Monday. This league has no waivers: never say a player may be "
+           "claimed or is on waivers.)", ""]
     out.append(f"Bar: points > {bar.get('se_mult', 2):g} SE and >= "
                f"{bar.get('per_week', 10):g} per week of the window "
                f"(this week {bar.get('this_week_floor')}, regular season "
@@ -247,10 +253,17 @@ def get_css() -> str:
 
 
 def render_preview_page(advice: dict) -> str:
-    """Standalone page for the dark-launch read (weeks 1 and 2)."""
+    """Standalone page for reading Section 10 before it ships: the dark
+    launch, or (advice_runner.preview) what the launch week would print."""
     body = render_html(dict(advice, _preview=True, launched=False))
-    head = (f"Section 10 PREVIEW -- report week {advice.get('week')} "
-            f"(not in the newsletter: {html.escape(str(advice.get('publish_reason', '')))})")
+    reason = html.escape(str(advice.get("publish_reason", "")))
+    if advice.get("published"):
+        dw = advice.get("decision_week", advice.get("week"))
+        head = (f"Section 10 PREVIEW -- valued on report week {advice.get('week')}'s data, "
+                f"as report week {dw} would print it: {reason}")
+    else:
+        head = (f"Section 10 PREVIEW -- report week {advice.get('week')} "
+                f"(not in the newsletter: {reason})")
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Section 10 preview</title>

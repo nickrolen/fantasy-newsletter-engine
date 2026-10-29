@@ -106,3 +106,30 @@ def test_recheck_replaces_only_ages_more_than_a_year_off(fp, capsys):
     assert "no source to check against: AJ Dybantsa" in out
     assert fp.recheck_ages(rows, execute=False, cached={"10582": 29},
                            derive=lambda: {"10582": 20}) == 1     # dry run: not fixed
+
+
+# Nick 10-29: a one-year spreadsheet error (Kon Knueppel, 22; born August
+# 2005, so 21 by both conventions) is re-derived by NAME, from
+# basketball-reference alone -- never typed in.
+def test_a_named_player_is_rederived_from_basketball_reference_alone(fp, monkeypatch, capsys):
+    from datetime import date
+    year = date.today().year if date.today().month >= 7 else date.today().year - 1
+    _with_pages(fp, monkeypatch, {year: [("Kon Knueppel", 20)]})      # hasn't played this season
+    monkeypatch.setattr(fp, "_ages_from_spreadsheet",
+                        lambda path: pytest.fail("a named re-derivation read a spreadsheet"))
+    rows = [{"yahoo_id": "10450", "player_name": "Kon Knueppel", "owner": "Garrett"},
+            {"yahoo_id": "9", "player_name": "Someone Else", "owner": None}]
+    written = {}
+    code = fp.recheck_ages(rows, execute=True, cached={"10450": 22, "9": 30},
+                           write=written.update, players=["Kon Knueppel"])
+    assert code == 0 and written == {"10450": 21, "9": 30}            # only him, one year fixed
+    assert "cached 22, source 21" in capsys.readouterr().out
+
+
+def test_a_named_player_with_no_match_or_no_source_refuses(fp, monkeypatch, capsys):
+    rows = [{"yahoo_id": "10450", "player_name": "Kon Knueppel", "owner": "Garrett"}]
+    assert fp.recheck_ages(rows, cached={"10450": 22}, players=["Nobody Here"],
+                           derive=lambda: {}) == 1
+    assert fp.recheck_ages(rows, cached={"10450": 22}, players=["Kon Knueppel"],
+                           derive=lambda: {}) == 1
+    assert "needs a source" in capsys.readouterr().out

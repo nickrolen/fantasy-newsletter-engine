@@ -115,13 +115,22 @@ def test_publish_only_on_clear_this_season_from_launch(gate, week, frm, publish,
     assert ok is publish and why in reason
 
 
-def test_there_is_no_override_for_a_marginal_premise():
-    """Nick, before seeing the number: hold me to that."""
-    for fn in (ar.publish_decision, ar.run_advice_safely, ar.build_advice):
+def test_the_only_override_is_nicks_dated_config_entry():
+    """Nick, 10-06: "hold me to that" -- no override. Nick, 10-29, with the
+    gate at FAIL: ship Section 10 anyway. The override is ONE config entry,
+    dated and attributed (season.advice_premise_override), read and
+    validated by premise_override(); publish_decision takes that object and
+    nothing else. No command-line flag, and no force parameter on the
+    runner or the engine (HANDOFF_SECTION10_WEEK3_2026-10-29)."""
+    for fn in (ar.run_advice_safely, ar.build_advice):
         params = set(inspect.signature(fn).parameters)
         assert not params & {"force", "override", "allow_marginal", "ignore_gate"}
+    assert set(inspect.signature(ar.publish_decision).parameters) == {
+        "gate", "season", "week", "from_week", "override"}
+    assert "premise_override()" in inspect.getsource(ar.run_advice_safely)
     flags = (ROOT / "scripts" / "generate_stats_report.py").read_text().lower()
-    for f in ("--allow-marginal", "--force-advice", "--publish-advice", "--ignore-gate"):
+    for f in ("--allow-marginal", "--force-advice", "--publish-advice", "--ignore-gate",
+              "--override"):
         assert f not in flags
 
 

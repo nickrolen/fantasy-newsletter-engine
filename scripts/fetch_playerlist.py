@@ -352,7 +352,7 @@ def ages_from_basketball_reference(season_end_year: int, add: int = 1, fetch=Non
 
 
 def seed_ages(rows: list, cached: dict, use_bbref: bool,
-              trust_live: bool = True) -> dict:
+              trust_live: bool = True, use_spreadsheets: bool = True) -> dict:
     """Fill ages for players the id-keyed cache does not know yet.
 
     In order of preference: the spreadsheet on disk, then the most recent
@@ -372,7 +372,7 @@ def seed_ages(rows: list, cached: dict, use_bbref: bool,
 
     by_name = {}
     archives = sorted((PROJECT_ROOT / "archive").glob("*/data/PLAYERLIST.xlsx"),
-                      reverse=True)
+                      reverse=True) if use_spreadsheets else []
     for source in archives:
         start = season_start(source.parent.parent.name)
         if start is None:
@@ -383,7 +383,7 @@ def seed_ages(rows: list, cached: dict, use_bbref: bool,
     # The live file is this season's already, so it needs no adjustment and
     # overrides anything derived -- EXCEPT during a refresh, when it is this
     # script's own previous output and may be exactly what we are rebuilding.
-    if trust_live:
+    if trust_live and use_spreadsheets:
         by_name.update(_ages_from_spreadsheet(PLAYERLIST))
     if by_name:
         print(f"    spreadsheets on disk: {len(by_name)} ages")
@@ -423,14 +423,35 @@ def seed_ages(rows: list, cached: dict, use_bbref: bool,
 
 
 def recheck_ages(rows: list, execute: bool = False, cached: dict = None,
-                 derive=None, write=None) -> int:
+                 derive=None, write=None, players: list = None) -> int:
     """Compare every cached age with what its sources say now. Exit 0 when
     nothing is more than a year off (or it was fixed with --execute), 1 when
-    something is and was not fixed."""
+    something is and was not fixed.
+
+    players: NAMED players only, derived from basketball-reference alone (no
+    spreadsheets -- the source being corrected), and replaced on ANY
+    difference: naming him is the decision the one-year rule leaves to a
+    person. A named player who matches no fetched row, or has no source,
+    refuses."""
     cached = dict(load_ages() if cached is None else cached)
-    print("\n  Re-deriving ages from source (archived spreadsheets, basketball-reference;"
-          " not the live file, not the cache):")
-    derive = derive or (lambda: seed_ages(rows, {}, use_bbref=True, trust_live=False))
+    if players:
+        index = PlayerIndex({r["player_name"]: r for r in rows})
+        picked = []
+        for name in players:
+            row = index.get(name)
+            if row is None:
+                print(f"\n  REFUSED: {name!r} matches no player in this fetch.")
+                return 1
+            picked.append(row)
+        rows = picked
+        print(f"\n  Re-deriving {', '.join(r['player_name'] for r in rows)} from "
+              "basketball-reference only (not the spreadsheets, the live file or the cache):")
+        derive = derive or (lambda: seed_ages(rows, {}, use_bbref=True, trust_live=False,
+                                               use_spreadsheets=False))
+    else:
+        print("\n  Re-deriving ages from source (archived spreadsheets, basketball-reference;"
+              " not the live file, not the cache):")
+        derive = derive or (lambda: seed_ages(rows, {}, use_bbref=True, trust_live=False))
     try:
         fresh = derive()
     except AgeFetchError as e:
@@ -439,17 +460,22 @@ def recheck_ages(rows: list, execute: bool = False, cached: dict = None,
     names = {r["yahoo_id"]: (r["player_name"], bool(r.get("owner"))) for r in rows}
     off, near, nosrc = [], [], []
     for pid, (name, rostered) in sorted(names.items(), key=lambda kv: kv[1]):
-        if pid not in cached:
+        if pid not in cached and not players:
             continue
         if pid not in fresh:
             nosrc.append(name)
             continue
-        d = int(cached[pid]) - int(fresh[pid])
+        d = int(cached.get(pid, fresh[pid])) - int(fresh[pid]) if pid in cached else None
+        if players:
+            if d != 0:
+                off.append((pid, name, rostered, cached.get(pid), fresh[pid]))
+            continue
         if abs(d) > 1:
             off.append((pid, name, rostered, cached[pid], fresh[pid]))
         elif d and rostered:
             near.append((name, cached[pid], fresh[pid]))
-    print(f"\n  {len(off)} cached age(s) more than a year from their source:")
+    print(f"\n  {len(off)} cached age(s) " + ("that differ from their source:" if players
+          else "more than a year from their source:"))
     for pid, name, rostered, was, now in off:
         print(f"    {name} (id {pid}{', rostered' if rostered else ''}): cached {was}, source {now}")
     if near:
@@ -460,6 +486,9 @@ def recheck_ages(rows: list, execute: bool = False, cached: dict = None,
     if nosrc:
         print(f"\n  {len(nosrc)} cached age(s) with no source to check against: "
               + ", ".join(nosrc[:10]) + (" ..." if len(nosrc) > 10 else ""))
+        if players:
+            print("  REFUSED: a named player needs a source.")
+            return 1
     if not off:
         return 0
     if not execute:
@@ -517,6 +546,12 @@ def main():
                          "ONLY; PLAYERLIST is not written. A one-year difference is left "
                          "alone: the spreadsheets' age-at-season-start and "
                          "basketball-reference's age-on-February-1 can differ by one.")
+    ap.add_argument("--player", action="append", default=None, metavar="NAME",
+                    help="with --recheck-ages: re-derive only this player (repeatable), from "
+                         "basketball-reference alone -- this season's page, else the last "
+                         "season he played plus the years since -- skipping the spreadsheets, "
+                         "and replace his cached age on ANY difference. For a spreadsheet age "
+                         "that is one year wrong (Kon Knueppel, 10-29).")
     ap.add_argument("--out", default=None,
                     help="write the workbook here instead of data/PLAYERLIST.xlsx "
                          "(no .bak, and the age cache is left alone). For "
@@ -557,8 +592,11 @@ def main():
     merged.update(taken)          # a rostered row wins: it carries the owner
     rows = list(merged.values())
 
+    if args.player and not args.recheck_ages:
+        print("\n  REFUSED: --player goes with --recheck-ages.")
+        return 1
     if args.recheck_ages:
-        return recheck_ages(rows, execute=args.execute)
+        return recheck_ages(rows, execute=args.execute, players=args.player)
 
     cached = {} if args.refresh_ages else load_ages()
     if args.refresh_ages:

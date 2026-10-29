@@ -16,7 +16,7 @@
     "manager_to_team": {
         "Nick": "Luka my Balls",
         "Hayden": "Big Nik Energy",
-        "Benton": "Kevin Quran't",
+        "Benton": "Spayed for Cade",
         "Garrett": "Blink-183"
     },
     "manager_aliases": {
@@ -100,7 +100,15 @@
         "total_weeks": 23,
         "nba_schedule_file": "data/nba_schedule_2026-27.json",
         "advice_publish_from_week": 3,
-        "_advice_comment": "C2/C3 (Section 10 waiver plans and trade finder) publish from this report week, and only if the premise check (scripts/validate_marginal_value.py) is CLEAR for this season. Before it, and whenever the check is MARGINAL or FAIL, they run as a preview (output/advice_preview_weekN.html) and Section 10 is unchanged. MARGINAL means talk, not ship."
+        "_advice_comment": "C2/C3 (Section 10 waiver plans and trade finder) publish from this report week when the premise check (scripts/validate_marginal_value.py) is CLEAR for this season, or when advice_premise_override names the band the check recorded. Otherwise they run as a preview (output/advice_preview_weekN.html) and Section 10 says why. UNSTABLE, a missing check or another season's check always block. MARGINAL means talk, not ship -- unless Nick overrides it here, dated and attributed.",
+        "advice_premise_override": {
+            "season": "2026-27",
+            "by": "Nick",
+            "date": "2026-10-29",
+            "overrides_bands": ["FAIL", "MARGINAL"],
+            "reason": "Nick, 10-29: ship Section 10 in week 3; do our best."
+        },
+        "_advice_premise_override_comment": "Nick, 10-29, after the premise gate came back FAIL (gap points 78.7 vs 169 needed, mutual-gain swaps 22 vs 24; C2C3_GATE_RESULT_2026-10-29): publish Section 10 anyway. The gate keeps running and recording; every build prints 'published on Nick's override of a FAIL premise gate (10-29)'. Remove this key to return to CLEAR-only."
     },
     "season_structure": {
         "_comment": "Per-season week layout. season.regular_season_weeks describes ONLY the current season; historical seasons varied and the engine must not assume one shape for all time. regular_through = last regular-season week. bracket = a postseason bracket was played.",
