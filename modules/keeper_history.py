@@ -253,6 +253,44 @@ def load_ages(seasons, root=ROOT, fetch: Optional[Callable] = None, today: str =
     return {s: PlayerIndex(cache["seasons"][s]["ages"]) for s in seasons}
 
 
+def age_seasons(decisions=DECISIONS) -> list:
+    """Every season an age may come from: each candidate season and both
+    neighbours."""
+    out = set()
+    for d in decisions:
+        s = prev_season(d)
+        out |= {prev_season(s), s, next_season(s)}
+    return sorted(out)
+
+
+def next_season(season: str) -> str:
+    y = int(season[:4]) + 1
+    return f"{y}-{(y + 1) % 100:02d}"
+
+
+class AgeNotFound(KeyError):
+    """No age for a player in his season or either neighbouring season."""
+
+
+def age_for(ages: dict, season: str, name: str) -> tuple:
+    """(age, age_source) for `name` in `season`.
+
+    basketball-reference's per-game page has a row only for a player who
+    played: Kawhi Leonard and Zion Williamson (2021-22) and Tyrese
+    Haliburton (2025-26) missed those seasons and have none. Nick, 10-29:
+    take the neighbouring season's age, plus or minus one year -- the
+    FOLLOWING season first (age - 1), else the preceding one (age + 1).
+    Neither: AgeNotFound. ages: {season: PlayerIndex} (load_ages), holding
+    the neighbours too."""
+    for s, shift, label in ((season, 0, ""), (next_season(season), -1, " - 1"),
+                            (prev_season(season), +1, " + 1")):
+        idx = ages.get(s)
+        if idx is not None and idx.get(name) is not None:
+            return int(idx.get(name)) + shift, f"bbref {s}{label}"
+    raise AgeNotFound(f"{name}: no basketball-reference age for {season} or either "
+                      "neighbouring season")
+
+
 # ---------------------------------------------------------------------------
 # features
 # ---------------------------------------------------------------------------
@@ -281,6 +319,7 @@ class Candidate:
     prev_games: Optional[int]        # last season, while rostered in the league; None: not rostered
     prev_fppg: Optional[float]
     age: Optional[int]               # None: not found -- reported, never guessed
+    age_source: Optional[str] = None # "bbref <season>", or a neighbour's "- 1" / "+ 1"
     team_flips: int = 0              # times his rows' nba_team changes; > 2 means the log
                                      # alternates teams after an NBA trade, and had_game /
                                      # is_injured (so team_games, availability) are unreliable
@@ -324,11 +363,12 @@ def _season_line(rows: list) -> tuple:
     return len(pts), (sum(pts) / len(pts) if pts else None)
 
 
-def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[PlayerIndex] = None,
+def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = None,
              check: bool = True) -> Snapshot:
     """The decision as seen from one as-of point. Everything below reads
     `rows` -- the season's playerlog cut at as_of -- and trades dated on or
-    before it."""
+    before it. ages: {season: PlayerIndex} (load_ages) for the season and its
+    neighbours; None leaves every age missing."""
     season = prev_season(decision)
     all_rows = inputs.log[season]
     week, as_of = as_of_point(all_rows, season, point)
@@ -392,6 +432,7 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[PlayerInd
                 acquired = "trade"
             else:
                 acquired = "pickup"
+            age, age_source = age_for(ages, season, n) if ages is not None else (None, None)
             teams = [r["nba_team"] for r in prow]
             flips = sum(1 for a, b in zip(teams, teams[1:]) if a != b)
             pn = prev_names.canonical(n)
@@ -406,7 +447,7 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[PlayerInd
                 availability=None if not team_games else round(games / team_games, 4),
                 days_rostered=len({r["date"] for r in prow}), first_day=min(r["date"] for r in prow),
                 prev_games=pg, prev_fppg=None if pf is None else round(pf, 3),
-                age=None if ages is None else ages.get(n), team_flips=flips))
+                age=age, age_source=age_source, team_flips=flips))
         order = sorted(mine, key=lambda c: (c.fppg is None, -(c.fppg or 0.0), c.player))
         for i, c in enumerate(order, 1):
             c.fppg_rank = i
@@ -416,11 +457,11 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[PlayerInd
 
 def build(inputs: Optional[Inputs] = None, root=ROOT, decisions=DECISIONS, points=POINTS,
           ages: Optional[dict] = None) -> dict:
-    """{(decision, point): Snapshot}. ages: {season: PlayerIndex} (load_ages);
-    None leaves every age missing."""
+    """{(decision, point): Snapshot}. ages: {season: PlayerIndex} (load_ages),
+    every candidate season AND its neighbours (age_seasons()); None leaves
+    every age missing."""
     inputs = inputs or Inputs.load(root)
-    return {(d, p): snapshot(inputs, d, p, None if ages is None else ages.get(prev_season(d)))
-            for d in decisions for p in points}
+    return {(d, p): snapshot(inputs, d, p, ages) for d in decisions for p in points}
 
 
 def season_days_total(inputs: Inputs, season: str) -> int:
@@ -446,6 +487,8 @@ def summary(inputs: Inputs, snaps: dict) -> list:
             "partial_season": len(partial), "joined_after_day_1": len(late),
             "prev_season_not_rostered": sum(1 for c in cands if c.prev_games is None),
             "missing_age": sorted(c.player for c in cands if c.age is None),
+            "age_from_neighbour": sorted(f"{c.player} ({c.age_source})" for c in cands
+                                         if c.age_source and c.age_source.endswith(("- 1", "+ 1"))),
             "ceilings": {p: snaps[(d, p)].ceiling for p in POINTS if (d, p) in snaps},
             "weeks": {p: snaps[(d, p)].week for p in POINTS if (d, p) in snaps},
             "acquired": {a: sum(1 for c in cands if c.acquired == a) for a in ("draft", "trade", "pickup")},

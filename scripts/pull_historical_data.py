@@ -25,7 +25,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from modules.data_loader import (
     HISTORICAL_LEAGUE_KEYS, MANAGER_ALIASES, YAHOO_GAME_CODE, CURRENT_SEASON,
+    KEEPER_ERA_START, check_keeper_era,
 )
+from modules.fetch_injury_statuses import strip_accents  # noqa: E402  (history is stored unaccented)
 
 # =============================================================================
 # CONFIGURATION (loaded from config/league_config.json via data_loader)
@@ -110,6 +112,54 @@ def _merge_season_list(existing: list, new_entries: list, season: str) -> list:
     return existing
 
 
+DRAFT_MATCH_FIELDS = ("pick_number", "round", "manager", "player_key")
+
+
+def flag_keepers(season: str, picks: list, existing: list) -> list:
+    """`picks` (one season, as Yahoo returns them) with is_keeper set.
+
+    Yahoo's draft results carry no keeper flag -- pick, round, team_key and
+    player_id only (checked 10-29). So:
+      - before keeper_era_start: no pick is a keeper, ever;
+      - from it on: the flags already on disk are the only record of who was
+        kept (they arrive through rollup_season_to_history from
+        DRAFT_PICKS_CURRENT.json). Each re-pulled pick takes its flag from
+        the matching pick on disk, and the re-pull must match the disk pick
+        for pick, or this RAISES -- re-pulling used to write the season with
+        no flags at all, silently un-keeping every keeper.
+    check_keeper_era() then refuses any keeper before the era."""
+    picks = [dict(p) for p in picks]
+    if str(season) < str(KEEPER_ERA_START):
+        for p in picks:
+            p["is_keeper"] = False
+    else:
+        on_disk = [d for d in existing if d.get("season") == season]
+        key = lambda d: tuple(str(d.get(f)) for f in DRAFT_MATCH_FIELDS)
+        flags = {key(d): d["is_keeper"] for d in on_disk if "is_keeper" in d}
+        if not on_disk or len(flags) != len(on_disk) or not any(flags.values()):
+            raise ValueError(f"{season} is in the keeper era but all_drafts.json has no keeper "
+                             "flags for it to carry; Yahoo does not supply them. Roll the season "
+                             "up from DRAFT_PICKS_CURRENT.json instead.")
+        missing = [p for p in picks if key(p) not in flags]
+        if missing or len(picks) != len(on_disk):
+            raise ValueError(f"{season}: the re-pulled draft does not match all_drafts.json pick "
+                             f"for pick ({len(picks)} vs {len(on_disk)}; unmatched "
+                             f"{[(p['pick_number'], p['player_name']) for p in missing][:5]})")
+        for p in picks:
+            p["is_keeper"] = flags[key(p)]
+    check_keeper_era(picks)
+    return picks
+
+
+def _merge_drafts(existing: list, picks: list, season: str) -> list:
+    """Replace `season`'s picks, keeping the file in season, then pick, order
+    -- a re-pull rewrites one season in place instead of moving it to the end."""
+    merged = [d for d in existing if d.get("season") != season] + list(picks)
+    merged.sort(key=lambda d: (str(d.get("season")), int(d.get("pick_number") or 0)))
+    check_keeper_era(merged)
+    return merged
+
+
 def _save_json(path, data):
     """Write data to JSON atomically (write to .tmp then rename)."""
     p = Path(path)
@@ -141,8 +191,9 @@ def checkpoint_season(season: str, matchups: list, standings: list,
         _load_json_or_default(standings_path, []), standings, season))
     _save_json(trades_path, _merge_season_list(
         _load_json_or_default(trades_path, []), trades, season))
-    _save_json(drafts_path, _merge_season_list(
-        _load_json_or_default(drafts_path, []), drafts, season))
+    existing_drafts = _load_json_or_default(drafts_path, [])
+    _save_json(drafts_path, _merge_drafts(
+        existing_drafts, flag_keepers(season, drafts, existing_drafts), season))
 
     # Dict-of-seasons file: merge by season key
     existing_teams = _load_json_or_default(teams_path, {})
@@ -152,6 +203,15 @@ def checkpoint_season(season: str, matchups: list, standings: list,
     _save_json(teams_path, existing_teams)
 
     print(f"    [CHECKPOINT] {season} merged into data/historical/*.json")
+
+
+def checkpoint_drafts(season: str, drafts: list) -> None:
+    """--drafts-only: rewrite one season's picks in all_drafts.json and
+    nothing else."""
+    drafts_path = f"{OUTPUT_DIR}/all_drafts.json"
+    existing = _load_json_or_default(drafts_path, [])
+    _save_json(drafts_path, _merge_drafts(existing, flag_keepers(season, drafts, existing), season))
+    print(f"    [CHECKPOINT] {season} draft merged into {drafts_path}")
 
 
 # =============================================================================
@@ -539,7 +599,10 @@ def extract_draft(lg, season, teams):
                 "round": safe_int(dp.get('round', 0)),
                 "manager": teams.get(team_key, {}).get('manager', 'Unknown'),
                 "player_key": str(player_id),
-                "player_name": player_names.get(player_id, 'Unknown'),
+                # History is stored without accents, as backfill_draft_names
+                # and the playerlog store it; Yahoo serves "Nikola Jokic" with
+                # an accent, and a re-pull used to write it back that way.
+                "player_name": strip_accents(player_names.get(player_id, 'Unknown')),
             })
             
     except Exception as e:
@@ -560,6 +623,8 @@ def main():
     parser = argparse.ArgumentParser(description="Pull historical data from Yahoo Fantasy API")
     parser.add_argument("--debug", action="store_true", help="Enable debug output")
     parser.add_argument("--season", type=str, help="Process only this season (e.g., 2024-25)")
+    parser.add_argument("--drafts-only", action="store_true",
+                        help="Re-pull only the draft and rewrite only all_drafts.json")
     args = parser.parse_args()
     
     DEBUG = args.debug
@@ -609,6 +674,19 @@ def main():
 
         try:
             lg = yfa.League(oauth, league_key)
+
+            if args.drafts_only:
+                teams = extract_team_info(lg, season)
+                if not teams:
+                    raise ValueError(f"{season}: no teams returned; draft not rewritten")
+                draft = extract_draft(lg, season, teams)
+                if len(draft) == 0 or any(d["player_name"] == "Unknown" for d in draft):
+                    raise ValueError(f"{season}: draft incomplete ({len(draft)} picks, "
+                                     f"{sum(d['player_name'] == 'Unknown' for d in draft)} unnamed)")
+                checkpoint_drafts(season, draft)
+                all_drafts.extend(draft)
+                succeeded_seasons.append(season)
+                continue
 
             print("  Extracting team info...")
             teams = extract_team_info(lg, season)
@@ -687,6 +765,8 @@ def main():
         print(f"  Failed/skipped seasons (not written): {failed_seasons}")
     if succeeded_seasons:
         print(f"  Succeeded (merged into files): {succeeded_seasons}")
+    if failed_seasons:
+        sys.exit(1)        # a failed season is not a successful run
 
 
 if __name__ == "__main__":

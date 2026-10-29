@@ -202,15 +202,38 @@ def test_hits_count_each_managers_top_k_against_his_keepers():
 
 
 # 6 -- a missing age is reported, never guessed; a failed fetch raises
-def test_a_missing_age_is_reported_not_guessed():
+def test_a_missing_age_takes_the_neighbouring_season_and_says_so():
+    """Nick, 10-29: the following season's age - 1, else the preceding + 1;
+    the source is recorded; neither raises (HANDOFF_HISTORY_FIXES 3)."""
+    nxt, prv = kh.next_season(SEASON), kh.prev_season(SEASON)
+    ages = {SEASON: kh.PlayerIndex({"Nick 0": 25}),
+            nxt: kh.PlayerIndex({"Nick 1": 30, "Nick 2": 40}),
+            prv: kh.PlayerIndex({"Nick 2": 50, "Nick 3": 22})}
+    assert kh.age_for(ages, SEASON, "Nick 0") == (25, f"bbref {SEASON}")
+    assert kh.age_for(ages, SEASON, "Nick 1") == (29, f"bbref {nxt} - 1")
+    assert kh.age_for(ages, SEASON, "Nick 2") == (39, f"bbref {nxt} - 1")      # following first
+    assert kh.age_for(ages, SEASON, "Nick 3") == (23, f"bbref {prv} + 1")
+    with pytest.raises(kh.AgeNotFound, match="Nick 4"):
+        kh.age_for(ages, SEASON, "Nick 4")
     w = _world()
-    ages = {SEASON: kh.PlayerIndex({"Nick 0": 25})}
-    snaps = kh.build(w, decisions=(DECISION,), points=("end",), ages=ages)
-    s = kh.summary(w, {**snaps, **kh.build(w, decisions=(DECISION,), points=("week2", "mid"), ages=ages)})[0]
-    cands = snaps[(DECISION, "end")].candidates
-    assert next(c for c in cands if c.player == "Nick 0").age == 25
-    assert all(c.age is None for c in cands if c.player != "Nick 0")
-    assert len(s["missing_age"]) == len(cands) - 1 and "Nick 0" not in s["missing_age"]
+    with pytest.raises(kh.AgeNotFound):                    # nobody's age is guessed
+        kh.build(w, decisions=(DECISION,), points=("end",), ages=ages)
+    full = {s: kh.PlayerIndex({**{f"Nick {k}": 20 + k for k in range(8)},
+                               **{f"Hay {k}": 30 + k for k in range(8)}})
+            for s in (nxt,)}
+    snap = kh.build(w, decisions=(DECISION,), points=("end",), ages={**ages, **full})[(DECISION, "end")]
+    c = {x.player: x for x in snap.candidates}
+    assert (c["Nick 0"].age, c["Nick 0"].age_source) == (25, f"bbref {SEASON}")
+    assert (c["Hay 3"].age, c["Hay 3"].age_source) == (32, f"bbref {nxt} - 1")
+    s = kh.summary(w, kh.build(w, decisions=(DECISION,), points=kh.POINTS, ages={**ages, **full}))[0]
+    assert "Hay 3 (bbref 2025-26 - 1)" in s["age_from_neighbour"] and s["missing_age"] == []
+
+
+def test_the_three_real_missing_ages_come_from_the_following_season():
+    ages = kh.load_ages(kh.age_seasons(), ROOT)
+    assert kh.age_for(ages, "2021-22", "Kawhi Leonard") == (30, "bbref 2022-23 - 1")
+    assert kh.age_for(ages, "2021-22", "Zion Williamson") == (21, "bbref 2022-23 - 1")
+    assert kh.age_for(ages, "2025-26", "Tyrese Haliburton")[1].startswith("bbref 2026-27")
 
 
 def test_a_failed_basketball_reference_fetch_raises_and_writes_nothing(tmp_path):

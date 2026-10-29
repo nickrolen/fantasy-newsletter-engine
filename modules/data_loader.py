@@ -121,6 +121,27 @@ HISTORICAL_LEAGUE_KEYS = _LEAGUE_CONFIG.get("yahoo", {}).get("historical_league_
 LEAGUE_STRUCTURE = _LEAGUE_CONFIG.get("league_structure", {})
 KEEPER_ERA_START = LEAGUE_STRUCTURE.get("keeper_era_start", "2021-22")
 
+
+class KeeperBeforeEra(ValueError):
+    """A draft pick flagged is_keeper in a season before keeper_era_start."""
+
+
+def check_keeper_era(picks, era_start: str = None) -> None:
+    """Raise if any pick is flagged a keeper before the keeper era.
+
+    The first keepers were chosen after the 2020-21 season, for 2021-22
+    (Nick, 10-29); 2020-21 was drafted from the full pool. all_drafts.json
+    nonetheless carried 24 2020-21 picks flagged is_keeper -- rounds 8-13, a
+    'keepers occupy the last rounds' rule applied to a season it does not
+    fit, by a one-off that predates the file being tracked. Every writer of
+    draft history calls this, so no such flag can be written again."""
+    era = era_start or KEEPER_ERA_START
+    bad = [(p.get("season"), p.get("round"), p.get("player_name")) for p in picks
+           if p.get("is_keeper") and str(p.get("season")) < str(era)]
+    if bad:
+        raise KeeperBeforeEra(f"{len(bad)} pick(s) flagged is_keeper before the keeper era "
+                              f"({era}): {bad[:6]}{' ...' if len(bad) > 6 else ''}")
+
 # --- The durability prior (from config; no fallback -- a missing key raises) ---
 DURABILITY_PRIOR = _LEAGUE_CONFIG["durability_prior"]
 FLAT_GP_SHARE_MAX = float(DURABILITY_PRIOR["flat_gp_share_max"])

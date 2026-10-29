@@ -119,6 +119,7 @@ from modules.data_loader import (CURRENT_SEASON, CURRENT_SEASON_LONG,  # noqa: E
                                  is_regular_season_week, stage_weeks)
 # Who won what is defined once, in modules/season_outcomes.py, because two
 # scripts used to answer it differently and one of them was wrong.
+from modules.data_loader import check_keeper_era  # noqa: E402
 from modules.season_outcomes import (  # noqa: E402
     build_matchups, build_standings, league_champion, playoff_champion,
 )
@@ -512,6 +513,7 @@ def rollup_drafts(season_key, execute, force):
             return "error", f"pick {p.get('pick_number')} missing {missing}"
         new_rows.append({k: p[k] for k in DRAFT_FIELDS})
 
+    check_keeper_era(new_rows)          # raises: no keeper before keeper_era_start
     keepers = sum(1 for r in new_rows if r["is_keeper"])
     msg = (f"{len(new_rows)} picks ({len(new_rows) - keepers} drafted, "
            f"{keepers} keepers)")

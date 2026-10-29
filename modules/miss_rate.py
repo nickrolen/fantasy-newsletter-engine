@@ -27,8 +27,10 @@ plays. Bench depth cannot mask that, and an engine with nobody hurt has a rate
 near zero at any depth. That is the gate:
 
     historical   every rostered team game in HISTORICAL_PLAYERLOG
-                 (8,609 / 42,122 = 20.44%), and per season over the weeks the
-                 engine simulates -- weeks 1-15 ranged 14.6% to 23.9%
+                 (7,527 / 41,040 = 18.34%), and per season over the weeks the
+                 engine simulates -- weeks 1-15 range 13.6% to 22.8%. (Before
+                 10-29 the log charged NBA-traded players with their other
+                 team's games -- 20.44%, 14.6-23.9%; HISTORY_FIXES_RESULT.)
     realized     this season, from LINEUPS: every rostered player every day,
                  a team game where he scored 0.0 is a miss (the log's own
                  definition of is_injured). PLAYERLOG only holds started rows

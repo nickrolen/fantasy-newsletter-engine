@@ -1662,7 +1662,7 @@
     "manager": "Hayden",
     "player_key": "5601",
     "player_name": "Brandon Ingram",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1671,7 +1671,7 @@
     "manager": "Benton",
     "player_key": "4725",
     "player_name": "Paul George",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1680,7 +1680,7 @@
     "manager": "Garrett",
     "player_key": "5642",
     "player_name": "Domantas Sabonis",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1689,7 +1689,7 @@
     "manager": "Nick",
     "player_key": "5832",
     "player_name": "John Collins",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1698,7 +1698,7 @@
     "manager": "Nick",
     "player_key": "4897",
     "player_name": "Nikola Vucevic",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1707,7 +1707,7 @@
     "manager": "Garrett",
     "player_key": "5638",
     "player_name": "Jamal Murray",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1716,7 +1716,7 @@
     "manager": "Benton",
     "player_key": "5464",
     "player_name": "Kristaps Porzingis",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1725,7 +1725,7 @@
     "manager": "Hayden",
     "player_key": "5015",
     "player_name": "Andre Drummond",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1734,7 +1734,7 @@
     "manager": "Hayden",
     "player_key": "5433",
     "player_name": "D'Angelo Russell",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1743,7 +1743,7 @@
     "manager": "Benton",
     "player_key": "5767",
     "player_name": "De'Aaron Fox",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1752,7 +1752,7 @@
     "manager": "Garrett",
     "player_key": "4912",
     "player_name": "Jimmy Butler III",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1761,7 +1761,7 @@
     "manager": "Nick",
     "player_key": "5197",
     "player_name": "Rudy Gobert",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1770,7 +1770,7 @@
     "manager": "Nick",
     "player_key": "4152",
     "player_name": "Kyle Lowry",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1779,7 +1779,7 @@
     "manager": "Garrett",
     "player_key": "5161",
     "player_name": "CJ McCollum",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1788,7 +1788,7 @@
     "manager": "Benton",
     "player_key": "5327",
     "player_name": "Jusuf Nurkic",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1797,7 +1797,7 @@
     "manager": "Hayden",
     "player_key": "5336",
     "player_name": "Clint Capela",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1806,7 +1806,7 @@
     "manager": "Hayden",
     "player_key": "5073",
     "player_name": "Khris Middleton",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1815,7 +1815,7 @@
     "manager": "Benton",
     "player_key": "5764",
     "player_name": "Lonzo Ball",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1824,7 +1824,7 @@
     "manager": "Garrett",
     "player_key": "5602",
     "player_name": "Jaylen Brown",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1833,7 +1833,7 @@
     "manager": "Nick",
     "player_key": "4901",
     "player_name": "Tobias Harris",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1842,7 +1842,7 @@
     "manager": "Nick",
     "player_key": "3930",
     "player_name": "Chris Paul",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1851,7 +1851,7 @@
     "manager": "Garrett",
     "player_key": "5583",
     "player_name": "Christian Wood",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1860,7 +1860,7 @@
     "manager": "Benton",
     "player_key": "4724",
     "player_name": "Gordon Hayward",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2020-21",
@@ -1869,7 +1869,7 @@
     "manager": "Hayden",
     "player_key": "6025",
     "player_name": "Michael Porter Jr.",
-    "is_keeper": true
+    "is_keeper": false
   },
   {
     "season": "2021-22",

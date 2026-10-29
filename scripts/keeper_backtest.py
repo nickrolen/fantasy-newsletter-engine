@@ -204,7 +204,7 @@ def rank_all(snap, hist=None, archive=None) -> tuple:
 
 def run(root=ROOT, with_v22=True):
     inputs = kh.Inputs.load(root)
-    ages = kh.load_ages([kh.prev_season(d) for d in kh.DECISIONS], root)
+    ages = kh.load_ages(kh.age_seasons(), root)
     snaps = kh.build(inputs, ages=ages)
     hist = V22History(inputs) if with_v22 else None
     archive = load_archive(root) if with_v22 else None
@@ -240,7 +240,7 @@ def report(inputs, snaps, table, subs, chosen) -> str:
     L.append("## Dataset\n")
     L.append("| decision | from | as-of (week2 / mid / end) | candidates (B/G/H/N) | keepers found | "
              "partial season | joined after day 1 | not rostered the season before | acquired (draft/trade/pickup) "
-             "| NBA-team rows flip | missing ages |")
+             "| NBA-team rows flip | ages from a neighbouring season |")
     L.append("|---|---|---|---|---|---|---|---|---|---|---|")
     for s in kh.summary(inputs, snaps):
         c = s["candidates"]
@@ -251,7 +251,7 @@ def report(inputs, snaps, table, subs, chosen) -> str:
                  f"{c.get('Benton')}/{c.get('Garrett')}/{c.get('Hayden')}/{c.get('Nick')} | "
                  f"{s['keepers_found']}/{s['keepers']} | {s['partial_season']} | {s['joined_after_day_1']} | "
                  f"{s['prev_season_not_rostered']} | {a['draft']}/{a['trade']}/{a['pickup']} | "
-                 f"{len(s['team_label_flipping'])} | {', '.join(s['missing_age']) or '-'} |")
+                 f"{len(s['team_label_flipping'])} | {', '.join(s['age_from_neighbour']) or '-'} |")
     L.append("\n## Backtest: hits / 24\n")
     cols = [(d, p) for d in kh.DECISIONS for p in kh.POINTS]
     L.append("| method | " + " | ".join(f"{d[2:]} {p}" for d, p in cols) + " | total |")
