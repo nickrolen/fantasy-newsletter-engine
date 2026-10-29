@@ -7,14 +7,41 @@
     "mutual_gain_swaps": "FAIL"
   },
   "stats": {
-    "rank_spread": 17,
-    "gap_points": 75.8,
-    "mutual_gain_swaps": 21,
-    "swaps_examined": 1350,
-    "free_agents": 115
+    "rank_spread": 14.0,
+    "gap_points": 78.7,
+    "mutual_gain_swaps": 22,
+    "swaps_examined": 1441,
+    "free_agents": 114
   },
-  "checked_at": "2026-10-21T12:44:53",
-  "report_week": 0,
-  "rostered_players": 60,
-  "sims": 3000
+  "checked_at": "2026-10-28T18:41:19",
+  "report_week": 1,
+  "rostered_players": 62,
+  "sims": 3000,
+  "sampling": {
+    "method": "disjoint keyed random samples of the one-for-one swaps; mutual-gain count estimated as hits / sampled x all swaps; band = the band every sample agrees on, else UNSTABLE. Free-agent measures are not sampled.",
+    "swaps_total": 1441,
+    "samples": [
+      {
+        "examined": 300,
+        "mutual": 5,
+        "estimate": 24,
+        "interval_95": [
+          3,
+          45
+        ],
+        "band": "FAIL"
+      },
+      {
+        "examined": 300,
+        "mutual": 4,
+        "estimate": 19,
+        "interval_95": [
+          1,
+          38
+        ],
+        "band": "FAIL"
+      }
+    ],
+    "stable": true
+  }
 }

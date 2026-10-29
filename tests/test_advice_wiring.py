@@ -183,3 +183,28 @@ def test_pre_launch_section_10_is_untouched():
     pre = dict(_published(), published=False, launched=False, publish_reason="preview")
     assert rr.render_markdown(pre, []) == "" and rr.render_html(pre) == ""
     assert "PREVIEW" in rr.render_preview_page(pre)
+
+
+# HANDOFF_C2C3_GATE (10-29): the first committed gate will be a SAMPLED run.
+# Its file carries sampling fields and per-sample intervals; Step 6 must read
+# the band from it exactly as from an unsampled one.
+@pytest.mark.parametrize("estimates,bands,publish,why", [
+    ((40, 45), ("CLEAR", "CLEAR"), True, "published"),
+    ((30, 33), ("MARGINAL", "MARGINAL"), False, "talk, not ship"),
+    ((12, 15), ("FAIL", "FAIL"), False, "FAIL"),
+    ((40, 27), ("CLEAR", "MARGINAL"), False, "UNSTABLE"),
+])
+def test_step_6_reads_a_sampled_gate_file_from_disk(tmp_path, estimates, bands, publish, why):
+    v = _load("validate_marginal_value")
+    stats = {"rank_spread": 17, "gap_points": 300.0, "swaps_examined": 1350,
+             "free_agents": 115, "mutual_gain_swaps": round(sum(estimates) / 2),
+             "samples": [{"examined": 300, "mutual": round(e * 300 / 1350), "estimate": e,
+                          "interval_95": [max(0, e - 20), e + 20], "band": b}
+                         for e, b in zip(estimates, bands)]}
+    (tmp_path / "config" / "snapshots").mkdir(parents=True)
+    gate = v.write_gate(stats, S, 2, {"Nick": ["a"]}, path=tmp_path / ar.GATE_RELPATH, sims=3000)
+    assert gate["sampling"]["stable"] is (len(set(bands)) == 1)
+    read = ar.read_gate(tmp_path)
+    assert read == gate                                   # the file round-trips whole
+    ok, reason = ar.publish_decision(read, S, 3, 3)
+    assert ok is publish and why in reason, reason

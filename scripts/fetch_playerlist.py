@@ -109,6 +109,12 @@ class TableFormatError(RuntimeError):
     """Yahoo's players table no longer looks the way this parser expects."""
 
 
+class AgeFetchError(RuntimeError):
+    """A basketball-reference age page could not be fetched or parsed. Raised,
+    never {}: a failed fetch must not quietly leave stale or missing ages
+    (10-29, as modules/nba_reference.py does for names)."""
+
+
 # The two columns the spreadsheet is built from, as Yahoo labels them.
 # Matched on a squashed form of the header text so "GP*" survives its
 # asterisk and "Current\ue002" survives the private-use sort glyph Yahoo
@@ -279,7 +285,8 @@ def load_ages() -> dict:
 
 
 def _ages_from_spreadsheet(path: Path) -> dict:
-    """{normalised name: age} from a PLAYERLIST workbook, or {}."""
+    """{player name: age} from a PLAYERLIST workbook, or {}. Names as written;
+    seed_ages joins through PlayerIndex."""
     if not path.is_file():
         return {}
     try:
@@ -292,12 +299,18 @@ def _ages_from_spreadsheet(path: Path) -> dict:
     for _, row in frame.iterrows():
         age = row.get("age")
         if pd.notna(age):
-            out[normalize_player_name(row.get("player_name"))] = int(age)
+            out[str(row.get("player_name"))] = int(age)
     return out
 
 
-def ages_from_basketball_reference(season_end_year: int) -> dict:
-    """{normalised name: age} for a COMPLETED season, from basketball-reference.
+def ages_from_basketball_reference(season_end_year: int, add: int = 1, fetch=None) -> dict:
+    """{player name: age + add} from basketball-reference's per-game page.
+
+    add=1 for a COMPLETED season (its ages are a year old); add=0 for THIS
+    season's page, which carries an age for everyone who has played --
+    rookies included (a completed season's page cannot age a rookie).
+    RAISES AgeFetchError on a failed request or a page with no ages: it used
+    to print and return {}, which left ages stale or missing without a word.
 
     Yahoo does not publish ages on the projections page and the Fantasy API
     has no birth_year field, so they have to come from somewhere. The current
@@ -313,22 +326,28 @@ def ages_from_basketball_reference(season_end_year: int) -> dict:
     """
     url = (f"https://www.basketball-reference.com/leagues/"
            f"NBA_{season_end_year}_per_game.html")
-    request = urllib.request.Request(url, headers=BROWSER_HEADERS)
     try:
-        with urllib.request.urlopen(request, timeout=45) as response:
-            doc = response.read().decode("utf-8", "replace")
+        if fetch is not None:
+            doc = fetch(url)
+        else:
+            request = urllib.request.Request(url, headers=BROWSER_HEADERS)
+            with urllib.request.urlopen(request, timeout=45) as response:
+                doc = response.read().decode("utf-8", "replace")
     except Exception as e:
-        print(f"    basketball-reference: {type(e).__name__}: {e}")
-        return {}
+        raise AgeFetchError(f"{url}: {type(e).__name__}: {e}. Ages were not changed; "
+                            "re-run, or pass --no-bbref-ages to skip the lookup knowingly.") from e
 
     out = {}
     for row in re.findall(r"<tr[^>]*>(.*?)</tr>", doc, re.S):
         name = re.search(r'data-stat="(?:name_display|player)"[^>]*>(?:<a[^>]*>)?([^<]+)', row)
         age = re.search(r'data-stat="age"[^>]*>(\d+)<', row)
         if name and age:
-            out[normalize_player_name(html_lib.unescape(name.group(1)))] = int(age.group(1)) + 1
-    print(f"    basketball-reference {season_end_year}: {len(out)} ages "
-          "(+1 year for the current season)")
+            # a traded player has a combined row and one per team: first wins
+            out.setdefault(html_lib.unescape(name.group(1)).strip(), int(age.group(1)) + add)
+    if not out:
+        raise AgeFetchError(f"{url} parsed to no ages: the page changed. Ages were not changed.")
+    print(f"    basketball-reference {season_end_year}: {len(out)} ages"
+          + (f" (+{add} year for the current season)" if add else " (this season)"))
     return out
 
 
@@ -370,43 +389,95 @@ def seed_ages(rows: list, cached: dict, use_bbref: bool,
         print(f"    spreadsheets on disk: {len(by_name)} ages")
 
     if use_bbref:
-        # The most recent COMPLETED season: this season's pages have no ages
-        # until games are played. Walk back two more seasons as well -- a
-        # player who missed a whole year to injury (Lillard, Irving and
-        # VanVleet all missed 2025-26) has no row in the latest one.
+        # THIS season's page first: it carries an age for everyone who has
+        # played, rookies included, and needs no adjustment. Then the most
+        # recent COMPLETED season, and two more back -- a player who missed a
+        # whole year to injury (Lillard, Irving and VanVleet all missed
+        # 2025-26) has no row in the latest one.
         year = date.today().year if date.today().month >= 7 else date.today().year - 1
+        for key, age in ages_from_basketball_reference(year + 1, add=0).items():
+            by_name.setdefault(key, age)
         for back, candidate in enumerate((year, year - 1, year - 2)):
             found = ages_from_basketball_reference(candidate)
             for key, age in found.items():
                 by_name.setdefault(key, age + back)   # one more year per season back
 
-    # Yahoo abbreviates long names ("N. Alexander-Walker"); basketball-reference
-    # spells them out. Index by last name plus first initial so those still join.
-    def short_key(name):
-        parts = [p for p in re.split(r"\s+", str(name).strip()) if p]
-        if len(parts) < 2:
-            return None
-        return normalize_player_name(parts[0][0] + parts[-1])
-
+    # One join, through data_loader.PlayerIndex: accents, suffixes and Yahoo's
+    # initials ("N. Alexander-Walker"), and an ambiguous match is NO match.
+    # The hand-rolled fallback this replaced reduced a name to its first
+    # initial plus its LAST token -- "Darius Acuff Jr." became "d" + "jr" --
+    # and took the first known name that fit: Derrick Jones Jr., 29. The 2026
+    # rookie carried that age from 2026-09-25 to 10-29.
+    index = PlayerIndex(by_name)
     seeded, unmatched = {}, []
     for row in rows:
         if row["yahoo_id"] in cached:
             continue
         name = row["player_name"]
-        age = by_name.get(normalize_player_name(name))
-        if age is None:
-            sk = short_key(name)
-            if sk:
-                # match against every known name reduced the same way
-                for known, known_age in by_name.items():
-                    if known.endswith(sk[1:]) and known.startswith(sk[0]):
-                        age = known_age
-                        break
+        age = index.get(name)
         if age is None:
             unmatched.append(name)
         else:
-            seeded[row["yahoo_id"]] = age
+            seeded[row["yahoo_id"]] = int(age)
     return seeded
+
+
+def recheck_ages(rows: list, execute: bool = False, cached: dict = None,
+                 derive=None, write=None) -> int:
+    """Compare every cached age with what its sources say now. Exit 0 when
+    nothing is more than a year off (or it was fixed with --execute), 1 when
+    something is and was not fixed."""
+    cached = dict(load_ages() if cached is None else cached)
+    print("\n  Re-deriving ages from source (archived spreadsheets, basketball-reference;"
+          " not the live file, not the cache):")
+    derive = derive or (lambda: seed_ages(rows, {}, use_bbref=True, trust_live=False))
+    try:
+        fresh = derive()
+    except AgeFetchError as e:
+        print(f"\n  REFUSED: {e}")
+        return 1
+    names = {r["yahoo_id"]: (r["player_name"], bool(r.get("owner"))) for r in rows}
+    off, near, nosrc = [], [], []
+    for pid, (name, rostered) in sorted(names.items(), key=lambda kv: kv[1]):
+        if pid not in cached:
+            continue
+        if pid not in fresh:
+            nosrc.append(name)
+            continue
+        d = int(cached[pid]) - int(fresh[pid])
+        if abs(d) > 1:
+            off.append((pid, name, rostered, cached[pid], fresh[pid]))
+        elif d and rostered:
+            near.append((name, cached[pid], fresh[pid]))
+    print(f"\n  {len(off)} cached age(s) more than a year from their source:")
+    for pid, name, rostered, was, now in off:
+        print(f"    {name} (id {pid}{', rostered' if rostered else ''}): cached {was}, source {now}")
+    if near:
+        print(f"\n  {len(near)} rostered age(s) one year from their source (left alone -- "
+              "the two age conventions can differ by one):")
+        for name, was, now in near:
+            print(f"    {name}: cached {was}, source {now}")
+    if nosrc:
+        print(f"\n  {len(nosrc)} cached age(s) with no source to check against: "
+              + ", ".join(nosrc[:10]) + (" ..." if len(nosrc) > 10 else ""))
+    if not off:
+        return 0
+    if not execute:
+        print("\n  [DRY-RUN] Re-run with --recheck-ages --execute to replace them.")
+        return 1
+    for pid, _name, _r, _was, now in off:
+        cached[pid] = int(now)
+    (write or _write_ages)(cached)
+    print(f"\n  Replaced {len(off)} age(s) in {AGES.name}. PLAYERLIST carries them from the "
+          "next fetch (Step 4.75).")
+    return 0
+
+
+def _write_ages(cached: dict) -> None:
+    blob = json.loads(AGES.read_text(encoding="utf-8")) if AGES.is_file() else {}
+    blob["ages"] = dict(sorted(cached.items(), key=lambda kv: int(kv[0])))
+    blob["_updated"] = date.today().isoformat()
+    AGES.write_text(json.dumps(blob, indent=2) + "\n", encoding="utf-8")
 
 
 def rostered_names() -> set:
@@ -438,6 +509,14 @@ def main():
                          "ages are a year stale by then.")
     ap.add_argument("--no-bbref-ages", action="store_true",
                     help="do not consult basketball-reference for missing ages")
+    ap.add_argument("--recheck-ages", action="store_true",
+                    help="re-derive every cached age from its sources (the archived "
+                         "spreadsheets and basketball-reference -- never the live file or "
+                         "the cache itself) and report each that differs. With --execute, "
+                         "replace the ones more than a year off in config/PLAYER_AGES.json "
+                         "ONLY; PLAYERLIST is not written. A one-year difference is left "
+                         "alone: the spreadsheets' age-at-season-start and "
+                         "basketball-reference's age-on-February-1 can differ by one.")
     ap.add_argument("--out", default=None,
                     help="write the workbook here instead of data/PLAYERLIST.xlsx "
                          "(no .bak, and the age cache is left alone). For "
@@ -478,13 +557,20 @@ def main():
     merged.update(taken)          # a rostered row wins: it carries the owner
     rows = list(merged.values())
 
+    if args.recheck_ages:
+        return recheck_ages(rows, execute=args.execute)
+
     cached = {} if args.refresh_ages else load_ages()
     if args.refresh_ages:
         print("\n  Ages (--refresh-ages: cache ignored, rebuilding from source):")
     else:
         print("\n  Ages:")
-    seeded = seed_ages(rows, cached, use_bbref=not args.no_bbref_ages,
-                       trust_live=not args.refresh_ages)
+    try:
+        seeded = seed_ages(rows, cached, use_bbref=not args.no_bbref_ages,
+                           trust_live=not args.refresh_ages)
+    except AgeFetchError as e:
+        print(f"\n  REFUSED: {e}\n  PLAYERLIST and {AGES.name} were NOT modified.")
+        return 1
     if seeded:
         print(f"    seeded {len(seeded)} new age(s)")
         cached.update(seeded)
