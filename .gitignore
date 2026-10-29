@@ -210,3 +210,6 @@ output/refresh_service.*
 # a tarball git would have staged on "git add -A", in a public repo.
 _to_delete/
 *.tgz
+
+# keepability v3: the step A hits table the fit report reads (scripts/keeper_backtest.py --json)
+output/keeper_backtest.json

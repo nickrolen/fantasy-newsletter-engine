@@ -29,6 +29,7 @@ and archive/2025-26. Fits nothing; changes no consumer.
 from __future__ import annotations
 
 import argparse
+import json
 import statistics
 import sys
 from pathlib import Path
@@ -297,11 +298,20 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--no-v22", action="store_true", help="skip the v2.2 reproduction")
     ap.add_argument("--out", help="also write the report to this .md file")
+    ap.add_argument("--json", help="also write the hits table to this .json file "
+                    "(read by scripts/fit_keepability_v3.py --baseline)")
     a = ap.parse_args(argv)
-    text = report(*run(with_v22=not a.no_v22))
+    res = run(with_v22=not a.no_v22)
+    text = report(*res)
     print(text)
     if a.out:
         Path(a.out).write_text(text, encoding="utf-8")
+    if a.json:
+        _inputs, snaps, table, _subs, _chosen = res
+        Path(a.json).write_text(json.dumps({
+            "hits": {f"{m}|{d}|{p}": h for (m, d, p), h in sorted(table.items())},
+            "ceiling": {f"{d}|{p}": s.ceiling for (d, p), s in sorted(snaps.items())},
+        }, indent=1), encoding="utf-8")
     return 0
 
 

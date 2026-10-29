@@ -43,8 +43,9 @@ def _world(extra=(), picks_now=None, picks_next=None, trades=()):
     rows += list(extra)
     log = {SEASON: sorted(rows, key=lambda r: (r["date"], r["manager"], r["player_name"]))}
     picks_now = picks_now if picks_now is not None else [
-        {"season": SEASON, "manager": m, "player_name": f"{p} {k}", "round": k + 1, "is_keeper": k >= 6}
-        for m, p in (("Nick", "Nick"), ("Hayden", "Hay")) for k in range(8)]
+        {"season": SEASON, "manager": m, "player_name": f"{p} {k}", "round": k + 1,
+         "pick_number": 2 * k + j + 1, "is_keeper": k >= 6}
+        for j, (m, p) in enumerate((("Nick", "Nick"), ("Hayden", "Hay"))) for k in range(8)]
     picks_next = picks_next if picks_next is not None else [
         {"season": DECISION, "manager": m, "player_name": f"{p} {k}", "round": 10, "is_keeper": True}
         for m, p in (("Nick", "Nick"), ("Hayden", "Hay")) for k in range(2, 8)]
@@ -133,10 +134,12 @@ def test_a_traded_keeper_carries_kept_and_round_to_his_new_team():
     extra = (_stint("Old Keeper", "Hayden", 0, 40, 40) + _stint("Old Keeper", "Nick", 41, end, 40)
              + _stint("Second Rounder", "Hayden", 0, 40, 35) + _stint("Second Rounder", "Nick", 41, end, 35)
              + _stint("Waiver Guy", "Nick", 20, end, 30))
-    picks = [{"season": SEASON, "manager": "Hayden", "player_name": "Old Keeper", "round": 12, "is_keeper": True},
+    picks = [{"season": SEASON, "manager": "Hayden", "player_name": "Old Keeper", "round": 12,
+              "pick_number": 47, "is_keeper": True},
              {"season": SEASON, "manager": "Hayden", "player_name": "Second Rounder", "round": 2,
-              "is_keeper": False},
-             {"season": SEASON, "manager": "Nick", "player_name": "Nick 0", "round": 1, "is_keeper": False}]
+              "pick_number": 6, "is_keeper": False},
+             {"season": SEASON, "manager": "Nick", "player_name": "Nick 0", "round": 1, "pick_number": 1,
+              "is_keeper": False}]
     trades = [{"season": SEASON, "date": DAYS[41].isoformat(), "players": [
         {"player_name": n, "from_manager": "Hayden", "to_manager": "Nick"}
         for n in ("Old Keeper", "Second Rounder")]}]

@@ -1,0 +1,135 @@
+{
+  "age_center": 27.0,
+  "dataset_sha256": "ad1ca7bf10f3f59b47e0f1d58b63bd27adbe084ce9b1ead6145f09b3a2dcfec4",
+  "feature_text": {
+    "age": "age that season - 27",
+    "availability": "games / his team's games while rostered so far; missing -> that snapshot's mean",
+    "kept": "kept this season (carried on a trade); 0 for everyone in 2021-22",
+    "level": "FPPG so far shrunk toward the prior, w = k/(k+k0); k0 13 (last season) or 4.7 (league mean)",
+    "log_draft_rank": "log(overall draft rank / 36) -- rank = players kept league-wide + pick -- for drafted non-keepers; 0 otherwise",
+    "undrafted": "neither kept nor drafted this season"
+  },
+  "features": [
+    "kept",
+    "log_draft_rank",
+    "undrafted",
+    "level",
+    "availability",
+    "age"
+  ],
+  "fit_date": "2026-10-29",
+  "fitted_on": [
+    "2021-22",
+    "2022-23",
+    "2023-24",
+    "2024-25",
+    "2025-26",
+    "2026-27"
+  ],
+  "points": {
+    "end": {
+      "coef": {
+        "age": -0.414957,
+        "availability": 0.00247,
+        "kept": 0.916539,
+        "level": 0.490938,
+        "log_draft_rank": -0.624145,
+        "undrafted": -1.495262
+      },
+      "loglik_per_roster": {
+        "held_out": -3.3179,
+        "in_sample": -3.1005,
+        "uniform": -8.9252
+      },
+      "missing_keepers": {
+        "0": 1.0
+      },
+      "n_players": 382,
+      "n_rosters": 24,
+      "se": {
+        "age": 0.060782,
+        "availability": 0.934512,
+        "kept": 0.412235,
+        "level": 0.065348,
+        "log_draft_rank": 0.64068,
+        "undrafted": 0.497816
+      }
+    },
+    "mid": {
+      "coef": {
+        "age": -0.382182,
+        "availability": 1.37431,
+        "kept": 0.646516,
+        "level": 0.435845,
+        "log_draft_rank": -0.652383,
+        "undrafted": -1.183949
+      },
+      "loglik_per_roster": {
+        "held_out": -3.6673,
+        "in_sample": -3.3562,
+        "uniform": -8.4175
+      },
+      "missing_keepers": {
+        "0": 0.708333,
+        "1": 0.166667,
+        "2": 0.125
+      },
+      "n_players": 370,
+      "n_rosters": 24,
+      "se": {
+        "age": 0.058037,
+        "availability": 0.863935,
+        "kept": 0.403705,
+        "level": 0.059793,
+        "log_draft_rank": 0.62165,
+        "undrafted": 0.531718
+      }
+    },
+    "week2": {
+      "coef": {
+        "age": -0.291818,
+        "availability": 1.778053,
+        "kept": 0.904881,
+        "level": 0.272373,
+        "log_draft_rank": -1.021839,
+        "undrafted": -1.892367
+      },
+      "loglik_per_roster": {
+        "held_out": -4.3194,
+        "in_sample": -3.8804,
+        "uniform": -7.8416
+      },
+      "missing_keepers": {
+        "0": 0.416667,
+        "1": 0.25,
+        "2": 0.166667,
+        "3": 0.166667
+      },
+      "n_players": 367,
+      "n_rosters": 24,
+      "se": {
+        "age": 0.051655,
+        "availability": 0.690204,
+        "kept": 0.384184,
+        "level": 0.048157,
+        "log_draft_rank": 0.578343,
+        "undrafted": 0.722501
+      }
+    }
+  },
+  "prior": {
+    "on": "each coefficient times its feature's scale (an indicator as is, a continuous input at 2 sd); Gelman et al. 2008. Stops quasi-separation: plain ML put 'undrafted' at week 2 at -23.7",
+    "sd": 2.5
+  },
+  "rank_center": 36.0,
+  "shrinkage": {
+    "k0_league_mean": 4.7,
+    "k0_prior_season": 13.0,
+    "prior_min_games": 10,
+    "source": "measured 10-23/10-28 against these priors (REVIEW_PROJECTION_VS_ACTUALS_RESULT_2026-10-23, SHRINKAGE_CURVE_RESULT_2026-10-28); reused, not refit"
+  },
+  "specification": "age linear",
+  "version": 3,
+  "why": "highest summed held-out log-likelihood (leave one season out, all three points) among: age linear, age + young, age quadratic, age + young + trade",
+  "young_age": 23
+}

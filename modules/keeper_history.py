@@ -56,6 +56,29 @@ TRADE_WINDOW_DAYS = 3        # a trade shows on the receiving roster within this
                              # (measured 10-29: every placeable move shows the same day)
 
 
+# The shrinkage curve's constants, MEASURED 10-23/10-28 against these two
+# priors (REVIEW_PROJECTION_VS_ACTUALS_RESULT_2026-10-23,
+# SHRINKAGE_CURVE_RESULT_2026-10-28) -- reused here, not refit:
+#   prior = last season's FPPG (10+ games then)   k0 = 13  (401 player-seasons)
+#   prior = the league mean of rostered players  k0 = 4.7 (589 player-seasons)
+K0_PRIOR_SEASON = 13.0
+K0_LEAGUE_MEAN = 4.7
+PRIOR_MIN_GAMES = 10
+
+
+def shrunk_level(fppg, games: int, prev_fppg, prev_games, league_mean: float) -> tuple:
+    """(level, prior, k0, prior_kind): FPPG so far shrunk toward a prior,
+    w = k / (k + k0), k = games so far (bench games count). At zero games it
+    is the prior."""
+    if prev_fppg is not None and (prev_games or 0) >= PRIOR_MIN_GAMES:
+        prior, k0, kind = float(prev_fppg), K0_PRIOR_SEASON, "last season"
+    else:
+        prior, k0, kind = float(league_mean), K0_LEAGUE_MEAN, "league mean"
+    k = int(games or 0)
+    w = k / (k + k0)
+    return (w * float(fppg) + (1 - w) * prior) if k else prior, prior, k0, kind
+
+
 class KeeperNotOnRoster(ValueError):
     """A keeper not found on his manager's end-of-season roster: a name or id
     matching problem (every keeper since 2021-22 was on it, measured 10-29)."""
@@ -320,6 +343,11 @@ class Candidate:
     prev_fppg: Optional[float]
     age: Optional[int]               # None: not found -- reported, never guessed
     age_source: Optional[str] = None # "bbref <season>", or a neighbour's "- 1" / "+ 1"
+    draft_pick: Optional[int] = None # his non-keeper pick number this season (carried on a trade)
+    draft_rank: Optional[int] = None # overall rank across eras: players kept league-wide + pick
+    level: Optional[float] = None    # shrunk_level(): FPPG so far toward the prior
+    level_prior: Optional[float] = None
+    level_prior_kind: Optional[str] = None
     team_flips: int = 0              # times his rows' nba_team changes; > 2 means the log
                                      # alternates teams after an NBA trade, and had_game /
                                      # is_injured (so team_games, availability) are unreliable
@@ -364,18 +392,21 @@ def _season_line(rows: list) -> tuple:
 
 
 def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = None,
-             check: bool = True) -> Snapshot:
+             check: bool = True, labels: bool = True, as_of: Optional[str] = None) -> Snapshot:
     """The decision as seen from one as-of point. Everything below reads
     `rows` -- the season's playerlog cut at as_of -- and trades dated on or
     before it. ages: {season: PlayerIndex} (load_ages) for the season and its
     neighbours; None leaves every age missing."""
     season = prev_season(decision)
     all_rows = inputs.log[season]
-    week, as_of = as_of_point(all_rows, season, point)
+    if as_of is None:
+        week, as_of = as_of_point(all_rows, season, point)
+    else:                                   # live: the last day logged so far
+        week = max(r["week"] for r in all_rows if r["date"] <= as_of)
     rows = [r for r in all_rows if r["date"] <= as_of]          # point-in-time, here and only here
     season_days = sorted({r["date"] for r in rows})
-    keepers = keepers_of(inputs, decision)
-    if check:
+    keepers = keepers_of(inputs, decision) if labels else {}
+    if check and labels:
         end_day = as_of_point(all_rows, season, "end")[1]
         check_keepers_on_rosters(keepers, roster_on(all_rows, end_day), decision)
     rosters = roster_on(rows, as_of)
@@ -383,8 +414,10 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
     ceiling = sum(len(ks) for ks in keepers.values()) - len(absent)
 
     names = Names(all_rows)
-    kept_now, round_now, drafted_by = set(), {}, {}
-    for p in inputs.picks.get(season, []):
+    kept_now, round_now, pick_now, drafted_by = set(), {}, {}, {}
+    season_picks = inputs.picks.get(season, [])
+    kept_league = sum(1 for p in season_picks if p.get("is_keeper"))
+    for p in season_picks:
         n = names.canon(p["player_name"], p.get("player_key"))
         if n is None:
             continue
@@ -393,6 +426,9 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
             kept_now.add(n)
         else:
             round_now[n] = int(p["round"])
+            pick_now[n] = int(p["pick_number"])
+    played = [r["fantasy_points"] for r in rows if appeared(r)]
+    league_mean = sum(played) / len(played) if played else 0.0     # rostered players, so far
     trades_in = {}                                     # (player, to_manager) -> [(first, last)]
     for t in inputs.trades:
         if t.get("season") != season:
@@ -437,6 +473,7 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
             flips = sum(1 for a, b in zip(teams, teams[1:]) if a != b)
             pn = prev_names.canonical(n)
             pg, pf = _season_line(prev_by_player[pn]) if pn else (None, None)
+            level, prior, _k0, prior_kind = shrunk_level(fppg, games, pf, pg, league_mean)
             mine.append(Candidate(
                 decision=decision, season=season, point=point, as_of=as_of, manager=m, player=n,
                 kept_next=n in set(keepers.get(m, [])), kept=n in kept_now,
@@ -447,12 +484,98 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
                 availability=None if not team_games else round(games / team_games, 4),
                 days_rostered=len({r["date"] for r in prow}), first_day=min(r["date"] for r in prow),
                 prev_games=pg, prev_fppg=None if pf is None else round(pf, 3),
-                age=age, age_source=age_source, team_flips=flips))
+                age=age, age_source=age_source, team_flips=flips,
+                draft_pick=pick_now.get(n),
+                draft_rank=None if n not in pick_now else kept_league + pick_now[n],
+                level=round(level, 3), level_prior=round(prior, 3), level_prior_kind=prior_kind))
         order = sorted(mine, key=lambda c: (c.fppg is None, -(c.fppg or 0.0), c.player))
         for i, c in enumerate(order, 1):
             c.fppg_rank = i
         snap.candidates.extend(sorted(mine, key=lambda c: c.player))
     return snap
+
+
+def live_inputs(root=ROOT, history: Optional[Inputs] = None) -> tuple:
+    """(Inputs, season) with THIS season's log built from LINEUPS.xlsx exactly
+    as rollup_season_to_history will file it at season's end (bench games
+    included), its draft from DRAFT_PICKS_CURRENT.json and its trades from
+    config/TRADES.json -- so live features use the historical definitions."""
+    import sys as _sys
+    _sys.path.insert(0, str(Path(root) / "scripts"))
+    import rollup_season_to_history as R
+    from .data_loader import CURRENT_SEASON, _LEAGUE_CONFIG
+    history = history or Inputs.load(root)
+    flat = [r for rows in history.log.values() for r in rows]
+    rows, _report = R.build_rows(CURRENT_SEASON, flat)
+    rows.sort(key=lambda r: (r["date"], r["manager"], r["player_name"]))
+    trades_cfg = json.loads((Path(root) / "config" / "TRADES.json").read_text(encoding="utf-8")) \
+        if (Path(root) / "config" / "TRADES.json").is_file() else {}
+    trades = list(history.trades) + list(R.build_trades(CURRENT_SEASON, trades_cfg, _LEAGUE_CONFIG) or [])
+    return Inputs(log={**history.log, CURRENT_SEASON: rows}, picks=history.picks, trades=trades), \
+        CURRENT_SEASON
+
+
+def live_snapshot(inputs: Inputs, season: str, rosters: dict, ages: Optional[dict] = None) -> Snapshot:
+    """This season's candidates on TODAY's rosters (config/ROSTERS.json via
+    data.get_current_rosters), with every feature read from the live log as
+    far as it goes. A player on today's roster who is not on the log's last
+    day (a Monday-window add the log has not reached) keeps whatever he has
+    logged with anyone this season; with nothing logged he gets no games, his
+    prior as his level and no availability. No labels: the decision is next
+    offseason's."""
+    rows = inputs.log[season]
+    last = max(r["date"] for r in rows)
+    base = snapshot(inputs, next_season(season), "end", ages, labels=False, as_of=last)
+    by_name = {c.player: c for c in base.candidates}
+    names = Names(rows)
+    hist_names = PlayerIndex({n: n for n in by_name})
+    prev_rows: dict = {}
+    for r in inputs.log.get(prev_season(season), []):
+        prev_rows.setdefault(r["player_name"], []).append(r)
+    prev_idx = PlayerIndex({n: n for n in prev_rows})
+    played = [r["fantasy_points"] for r in rows if appeared(r)]
+    league_mean = sum(played) / len(played) if played else 0.0
+    kept_league = sum(1 for p in inputs.picks.get(season, []) if p.get("is_keeper"))
+    pick_of = {}
+    for p in inputs.picks.get(season, []):
+        n = names.canon(p["player_name"], p.get("player_key")) or p["player_name"]
+        pick_of[n] = p
+    pick_idx = PlayerIndex({n: n for n in pick_of})
+    trades_to = {(mv["player_name"], mv["to_manager"]) for t in inputs.trades
+                 if t.get("season") == season for mv in t.get("players", [])}
+    out = Snapshot(next_season(season), "live", base.week, last,
+                   {m: list(v) for m, v in rosters.items()}, {}, 0, [])
+    for m, roster in sorted(rosters.items()):
+        for raw in roster:
+            hit = hist_names.canonical(raw)
+            if hit is not None:
+                c = by_name[hit]
+                out.candidates.append(Candidate(**{**asdict(c), "manager": m}))
+                continue
+            pk = pick_of.get(pick_idx.canonical(raw) or "")
+            pn = prev_idx.canonical(raw)
+            pg, pf = _season_line(prev_rows[pn]) if pn else (None, None)
+            level, prior, _k0, kind = shrunk_level(None, 0, pf, pg, league_mean)
+            age, age_source = age_for(ages, season, raw) if ages is not None else (None, None)
+            kept = bool(pk and pk.get("is_keeper"))
+            out.candidates.append(Candidate(
+                decision=out.decision, season=season, point="live", as_of=last, manager=m, player=raw,
+                kept_next=False, kept=kept,
+                draft_round=None if (not pk or kept) else int(pk["round"]),
+                undrafted=pk is None, acquired="trade" if any(n == raw and mm == m for n, mm in trades_to)
+                else ("draft" if pk and pk["manager"] == m else "pickup"),
+                stint_start=last, games=0, fppg=None, fppg_rank=0, team_games=0, availability=None,
+                days_rostered=0, first_day=last, prev_games=pg, prev_fppg=None if pf is None else round(pf, 3),
+                age=age, age_source=age_source,
+                draft_pick=None if (not pk or kept) else int(pk["pick_number"]),
+                draft_rank=None if (not pk or kept) else kept_league + int(pk["pick_number"]),
+                level=round(level, 3), level_prior=round(prior, 3), level_prior_kind=kind))
+    for m in rosters:
+        mine = sorted([c for c in out.candidates if c.manager == m],
+                      key=lambda c: (c.fppg is None, -(c.fppg or 0.0), c.player))
+        for i, c in enumerate(mine, 1):
+            c.fppg_rank = i
+    return out
 
 
 def build(inputs: Optional[Inputs] = None, root=ROOT, decisions=DECISIONS, points=POINTS,

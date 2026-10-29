@@ -82,6 +82,10 @@ CROSS_SEASON_CONFIG = {
     # League lore is the league's memory across seasons; derived entries
     # recompute from history, written ones are Nick's. Never reset.
     "config/LEAGUE_LORE.json",
+    # Keepability v3's fitted coefficients. Refit once a season, AFTER the
+    # keepers are chosen (scripts/fit_keepability_v3.py), so it carries through
+    # the reset untouched; the weekly build only reads it.
+    "config/keepability_v3_params.json",
 }
 
 
