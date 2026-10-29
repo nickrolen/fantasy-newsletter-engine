@@ -41,6 +41,25 @@ nothing (same line key -- see IDENTITY), and a settled line that disagrees with 
 RAISES rather than being quietly corrected -- that disagreement means the log
 and the records disagree about what happened.
 
+ONE OUTCOME, ONE OBSERVATION (HANDOFF_CURVE_GROUPING, Nick 10-28)
+----------------------------------------------------------------
+The record's identity is the line key, which covers the whole week's inputs
+including the as-of date, so every midnight refresh appends a record per
+matchup, and a change to one manager re-logs both matchups. A seven-day week
+ends with ~14 records describing two outcomes (28 in a 14-day week). They are
+all kept -- they are the record of what was published and when -- but the
+curve scores ONE line per (season, week, matchup) within each group: the one
+with the latest as_of, ties going to the later-appended record. Pooled as
+independent, the duplicates shrink the standard error by about the square
+root of the duplication and the curve claims confidence it has not got.
+
+A GROUP IS ENGINE x SOURCE (Nick 10-28), in the pooled-versions mode too. A
+weekly-build line and a live-refresh line on the same matchup-week share one
+outcome, so they cannot sit in one pool either: each product gets its own
+curve -- the weekly build's is the newsletter's line, the live refresh's is
+the live page's. Two engines on the same week stay apart as well: that is the
+comparison the engine split exists to make.
+
 THE METRICS ARE NOT HERE
 ------------------------
 Every statistic comes from modules/backtest_metrics.py -- score_error_stats,
@@ -432,6 +451,12 @@ def settle(records_json: dict, base_path=".", today: date = None) -> dict:
         record["settled_at"] = stamp
         settled += 1
     if conflicts:
+        # Many records describe one matchup-week (see the module docstring):
+        # name each disagreement once, with how many records carry it.
+        counts: dict = {}
+        for c in conflicts:
+            counts[c] = counts.get(c, 0) + 1
+        conflicts = [c if n == 1 else f"{c} ({n} records)" for c, n in counts.items()]
         raise CalibrationConflict(
             "settled lines disagree with RECORDS.json: " + "; ".join(conflicts) +
             ". One of the two is wrong about a played week -- fix it rather than "
@@ -461,36 +486,102 @@ def settled(lines: Iterable[dict]) -> list:
             and r.get("actual_b") is not None]
 
 
+def _as_of_key(record: dict, position: int) -> tuple:
+    """Sort key for "latest": the as_of instant (a bare date is its midnight),
+    then position in the log -- the later-appended record wins a tie."""
+    raw = str(record.get("as_of") or "")
+    try:
+        when = datetime.fromisoformat(raw)
+    except ValueError:
+        raise CalibrationConflict(f"week {record.get('week')} {record.get('matchup_id')}: "
+                                  f"as_of {raw!r} is not an ISO date or time") from None
+    if when.tzinfo is not None:
+        when = when.replace(tzinfo=None)
+    return (when, position)
+
+
+def latest_per_matchup_week(rows: Sequence[dict]) -> tuple:
+    """(the rows to score, what was collapsed).
+
+    One row per (season, week, matchup_id, source, engine): the latest as_of,
+    a tie going to the later-appended row. `rows` are in log order. Each
+    entry of `collapsed` names the line used and how many records it stood
+    for; `ties` names any tie whose records carried DIFFERENT published
+    numbers (the later one was used, and the summary says so)."""
+    groups: dict = {}
+    for i, r in enumerate(rows):
+        key = (str(r.get("season")), int(r["week"]), r.get("matchup_id"), r.get("source"),
+               engine_key(r))
+        groups.setdefault(key, []).append((_as_of_key(r, i), r))
+    kept, collapsed, ties = [], [], []
+    for key in sorted(groups, key=lambda k: (k[0], k[1], k[2] or "", k[3] or "", k[4])):
+        members = sorted(groups[key], key=lambda x: x[0])
+        (when, _pos), chosen = members[-1]
+        kept.append(chosen)
+        collapsed.append({"season": key[0], "week": key[1], "matchup_id": key[2],
+                          "source": key[3], "as_of": chosen.get("as_of"), "of": len(members)})
+        same_time = [r for (w, _p), r in members if w == when]
+        if len(same_time) > 1 and len({tuple(r.get(f) for f in PUBLISHED) for r in same_time}) > 1:
+            ties.append(f"week {key[1]} {key[2]} ({key[3]}): {len(same_time)} records share "
+                        f"as_of {chosen.get('as_of')} with different published numbers; "
+                        "the later-appended was used")
+    return kept, {"collapsed": collapsed, "ties": ties}
+
+
 def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
           mix_versions: bool = False) -> dict:
-    """Calibration of the settled lines, BY ENGINE VERSION.
+    """Calibration of the settled lines, BY ENGINE VERSION AND BY SOURCE.
 
-    Returns {"groups": {engine key: metrics}, "unsettled": n, "engines": [...]}.
-    mix_versions=True pools every version into one group, labelled as mixed;
-    anything else keeps them apart, because the engine changed under the lines
-    (see the module docstring). Asking for one named `engine` is exact.
+    Returns {"groups": {group label: metrics}, "unsettled": n, "engines": [...],
+    "sources": [...]}. A group label is group_label(engine, source):
+    "abc1234 / weekly_build". mix_versions=True pools every version per source,
+    the engine part labelled as mixed; anything else keeps them apart, because
+    the engine changed under the lines (see the module docstring). Asking for
+    one named `engine` is exact, still split by source. Sources are never
+    pooled: two products' lines on one matchup-week share one outcome.
     """
     rows = list(lines if lines is not None else load_log(base_path)["lines"])
     done = settled(rows)
     engines = sorted({engine_key(r) for r in done})
+    sources = sorted({str(r.get("source")) for r in done})
     if engine is not None:
-        groups = {engine: [r for r in done if engine_key(r) == engine]}
+        by_engine = {engine: [r for r in done if engine_key(r) == engine]}
     elif mix_versions:
         label = "mixed (%d engine%s)" % (len(engines), "" if len(engines) == 1 else "s")
-        groups = {label: done}
+        by_engine = {label: done}
     else:
-        groups = {k: [r for r in done if engine_key(r) == k] for k in engines}
+        by_engine = {k: [r for r in done if engine_key(r) == k] for k in engines}
+    groups = {}
+    for eng, members in by_engine.items():
+        for src in sorted({str(r.get("source")) for r in members}):
+            groups[group_label(eng, src)] = [r for r in members if str(r.get("source")) == src]
     return {
         "groups": {k: _metrics(v) for k, v in groups.items()},
         "engines": engines,
+        "sources": sources,
         "settled": len(done),
         "unsettled": len(rows) - len(done),
     }
 
 
+SOURCE_LABELS = {WEEKLY_BUILD: "the newsletter's line", LIVE_REFRESH: "the live page's line"}
+
+
+def group_label(engine: str, source: str) -> str:
+    """One curve: an engine (or the pooled versions) and one source."""
+    return f"{engine} / {source}"
+
+
 def _metrics(rows: Sequence[dict]) -> dict:
-    """Every number here comes from backtest_metrics."""
-    out = {"n_lines": len(rows), "weeks": sorted({int(r["week"]) for r in rows})}
+    """Every number here comes from backtest_metrics, over ONE line per
+    matchup-week and source (latest_per_matchup_week): n_records is how many
+    settled records the group holds, n_lines how many distinct lines they
+    describe -- the n every statistic uses."""
+    n_records = len(rows)
+    rows, info = latest_per_matchup_week(rows)
+    out = {"n_lines": len(rows), "n_records": n_records,
+           "weeks": sorted({int(r["week"]) for r in rows}),
+           "collapsed": info["collapsed"], "ties": info["ties"]}
     if len(rows) < 2:
         out["note"] = "need at least 2 settled lines for the statistics"
         return out
@@ -530,6 +621,18 @@ def _metrics(rows: Sequence[dict]) -> dict:
     return out
 
 
+def _used_lines(m: dict) -> list:
+    """Which record each scored line is: "week 2 (live_refresh): Benton|Nick
+    latest of 7" -- one console line per week and source, so nobody wonders
+    where the other records went."""
+    by = {}
+    for c in m.get("collapsed", []):
+        by.setdefault((c["week"], c["source"]), []).append(
+            f"{c['matchup_id']} latest of {c['of']}" if c["of"] > 1 else f"{c['matchup_id']} (1)")
+    out = [f"      week {w} ({src}): " + ", ".join(v) for (w, src), v in sorted(by.items())]
+    return out + [f"      NOTE: {t}" for t in m.get("ties", [])]
+
+
 def format_curve(result: dict) -> list:
     """The curve as console lines. Instrumentation for the build's output --
     never the newsletter."""
@@ -537,7 +640,7 @@ def format_curve(result: dict) -> list:
     total = result["settled"] + result["unsettled"]
     if not total:
         return ["  Calibration log: empty -- no line has been published yet."]
-    out.append(f"  Calibration log: {total} line(s), {result['settled']} settled, "
+    out.append(f"  Calibration log: {total} record(s), {result['settled']} settled, "
                f"{result['unsettled']} awaiting a result")
     if not result["settled"]:
         out.append("    (no settled line yet, so there is no curve: the first "
@@ -546,8 +649,13 @@ def format_curve(result: dict) -> list:
     for key, m in sorted(result["groups"].items()):
         if not m["n_lines"]:
             continue
-        out.append(f"    engine {key}: {m['n_lines']} line(s), weeks "
-                   f"{m['weeks'][0]}-{m['weeks'][-1]}" if m["weeks"] else f"    engine {key}")
+        eng, _, src = key.rpartition(" / ")
+        what = SOURCE_LABELS.get(src)
+        name = f"engine {eng}, {src}" + (f" ({what})" if what else "")
+        out.append(f"    {name}: {m['n_lines']} line(s) from {m['n_records']} settled "
+                   f"record(s), weeks {m['weeks'][0]}-{m['weeks'][-1]}"
+                   if m["weeks"] else f"    {name}")
+        out += _used_lines(m)
         if "note" in m:
             out.append(f"      {m['note']}")
             continue

@@ -185,13 +185,14 @@ def test_the_curve_groups_by_engine_and_pools_only_when_asked(tmp_path):
     _settled_pair(tmp_path, ENGINE, 2)
     _settled_pair(tmp_path, OTHER_ENGINE, 3)
     result = cal.curve(tmp_path)
-    assert set(result["groups"]) == {"abc1234", "def5678"}
+    assert set(result["groups"]) == {"abc1234 / weekly_build", "def5678 / weekly_build"}
     assert all(g["n_lines"] == 2 for g in result["groups"].values())
     mixed = cal.curve(tmp_path, mix_versions=True)
-    assert list(mixed["groups"]) == ["mixed (2 engines)"]
-    assert mixed["groups"]["mixed (2 engines)"]["n_lines"] == 4
+    assert list(mixed["groups"]) == ["mixed (2 engines) / weekly_build"]
+    assert mixed["groups"]["mixed (2 engines) / weekly_build"]["n_lines"] == 4
     one = cal.curve(tmp_path, engine="abc1234")
-    assert list(one["groups"]) == ["abc1234"] and one["groups"]["abc1234"]["n_lines"] == 2
+    assert list(one["groups"]) == ["abc1234 / weekly_build"]
+    assert one["groups"]["abc1234 / weekly_build"]["n_lines"] == 2
 
 
 def test_a_dirty_tree_is_its_own_engine_and_so_is_an_unknown_one():
@@ -217,8 +218,8 @@ def test_an_unsettled_line_is_never_in_the_curve(tmp_path):
     cal.append([_rec(week=4, as_of="2026-11-20T08:00:00")], tmp_path)   # not played yet
     result = cal.curve(tmp_path)
     assert (result["settled"], result["unsettled"]) == (2, 1)
-    assert result["groups"]["abc1234"]["n_lines"] == 2
-    assert result["groups"]["abc1234"]["weeks"] == [2]
+    assert result["groups"]["abc1234 / weekly_build"]["n_lines"] == 2
+    assert result["groups"]["abc1234 / weekly_build"]["weeks"] == [2]
     assert cal.settled(cal.load_log(tmp_path)["lines"]) == [
         r for r in cal.load_log(tmp_path)["lines"] if r["week"] == 2]
 
@@ -228,7 +229,7 @@ def test_the_curve_reports_an_empty_log_plainly(tmp_path):
     assert "empty" in out and "no line has been published yet" in out
     cal.append([_rec()], tmp_path)
     out = "\n".join(cal.format_curve(cal.curve(tmp_path)))
-    assert "1 line(s), 0 settled, 1 awaiting a result" in out
+    assert "1 record(s), 0 settled, 1 awaiting a result" in out
     assert "no settled line yet" in out
 
 
@@ -250,7 +251,7 @@ def test_the_metrics_are_backtest_metrics_and_not_reimplemented(tmp_path):
 
     _settled_pair(tmp_path, ENGINE, 2)
     rows = cal.settled(cal.load_log(tmp_path)["lines"])
-    group = cal.curve(tmp_path)["groups"]["abc1234"]
+    group = cal.curve(tmp_path)["groups"]["abc1234 / weekly_build"]
     projected = [r["projected_a"] for r in rows] + [r["projected_b"] for r in rows]
     actual = [r["actual_a"] for r in rows] + [r["actual_b"] for r in rows]
     def _same(x, y):          # nan == nan, for a t-stat with no spread
@@ -277,7 +278,7 @@ def test_a_tied_week_is_dropped_from_the_probability_scores_and_counted(tmp_path
                                   "Benton": [{"week": 2, "score": 1500.0}],
                                   "Hayden": [{"week": 2, "score": 1600.0}],
                                   "Garrett": [{"week": 2, "score": 1400.0}]}}, tmp_path)
-    prob = cal.curve(tmp_path)["groups"]["abc1234"]["probability"]
+    prob = cal.curve(tmp_path)["groups"]["abc1234 / weekly_build"]["probability"]
     assert prob["n"] == 1 and prob["ties_dropped"] == 1
 
 
@@ -405,3 +406,130 @@ def test_an_input_that_cannot_move_the_line_appends_nothing_and_one_that_can_doe
     assert live.n() == 2
     live(MON, overrides=[{"player_name": "N2", "out_weeks": [2]}])        # governs this week
     assert live.n() == 4
+
+
+# =============================================================================
+# HANDOFF_CURVE_GROUPING (Nick 10-28): one outcome, one observation -- the
+# curve scores the latest published line per matchup-week and source
+# =============================================================================
+
+PAIRS = (("Nick", "Benton"), ("Hayden", "Garrett"))
+SCORES = {2: (1600.0, 1500.0, 1400.0, 1300.0), 3: (1350.0, 1550.0, 1610.0, 1420.0),
+          4: (1480.0, 1390.0, 1300.0, 1525.0)}
+
+
+def _refreshes(week, n, engine=ENGINE, source=cal.WEEKLY_BUILD, drift=0.0, start=0):
+    """n records per matchup of `week`, a day apart, as the midnight refresh
+    logs them: a new line key each time, the projection drifting by `drift`."""
+    out = []
+    for i in range(start, start + n):
+        for a, b in PAIRS:
+            out.append(_rec(engine=engine, week=week, manager_a=a, manager_b=b, source=source,
+                            as_of=(date(2026, 10, 26) + timedelta(days=7 * (week - 2) + i)
+                                   ).isoformat() + "T00:05:00",
+                            line_key=f"{engine['commit']}-{source}-w{week}-{a}-{i}",
+                            avg_score_a=1404.2 + drift * i, spread_a=22.0 - drift * i))
+    return out
+
+
+def _settle_weeks(tmp_path, weeks):
+    cal.settle({"weekly_scores": {m: [{"week": w, "score": SCORES[w][i]} for w in weeks]
+                                  for i, m in enumerate(MANAGERS)}}, tmp_path)
+
+
+def test_seven_records_per_matchup_score_as_one_line_and_the_se_is_one_records(tmp_path):
+    dup, single = tmp_path / "dup", tmp_path / "single"
+    for w in (2, 3, 4):
+        cal.append(_refreshes(w, 7), dup)
+        cal.append(_refreshes(w, 1, start=6), single)          # just the latest
+    _settle_weeks(dup, (2, 3, 4))
+    _settle_weeks(single, (2, 3, 4))
+    d = cal.curve(dup)["groups"]["abc1234 / weekly_build"]
+    s = cal.curve(single)["groups"]["abc1234 / weekly_build"]
+    assert (d["n_records"], d["n_lines"]) == (42, 6)
+    assert (s["n_records"], s["n_lines"]) == (6, 6)
+    for k in ("level", "margin", "probability", "dispersion"):
+        assert d[k] == s[k], k
+    assert all(c["of"] == 7 for c in d["collapsed"])
+
+
+def test_the_latest_as_of_is_scored_and_a_tie_goes_to_the_later_appended(tmp_path):
+    early = _rec(as_of="2026-10-27T00:05:00", line_key="k1", avg_score_a=1300.0)
+    late = _rec(as_of="2026-10-30T00:05:00", line_key="k2", avg_score_a=1350.0)
+    earlier_appended_last = _rec(as_of="2026-10-28T00:05:00", line_key="k3", avg_score_a=1999.0)
+    kept, info = cal.latest_per_matchup_week([early, late, earlier_appended_last])
+    assert kept == [late] and info["collapsed"][0]["of"] == 3 and info["ties"] == []
+    # a tie: the later-appended wins, and different numbers are said
+    t1 = _rec(as_of="2026-10-30", line_key="t1", avg_score_a=1350.0)
+    t2 = _rec(as_of="2026-10-30", line_key="t2", avg_score_a=1360.0)
+    kept, info = cal.latest_per_matchup_week([t1, t2])
+    assert kept == [t2] and "different published numbers" in info["ties"][0]
+    same = _rec(as_of="2026-10-30", line_key="t3", avg_score_a=1360.0)
+    kept, info = cal.latest_per_matchup_week([t2, same])
+    assert kept == [same] and info["ties"] == []          # identical numbers: nothing to say
+    # a bare date is that day's midnight: an 08:00 record on it is later
+    kept, _ = cal.latest_per_matchup_week([_rec(as_of="2026-10-30T08:00:00", line_key="x"),
+                                           _rec(as_of="2026-10-30", line_key="y")])
+    assert kept[0]["line_key"] == "x"
+
+
+def test_a_weekly_build_line_and_a_live_refresh_line_are_separate_curves(tmp_path):
+    """Nick 10-28: a group is engine x source. Two products' lines on one
+    matchup-week share one outcome, so they are never pooled -- the weekly
+    build's curve is the newsletter's line, the live refresh's the live page's."""
+    cal.append(_refreshes(2, 1) + _refreshes(2, 5, source=cal.LIVE_REFRESH, start=1), tmp_path)
+    _settle_weeks(tmp_path, (2,))
+    groups = cal.curve(tmp_path)["groups"]
+    assert set(groups) == {"abc1234 / weekly_build", "abc1234 / live_refresh"}
+    wk, live = groups["abc1234 / weekly_build"], groups["abc1234 / live_refresh"]
+    assert (wk["n_records"], wk["n_lines"]) == (2, 2)
+    assert (live["n_records"], live["n_lines"]) == (10, 2)
+    assert sorted(c["of"] for c in live["collapsed"]) == [5, 5]
+
+
+def test_one_record_from_each_source_lands_in_two_groups_of_one_line(tmp_path):
+    cal.append([_rec(as_of="2026-10-26T08:00:00", line_key="build"),
+                _rec(as_of="2026-10-29T00:05:00", line_key="live", source=cal.LIVE_REFRESH)],
+               tmp_path)
+    cal.settle(_week_scores(2, 1500.0, 1450.0), tmp_path)
+    for mode in ({}, {"mix_versions": True}, {"engine": "abc1234"}):
+        groups = cal.curve(tmp_path, **mode)["groups"]
+        assert len(groups) == 2, mode
+        assert sorted(g["n_lines"] for g in groups.values()) == [1, 1], mode
+        assert {k.rpartition(" / ")[2] for k in groups} == {cal.WEEKLY_BUILD, cal.LIVE_REFRESH}
+
+
+def test_two_engines_on_one_week_stay_apart_each_deduplicated(tmp_path):
+    cal.append(_refreshes(2, 3) + _refreshes(2, 4, engine=OTHER_ENGINE), tmp_path)
+    _settle_weeks(tmp_path, (2,))
+    groups = cal.curve(tmp_path)["groups"]
+    a, b = groups["abc1234 / weekly_build"], groups["def5678 / weekly_build"]
+    assert (a["n_records"], a["n_lines"]) == (6, 2)
+    assert (b["n_records"], b["n_lines"]) == (8, 2)
+    mixed = cal.curve(tmp_path, mix_versions=True)["groups"]["mixed (2 engines) / weekly_build"]
+    assert (mixed["n_records"], mixed["n_lines"]) == (14, 4)   # not across engines
+
+
+def test_the_summary_names_the_count_it_collapsed_from(tmp_path):
+    cal.append(_refreshes(2, 7), tmp_path)
+    _settle_weeks(tmp_path, (2,))
+    out = "\n".join(cal.format_curve(cal.curve(tmp_path)))
+    assert "14 record(s), 14 settled" in out
+    assert ("engine abc1234, weekly_build (the newsletter's line): 2 line(s) from 14 settled "
+            "record(s)") in out
+    assert "week 2 (weekly_build): Benton|Nick latest of 7, Garrett|Hayden latest of 7" in out
+
+
+def test_settle_over_a_duplicated_log_is_idempotent_and_still_catches_a_real_conflict(tmp_path):
+    cal.append(_refreshes(2, 7), tmp_path)
+    _settle_weeks(tmp_path, (2,))
+    before = cal.log_path(tmp_path).read_bytes()
+    again = cal.settle({"weekly_scores": {m: [{"week": 2, "score": SCORES[2][i]}]
+                                          for i, m in enumerate(MANAGERS)}}, tmp_path)
+    assert again["settled"] == 0 and cal.log_path(tmp_path).read_bytes() == before
+    wrong = {"weekly_scores": {m: [{"week": 2, "score": SCORES[2][i] + (5 if m == "Nick" else 0)}]
+                               for i, m in enumerate(MANAGERS)}}
+    with pytest.raises(cal.CalibrationConflict, match=r"Nick v Benton.*\(7 records\)") as e:
+        cal.settle(wrong, tmp_path)
+    assert "Hayden" not in str(e.value)
+    assert cal.log_path(tmp_path).read_bytes() == before
