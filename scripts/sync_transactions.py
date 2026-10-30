@@ -468,7 +468,11 @@ def main():
     # ========================================
     print(f"\nFetching transactions for Week {args.week} only ({week_start} to {week_end})...")
     try:
-        week_transactions = get_recent_transactions(lg, since_date=week_start, until_date=week_end)
+        # A day of slack before the week: an add Yahoo stamped the day before
+        # its effective date (transaction_rulings) still has to be seen to be
+        # moved into this week. apply_to_transactions cuts back to the week.
+        week_transactions = get_recent_transactions(
+            lg, since_date=week_start - dt.timedelta(days=1), until_date=week_end)
     except TransactionsAPIError as e:
         print(f"ERROR: Yahoo API call failed: {e}")
         print(
@@ -477,10 +481,11 @@ def main():
         )
         return 2
 
-    if week_transactions:
-        print(f"Found {len(week_transactions)} transaction(s) in Week {args.week}:")
-        adds = [t for t in week_transactions if t["type"] == "add"]
-        drops = [t for t in week_transactions if t["type"] == "drop"]
+    shown = [t for t in week_transactions if t["date"] >= week_start]   # not the slack day
+    if shown:
+        print(f"Found {len(shown)} transaction(s) in Week {args.week}:")
+        adds = [t for t in shown if t["type"] == "add"]
+        drops = [t for t in shown if t["type"] == "drop"]
         
         if adds:
             print("\n  ADDS:")
@@ -541,8 +546,10 @@ def main():
     # They used to be printed to the console and thrown away, so nothing
     # downstream could say how many adds anyone had left.
     try:
+        # From every transaction since the week opened, so an effective-date
+        # ruling can move an add stamped inside the week into the next one.
         post_counted, post_applied = apply_to_transactions(
-            post_week_transactions, rulings,
+            all_transactions, rulings,
             since=week_end + dt.timedelta(days=1), until=None)
     except RulingError as e:
         print(f"ERROR: {e}")

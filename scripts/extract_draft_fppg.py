@@ -148,6 +148,9 @@ def build_fppg_lookup_current() -> dict:
         return {}
 
     df = pd.read_excel(PLAYERLOG_XLSX)
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from modules.transaction_rulings import apply_effective_dates
+    df = apply_effective_dates(df, Path(PLAYERLOG_XLSX).parent.parent, "playerlog")
     print(f"Loaded {len(df)} rows from PLAYERLOG.xlsx")
 
     # Filter to started games with positive FP

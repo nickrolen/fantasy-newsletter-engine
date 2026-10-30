@@ -1735,6 +1735,14 @@ def load_all_data(
         durability_prior=load_durability_prior(base),
     )
 
+    # The commissioner's effective-date rulings take a player off a roster
+    # for the days before his add took effect (Hayden's LaVine, added after
+    # Sunday 10-25's games, sat on Yahoo's 10-25 bench). Applied here, at load,
+    # never by rewriting the logs -- the next pull would bring the rows back.
+    from .transaction_rulings import apply_effective_dates
+    data.playerlog = apply_effective_dates(data.playerlog, base, "playerlog", data.schedule)
+    data.lineups = apply_effective_dates(data.lineups, base, "lineups", data.schedule)
+
     data.injury_overrides = resolve_injury_overrides(
         load_injury_overrides(base / file_paths["injury_overrides"]),
         _read_rosters_file(base / "config" / "ROSTERS.json"),

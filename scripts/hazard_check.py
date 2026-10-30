@@ -76,7 +76,9 @@ def main():
     w1lo, w1hi = mr.band(rows, [1])
     season = range(1, 16)
 
-    lineups = pd.read_excel(PROJECT_ROOT / "data" / "LINEUPS.xlsx") \
+    from modules.transaction_rulings import apply_effective_dates
+    lineups = apply_effective_dates(pd.read_excel(PROJECT_ROOT / "data" / "LINEUPS.xlsx"),
+                                    PROJECT_ROOT, "lineups") \
         if (PROJECT_ROOT / "data" / "LINEUPS.xlsx").is_file() else None
     played = sorted(int(w) for w in lineups["week"].unique()) if lineups is not None and len(lineups) else []
 
@@ -101,7 +103,8 @@ def main():
     history = mr.started_per_manager_day(rows)
     realized_day = None
     if played:
-        log = pd.read_excel(PROJECT_ROOT / "data" / "PLAYERLOG.xlsx")
+        log = apply_effective_dates(pd.read_excel(PROJECT_ROOT / "data" / "PLAYERLOG.xlsx"),
+                                    PROJECT_ROOT, "playerlog")
         started = log[(log["started"] == True) & (log["fantasy_points"] != 0) & log["week"].isin(played)]
         mdays = lineups[lineups["week"].isin(played)][["manager", "date"]].drop_duplicates()
         realized_day = len(started) / len(mdays) if len(mdays) else None

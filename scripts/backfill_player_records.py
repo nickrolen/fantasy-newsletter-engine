@@ -219,6 +219,8 @@ def load_current_playerlog() -> pd.DataFrame:
         print(f"WARNING: {PLAYERLOG_FILE} not found")
         return pd.DataFrame()
     df = pd.read_excel(PLAYERLOG_FILE)
+    from modules.transaction_rulings import apply_effective_dates
+    df = apply_effective_dates(df, PLAYERLOG_FILE.parent.parent, "playerlog")
     print(f"Loaded {len(df)} rows from PLAYERLOG.xlsx")
     return df
 
@@ -1499,6 +1501,9 @@ def compute_total_injury_games() -> dict:
         return {}
 
     df = pd.read_excel(LINEUPS_FILE)
+    if not df.empty and "slot" in df.columns:
+        from modules.transaction_rulings import apply_effective_dates
+        df = apply_effective_dates(df, LINEUPS_FILE.parent.parent, "lineups")
     if df.empty or "slot" not in df.columns:
         print("  WARNING: LINEUPS.xlsx missing or has no 'slot' column, skipping")
         return {}

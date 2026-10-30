@@ -1,5 +1,5 @@
 {
-  "_comment": "The commissioner's rulings on transactions in Yahoo's log. 'void' on an 'add': it does not count against the weekly add budget and is not listed as an add; rosters are untouched (ROSTERS.json follows Yahoo). A ruling that matches no transaction raises. Read by scripts/sync_transactions.py and every reader of waivers_week{N}.txt (modules/transaction_rulings.py).",
+  "_comment": "The commissioner's rulings on transactions. 'void' on an 'add' (no kind, or kind 'void'): it does not count against the weekly add budget and is not listed as an add; rosters are untouched (ROSTERS.json follows Yahoo). kind 'effective_date' on an 'add': the player is not on that manager's roster for any day before 'effective' (every reader of LINEUPS/PLAYERLOG drops those rows at load time; the logs are never rewritten) and the add counts in the fantasy week containing 'effective'. A ruling that matches no transaction raises, and so does an effective date that would drop a started game. Read by scripts/sync_transactions.py, every reader of waivers_week{N}.txt and every reader of the logs (modules/transaction_rulings.py).",
   "rulings": [
     {
       "date": "2026-10-26",
@@ -10,6 +10,17 @@
       "by": "Nick",
       "on": "2026-10-30",
       "reason": "Benton had already claimed Paul George in the group chat during week 1; the claim had not been applied yet. Garrett's add (dropped the same day) is void and his week-2 move count was set from 3 to 2."
+    },
+    {
+      "kind": "effective_date",
+      "manager": "Hayden",
+      "player": "Zach LaVine",
+      "type": "add",
+      "transaction_date": "2026-10-26",
+      "effective": "2026-10-26",
+      "by": "Nick",
+      "on": "2026-10-30",
+      "reason": "Added late Sunday 10-25 after every game had finished; counted as a week 2 move."
     }
   ]
 }

@@ -365,8 +365,9 @@ def main():
         )
 
     # Load source data
-    plog = pd.read_excel(base / PLAYERLOG_XLSX_PATH)
-    lineups = pd.read_excel(base / LINEUPS_XLSX_PATH)
+    from modules.transaction_rulings import apply_effective_dates
+    plog = apply_effective_dates(pd.read_excel(base / PLAYERLOG_XLSX_PATH), base, "playerlog")
+    lineups = apply_effective_dates(pd.read_excel(base / LINEUPS_XLSX_PATH), base, "lineups")
 
     weekly_points, healthy_games = compute_weekly_from_playerlog(
         plog, args.season, args.week

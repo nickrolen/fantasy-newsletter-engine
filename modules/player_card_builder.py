@@ -303,7 +303,8 @@ def _load_current_playerlog(data_dir: Path) -> pd.DataFrame:
     if not path.exists():
         print(f"  WARNING: {path} not found")
         return pd.DataFrame()
-    return pd.read_excel(path)
+    from .transaction_rulings import apply_effective_dates
+    return apply_effective_dates(pd.read_excel(path), Path(data_dir).parent, "playerlog")
 
 
 def _to_season_key(season_year: str) -> str:

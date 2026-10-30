@@ -71,7 +71,7 @@ def txn(kind, manager, player, d="2026-10-26"):
 # ------------------------------------------------------------- the rulings
 
 def test_the_real_file_holds_garretts_ruling_and_loads():
-    rulings = tr.load_rulings(ROOT)
+    rulings = tr.voids(tr.load_rulings(ROOT))
     assert [(r.date, r.manager, r.type, r.player, r.ruling) for r in rulings] == [
         ("2026-10-26", "Garrett", "add", "Paul George", "void")]
 

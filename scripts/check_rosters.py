@@ -121,6 +121,8 @@ def players_on_il(rosters: dict, lineups=None, live=None) -> tuple:
             return out, "nothing (no live roster and no LINEUPS.xlsx): nobody counted on IL"
         import pandas as pd
         lineups = pd.read_excel(LINEUPS)
+        from modules.transaction_rulings import apply_effective_dates
+        lineups = apply_effective_dates(lineups, LINEUPS.parent.parent, "lineups")
     if lineups is None or len(lineups) == 0:
         return out, "nothing (no live roster and LINEUPS is empty): nobody counted on IL"
     latest_day = str(lineups["date"].astype(str).max())[:10]

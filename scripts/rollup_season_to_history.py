@@ -304,7 +304,12 @@ def build_rows(season_key, history, playerlog_path=None, lineups_path=None):
     playerlog_path = Path(playerlog_path or PLAYERLOG_XLSX)
     lineups_path = Path(lineups_path or LINEUPS_XLSX)
 
+    # The commissioner's effective-date rulings, from the rulings file beside
+    # these logs (config/ next to their data/ -- an archived season's own).
+    from modules.transaction_rulings import apply_effective_dates
     lineups = _read_log(lineups_path)
+    if not lineups.empty and "slot" in lineups.columns:
+        lineups = apply_effective_dates(lineups, lineups_path.parent.parent, "lineups")
     if lineups.empty:
         raise ValueError(
             f"{rel(lineups_path)} has no data rows. If start_new_season.py has "
@@ -324,6 +329,8 @@ def build_rows(season_key, history, playerlog_path=None, lineups_path=None):
                 "season's games under another.")
 
     plog = _read_log(playerlog_path) if playerlog_path.is_file() else pd.DataFrame()
+    if not plog.empty and "started" in plog.columns:
+        plog = apply_effective_dates(plog, playerlog_path.parent.parent, "playerlog")
 
     known_ids = load_player_ids(history)
     canonical = load_canonical_names(history)
