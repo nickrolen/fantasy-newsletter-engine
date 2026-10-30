@@ -699,10 +699,14 @@ def compute_player_leaderboards(games: list) -> dict:
     weekly_entries.sort(key=lambda x: x["weekly_fp"], reverse=True)
     weekly_fppg_entries.sort(key=lambda x: x["weekly_fppg"], reverse=True)
 
-    for label, lst in [("Best Season FPPG", fppg_entries), ("Best Season Total FP", totalfp_entries), ("Most FP Single Week", weekly_entries)]:
+    # Each label prints its own field: a season entry carries both fppg and
+    # total_fp, so a fallback chain printed FPPG under "Best Season Total FP".
+    for label, lst, field in [("Best Season FPPG", fppg_entries, "fppg"),
+                              ("Best Season Total FP", totalfp_entries, "total_fp"),
+                              ("Most FP Single Week", weekly_entries, "weekly_fp")]:
         if lst:
             e = lst[0]
-            val = e.get("fppg", e.get("total_fp", e.get("weekly_fp", "?")))
+            val = e.get(field, "?")
             print(f"  {label}: {val} by {e['player_name']} ({e['season']})")
 
     # Change 4: Most Games Over 40 FP (player, season) -- consolidated by (player, season)
@@ -1122,7 +1126,8 @@ def compute_expanded_leaderboards(games: list) -> dict:
     for name in ["best_daily_team_fppg", "highest_daily_team_score", "best_duo_week", "most_40plus_games_week", "career_total_fp_by_manager", "career_total_fp", "longest_player_tenure"]:
         e = result.get(name, {})
         if e:
-            val = e.get("avg_fp", e.get("total_fp", e.get("combined_fp", e.get("count", "?"))))
+            val = e.get("avg_fp", e.get("total_fp", e.get("combined_fp", e.get(
+                "count", e.get("consecutive_seasons", "?")))))
             holder = e.get("player_name", e.get("manager", "?"))
             print(f"  {name}: {val} by {holder} ({e.get('season', '?')})")
 
