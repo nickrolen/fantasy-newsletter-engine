@@ -681,9 +681,10 @@ def _split_acquisition_source(entry: str) -> tuple[str, str]:
     return str(entry).strip(), ""
 
 
-def load_waiver_adds(filepath: str) -> dict[str, list[str]]:
+def load_waiver_adds(filepath: str, lines=None) -> dict[str, list[str]]:
     """
-    Load waiver adds from a text file.
+    Load waiver adds from a text file (or its lines, already read -- e.g. with
+    the commissioner's rulings applied, transaction_rulings.waiver_lines).
     
     Expected format (one per line):
         - [YYYY-MM-DD] Manager: Player Name
@@ -707,8 +708,10 @@ def load_waiver_adds(filepath: str) -> dict[str, list[str]]:
     # (e.g., "Nick" vs "Nick Jr.").
     sorted_managers = sorted(MANAGERS, key=len, reverse=True)
 
+    import contextlib
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with (open(filepath, "r", encoding="utf-8") if lines is None
+              else contextlib.nullcontext(lines)) as f:
             for line in f:
                 line = line.strip()
 

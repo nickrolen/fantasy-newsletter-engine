@@ -3010,7 +3010,16 @@ def build_add_budget(data: FantasyData, week: int) -> dict:
     root = Path(__file__).resolve().parent.parent
     path = root / "data" / f"waivers_week{upcoming}.txt"
 
-    used = load_waiver_adds(str(path)) if path.is_file() else {}
+    # The commissioner's rulings (config/TRANSACTION_RULINGS.json): a voided
+    # add is not counted. Garrett's 10-26 Paul George add read as 3 used,
+    # 0 left. A ruling for this week that matches no line raises.
+    applied = []
+    if path.is_file():
+        from .transaction_rulings import waiver_lines
+        kept, applied = waiver_lines(path, root, upcoming, getattr(data, "schedule", None))
+        used = load_waiver_adds(str(path), lines=kept)
+    else:
+        used = {}
     managers = {}
     for manager in MANAGERS:
         players = used.get(manager, []) or []
@@ -3025,6 +3034,7 @@ def build_add_budget(data: FantasyData, week: int) -> dict:
         "budget": budget,
         "managers": managers,
         "source_exists": path.is_file(),
+        "rulings_applied": [r.label() for r in applied],
         "_note": (f"Adds used so far in week {upcoming}, which opened at "
                   f"12:01 AM on its first day. Trades do not count. "
                   f"{'No add data synced yet for this week.' if not path.is_file() else ''}"),
@@ -3124,8 +3134,12 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
     # FIXED: Match manager name by MANAGERS lookup so multi-word names
     # (e.g., "Mary Jane") are not truncated to the first word by \w+.
     _date_prefix = _re.compile(r'- \[\d{4}-\d{2}-\d{2}\]\s+(.+)$')
+    from .transaction_rulings import waiver_lines as _waiver_lines
     for wf in sorted(_glob.glob(str(waiver_dir / "waivers_week*.txt"))):
-        for line in open(wf, encoding="utf-8"):
+        _wk = _re.search(r"waivers_week(\d+)\.txt$", wf)
+        _lines = (_waiver_lines(wf, base, int(_wk.group(1)), data.schedule)[0] if _wk
+                  else open(wf, encoding="utf-8").read().splitlines())
+        for line in _lines:
             prefix_match = _date_prefix.match(line.strip())
             if not prefix_match:
                 continue

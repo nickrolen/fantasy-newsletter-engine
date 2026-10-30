@@ -27,6 +27,7 @@ INTEGRATION POINTS:
     - format_stats_report.py: format_section_2_report_cards() renders summary
 """
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -192,7 +193,7 @@ class WaiverROIReport:
 # WAIVER FILE PARSING
 # =============================================================================
 
-def parse_waiver_file(filepath: Path) -> list[WaiverAdd]:
+def parse_waiver_file(filepath: Path, lines=None) -> list[WaiverAdd]:
     """
     Parse a waivers_week{N}.txt file into WaiverAdd objects.
     
@@ -202,7 +203,7 @@ def parse_waiver_file(filepath: Path) -> list[WaiverAdd]:
     """
     adds = []
     
-    if not filepath.exists():
+    if lines is None and not filepath.exists():
         return adds
     
     # Extract week number from filename
@@ -214,7 +215,9 @@ def parse_waiver_file(filepath: Path) -> list[WaiverAdd]:
     sorted_managers = sorted(MANAGERS, key=len, reverse=True)
     date_prefix_re = re.compile(r"^-\s*\[(\d{4}-\d{2}-\d{2})\]\s+(.+)$")
 
-    with open(filepath, "r", encoding="utf-8") as f:
+    import contextlib
+    with (open(filepath, "r", encoding="utf-8") if lines is None
+          else contextlib.nullcontext(lines)) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -264,13 +267,18 @@ def load_all_waivers(base_path: Path, through_week: int) -> list[WaiverAdd]:
     Looks in both data/ subdirectory and root directory (for flexibility).
     """
     all_adds = []
-    
+    # The commissioner's voided adds are not adds (transaction_rulings).
+    from .transaction_rulings import waiver_lines
+    sched_path = Path(base_path) / "config" / "SCHEDULE.json"
+    schedule = json.loads(sched_path.read_text(encoding="utf-8")) if sched_path.is_file() else {}
+
     for week in range(1, through_week + 1):
         # Check data/ first, then root
         for subdir in ["data", "."]:
             filepath = base_path / subdir / f"waivers_week{week}.txt"
             if filepath.exists():
-                adds = parse_waiver_file(filepath)
+                kept, _ = waiver_lines(filepath, base_path, week, schedule)
+                adds = parse_waiver_file(filepath, lines=kept)
                 all_adds.extend(adds)
                 break
     

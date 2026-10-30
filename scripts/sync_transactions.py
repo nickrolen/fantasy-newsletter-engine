@@ -293,7 +293,7 @@ def save_rosters(rosters_data: dict, base_path: Path):
 
 
 def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
-                       dry_run: bool = False, partial: bool = False):
+                       dry_run: bool = False, partial: bool = False, applied=()):
     """
     Write waivers_week{N}.txt with the week's waiver ADDS only.
 
@@ -305,6 +305,11 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
 
     In dry-run mode, the file is NOT written; the would-be contents are
     printed to stdout so the operator can preview them.
+
+    `transactions` have the commissioner's rulings already applied
+    (transaction_rulings.apply_to_transactions); `applied` are those rulings,
+    recorded in the file's header so a reader knows the voided adds are
+    missing on purpose.
     """
     waivers_path = base_path / WAIVERS_PATH_TEMPLATE.format(week=week)
 
@@ -314,6 +319,8 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
     lines.append(f"# Waiver Adds for Week {week}")
     lines.append(f"# Generated: {dt.datetime.now().strftime('%Y-%m-%d %H:%M')}"
                  f"{' (PARTIAL -- week still in progress)' if partial else ''}")
+    from modules.transaction_rulings import applied_lines
+    lines.extend(applied_lines(list(applied)))
     lines.append("")
 
     if partial:
@@ -443,6 +450,18 @@ def main():
         oauth.refresh_access_token()
     
     lg = get_league(oauth)
+
+    # The commissioner's rulings (config/TRANSACTION_RULINGS.json): a voided
+    # add is still in Yahoo's log, so without this every sync counted it
+    # again. Validated before anything is written.
+    from modules.transaction_rulings import load_rulings, apply_to_transactions, RulingError
+    try:
+        rulings = load_rulings(base_path)
+    except (RulingError, ValueError) as e:
+        print(f"ERROR: {e}")
+        return 1
+    if rulings:
+        print(f"Commissioner's rulings on file: {len(rulings)}")
     
     # ========================================
     # PART 1: Get transactions for THIS WEEK ONLY (for waivers file)
@@ -479,8 +498,21 @@ def main():
     else:
         print(f"No transactions found in Week {args.week}.")
     
+    # Rulings dated in this week: each must match exactly one transaction.
+    # They change counting and listing only; ROSTERS.json below still follows
+    # Yahoo's log (a ruling does not undo a roster move unless one says so,
+    # and none can yet -- transaction_rulings).
+    try:
+        week_counted, week_applied = apply_to_transactions(
+            week_transactions, rulings, since=week_start, until=week_end)
+    except RulingError as e:
+        print(f"ERROR: {e}")
+        print("Waivers file NOT written.")
+        return 1
+
     # Write waivers file (skipped in dry-run mode; dry_run prints contents only)
-    write_waivers_file(week_transactions, args.week, base_path, dry_run=not args.apply)
+    write_waivers_file(week_counted, args.week, base_path, dry_run=not args.apply,
+                       applied=week_applied)
 
     # ========================================
     # PART 2: Get ALL transactions since week start (for ROSTERS.json)
@@ -508,8 +540,16 @@ def main():
     # Monday morning, inside the free-add window, before any game tips.
     # They used to be printed to the console and thrown away, so nothing
     # downstream could say how many adds anyone had left.
-    write_waivers_file(post_week_transactions, args.week + 1, base_path,
-                       dry_run=not args.apply, partial=True)
+    try:
+        post_counted, post_applied = apply_to_transactions(
+            post_week_transactions, rulings,
+            since=week_end + dt.timedelta(days=1), until=None)
+    except RulingError as e:
+        print(f"ERROR: {e}")
+        print(f"Partial waivers file for week {args.week + 1} and ROSTERS.json NOT written.")
+        return 1
+    write_waivers_file(post_counted, args.week + 1, base_path,
+                       dry_run=not args.apply, partial=True, applied=post_applied)
     
     # Load and update rosters
     rosters_data = load_rosters(base_path)

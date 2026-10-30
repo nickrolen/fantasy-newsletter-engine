@@ -61,6 +61,9 @@ PER_SEASON_CONFIG = {
     # Patches on THIS season's Yahoo rows, each with a review date
     # (HANDOFF_STALE_GATES sec.4): archived, then emptied.
     "config/PROJECTION_OVERRIDES.json",
+    # The commissioner's rulings on this season's transactions, each dated in
+    # this season's weeks (transaction_rulings): archived, then emptied.
+    "config/TRANSACTION_RULINGS.json",
 }
 
 # Files under config/ that deliberately carry across seasons.
