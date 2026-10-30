@@ -2618,6 +2618,17 @@ def format_section_8_stats_corner(data: dict, lookups: dict) -> str:
         result.append("")
         return result
     
+    _sp_status = sp.get("status") or {}
+    if _sp_status.get("as_of"):
+        lines.append(f"Season tables are through {_sp_status['as_of']} (the end of this week), "
+                     "points from Yahoo, games and minutes from basketball-reference.")
+        lines.append("")
+    from modules.season_performers import incomplete_note as _sp_note
+    _note = _sp_note(sp)
+    if _note:
+        lines.append(f"**NOTE -- {_note}** Say so in Stats Corner, in one plain sentence above "
+                     "the season tables.")
+        lines.append("")
     lines.extend(format_season_table("Season Best -> Total FP", sp.get("best_total_fp", []), "total_fp"))
     lines.extend(format_season_table("Season Best -> FPPG", sp.get("best_fppg", []), "fppg"))
     lines.extend(format_season_table("Season Worst -> Total FP", sp.get("worst_total_fp", []), "total_fp"))

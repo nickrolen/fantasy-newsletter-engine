@@ -684,6 +684,11 @@ WORST PERFORMANCES (best_worst.worst_games[], top 5):
 | Rank | Player | NBA Team | Manager | FP | Date | Opponent |
 [5 rows]
 
+SEASON TABLES ARE AS OF THE END OF THIS WEEK (season_performers.status.as_of), not the
+day the report was built. If Section 8 carries a "NOTE -- The season tables ... are
+incomplete" line, say that in one plain sentence above the season tables; never
+present incomplete tables as complete.
+
 SEASON BEST - TOTAL FP (season_performers.best_total_fp[], top 30):
 | Rank | Player | Fantasy Team | NBA Team | Total FP | FPPG | GP% | MPG | Eff% | Proj FP (ROS) | Proj FPPG (ROS) |
 [30 rows -> HTML newsletter paginates these 10 at a time]

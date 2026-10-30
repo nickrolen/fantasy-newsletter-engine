@@ -136,6 +136,14 @@ def main():
              "(recorded in the report metadata and the point-in-time capture)",
     )
     parser.add_argument(
+        "--allow-incomplete-season-performers",
+        action="store_true",
+        help="run even though the season-performers section (Stats Corner) is "
+             "incomplete or failed -- a rostered player without a Yahoo or "
+             "basketball-reference id, a failed fetch, or a played-days disagreement "
+             "(recorded in the report metadata and the capture; the page says so)",
+    )
+    parser.add_argument(
         "--allow-season-out-conflict",
         action="store_true",
         help="run even though a player tagged OFS (out for season) has a return in "
@@ -405,6 +413,26 @@ def main():
         print()
 
     
+    # Season performers (Stats Corner), as of week_end. Fetched BEFORE the long
+    # build so an incomplete section refuses in minutes, not after it: Yahoo's
+    # daily lines and every rostered player's basketball-reference game log
+    # (about 3.5 minutes at basketball-reference's rate limit).
+    from modules.season_performers import (build_season_performers, problems_of,
+                                           SeasonPerformersIncomplete)
+    print("Fetching season performers (Yahoo daily lines + basketball-reference game logs)...")
+    try:
+        season_performers = build_season_performers(
+            base_path, week, allow_incomplete=args.allow_incomplete_season_performers)
+    except SeasonPerformersIncomplete as e:
+        print(f"REFUSED: {e}")
+        print("  Pass --allow-incomplete-season-performers to run anyway (recorded in the "
+              "report metadata and the capture; the page says the tables are incomplete).")
+        sys.exit(1)
+    sp_status = season_performers.get("status") or {}
+    sp_override = (None if sp_status.get("complete")
+                   else "; ".join(problems_of(sp_status)) or "not run")
+    print()
+
     # Build report
     print("Building stats report...")
     if args.fast:
@@ -426,6 +454,7 @@ def main():
             seed=args.seed,
             injury_statuses=injury_statuses,
             freshness_tracker=freshness_tracker,
+            season_performers=season_performers,
         )
     except Exception as e:
         print(f"ERROR building report: {e}")
@@ -594,6 +623,9 @@ def main():
                     "stale_schedule_override": stale,
                     "injury_statuses_override": injury.problem if injury.override else None,
                     "season_out_override": [c["line"] for c in injury.season_out_conflicts] or None,
+                    "season_performers_override": sp_override,
+                    "season_performers": {k: v for k, v in sp_status.items()
+                                          if k not in ("cameos",)},
                     "durability_prior": (data.durability_prior.record()
                                          if data.durability_prior is not None else None),
                     "injury_statuses": injury.record(),

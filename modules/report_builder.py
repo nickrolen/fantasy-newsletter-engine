@@ -3325,6 +3325,7 @@ def build_stats_report(
     seed: int = None,
     injury_statuses: dict[str, str] = None,
     freshness_tracker: "FreshnessTracker" = None,
+    season_performers: dict = None,
 ) -> dict:
     """
     Build complete stats report for a week.
@@ -3531,9 +3532,16 @@ def build_stats_report(
         rumor_mill.trade_ideas = []
         rumor_mill.free_agent_targets = []
     
+    if season_performers is None:
+        season_performers = build_season_performers(data.base_path, week)
+    _sp_status = dict((season_performers or {}).get("status") or {})
+
     # Build report sections
     stats_report = {
         "metadata": {
+            # Stats Corner's season tables: as of when, how complete, and
+            # whether --allow-incomplete-season-performers let them through.
+            "season_performers": _sp_status,
             "season_year": data.season_year,
             "week": week,
             "date_range": {
@@ -3580,7 +3588,10 @@ def build_stats_report(
         
         "best_worst": build_best_worst(report, data, week),
         
-        "season_performers": build_season_performers(data.base_path, week),
+        # Step 6 fetches it first and refuses an incomplete one unless
+        # --allow-incomplete-season-performers; any other caller gets it here,
+        # strictly (an incomplete section raises).
+        "season_performers": season_performers,
         
         "advice": advice,
         "rumor_mill": {

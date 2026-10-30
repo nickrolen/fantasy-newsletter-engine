@@ -581,6 +581,7 @@ python scripts\generate_stats_report.py --week WEEK
 1. Loads all data (PLAYERLOG, LINEUPS, PLAYERLIST, ROSTERS, SCHEDULE, RECORDS, INJURY_OVERRIDES, NBA schedule)
 2. Loads `data\waivers_weekN.txt` for waiver context
 3. Fetches live injury statuses from Yahoo API (auto-enabled if `oauth2.json` exists)
+3b. Fetches the season performers (Stats Corner's season tables) **as of the end of the report week**, whatever day you run it: points are the sum of Yahoo's daily lines through week_end; games, minutes and NBA team per game come from every rostered player's basketball-reference game log (~3.5 minutes at its rate limit, fetched fresh every run). **It refuses** when the section is incomplete -- a rostered player without a Yahoo or basketball-reference match, a failed fetch, or a day the two sources disagree a player played -- unless `--allow-incomplete-season-performers` (recorded in the report metadata and the capture; the page then says the tables are incomplete)
 4. Builds complete stats report: matchup summaries, report cards, standings, streaks, scoring trends, title odds (Monte Carlo), betting lines, Player of the Week, What-If analysis, power rankings, rumor mill, fun facts, season performers
 5. Saves to `output\stats_report_weekN.json`
 6. Updates `config\RECORDS.json` with new standings, streaks, and records
@@ -614,6 +615,7 @@ python scripts\generate_stats_report.py --week WEEK
 | `--no-freshness` | Disable content repetition tracking |
 | `--allow-stale-schedule` | Run on an NBA schedule older than 8 days in season (recorded in the capture) |
 | `--allow-no-injury-statuses` | Run with no Yahoo injury tags: a failed or skipped fetch would otherwise refuse, because every line and odds figure would be priced with nobody hurt (recorded in the capture) |
+| `--allow-incomplete-season-performers` | Run with an incomplete or failed season-performers section (recorded in the report metadata and the capture; Stats Corner says the tables are incomplete) |
 | `--allow-season-out-conflict` | Run with a player tagged `OFS` whom this file returns: the **override wins** and the tag is dropped for the run (recorded in the capture) |
 
 ---

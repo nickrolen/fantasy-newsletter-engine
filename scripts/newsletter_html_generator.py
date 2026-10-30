@@ -1066,8 +1066,17 @@ def generate_html(
                 <a href="javascript:void(0)" onclick="document.querySelector('.sc-tables-section')?.scrollIntoView({behavior:'smooth'})">Season Leaders</a>
             </div>'''
             
-            # Wrap tables in a section for the shortcut
-            content_html = f'<div class="sc-tables-section">{content_html}</div>'
+            # Wrap tables in a section for the shortcut. An incomplete season
+            # section (only publishable with --allow-incomplete-season-performers)
+            # says so on the page, whatever the draft says.
+            import html as _html_mod
+            from modules.season_performers import incomplete_note as _sp_note
+            _sp_banner = _sp_note((stats_report or {}).get("season_performers"))
+            _sp_banner = (f'<div class="sc-incomplete-banner" style="border:1px solid #c0392b;'
+                          f'background:#fdecea;color:#7b241c;padding:8px 12px;margin:8px 0;'
+                          f'border-radius:6px;font-size:0.9em">{_html_mod.escape(_sp_banner)}</div>'
+                          if _sp_banner else "")
+            content_html = f'{_sp_banner}<div class="sc-tables-section">{content_html}</div>'
             
             section_html = f'''
         <section id="{section_id}">
