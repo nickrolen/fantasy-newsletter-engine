@@ -3,8 +3,9 @@ The four races, every week (display only).
 
 Nick, 10-07: the standing thread shows all four races from the first
 newsletter, with their current state; races that resolve become settled
-history rather than dropping off. Display only -- the probabilistic model
-(expected exposure per pot, per manager) comes in November.
+history rather than dropping off. The probabilistic side -- expected
+exposure per pot, per manager -- is money_section() below (10-29), read from
+the season pass's ledger.
 
   1. Regular season, weeks 1-15: the $180 pot (3rd and 4th pay), and read
      from the bottom, next year's draft order.
@@ -19,13 +20,20 @@ history rather than dropping off. Display only -- the probabilistic model
 Every money line names the pot and the window (LEAGUE_RULES language rule).
 All rules and amounts come from league_config via league_rule().
 
-Dollar figures appear only in the week money was decided (Nick, 10-14).
-The dry run's week 16 printed every pot and liability again although
-nothing had moved since week 15, and the draft duly said Nick could still
-pay $45 -- true, scoped, and true of all four managers. money_events() is
-what was decided THIS week; only lines about those carry an amount. The rest
-name the pot ("the regular-season pot") without one. The language rule
-stops a liability line being wrong; this stops it being obvious.
+Dollar figures go by SURFACE (Nick, 10-28, refining 10-14):
+  * The Money and Exposure section (money_section) carries its figures every
+    week -- that is what a reader goes there for.
+  * Everywhere else -- these threads and the newsletter's prose -- an amount
+    appears only in the week money was decided (money_events), or when
+    something meaningful is genuinely worth saying. The dry run's week 16
+    printed every pot and liability again although nothing had moved since
+    week 15, and the draft duly said Nick could still pay $45 -- true, scoped,
+    and true of all four managers. The rest name the pot ("the
+    regular-season pot") without one. The claim check enforces it: a dollar
+    figure outside the Money and Exposure block, in a week with no money
+    event, is a finding.
+The language rule stops a liability line being wrong; this stops it being
+obvious.
 """
 
 from __future__ import annotations
@@ -345,3 +353,244 @@ def lines(sm: list, week: int, season: Optional[str], cup_last: Optional[int],
         out += cup(sm, week, season, cup_last, reg_last, rules)
     out += draft_order(sm, week, season, reg_last, pick_ownership)
     return out
+
+
+
+# =============================================================================
+# MONEY AND EXPOSURE -- the ledger, as a section (Nick, 10-29)
+# =============================================================================
+#
+# Two currencies, never summed (LEAGUE_RULES.md): dollars from the regular
+# season and the playoff bracket; the Cup's prize is a sixth keeper, shown as
+# its own probability. Every figure the section prints is written here at the
+# precision it is printed (the claim check traces prose to the stats report).
+# Clinch and elimination come from races_exact, never from a sampled 1.0.
+
+MONEY_HEADER = "Money and Exposure"
+CONFIDENCE_NOTE = ("This early in the season the model runs a little confident: it takes "
+                   "today's projections and rosters as right, so the favourites' odds are "
+                   "likely a few points high.")
+TOTALS_NOTE = ("Season totals hold every roster as it stands apart from the moves the "
+               "league's rules force (IL stints and the replacement-level fill-ins they "
+               "open), and they run low by design.")
+EXACT_TEXT = {
+    ("title", "clinched"): "has clinched the regular-season title and its pot",
+    ("title", "eliminated"): "is out of the regular-season title race",
+    ("league_pot", "safe"): "can't finish in the regular-season pot's paying places",
+    ("league_pot", "will_pay"): "will finish in the regular-season pot's paying places",
+    ("playoff_pot", "safe"): "won his semifinal and is clear of the playoff pot",
+    ("playoff_pot", "will_pay"): "lost his semifinal and owes into the playoff pot",
+    ("playoff_champion", "clinched"): "won the playoff championship and its pot",
+    ("cup_champion", "clinched"): "won the Cup and its sixth keeper",
+}
+
+
+def _half_up(x: float, nd: int = 0) -> float:
+    import math
+    f = 10 ** nd
+    v = math.floor(abs(x) * f + 0.5) / f
+    return v if x >= 0 else -v
+
+
+def _pc1(p: float) -> float:
+    """A probability (0-1) as a percent at one decimal, half up."""
+    return _half_up(100.0 * float(p), 1)
+
+
+def _usd(x: float) -> str:
+    v = int(_half_up(float(x)))
+    return f"+${v}" if v > 0 else (f"-${-v}" if v < 0 else "$0")
+
+
+def _poss(name: str) -> str:
+    return f"{name}'" if name.endswith("s") else f"{name}'s"
+
+
+def money_section(sp, without_standins: Optional[dict] = None,
+                  rules: Optional[dict] = None, early: Optional[bool] = None) -> dict:
+    """The Money and Exposure section's data, every figure at its printed
+    precision, and its lines (money_lines). sp: a season pass through the
+    playoffs at least (dollars need the bracket). without_standins: {manager:
+    title odds (percent) with none of HIS stand-ins} -- the counterfactual the
+    assumption line states; required for every manager the plan gave one.
+    early: whether to say the model runs a little confident this early in
+    the season (default: through the regular season's mid week)."""
+    import math
+    from modules.data_loader import CURRENT_SEASON
+    if sp.through not in ("playoffs", "cup"):
+        raise ValueError("the money section needs a pass through the playoffs (dollars come "
+                         "from the bracket); this one stopped at the regular season")
+    rules = dict(rules or rules_from_config())
+    without = dict(without_standins or {})
+    need = sorted(m for m, v in (sp.standins or {}).items() if v and m not in without)
+    if need:
+        raise ValueError(f"no without-stand-ins odds for {need}: the assumption line must "
+                         "state what the odds are without them")
+    L = sp.ledger()
+    exact = sp.exact()
+    lc, pc = rules["league_champion"], rules["playoff_champion"]
+    most_gain = lc["total"] + pc["total"]
+    most_loss = lc["per_payer"] + pc["per_payer"]
+    case = lc["total"] - pc["per_payer"]                   # win the pot, lose the semi
+    mans = list(sp.managers)
+    reg_pts = {m: int(_half_up(float(sp.reg_points[:, i].mean()))) for i, m in enumerate(mans)}
+    rows = {}
+    for m in mans:
+        d = L[m]["dollars"]
+        dist = d["distribution"]
+        mode_v, mode_p = max(dist.items(), key=lambda kv: (kv[1], kv[0]))
+        st = []
+        for x in (sp.standins or {}).get(m, []):
+            st.append({"week": x["week"], "covers": x["covers"], "level": x["level"]})
+        rows[m] = {
+            "title_odds": _pc1(d["p_league_champion"]),
+            "title_odds_rounded": int(_half_up(100.0 * d["p_league_champion"])),
+            "expected_dollars": int(_half_up(d["expected"])),
+            "min_dollars": int(d["min"]), "max_dollars": int(d["max"]),
+            "most_likely_dollars": int(mode_v), "most_likely_pct": _pc1(mode_p),
+            "p_win_rs_lose_semi": _pc1(d["p_win_regular_season_lose_semifinal"]),
+            "p_into_league_pot": _pc1(d["p_pays_league_pot"]),
+            "p_playoff_champion": _pc1(d["p_playoff_champion"]),
+            "p_into_playoff_pot": _pc1(d["p_pays_playoff_pot"]),
+            "p_sixth_keeper": _pc1(L[m]["keeper"]["p_sixth_keeper_next_season"]),
+            "season_points": reg_pts[m],
+            "standins": st,
+            "title_odds_without_standins": (int(_half_up(without[m])) if m in without else None),
+            "exact": exact.get(m, {}),
+        }
+    order = sorted(mans, key=lambda m: (-rows[m]["title_odds"], m))
+    if early is None:
+        from modules.data_loader import SEASON_STRUCTURE
+        R = int((SEASON_STRUCTURE.get(CURRENT_SEASON) or {}).get("regular_through") or 0)
+        early = bool(R) and sp.current_week <= math.ceil(R / 2)
+    out = {
+        "header": MONEY_HEADER, "week": int(sp.current_week), "season": CURRENT_SEASON,
+        "sims": int(sp.num_simulations), "seed": int(sp.seed),
+        "pots": {"regular_season": {"total": lc["total"], "per_payer": lc["per_payer"],
+                                    "payer_places": list(rules["payer_places"])},
+                 "playoff": {"total": pc["total"], "per_payer": pc["per_payer"]},
+                 "cup": "no cash: the winner keeps a sixth player the following season"},
+        "range": {"most_gain": most_gain, "most_loss": most_loss},
+        "win_rs_lose_semi_dollars": case,
+        "order": order, "managers": rows, "early": early,
+        "confidence_note": CONFIDENCE_NOTE if early else None,
+        "totals_note": TOTALS_NOTE,
+    }
+    out["lines"] = money_lines(out)
+    return out
+
+
+def _covers_text(st: list) -> str:
+    il = [_poss(x["covers"]) + " IL stint" for x in st if x["covers"]]
+    opn = sum(1 for x in st if not x["covers"])
+    parts = il + (["an open roster spot"] if opn == 1 else
+                  [f"{opn} open roster spots"] if opn else [])
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def money_lines(ms: dict) -> list:
+    """The section's sentences, in the order the handoff set: what is still
+    movable; the named outcome, the +$135 case first; the title odds with
+    what they assume; expected dollars; season points with what they are
+    conditional on; the Cup in its own currency."""
+    rows, order = ms["managers"], ms["order"]
+    nxt = f"{int(ms['season'][:4]) + 1}-{(int(ms['season'][:4]) + 2) % 100:02d}"
+    pr = ms["pots"]
+    out = []
+    # 1. what is still movable (races_exact)
+    settled = [(m, race, st) for m in order for race, st in rows[m]["exact"].items()
+               if (race, st) in EXACT_TEXT]
+    if not settled:
+        out.append(f"Nothing is settled: every manager can still finish anywhere from "
+                   f"-${ms['range']['most_loss']} to +${ms['range']['most_gain']} across the "
+                   f"regular-season pot and the playoff pot.")
+    else:
+        out.append("Settled so far: " + "; ".join(
+            f"{m} {EXACT_TEXT[(race, st)]}" for m, race, st in settled) + ".")
+    # 2. the named outcome: win the regular season, lose the semifinal
+    case = ms["win_rs_lose_semi_dollars"]
+    by_case = sorted(order, key=lambda m: (-rows[m]["p_win_rs_lose_semi"], m))
+    top = by_case[0]
+    r = rows[top]
+    mode = r["most_likely_dollars"] == case
+    out.append(
+        (f"{_poss(top)} single most likely outcome is +${case} ({r['p_win_rs_lose_semi']}%)"
+         if mode else
+         f"The likeliest +${case} finish is {_poss(top)} ({r['p_win_rs_lose_semi']}%)")
+        + f": he wins the regular-season pot (${pr['regular_season']['total']}, from "
+          f"{' and '.join(_ord(x) for x in pr['regular_season']['payer_places'])}) and loses "
+          f"his playoff semifinal (${pr['playoff']['per_payer']} into the playoff pot). "
+          f"The same finish for the others: "
+        + ", ".join(f"{m} {rows[m]['p_win_rs_lose_semi']}%" for m in by_case[1:]) + ".")
+    # 3. title odds, rounded, and what they assume
+    out.append("Regular-season title odds: " + ", ".join(
+        f"{m} about {rows[m]['title_odds_rounded']}%" for m in order) + "."
+        + (f" {ms['confidence_note']}" if ms.get("confidence_note") else ""))
+    for m in order:
+        st = rows[m]["standins"]
+        if not st:
+            continue
+        lvl = max(x["level"] for x in st if x["level"] is not None)
+        wk = min(x["week"] for x in st)
+        one = len(st) == 1
+        out.append(f"{_poss(m)} odds assume he fills {_covers_text(st)} with "
+                   + ("a replacement-level free agent" if one else "replacement-level free agents")
+                   + f" ({lvl} FPPG) from week {wk}, as the league's rules allow; without "
+                   + ("that pickup" if one else "those pickups")
+                   + f" he is at about {rows[m]['title_odds_without_standins']}%, and a better "
+                   "real pickup raises it.")
+    # 4. expected dollars
+    out.append("Expected net dollars across both pots, an average over the simulated seasons "
+               "rather than a forecast of any one: "
+               + ", ".join(f"{m} {_usd(rows[m]['expected_dollars'])}" for m in order) + ".")
+    # 5. season points, with what they are conditional on
+    out.append("Projected regular-season points: " + ", ".join(
+        f"{m} {rows[m]['season_points']:,}" for m in order) + f". {ms['totals_note']}")
+    # 6. the Cup, its own currency
+    out.append(f"The Cup carries no cash; its winner keeps a sixth player in {nxt}. Chance of "
+               "that sixth keeper, never added to the dollars: "
+               + ", ".join(f"{m} {rows[m]['p_sixth_keeper']}%" for m in order) + ".")
+    return out
+
+
+MONEY_COLUMNS = ("Manager", "Title odds %", "Expected net $", "Range $", "Most likely $",
+                 "Win RS, lose semi %", "Into RS pot %", "Playoff champion %",
+                 "Into playoff pot %", "Cup: sixth keeper %")
+
+
+def money_table_rows(ms: dict) -> list:
+    """[[cell text]] for the section's table, one row per manager, in order."""
+    rows = []
+    for m in ms["order"]:
+        r = ms["managers"][m]
+        rows.append([m, f"{r['title_odds']:.1f}", _usd(r["expected_dollars"]),
+                     f"{_usd(r['min_dollars'])} to {_usd(r['max_dollars'])}",
+                     f"{_usd(r['most_likely_dollars'])} ({r['most_likely_pct']:.1f}%)",
+                     f"{r['p_win_rs_lose_semi']:.1f}", f"{r['p_into_league_pot']:.1f}",
+                     f"{r['p_playoff_champion']:.1f}", f"{r['p_into_playoff_pot']:.1f}",
+                     f"{r['p_sixth_keeper']:.1f}"])
+    return rows
+
+
+def render_money_html(ms: Optional[dict], summary_html: str = "") -> str:
+    """The section as the page shows it: the drafter's paragraph(s) first,
+    then the table and the section's own sentences. "" without data."""
+    import html as _h
+    if not ms or not ms.get("managers"):
+        return ""
+    head = "".join(f"<th>{_h.escape(c)}</th>" for c in MONEY_COLUMNS)
+    body = "".join("<tr>" + "".join(f"<td>{_h.escape(c)}</td>" for c in row) + "</tr>"
+                   for row in money_table_rows(ms))
+    lines = "".join(f"<li>{_h.escape(x)}</li>" for x in ms["lines"])
+    summ = f'<div class="mx-summary">{summary_html}</div>' if summary_html else ""
+    return f"""
+    <div class="mx-block" data-viz="money-exposure">
+      <h3 class="section-title">{_h.escape(MONEY_HEADER)}</h3>
+      {summ}
+      <div class="table-wrapper"><table class="mx-table"><thead><tr>{head}</tr></thead>
+      <tbody>{body}</tbody></table></div>
+      <ul class="mx-lines">{lines}</ul>
+      <div class="mx-foot">{ms['sims']:,} simulated seasons. Dollars come from the regular-season
+        pot and the playoff pot only; the Cup's sixth keeper is a separate column and is never
+        added to them. RS = regular season.</div>
+    </div>"""

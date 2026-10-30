@@ -799,10 +799,23 @@ refresh time instead: a refreshed line goes straight onto the page.
 each rostered player's keep chance at 5 and 6 keepers and his rank on his
 team, to `data\keepability\<season>_weekNN.json` -- a small tracked file.
 Same guards as the calibration log, and **written once**: a published week's
-file is never rewritten (a second build with different numbers is refused and
-says so). Next week's Step 6 reads the latest earlier file for who crossed the
+file is never rewritten. A second build with different numbers **stops Step 9
+with exit 1** before anything is logged (Nick, 10-30): the readers saw the
+first numbers, so find out what changed. Next week's Step 6 reads the latest earlier file for who crossed the
 line, risers and fallers; next offseason the real keeper decisions are scored
 against what was published. Commit the file with the week's other outputs.
+
+**Money and Exposure** (the last block of Section 7) is rendered from the
+stats report's `money_section`: a table of each manager's title odds, expected
+net dollars, range, most likely outcome, pot chances and -- separately, never
+added -- the Cup's sixth keeper, plus the section's own sentences (what is
+settled, the named outcome, the odds with what they assume, season totals with
+what they are conditional on). The draft supplies one or two paragraphs under
+`**Money and Exposure**`, written around Step 6.5's MONEY AND EXPOSURE -- FACTS;
+dollar figures are allowed there every week and nowhere else unless money was
+decided (the claim check). Step 6 runs one extra regular-season pass for each
+manager the roster plan gives a replacement-level stand-in (his odds without
+it), about 80 seconds each at 50,000 sims.
 
 **The keeper watch** (Stats Corner) is rendered from the stats report: each
 team's top 8 by keep chance, a line after the 5th, the 6th marked "6 if he

@@ -609,6 +609,76 @@ def check_games_grid(t: Node, title: str, ctx: dict) -> list:
                                    f"{holes_total} seats open all week"))
     return out
 
+def _usd(s: str) -> Optional[float]:
+    """'+$74' / '-$58' / '$0' -> 74 / -58 / 0."""
+    m = re.fullmatch(r"([+-]?)\$(\d+)", s.strip())
+    return None if not m else (-1 if m.group(1) == "-" else 1) * float(m.group(2))
+
+
+def check_money_table(t: Node, title: str, ctx: dict) -> list:
+    """Money and Exposure (standing_threads.money_section). Each probability
+    column is a distribution over the four managers: one regular-season
+    champion, one playoff champion, one Cup winner (100%), two places paying
+    into each pot (200%). Net dollars are zero-sum. Winning the regular season
+    and losing the semifinal is a subset of winning the regular season. The
+    most likely outcome lies inside the range."""
+    out = []
+    rows = _table_rows(t)
+    header = [c.text() for c in rows[0]]
+    body = [[c.text() for c in r] for r in rows[1:] if r]
+    col = {h: i for i, h in enumerate(header)}
+    n = len(body)
+    sums = {"Title odds %": 100, "Playoff champion %": 100, "Cup: sixth keeper %": 100,
+            "Into RS pot %": 200, "Into playoff pot %": 200}
+    for h, want in sums.items():
+        if h not in col:
+            out.append(Finding(title, "column missing", h))
+            continue
+        vals = [_num(r[col[h]]) for r in body]
+        if None in vals:
+            out.append(Finding(title, "not a number", h))
+            continue
+        if abs(sum(vals) - want) > 0.051 * n + 0.1:
+            out.append(Finding(title, "column sum", f"{h}: {sum(vals):.1f}, not {want}"))
+    usd = [_usd(r[col["Expected net $"]]) for r in body]
+    if None in usd or abs(sum(usd)) > 0.5 * n + 1e-9:
+        out.append(Finding(title, "zero-sum", f"expected net dollars sum to {sum(x or 0 for x in usd)}"))
+    for r in body:
+        win, case = _num(r[col["Title odds %"]]), _num(r[col["Win RS, lose semi %"]])
+        if win is not None and case is not None and case > win + 0.1:
+            out.append(Finding(title, "subset", f"{r[0]}: win RS and lose semi {case} > win RS {win}"))
+        rng = re.fullmatch(r"(\S+) to (\S+)", r[col["Range $"]].strip())
+        lo, hi = (_usd(rng.group(1)), _usd(rng.group(2))) if rng else (None, None)
+        ml = re.match(r"(\S+) \(([\d.]+)%\)", r[col["Most likely $"]].strip())
+        mv = _usd(ml.group(1)) if ml else None
+        if None in (lo, hi, mv) or not (lo <= mv <= hi):
+            out.append(Finding(title, "range", f"{r[0]}: most likely {r[col['Most likely $']]} "
+                                               f"outside {r[col['Range $']]}"))
+    return out
+
+
+def check_keeper_watch_table(t: Node, title: str, ctx: dict) -> list:
+    """A team's keeper-watch rows (keepability v3): ranks run 1, 2, 3...;
+    the 5-keeper chance never rises down the list; the 6-keeper chance is
+    never below the 5-keeper chance; every chance is 0-100%."""
+    out = []
+    rows = [r for r in _table_rows(t)[1:] if len(r) >= 4]
+    want = 1
+    prev = None
+    for r in rows:
+        rank, p5, p6 = _num(r[0].text()), _num(r[2].text()), _num(r[3].text())
+        who = r[1].text().strip()
+        if rank != want:
+            out.append(Finding(title, "rank order", f"{who}: rank {rank}, expected {want}"))
+        want += 1
+        if p5 is None or p6 is None or not (0 <= p5 <= p6 <= 100):
+            out.append(Finding(title, "5 vs 6 keepers", f"{who}: {r[2].text()} / {r[3].text()}"))
+        if prev is not None and p5 is not None and p5 > prev:
+            out.append(Finding(title, "order", f"{who}: {p5}% above the row before ({prev}%)"))
+        prev = p5 if p5 is not None else prev
+    return out
+
+
 def _both(*fns):
     def run(t, title, ctx):
         out = []
@@ -629,6 +699,10 @@ def _dispatch(t: Node, title: str):
         return check_history_grid
     if "gg-table" in t.classes:
         return check_games_grid
+    if "mx-table" in t.classes:
+        return check_money_table
+    if "sc-kw3-table" in t.classes:
+        return check_keeper_watch_table
     if header and header[0] == "" and len(header) > 2:
         return check_h2h_matrix
     if "Champ %" in header or (header[1:] and all(h in PLACE for h in header[1:])):

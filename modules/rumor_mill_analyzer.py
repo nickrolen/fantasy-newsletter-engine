@@ -401,6 +401,31 @@ def projected_production(p) -> float:
     return float(eff) if (eff or 0) > 0 else float(p.projected_fppg or 0.0)
 
 
+def keep_tiers(sorted_players: list, keep_line: int, have_keep: bool, manager: str = "") -> dict:
+    """core / fringe / block for one roster, cut by KEEP RANK on his team
+    (keepability v3; Nick, 10-30): who the manager is likely to keep is what
+    makes a player hard to acquire. sorted_players: by trade value
+    (projected production), best first -- what every value comparison reads,
+    kept as "all_sorted". keep_line: this manager's keeper count (6 for
+    everyone in 2026-27; from 2027-28 the Cup winner keeps 6, the rest 5).
+      core   top half of the keepers -- very hard to pry loose
+      fringe the rest of the keepers -- available for the right price
+      block  everyone below the line -- expendable, likely gone anyway
+    have_keep False (a caller with no keeper watch at all): value order. With
+    one, a rostered player missing from it raises."""
+    if have_keep:
+        gone = [p.player_name for p in sorted_players if getattr(p, "keep_rank", None) is None]
+        if gone:
+            raise KeyError(f"keeper_watch has no keep rank for {gone} ({manager})")
+        by_keep = sorted(sorted_players, key=lambda p: (p.keep_rank, -p.trade_value))
+    else:
+        by_keep = list(sorted_players)
+    core_line = max(1, keep_line // 2)
+    return {"core": by_keep[:core_line], "fringe": by_keep[core_line:keep_line],
+            "block": by_keep[keep_line:], "all_sorted": list(sorted_players),
+            "by_keep": by_keep, "keeper_line": keep_line}
+
+
 def _attach_values(ideas: list, team_tiers: dict) -> None:
     by_name = {}
     for mgr, tiers in team_tiers.items():
@@ -476,30 +501,19 @@ def generate_trade_ideas(
             p.keep_k5 = kd.get("keep_k5")
             p.keep_rank = kd.get("rank")
         
-        # Sort by trade value (accounts for actual performance + availability + age)
+        # By trade value (projected production): what every value comparison reads
         sorted_players = sorted(
             team.players.values(),
             key=lambda p: p.trade_value,
             reverse=True
         )
-        
-        # The keeper line is what makes a player hard to acquire, so the tiers
-        # are cut from THIS manager's keeper count rather than a literal 6.
-        # It is 6 for everyone in 2026-27; from 2027-28 the Cup winner keeps 6
-        # and the other three keep 5, and treating a fifth-best player as
-        # protected would drop him from every trade suggestion.
-        #   core   top half of the keepers -- very hard to pry loose
-        #   fringe the rest of the keepers -- available for the right price
-        #   block  everyone below the line -- expendable, likely gone anyway
-        keep_line = keepers_for(manager=manager)
-        core_line = max(1, keep_line // 2)
-        team_tiers[manager] = {
-            "core": sorted_players[:core_line],
-            "fringe": sorted_players[core_line:keep_line],
-            "block": sorted_players[keep_line:],
-            "all_sorted": sorted_players,
-            "keeper_line": keep_line,
-        }
+        # By keep rank on his team (keepability v3; Nick, 10-30): who the
+        # manager is likely to keep is what makes a player hard to acquire,
+        # so the tiers are cut from this order, not from production. Without
+        # a keeper watch at all (a caller that passes none) the order is the
+        # value order; WITH one, a rostered player missing from it raises.
+        team_tiers[manager] = keep_tiers(sorted_players, keepers_for(manager=manager),
+                                         bool(keep_lookup), manager)
     
     # Get standings for draft pick value (worse teams have better picks).
     # Use the H2H-aware ranker so that ties in record resolve via the league
@@ -818,16 +832,12 @@ def generate_trade_ideas(
         player_tier = None
         player_obj = None
         
-        for p in owner_tiers["all_sorted"]:
+        for p in owner_tiers["by_keep"]:
             if p.player_name == player_name:
                 player_obj = p
-                idx = owner_tiers["all_sorted"].index(p)
-                # The "fringe" boundary is the keeper line: a player inside it
-                # is protected, one outside it is tradeable. It was the
-                # literal 6, which is this season's count for everyone and
-                # from 2027-28 is one too many for three of the four managers
-                # -- their sixth-best player would be treated as a keeper and
-                # dropped from every trade suggestion.
+                idx = owner_tiers["by_keep"].index(p)
+                # The "fringe" boundary is the keeper line, in keep-rank order:
+                # a player inside it is protected, one outside it tradeable.
                 keep_line = owner_tiers.get("keeper_line") or keepers_for(manager=owner)
                 if idx < max(1, keep_line // 2):
                     player_tier = "core"

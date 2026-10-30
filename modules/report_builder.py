@@ -3422,6 +3422,24 @@ def build_stats_report(
         if in_cup:
             cup_odds = season_pass.cup_result()
 
+    # Money and Exposure (standing_threads.money_section; Nick, 10-29): the
+    # ledger of the same pass, plus -- for every manager the roster plan gave
+    # a replacement-level stand-in -- his title odds WITHOUT his stand-ins,
+    # the counterfactual the section states ("without those pickups he is at
+    # about N%"). One extra regular-season pass per such manager, same seed
+    # and count; the build's pass and every number it publishes are unchanged.
+    money_section = None
+    if season_pass is not None and season_pass.through in ("playoffs", "cup"):
+        from .standing_threads import money_section as _money_section
+        without = {}
+        for m, st in (season_pass.standins or {}).items():
+            if st:
+                cf = run_season(data, num_simulations=num_title_sims, seed=seed,
+                                injury_statuses=injury_statuses, through="regular",
+                                no_standins=frozenset({m}))
+                without[m] = float(cf.title_result().title_odds[m])
+        money_section = _money_section(season_pass, without)
+
     # Run betting simulation
     betting_lines = None
     published_lines = []
@@ -3627,6 +3645,7 @@ def build_stats_report(
         "record_book": build_record_book(data),
 
         "keeper_watch": keeper_watch_data,
+        "money_section": money_section,
 
         "draft_value_tracker": build_draft_value_tracker(data, week),
     }

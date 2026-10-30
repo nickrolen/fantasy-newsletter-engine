@@ -135,13 +135,15 @@ def test_the_weekly_snapshot_is_written_once(tmp_path):
     kw = _kw(week=3)
     first = M.publish_snapshot(kw, tmp_path, published_at="2026-11-16T09:00:00")
     path = Path(first["path"])
-    assert first["wrote"] and path.name == "2026-27_week03.json"
+    assert first["wrote"] and not first["conflict"] and path.name == "2026-27_week03.json"
     before = path.read_bytes()
     again = M.publish_snapshot(kw, tmp_path)
-    assert not again["wrote"] and "identical" in again["why"]
+    assert not again["wrote"] and not again["conflict"] and "identical" in again["why"]
     changed = _kw(week=3, shift=2.0)
     refused = M.publish_snapshot(changed, tmp_path)
-    assert not refused["wrote"] and "never rewritten" in refused["why"]
+    # a conflict: the page build stops on it with a non-zero exit (Nick, 10-30;
+    # test_money_section::test_a_conflicting_snapshot_stops_the_page_build)
+    assert not refused["wrote"] and refused["conflict"] and "never rewritten" in refused["why"]
     assert path.read_bytes() == before
     rec = json.loads(before)
     assert {"player_name", "manager", "rank", "keep_k5", "keep_k6"} <= set(rec["players"][0])

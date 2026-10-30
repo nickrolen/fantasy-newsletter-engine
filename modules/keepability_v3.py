@@ -681,15 +681,18 @@ def snapshot_record(kw: dict) -> dict:
 
 
 def publish_snapshot(kw: dict, root=ROOT, published_at: Optional[str] = None) -> dict:
-    """Write this week's file ONCE. {"path", "wrote", "why"}. A published
-    week's file is never rewritten: an identical re-publish is a no-op, and a
-    different one is refused and says so (the newsletter readers saw the first)."""
+    """Write this week's file ONCE. {"path", "wrote", "conflict", "why"}. A
+    published week's file is never rewritten: an identical re-publish is a
+    no-op; a different one is refused and flagged "conflict", and the page
+    build stops on it with a non-zero exit (Nick, 10-30) -- the readers saw
+    the first numbers, so a second set means something changed after
+    publishing."""
     rec = snapshot_record(kw)
     path = snapshot_path(root, kw["season"], kw["week"])
     if path.exists():
         old = json.loads(path.read_text(encoding="utf-8"))
         same = old.get("players") == rec["players"]
-        return {"path": str(path), "wrote": False,
+        return {"path": str(path), "wrote": False, "conflict": not same,
                 "why": ("already published, identical" if same else
                         f"week {kw['week']} was already published with different numbers; "
                         "NOT rewritten (a published week is never rewritten)")}
@@ -698,7 +701,7 @@ def publish_snapshot(kw: dict, root=ROOT, published_at: Optional[str] = None) ->
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(rec, indent=1, ensure_ascii=False), encoding="utf-8")
     tmp.replace(path)
-    return {"path": str(path), "wrote": True, "why": None}
+    return {"path": str(path), "wrote": True, "conflict": False, "why": None}
 
 
 def latest_snapshot(root, season: str, before_week: int) -> Optional[dict]:

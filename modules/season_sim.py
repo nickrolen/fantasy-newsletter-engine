@@ -235,6 +235,10 @@ class SeasonPass:
     dollars: np.ndarray             # [n, 4] net dollars, regular season + bracket ONLY
     third_place: np.ndarray         # [n] manager index winning the third-place series
     data: FantasyData = field(repr=False, default=None)
+    # the roster plan's stand-ins, as the pass played them:
+    # {manager: [{"week", "name", "covers", "level"}]} -- what the money
+    # section states its odds assume (standing_threads.money_section)
+    standins: dict = field(default_factory=dict)
 
     # ---- readouts --------------------------------------------------------
     def title_result(self):
@@ -270,7 +274,7 @@ PAYING_PLACES = (3, 4)      # the league pot: 1st collects from 3rd and 4th; 2nd
 
 def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int = None,
                injury_statuses: dict = None, team_projections: dict = None,
-               through: str = "cup") -> SeasonPass:
+               through: str = "cup", no_standins=frozenset()) -> SeasonPass:
     """One pass over the season. seed is required: one seed per run, the same
     the betting lines get, so a week is one simulated truth.
 
@@ -334,7 +338,9 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
     # the league's IL rules (roster_plan): one plan for the run, shared by every
     # iteration and by the betting lines
     from .roster_plan import for_run, week_rosters
-    plan = for_run(data, team_projections, injury_statuses)
+    # no_standins: a counterfactual only (the money section's "without his
+    # replacement-level pickups"); the build's pass leaves it empty
+    plan = for_run(data, team_projections, injury_statuses, no_standins=frozenset(no_standins))
     mats = (week_score_matrices(data, team_projections, to_sim, injury_statuses, seed, n, plan=plan)
             if to_sim else {})
 
@@ -450,7 +456,26 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         cup_seeds=out["cup_seeds"], cup_semi_pairs=cup_pairs_all, cup_semi_winners=cup_sw,
         cup_finish=out["cup_finish"], cup_week_points=out["cup_week_points"],
         dollars=out["dollars"], third_place=third, data=data,
+        standins=_standins_played(plan, managers),
     )
+
+
+def _standins_played(plan, managers) -> dict:
+    """{manager: [{"week", "name", "covers", "level"}]}: every stand-in the
+    roster plan added, the week he arrived and whom he covers -- an IL
+    placement (the player's name) or an open active spot (None)."""
+    out = {m: [] for m in managers}
+    for w in sorted(plan.plan):
+        for m, v in plan.plan[w].items():
+            for nm in v.get("added", []):
+                p = plan.standins.get(nm)
+                cov = None
+                if nm.startswith("Replacement for ") and "open spot" not in nm:
+                    cov = nm[len("Replacement for "):].rsplit(" (", 1)[0]
+                out.setdefault(m, []).append({
+                    "week": int(w), "name": nm, "covers": cov,
+                    "level": None if p is None else round(float(p.projected_fppg), 1)})
+    return out
 
 
 # =============================================================================

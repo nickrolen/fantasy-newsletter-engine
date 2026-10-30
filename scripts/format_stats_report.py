@@ -2290,7 +2290,8 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
         cup_odds = data.get("cup_odds")
         if data.get("is_cup_week") and cup_odds:
             out = out + "\n" + _format_section_7b_cup(data, cup_odds)
-        return out
+        money = format_money_facts(data.get("money_section"))
+        return out + ("\n" + "\n".join(money) if money else "")
     
     lines = ["## SECTION 7: POWER RANKINGS\n"]
 
@@ -2508,7 +2509,41 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
                     )
             lines.append("")
     
+    lines.extend(format_money_facts(data.get("money_section")))
     return "\n".join(lines)
+
+
+def format_money_facts(ms: Optional[dict]) -> list:
+    """The Money and Exposure section's facts for the drafter
+    (standing_threads.money_section, Nick 10-29). The page renders the table
+    and the section's own sentences from the stats report; the drafter writes
+    one or two paragraphs AROUND these numbers, never choosing them."""
+    if not ms or not ms.get("managers"):
+        return []
+    from modules.standing_threads import MONEY_COLUMNS, money_table_rows
+    L = ["**MONEY AND EXPOSURE -- FACTS** (the table and the sentences below are rendered "
+         "on the page from the data: do NOT reproduce the table)", ""]
+    L.append("| " + " | ".join(MONEY_COLUMNS) + " |")
+    L.append("|" + "|".join("---" for _ in MONEY_COLUMNS) + "|")
+    for row in money_table_rows(ms):
+        L.append("| " + " | ".join(row) + " |")
+    L.append("")
+    L.append("The section's sentences (printed on the page as written):")
+    L += [f"- {x}" for x in ms["lines"]]
+    L.append("")
+    top = sorted(ms["order"], key=lambda m: -ms["managers"][m]["p_win_rs_lose_semi"])[0]
+    L.append("For your paragraph(s) under **Money and Exposure**: lead with the named outcome "
+             f"above ({top}'s +${ms['win_rs_lose_semi_dollars']} finish). Title odds are "
+             "written rounded, as \"about N%\", using the rounded figures above. Say that "
+             "a manager's odds rest on replacement-level pickups wherever you cite them for a "
+             "manager the sentences say that about, and give his without-pickups figure. "
+             "If you write a season total, say that rosters are held as they stand apart from "
+             "the moves the rules force and that season totals run low by design. "
+             + ("Say once that the model runs a little confident this early in the season. "
+                if ms.get("confidence_note") else "")
+             + "Dollar figures belong in this block only.")
+    L.append("")
+    return L
 
 
 def format_section_8_stats_corner(data: dict, lookups: dict) -> str:

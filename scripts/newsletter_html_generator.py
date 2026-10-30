@@ -34,6 +34,7 @@ from modules.player_card_modal import (
     embed_player_card_data,
 )
 from modules.player_card_builder import build_player_cards
+from modules.standing_threads import render_money_html
 from modules.advice_render import (
     render_html as render_advice_html,
     get_css as get_advice_css,
@@ -693,16 +694,18 @@ def parse_section(text: str, section_name: str) -> str:
 
 
 KEEPER_WATCH_HEADER = re.compile(r"^\*\*\s*Keeper Watch\s*\*\*:?$", re.I)
+MONEY_HEADER = re.compile(r"^\*\*\s*Money and Exposure\s*\*\*:?$", re.I)
 BOLD_HEADER = re.compile(r"^\*\*[^*]+\*\*:?$")
 
 
-def keeper_watch_summary_html(section_md: str) -> str:
-    """The drafter's keeper-watch summary: the paragraphs under a
-    **Keeper Watch** line in Stats Corner, up to the next bold header line,
-    table or rule. parse_section drops that block from the section body (the
-    panel is rendered from the stats report), so it is lifted out here and
-    shown at the top of the panel. "" when the draft has none."""
-    out, grab, para = [], False, []
+def lift_block(section_md: str, header: "re.Pattern") -> tuple:
+    """(the section without the block, the block's paragraphs as HTML).
+
+    A drafted block -- the paragraphs under a bold header line, up to the
+    next bold header line, table, rule or the section's end -- that the page
+    shows inside a rendered panel rather than in the section body (the keeper
+    watch's summary, the Money and Exposure paragraphs)."""
+    out, kept, grab, para = [], [], False, []
 
     def flush():
         if para:
@@ -711,22 +714,31 @@ def keeper_watch_summary_html(section_md: str) -> str:
 
     for raw in section_md.split("\n"):
         line = raw.strip()
-        if KEEPER_WATCH_HEADER.match(line):
+        if header.match(line):
             flush()
             grab = True
             continue
-        if not grab:
-            continue
-        if BOLD_HEADER.match(line) or line.startswith("|") or line.startswith("---"):
+        if grab and (BOLD_HEADER.match(line) or line.startswith("|") or line.startswith("---")):
             flush()
             grab = False
+        if not grab:
+            kept.append(raw)
             continue
         if not line:
             flush()
             continue
         para.append(line)
     flush()
-    return "\n".join(out)
+    return "\n".join(kept), "\n".join(out)
+
+
+def keeper_watch_summary_html(section_md: str) -> str:
+    """The drafter's keeper-watch summary: the paragraphs under a
+    **Keeper Watch** line in Stats Corner, up to the next bold header line,
+    table or rule. parse_section drops that block from the section body (the
+    panel is rendered from the stats report), so it is lifted out here and
+    shown at the top of the panel. "" when the draft has none."""
+    return lift_block(section_md, KEEPER_WATCH_HEADER)[1]
 
 
 def parse_report_cards(text: str) -> str:
@@ -1074,7 +1086,15 @@ def generate_html(
             # C5 games grid, straight from the stats report -- never retyped.
             # It closes this section rather than opening Betting Lines: it is
             # a roster-planning artifact, not a betting one.
+            # Money and Exposure (standing_threads.money_section): the drafted
+            # paragraphs are lifted out of the body and shown above the
+            # section's table and its own sentences, rendered from the data.
+            content, money_summary = lift_block(content, MONEY_HEADER)
             content_html = parse_section(content, heading)
+            money_html = ""
+            if stats_report:
+                money_html = render_money_html(stats_report.get("money_section"),
+                                               summary_html=money_summary)
             grid_html = ""
             if stats_report:
                 try:
@@ -1085,6 +1105,7 @@ def generate_html(
         <section id="{section_id}">
             <h2>{heading}</h2>
             {content_html}
+            {money_html}
             {grid_html}
         </section>'''
 
@@ -1224,6 +1245,14 @@ def generate_html(
             background: rgba(31, 78, 121, 0.1);
         }}
         
+        /* Money and Exposure (Section 7) */
+        .mx-block {{ margin: 18px 0 8px; }}
+        .mx-summary p {{ margin: 0 0 8px; }}
+        .mx-table td, .mx-table th {{ white-space: nowrap; }}
+        .mx-lines {{ margin: 8px 0 4px 18px; padding: 0; font-size: 0.9em; line-height: 1.45; }}
+        .mx-lines li {{ margin-bottom: 4px; }}
+        .mx-foot {{ font-size: 0.75em; opacity: 0.75; margin-top: 4px; }}
+
         /* Stats Corner Sub-Navigation */
         .sc-subnav {{
             display: flex;
@@ -2246,10 +2275,18 @@ def main():
     print(f"Built HTML newsletter: {out} ({os.path.getsize(out)} bytes)")
     print(claim_check_status(args.input))
     status = table_check(out)
+    # The keepability snapshot first: a week already published with
+    # different numbers STOPS the build (exit 1) before anything else is
+    # logged as published (Nick, 10-30).
+    snap = publish_keepability_snapshot(getattr(args, "stats_report", None),
+                                        sendable=status == 0, preview=args.no_log)
+    if snap.get("conflict"):
+        print("STOPPED: this week's keeper watch was already published with different "
+              "numbers. Nothing was logged. Find out what changed since it was published "
+              f"(the published file: {snap.get('path')}).")
+        return 1
     log_published_lines(getattr(args, "stats_report", None), sendable=status == 0,
                         preview=args.no_log)
-    publish_keepability_snapshot(getattr(args, "stats_report", None), sendable=status == 0,
-                                 preview=args.no_log)
     return status
 
 
@@ -2306,10 +2343,12 @@ def publish_keepability_snapshot(stats_report_path, *, sendable: bool, preview: 
     reads it for who crossed the line, and next offseason the real keeper
     decisions are scored against it.
 
-    Returns {"wrote": bool, "why_not": str|None, "path": str|None}."""
+    Returns {"wrote": bool, "conflict": bool, "why_not": str|None, "path": str|None};
+    conflict: the week was already published with different numbers -- the
+    caller stops the build with a non-zero exit."""
     def no(why):
         print(f"keepability snapshot: NOT written -- {why}")
-        return {"wrote": False, "why_not": why, "path": None}
+        return {"wrote": False, "conflict": False, "why_not": why, "path": None}
     if not stats_report_path:
         return no("no --stats-report")
     if preview:
@@ -2330,9 +2369,10 @@ def publish_keepability_snapshot(stats_report_path, *, sendable: bool, preview: 
     res = kv3.publish_snapshot(kw, sr_path.parent.parent)
     if res["wrote"]:
         print(f"keepability snapshot: written to {res['path']}")
-        return {"wrote": True, "why_not": None, "path": res["path"]}
+        return {"wrote": True, "conflict": False, "why_not": None, "path": res["path"]}
     print(f"keepability snapshot: NOT rewritten -- {res['why']} ({res['path']})")
-    return {"wrote": False, "why_not": res["why"], "path": res["path"]}
+    return {"wrote": False, "conflict": bool(res.get("conflict")), "why_not": res["why"],
+            "path": res["path"]}
 
 
 def table_check(html_path: str) -> int:

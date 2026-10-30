@@ -601,6 +601,12 @@ SCORING TRENDS (from scoring_trends, all managers):
 RETURNING PLAYERS (from current_team_health.returning_players[]):
 - [player] ([manager]): [return_games]/[total_week_games] games -> [return_notes]
 [Note any confirmed returns that could shift power rankings outlook]
+
+MONEY AND EXPOSURE -- FACTS (money_section): each manager's title odds, expected net
+dollars, range, most likely outcome, the win-the-regular-season-lose-the-semifinal
+case, the chance of paying into each pot, and the Cup's sixth keeper (its own
+currency); plus the section's sentences, which the page prints as written
+[the table is rendered by the HTML generator -- read the facts, do NOT copy the table]
 ```
 
 ### REQUIRED OUTPUT FORMAT
@@ -620,10 +626,23 @@ RETURNING PLAYERS (from current_team_health.returning_players[]):
 [4 rows]
 
 [3-4 paragraphs -> title race narrative, each team's outlook, magic numbers, draft pick positioning implications (check the SEASON TRADE LOG and DRAFT PICK OWNERSHIP blocks in the stats report to see who actually owns whose picks -> do NOT assume last place = #1 overall pick, as picks may have been traded). EVERY stat must be from extraction.]
+
+**Money and Exposure**
+
+[1-2 short paragraphs from MONEY AND EXPOSURE -- FACTS only -- LAST in the section]
 ```
 
 ### KEY RULES
 - TWO tables required
+- **MONEY AND EXPOSURE** -- the last thing in Section 7, every week. The page renders its table and its own sentences from the data; you write one or two paragraphs under `**Money and Exposure**`, and they appear at the top of the block:
+  - **Write around the numbers in MONEY AND EXPOSURE -- FACTS; never choose, compute or round your own.** Every figure must be one printed there (the claim check enforces it).
+  - **Lead with the named outcome the facts name first** (e.g. newsletter 1 of 2026-27: Hayden's +$135 finish -- win the regular-season pot, lose the semifinal).
+  - **Title odds are written rounded, "about 48%"** -- the rounded figures in the facts, never 48.2% in this block -- and say once, while the facts carry it, that the model runs a little confident this early in the season.
+  - **A manager whose odds rest on replacement-level pickups:** say so when you cite his odds, and give his without-pickups figure from the facts (e.g. newsletter 1: Hayden about 30% without them; a better real pickup raises it).
+  - **A season point total:** say that rosters are held as they stand apart from the moves the rules force, and that season totals run low by design.
+  - **Dollar figures belong in this block only.** Elsewhere in the newsletter a dollar figure appears only in a week money was decided (the ANGLES block's "Money this week" line); the claim check flags any other.
+  - **Two currencies, never added:** dollars come from the regular-season pot and the playoff pot; the Cup's prize is a sixth keeper, given as a chance, never as money.
+  - **Language:** never "safe" or "pays" without naming the pot ("pays into the regular-season pot"). No table, no bullets, and do not start a paragraph with bold text.
 - **INJURY CONTEXT FOR OUTLIERS:** Use BOTH season burden AND current health to explain mismatched records:
   - **Season burden** tells the historical story: "Hayden has lost 116 games to injury (24.9% season burden) -> 51 more than anyone else"
   - **Current health** tells the forward-looking story: "But Hayden enters Week 14 at 83.8% health -> Jokic is his only major absence now"
@@ -1315,6 +1334,9 @@ every postseason week.
 
 The section header becomes **"Playoff Championship Odds"**. Extract from the
 `playoff_odds` block, not the regular `power_rankings` block.
+
+The **Money and Exposure** block stays the last thing in this section every
+week, under the same rules as in the regular season (Section 7 KEY RULES).
 
 #### DATA EXTRACTION (do this first)
 ```

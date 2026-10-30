@@ -278,7 +278,7 @@ def _pool_at_open(rostered, players, week, day, start_week, tag_idx, assume_heal
 
 def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, players,
           statuses: dict, rules: dict, standin_gp: float, order: list = None,
-          assume_healthy: bool = False) -> dict:
+          assume_healthy: bool = False, no_standins=frozenset()) -> dict:
     """{week: {manager: {"active", "il", "added", "dropped", "waiting", "standins"}}}
     from start_week (the IL file's week, locked) through the last window.
 
@@ -291,6 +291,10 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                 A pool player with no tag RAISES (UntaggedPoolPlayer) unless
                 assume_healthy -- a run explicitly priced without tags.
     standin_gp: a stand-in's projected GP (the durability prior's median_gp)
+    no_standins: managers who add NO stand-ins -- their open spots stay empty.
+                Never the build's plan: the counterfactual the money section
+                states ("without his replacement-level pickups"). Default
+                empty, so every plan the engine plays is unchanged.
     order:      ignored by the result -- kept so a test can hand in any order
                 and show the plan does not move
     "added" is the stand-ins added that week, "standins" their projections,
@@ -372,7 +376,7 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
             # one per remaining open spot (the rank-th free agent's). Spots the
             # budget cannot reach wait for the next window -- the league's
             # rule, not an error.
-            need = rules["active_spots"] - len(s["active"])
+            need = 0 if m in no_standins else rules["active_spots"] - len(s["active"])
             if need:
                 level, rank_name = level_now()
                 if standin_gp is None:
@@ -452,7 +456,8 @@ def standin_gp(data, team_projections) -> float:
     return float(statistics.median(gps)) if gps else None
 
 
-def for_run(data, team_projections: dict, statuses: dict = None, today: date = None) -> Run:
+def for_run(data, team_projections: dict, statuses: dict = None, today: date = None,
+            no_standins=frozenset()) -> Run:
     """The plan for this run, computed once and cached on `data`. The IL
     state is data.il_slots when the caller set it (a world built in memory),
     else data/IL_SLOTS.json under data.base_path, checked (load_il_slots)."""
@@ -463,7 +468,8 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     assume = bool(getattr(statuses, "free_agents_assumed_healthy", False))
     fp = key_string(id(team_projections), *sorted(f"{k}={v}" for k, v in (statuses or {}).items()),
                     "free_agents", *sorted(f"{k}={v}" for k, v in (fa or {}).items()),
-                    f"assumed={assume}", f"fa_fetched={fa is not None}")
+                    f"assumed={assume}", f"fa_fetched={fa is not None}",
+                    "no_standins", *sorted(no_standins))
     cache = data.__dict__.setdefault("_roster_plans", {})
     hit = cache.get(fp)
     if hit is not None and hit[0] is team_projections:
@@ -485,7 +491,8 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     plan = build(start_week=start, il_slots=il.get("slots") or {}, rosters=rosters,
                  windows=windows_for(data, start), players=players,
                  statuses={**dict(fa or {}), **dict(statuses or {})}, assume_healthy=assume,
-                 rules=rules(), standin_gp=gp, order=[m for m in pick_order() if m in rosters])
+                 rules=rules(), standin_gp=gp, order=[m for m in pick_order() if m in rosters],
+                 no_standins=frozenset(no_standins))
     made = {n: p for w in plan.values() for v in w.values() for n, p in v["standins"].items()}
     run = Run(start_week=start, plan=plan, players=players, standins=made, standin_gp=gp)
     cache[fp] = (team_projections, run)

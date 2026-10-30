@@ -35,10 +35,11 @@ from __future__ import annotations
 import math
 import re
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Iterable, Optional
 
 EXEMPT_SECTIONS = {9}          # Around the NBA: web-sourced, Step 8 checks it
+MONEY_BLOCK = "money and exposure"   # Section 7's block: figures every week
 APPROX_TOLERANCE = 0.10        # "nearly 60" may be 54..66
 LORE_TAG = re.compile(r"<!--\s*lore:([A-Za-z0-9_.-]+)\s*-->")
 
@@ -454,6 +455,7 @@ class Unit:
     head_ents: frozenset = frozenset()
     spans: tuple = ()
     managers: frozenset = frozenset()
+    block: str = ""     # the bold sub-header it sits under, lower-cased
 
     @property
     def anchor(self) -> frozenset:
@@ -475,6 +477,7 @@ def split_units(draft: str, vocab: Vocabulary) -> list[Unit]:
     para: list[tuple[int, str]] = []
     head = [frozenset()]          # entities of the last bold sub-header
     head_nums = [()]              # ... and its numbers (scores in a header)
+    block = [""]                  # ... and its text (MONEY_BLOCK reads it)
 
     def flush():
         if not para:
@@ -491,7 +494,7 @@ def split_units(draft: str, vocab: Vocabulary) -> list[Unit]:
                 units.append(Unit(section, ln, clean, raw, pents, pnums,
                                   vocab.find(clean), True, head[0],
                                   tuple(vocab.spans(clean)),
-                                  frozenset(vocab.managers)))
+                                  frozenset(vocab.managers), block[0]))
                 continue
             for s in re.split(r"(?<=[.!?])\s+(?=[A-Z\"'(*])", raw):
                 if s.strip():
@@ -499,7 +502,7 @@ def split_units(draft: str, vocab: Vocabulary) -> list[Unit]:
                     units.append(Unit(section, ln, c, s, pents, pnums,
                                       vocab.find(c), False, head[0],
                                       tuple(vocab.spans(c)),
-                                      frozenset(vocab.managers)))
+                                      frozenset(vocab.managers), block[0]))
         para.clear()
 
     for i, line in enumerate(draft.splitlines(), 1):
@@ -509,6 +512,7 @@ def split_units(draft: str, vocab: Vocabulary) -> list[Unit]:
             section = int(m.group(1))
             head[0] = frozenset()
             head_nums[0] = ()
+            block[0] = ""
             continue
         if re.match(r"^\*\*[^*]+\*\*", line.strip()) and not \
                 line.lstrip().startswith(("- ", "* ", "|")):
@@ -516,6 +520,7 @@ def split_units(draft: str, vocab: Vocabulary) -> list[Unit]:
             head[0] = vocab.find(strip_md(line))
             head_nums[0] = tuple(n.value for n in extract_numbers(
                 strip_md(line)) if n.kind == "num")
+            block[0] = strip_md(line).strip().rstrip(":").strip().lower()
         if not line.strip() or line.strip() == "---" or line.startswith("#"):
             flush()
             continue
@@ -756,7 +761,9 @@ def money_findings(draft: str, vocab: Vocabulary, money_events,
         return []
     out = []
     for u in split_units(draft, vocab):
-        if u.section in exempt_sections:
+        if u.section in exempt_sections or u.block == MONEY_BLOCK:
+            # the Money and Exposure block carries its figures every week
+            # (by surface, Nick 10-28); everywhere else the 10-14 rule holds
             continue
         m = DOLLARS.search(LORE_TAG.sub("", u.raw))
         if m:
@@ -830,6 +837,12 @@ def check(draft: str, pool: Pool, vocab: Vocabulary,
         support_recs: set = set()
         any_supported = False
         for n in extract_numbers(u.text):
+            if n.approx and n.kind == "pct" and u.block == MONEY_BLOCK:
+                # Nick, 10-29: the Money and Exposure block writes title
+                # odds rounded, "about 48%". Allowed there only as an EXACT
+                # match to a figure the report prints at that precision --
+                # no tolerance, so "about 50%" for 48% still fails.
+                n = replace(n, approx=False)
             if n.approx and n.kind in ("num", "pct") and \
                     not n.raw.isalpha() and not re.search(
                         r"~\s*$", u.text[max(0, n.pos - 2):n.pos]):
