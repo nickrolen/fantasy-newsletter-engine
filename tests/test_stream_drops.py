@@ -188,10 +188,17 @@ TODAY = {"Nick": ["Dyson Daniels", "Julius Randle", "Ty Jerome", "Jaylen Brown"]
          "Garrett": ["Aaron Wiggins", "Toumani Camara", "VJ Edgecombe", "Alex Sarr"]}
 
 
-def test_on_the_10_29_data_the_pools_hold_and_lillard_and_embiid_are_safe():
+def test_on_the_10_29_data_the_pools_hold_and_lillard_and_embiid_are_safe(monkeypatch):
     root = Path(__file__).resolve().parents[1]
     from modules import advice_runner as ar
+    import modules.data_loader as dl
     from modules.data_loader import load_all_data
+    # The projections this was pinned on: the dated snapshot, not whatever
+    # data/PLAYERLIST.xlsx holds today (it is swapped and refreshed between
+    # builds).
+    snapshot = root / "config" / "snapshots" / "PLAYERLIST_2026-10-28.xlsx"
+    _load = dl.load_playerlist
+    monkeypatch.setattr(dl, "load_playerlist", lambda path, *a, **k: _load(snapshot, *a, **k))
     from modules.projections import load_player_projections, populate_actual_stats
     from modules.report_builder import build_keeper_watch
     data = load_all_data(root)

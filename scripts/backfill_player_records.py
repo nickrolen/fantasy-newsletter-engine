@@ -42,11 +42,12 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.data_loader import (
-    CURRENT_SEASON, CURRENT_SEASON_LONG, KEEPER_ERA_START,
+    CURRENT_SEASON, CURRENT_SEASON_LONG, KEEPER_ERA_START, is_regular_season_week,
 )
 
 PROJECT_ROOT = Path(__file__).parent.parent
 RECORDS_FILE = PROJECT_ROOT / "config" / "RECORDS.json"
+SCHEDULE_FILE = PROJECT_ROOT / "config" / "SCHEDULE.json"
 ALL_MATCHUPS_FILE = PROJECT_ROOT / "data" / "historical" / "all_matchups.json"
 HISTORICAL_PLAYERLOG_FILE = PROJECT_ROOT / "data" / "historical" / "HISTORICAL_PLAYERLOG.json"
 PLAYERLOG_FILE = PROJECT_ROOT / "data" / "PLAYERLOG.xlsx"
@@ -61,6 +62,34 @@ WAIVERS_DIR = PROJECT_ROOT / "data"
 MIN_GP_FPPG = 30
 MAX_GAMES_PER_WEEK = 7  # generous cap for 14-day weeks (NBA Cup, All-Star break)
 MAX_GAMES_PER_SEASON = 82
+
+
+SEASON_TOP10_KEYS = (
+    "best_manager_season_top10", "worst_manager_season_top10",
+    "best_manager_season_fpweek_top10", "worst_manager_season_fpweek_top10",
+    "best_manager_season_fppg_top10", "worst_manager_season_fppg_top10",
+)
+COMPETITIVE_FIELDS = ("reg_wins", "reg_losses", "reg_weeks")
+
+
+def _identity(entry: dict) -> tuple:
+    """What makes two leaderboard entries the same record: every scalar field
+    but a rank (the definition tests/test_stale_baselines.py checks)."""
+    return tuple(sorted((k, v) for k, v in entry.items()
+                        if isinstance(v, (str, int, float)) and k != "rank"))
+
+
+def unique_entries(entries: list) -> list:
+    """Entries in order, each record once. Applied BEFORE a list is cut to ten,
+    so a repeat never takes a legitimate record's slot."""
+    seen, out = set(), []
+    for e in entries:
+        ident = _identity(e) if isinstance(e, dict) else repr(e)
+        if ident in seen:
+            continue
+        seen.add(ident)
+        out.append(e)
+    return out
 
 
 def normalize_season(season_str: str) -> str:
@@ -388,10 +417,51 @@ def build_all_records_with_slots(historical: list) -> list:
     return records
 
 
+def load_schedule() -> dict | None:
+    if not SCHEDULE_FILE.exists():
+        return None
+    with open(SCHEDULE_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def current_season_record(games: list, schedule: dict, season: str) -> dict:
+    """{manager: {wins, losses, reg_wins, reg_losses, reg_weeks}} for the
+    current season: each scheduled pairing whose two managers both have
+    starter points that week (games is the started, non-zero list), scored on
+    those totals. A tie is neither a win nor a loss; a regular-season tie
+    still counts in reg_weeks."""
+    totals = defaultdict(float)
+    for g in games:
+        if g.get("season") == season:
+            totals[(g["manager"], int(g["week"]))] += g["fantasy_points"]
+    out = defaultdict(lambda: {"wins": 0, "losses": 0,
+                               "reg_wins": 0, "reg_losses": 0, "reg_weeks": 0})
+    for wk in (schedule or {}).get("weeks", []):
+        week = int(wk.get("week", 0))
+        regular = is_regular_season_week(season, week)
+        for mu in wk.get("matchups", []):
+            a, b = mu.get("manager_a"), mu.get("manager_b")
+            if (a, week) not in totals or (b, week) not in totals:
+                continue
+            sa, sb = round(totals[(a, week)], 2), round(totals[(b, week)], 2)
+            for m in (a, b):
+                out[m]["reg_weeks"] += 1 if regular else 0
+            if sa == sb:
+                continue
+            w, lo = (a, b) if sa > sb else (b, a)
+            out[w]["wins"] += 1
+            out[lo]["losses"] += 1
+            if regular:
+                out[w]["reg_wins"] += 1
+                out[lo]["reg_losses"] += 1
+    return {m: dict(v) for m, v in out.items()}
+
+
 def compute_team_leaderboards(matchups: list, games: list = None, 
                                current_season_scores: dict = None,
                                current_season_totals: dict = None,
-                               current_season: str = CURRENT_SEASON) -> dict:
+                               current_season: str = CURRENT_SEASON,
+                               current_schedule: dict = None) -> dict:
     print("\n--- Computing Team Record Leaderboards ---")
     all_scores = []
     for m in matchups:
@@ -441,18 +511,30 @@ def compute_team_leaderboards(matchups: list, games: list = None,
     print(f"  Head-to-head: {len(managers)} managers, {len(h2h)-1} matchup pairs")
 
     # BEST/WORST MANAGER SEASONS
-    ms = defaultdict(lambda: {"wins": 0, "losses": 0, "total_fp": 0.0, "weeks": 0})
+    # Two records per season, as report_builder writes them: wins/losses
+    # over every matchup played, and reg_wins/reg_losses/reg_weeks over the
+    # competitive (regular) season. A run that dropped the second pair left
+    # 40 entries rendering "all games" next to scoped ones (Step 5.75,
+    # 2026-10-30) -- every season entry carries both, every run.
+    ms = defaultdict(lambda: {"wins": 0, "losses": 0, "total_fp": 0.0, "weeks": 0,
+                              "reg_wins": 0, "reg_losses": 0, "reg_weeks": 0})
     for m in matchups:
         season = m.get("season", "")
+        regular = is_regular_season_week(season, m.get("week", 0))
         for side, score_key in [("manager_a", "score_a"), ("manager_b", "score_b")]:
             mgr = m[side]
             ms[(mgr, season)]["total_fp"] += m[score_key]
             ms[(mgr, season)]["weeks"] += 1
+            if regular:
+                ms[(mgr, season)]["reg_weeks"] += 1
         w = m.get("winner")
         lo = m.get("loser")
         if w and lo:
             ms[(w, season)]["wins"] += 1
             ms[(lo, season)]["losses"] += 1
+            if regular:
+                ms[(w, season)]["reg_wins"] += 1
+                ms[(lo, season)]["reg_losses"] += 1
     
     # For current season: calculate total_fp and weeks directly from PLAYERLOG (games list)
     # This ensures we always use fresh data, since backfill runs BEFORE generate_stats_report
@@ -469,6 +551,18 @@ def compute_team_leaderboards(matchups: list, games: list = None,
             ms[(mgr, current_season)]["total_fp"] = round(current_season_fp[mgr], 1)
             ms[(mgr, current_season)]["weeks"] = len(current_season_weeks[mgr])
         print(f"  Current season ({current_season}) totals from PLAYERLOG: {dict(current_season_fp)}")
+        # The current season's two records, from the same source as its
+        # total_fp: each week's starter totals (PLAYERLOG, which equals
+        # Yahoo's scoreboard) against the schedule's pairings.
+        if current_schedule is not None:
+            record = current_season_record(games, current_schedule, current_season)
+            for mgr, rec in record.items():
+                if (mgr, current_season) in ms:
+                    ms[(mgr, current_season)].update(rec)
+            print(f"  Current season ({current_season}) W-L from PLAYERLOG x SCHEDULE: "
+                  + ", ".join(f"{m} {r['wins']}-{r['losses']} "
+                              f"({r['reg_wins']}-{r['reg_losses']} reg)"
+                              for m, r in sorted(record.items())))
     elif current_season_scores:
         # Fallback: use RECORDS.json weekly_scores if no games list (shouldn't happen)
         for mgr, scores in current_season_scores.items():
@@ -481,8 +575,10 @@ def compute_team_leaderboards(matchups: list, games: list = None,
                         ms[(mgr, current_season)]["weeks"] += 1
         print(f"  Added current season ({current_season}) weekly scores (fallback from RECORDS.json)")
     
-    # Add current season wins/losses from manager_season_totals
-    if current_season_totals:
+    # Add current season wins/losses from manager_season_totals -- only when
+    # PLAYERLOG x SCHEDULE could not give them, so the all-games pair and the
+    # competitive pair always come from one source (reg_wins <= wins).
+    if current_season_totals and current_schedule is None:
         for mgr, totals in current_season_totals.items():
             if (mgr, current_season) in ms:
                 ms[(mgr, current_season)]["wins"] = totals.get("wins", 0)
@@ -492,7 +588,8 @@ def compute_team_leaderboards(matchups: list, games: list = None,
     ms_list = [
         {"manager": mgr, "season": season, "wins": d["wins"], "losses": d["losses"],
          "total_fp": round(d["total_fp"], 1), "weeks": d["weeks"],
-         "fppg_per_week": round(d["total_fp"] / d["weeks"], 1) if d["weeks"] > 0 else 0}
+         "fppg_per_week": round(d["total_fp"] / d["weeks"], 1) if d["weeks"] > 0 else 0,
+         **{f: d[f] for f in COMPETITIVE_FIELDS}}
         for (mgr, season), d in ms.items()
     ]
     
@@ -533,6 +630,7 @@ def compute_team_leaderboards(matchups: list, games: list = None,
                     "weeks": d["weeks"],
                     "games": total_games,
                     "fppg": fppg,
+                    **{f: d[f] for f in COMPETITIVE_FIELDS},
                 })
         
         if ms_fppg_list:
@@ -603,9 +701,13 @@ def _compute_streaks(matchups: list) -> tuple:
             if length > 0:
                 all_loss.append({"length": length, "manager": mgr, "season": season})
 
+    # Two runs of the same length by one manager in one season are the same
+    # entry on the page (Benton 2023-24 lost 8 straight twice: weeks 4-11 and
+    # 16-23), and the second one took a record's slot. Each record once,
+    # chosen before the cut to ten.
     return (
-        sorted(all_win, key=lambda x: x["length"], reverse=True)[:10],
-        sorted(all_loss, key=lambda x: x["length"], reverse=True)[:10],
+        unique_entries(sorted(all_win, key=lambda x: x["length"], reverse=True))[:10],
+        unique_entries(sorted(all_loss, key=lambda x: x["length"], reverse=True))[:10],
     )
 
 
@@ -991,13 +1093,18 @@ def compute_expanded_leaderboards(games: list) -> dict:
 
     # ---- CAREER RECORDS (all-time) ----
     # Store historical_fp (all seasons except current) so the weekly pipeline
-    # can recompute total = historical_fp + live current-season FP
+    # can recompute total = historical_fp + live current-season FP.
+    # A game is any started game with points, NEGATIVE ONES INCLUDED: the
+    # weekly pipeline derives the same baseline as started AND had_game AND
+    # NOT is_injured (report_builder._patch_cumulative_records), and counting
+    # only fp > 0 here wrote Vucevic 22,708.6 over 570 games against the
+    # derived 22,708.2 over 571 (a -0.4 game; Step 5.75, 2026-10-30).
     current_season = max(g["season"] for g in games) if games else CURRENT_SEASON
 
     # Career Total FP By Manager (old "franchise_player" - tracks player+manager combos)
     fran = defaultdict(lambda: {"fp": 0.0, "gp": 0, "hist_fp": 0.0, "hist_gp": 0, "seasons": set()})
     for g in games:
-        if g["fantasy_points"] > 0:
+        if g["fantasy_points"] != 0:   # a negative game is a game
             key = (g["player_name"], g["manager"])
             fran[key]["fp"] += g["fantasy_points"]
             fran[key]["gp"] += 1
@@ -1023,7 +1130,7 @@ def compute_expanded_leaderboards(games: list) -> dict:
     # Career Total FP (pure player, aggregated across all managers)
     career_pure = defaultdict(lambda: {"fp": 0.0, "gp": 0, "hist_fp": 0.0, "hist_gp": 0, "seasons": set(), "managers": set()})
     for g in games:
-        if g["fantasy_points"] > 0:
+        if g["fantasy_points"] != 0:   # a negative game is a game
             career_pure[g["player_name"]]["fp"] += g["fantasy_points"]
             career_pure[g["player_name"]]["gp"] += 1
             career_pure[g["player_name"]]["seasons"].add(g["season"])
@@ -1439,6 +1546,25 @@ def compute_total_injury_games() -> dict:
     }
 
 
+def check_written_leaderboards(all_time: dict) -> None:
+    """The two promises every run keeps, checked on what is about to be
+    written: no top-10 holds a record twice, and every manager-season entry
+    carries its competitive record. A break RAISES -- RECORDS.json is left as
+    it was rather than written damaged."""
+    problems = []
+    for key, entries in all_time.items():
+        if key.endswith("_top10") and isinstance(entries, list):
+            if len(unique_entries(entries)) != len(entries):
+                problems.append(f"{key}: holds a duplicate entry")
+    for key in SEASON_TOP10_KEYS:
+        for e in all_time.get(key, []) or []:
+            if not e.get("reg_weeks"):
+                problems.append(f"{key}: {e.get('season')} {e.get('manager')} has no "
+                                "competitive record (reg_wins/reg_losses/reg_weeks)")
+    if problems:
+        raise RuntimeError("RECORDS.json not written:\n  " + "\n  ".join(problems))
+
+
 def main():
     print("=" * 60)
     print("BACKFILL PLAYER RECORDS (v2)")
@@ -1466,7 +1592,8 @@ def main():
             matchups, combined or None, 
             current_season_scores=current_season_scores,
             current_season_totals=current_season_totals,
-            current_season=CURRENT_SEASON
+            current_season=CURRENT_SEASON,
+            current_schedule=load_schedule(),
         ).items():
             all_time[k] = v
 
@@ -1537,6 +1664,7 @@ def main():
     # weekly scores, H2H, blunders, etc.). Preserve whatever value is already there.
     existing_last_updated = records.get("last_updated_week", 0)
     records["last_updated_week"] = existing_last_updated
+    check_written_leaderboards(all_time)
     save_records(records)
 
     print("\n" + "=" * 60)

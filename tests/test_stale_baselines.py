@@ -168,6 +168,26 @@ def test_the_stored_career_baselines_match_the_player_log(records):
         slot[0] += float(r.get("fantasy_points") or 0.0)
         slot[1] += 1
 
+    # This season so far: PLAYERLOG's started games with points, counted the
+    # way the career leaderboard counts them (backfill_player_records
+    # build_combined_playerlog). Empty before week 1.
+    import pandas as pd
+    from modules.data_loader import normalize_player_name
+    this_season = defaultdict(float)
+    log = pd.read_excel(PROJECT_ROOT / "data" / "PLAYERLOG.xlsx")
+    if not log.empty:
+        mask = (log["started"] == True) & log["fantasy_points"].notna() \
+            & (log["fantasy_points"] != 0)
+        if "nba_opponent" in log.columns:
+            mask &= log["nba_opponent"].notna()
+        seen = set()
+        for _, r in log[mask].iterrows():
+            key = (r["player_name"], str(r["date"])[:10], r["manager"])
+            if key in seen:
+                continue
+            seen.add(key)
+            this_season[normalize_player_name(r["player_name"])] += float(r["fantasy_points"])
+
     checked = 0
     for entry in records["all_time"]["career_total_fp_top10"]:
         want = totals.get(entry["player_name"])
@@ -175,15 +195,17 @@ def test_the_stored_career_baselines_match_the_player_log(records):
             continue
         checked += 1
         name = entry["player_name"]
-        # The baseline is "career through the last completed season". The
-        # current season has no data yet, so it must equal total_fp exactly --
-        # and the stale version differed by a whole season (Jokic 28,134.7
-        # against 31,975.5, 62 games).
+        # The baseline is "career through the last completed season"; the
+        # stale version differed by a whole season (Jokic 28,134.7 against
+        # 31,975.5, 62 games). total_fp is that baseline plus this season's
+        # points so far (Jokic after week 1 of 2026-27: 31,975.5 + 103.1 =
+        # 32,078.6), and exactly the baseline before the season starts.
         assert abs(entry["historical_fp"] - want[0]) < 1.0, name
         assert entry["historical_gp"] == want[1], name
-        assert abs(entry["total_fp"] - entry["historical_fp"]) < 1.0, (
-            f"{name}: total_fp and the baseline disagree with no current-season "
-            "data to explain it")
+        current = this_season.get(normalize_player_name(name), 0.0)
+        assert abs(entry["total_fp"] - (entry["historical_fp"] + current)) < 1.0, (
+            f"{name}: total_fp {entry['total_fp']} is not the baseline "
+            f"{entry['historical_fp']} plus this season's {current:.1f}")
     assert checked >= 5
 
 
