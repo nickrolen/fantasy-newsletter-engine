@@ -499,9 +499,16 @@ def simulate_daily_lineups(
     out_players: dict[str, Optional[date]],
     free_agents: Optional[list[tuple[str, str, set[str], float]]] = None,
     add_budget: Optional[int] = None,
+    il_slot=(),
 ) -> dict:
     """
     Simulate optimal lineups for every game day in the period.
+
+    il_slot: the names in this manager's IL slots for the week (roster_plan,
+    the same mask the betting simulator applies). An IL slot is fixed for
+    the week, both directions (LEAGUE_RULES 2026-27 IL rule 5): the occupant
+    plays no game of it, healthy or not, so he counts 0 total, 0 healthy and
+    0 started, and his days are filled from who is actually available.
 
     For each day:
       1. Find healthy rostered players whose NBA team plays that day.
@@ -547,6 +554,7 @@ def simulate_daily_lineups(
     # A rostered player with no player_info used to be skipped silently --
     # every one of his games read as an empty slot. Name them instead.
     unmatched = [p for p in roster if player_info.get(p) is None]
+    on_il = set(il_slot or ())
 
     for game_day in sorted(daily_schedule.keys()):
         teams_playing = daily_schedule[game_day]
@@ -556,6 +564,8 @@ def simulate_daily_lineups(
         injured_with_game = 0
 
         for player_name in roster:
+            if player_name in on_il:
+                continue                    # off the whole week: no game of it counts
             pi = player_info.get(player_name)
             if pi is None:
                 continue
@@ -632,7 +642,9 @@ def simulate_daily_lineups(
     for p in roster:
         pi = player_info.get(p, {})
         # Determine injury status string
-        if p in out_players:
+        if p in on_il:
+            inj_status = "IL slot (out all week)"
+        elif p in out_players:
             ret = out_players[p]
             if ret is None:
                 inj_status = "out"
@@ -649,7 +661,8 @@ def simulate_daily_lineups(
             "healthy_games": player_healthy.get(p, 0),
             "started_games": player_started.get(p, 0),
             "benched_games": player_benched.get(p, 0),
-            "is_injured": p in out_players,
+            "is_injured": p in out_players or p in on_il,
+            "in_il_slot": p in on_il,
             "injury_status": inj_status,
         })
     player_breakdown.sort(
@@ -756,10 +769,26 @@ def add_rankings(
 # MAIN BUILDER (called by report_builder.py)
 # ============================================================================
 
+def upcoming_il_mask(data: FantasyData, week_num: int, injury_statuses: dict = None) -> dict:
+    """{manager: names in an IL slot in week_num}, from roster_plan -- the
+    same plan, the same call, the betting lines price that week from
+    (simulator_betting: week_rosters(for_run(...))). For the locked week (the
+    IL file's) it is exactly data/IL_SLOTS.json; a week before the plan
+    starts has no mask. A missing or stale IL file RAISES, as it does for
+    the lines."""
+    from .projections import load_all_team_projections
+    from .roster_plan import for_run, week_rosters
+    teams = load_all_team_projections(data)
+    _, mask = week_rosters(for_run(data, teams, injury_statuses), teams, week_num)
+    return {m: set(v) for m, v in (mask or {}).items()}
+
+
 def build_schedule_strength(
     data: FantasyData,
     week: int,
     add_budget: Optional[int] = None,
+    il_mask: Optional[dict] = None,
+    injury_statuses: Optional[dict] = None,
 ) -> dict:
     """
     Build the complete schedule strength analysis for the upcoming week
@@ -815,6 +844,19 @@ def build_schedule_strength(
 
     upcoming_week_num = week + 1
 
+    # IL slots for the upcoming week. The grid used to ignore them, so on
+    # 10-26 Garrett's Flagg and Knueppel and Hayden's Kawhi -- all three in
+    # IL slots for week 2 -- were counted as healthy starters (Garrett 50
+    # Starts, Hayden 47) while the betting lines had them out. Same source as
+    # the lines now. Only the upcoming week is lineup-simulated; it is the
+    # locked week whenever the roster sync has run for it (the IL file's
+    # week). For a later week the mask is roster_plan's IL for that week, but
+    # its stand-in pickups are not modelled here: the grid stays the real
+    # ROSTERS.json lists. The rest-of-season counts below are raw team games
+    # and apply no injury or IL filter, as before.
+    if il_mask is None:
+        il_mask = upcoming_il_mask(data, upcoming_week_num, injury_statuses)
+
     # --- Upcoming week (with daily lineup simulation) ---
     upcoming_result = _build_for_week_with_lineups(
         upcoming_week_num,
@@ -828,6 +870,7 @@ def build_schedule_strength(
         # already spent in the previewed week's pre-tip window are subtracted.
         # None falls back to the league rule, which is None before 2026-27.
         add_budget=add_budget,
+        il_mask=il_mask,
     )
     if "managers" in upcoming_result:
         upcoming_result["player_info_from_lineups"] = from_lineups
@@ -878,10 +921,11 @@ def _build_for_week_with_lineups(
     injury_overrides: dict,
     free_agents: Optional[list[tuple[str, str, set[str], float]]] = None,
     add_budget: Optional[int] = None,
+    il_mask: Optional[dict] = None,
 ) -> dict:
     """
     Build schedule strength for a single fantasy week using daily
-    lineup simulation.
+    lineup simulation. il_mask: {manager: names in an IL slot this week}.
 
     This is the new, lineup-aware version that replaces the naive
     _build_for_week for the upcoming week.
@@ -951,6 +995,7 @@ def _build_for_week_with_lineups(
             out_players=out_players,
             free_agents=free_agents,
             add_budget=remaining_by_mgr.get(manager),
+            il_slot=(il_mask or {}).get(manager) or (),
         )
         result["adds_remaining"] = remaining_by_mgr.get(manager)
         managers_data[manager] = result
@@ -973,6 +1018,7 @@ def _build_for_week_with_lineups(
         "free_agent_pool_size": None if free_agents is None else len(free_agents),
         "weekly_add_budget": league_budget,
         "add_data_synced": adds_synced,
+        "il_slots": {m: sorted(v) for m, v in sorted((il_mask or {}).items()) if v},
     }
 
 

@@ -55,7 +55,8 @@ through the drafting chat, so they cannot be retyped wrong.
 
 Caveats the grid states on its face:
   - As of the report run. Rosters change after it.
-  - Injuries are INJURY_OVERRIDES only, the same input the betting lines use.
+  - Injuries are INJURY_OVERRIDES plus the week's IL slots (roster_plan),
+    the same inputs the betting lines use: an IL occupant sits the whole week.
   - Free agents are PLAYERLIST's top ~175, so "fillable" can undercount.
 """
 
@@ -243,7 +244,7 @@ def render_html(stats_report: dict) -> str:
     out.append('</tbody></table></div>')
 
     foot = ["As of report time; rosters change after it. Injuries from "
-            "INJURY_OVERRIDES only."]
+            "INJURY_OVERRIDES; players in IL slots sit out the whole week."]
     unmatched = sorted({p for r in grid["rows"] for p in r["unmatched_players"]})
     if unmatched:
         foot.append("Not counted (no team on file): " + ", ".join(unmatched) + ".")
