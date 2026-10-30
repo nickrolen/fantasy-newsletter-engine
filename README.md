@@ -32,7 +32,7 @@ Headline features:
 - **Playoff bracket simulation** -- a Monte Carlo bracket simulator that projects semifinal and championship probabilities and the most likely finals matchup.
 - **Sportsbook-style betting lines** -- spreads, over/unders, and moneylines for every upcoming matchup, generated from simulated score distributions.
 - **50-table record book** -- five categories (team, player, rookie, draft & trades, manager) of all-time top-10 leaderboards, rendered as an interactive trophy case spanning every season on record.
-- **Keeper scoring** -- a score-based keepability model that tiers each roster's top players from "Lock" to "Drop."
+- **Keeper watch** -- each player's chance of being kept next offseason, from a model fitted on every keeper decision the league has made; each team's top 8 with a line at its keeper count.
 - Plus a luck index, consistency/volatility scoring, a draft value tracker, waiver-wire ROI, and schedule-strength analysis.
 
 ---
@@ -222,7 +222,7 @@ For a file-by-file map of the engine, see [`PROJECTSTRUCTURE.md`](PROJECTSTRUCTU
 - **Consistency / volatility scoring** -- Coefficient of variation and interquartile range at both the team and player level, with boom/bust counts and recent-trend detection.
 - **Draft value tracker** -- Grades every drafted pick against a pick-level expected-value model (P1-P36), labeling each Steal, Fair, or Bust, with player-status detection (rostered/traded/claimed/dropped).
 - **Waiver-wire ROI** -- Season-long return on every pickup: fantasy points gained in starter slots versus points lost on dropped players, with best-add and biggest-regret callouts.
-- **Keeper scoring** -- A blended-FPPG-times-availability-times-age model that tiers each roster's top six from Lock to Drop, consistent with the trade-value engine.
+- **Keeper watch** -- Keepability v3: the chance each player is kept next offseason, fitted on the league's own keeper decisions (2021-22 on), shown per team at 5 and 6 keepers. No tiers.
 - **What-If analysis** -- Optimal-lineup reconstruction that surfaces points left on the bench and flags avoidable "blunders" (a scoring bench player who could have filled an empty or DNP starter slot).
 - **Schedule strength** -- NBA games per roster for the upcoming week and rest-of-season, filtered by injury status.
 

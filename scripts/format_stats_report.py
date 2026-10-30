@@ -472,7 +472,7 @@ def load_weekly_context_notes(base_path: Path, current_week: int) -> str:
 def load_weekly_trades(base_path: Path, current_week: int, player_projs: dict, keeper_watch_players: list = None) -> list[dict]:
     """
     Load trades from the weekly context input file and enrich with player projections
-    and keepability scores.
+    and keep chances (keepability v3: K = 5, and rank on his roster now).
     
     Looks for weeklycontextinput_week{N}.json in base_path (or scripts/ subdirectory).
     
@@ -481,7 +481,7 @@ def load_weekly_trades(base_path: Path, current_week: int, player_projs: dict, k
         current_week: Current fantasy week number
         player_projs: Dict mapping player_name -> projected FPPG
         keeper_watch_players: Optional list of keeper_watch player dicts
-            (from stats report JSON) with keepability_score and keeper_tier.
+            (from stats report JSON) with keep_k5, rank and manager.
     
     Returns list of enriched trade dicts:
     [
@@ -489,13 +489,13 @@ def load_weekly_trades(base_path: Path, current_week: int, player_projs: dict, k
             "manager_a": "Hayden",
             "sends_a": [
                 {"item": "Michael Porter Jr.", "is_player": True, "proj_fppg": 37.80,
-                 "keepability_score": 52.3, "keeper_tier": "Strong Hold"},
+                 "keep_k5": 0.42, "keep_rank": 4, "keep_manager": "Benton"},
                 {"item": "2027 2nd round pick", "is_player": False}
             ],
             "manager_b": "Benton",
             "sends_b": [
                 {"item": "Lauri Markkanen", "is_player": True, "proj_fppg": 37.52,
-                 "keepability_score": 48.1, "keeper_tier": "On the Bubble"},
+                 "keep_k5": 0.18, "keep_rank": 7, "keep_manager": "Hayden"},
                 {"item": "2026 5th round pick", "is_player": False},
                 {"item": "2027 5th round pick", "is_player": False}
             ]
@@ -507,8 +507,9 @@ def load_weekly_trades(base_path: Path, current_week: int, player_projs: dict, k
     if keeper_watch_players:
         for p in keeper_watch_players:
             keeper_lookup[p["player_name"]] = {
-                "keepability_score": p.get("keepability_score", 0),
-                "keeper_tier": p.get("keeper_tier", ""),
+                "keep_k5": p.get("keep_k5"),
+                "keep_rank": p.get("rank"),
+                "keep_manager": p.get("manager"),
             }
     # Search for weekly context file in common locations
     candidates = [
@@ -555,8 +556,9 @@ def load_weekly_trades(base_path: Path, current_week: int, player_projs: dict, k
                         "item": item,
                         "is_player": True,
                         "proj_fppg": proj,
-                        "keepability_score": kd.get("keepability_score", 0),
-                        "keeper_tier": kd.get("keeper_tier", ""),
+                        "keep_k5": kd.get("keep_k5"),
+                        "keep_rank": kd.get("keep_rank"),
+                        "keep_manager": kd.get("keep_manager"),
                     })
                 else:
                     enriched_trade[side].append({
@@ -2197,9 +2199,10 @@ def _format_section_7_playoff(data: dict, lookups: dict, playoff_odds: dict, pre
     # Keeper quality (still relevant in playoffs)
     has_keeper_quality = any(pr.get("keeper_quality") is not None for pr in rankings)
     if has_keeper_quality:
-        lines.append("**Keeper Quality Scores:**")
-        lines.append("| Rank | Manager | Keeper Quality | Top 5 Keepers | Career Record | Championships |")
-        lines.append("|------|---------|----------------|---------------|---------------|---------------|")
+        lines.append("**Keeper Quality (expected FPPG of each team's likely keepers):**")
+        lines.append("Keeper quality = the sum over the roster of keep chance (5 keepers) x the player's level in FPPG, divided by 5. Top 5 Keepers = his five likeliest keepers.")
+        lines.append("| Rank | Manager | Keeper Quality (FPPG) | Top 5 Keepers | Career Record | Championships |")
+        lines.append("|------|---------|-----------------------|---------------|---------------|---------------|")
         for pr in rankings:
             kq = pr.get("keeper_quality")
             kq_str = f"{kq:.1f}" if kq is not None else "-"
@@ -2325,8 +2328,9 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
     has_keeper_quality = any(pr.get("keeper_quality") is not None for pr in rankings)
     lines.append("**Power Rankings:**")
     if has_keeper_quality:
-        lines.append("| Rank | Manager | Team | Record | Title Odds | Trend | Keeper Quality | Top 5 Keepers | Expected Record | Career Record | Career Win % | Championships |")
-        lines.append("|------|---------|------|--------|------------|-------|----------------|---------------|-----------------|---------------|--------------|---------------|")
+        lines.append("Keeper Quality (FPPG) = the expected level of each team's likely keepers: the sum over the roster of keep chance (5 keepers) x the player's level in FPPG, divided by 5. It breaks ties only. Top 5 Keepers = his five likeliest keepers.")
+        lines.append("| Rank | Manager | Team | Record | Title Odds | Trend | Keeper Quality (FPPG) | Top 5 Keepers | Expected Record | Career Record | Career Win % | Championships |")
+        lines.append("|------|---------|------|--------|------------|-------|-----------------------|---------------|-----------------|---------------|--------------|---------------|")
         for pr in rankings:
             kq = pr.get("keeper_quality")
             kq_str = f"{kq:.1f}" if kq is not None else "-"
@@ -2612,11 +2616,119 @@ def format_section_8_stats_corner(data: dict, lookups: dict) -> str:
     
     # Bench Report -- REMOVED (rendered by Stats Corner viz)
     # Record Book -- REMOVED (rendered by Stats Corner viz)
-    # Keeper Watch -- REMOVED (rendered by Stats Corner viz)
+    # Keeper Watch: the panel is rendered by Stats Corner viz; the drafter gets
+    # the summary's facts (keepability v3, HANDOFF_KEEPABILITY_C_WIRE)
+    lines.extend(format_keeper_watch_facts(data.get("keeper_watch")))
     # Draft Value Tracker -- REMOVED (rendered by Stats Corner viz)
 
 
     return "\n".join(lines)
+
+
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def _keep_text(item: dict) -> str:
+    """'42% keep chance, 4th on Benton's roster' (keepability v3, K = 5)."""
+    from modules.keepability_v3 import pct
+    txt = f"{pct(item['keep_k5'])} keep chance"
+    if item.get("keep_rank") and item.get("keep_manager"):
+        txt += f", {_ordinal(int(item['keep_rank']))} on {item['keep_manager']}'s roster"
+    return txt
+
+
+def format_keeper_watch_facts(kw: Optional[dict]) -> list:
+    """The keeper watch's summary facts for the drafter (keepability v3).
+    The panel itself is rendered from the stats report by the HTML generator;
+    the drafter writes one or two paragraphs AROUND these numbers and never
+    chooses them (claim check: every number must be in this report)."""
+    from modules.keepability_v3 import pct, line_for, TOP_SHOWN, LINE_UNDECIDED
+    if not kw or not kw.get("players") or any(p.get("keep_k5") is None for p in kw["players"]):
+        return []
+    sm = kw.get("summary") or {}
+    sw = kw.get("switch_weeks") or {}
+    by: dict = {}
+    for p in kw["players"]:
+        by.setdefault(p["manager"], []).append(p)
+    cup_open = kw.get("line_k") is None
+    point_text = {"week2": "week 2", "mid": "mid-season", "end": "season's end"}
+    L = ["**KEEPER WATCH -- SUMMARY FACTS** (the panel with each team's top "
+         f"{TOP_SHOWN} is rendered from the data by the HTML generator: do NOT reproduce it)",
+         ""]
+    if cup_open:
+        L.append(f"Next offseason ({kw['decision']}): each manager keeps 5, and this season's Cup "
+                 "winner keeps 6. The Cup is undecided, so the line is drawn after each team's 5th "
+                 "and the 6th is marked \"6 if he wins the Cup\".")
+    else:
+        L.append(f"Next offseason ({kw['decision']}): {kw.get('cup_winner')} won the Cup and keeps 6; "
+                 "the others keep 5. Each team's line is drawn at its own count.")
+    L.append(f"Chances: from a model fitted on every keeper decision this league has made, as of "
+             f"{point_text.get(kw['as_of_point'], kw['as_of_point'])} (it switches to the mid-season "
+             f"fit at week {sw.get('to_mid')} and the season's-end fit at week {sw.get('to_end')}); "
+             f"games through {kw['as_of']}.")
+    L.append("")
+    L.append("| Manager | # | Player | Kept, 5 keepers | 6 keepers | Kept this season |")
+    L.append("|---------|---|--------|-----------------|-----------|------------------|")
+    for m in sorted(by):
+        for p in sorted(by[m], key=lambda p: p["rank"])[:TOP_SHOWN]:
+            L.append(f"| {m} | {p['rank']} | {p['player_name']} | {pct(p['keep_k5'])} | "
+                     f"{pct(p['keep_k6'])} | {'yes' if p.get('kept_this_season') else ''} |")
+    L.append("")
+    since = sm.get("compared_with_week")
+    if sm.get("first_time"):
+        L.append("Crossed the line: none -- this is the first published keeper watch of the season.")
+        L.append("Risers and fallers: none yet -- nothing published to compare against.")
+    else:
+        if sm.get("crossed"):
+            parts = []
+            for c in sm["crossed"]:
+                if c["manager"] is None:
+                    parts.append(f"{c['player']} out (no longer rostered; was {_ordinal(c['rank_before'])} "
+                                 f"on {c['manager_before']}'s at {pct(c['keep_k5_before'])})")
+                else:
+                    was = ("not on a roster" if c["rank_before"] is None else
+                           f"{_ordinal(c['rank_before'])} at {pct(c['keep_k5_before'])}")
+                    moved = (f", from {c['manager_before']}" if c.get("manager_before")
+                             and c["manager_before"] != c["manager"] else "")
+                    parts.append(f"{c['player']} {c['direction']} ({c['manager']}: now "
+                                 f"{_ordinal(c['rank'])} at {pct(c['keep_k5'])}, was {was}{moved})")
+            L.append(f"Crossed the line since week {since}: " + "; ".join(parts) + ".")
+        else:
+            L.append(f"Crossed the line since week {since}: nobody.")
+        for key, word in (("risers", "Biggest risers"), ("fallers", "Biggest fallers")):
+            rows = sm.get(key) or []
+            if rows:
+                L.append(f"{word} since week {since} (keep chance with 5 keepers): " + "; ".join(
+                    f"{r['player']} ({r['manager']}) {pct(r['keep_k5_before'])} to {pct(r['keep_k5'])}"
+                    for r in rows) + ".")
+            else:
+                L.append(f"{word} since week {since}: none of at least 1 point.")
+    crowded = sm.get("crowded") or []
+    if crowded:
+        def gap(c):
+            return int(pct(c["inside_k5"])[:-1]) - int(pct(c["outside_k5"])[:-1])
+        c0 = crowded[0]
+        L.append(f"Most crowded line (smallest gap between the last player inside the line and the "
+                 f"first outside, with 5 keepers): {c0['manager']} -- {c0['inside']} "
+                 f"{pct(c0['inside_k5'])} vs {c0['outside']} {pct(c0['outside_k5'])}, a "
+                 f"{gap(c0)}-point gap. The others: " + "; ".join(
+                     f"{c['manager']} {c['inside']} {pct(c['inside_k5'])} vs {c['outside']} "
+                     f"{pct(c['outside_k5'])} ({gap(c)} points)" for c in crowded[1:]) + ".")
+    kb = sm.get("keepers_below") or []
+    if kb:
+        L.append("This season's keepers below their team's line today: " + "; ".join(
+            f"{k['player']} ({k['manager']}, {_ordinal(k['rank'])}, {pct(k['keep_k5'])})" for k in kb) + ".")
+    else:
+        L.append("This season's keepers below their team's line today: none.")
+    from modules.keepability_v3 import early_note
+    en = early_note(sm)
+    if en:
+        L.append(f"Early-season note: the panel says it this week (about one in {en[0]} of next year's "
+                 f"keepers is not on a roster yet at this point, so each team's chances add up to about "
+                 f"{en[1]:.1f} of its 5). Do not repeat it.")
+    L.append("")
+    return L
 
 
 def format_section_9_around_nba(data: dict, lookups: dict, injury_timelines: Optional[dict] = None, trades: Optional[list] = None, trades_context: Optional[dict] = None) -> str:
@@ -2639,10 +2751,10 @@ def format_section_9_around_nba(data: dict, lookups: dict, injury_timelines: Opt
             sends_a_parts = []
             for item in trade["sends_a"]:
                 if item["is_player"]:
-                    if item.get("keeper_tier"):
+                    if item.get("keep_k5") is not None:
                         sends_a_parts.append(
                             f"{item['item']} ({item['proj_fppg']:.1f} proj FPPG, "
-                            f"{item['keepability_score']:.1f} keep score, {item['keeper_tier']})"
+                            f"{_keep_text(item)})"
                         )
                     else:
                         sends_a_parts.append(f"{item['item']} ({item['proj_fppg']:.1f} proj FPPG)")
@@ -2654,10 +2766,10 @@ def format_section_9_around_nba(data: dict, lookups: dict, injury_timelines: Opt
             sends_b_parts = []
             for item in trade["sends_b"]:
                 if item["is_player"]:
-                    if item.get("keeper_tier"):
+                    if item.get("keep_k5") is not None:
                         sends_b_parts.append(
                             f"{item['item']} ({item['proj_fppg']:.1f} proj FPPG, "
-                            f"{item['keepability_score']:.1f} keep score, {item['keeper_tier']})"
+                            f"{_keep_text(item)})"
                         )
                     else:
                         sends_b_parts.append(f"{item['item']} ({item['proj_fppg']:.1f} proj FPPG)")
@@ -2833,6 +2945,15 @@ def format_section_10_rumor_mill(data: dict, lookups: dict, trades_context: Opti
             receives = " + ".join(receives_clean) if receives_clean else "?"
             lines.append(f"{i}. {t['manager_a']} sends {gives} <-> {t['manager_b']} sends {receives}")
             lines.append(f"   - Type: {t.get('trade_type', 'swap')}")
+            vals = t.get("values") or {}
+            if vals:
+                lines.append("   - Values (projected FPPG, the simulator's number; keep chance beside it, "
+                             "not part of the value): " + "; ".join(
+                                 f"{n} {v['proj_fppg']:.1f} ("
+                                 + (_keep_text({"keep_k5": v["keep_k5"], "keep_rank": v.get("keep_rank"),
+                                                "keep_manager": v.get("manager")})
+                                    if v.get("keep_k5") is not None else "no keep chance")
+                                 + ")" for n, v in vals.items()))
             lines.append(f"   - Rationale: \"{t.get('rationale', '')}\"")
             lines.append(f"   - Fit score: {t.get('fit_score', 0):.2f}")
         lines.append("")

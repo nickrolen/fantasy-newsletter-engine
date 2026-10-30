@@ -14,7 +14,7 @@ Data sources:
   - all_drafts.json (draft history)
   - all_trades.json + TRADES.json (trade history)
   - DRAFT_PICK_VALUES.json (expected pick value for draft ROI)
-  - keeper_watch data from stats report (tier, keepability score)
+  - keeper_watch data from stats report (keep chance and rank on his team, keepability v3)
 
 Output:
   A list of player card dicts, one per keeper watch player, ready to be
@@ -320,6 +320,36 @@ def _to_season_key(season_year: str) -> str:
 # CORE BUILDER
 # =============================================================================
 
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def _keep_fields(kw: dict) -> dict:
+    """The card's keepability (v3): keep chance at 5 keepers and his rank on
+    his team -- "41% to be kept -- 4th on Garrett's roster" -- with the 6-keeper
+    chance and what stands behind it. No tiers. Empty for a pre-v3 report."""
+    from .keepability_v3 import pct
+    if kw.get("keep_k5") is None:
+        return {}
+    rank, mgr = kw.get("rank"), kw.get("manager", "")
+    text = f"{pct(kw['keep_k5'])} to be kept"
+    if rank:
+        text += f" \u2014 {_ordinal(int(rank))} on {mgr}'s roster"
+    return {
+        "keep_k5": kw["keep_k5"], "keep_k6": kw.get("keep_k6"),
+        "keep_k5_pct": pct(kw["keep_k5"]), "keep_k6_pct": pct(kw.get("keep_k6")),
+        "keep_rank": rank, "keep_text": text,
+        "keep_inputs": {
+            "level": kw.get("level"), "level_prior": kw.get("level_prior"),
+            "level_prior_kind": kw.get("level_prior_kind"),
+            "prior_seasons": kw.get("prior_seasons") or [],
+            "kept_this_season": bool(kw.get("kept_this_season")),
+            "draft_round": kw.get("draft_round"), "undrafted": bool(kw.get("undrafted")),
+            "availability": kw.get("availability"), "age_source": kw.get("age_source"),
+        },
+    }
+
+
 def build_player_cards(
     keeper_watch_players: list[dict],
     data_dir: Path,
@@ -334,7 +364,7 @@ def build_player_cards(
     Args:
         keeper_watch_players: List of player dicts from stats_report["keeper_watch"]["players"].
             Each must have: player_name, manager, age, pos_group, season_gp, season_fppg,
-            season_total_fp, proj_fppg, keeper_tier, keepability_score, out_for_season, injured.
+            season_total_fp, proj_fppg, keep_k5, keep_k6, rank, out_for_season, injured.
         data_dir: Path to the data/ directory.
         config_dir: Path to the config/ directory.
         historical_dir: Path to data/historical/ directory.
@@ -615,9 +645,7 @@ def _build_single_card(
         "pos_group": kw_data.get("pos_group", ""),
         "age": kw_data.get("age", plist.get("age")),
         "manager": kw_data.get("manager", ""),
-        "keeper_tier": kw_data.get("keeper_tier", ""),
-        "keepability_score": round(kw_data.get("keepability_score", 0), 1),
-        "keepability_components": kw_data.get("components", {}),  # V2 component breakdown
+        **_keep_fields(kw_data),     # keep chance (K = 5) and rank on his team, v3
         "out_for_season": kw_data.get("out_for_season", False),
         "injured": kw_data.get("injured", False),
     }

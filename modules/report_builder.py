@@ -48,7 +48,6 @@ from .luck_index import build_luck_index, build_historical_luck
 from .waiver_roi import build_waiver_roi
 from .schedule_strength import build_schedule_strength
 from .consistency_score import build_consistency_scores
-from .keepability_v2 import build_keepability_report
 
 
 # =============================================================================
@@ -591,6 +590,29 @@ def career_honors(leaguehistory) -> dict:
     return honors
 
 
+def keeper_quality_from(keeper_watch: Optional[dict], managers) -> tuple:
+    """({manager: keeper quality in FPPG}, {manager: his five likeliest
+    keepers}). Keeper quality (keepability v3; Nick, 10-29, design section 6
+    option b) is the expected level of a team's keepers: the sum over his
+    roster of keep chance at K = 5 times the player's v3 level (FPPG),
+    divided by 5. Empty without a keeper watch; RAISES on a table without v3
+    keep chances or levels."""
+    if not keeper_watch:
+        return {}, {}
+    from .keepability_v3 import LINE_UNDECIDED
+    players = keeper_watch.get("players", [])
+    missing = [p.get("player_name") for p in players
+               if p.get("keep_k5") is None or p.get("level") is None]
+    if missing:
+        raise ValueError(f"keeper_watch has no v3 keep chance or level for {missing[:5]}")
+    quality, top = {}, {}
+    for manager in managers:
+        mine = sorted((p for p in players if p.get("manager") == manager), key=lambda p: p["rank"])
+        quality[manager] = round(sum(p["keep_k5"] * p["level"] for p in mine) / LINE_UNDECIDED, 1)
+        top[manager] = [p["player_name"] for p in mine[:LINE_UNDECIDED]]
+    return quality, top
+
+
 def build_power_rankings(
     title_odds: TitleOddsResult,
     records: dict,
@@ -599,9 +621,9 @@ def build_power_rankings(
 ) -> list[dict]:
     """Build power rankings section.
     
-    When keeper_watch is provided (V2 keepability data), a keeper_quality
-    score is computed for each team (average keepability of the players
-    that manager would actually keep) and used as the LAST sort term,
+    When keeper_watch is provided (keepability v3), a keeper_quality is
+    computed for each team -- the expected FPPG level of his likely keepers:
+    sum of keep chance (K = 5) x v3 level, over 5 -- and used as the LAST sort term,
     after title odds and expected wins. It breaks ties; it does not
     override the projected finish.
     """
@@ -621,31 +643,13 @@ def build_power_rankings(
     championships = {m: h["titles"] for m, h in honors.items()
                      if h.get("titles") is not None}
     
-    # Keeper quality: the average keepability of the players a manager would
-    # actually keep. That count is per manager, not a literal 5 -- it is 6 for
-    # everyone in 2026-27, and from 2027-28 the Cup winner keeps 6 while the
-    # other three keep 5. A hardcoded 5 both averaged the wrong number of
-    # players and hid a manager's last keeper from the table, while feeding
-    # 20% of the power-rankings sort key.
-    keeper_quality = {}
-    top_5_keepers = {}   # key name kept for the report schema; count varies
-    keeper_counts = keepers_for()
-    if keeper_watch:
-        for manager in MANAGERS:
-            mgr_players = [
-                p for p in keeper_watch.get("players", [])
-                if p.get("manager") == manager
-            ]
-            mgr_players.sort(key=lambda x: -x.get("keepability_score", 0))
-            keeps = mgr_players[:keeper_counts.get(manager, len(mgr_players))]
-            
-            if keeps:
-                avg_score = sum(p.get("keepability_score", 0) for p in keeps) / len(keeps)
-                keeper_quality[manager] = round(avg_score, 1)
-                top_5_keepers[manager] = [p["player_name"] for p in keeps]
-            else:
-                keeper_quality[manager] = 0.0
-                top_5_keepers[manager] = []
+    # Keeper quality (keepability v3; Nick, 10-29, design section 6 option b):
+    # the expected level of each team's keepers -- the sum over his roster of
+    # keep chance at K = 5 times the player's v3 level (FPPG), divided by 5.
+    # A team whose likely keepers score more ranks higher. In FPPG. It breaks
+    # ties only (sort_key below). top_5_keepers: his five likeliest keepers
+    # (the line at 5 while the Cup is undecided). The v2.2 average retired.
+    keeper_quality, top_5_keepers = keeper_quality_from(keeper_watch, MANAGERS)
     
     # Sort by title odds (optionally blended with keeper quality)
     # If keeper data available: 80% title odds + 20% keeper quality (normalized)
@@ -2940,228 +2944,23 @@ def _build_player_record(
 
 
 def build_keeper_watch(data: FantasyData, week: int) -> dict:
-    """
-    Build keeper watch table using keepability v2 multi-year scoring.
+    """The keeper watch: every rostered player's chance his manager keeps him
+    next offseason (keepability v3, KEEPABILITY_V3_DESIGN.md), at K = 5 and
+    K = 6, his rank on his team, the as-of model used and the level, prior
+    and age behind it -- plus the summary's facts. Stamped with the report
+    week (advice.protected_keepers raises on a stale stamp).
 
-    V2 scores players on a 0-100 scale using:
-      - Weighted 3-Year FPPG (50%)
-      - Peak FPPG career ceiling (20%)
-      - 3-Year Availability (15%)
-      - Consistency / low volatility (15%)
-      - Age curve multiplier (0.95-1.05)
-      - Positional scarcity multiplier (1.00-1.03)
-
-    Requires HISTORICAL_PLAYERLOG.json in data.historical_playerlog.
-    Falls back to v1 (single-season) if historical data unavailable.
-
-    Returns:
-        {
-            "players": [
-                {
-                    "player_name": str,
-                    "manager": str,
-                    "keeper_tier": str,
-                    "keepability_score": float (0-100),
-                    "components": {...},
-                    "age": int,
-                    "pos_group": str,
-                    "season_gp": int,
-                    "season_fppg": float,
-                    "proj_fppg": float,
-                    ...
-                },
-                ...
-            ],
-        }
-    """
-    if not data.historical_playerlog:
-        print("  WARNING: HISTORICAL_PLAYERLOG not loaded, using v1 keepability")
-        return _build_keeper_watch_v1(data, week)
-
-    print(f"  Building keepability v2 scores for {len(data.get_current_rosters())} teams...")
-    report = build_keepability_report(
-        data=data,
-        historical_playerlog=data.historical_playerlog,
-        week=week,
-        current_season=CURRENT_SEASON,
-    )
-    print(f"  \u2713 Keepability v2 complete ({len(report['players'])} players scored)")
-    return report
-
-
-def _build_keeper_watch_v1(data: FantasyData, week: int) -> dict:
-    """
-    LEGACY FALLBACK: Single-season keepability scoring.
-
-    Only used when HISTORICAL_PLAYERLOG.json is unavailable.
-    Uses: blended_fppg * sqrt(availability) * age_factor
-
-    Tiers (in evaluation order):
-        Stash       -- OFS player with 0 GP but high projected value
-        Lock        -- score >= 40
-        Sell High   -- age >= 33, score >= 28: producing but aging out
-        Strong Hold -- score >= 30
-        Sell High   -- age >= 30, score 20-30: veteran with trade window
-        On the Bubble -- score >= 24: borderline keeper
-        Dynasty Stash -- age <= 23, proj FPPG >= 28
-        Drop        -- below all thresholds
-    """
-    import pandas as pd
-
-    # V1 threshold constants (kept inline since they're only used here)
-    V1_LOCK = 40
-    V1_STRONG = 35
-    V1_SELL_HIGH_AGE = 33
-    V1_SELL_HIGH_VET_AGE = 30
-    V1_SELL_HIGH_MIN = 28
-    V1_SELL_HIGH_VET_MIN = 25
-    V1_BUBBLE = 32
-    V1_STASH_PROJ_MIN = 35
-    V1_DYNASTY_MAX_AGE = 23
-    V1_DYNASTY_PROJ_MIN = 28
-
-    def v1_score(season_fppg, proj_fppg, age, season_gp, week):
-        """V1 keepability: blended_fppg * sqrt(availability) * age_factor."""
-        if not age:
-            age = 27
-        proj = proj_fppg or 0.0
-        actual = season_fppg or 0.0
-        if season_gp >= 10:
-            blended = 0.7 * actual + 0.3 * proj
-        elif season_gp >= 5:
-            w = season_gp / 10.0
-            blended = w * actual + (1 - w) * proj
-        else:
-            blended = proj
-
-        expected_games = int(week * 3.3)
-        if expected_games > 0 and season_gp > 0:
-            availability = min(1.0, season_gp / expected_games)
-            avail_factor = math.sqrt(availability)
-        else:
-            avail_factor = 1.0
-
-        if age <= 23:
-            age_factor = 1.15
-        elif age <= 29:
-            age_factor = 1.0
-        elif age <= 32:
-            age_factor = 0.95
-        else:
-            age_factor = 0.85
-
-        return blended * avail_factor * age_factor
-
-    def v1_tier(season_fppg, proj_fppg, age, season_gp, week, is_ofs):
-        """V1 tier assignment."""
-        if not age:
-            age = 27
-        if is_ofs and season_gp == 0:
-            return "Stash" if (proj_fppg or 0) >= V1_STASH_PROJ_MIN else "On the Bubble"
-
-        score = v1_score(season_fppg, proj_fppg, age, season_gp, week)
-        if score >= V1_LOCK:
-            return "Lock"
-        if age >= V1_SELL_HIGH_AGE and score >= V1_SELL_HIGH_MIN:
-            return "Sell High"
-        if score >= V1_STRONG:
-            return "Strong Hold"
-        if age >= V1_SELL_HIGH_VET_AGE and score >= V1_SELL_HIGH_VET_MIN:
-            return "Sell High"
-        if score >= V1_BUBBLE:
-            return "On the Bubble"
-        if age <= V1_DYNASTY_MAX_AGE and (proj_fppg or 0) >= V1_DYNASTY_PROJ_MIN:
-            return "Dynasty Stash"
-        return "Drop"
-
-    rosters = data.get_current_rosters()
-    playerlist = data.playerlist
-
-    pl_lookup = PlayerIndex()
-    for _, row in playerlist.iterrows():
-        pname = row["player_name"]
-        pl_lookup[pname] = {
-            "age": int(row["age"]) if pd.notna(row.get("age")) else None,
-            "proj_fppg": round(float(row["projectedFPPG"]), 2) if pd.notna(row.get("projectedFPPG")) else None,
-            "positions": row.get("player_position(s)", ""),
-        }
-
-    plog = data.playerlog
-    # Player-level stats include BOTH starter and bench slot games.
-    played_mask = (
-        (plog["week"] <= week)
-        & (plog["fantasy_points"].notna())
-        & (plog["fantasy_points"] != 0.0)
-        & (plog["nba_opponent"].notna())
-    )
-    played = plog[played_mask]
-
-    player_season = PlayerIndex()
-    for pname, grp in played.groupby("player_name"):
-        gp = len(grp)
-        total_fp = grp["fantasy_points"].sum()
-        fppg = total_fp / gp if gp > 0 else 0.0
-        player_season[pname] = {
-            "gp": gp,
-            "total_fp": round(total_fp, 1),
-            "fppg": round(fppg, 2),
-        }
-
-    ofs_players = set()
-    injured_players = set()
-    for inj in data.injury_overrides.get("players", []):
-        if inj.get("notes", "").lower().startswith("out for season"):
-            ofs_players.add(inj["player_name"])
-        out_weeks = inj.get("out_weeks", [])
-        if week in out_weeks or (out_weeks and max(out_weeks) >= week):
-            injured_players.add(inj["player_name"])
-
-    players = []
-    for mgr, roster in rosters.items():
-        for pname in roster:
-            pl_info = pl_lookup.get(pname, {})
-            season = player_season.get(pname, {})
-            age = pl_info.get("age")
-            proj_fppg = pl_info.get("proj_fppg")
-            positions = pl_info.get("positions", "")
-            season_fppg = season.get("fppg", 0.0)
-            season_gp = season.get("gp", 0)
-            is_ofs = pname in ofs_players
-            is_injured = pname in injured_players
-
-            pos_group = classify_position_group(positions)
-
-            tier = v1_tier(season_fppg, proj_fppg, age, season_gp, week, is_ofs)
-
-            # Rescue injured players from Drop
-            if tier == "Drop" and is_injured and not is_ofs:
-                if age and age >= V1_SELL_HIGH_VET_AGE:
-                    tier = "Sell High"
-                else:
-                    tier = "On the Bubble"
-
-            if is_ofs and season_gp == 0:
-                keep_score = (proj_fppg or 0.0)
-            else:
-                keep_score = v1_score(season_fppg, proj_fppg, age, season_gp, week)
-
-            players.append({
-                "player_name": pname,
-                "manager": mgr,
-                "age": age,
-                "pos_group": pos_group,
-                "season_gp": season_gp,
-                "season_fppg": season_fppg,
-                "season_total_fp": season.get("total_fp", 0.0),
-                "proj_fppg": proj_fppg or 0.0,
-                "keeper_tier": tier,
-                "keepability_score": round(keep_score, 1),
-                "out_for_season": is_ofs,
-                "injured": is_injured,
-            })
-
-    players.sort(key=lambda x: -x["keepability_score"])
-    return {"players": players}
+    The one source every consumer reads. There is no fallback: a missing
+    history or parameters file RAISES; a newsletter does not quietly fall
+    back to an older formula (v2.2 and the v1 single-season score retired
+    10-29, HANDOFF_KEEPABILITY_C_WIRE)."""
+    from . import keepability_v3
+    print(f"  Building keepability v3 for {len(data.get_current_rosters())} teams...")
+    kw = keepability_v3.keeper_watch(data, week, root=getattr(data, "base_path", None)
+                                     or keepability_v3.ROOT)
+    print(f"  \u2713 Keepability v3: {len(kw['players'])} players, model '{kw['as_of_point']}' "
+          f"(log through {kw['as_of']})")
+    return kw
 
 
 # =============================================================================

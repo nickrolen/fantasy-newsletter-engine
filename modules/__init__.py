@@ -171,13 +171,9 @@ from .lineup_optimizer import (
     SLOT_POSITIONS,
 )
 
-# Keepability V2 (multi-year keeper scoring)
-from .keepability_v2 import (
-    compute_keepability_v2,
-    build_keepability_report,
-    assign_keeper_tier,
-    assign_keeper_tiers,
-)
+# Keepability: v3 (modules/keepability_v3, read through report_builder's
+# build_keeper_watch). keepability_v2 is NOT imported here: it retired from the
+# weekly build 10-29 and stays only for step A's backtest (scripts/keeper_backtest.py).
 
 # Playoff simulator (six-week best-of-3 bracket Monte Carlo)
 from .simulator_playoff_odds import (
@@ -346,11 +342,6 @@ __all__ = [
     "LINEUP_STARTER_SLOTS",
     "NUM_STARTERS",
     "SLOT_POSITIONS",
-    # keepability_v2
-    "compute_keepability_v2",
-    "build_keepability_report",
-    "assign_keeper_tier",
-    "assign_keeper_tiers",
     # simulator_playoff_odds
     "run_playoff_odds_simulation",
     "bracket_rounds",

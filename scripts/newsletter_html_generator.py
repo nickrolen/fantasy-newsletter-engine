@@ -692,6 +692,43 @@ def parse_section(text: str, section_name: str) -> str:
     return '\n'.join(html_parts)
 
 
+KEEPER_WATCH_HEADER = re.compile(r"^\*\*\s*Keeper Watch\s*\*\*:?$", re.I)
+BOLD_HEADER = re.compile(r"^\*\*[^*]+\*\*:?$")
+
+
+def keeper_watch_summary_html(section_md: str) -> str:
+    """The drafter's keeper-watch summary: the paragraphs under a
+    **Keeper Watch** line in Stats Corner, up to the next bold header line,
+    table or rule. parse_section drops that block from the section body (the
+    panel is rendered from the stats report), so it is lifted out here and
+    shown at the top of the panel. "" when the draft has none."""
+    out, grab, para = [], False, []
+
+    def flush():
+        if para:
+            out.append(f"<p>{strip_markdown_formatting(' '.join(para))}</p>")
+            para.clear()
+
+    for raw in section_md.split("\n"):
+        line = raw.strip()
+        if KEEPER_WATCH_HEADER.match(line):
+            flush()
+            grab = True
+            continue
+        if not grab:
+            continue
+        if BOLD_HEADER.match(line) or line.startswith("|") or line.startswith("---"):
+            flush()
+            grab = False
+            continue
+        if not line:
+            flush()
+            continue
+        para.append(line)
+    flush()
+    return "\n".join(out)
+
+
 def parse_report_cards(text: str) -> str:
     """Parse the Report Cards section specially to handle grades correctly."""
     html_parts = []
@@ -1001,7 +1038,9 @@ def generate_html(
             viz_top_html = ""
             viz_bottom_html = ""
             if stats_report:
-                viz_top_html = render_stats_corner_visualizations(stats_report, position="top", player_cards=_player_cards) or ""
+                viz_top_html = render_stats_corner_visualizations(
+                    stats_report, position="top", player_cards=_player_cards,
+                    keeper_summary_html=keeper_watch_summary_html(content)) or ""
                 viz_bottom_html = render_stats_corner_visualizations(stats_report, position="bottom") or ""
             
             # Add sub-navigation for Stats Corner sections
@@ -2209,6 +2248,8 @@ def main():
     status = table_check(out)
     log_published_lines(getattr(args, "stats_report", None), sendable=status == 0,
                         preview=args.no_log)
+    publish_keepability_snapshot(getattr(args, "stats_report", None), sendable=status == 0,
+                                 preview=args.no_log)
     return status
 
 
@@ -2254,6 +2295,44 @@ def log_published_lines(stats_report_path, *, sendable: bool, preview: bool = Fa
     print(f"calibration log: {wrote['added']} line(s) logged to {wrote['path']}"
           + (f" ({wrote['skipped']} already there)" if wrote["skipped"] else ""))
     return {"logged": wrote["added"], "skipped": wrote["skipped"], "why_not": None}
+
+
+def publish_keepability_snapshot(stats_report_path, *, sendable: bool, preview: bool = False) -> dict:
+    """Keepability v3's weekly snapshot, data/keepability/<season>_weekNN.json
+    -- AT PUBLISH, under the same guards as the calibration log: not for a
+    preview (--no-log), a page the table check says not to send, or a report
+    Step 6 did not mark publishable. Written once: a published week's file is
+    never rewritten (keepability_v3.publish_snapshot). Next week's summary
+    reads it for who crossed the line, and next offseason the real keeper
+    decisions are scored against it.
+
+    Returns {"wrote": bool, "why_not": str|None, "path": str|None}."""
+    def no(why):
+        print(f"keepability snapshot: NOT written -- {why}")
+        return {"wrote": False, "why_not": why, "path": None}
+    if not stats_report_path:
+        return no("no --stats-report")
+    if preview:
+        return no("--no-log (a preview build)")
+    if not sendable:
+        return no("the table check says not to send this page; fix it and build again")
+    sr_path = Path(stats_report_path).resolve()
+    with open(sr_path, "r", encoding="utf-8") as f:
+        report = json.load(f)
+    meta = report.get("metadata") or {}
+    if meta.get("publishable") is not True:
+        mode = meta.get("run_mode") or "unmarked"
+        return no(f"the stats report is not publishable (Step 6 run mode: {mode})")
+    kw = report.get("keeper_watch") or {}
+    if not kw.get("players") or any(p.get("keep_k5") is None for p in kw["players"]):
+        return no("the stats report carries no keepability v3 table")
+    from modules import keepability_v3 as kv3
+    res = kv3.publish_snapshot(kw, sr_path.parent.parent)
+    if res["wrote"]:
+        print(f"keepability snapshot: written to {res['path']}")
+        return {"wrote": True, "why_not": None, "path": res["path"]}
+    print(f"keepability snapshot: NOT rewritten -- {res['why']} ({res['path']})")
+    return {"wrote": False, "why_not": res["why"], "path": res["path"]}
 
 
 def table_check(html_path: str) -> int:

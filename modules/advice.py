@@ -144,8 +144,8 @@ class Trade:
     acceptability: float            # min(gain_a, gain_b): ORDER only, not fairness
     window: str = "regular_season"
     cup: Optional[dict] = None      # {"gain_a","gain_b","differential"} when live
-    keepability_delta_a: Optional[float] = None
-    keepability_delta_b: Optional[float] = None
+    keepability_delta_a: Optional[float] = None   # keep chance (K = 5), players moving,
+    keepability_delta_b: Optional[float] = None   # in percentage points (KeepDeltas)
     keeper_flags: list = field(default_factory=list)
     involves_commissioner: bool = False
     first_shown_week: Optional[int] = None
@@ -169,11 +169,18 @@ class Advice:
 
 def protected_keepers(keeper_watch: Optional[dict], week: int, rosters: dict,
                       keeper_counts: dict) -> tuple[Optional[dict], Optional[int]]:
-    """{manager: [names]} = each manager's top-K by THIS run's keepability.
+    """{manager: [names]} = each manager's top K by THIS run's keep
+    probability (keepability v3: K = 5 keep chance, best first -- the same
+    order as K = 6, since a keep probability rises with a player's score on
+    a fixed roster). K is next season's count (protected_keeper_counts: 6 for
+    everyone while the Cup is undecided). Season moves only; a one-week
+    stream drops from the bottom of the roster by projection, keepers
+    included (stream_drop_pool).
 
     Raises if keeper_watch is stamped for a different week -- a stale
-    keepability table is the rot this replaces. Returns (None, None) when
-    there is no keepability at all; callers then give no drop advice.
+    keepability table is the rot this replaces -- or carries no v3 keep
+    probabilities. Returns (None, None) when there is no keepability at all;
+    callers then give no drop advice.
     """
     if not keeper_watch or not keeper_watch.get("players"):
         return None, None
@@ -181,24 +188,64 @@ def protected_keepers(keeper_watch: Optional[dict], week: int, rosters: dict,
     if stamped != week:
         raise ValueError(f"keeper_watch is for week {stamped}, report is week {week}: "
                          "protected keepers would come from a stale table")
+    no_prob = [p.get("player_name") for p in keeper_watch["players"] if p.get("keep_k5") is None]
+    if no_prob:
+        raise ValueError(f"keeper_watch has no keep probability for {no_prob[:5]}: "
+                         "not a keepability v3 table")
     by_mgr: dict = {m: [] for m in rosters}
     for p in keeper_watch["players"]:
         if p.get("manager") in by_mgr:
-            by_mgr[p["manager"]].append((p.get("keepability_score") or 0.0, p["player_name"]))
+            by_mgr[p["manager"]].append((-float(p["keep_k5"]), p["player_name"]))
     out = {}
     for m, scored in by_mgr.items():
         k = int(keeper_counts.get(m, 0))
         on_roster = PlayerIndex({n: n for n in rosters[m]})
-        keep = [on_roster[n] for _s, n in sorted(scored, reverse=True) if n in on_roster][:k]
+        keep = [on_roster[n] for _s, n in sorted(scored) if n in on_roster][:k]
         out[m] = keep
     return out, week
 
 
-def keepability_index(keeper_watch: Optional[dict]) -> PlayerIndex:
-    idx = PlayerIndex()
-    for p in (keeper_watch or {}).get("players", []):
-        idx[p["player_name"]] = float(p.get("keepability_score") or 0.0)
-    return idx
+class KeepDeltas:
+    """C3's keepability deltas (keepability v3, at K = 5): for each side, the
+    keep chance of the players he receives, on his roster AFTER the trade,
+    minus the keep chance of the players he sends, on his roster before it --
+    in percentage points. A keep probability depends on the roster only
+    through its players' scores (keepability_v3.scores), so the post-trade
+    roster is valued exactly, not by carrying a player's old percentage over.
+
+    Shown beside the points, never added to them."""
+
+    K = 5
+
+    def __init__(self, keeper_watch: Optional[dict]):
+        players = (keeper_watch or {}).get("players") or []
+        self.score = PlayerIndex({p["player_name"]: float(p["score"]) for p in players
+                                  if p.get("score") is not None})
+        self.missing = {int(k): float(v) for k, v in
+                        ((keeper_watch or {}).get("missing_keepers") or {}).items()}
+
+    def __bool__(self) -> bool:
+        return bool(self.score) and bool(self.missing)
+
+    def _probs(self, manager: str, roster: Sequence[str]) -> dict:
+        from .keepability_v3 import probabilities_from_scores
+        gone = [p for p in roster if self.score.get(p) is None]
+        if gone:
+            raise KeyError(f"no keepability score for {gone} ({manager})")
+        return probabilities_from_scores({manager: [(p, self.score[p]) for p in roster]},
+                                         self.K, self.missing).get(manager, {})
+
+    def side(self, manager: str, roster: Sequence[str], gives: Sequence[str],
+             gets: Sequence[str], drop: Optional[str] = None) -> float:
+        out_set = set(gives) | ({drop} if drop else set())
+        after = [p for p in roster if p not in out_set] + list(gets)
+        before_p, after_p = self._probs(manager, list(roster)), self._probs(manager, after)
+        return round(100.0 * (sum(after_p[p] for p in gets) - sum(before_p[p] for p in gives)), 1)
+
+
+def keepability_index(keeper_watch: Optional[dict]) -> KeepDeltas:
+    """What find_trades reads for the keepability deltas."""
+    return KeepDeltas(keeper_watch)
 
 
 # =============================================================================
@@ -510,7 +557,7 @@ def _side(ctx, mgr, gives, gets, drop):
 
 
 def find_trades(short: mv.MVContext, full: mv.MVContext, protected: Optional[dict],
-                keep_idx: PlayerIndex, commissioner: Optional[str],
+                keep_idx: Optional["KeepDeltas"], commissioner: Optional[str],
                 cup_ctx: Optional[mv.MVContext] = None,
                 cup_live=lambda a, b: False,
                 refill: Optional[Refill] = None, il: Optional[dict] = None) -> tuple[list, dict]:
@@ -588,17 +635,22 @@ def find_trades(short: mv.MVContext, full: mv.MVContext, protected: Optional[dic
                             rb_ = res
             if not (clears(ra_, full) and clears(rb_, full)):
                 continue
-            ka = sum(keep_idx.get(p, 0.0) for p in b_sends) - sum(keep_idx.get(p, 0.0) for p in a_sends)
-            flags = [f"{m} gives up keeper-tier {p}" for m, sent in ((a, a_sends), (b, b_sends))
-                     for p in sent if p in prot[m]]
+            if keep_idx:
+                ka = keep_idx.side(a, full.rosters[a], a_sends, b_sends, a_drop)
+                kb = keep_idx.side(b, full.rosters[b], b_sends, a_sends, b_drop)
+            else:
+                ka = kb = None
+            flags = [f"{m} gives up {p}, one of his protected keepers (top "
+                     f"{len((protected or {}).get(m, []))} by keep chance)"
+                     for m, sent in ((a, a_sends), (b, b_sends)) for p in sent if p in prot[m]]
             candidates.append(Trade(
                 manager_a=a, manager_b=b, a_sends=a_sends, b_sends=b_sends,
                 a_drops=a_drop, b_drops=b_drop,
                 gain_a=ra_.points, se_a=ra_.se, gain_b=rb_.points, se_b=rb_.se,
                 differential=round(ra_.points - rb_.points, 1),
                 acceptability=min(ra_.points, rb_.points),
-                keepability_delta_a=round(ka, 1) if keep_idx else None,
-                keepability_delta_b=round(-ka, 1) if keep_idx else None,
+                keepability_delta_a=ka,
+                keepability_delta_b=kb,
                 keeper_flags=flags,
                 involves_commissioner=commissioner in (a, b)))
 

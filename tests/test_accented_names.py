@@ -151,11 +151,15 @@ CROSS_SOURCE_LOOKUPS = {
     "modules/keepability_v2.py":        ["player_info = PlayerIndex()"],
     "modules/schedule_strength.py":     ["info: dict[str, dict] = PlayerIndex()"],
     "modules/rumor_mill_analyzer.py":   ["ages = PlayerIndex()",
-                                         "keepability_lookup = PlayerIndex()"],
+                                         "keep_lookup = PlayerIndex()"],
+    # keepability v3 (step C): PLAYERLIST display fields, roster names to the
+    # model's candidates, and C3's scores by roster name
+    "modules/keepability_v3.py":        ["info = PlayerIndex()",
+                                         "idx = PlayerIndex({c.player: c"],
+    "modules/advice.py":                ["self.score = PlayerIndex("],
     "modules/season_performers.py":     ["proj_lookup = PlayerIndex("],
     "modules/report_builder.py":        ["proj_by_player = PlayerIndex()",
                                          "injury_lookup = PlayerIndex()",
-                                         "pl_lookup = PlayerIndex()",
                                          "player_season = PlayerIndex()"],
     "modules/fetch_injury_statuses.py": ["injury_statuses = PlayerIndex()"],
     "scripts/format_stats_report.py":   ["keeper_lookup = PlayerIndex()",

@@ -291,7 +291,7 @@ It is the gate. Do not generate a newsletter if it fails.
 | **no more than 25% of players gained games remaining** | a refresh moves a few up as injury outlooks improve (6 of 168 on 10-13); stats shifted against names move about half up. Individual gainers are listed, not failed. GP must also be 0-82 |
 | FPPG moves > 40% week over week | warned, not blocked -- projections do move |
 | fetched within 8 days (the stamp `fetch_playerlist` writes) | catches "I forgot to regenerate it". Without a valid stamp, a file identical to an earlier day's snapshot fails |
-| ages present | missing ones silently default to 27 in keepability |
+| ages present | PLAYERLIST ages are display-only now; keepability v3 takes ages from basketball-reference (`data/historical/BBREF_AGES.json`) and RAISES naming any player it has no age for |
 
 `--snapshot` saves the file as next week's baseline, which is what the
 week-over-week comparisons read. Save it only on a clean run.
@@ -795,6 +795,22 @@ So the last build of the page must use the stats report from the last full
 Step 6 run. The live line (`refresh_lines.py`, the midnight refresh) logs at
 refresh time instead: a refreshed line goes straight onto the page.
 
+**It also publishes the keeper watch's weekly snapshot** (keepability v3):
+each rostered player's keep chance at 5 and 6 keepers and his rank on his
+team, to `data\keepability\<season>_weekNN.json` -- a small tracked file.
+Same guards as the calibration log, and **written once**: a published week's
+file is never rewritten (a second build with different numbers is refused and
+says so). Next week's Step 6 reads the latest earlier file for who crossed the
+line, risers and fallers; next offseason the real keeper decisions are scored
+against what was published. Commit the file with the week's other outputs.
+
+**The keeper watch** (Stats Corner) is rendered from the stats report: each
+team's top 8 by keep chance, a line after the 5th, the 6th marked "6 if he
+wins the Cup" until `keeper_rules.cup_winners` records this season's Cup. The
+draft supplies only the one or two summary paragraphs under `**Keeper Watch**`
+(the last thing in Stats Corner), written around Step 6.5's KEEPER WATCH --
+SUMMARY FACTS; the page lifts them into the top of the panel.
+
 **Table check (exit code 1 = do not send).** The generator then reconciles every table on the page (`modules/published_tables.py`; standalone: `python scripts\check_published_tables.py output\WEEKN_NEWSLETTER.html`). Summary columns must count the cells beside them, history grids must match the stored finishes, FPPG must be Total / GP, probabilities must sum to 100%, H2H must be antisymmetric, games-grid days must add up to 10 seats, and a row shifted under the wrong header is caught. The page is still written so you can look at it. A table with no relations defined is listed as UNCHECKED -- a new table needs a check. On the six 2025-26 newsletters it finds the two mis-ranked seasons, three scope mixes, and WEEK18's Siakam row (his total printed as FPPG); none of those can ship again.
 
 ---
@@ -939,7 +955,7 @@ python scripts\format_stats_report.py --week N
 :: Step 7: Draft newsletter with Claude (open NEWSLETTER_PROMPTS.md, fill in placeholders, run 3 parts in new chat)
 :: Step 8: Verify draft with VERIFICATION_TEMPLATE.md
 
-:: Step 9: Generate HTML -- this publishes the week's betting lines to data\calibration\published_lines.json (--no-log for a preview)
+:: Step 9: Generate HTML -- this publishes the week's betting lines to data\calibration\published_lines.json and the keepability snapshot to data\keepability\ (--no-log for a preview)
 python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --potw assets\potw.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
 
 :: Step 10: Update config\LAST_WEEK_RECAP.md and config\RECENT_CONTENT.json

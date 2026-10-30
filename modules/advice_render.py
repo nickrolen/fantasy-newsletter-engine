@@ -105,8 +105,9 @@ def render_markdown(advice: Optional[dict], managers: list) -> str:
                 c = t["cup"]
                 out.append(f"   - Cup seeding: {L['a']} {_pts(c['gain_a'])}, {L['b']} {_pts(c['gain_b'])}.")
             if t.get("keepability_delta_a") is not None:
-                out.append(f"   - Keepability (separate, not added to points): "
-                           f"{L['a']} {t['keepability_delta_a']:+.1f}, {L['b']} {t['keepability_delta_b']:+.1f}.")
+                out.append(f"   - Keep chance of the players moving, at 5 keepers (separate, not added "
+                           f"to points): {L['a']} {t['keepability_delta_a']:+.0f}, "
+                           f"{L['b']} {t['keepability_delta_b']:+.0f} percentage points.")
             for f in t.get("keeper_flags", []):
                 out.append(f"   - FLAG: {f}.")
             if L["since"]:
@@ -178,9 +179,9 @@ def render_html(advice: Optional[dict]) -> str:
                 out.append(f'<tr><td>Cup seeding</td><td>{_pts(t["cup"]["gain_a"])}</td>'
                            f'<td>{_pts(t["cup"]["gain_b"])}</td></tr>')
             if t.get("keepability_delta_a") is not None:
-                out.append(f'<tr class="adv-dim"><td>Keepability</td>'
-                           f'<td>{t["keepability_delta_a"]:+.1f}</td>'
-                           f'<td>{t["keepability_delta_b"]:+.1f}</td></tr>')
+                out.append(f'<tr class="adv-dim"><td>Keep chance of the players moving, 5 keepers (percentage points)</td>'
+                           f'<td>{t["keepability_delta_a"]:+.0f}</td>'
+                           f'<td>{t["keepability_delta_b"]:+.0f}</td></tr>')
             out.append('</table>')
             out.append(f'<div class="adv-diff"><b>{_e(L["lead"])}</b> moves {L["diff"]:.0f} ahead '
                        f'of {_e(L["behind"])}. The other two are unchanged &mdash; both parties gain on them.</div>')

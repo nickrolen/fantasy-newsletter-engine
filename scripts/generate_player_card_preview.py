@@ -41,10 +41,6 @@ HISTORICAL_DIR = DATA_DIR / "historical"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 OUTPUT_FILE = OUTPUT_DIR / "player_card_preview.html"
 
-TIER_SORT = {
-    "Lock": 0, "Strong Hold": 1, "Stash": 2, "Sell High": 3,
-    "On the Bubble": 4, "Dynasty Stash": 5, "Drop": 6,
-}
 
 
 def main():
@@ -85,11 +81,8 @@ def main():
     print()
     print(f"Built {len(cards)} player cards")
 
-    # Sort cards: by tier, then by FPPG within tier
-    cards.sort(key=lambda c: (
-        TIER_SORT.get(c.get("keeper_tier", "Drop"), 9),
-        -(c.get("current_season", {}).get("fppg", 0))
-    ))
+    # Sort cards: by manager, then by keep chance (rank on his team)
+    cards.sort(key=lambda c: (c.get("manager", ""), c.get("keep_rank") or 99))
 
     # Build HTML
     html = build_preview_html(cards)
@@ -126,32 +119,25 @@ def main():
 def build_preview_html(cards: list[dict]) -> str:
     """Build the full standalone preview HTML."""
 
-    # Group cards by tier for the chip grid
-    tiers = {}
+    # Group cards by manager (no tiers: keepability v3 is a keep chance per team)
+    teams = {}
     for c in cards:
-        tier = c.get("keeper_tier", "Drop")
-        if tier not in tiers:
-            tiers[tier] = []
-        tiers[tier].append(c)
-
-    tier_order = ["Lock", "Strong Hold", "Stash", "Sell High", "On the Bubble", "Dynasty Stash"]
-    tier_colors = {
-        "Lock": "#2e7d32", "Strong Hold": "#1F4E79", "Stash": "#7b1fa2",
-        "Sell High": "#ffa726", "On the Bubble": "#757575", "Dynasty Stash": "#0288d1",
-    }
+        teams.setdefault(c.get("manager", ""), []).append(c)
+    team_order = sorted(teams)
+    team_colors = dict(MANAGER_COLORS)
 
     # Rankings are already computed by build_player_cards
 
     # Build chip grid HTML
     chips_html = ""
-    for tier in tier_order:
-        tier_cards = tiers.get(tier, [])
-        if not tier_cards:
+    for team in team_order:
+        team_cards = teams.get(team, [])
+        if not team_cards:
             continue
-        tier_color = tier_colors.get(tier, "#666")
-        chips_html += f'<div class="prev-tier-header" style="border-left: 4px solid {tier_color};">{tier} ({len(tier_cards)})</div>\n'
+        team_color = team_colors.get(team, "#666")
+        chips_html += f'<div class="prev-tier-header" style="border-left: 4px solid {team_color};">{team} ({len(team_cards)})</div>\n'
         chips_html += '<div class="preview-grid">\n'
-        for c in tier_cards:
+        for c in team_cards:
             color = MANAGER_COLORS.get(c["manager"], "#666")
             fppg = c.get("current_season", {}).get("fppg", 0)
             gp = c.get("current_season", {}).get("gp", 0)
@@ -161,6 +147,7 @@ def build_preview_html(cards: list[dict]) -> str:
             name_js = c["player_name"].replace("\\", "\\\\").replace("'", "\\x27").replace('"', '\\"')
             rank = c.get("overall_rank", "?")
             rank_badge = f'<span class="chip-rank">Avg. Rank: #{rank}</span>'
+            keep = c.get("keep_text", "")
 
             chips_html += f"""<div class="preview-chip" style="border-left-color:{color}" onclick="pcOpen('{name_js}')">
   <div class="chip-row1"><span class="chip-name">{c['player_name']}</span>{rank_badge}</div>
@@ -171,6 +158,7 @@ def build_preview_html(cards: list[dict]) -> str:
     <span class="chip-career">{career_szns}yr / {career_fppg:.1f}</span>
   </div>
   <div class="chip-arch">{c['archetype']}</div>
+  <div class="chip-sub">{keep}</div>
 </div>
 """
         chips_html += "</div>\n"

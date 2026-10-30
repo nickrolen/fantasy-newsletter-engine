@@ -60,7 +60,9 @@ newsletter/
 |   +-- lineup_optimizer.py           # Optimal daily lineup solver
 |   +-- consistency_score.py          # Consistency/Volatility (team + player CV, IQR, boom/bust)
 |   +-- luck_index.py                 # Luck Index (all-play expected wins)
-|   +-- keepability_v2.py             # Keeper scoring (5 components + age multiplier)
+|   +-- keepability_v2.py             # RETIRED from the build; step A's backtest only
+|   +-- keepability_v3.py             # Keep chances, fitted on the league's keeper decisions
+|   +-- keeper_history.py             # The keeper-decision dataset (keepability v3's inputs)
 |   +-- records_tracker.py            # Records, H2H streaks, blunders, top-10 leaderboards
 |   +-- report_builder.py             # Orchestrator -- assembles the full JSON report
 |   +-- player_card_builder.py        # Player card data (career history, archetypes)

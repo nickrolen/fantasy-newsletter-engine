@@ -26,15 +26,6 @@ from html import escape as _html_escape
 
 from .data_loader import MANAGER_COLORS
 
-TIER_COLORS = {
-    "Lock": {"bg": "#2e7d32", "color": "#fff"},
-    "Strong Hold": {"bg": "#1F4E79", "color": "#fff"},
-    "Stash": {"bg": "#7b1fa2", "color": "#fff"},
-    "Sell High": {"bg": "#ffa726", "color": "#333"},
-    "On the Bubble": {"bg": "#757575", "color": "#fff"},
-    "Dynasty Stash": {"bg": "#0288d1", "color": "#fff"},
-    "Drop": {"bg": "#c62828", "color": "#fff"},
-}
 
 # SYNC: labels must match the archetype classifier in player_card_builder.py
 # (classify_archetype). When adding or renaming an archetype, update BOTH this
@@ -168,8 +159,6 @@ document.addEventListener('keydown', function(e) {
 
 function pcRenderCard(c) {
   var mgrColor = pcManagerColors[c.manager] || "#666";
-  var tierColors = {"Lock":["#2e7d32","#fff"],"Strong Hold":["#1F4E79","#fff"],"Stash":["#7b1fa2","#fff"],"Sell High":["#ffa726","#333"],"On the Bubble":["#757575","#fff"],"Dynasty Stash":["#0288d1","#fff"],"Drop":["#c62828","#fff"]};
-  var tc = tierColors[c.keeper_tier] || ["#666","#fff"];
   
   // SYNC: labels must match player_card_builder.py classify_archetype()
   var archColors = {"Uncharted Prospect":"#A5D6A7","Small Sample":"#78909C","Generational Big":"#FFD700","Cheat Code":"#FFD700","Supernova":"#FF6B35","Alpha Scorer":"#FFD700","Iron Man Elite":"#4FC3F7","Metronome Star":"#4FC3F7","Franchise Cornerstone":"#69F0AE","Young Alpha":"#69F0AE","Walking Bucket":"#4FC3F7","Ageless Wonder":"#CE93D8","Vintage Star":"#FF6B35","High Roller":"#FFB74D","Aging Superstar":"#CE93D8","All-Star Caliber":"#4FC3F7","Future Franchise":"#69F0AE","Ascending Talent":"#69F0AE","Steady Riser":"#81C784","Breakout Candidate":"#FFB74D","Building Block":"#81C784","Ironman Floor Raiser":"#4FC3F7","Reliable Starter":"#81C784","High-Ceiling Starter":"#FFB74D","Talented but Fragile":"#EF5350","Father Time Defier":"#CE93D8","Crafty Veteran":"#CE93D8","Volatile Starter":"#FFB74D","Streaky Scorer":"#FFB74D","Quality Starter":"#81C784","Blue-Chip Prospect":"#69F0AE","Lottery Ticket":"#69F0AE","Development Play":"#A5D6A7","Glue Guy":"#81C784","Rollercoaster":"#FF8A65","Veteran Presence":"#B0BEC5","Steady Contributor":"#B0BEC5","Rotation Piece":"#B0BEC5","Raw Prospect":"#A5D6A7","Upside Bench Stash":"#A5D6A7","Aging Vet":"#78909C","Roster Filler":"#78909C"};
@@ -192,7 +181,9 @@ function pcRenderCard(c) {
   html += '</div>';
   html += '<div class="pc-badges">';
   html += '<span class="pc-arch-badge" style="background:' + archColor + ';color:#1a1a1a;">' + esc(c.archetype) + '</span>';
-  html += '<span class="pc-tier-badge" style="background:' + tc[0] + ';color:' + tc[1] + ';">' + esc(c.keeper_tier) + '</span>';
+  if (c.keep_text) {
+    html += '<span class="pc-tier-badge" style="background:' + mgrColor + ';color:#fff;">' + esc(c.keep_text) + '</span>';
+  }
   html += '</div>';
   html += '</div>';
   
@@ -257,118 +248,37 @@ function pcStatCell(label, value, rank) {
   return html;
 }
 
-/* --- KEEPABILITY BREAKDOWN (V2) --- */
+/* --- KEEP CHANCE (keepability v3) --- */
 function pcRenderKeepability(c) {
-  var score = c.keepability_score;
-  if (!score) return '';
-  
-  var comp = c.keepability_components || {};
-  
-  // Check if we have v2 components (presence of weighted_fppg_raw indicates v2)
-  var isV2 = comp.weighted_fppg_raw !== undefined;
-  
+  if (c.keep_k5 === undefined || c.keep_k5 === null) return '';
+  var ki = c.keep_inputs || {};
+  var w = Math.max(0, Math.min(100, c.keep_k5 * 100));
   var html = '<div class="pc-section">';
-  html += '<div class="pc-section-title">Keepability Score' + (isV2 ? ' (v2)' : '') + '</div>';
-  
-  // Main score bar
-  var scorePct = isV2 ? Math.min(100, score) : Math.min(100, (score / 60) * 100);
-  var scoreColor = (isV2 ? score >= 70 : score >= 40) ? '#4FC3F7' : 
-                   ((isV2 ? score >= 60 : score >= 30) ? '#81C784' : 
-                   ((isV2 ? score >= 40 : score >= 20) ? '#FFB74D' : '#EF5350'));
+  html += '<div class="pc-section-title">Keep Chance</div>';
   html += '<div class="pc-keep-score-row">';
-  html += '<div class="pc-keep-score-val" style="color:' + scoreColor + '">' + score.toFixed(1) + '</div>';
-  html += '<div class="pc-keep-score-bar-wrap"><div class="pc-keep-score-bar" style="width:' + scorePct + '%;background:' + scoreColor + '"></div></div>';
+  html += '<div class="pc-keep-score-val">' + esc(c.keep_k5_pct) + '</div>';
+  html += '<div class="pc-keep-score-bar-wrap"><div class="pc-keep-score-bar" style="width:' + w.toFixed(0) + '%;background:#4FC3F7"></div></div>';
   html += '</div>';
-  
-  // Component breakdown
   html += '<div class="pc-keep-breakdown">';
-  
-  if (isV2) {
-    // V2.2: 5 components + age multiplier
-    
-    // 1. Weighted 3-Yr FPPG (40%)
-    html += '<div class="pc-keep-factor">';
-    html += '<span class="pc-keep-factor-label">3-Yr FPPG</span>';
-    html += '<span class="pc-keep-factor-val">' + (comp.weighted_fppg_raw || 0).toFixed(1) + '</span>';
-    html += '<span class="pc-keep-factor-detail">(40% wt, norm: ' + (comp.weighted_fppg_normalized || 0).toFixed(0) + ')</span>';
-    html += '</div>';
-    
-    // 2. Projected FPPG (20%)
-    html += '<div class="pc-keep-factor">';
-    html += '<span class="pc-keep-factor-label">Proj FPPG</span>';
-    html += '<span class="pc-keep-factor-val">' + (comp.proj_fppg_raw || 0).toFixed(1) + '</span>';
-    html += '<span class="pc-keep-factor-detail">(20% wt, norm: ' + (comp.proj_fppg_normalized || 0).toFixed(0) + ')</span>';
-    html += '</div>';
-    
-    // 3. 3-Yr Availability (20%)
-    html += '<div class="pc-keep-factor">';
-    html += '<span class="pc-keep-factor-label">Availability</span>';
-    html += '<span class="pc-keep-factor-val">' + (comp.availability_3yr_pct || 0).toFixed(0) + '%</span>';
-    html += '<span class="pc-keep-factor-detail">(20% wt, 3-yr wtd avg, norm: ' + (comp.availability_normalized || 0).toFixed(0) + ')</span>';
-    html += '</div>';
-    
-    // 4. Peak FPPG (10%)
-    html += '<div class="pc-keep-factor">';
-    html += '<span class="pc-keep-factor-label">Peak FPPG</span>';
-    html += '<span class="pc-keep-factor-val">' + (comp.peak_fppg_raw || 0).toFixed(1) + '</span>';
-    html += '<span class="pc-keep-factor-detail">(10% wt, career high, norm: ' + (comp.peak_fppg_normalized || 0).toFixed(0) + ')</span>';
-    html += '</div>';
-    
-    // 5. Consistency (10%)
-    html += '<div class="pc-keep-factor">';
-    html += '<span class="pc-keep-factor-label">Consistency</span>';
-    html += '<span class="pc-keep-factor-val">' + (comp.consistency_cv || 15).toFixed(1) + '% CV</span>';
-    html += '<span class="pc-keep-factor-detail">(10% wt, lower=better, norm: ' + (comp.consistency_normalized || 0).toFixed(0) + ')</span>';
-    html += '</div>';
-    
-    // Age multiplier (shown as info, not a weighted component)
-    var age = comp.age || c.age || 27;
-    var ageLabel = age <= 23 ? '+15% youth' : (age <= 29 ? 'prime' : (age <= 33 ? '-5% vet' : '-15% aging'));
-    var ageColor = age <= 23 ? '#69F0AE' : (age <= 29 ? '#e0e0e0' : '#FFB74D');
-    html += '<div class="pc-keep-factor" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:4px;margin-top:4px">';
-    html += '<span class="pc-keep-factor-label">Age Multiplier</span>';
-    html += '<span class="pc-keep-factor-val" style="color:' + ageColor + '">x' + (comp.age_factor || 1.0).toFixed(2) + '</span>';
-    html += '<span class="pc-keep-factor-detail">(' + ageLabel + ', age ' + age + ')</span>';
-    html += '</div>';
-    
-  } else {
-    // V1: 3 components (fallback for old data)
-    var cs = c.current_season || {};
-    var fppg = cs.fppg || 0;
-    var proj = cs.proj_fppg || 0;
-    var gp = cs.gp || 0;
-    var age = c.age || 27;
-    
-    var blended;
-    if (gp >= 10) {
-      blended = 0.7 * fppg + 0.3 * proj;
-    } else if (gp >= 5) {
-      var w = gp / 10.0;
-      blended = w * fppg + (1 - w) * proj;
-    } else {
-      blended = proj;
-    }
-    
-    var expectedGP = Math.round(18 * 3.3);
-    var availPct = Math.min(1.0, gp / expectedGP);
-    var availFactor = Math.sqrt(availPct);
-    
-    var ageFactor;
-    if (age <= 23) ageFactor = 1.15;
-    else if (age <= 29) ageFactor = 1.00;
-    else if (age <= 32) ageFactor = 0.95;
-    else ageFactor = 0.85;
-    
-    html += '<div class="pc-keep-factor"><span class="pc-keep-factor-label">Blended FPPG</span><span class="pc-keep-factor-val">' + blended.toFixed(1) + '</span><span class="pc-keep-factor-detail">(' + (gp >= 10 ? '70/30' : (gp >= 5 ? Math.round(gp*10) + '/' + Math.round(100-gp*10) : 'proj only')) + ' actual/proj)</span></div>';
-    html += '<div class="pc-keep-factor"><span class="pc-keep-factor-label">Availability</span><span class="pc-keep-factor-val">' + (availFactor * 100).toFixed(0) + '%</span><span class="pc-keep-factor-detail">(' + gp + '/' + expectedGP + ' GP)</span></div>';
-    
-    var ageLabel = age <= 23 ? '+15% youth' : (age <= 29 ? 'prime' : (age <= 32 ? '-5% vet' : '-15% aging'));
-    var ageColor = age <= 23 ? '#69F0AE' : (age <= 29 ? '#e0e0e0' : '#FFB74D');
-    html += '<div class="pc-keep-factor"><span class="pc-keep-factor-label">Age Factor</span><span class="pc-keep-factor-val" style="color:' + ageColor + '">x' + ageFactor.toFixed(2) + '</span><span class="pc-keep-factor-detail">(' + ageLabel + ')</span></div>';
+  html += '<div class="pc-keep-factor"><span class="pc-keep-factor-label">Next offseason</span><span class="pc-keep-factor-val">' + esc(c.keep_text) + '</span><span class="pc-keep-factor-detail">(5 keepers)</span></div>';
+  if (c.keep_k6_pct) {
+    html += '<div class="pc-keep-factor"><span class="pc-keep-factor-label">With 6 keepers</span><span class="pc-keep-factor-val">' + esc(c.keep_k6_pct) + '</span><span class="pc-keep-factor-detail">(the Cup winner keeps 6)</span></div>';
   }
-  
-  html += '</div>'; // Close breakdown
-  html += '</div>'; // Close section
+  if (ki.level !== undefined && ki.level !== null) {
+    var seasons = (ki.prior_seasons || []).map(function (s) { return s[0] + ' ' + s[1] + 'g ' + Number(s[2]).toFixed(1); }).join(', ');
+    var prior = (ki.level_prior_kind === 'league mean') ? 'league average' : (seasons || 'no earlier seasons');
+    html += '<div class="pc-keep-factor"><span class="pc-keep-factor-label">Level</span><span class="pc-keep-factor-val">' + Number(ki.level).toFixed(1) + ' FPPG</span><span class="pc-keep-factor-detail">(this season, shrunk toward ' + esc(prior) + ')</span></div>';
+  }
+  var status = ki.kept_this_season ? 'Kept this season' : (ki.undrafted ? 'Undrafted' : (ki.draft_round ? 'Drafted, round ' + ki.draft_round : ''));
+  if (status) {
+    html += '<div class="pc-keep-factor"><span class="pc-keep-factor-label">This season</span><span class="pc-keep-factor-val">' + esc(status) + '</span><span class="pc-keep-factor-detail"></span></div>';
+  }
+  if (c.age) {
+    html += '<div class="pc-keep-factor"><span class="pc-keep-factor-label">Age</span><span class="pc-keep-factor-val">' + c.age + '</span><span class="pc-keep-factor-detail">(managers here keep youth)</span></div>';
+  }
+  html += '</div>';
+  html += '<div class="pc-keep-factor-detail" style="margin-top:4px">From a model fitted on every keeper decision this league has made.</div>';
+  html += '</div>';
   return html;
 }
 

@@ -183,6 +183,31 @@ Phase 2 truncates `PLAYERLOG.xlsx` and `LINEUPS.xlsx` to header-only. The archiv
    `report_builder.py` and `player_card_builder.py` read it all season; an
    empty file degrades gracefully but silently loses the Draft Value Tracker.
 
+8. **Refit keepability v3 -- after the keepers are chosen, before the draft
+   is built on.** The keeper watch, Section 10's drop protection and trade
+   deltas, power rankings' keeper quality, the rumor mill and the player cards
+   all read `config/keepability_v3_params.json`, fitted on every keeper
+   decision so far; the new offseason's decision is one more to learn from.
+   First make sure the inputs include the season just finished:
+   - `data/historical/HISTORICAL_PLAYERLOG.json` has it (step 1's rollup);
+   - `data/historical/all_drafts.json` has the new season's draft with its
+     `is_keeper` flags (`python scripts/pull_current_draft.py`);
+   - `modules/keeper_history.py` `DECISIONS` lists the new season (its last
+     entry is the newest decision fitted; the step A backtest and the fit
+     both read it).
+   Then re-run step A's backtest (the baseline the fit reports against), the
+   fit, and read its report before committing:
+   ```
+   python scripts/keeper_backtest.py --json output/keeper_backtest.json
+   python scripts/fit_keepability_v3.py
+   ```
+   The fit prints the leave-one-season-out hits, calibration and coefficients
+   and writes the parameters file only if the chosen prior keeps its hits;
+   read it, then commit the new `config/keepability_v3_params.json`. The
+   weekly snapshots in `data/keepability/` are per season and stay as they
+   are: next to the real decisions, they are how last season's published keep
+   chances get scored.
+
 ---
 
 ## Where to Find Archived Seasons

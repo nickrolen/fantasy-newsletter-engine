@@ -17,18 +17,13 @@ MANAGER SITUATION TAGS:
 - Fringe: Medium title odds (5-15%), could go either way
 - Rebuilder: Low title odds (<5%), wants youth, upside, draft picks
 
-TRADE VALUE CALCULATION (v6 - Keepability V2 integration):
-When keeper_watch data is provided, trade values use the keepability V2
-score (0-100 scale) which factors in:
-  - Weighted 3-year FPPG (50%)
-  - Peak FPPG career ceiling (20%)
-  - 3-year availability (15%)
-  - Consistency / low volatility (15%)
-  - Age curve multiplier (0.95-1.05)
-  - Positional scarcity multiplier (1.00-1.03)
-
-Falls back to legacy compute_trade_value() (single-season blend) if
-keeper_watch data is not available.
+TRADE VALUE (keepability v3, KEEPABILITY_V3_DESIGN section 6, 10-29):
+A player's trade value is his PROJECTED PRODUCTION -- effective_fppg, the
+same number the simulator and Section 10 use -- and that is the one number
+anything here sorts or compares by. His keep chance (keeper_watch: K = 5,
+and his rank on his team) is shown BESIDE it on every trade idea, never
+folded in. The v2.2 score and the legacy compute_trade_value() blend no
+longer value anything here. Thresholds are in FPPG (TRADE_* below).
 
 AGE-BASED DYNASTY VALUE:
 - Young ( -> 23): Premium dynasty asset, teams hesitant to trade
@@ -100,6 +95,9 @@ class TradeIdea:
     rationale: str
     fit_score: float
     trade_type: str = "swap"  # "swap", "upgrade", "depth"
+    # {player: {"proj_fppg", "keep_k5", "keep_rank", "manager"}}: projected
+    # production with the keep chance beside it (keepability v3), for display
+    values: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -386,6 +384,35 @@ def compute_position_needs(data: FantasyData) -> dict[str, list[PositionNeed]]:
 # TRADE IDEAS - WITH SITUATIONAL AWARENESS
 # =============================================================================
 
+# Trade-idea thresholds, in projected FPPG (keepability v3 retired the 0-100
+# v2.2 score these used to switch to). The values are the ones the FPPG-scale
+# trade value always used (compute_trade_value's 12 / 20 / 30); flagged for
+# Nick's review with the display (KEEPABILITY_C_WIRE_RESULT_2026-10-29).
+TRADE_SWAP_MAX_GAP = 12.0       # a 1-for-1 swap's values within this many FPPG
+TRADE_CONSOLIDATION_MIN = 20.0  # each piece of a 2-for-1 worth at least this
+TRADE_AGING_STAR_MIN = 30.0     # an "aging star" (30+) projects at least this
+
+
+def projected_production(p) -> float:
+    """A player's projected production: effective_fppg, exactly as the
+    simulator reads it (marginal_value: the projection when effective_fppg
+    is missing)."""
+    eff = getattr(p, "effective_fppg", None)
+    return float(eff) if (eff or 0) > 0 else float(p.projected_fppg or 0.0)
+
+
+def _attach_values(ideas: list, team_tiers: dict) -> None:
+    by_name = {}
+    for mgr, tiers in team_tiers.items():
+        for p in tiers["all_sorted"]:
+            by_name[p.player_name] = {"proj_fppg": round(projected_production(p), 1),
+                                      "keep_k5": getattr(p, "keep_k5", None),
+                                      "keep_rank": getattr(p, "keep_rank", None),
+                                      "manager": mgr}
+    for idea in ideas:
+        idea.values = {n: by_name[n] for n in idea.gives_a + idea.receives_a if n in by_name}
+
+
 def generate_trade_ideas(
     data: FantasyData,
     position_needs: dict[str, list[PositionNeed]],
@@ -412,11 +439,9 @@ def generate_trade_ideas(
     - Aging stars are sell candidates for rebuilders
     
     VALUATION:
-    - Uses keepability V2 scores (multi-year, 0-100 scale) when available.
-      These factor in 3-year FPPG, peak FPPG, availability, consistency,
-      age curve, and positional scarcity.
-    - Falls back to compute_trade_value() (single-season) if keeper_watch
-      not provided.
+    - trade_value = projected production (effective_fppg, the simulator's
+      number); keep chance (keepability v3) is attached beside it for the
+      display (TradeIdea.values) and never folded in.
     """
     team_projections = load_all_team_projections(data)
     player_ages = load_player_ages(data)
@@ -429,37 +454,27 @@ def generate_trade_ideas(
     if title_odds is None:
         title_odds = {m: 25.0 for m in MANAGERS}  # Assume equal odds
     
-    # Build keepability lookup from V2 keeper_watch data (if available)
-    # Maps player_name -> {"score": float, "tier": str}
-    keepability_lookup = PlayerIndex()
-    if keeper_watch:
-        for p in keeper_watch.get("players", []):
-            keepability_lookup[p["player_name"]] = {
-                "score": p.get("keepability_score", 0),
-                "tier": p.get("keeper_tier", ""),
-            }
+    # Keep chances (keepability v3), for the display beside the value only
+    keep_lookup = PlayerIndex()
+    for p in (keeper_watch or {}).get("players", []):
+        keep_lookup[p["player_name"]] = p
     
     # Categorize each manager's situation
     team_situations = {m: get_team_situation(title_odds.get(m, 25.0)) for m in MANAGERS}
     
     # Categorize each team's players into tiers
-    # Use TRADE VALUE (keepability V2 if available, else legacy) for sorting
+    # Sort by TRADE VALUE: projected production
     team_tiers = {}
     for manager in MANAGERS:
         team = team_projections[manager]
         
-        # Add age, trade_value, and keeper_tier to each player
+        # Add age, trade_value (projected production) and keep chance
         for p in team.players.values():
             p.age = player_ages.get(p.player_name, 26)
-            
-            # Use V2 keepability score if available, else fall back to legacy
-            kd = keepability_lookup.get(p.player_name)
-            if kd and kd["score"] > 0:
-                p.trade_value = kd["score"]
-                p.keeper_tier = kd["tier"]
-            else:
-                p.trade_value = compute_trade_value(p, p.age, current_week)
-                p.keeper_tier = ""
+            p.trade_value = projected_production(p)
+            kd = keep_lookup.get(p.player_name) or {}
+            p.keep_k5 = kd.get("keep_k5")
+            p.keep_rank = kd.get("rank")
         
         # Sort by trade value (accounts for actual performance + availability + age)
         sorted_players = sorted(
@@ -550,16 +565,12 @@ def generate_trade_ideas(
                     if not (a_needs_pos_b or b_needs_pos_a):
                         continue
                     
-                    # Value should be reasonably close
-                    # trade_value is keepability V2 score (0-100) when available,
-                    # or legacy blended FPPG (~20-60) as fallback.
-                    # Use adaptive threshold: V2 scores are on wider scale.
+                    # Value should be reasonably close (projected FPPG)
                     val_a = getattr(player_a, 'trade_value', player_a.projected_fppg)
                     val_b = getattr(player_b, 'trade_value', player_b.projected_fppg)
                     value_diff = abs(val_a - val_b)
                     
-                    # Max gap for fair swap (scaled to whichever valuation system is active)
-                    max_gap = 20 if keepability_lookup else 12
+                    max_gap = TRADE_SWAP_MAX_GAP
                     if value_diff > max_gap:
                         continue
                     
@@ -634,8 +645,7 @@ def generate_trade_ideas(
                         if ratio < 1.3 or ratio > 1.9:
                             continue
                         
-                        # Minimum value threshold (scaled to valuation system)
-                        min_val = 35 if keepability_lookup else 20
+                        min_val = TRADE_CONSOLIDATION_MIN
                         if val1 < min_val or val2 < min_val:
                             continue
                         
@@ -673,10 +683,9 @@ def generate_trade_ideas(
         if situation_a != "rebuilder":
             continue
         
-        # Look for aging stars to sell (use trade_value threshold, not projected)
-        # V2 keepability: >=50 is Strong Hold territory; V1: >=30 was solid
+        # Look for aging stars to sell (projected production threshold)
         all_players_a = team_tiers[manager_a]["all_sorted"]
-        min_star_val = 45 if keepability_lookup else 30
+        min_star_val = TRADE_AGING_STAR_MIN
         aging_stars = [p for p in all_players_a[:6] 
                        if getattr(p, 'age', 26) >= 30 
                        and getattr(p, 'trade_value', p.projected_fppg) >= min_star_val]
@@ -937,6 +946,7 @@ def generate_trade_ideas(
             if len(final_ideas) >= max_ideas:
                 break
     
+    _attach_values(final_ideas, team_tiers)
     return final_ideas
 
 
@@ -1413,9 +1423,9 @@ def generate_rumor_mill_analysis(
         title_odds: Dict of manager -> title probability (0-100)
         week: Current week number (for schedule-based FA analysis)
         freshness_tracker: Optional tracker to filter stale/repetitive content
-        keeper_watch: Optional keeper_watch dict from build_keeper_watch()
-            with V2 keepability scores. If provided, trade ideas use V2
-            scores instead of the legacy compute_trade_value() formula.
+        keeper_watch: keeper_watch dict from build_keeper_watch()
+            (keepability v3). Trade ideas carry each player's keep chance
+            beside his projected production (TradeIdea.values).
     """
     # Compute position needs
     position_needs = compute_position_needs(data)

@@ -9,7 +9,7 @@ Visualizations:
   1. Positional Scoring Breakdown (donut charts, 2x2 grid)
   2. Draft Value Tracker (tabbed diverging bar cards)
   3. Waiver Wire ROI (tabbed manager panels)
-  4. Keeper Watch (tier board with manager summary strip)
+  4. Keeper Watch (each team's top 8 by keep chance, line at its keeper count)
 """
 
 from __future__ import annotations
@@ -50,7 +50,6 @@ VALUE_TIERS = {
     "Bust": {"label": "Bust", "bg": "#c62828", "color": "#fff"},
     "Too Early": {"label": "Too Early", "bg": "#9e9e9e", "color": "#fff"},
 }
-KEEPER_TIER_ORDER = ["Lock", "Strong Hold", "Stash", "Sell High", "On the Bubble", "Dynasty Stash", "Waiver Wire"]
 
 # Manager list and historical viz colors (from config)
 MANAGERS_LIST = MANAGERS
@@ -462,160 +461,94 @@ def render_waiver_roi(data: dict) -> str:
 
 
 # =====================================================================
-# 4. KEEPER WATCH (Tier Board)
+# 4. KEEPER WATCH (keep chances per team, keepability v3)
 # =====================================================================
 
-def render_keeper_watch(data: dict, player_cards: list = None) -> str:
-    """Render keeper watch tier board with manager summary strip."""
-    if not data or "players" not in data:
-        return ""
+def render_keeper_watch(data: dict, player_cards: list = None, summary_html: str = "") -> str:
+    """The keeper watch (keepability v3): each team's top 8 by the chance he
+    is kept next offseason, at 5 keepers with the 6-keeper chance beside it,
+    and a line at the team's keeper count -- after the 5th, with the 6th
+    marked "6 if he wins the Cup" until keeper_rules.cup_winners records this
+    season's Cup; then at that team's real count. No league-wide tiers.
 
+    summary_html: the drafter's paragraph(s), written around
+    keeper_watch["summary"] (the drafter never chooses the numbers).
+    A report from before v3 (no keep probabilities: an archived season)
+    renders nothing."""
+    from .keepability_v3 import TOP_SHOWN, LINE_UNDECIDED, line_for, pct
+    if not data or not data.get("players"):
+        return ""
     players = data["players"]
-    if not players:
+    if any(p.get("keep_k5") is None for p in players):
         return ""
+    by: dict = {}
+    for p in players:
+        by.setdefault(p["manager"], []).append(p)
+    cup_open = data.get("line_k") is None
 
-    # Build player card lookup by name (for rank, archetype, career)
-    pc_lookup = {}
-    if player_cards:
-        for c in player_cards:
-            pc_lookup[c["player_name"]] = c
-
-    # Include all non-Drop players (Drop tier is the noise filter)
-    top_players = [p for p in players if p.get("keeper_tier", "Drop") != "Drop"]
-
-    # Build manager summary strip
-    summary_cards = []
-    for mgr in sorted(MANAGER_COLORS.keys()):
-        mgr_players = [p for p in top_players if p["manager"] == mgr]
-        tier_counts = {}
-        for p in mgr_players:
-            t = p.get("keeper_tier", "On the Bubble")
-            tier_counts[t] = tier_counts.get(t, 0) + 1
-
-        # Average age across the players this manager would actually keep.
-        # That count is per manager, not a literal 6: all four keep 6 in
-        # 2026-27, but from 2027-28 the Cup winner keeps 6 and the other
-        # three keep 5. league_config says exactly this and points at
-        # keepers_for(), so read it rather than typing the number.
-        n_keep = keepers_for(manager=mgr)
-        top_keepers = sorted(mgr_players, key=lambda x: -x["season_fppg"])[:n_keep]
-        ages = [p["age"] for p in top_keepers if p.get("age")]
-        # No ages is not age zero: "0.0" reads as a measured average.
-        avg_age_str = f"{sum(ages) / len(ages):.1f}" if ages else "-"
-
+    blocks = []
+    for mgr in sorted(by):
+        rows_in = sorted(by[mgr], key=lambda p: p["rank"])[:TOP_SHOWN]
+        L = line_for(data, mgr)
         color = MANAGER_COLORS.get(mgr, "#333")
         team = MANAGER_TEAMS.get(mgr, "")
-
-        tier_pills = ""
-        for tier_name, pill_color, pill_bg in [
-            ("Lock", "#fff", "#2e7d32"),
-            ("Strong Hold", "#fff", "#1F4E79"),
-            ("Stash", "#fff", "#7b1fa2"),
-            ("Sell High", "#333", "#ffa726"),
-            ("On the Bubble", "#333", "#e0e0e0"),
-            ("Dynasty Stash", "#fff", "#0288d1"),
-            ("Waiver Wire", "#333", "#b0bec5"),
-        ]:
-            count = tier_counts.get(tier_name, 0)
-            if count > 0:
-                tier_pills += (
-                    f'<span class="sc-kw-pill" style="background:{pill_bg};color:{pill_color};">'
-                    f'{count} {tier_name.split()[0]}</span>'
-                )
-
-        summary_cards.append(f'''
-        <div class="sc-kw-summary-card sc-kw-filter-btn" data-manager="{mgr}" style="border-top: 3px solid {color};" onclick="filterKeeperWatch('{mgr}')">
-          <div class="sc-kw-mgr-name">{mgr}</div>
-          <div class="sc-kw-mgr-team">{team}</div>
-          <div class="sc-kw-pills">{tier_pills}</div>
-          <div class="sc-kw-avg-age">Avg Age (Top {n_keep}): {avg_age_str}</div>
-        </div>''')
-
-    # Build tier sections
-    tier_sections = []
-    for tier in KEEPER_TIER_ORDER:
-        tier_players = [p for p in top_players if p.get("keeper_tier") == tier]
-        # Sort by keepability score descending within each tier
-        tier_players.sort(key=lambda x: -x.get("keepability_score", 0))
-
-        if not tier_players:
-            continue
-
-        chips = []
-        for p in tier_players:
-            color = MANAGER_COLORS.get(p["manager"], "#333")
-            age_str = str(p["age"]) if p.get("age") else "?"
-            ofs = p.get("out_for_season", False)
-            ofs_badge = ' <span class="sc-kw-ofs">OFS</span>' if ofs else ""
-            inj = p.get("injured", False) and not ofs
-            inj_badge = ' <span class="sc-kw-inj">INJ</span>' if inj else ""
-
-            # Primary stat: FPPG + proj delta
-            if ofs and p.get("season_gp", 0) == 0:
-                main_stat = f'{p["proj_fppg"]:.1f}'
-                stat_label = "Proj FPPG"
-                proj_html = ""
-            else:
-                main_stat = f'{p["season_fppg"]:.1f}'
-                stat_label = "FPPG"
-                delta = p["season_fppg"] - p["proj_fppg"] if p.get("proj_fppg") else 0
-                delta_cls = "sc-pos" if delta >= 0 else "sc-neg"
-                delta_sign = "+" if delta >= 0 else ""
-                proj_html = (
-                    f'<span class="sc-kw-stat-proj">Proj {p["proj_fppg"]:.1f}</span>'
-                    f'<span class="sc-kw-stat-delta {delta_cls}">{delta_sign}{delta:.1f}</span>'
-                )
-
+        rows = []
+        for p in rows_in:
+            if p["rank"] == L + 1:
+                rows.append(f'<tr class="sc-kw3-line"><td colspan="4">'
+                            f'<span>{L} keepers</span></td></tr>')
             name_js = p["player_name"].replace("\\", "\\\\").replace("'", "\\x27").replace('"', '\\"')
-
-            # Pull archetype from player cards if available
-            pc = pc_lookup.get(p["player_name"])
-            arch_html = ""
-            if pc:
-                archetype = pc.get("archetype", "")
-                if archetype:
-                    arch_html = f'<div class="sc-kw-chip-arch">{_html(archetype)}</div>'
-
-            chips.append(f'''
-          <div class="sc-kw-chip" data-manager="{p["manager"]}" style="border-left: 4px solid {color}; cursor:pointer;" onclick="pcOpen('{name_js}')">
-            <div class="sc-kw-chip-top">
-              <div class="sc-kw-chip-name">{_html(p["player_name"])}{ofs_badge}{inj_badge}</div>
-            </div>
-            <div class="sc-kw-chip-meta">{p.get("pos_group", "?")} &middot; Age {age_str}</div>
-            <div class="sc-kw-chip-stats">
-              <span class="sc-kw-stat-main">{main_stat}</span>
-              <span class="sc-kw-stat-label">{stat_label}</span>
-              {proj_html}
-            </div>
-            {arch_html}
-          </div>''')
-
-        tier_descs = {
-            "Lock": "Untouchable -- top 10-15 asset",
-            "Strong Hold": "Probable keeper, possible minor concerns (availability, age)",
-            "Stash": "Out for season but high projected value on return",
-            "Sell High": "Producing now but aging out -- trade window open",
-            "On the Bubble": "Borderline keeper / could go either way",
-            "Dynasty Stash": "Young upside gamble -- smaller sample size, but the ceiling is real",
-            "Waiver Wire": "Rosterable streaming piece -- not yet keeper material",
-        }
-        desc = tier_descs.get(tier, "")
-        desc_html = f'<div class="sc-kw-tier-desc">{desc}</div>' if desc else ""
-
-        tier_sections.append(f'''
-      <div class="sc-kw-tier-section">
-        <div class="sc-kw-tier-header">{tier} <span class="sc-kw-tier-count">({len(tier_players)})</span></div>
-        {desc_html}
-        <div class="sc-kw-tier-players">{"".join(chips)}</div>
+            badges = ""
+            if p.get("kept_this_season"):
+                badges += ' <span class="sc-kw3-kept" title="kept this season">K</span>'
+            if p.get("out_for_season"):
+                badges += ' <span class="sc-kw-ofs">OFS</span>'
+            elif p.get("injured"):
+                badges += ' <span class="sc-kw-inj">INJ</span>'
+            cup = (' <span class="sc-kw3-cup">6 if he wins the Cup</span>'
+                   if cup_open and p["rank"] == LINE_UNDECIDED + 1 else "")
+            w5 = max(0.0, min(100.0, 100.0 * float(p["keep_k5"])))
+            rows.append(
+                f'<tr class="sc-kw3-row" data-manager="{_html(mgr)}">'
+                f'<td class="sc-kw3-rank">{p["rank"]}</td>'
+                f'<td class="sc-kw3-name"><a href="javascript:void(0)" onclick="pcOpen(\'{name_js}\')">'
+                f'{_html(p["player_name"])}</a>{badges}{cup}</td>'
+                f'<td class="sc-kw3-p5"><span class="sc-kw3-bar" style="width:{w5:.0f}%;background:{color};"></span>'
+                f'<span class="sc-kw3-num">{pct(p["keep_k5"])}</span></td>'
+                f'<td class="sc-kw3-p6">{pct(p["keep_k6"])}</td></tr>')
+        blocks.append(f'''
+      <div class="sc-kw3-team" data-manager="{_html(mgr)}" style="border-top: 3px solid {color};">
+        <div class="sc-kw3-head"><span class="sc-kw-mgr-name">{_html(mgr)}</span>
+          <span class="sc-kw-mgr-team">{_html(team)}</span></div>
+        <table class="sc-kw3-table">
+          <thead><tr><th>#</th><th>Player</th><th>Kept, 5 keepers</th><th>6 keepers</th></tr></thead>
+          <tbody>{"".join(rows)}</tbody>
+        </table>
       </div>''')
 
+    from .keepability_v3 import early_note
+    note = ""
+    en = early_note(data.get("summary"))
+    if en:
+        one_in, avg = en
+        note = (f'<div class="sc-kw3-note">This early, a team can only be judged on who is on '
+                f'its roster today. In the seasons the model learned from, about one in '
+                f'{one_in} of the next year\'s keepers was not yet on a roster at this point, so '
+                f'each team\'s chances add up to about {avg:.1f} of its 5, not 5.</div>')
+    summary_block = f'<div class="sc-kw3-summary">{summary_html}</div>' if summary_html else ""
+    as_of = _html(str(data.get("as_of") or ""))
+    line_text = ("The line is drawn at 5; a 6th keeper goes to whoever wins this season's Cup."
+                 if cup_open else "The line is drawn at each team's keeper count.")
     return f'''
     <div class="sc-viz-block" data-viz="keeper-watch">
       <h3 class="sc-viz-title">Keeper Watch</h3>
-      <div class="sc-viz-subtitle">Tier Assignments &amp; Projections &middot; Click a manager to filter</div>
-      <div class="sc-kw-summary-grid">{"".join(summary_cards)}</div>
-      <button class="sc-kw-reset-btn" onclick="resetKeeperWatch()">Show All Players</button>
-      {"".join(tier_sections)}
+      <div class="sc-viz-subtitle">The chance each player is kept next offseason &middot; top {TOP_SHOWN} per team &middot; through {as_of}</div>
+      {summary_block}
+      {note}
+      <div class="sc-kw3-grid">{"".join(blocks)}</div>
+      <div class="sc-kw3-foot">{line_text} Chances come from a model fitted on every keeper
+        decision this league has made (2021-22 to 2026-27): last season's keepers, draft position,
+        production over three seasons and this one, availability and age. K = kept this season.</div>
     </div>'''
 
 
@@ -1342,7 +1275,8 @@ def _format_career_points(pts: float) -> str:
     return f"{pts:,.0f}"
 
 
-def render_stats_corner_visualizations(stats_report: dict, position: str = "all", player_cards: list = None) -> str:
+def render_stats_corner_visualizations(stats_report: dict, position: str = "all", player_cards: list = None,
+                                       keeper_summary_html: str = "") -> str:
     """Render Stats Corner visualizations from a stats report dict.
 
     Args:
@@ -1375,7 +1309,8 @@ def render_stats_corner_visualizations(stats_report: dict, position: str = "all"
     # 4. Keeper Watch
     kw = stats_report.get("keeper_watch")
     if kw:
-        top_blocks.append(render_keeper_watch(kw, player_cards=player_cards))
+        top_blocks.append(render_keeper_watch(kw, player_cards=player_cards,
+                                              summary_html=keeper_summary_html))
 
     # 5. Record Book (bottom)
     rb = stats_report.get("record_book")
@@ -1718,6 +1653,27 @@ def get_stats_corner_css() -> str:
 .sc-tcc-detail { font-size: 0.7rem; color: #4a4a5a; line-height: 1.3; }
 
 /*  4. KEEPER WATCH  */
+.sc-kw3-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 720px) { .sc-kw3-grid { grid-template-columns: 1fr 1fr; } }
+.sc-kw3-team { background: #fff; border-radius: 8px; padding: 8px 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.sc-kw3-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.sc-kw3-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.sc-kw3-table th { font-size: 0.6rem; color: #6c757d; font-weight: 600; text-align: left; padding: 2px 4px; }
+.sc-kw3-table td { padding: 3px 4px; border-top: 1px solid #f0f0f0; vertical-align: middle; }
+.sc-kw3-rank { color: #8a9ab5; width: 1.4em; }
+.sc-kw3-name a { color: #58647a; font-weight: 700; text-decoration: none; }
+.sc-kw3-p5 { position: relative; width: 34%; }
+.sc-kw3-bar { position: absolute; left: 0; top: 25%; height: 50%; opacity: 0.18; border-radius: 2px; }
+.sc-kw3-num { position: relative; font-weight: 700; color: #58647a; }
+.sc-kw3-p6 { color: #6c757d; width: 16%; }
+.sc-kw3-line td { border-top: 2px dashed #58647a; padding: 0; height: 0; text-align: right; }
+.sc-kw3-line span { position: relative; top: -0.7em; background: #fff; font-size: 0.58rem; color: #58647a; padding: 0 4px; }
+.sc-kw3-cup { font-size: 0.56rem; color: #7b1fa2; border: 1px solid #ce93d8; border-radius: 3px; padding: 0 3px; margin-left: 3px; white-space: nowrap; }
+.sc-kw3-kept { font-size: 0.55rem; color: #1F4E79; border: 1px solid #90caf9; border-radius: 3px; padding: 0 3px; margin-left: 3px; }
+.sc-kw3-summary { font-size: 0.82rem; color: #3a3a4a; line-height: 1.45; margin: 4px 0 10px; }
+.sc-kw3-summary p { margin: 0 0 6px; }
+.sc-kw3-note { font-size: 0.72rem; color: #4a4a5a; background: #f6f8fb; border-left: 3px solid #8a9ab5; padding: 6px 8px; margin-bottom: 10px; }
+.sc-kw3-foot { font-size: 0.6rem; color: #6c757d; margin-top: 8px; line-height: 1.35; }
 .sc-kw-summary-grid {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 8px; margin-bottom: 20px;
@@ -2495,6 +2451,13 @@ def get_stats_corner_css() -> str:
   }
   
   /* === KEEPER WATCH === */
+  .sc-kw3-team { background: #252525; }
+  .sc-kw3-table td { border-top-color: #333; }
+  .sc-kw3-name a, .sc-kw3-num { color: #d0d0d0; }
+  .sc-kw3-line td { border-top-color: #9aa5b8; }
+  .sc-kw3-line span { background: #252525; color: #c0c0c0; }
+  .sc-kw3-summary { color: #d0d0d0; }
+  .sc-kw3-note { background: #2a2a2a; color: #c0c0c0; }
   .sc-kw-summary-card {
     background: #252525;
   }

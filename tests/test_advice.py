@@ -41,8 +41,8 @@ def test_two_standard_errors_are_required_too():
 
 def test_protected_keepers_come_from_this_runs_table():
     rosters = {"Nick": ["A", "B", "C"]}
-    kw = {"week": 5, "players": [{"player_name": n, "manager": "Nick", "keepability_score": s}
-                                 for n, s in (("A", 10), ("B", 90), ("C", 50))]}
+    kw = {"week": 5, "players": [{"player_name": n, "manager": "Nick", "keep_k5": s}
+                                 for n, s in (("A", 0.10), ("B", 0.90), ("C", 0.50))]}
     prot, wk = adv.protected_keepers(kw, 5, rosters, {"Nick": 2})
     assert prot == {"Nick": ["B", "C"]} and wk == 5
     with pytest.raises(ValueError, match="stale"):

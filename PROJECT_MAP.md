@@ -151,8 +151,13 @@ These are the ones that decide something, as opposed to totalling something.
 - **`simulator_betting.py`** -- spreads, totals, moneylines, win probabilities.
 - **`what_if_analyzer.py`** -- bench points left behind, blunders, whether a
   better lineup would have flipped the result.
-- **`keepability_v2.py`** -- keeper scores and tiers. Feeds both the power
-  rankings blend and Rumor Mill trade valuation.
+- **`keepability_v3.py`** -- the chance each player is kept next offseason,
+  fitted on every keeper decision (conditional logit, choose K of N). Read
+  through `report_builder.build_keeper_watch` by the keeper watch, Section
+  10's protection and trade deltas, power rankings' keeper quality, the Rumor
+  Mill (shown beside projected production) and the player cards.
+  `keepability_v2.py` is retired from the build; only step A's backtest
+  (`scripts/keeper_backtest.py`) reproduces it.
 - **`fun_facts_generator.py`** (1,197 lines) -- 20 candidate generators across
   historical / season / weekly buckets, each with a hardcoded `interestingness`
   constant, filtered for freshness, then top 3 + 2 + 3.

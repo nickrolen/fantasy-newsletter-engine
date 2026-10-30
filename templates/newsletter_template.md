@@ -697,6 +697,11 @@ Column definitions (for table comprehension, not rendered):
 TOP FREE AGENTS (best_worst.best_free_agents[], top 5):
 | Player | NBA Team | Position | Proj FPPG | Games This Week | Games Next Week |
 [5 rows]
+
+KEEPER WATCH -- SUMMARY FACTS (keeper_watch.summary; each team's top 8 with keep chances):
+who crossed the line since the last published week, the most crowded line, the
+biggest risers and fallers, this season's keepers below the line today
+[the panel itself is rendered by the HTML generator -- read the facts, do NOT copy the table]
 ```
 
 ### REQUIRED OUTPUT FORMAT
@@ -748,11 +753,21 @@ TOP FREE AGENTS (best_worst.best_free_agents[], top 5):
 [5 rows from extraction]
 
 [3-4 sentence commentary on notable performances or records]
+
+**Keeper Watch**
+
+[1-2 short paragraphs from KEEPER WATCH -- SUMMARY FACTS only -- LAST in the section]
 ```
 
 ### KEY RULES
 - **8 TABLES REQUIRED** -- do not skip any
 - **6 TABLES REMOVED** -- the following are now rendered as interactive visualizations by the HTML generator and must NOT appear in the draft: Positional Scoring Breakdown, Season Waiver Wire ROI, Bench Report, Record Book Snapshot, Keeper Watch, Draft Value Tracker
+- **KEEPER WATCH SUMMARY** -- the panel (each team's top 8 by keep chance, a line after the 5th, the 6th marked "6 if he wins the Cup") is rendered from the data. You write only the one or two paragraphs under **Keeper Watch**, the last thing in Stats Corner, and they appear at the top of the panel:
+  - **Write around the numbers in KEEPER WATCH -- SUMMARY FACTS; never choose, compute or round your own.** Every percentage you write must be one printed there (the claim check enforces it).
+  - The kind of thing worth saying: who crossed the line since last week, the most crowded line, the biggest risers and fallers, a current keeper below the line. Pick what is interesting; you need not cover all of it.
+  - **Language: percentages and "likely", never certainty.** Never "will keep", "will be kept", "safe", "lock", "guaranteed" or "untouchable"; never tier names ("Lock", "Strong Hold", "On the Bubble") -- those are gone. "Sabonis is at 50%, fourth on Nick's roster" is the register.
+  - The early-season note (eventual keepers not yet on a roster) is printed in the panel the first week; do not repeat it.
+  - No table, no bullets, and do not start a paragraph with bold text (the page reads a bold line as the end of the summary).
 - **ALL COLUMNS REQUIRED** -- match the table headers exactly as shown; do not drop columns (especially NBA Team)
 - Season tables go AFTER worst performances, BEFORE waiver pickups
 - Copy data exactly from extraction -- no rounding, no approximating
