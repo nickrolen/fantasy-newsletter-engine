@@ -117,6 +117,11 @@ def world(tmp_path, monkeypatch):
     (tmp_path / "data").mkdir()
     (tmp_path / "config" / "ROSTERS.json").write_text(json.dumps(
         {"rosters": {"Nick": ["Nikola Jokic", "Jimmy Butler"], "Benton": ["Luka Doncic"]}}))
+    # All three drafted: on their teams from day one (the "since" marker).
+    (tmp_path / "config" / "DRAFT_PICKS_CURRENT.json").write_text(json.dumps({"picks": [
+        {"manager": "Nick", "player_name": "Nikola Jokic", "is_keeper": False},
+        {"manager": "Nick", "player_name": "Jimmy Butler", "is_keeper": True},
+        {"manager": "Benton", "player_name": "Luka Doncic", "is_keeper": False}]}))
     (tmp_path / "config" / "SCHEDULE.json").write_text(json.dumps({"weeks": [
         {"week": 1, "start_date": "2026-10-20", "end_date": WEEK_END},
         {"week": 2, "start_date": "2026-10-26", "end_date": "2026-11-01"}]}))
@@ -375,3 +380,83 @@ def test_an_incomplete_section_is_said_in_the_stats_report_and_on_the_page(world
     gen = (ROOT / "scripts" / "newsletter_html_generator.py").read_text(encoding="utf-8")
     assert '_sp_banner = _sp_note((stats_report or {}).get("season_performers"))' in gen
     assert "content_html = f'{_sp_banner}<div class=\"sc-tables-section\">" in gen
+
+
+# ------------------------------------------------- when a player joined (Part B)
+# HANDOFF_EFFECTIVE_DATE_RULING 2026-10-30 Part B: newsletter 1's draft wrote
+# "Paul George's 50.15 FPPG over 2 games for Benton" -- Benton added him on
+# 10-26, after both games.
+
+def _joins(world, adds=(), drafted=None):
+    """Butler not drafted by default; he joined through `adds` (or nothing)."""
+    base = world["base"]
+    picks = [{"manager": m, "player_name": n, "is_keeper": False}
+             for m, n in (drafted if drafted is not None
+                          else [("Nick", "Nikola Jokic"), ("Benton", "Luka Doncic")])]
+    (base / "config" / "DRAFT_PICKS_CURRENT.json").write_text(json.dumps({"picks": picks}))
+    (base / "data" / "waivers_week2.txt").write_text(
+        "# partial\n\n" + "\n".join(f"- [{d}] {m}: {n}" for d, m, n in adds) + "\n")
+
+
+def test_a_player_added_on_10_26_carries_joined_and_no_games_with_the_team(world):
+    _joins(world, adds=[("2026-10-26", "Nick", "Jimmy Butler")])
+    out, _, _ = run(world)
+    assert out["status"]["complete"], sp.problems_of(out["status"])
+    butler = row(out, "Jimmy Butler")
+    assert butler["joined"] == "2026-10-26" and butler["games_with_team"] == 0
+    assert butler["gp"] == 2                                  # his season still counts
+    assert out["status"]["joined"] == {"Jimmy Butler (Nick)": "2026-10-26"}
+
+
+def test_a_drafted_or_kept_player_has_no_joined(world):
+    _joins(world, adds=[("2026-10-26", "Nick", "Jimmy Butler")])
+    out, _, _ = run(world)
+    for n in ("Nikola Jokic", "Luka Doncic"):
+        assert row(out, n)["joined"] is None and row(out, n)["games_with_team"] is None
+
+
+def test_games_after_joining_are_counted_with_the_team(world):
+    _joins(world, adds=[("2026-10-24", "Nick", "Jimmy Butler")])
+    (world["base"] / "config" / "SCHEDULE.json").write_text(json.dumps({"weeks": [
+        {"week": 1, "start_date": "2026-10-20", "end_date": WEEK_END},
+        {"week": 2, "start_date": "2026-10-26", "end_date": "2026-11-01"}]}))
+    (world["base"] / "data" / "waivers_week1.txt").write_text(
+        "- [2026-10-24] Nick: Jimmy Butler\n")
+    (world["base"] / "data" / "waivers_week2.txt").unlink()
+    out, _, _ = run(world)
+    b = row(out, "Jimmy Butler")
+    assert b["joined"] == "2026-10-24" and b["games_with_team"] == 1   # 10-24 of 10-23, 10-24
+
+
+def test_an_unresolvable_joining_date_makes_the_section_incomplete(world):
+    _joins(world, adds=[], drafted=[("Nick", "Nikola Jokic"), ("Benton", "Luka Doncic")])
+    out, _, _ = run(world)
+    assert not out["status"]["complete"]
+    assert any("Jimmy Butler (Nick): when he joined the team cannot be determined" in f
+               for f in out["status"]["failures"])
+    with pytest.raises(sp.SeasonPerformersIncomplete):
+        _strict(world)
+
+
+def test_the_md_and_html_carry_the_since_marker(world):
+    _joins(world, adds=[("2026-10-26", "Nick", "Jimmy Butler")])
+    got = _strict(world)
+    import format_stats_report as fsr
+    text = fsr.format_section_8_stats_corner({"season_performers": got}, {})
+    team = row(got, "Jimmy Butler")["fantasy_team"]
+    assert f"| Jimmy Butler | {team} (since 10-26) |" in text
+    assert "including games before he joined his current team" in text
+    jok_team = row(got, "Nikola Jokic")["fantasy_team"]
+    assert f"| Nikola Jokic | {jok_team} |" in text                  # day one: no marker
+    import newsletter_html_generator as gen
+    draft = ("**Best Performers (Total FP, This Season)**\n\n"
+             "| Rank | Player | Fantasy Team | NBA Team | Total FP |\n"
+             "|------|--------|--------------|----------|----------|\n"
+             f"| 1 | Jimmy Butler | {team} | MIA | 38.1 |\n"
+             f"| 2 | Nikola Jokic | {jok_team} | DEN | 124.1 |\n")
+    marked = gen.mark_season_joins(draft, got)
+    assert f"| 1 | Jimmy Butler | {team} (since 10-26) | MIA | 38.1 |" in marked
+    assert f"| 2 | Nikola Jokic | {jok_team} | DEN | 124.1 |" in marked
+    assert gen.mark_season_joins(marked, got) == marked               # idempotent
+    html = gen.parse_section(marked, "Stats Corner")
+    assert "(since 10-26)" in html

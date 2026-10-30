@@ -2601,16 +2601,17 @@ def format_section_8_stats_corner(data: dict, lookups: dict) -> str:
             iqr_str = f"{pc['q25']:.1f}-{pc['q75']:.1f}" if pc else "-"
             mpg_str = f"{p['mpg']:.1f}" if p.get('mpg') is not None else "-"
             proj_fp_str = f"{p['proj_fp_ros']:.1f}" if p.get('proj_fp_ros') is not None else "-"
+            team = _sp_team_label(p)
             if sort_col == "fppg":
                 result.append(
-                    f"| {i} | {pname} | {p['fantasy_team']} | {p['nba_team']} "
+                    f"| {i} | {pname} | {team} | {p['nba_team']} "
                     f"| {p['fppg']:.2f} | {p['total_fp']:.1f} | {p['gp_pct']:.1f} "
                     f"| {mpg_str} | {p['eff_pct']:.1f} | {cv_str} | {iqr_str} "
                     f"| {proj_fp_str} | {p['proj_fppg_ros']:.2f} |"
                 )
             else:
                 result.append(
-                    f"| {i} | {pname} | {p['fantasy_team']} | {p['nba_team']} "
+                    f"| {i} | {pname} | {team} | {p['nba_team']} "
                     f"| {p['total_fp']:.1f} | {p['fppg']:.2f} | {p['gp_pct']:.1f} "
                     f"| {mpg_str} | {p['eff_pct']:.1f} | {cv_str} | {iqr_str} "
                     f"| {proj_fp_str} | {p['proj_fppg_ros']:.2f} |"
@@ -2624,6 +2625,12 @@ def format_section_8_stats_corner(data: dict, lookups: dict) -> str:
                      "points from Yahoo, games and minutes from basketball-reference.")
         lines.append("")
     from modules.season_performers import incomplete_note as _sp_note
+    from modules.season_performers import team_label as _sp_team_label, SINCE_NOTE as _since
+    if any(p.get("joined") for k in ("best_total_fp", "best_fppg", "worst_total_fp", "worst_fppg")
+           for p in sp.get(k, [])):
+        lines.append(_since + " Never write that such a player's season numbers were \"for\" "
+                     "that team: say \"now on X's roster\" or name the date he joined.")
+        lines.append("")
     _note = _sp_note(sp)
     if _note:
         lines.append(f"**NOTE -- {_note}** Say so in Stats Corner, in one plain sentence above "

@@ -936,6 +936,45 @@ def parse_newsletter(text: str) -> Tuple[str, str, List[Tuple[str, str]]]:
 # HTML generation
 # -------------------------
 
+def mark_season_joins(content: str, season_performers: Optional[dict]) -> str:
+    """The Stats Corner markdown with every season-table row whose player
+    joined his current team during the season marked in its Fantasy Team
+    cell ("Blink-183 (since 10-26)"; season_performers.team_label). Season
+    tables are the ones under a Best/Worst Performers or Season Best/Worst
+    header with a "Fantasy Team" column. Idempotent."""
+    from modules.season_performers import team_label
+    from modules.data_loader import PlayerIndex
+    joined = PlayerIndex()
+    for key in ("best_total_fp", "best_fppg", "worst_total_fp", "worst_fppg"):
+        for r in (season_performers or {}).get(key, []) or []:
+            if r.get("joined"):
+                joined[r["player_name"]] = r
+    if not joined:
+        return content
+    out, header, in_season = [], None, False
+    for line in content.split("\n"):
+        s = line.strip()
+        if s.startswith("**") and "**" in s[2:]:
+            in_season = any(k in s for k in ("Best Performers", "Worst Performers",
+                                             "Season Best", "Season Worst"))
+            header = None
+        elif in_season and s.startswith("|"):
+            cells = [c.strip() for c in s.strip("|").split("|")]
+            if header is None:
+                header = cells
+            elif "Fantasy Team" in header and "Player" in header and not set(s) <= set("|-: "):
+                pi, ti = header.index("Player"), header.index("Fantasy Team")
+                if len(cells) > max(pi, ti):
+                    row = joined.get(cells[pi])
+                    if row is not None and "(since" not in cells[ti]:
+                        cells[ti] = team_label({**row, "fantasy_team": cells[ti]})
+                        line = "| " + " | ".join(cells) + " |"
+        else:
+            header = None                    # a table ends at its first non-row line
+        out.append(line)
+    return "\n".join(out)
+
+
 def generate_html(
     title: str,
     subtitle: str,
@@ -1045,6 +1084,11 @@ def generate_html(
         </section>'''
         
         elif 'stats corner' in heading.lower():
+            # A player who joined his team during the season carries "(since
+            # MM-DD)" in the season tables' Fantasy Team cell, from the stats
+            # report, whether or not the draft kept it.
+            if stats_report:
+                content = mark_season_joins(content, stats_report.get("season_performers"))
             content_html = parse_section(content, heading)
             # Inject Stats Corner visualizations from stats_report data
             viz_top_html = ""

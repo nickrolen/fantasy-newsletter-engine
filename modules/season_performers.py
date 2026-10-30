@@ -384,11 +384,83 @@ def cross_check(yahoo: dict, games: List[dict]) -> Tuple[List[str], List[str]]:
     return cameos, findings
 
 
+def joined_dates(base_path: Path, rosters: Dict[str, List[str]], schedule: dict,
+                 first_day: str) -> Tuple[Dict[Tuple[str, str], Optional[str]], List[str]]:
+    """({(manager, rostered name): the day he joined that team, or None when
+    he has been on it since the season's first day}, [failures]).
+
+    The season tables count every game a player played this season, before
+    he joined his current team too (newsletter 1's draft credited Paul
+    George's and Aaron Wiggins's week 1 games "for" teams that added them on
+    10-26). This is what the "since" marker reads. In order:
+      1. his latest ADD by that manager in the synced waivers files, with the
+         commissioner's rulings applied (a void is no add; an effective date
+         moves it -- transaction_rulings);
+      2. drafted or kept by that manager (DRAFT_PICKS_CURRENT.json): day one;
+      3. his first LINEUPS row with that manager (effective dates applied);
+    and with none of them, a FAILURE: shown as if he had been there all
+    season, he would be the bug this fixes."""
+    import re as _re
+    from .transaction_rulings import (waiver_lines, _parse_line, effective_dates, load_all,
+                                      apply_effective_dates)
+    base = Path(base_path)
+    adds: Dict[Tuple[str, str], str] = {}
+    for f in sorted((base / "data").glob("waivers_week*.txt")):
+        m = _re.search(r"waivers_week(\d+)\.txt$", f.name)
+        if not m:
+            continue
+        lines, _ = waiver_lines(f, base, int(m.group(1)), schedule)
+        for ln in lines:
+            p = _parse_line(ln)
+            if p:
+                key = (p[1], p[2])
+                adds[key] = max(adds.get(key, p[0]), p[0])
+    for r in effective_dates(load_all(base)):
+        adds[(r.manager, r.player)] = r.effective
+    by_mgr_adds: Dict[str, PlayerIndex] = {}
+    for (mgr, name), day in adds.items():
+        by_mgr_adds.setdefault(mgr, PlayerIndex())[name] = day
+
+    drafted: Dict[str, PlayerIndex] = {}
+    picks_path = base / "config" / "DRAFT_PICKS_CURRENT.json"
+    if picks_path.is_file():
+        for pk in json.loads(picks_path.read_text(encoding="utf-8")).get("picks", []):
+            drafted.setdefault(pk.get("manager", ""), PlayerIndex())[pk.get("player_name", "")] = True
+
+    first_row: Dict[str, PlayerIndex] = {}
+    lu_path = base / "data" / "LINEUPS.xlsx"
+    if lu_path.is_file():
+        from .data_loader import load_lineups
+        lu = apply_effective_dates(load_lineups(lu_path), base, "lineups", schedule,
+                                   echo=lambda *_: None)
+        for (mgr, name), day in lu.groupby(["manager", "player_name"])["date"].min().items():
+            first_row.setdefault(mgr, PlayerIndex())[name] = str(day)[:10]
+
+    out, failures = {}, []
+    for mgr, names in rosters.items():
+        for n in names:
+            add = (by_mgr_adds.get(mgr) or PlayerIndex()).get(n)
+            if add is not None:
+                out[(mgr, n)] = add if add > first_day else None
+            elif (drafted.get(mgr) or PlayerIndex()).get(n) is not None:
+                out[(mgr, n)] = None
+            elif (row := (first_row.get(mgr) or PlayerIndex()).get(n)) is not None:
+                out[(mgr, n)] = row if row > first_day else None
+            else:
+                failures.append(f"{n} ({mgr}): when he joined the team cannot be determined "
+                                "(no add in the waivers files, not drafted or kept, no LINEUPS row)")
+    return out, failures
+
+
 def aggregate(rosters: Dict[str, List[str]], playerlist: pd.DataFrame, ids: Dict[str, int],
               points: dict, bbref_ids: Dict[str, str], logs: Dict[str, List[dict]],
-              nba_team_games: Dict[str, int], week_end: str) -> Tuple[pd.DataFrame, dict]:
+              nba_team_games: Dict[str, int], week_end: str,
+              joined: Optional[Dict[Tuple[str, str], Optional[str]]] = None
+              ) -> Tuple[pd.DataFrame, dict]:
     """(stats rows, {"cameos", "findings"}) for every rostered player whose
-    sources all came back."""
+    sources all came back. joined: joined_dates' map -- a row whose player
+    joined his team during the season carries `joined` and `games_with_team`
+    (his counted games on or after that day)."""
     pl = PlayerIndex({r["player_name"]: r for r in playerlist.to_dict("records")})
     rows, cameos, findings = [], {}, {}
     for manager, names in rosters.items():
@@ -410,7 +482,11 @@ def aggregate(rosters: Dict[str, List[str]], playerlist: pd.DataFrame, ids: Dict
             mins = [g["minutes"] for g in app if g["minutes"] is not None]
             total_fp = points[n]["points"]
             nba_team = games[-1]["team"] if games else (pl.get(n) or {}).get("player_nba_team", "")
+            since = (joined or {}).get((manager, n))
             rows.append({
+                "joined": since,
+                "games_with_team": (sum(1 for g in app if g["date"] >= since)
+                                    if since else None),
                 "player_name": n, "fantasy_team": fantasy_team, "nba_team": nba_team,
                 "total_fp": round(total_fp, 1),
                 "fppg": round(total_fp / gp, 2) if gp else 0.0,
@@ -419,7 +495,7 @@ def aggregate(rosters: Dict[str, List[str]], playerlist: pd.DataFrame, ids: Dict
                 "mpg": round(sum(mins) / len(mins), 1) if mins else None,
             })
     df = pd.DataFrame(rows, columns=["player_name", "fantasy_team", "nba_team", "total_fp", "fppg",
-                                     "gp", "gp_pct", "mpg"])
+                                     "gp", "gp_pct", "mpg", "joined", "games_with_team"])
     for c in ("total_fp", "fppg", "gp_pct"):
         df[c] = pd.to_numeric(df[c]).astype(float)
     df["gp"] = pd.to_numeric(df["gp"]).astype(int)
@@ -434,8 +510,13 @@ def aggregate(rosters: Dict[str, List[str]], playerlist: pd.DataFrame, ids: Dict
 
 
 def _row_dict(row) -> dict:
-    return {k: row[k] for k in ('player_name', 'fantasy_team', 'nba_team', 'total_fp', 'fppg',
-                                'gp', 'gp_pct', 'mpg', 'eff_pct', 'proj_fp_ros', 'proj_fppg_ros')}
+    out = {k: row[k] for k in ('player_name', 'fantasy_team', 'nba_team', 'total_fp', 'fppg',
+                               'gp', 'gp_pct', 'mpg', 'eff_pct', 'proj_fp_ros', 'proj_fppg_ros')}
+    j = row.get('joined') if hasattr(row, 'get') else None
+    out['joined'] = j if isinstance(j, str) and j else None
+    g = row.get('games_with_team') if out['joined'] else None
+    out['games_with_team'] = int(g) if out['joined'] and g is not None and not pd.isna(g) else None
+    return out
 
 
 def tables(stats: pd.DataFrame, min_gp_pct: float = 50.0) -> dict:
@@ -523,9 +604,17 @@ def generate_season_performers_data(week: int, base_path: Path, min_gp_pct: floa
         failures.append(f"basketball-reference: {type(e).__name__}: {e}")
     status["bbref_ids"] = len(bb_ids)
     status["games_counted"] = len(logs)
+    # When each rostered player joined his current team (the "since" marker).
+    joined, join_failures = {}, []
+    try:
+        joined, join_failures = joined_dates(base, rosters, schedule, first.isoformat())
+    except Exception as e:
+        join_failures = [f"joining dates: {type(e).__name__}: {e}"]
+    failures += join_failures
+    status["joined"] = {f"{n} ({m})": d for (m, n), d in sorted(joined.items()) if d}
     if points:
         stats, checks = aggregate(rosters, playerlist, ids, points, bb_ids, logs, nba_team_games,
-                                  week_end)
+                                  week_end, joined)
         status["findings"], status["cameos"] = checks["findings"], checks["cameos"]
         out.update(tables(stats, min_gp_pct))
         status["ran"] = True
@@ -533,7 +622,7 @@ def generate_season_performers_data(week: int, base_path: Path, min_gp_pct: floa
     else:
         status["counted"] = 0
     counted = status["counted"]
-    status["failed"] = len(names) - counted + len(status["findings"])
+    status["failed"] = len(names) - counted + len(status["findings"]) + len(join_failures)
     status["complete"] = bool(status["ran"] and not failures and not status["findings"]
                               and counted == len(names))
     status["runtime_s"] = round(time.time() - t0, 1)
@@ -580,6 +669,22 @@ def build_season_performers(base_path: Path, week: int, allow_incomplete: bool =
     else:
         status["override"] = None
     return data
+
+
+def team_label(row: dict) -> str:
+    """The Fantasy Team cell: "Blink-183", or "Blink-183 (since 10-26)" for a
+    player who joined that team during the season -- none of his games before
+    that day were for it."""
+    team = str(row.get("fantasy_team", ""))
+    j = row.get("joined")
+    if j:
+        return f"{team} (since {str(j)[5:10]})"
+    return team
+
+
+SINCE_NOTE = ("Season totals count every game the player played this season, including "
+              "games before he joined his current team. \"since MM-DD\" marks a player who "
+              "joined during the season: none of his games before that date were for that team.")
 
 
 def incomplete_note(season_performers: Optional[dict]) -> Optional[str]:

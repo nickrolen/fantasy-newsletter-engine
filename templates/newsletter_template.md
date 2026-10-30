@@ -689,6 +689,13 @@ day the report was built. If Section 8 carries a "NOTE -- The season tables ... 
 incomplete" line, say that in one plain sentence above the season tables; never
 present incomplete tables as complete.
 
+SEASON TOTALS COUNT EVERY GAME A PLAYER PLAYED THIS SEASON, including games before he
+joined his current team. A Fantasy Team cell reading "Team (since MM-DD)" marks a player
+who joined during the season: none of his games before that date were for that team.
+Never write that such a player's season numbers were "for" that team ("50.15 FPPG over
+2 games for Benton" is wrong when Benton added him after those games): say "now on X's
+roster" or name the date he joined. Keep the "(since MM-DD)" in the tables.
+
 SEASON BEST - TOTAL FP (season_performers.best_total_fp[], top 30):
 | Rank | Player | Fantasy Team | NBA Team | Total FP | FPPG | GP% | MPG | Eff% | Proj FP (ROS) | Proj FPPG (ROS) |
 [30 rows -> HTML newsletter paginates these 10 at a time]
