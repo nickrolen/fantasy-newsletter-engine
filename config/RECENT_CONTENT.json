@@ -1,5 +1,117 @@
 {
-  "fun_facts": {},
-  "trade_ideas": {},
-  "free_agent_recs": {}
+  "fun_facts": {
+    "career_race:garrett": {
+      "fact_key": "career_race:garrett",
+      "subcategory": "career_race",
+      "last_shown_week": 1,
+      "last_value": 1,
+      "times_shown": 1
+    },
+    "monster_game:nick:luka_doncic": {
+      "fact_key": "monster_game:nick:luka_doncic",
+      "subcategory": "monster_game",
+      "last_shown_week": 1,
+      "last_value": 85.25,
+      "times_shown": 1
+    },
+    "season_high:nick": {
+      "fact_key": "season_high:nick",
+      "subcategory": "season_high",
+      "last_shown_week": 1,
+      "last_value": 1561.8,
+      "times_shown": 1
+    },
+    "positional_dominance:nick:benton:center": {
+      "fact_key": "positional_dominance:nick:benton:center",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 1,
+      "last_value": 163.40000000000003,
+      "times_shown": 1
+    },
+    "positional_dominance:hayden:garrett:guard": {
+      "fact_key": "positional_dominance:hayden:garrett:guard",
+      "subcategory": "positional_dominance",
+      "last_shown_week": 1,
+      "last_value": 283.75,
+      "times_shown": 1
+    },
+    "injury_burden_healthiest:benton": {
+      "fact_key": "injury_burden_healthiest:benton",
+      "subcategory": "injury_burden_healthiest",
+      "last_shown_week": 1,
+      "last_value": 2.272727272727273,
+      "times_shown": 1
+    },
+    "career_dominance": {
+      "fact_key": "career_dominance",
+      "subcategory": "career_dominance",
+      "last_shown_week": 1,
+      "last_value": 62.6,
+      "times_shown": 1
+    }
+  },
+  "trade_ideas": {
+    "benton:hayden:trey_murphy_iii:joel_embiid": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "benton:hayden:josh_giddey:nikola_joki\u0107": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "benton:nick:cameron_boozer:domantas_sabonis": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "garrett:hayden:kon_knueppel:brandon_miller": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    }
+  },
+  "free_agent_recs": {
+    "Dejounte Murray:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "LeBron James:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "Rudy Gobert:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "Matas Buzelis:Nick": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "Jarrett Allen:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "drop:Payton Pritchard:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "drop:Onyeka Okongwu:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "drop:Brandon Miller:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "drop:Josh Giddey:Benton": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "drop:Jalen Brunson:Garrett": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    },
+    "drop:Stephen Curry:Hayden": {
+      "times_shown": 1,
+      "last_shown_week": 1
+    }
+  }
 }

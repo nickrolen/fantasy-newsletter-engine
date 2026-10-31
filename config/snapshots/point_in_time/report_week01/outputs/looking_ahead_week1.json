@@ -1,0 +1,218 @@
+{
+  "week": 2,
+  "num_simulations": 5000,
+  "matchup_previews": [
+    {
+      "week": 2,
+      "manager_a": "Nick",
+      "manager_b": "Hayden",
+      "team_name_a": "Luka my Balls",
+      "team_name_b": "Big Nik Energy",
+      "betting_line": {
+        "manager_a": "Nick",
+        "manager_b": "Hayden",
+        "spread_a": -186.5,
+        "spread_b": 186.5,
+        "over_under": 3190,
+        "win_prob_a": 76.18,
+        "win_prob_b": 23.82,
+        "moneyline_a": -320,
+        "moneyline_b": 320,
+        "avg_score_a": 1690.1133296432313,
+        "avg_score_b": 1503.544031045356,
+        "std_dev_a": 191.7459282168511,
+        "std_dev_b": 175.01070799155931,
+        "team_name_a": "Luka my Balls",
+        "team_name_b": "Big Nik Energy",
+        "banked_a": 0.0,
+        "banked_b": 0.0,
+        "remaining_mean_a": 1690.1133296432313,
+        "remaining_mean_b": 1503.544031045356,
+        "projected_final_a": 1690.1133296432313,
+        "projected_final_b": 1503.544031045356
+      },
+      "series_a_wins": 0,
+      "series_b_wins": 0,
+      "guard_matchup": {
+        "position": "G",
+        "manager_a_fp": 345.99,
+        "manager_a_games": 9,
+        "manager_a_players": [
+          "Anthony Edwards",
+          "Damian Lillard",
+          "Derrick White"
+        ],
+        "manager_b_fp": 342.59999999999997,
+        "manager_b_games": 9,
+        "manager_b_players": [
+          "Amen Thompson",
+          "Darius Acuff Jr.",
+          "Kawhi Leonard"
+        ],
+        "advantage": "Even",
+        "advantage_margin": 3.390000000000043
+      },
+      "forward_matchup": {
+        "position": "F",
+        "manager_a_fp": 268.5,
+        "manager_a_games": 7,
+        "manager_a_players": [
+          "Domantas Sabonis",
+          "Dyson Daniels",
+          "Evan Mobley"
+        ],
+        "manager_b_fp": 217.67000000000002,
+        "manager_b_games": 6,
+        "manager_b_players": [
+          "Brandon Miller",
+          "Chet Holmgren",
+          "Kawhi Leonard"
+        ],
+        "advantage": "Nick",
+        "advantage_margin": 50.829999999999984
+      },
+      "center_matchup": {
+        "position": "C",
+        "manager_a_fp": 159.14999999999998,
+        "manager_a_games": 4,
+        "manager_a_players": [
+          "Domantas Sabonis",
+          "Donovan Clingan",
+          "Evan Mobley"
+        ],
+        "manager_b_fp": 174.55,
+        "manager_b_games": 4,
+        "manager_b_players": [
+          "Chet Holmgren",
+          "Joel Embiid",
+          "Nikola Joki\u0107"
+        ],
+        "advantage": "Hayden",
+        "advantage_margin": 15.400000000000034
+      },
+      "key_player_a": "Luka Don\u010di\u0107",
+      "key_player_a_proj": 54.01,
+      "key_player_b": "Nikola Joki\u0107",
+      "key_player_b_proj": 59.97,
+      "implications": "Winner takes the tiebreaker advantage.",
+      "all_time_a_wins": 36,
+      "all_time_b_wins": 24,
+      "h2h_streak_holder": "Nick",
+      "h2h_streak_length": 6,
+      "h2h_streak_last_loss_season": "2025-26",
+      "key_player_a_injury_note": "",
+      "key_player_b_injury_note": "",
+      "notable_injuries_a": [
+        {
+          "player": "Paolo Banchero",
+          "notes": "Ankle injury - out ~7 weeks starting week 1",
+          "status": "out"
+        }
+      ],
+      "notable_injuries_b": []
+    },
+    {
+      "week": 2,
+      "manager_a": "Garrett",
+      "manager_b": "Benton",
+      "team_name_a": "Blink-183",
+      "team_name_b": "Spayed for Cade",
+      "betting_line": {
+        "manager_a": "Garrett",
+        "manager_b": "Benton",
+        "spread_a": 295.0,
+        "spread_b": -295.0,
+        "over_under": 3020,
+        "win_prob_a": 9.8,
+        "win_prob_b": 90.2,
+        "moneyline_a": 920,
+        "moneyline_b": -920,
+        "avg_score_a": 1363.363216340483,
+        "avg_score_b": 1658.2234306292478,
+        "std_dev_a": 157.09226391235725,
+        "std_dev_b": 175.45238862718153,
+        "team_name_a": "Blink-183",
+        "team_name_b": "Spayed for Cade",
+        "banked_a": 0.0,
+        "banked_b": 0.0,
+        "remaining_mean_a": 1363.363216340483,
+        "remaining_mean_b": 1658.2234306292478,
+        "projected_final_a": 1363.363216340483,
+        "projected_final_b": 1658.2234306292478
+      },
+      "series_a_wins": 0,
+      "series_b_wins": 0,
+      "guard_matchup": {
+        "position": "G",
+        "manager_a_fp": 305.92,
+        "manager_a_games": 9,
+        "manager_a_players": [
+          "Aaron Wiggins",
+          "Cooper Flagg",
+          "Deni Avdija"
+        ],
+        "manager_b_fp": 311.74,
+        "manager_b_games": 8,
+        "manager_b_players": [
+          "Austin Reaves",
+          "Cade Cunningham",
+          "Donovan Mitchell"
+        ],
+        "advantage": "Benton",
+        "advantage_margin": 5.819999999999993
+      },
+      "forward_matchup": {
+        "position": "F",
+        "manager_a_fp": 313.44,
+        "manager_a_games": 9,
+        "manager_a_players": [
+          "Aaron Wiggins",
+          "Alperen \u015eeng\u00fcn",
+          "Bam Adebayo"
+        ],
+        "manager_b_fp": 292.92,
+        "manager_b_games": 8,
+        "manager_b_players": [
+          "Anthony Davis",
+          "Austin Reaves",
+          "Cameron Boozer"
+        ],
+        "advantage": "Garrett",
+        "advantage_margin": 20.519999999999982
+      },
+      "center_matchup": {
+        "position": "C",
+        "manager_a_fp": 204.17,
+        "manager_a_games": 5,
+        "manager_a_players": [
+          "Alex Sarr",
+          "Alperen \u015eeng\u00fcn",
+          "Bam Adebayo"
+        ],
+        "manager_b_fp": 145.71999999999997,
+        "manager_b_games": 4,
+        "manager_b_players": [
+          "Anthony Davis",
+          "Onyeka Okongwu",
+          "Pascal Siakam"
+        ],
+        "advantage": "Garrett",
+        "advantage_margin": 58.45000000000002
+      },
+      "key_player_a": "Victor Wembanyama",
+      "key_player_a_proj": 51.5,
+      "key_player_b": "Jayson Tatum",
+      "key_player_b_proj": 45.16,
+      "implications": "Winner takes the tiebreaker advantage.",
+      "all_time_a_wins": 31,
+      "all_time_b_wins": 29,
+      "h2h_streak_holder": "Garrett",
+      "h2h_streak_length": 2,
+      "h2h_streak_last_loss_season": "2025-26",
+      "key_player_a_injury_note": "",
+      "key_player_b_injury_note": "",
+      "notable_injuries_a": [],
+      "notable_injuries_b": []
+    }
+  ]
+}

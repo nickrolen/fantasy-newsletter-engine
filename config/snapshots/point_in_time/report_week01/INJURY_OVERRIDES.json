@@ -1,0 +1,93 @@
+{
+  "players": [
+    {
+      "player_name": "Coby White",
+      "out_weeks": [
+        1,
+        2
+      ],
+      "notes": "Calf injury - out ~2 weeks starting week 1",
+      "return_week": 3,
+      "return_games": 3,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from calf injury on 11/02",
+      "return_date": "2026-11-02"
+    },
+    {
+      "player_name": "Paolo Banchero",
+      "out_weeks": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "notes": "Ankle injury - out ~7 weeks starting week 1",
+      "return_week": 8,
+      "return_games": 4,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from ankle injury on 12/14",
+      "return_date": "2026-12-14"
+    },
+    {
+      "player_name": "Jalen Duren",
+      "out_weeks": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "notes": "Hamstring injury - out ~4 weeks starting week 1",
+      "return_week": 5,
+      "return_games": 4,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from hamstring injury on 11/17",
+      "return_date": "2026-11-17"
+    },
+    {
+      "player_name": "Jusuf Nurkic",
+      "out_weeks": [
+        1,
+        2,
+        3
+      ],
+      "notes": "Ankle injury - out ~3 weeks starting week 1",
+      "return_week": 4,
+      "return_games": 4,
+      "total_week_games": 4,
+      "return_notes": "Possibly returning from ankle injury on 11/10",
+      "return_date": "2026-11-10"
+    },
+    {
+      "player_name": "Jalen Suggs",
+      "out_weeks": [
+        1,
+        2,
+        3
+      ],
+      "notes": "Knee injury - out ~3 weeks starting week 1",
+      "return_week": 4,
+      "return_games": 3,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from knee injury on 11/10",
+      "return_date": "2026-11-10"
+    },
+    {
+      "player_name": "Keegan Murray",
+      "out_weeks": [
+        1,
+        2,
+        3
+      ],
+      "notes": "Ankle injury - out ~3 weeks starting week 1",
+      "return_week": 4,
+      "return_games": 3,
+      "total_week_games": 3,
+      "return_notes": "Possibly returning from ankle injury on 11/10",
+      "return_date": "2026-11-10"
+    }
+  ],
+  "last_updated": "2026-10-27"
+}

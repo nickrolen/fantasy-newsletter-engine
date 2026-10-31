@@ -1,0 +1,515 @@
+{
+ "season": "2026-27",
+ "decision": "2027-28",
+ "week": 1,
+ "as_of": "2026-10-25",
+ "as_of_point": "week2",
+ "params": {
+  "fit_date": "2026-10-29",
+  "dataset_sha256": "451f214c9234730f0faefaa70a5aaac103f2e4b58791fc9760e65c4ff9653e61",
+  "level_prior": "P3",
+  "k0_prior": 10.0,
+  "k0_league_mean": 4.7
+ },
+ "cup_winner": null,
+ "line_k": null,
+ "players": [
+  {
+   "player_name": "Jayson Tatum",
+   "manager": "Benton",
+   "rank": 1,
+   "keep_k5": 0.8047,
+   "keep_k6": 0.8817,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Tyrese Maxey",
+   "manager": "Benton",
+   "rank": 2,
+   "keep_k5": 0.7786,
+   "keep_k6": 0.8643,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Cade Cunningham",
+   "manager": "Benton",
+   "rank": 3,
+   "keep_k5": 0.7328,
+   "keep_k6": 0.8324,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Josh Giddey",
+   "manager": "Benton",
+   "rank": 4,
+   "keep_k5": 0.4682,
+   "keep_k6": 0.6104,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Cameron Boozer",
+   "manager": "Benton",
+   "rank": 5,
+   "keep_k5": 0.3067,
+   "keep_k6": 0.4428,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Donovan Mitchell",
+   "manager": "Benton",
+   "rank": 6,
+   "keep_k5": 0.296,
+   "keep_k6": 0.4305,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Trey Murphy III",
+   "manager": "Benton",
+   "rank": 7,
+   "keep_k5": 0.2274,
+   "keep_k6": 0.3464,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Austin Reaves",
+   "manager": "Benton",
+   "rank": 8,
+   "keep_k5": 0.0931,
+   "keep_k6": 0.1544,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Walker Kessler",
+   "manager": "Benton",
+   "rank": 9,
+   "keep_k5": 0.0798,
+   "keep_k6": 0.1335,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Anthony Davis",
+   "manager": "Benton",
+   "rank": 10,
+   "keep_k5": 0.0567,
+   "keep_k6": 0.096,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Nickeil Alexander-Walker",
+   "manager": "Benton",
+   "rank": 11,
+   "keep_k5": 0.0508,
+   "keep_k6": 0.0864,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Onyeka Okongwu",
+   "manager": "Benton",
+   "rank": 12,
+   "keep_k5": 0.0127,
+   "keep_k6": 0.0221,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Kevin Durant",
+   "manager": "Benton",
+   "rank": 13,
+   "keep_k5": 0.0049,
+   "keep_k6": 0.0086,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Pascal Siakam",
+   "manager": "Benton",
+   "rank": 14,
+   "keep_k5": 0.0035,
+   "keep_k6": 0.0061,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Paul George",
+   "manager": "Benton",
+   "rank": 15,
+   "keep_k5": 0.0007,
+   "keep_k6": 0.0012,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Victor Wembanyama",
+   "manager": "Garrett",
+   "rank": 1,
+   "keep_k5": 0.9851,
+   "keep_k6": 0.9916,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Cooper Flagg",
+   "manager": "Garrett",
+   "rank": 2,
+   "keep_k5": 0.6807,
+   "keep_k6": 0.7942,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Alperen Sengun",
+   "manager": "Garrett",
+   "rank": 3,
+   "keep_k5": 0.6469,
+   "keep_k6": 0.7682,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Giannis Antetokounmpo",
+   "manager": "Garrett",
+   "rank": 4,
+   "keep_k5": 0.3863,
+   "keep_k6": 0.528,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Jamal Murray",
+   "manager": "Garrett",
+   "rank": 5,
+   "keep_k5": 0.3628,
+   "keep_k6": 0.503,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Deni Avdija",
+   "manager": "Garrett",
+   "rank": 6,
+   "keep_k5": 0.3306,
+   "keep_k6": 0.4678,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "VJ Edgecombe",
+   "manager": "Garrett",
+   "rank": 7,
+   "keep_k5": 0.1218,
+   "keep_k6": 0.1969,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Alex Sarr",
+   "manager": "Garrett",
+   "rank": 8,
+   "keep_k5": 0.1069,
+   "keep_k6": 0.1743,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Kon Knueppel",
+   "manager": "Garrett",
+   "rank": 9,
+   "keep_k5": 0.0941,
+   "keep_k6": 0.1546,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Jalen Brunson",
+   "manager": "Garrett",
+   "rank": 10,
+   "keep_k5": 0.0903,
+   "keep_k6": 0.1488,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Bam Adebayo",
+   "manager": "Garrett",
+   "rank": 11,
+   "keep_k5": 0.047,
+   "keep_k6": 0.0794,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Michael Porter Jr.",
+   "manager": "Garrett",
+   "rank": 12,
+   "keep_k5": 0.0286,
+   "keep_k6": 0.0488,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Toumani Camara",
+   "manager": "Garrett",
+   "rank": 13,
+   "keep_k5": 0.014,
+   "keep_k6": 0.0241,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "James Harden",
+   "manager": "Garrett",
+   "rank": 14,
+   "keep_k5": 0.0103,
+   "keep_k6": 0.0177,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Aaron Wiggins",
+   "manager": "Garrett",
+   "rank": 15,
+   "keep_k5": 0.0069,
+   "keep_k6": 0.0119,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Payton Pritchard",
+   "manager": "Garrett",
+   "rank": 16,
+   "keep_k5": 0.0044,
+   "keep_k6": 0.0075,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Nikola Jokic",
+   "manager": "Hayden",
+   "rank": 1,
+   "keep_k5": 0.9751,
+   "keep_k6": 0.9879,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Tyrese Haliburton",
+   "manager": "Hayden",
+   "rank": 2,
+   "keep_k5": 0.8176,
+   "keep_k6": 0.904,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Shai Gilgeous-Alexander",
+   "manager": "Hayden",
+   "rank": 3,
+   "keep_k5": 0.7031,
+   "keep_k6": 0.8311,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "LaMelo Ball",
+   "manager": "Hayden",
+   "rank": 4,
+   "keep_k5": 0.5513,
+   "keep_k6": 0.7066,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Scottie Barnes",
+   "manager": "Hayden",
+   "rank": 5,
+   "keep_k5": 0.3127,
+   "keep_k6": 0.4735,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Amen Thompson",
+   "manager": "Hayden",
+   "rank": 6,
+   "keep_k5": 0.1861,
+   "keep_k6": 0.3172,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Stephon Castle",
+   "manager": "Hayden",
+   "rank": 7,
+   "keep_k5": 0.0967,
+   "keep_k6": 0.1776,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Chet Holmgren",
+   "manager": "Hayden",
+   "rank": 8,
+   "keep_k5": 0.0809,
+   "keep_k6": 0.1504,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Lauri Markkanen",
+   "manager": "Hayden",
+   "rank": 9,
+   "keep_k5": 0.0687,
+   "keep_k6": 0.1289,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Darius Acuff Jr.",
+   "manager": "Hayden",
+   "rank": 10,
+   "keep_k5": 0.0489,
+   "keep_k6": 0.0931,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Brandon Miller",
+   "manager": "Hayden",
+   "rank": 11,
+   "keep_k5": 0.0373,
+   "keep_k6": 0.0716,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Joel Embiid",
+   "manager": "Hayden",
+   "rank": 12,
+   "keep_k5": 0.0298,
+   "keep_k6": 0.0577,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Kawhi Leonard",
+   "manager": "Hayden",
+   "rank": 13,
+   "keep_k5": 0.0051,
+   "keep_k6": 0.0099,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Stephen Curry",
+   "manager": "Hayden",
+   "rank": 14,
+   "keep_k5": 0.0031,
+   "keep_k6": 0.0061,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Zach LaVine",
+   "manager": "Hayden",
+   "rank": 15,
+   "keep_k5": 0.0005,
+   "keep_k6": 0.001,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Luka Doncic",
+   "manager": "Nick",
+   "rank": 1,
+   "keep_k5": 0.9856,
+   "keep_k6": 0.9927,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Jalen Johnson",
+   "manager": "Nick",
+   "rank": 2,
+   "keep_k5": 0.8178,
+   "keep_k6": 0.9006,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Anthony Edwards",
+   "manager": "Nick",
+   "rank": 3,
+   "keep_k5": 0.5909,
+   "keep_k6": 0.7413,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Domantas Sabonis",
+   "manager": "Nick",
+   "rank": 4,
+   "keep_k5": 0.5047,
+   "keep_k6": 0.6658,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Donovan Clingan",
+   "manager": "Nick",
+   "rank": 5,
+   "keep_k5": 0.4468,
+   "keep_k6": 0.6119,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Trae Young",
+   "manager": "Nick",
+   "rank": 6,
+   "keep_k5": 0.2351,
+   "keep_k6": 0.3833,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Evan Mobley",
+   "manager": "Nick",
+   "rank": 7,
+   "keep_k5": 0.0954,
+   "keep_k6": 0.1732,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Karl-Anthony Towns",
+   "manager": "Nick",
+   "rank": 8,
+   "keep_k5": 0.0852,
+   "keep_k6": 0.1558,
+   "kept_this_season": true
+  },
+  {
+   "player_name": "Paolo Banchero",
+   "manager": "Nick",
+   "rank": 9,
+   "keep_k5": 0.0587,
+   "keep_k6": 0.1094,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Dyson Daniels",
+   "manager": "Nick",
+   "rank": 10,
+   "keep_k5": 0.0501,
+   "keep_k6": 0.094,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Tyler Herro",
+   "manager": "Nick",
+   "rank": 11,
+   "keep_k5": 0.0262,
+   "keep_k6": 0.0499,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Jaylen Brown",
+   "manager": "Nick",
+   "rank": 12,
+   "keep_k5": 0.0078,
+   "keep_k6": 0.0151,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Derrick White",
+   "manager": "Nick",
+   "rank": 13,
+   "keep_k5": 0.0074,
+   "keep_k6": 0.0143,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Ty Jerome",
+   "manager": "Nick",
+   "rank": 14,
+   "keep_k5": 0.0021,
+   "keep_k6": 0.004,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Damian Lillard",
+   "manager": "Nick",
+   "rank": 15,
+   "keep_k5": 0.002,
+   "keep_k6": 0.0039,
+   "kept_this_season": false
+  },
+  {
+   "player_name": "Julius Randle",
+   "manager": "Nick",
+   "rank": 16,
+   "keep_k5": 0.0008,
+   "keep_k6": 0.0016,
+   "kept_this_season": false
+  }
+ ],
+ "published_at": "2026-10-30T20:25:26"
+}

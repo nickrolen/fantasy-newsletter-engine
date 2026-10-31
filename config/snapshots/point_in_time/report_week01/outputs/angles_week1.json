@@ -1,0 +1,287 @@
+{
+ "lead": {
+  "family": "score",
+  "managers": [
+   "Garrett"
+  ],
+  "text": "Garrett scored 1145.60, -17% against the week's average",
+  "score": 0.406,
+  "unusualness": 1.055,
+  "consequence": 0.385,
+  "parts": {
+   "cup": 0.385,
+   "standings": 0.0,
+   "bracket": 0.0,
+   "decided": 0.0
+  },
+  "source": "matchups",
+  "direction": "low",
+  "repeat": false
+ },
+ "secondary": [
+  {
+   "family": "record",
+   "managers": [
+    "Nick"
+   ],
+   "text": "SEASON RECORD: Nick scored 1561.80 FP -> the highest team score of the 2026-27 season",
+   "score": 0.381,
+   "unusualness": 1.386,
+   "consequence": 0.275,
+   "parts": {
+    "cup": 0.275,
+    "standings": 0.0,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "storyline",
+   "direction": "",
+   "repeat": false
+  },
+  {
+   "family": "standings",
+   "managers": [
+    "Nick"
+   ],
+   "text": "CLINCH WATCH: Nick's magic number is 15",
+   "score": 0.204,
+   "unusualness": 0.693,
+   "consequence": 0.295,
+   "parts": {
+    "cup": 0.0,
+    "standings": 0.295,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "storyline",
+   "direction": "",
+   "repeat": false
+  },
+  {
+   "family": "score",
+   "managers": [
+    "Nick"
+   ],
+   "text": "Nick scored 1561.80, +12% against the week's average",
+   "score": 0.133,
+   "unusualness": 0.483,
+   "consequence": 0.275,
+   "parts": {
+    "cup": 0.275,
+    "standings": 0.0,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "matchups",
+   "direction": "high",
+   "repeat": false
+  }
+ ],
+ "dead": null,
+ "week": 1,
+ "recency_reordered": 0,
+ "repeats_discounted": 0,
+ "race_state": [
+  "Regular season (weeks 1-15; the regular-season pot, paid into by 3rd and 4th, and read from the bottom, next year's draft order): Nick 1-0 | Hayden 1-0 (0 back) | Benton 0-1 (1 back) | Garrett 0-1 (1 back); 14 weeks left.",
+  "Nick's magic number for the title: 15.",
+  "Playoffs (weeks 16-21; the playoff pot, paid into by each semifinal loser): not set until week 15 ends. If the regular season ended today: 1 Nick v 4 Garrett, 2 Hayden v 3 Benton.",
+  "Cup (seeded on total points, weeks 1-21; prize: one more keeper than the other three, from the following season; the first Cup this league has played): Nick 1561.80 | Hayden 1424.30 (137.50 back) | Benton 1422.40 (139.40 back) | Garrett 1145.60 (416.20 back); 20 weeks left.",
+  "Draft order (2027, from the regular season read from the bottom -- 4th picks first, every round), if it ended today: Garrett, Benton, Hayden, Nick.",
+  "Traded picks -- a stake in someone else's finish: Benton holds Hayden's round 2; Garrett holds Hayden's round 3; Hayden holds Benton's round 5, Garrett's round 8."
+ ],
+ "money_events": [],
+ "all": [
+  {
+   "family": "score",
+   "managers": [
+    "Garrett"
+   ],
+   "text": "Garrett scored 1145.60, -17% against the week's average",
+   "score": 0.406,
+   "unusualness": 1.055,
+   "consequence": 0.385,
+   "parts": {
+    "cup": 0.385,
+    "standings": 0.0,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "matchups",
+   "direction": "low",
+   "repeat": false
+  },
+  {
+   "family": "record",
+   "managers": [
+    "Nick"
+   ],
+   "text": "SEASON RECORD: Nick scored 1561.80 FP -> the highest team score of the 2026-27 season",
+   "score": 0.381,
+   "unusualness": 1.386,
+   "consequence": 0.275,
+   "parts": {
+    "cup": 0.275,
+    "standings": 0.0,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "storyline",
+   "direction": "",
+   "repeat": false
+  },
+  {
+   "family": "standings",
+   "managers": [
+    "Nick"
+   ],
+   "text": "CLINCH WATCH: Nick's magic number is 15",
+   "score": 0.204,
+   "unusualness": 0.693,
+   "consequence": 0.295,
+   "parts": {
+    "cup": 0.0,
+    "standings": 0.295,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "storyline",
+   "direction": "",
+   "repeat": false
+  },
+  {
+   "family": "score",
+   "managers": [
+    "Nick"
+   ],
+   "text": "Nick scored 1561.80, +12% against the week's average",
+   "score": 0.133,
+   "unusualness": 0.483,
+   "consequence": 0.275,
+   "parts": {
+    "cup": 0.275,
+    "standings": 0.0,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "matchups",
+   "direction": "high",
+   "repeat": false
+  },
+  {
+   "family": "margin",
+   "managers": [
+    "Hayden",
+    "Garrett"
+   ],
+   "text": "Hayden beat Garrett by 278.70",
+   "score": 0.102,
+   "unusualness": 0.265,
+   "consequence": 0.385,
+   "parts": {
+    "cup": 0.385,
+    "standings": 0.295,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "matchups",
+   "direction": "",
+   "repeat": false
+  },
+  {
+   "family": "margin",
+   "managers": [
+    "Nick",
+    "Benton"
+   ],
+   "text": "Nick beat Benton by 139.40",
+   "score": 0.003,
+   "unusualness": 0.01,
+   "consequence": 0.295,
+   "parts": {
+    "cup": 0.054,
+    "standings": 0.295,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "matchups",
+   "direction": "",
+   "repeat": false
+  },
+  {
+   "family": "score",
+   "managers": [
+    "Hayden"
+   ],
+   "text": "Hayden scored 1424.30, +3% against the week's average",
+   "score": 0.0,
+   "unusualness": 0.001,
+   "consequence": 0.057,
+   "parts": {
+    "cup": 0.057,
+    "standings": 0.0,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "matchups",
+   "direction": "high",
+   "repeat": false
+  },
+  {
+   "family": "score",
+   "managers": [
+    "Benton"
+   ],
+   "text": "Benton scored 1422.40, +2% against the week's average",
+   "score": 0.0,
+   "unusualness": 0.001,
+   "consequence": 0.054,
+   "parts": {
+    "cup": 0.054,
+    "standings": 0.0,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "matchups",
+   "direction": "high",
+   "repeat": false
+  },
+  {
+   "family": "streak",
+   "managers": [
+    "Benton"
+   ],
+   "text": "LOSING STREAK: Benton has now lost 1 straight",
+   "score": -0.0,
+   "unusualness": -0.0,
+   "consequence": 0.295,
+   "parts": {
+    "cup": 0.0,
+    "standings": 0.295,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "storyline",
+   "direction": "",
+   "repeat": false
+  },
+  {
+   "family": "streak",
+   "managers": [
+    "Garrett"
+   ],
+   "text": "LOSING STREAK: Garrett has now lost 1 straight",
+   "score": -0.0,
+   "unusualness": -0.0,
+   "consequence": 0.295,
+   "parts": {
+    "cup": 0.0,
+    "standings": 0.295,
+    "bracket": 0.0,
+    "decided": 0.0
+   },
+   "source": "storyline",
+   "direction": "",
+   "repeat": false
+  }
+ ]
+}

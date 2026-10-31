@@ -1,0 +1,172 @@
+{
+  "season": "2026-27",
+  "report_week": 1,
+  "lines_cover_week": 2,
+  "captured_at": "2026-10-30T16:38:06",
+  "capture_count": 3,
+  "git_commit": "140f4fb",
+  "injury_overrides_last_updated": "2026-10-27",
+  "injury_statuses": {
+    "fetch_attempted": false,
+    "available": false,
+    "count": 0,
+    "non_healthy": 0
+  },
+  "files": {
+    "data/PLAYERLIST.xlsx": {
+      "present": true,
+      "stored_as": "PLAYERLIST.xlsx",
+      "sha256": "9d44e05a2b4af0a2bdab5c34ebf529f4aa0bcdd951ada4def11efa7bc48ab0d9",
+      "bytes": 14394,
+      "modified": "2026-10-30T07:22:59"
+    },
+    "config/INJURY_OVERRIDES.json": {
+      "present": true,
+      "stored_as": "INJURY_OVERRIDES.json",
+      "sha256": "9074f97547f57887bba3450887c1f58db15888e2b3598878c6964e4fa7ac5421",
+      "bytes": 2242,
+      "modified": "2026-10-30T12:42:54"
+    },
+    "config/ROSTERS.json": {
+      "present": true,
+      "stored_as": "ROSTERS.json",
+      "sha256": "17ff600e50c3d61b34f524daec2d56af65796ffa00da4286c94cc5ffac73900d",
+      "bytes": 1769,
+      "modified": "2026-10-26T16:04:16"
+    },
+    "config/SCHEDULE.json": {
+      "present": true,
+      "stored_as": "SCHEDULE.json",
+      "sha256": "328826fa73d6e9d0616e6c458bef9625d723e2e638c70e599fb04d1ba45463de",
+      "bytes": 7611,
+      "modified": "2026-09-22T10:15:44"
+    },
+    "data/nba_schedule_2026-27.json": {
+      "present": true,
+      "stored_as": "nba_schedule_2026-27.json",
+      "sha256": "9d6e1d97ee227c8c50a36826e51dc02ded29cdb5188b6e8343cd73ac511501f8",
+      "bytes": 116484,
+      "modified": "2026-10-29T16:35:10"
+    }
+  },
+  "run": {
+    "title_sims": 50000,
+    "betting_sims": 5000,
+    "seed": 1065607583218168670,
+    "stale_schedule_override": null,
+    "injury_statuses_override": "not fetched (--no-fetch-injuries)",
+    "season_out_override": null,
+    "season_performers_override": null,
+    "season_performers": {
+      "as_of": "2026-10-25",
+      "first_day": "2026-10-20",
+      "built_at": "2026-10-30T16:16:38",
+      "players": 62,
+      "yahoo_ids": 62,
+      "points_counted": 62,
+      "bbref_ids": 62,
+      "games_counted": 62,
+      "failed": 0,
+      "failures": [],
+      "findings": {},
+      "yahoo_calls": 18,
+      "bbref_pages": 64,
+      "complete": true,
+      "ran": true,
+      "points_through": "2026-10-25",
+      "joined": {
+        "Cameron Boozer (Benton)": "2026-10-26",
+        "Nickeil Alexander-Walker (Benton)": "2026-10-26",
+        "Paul George (Benton)": "2026-10-26",
+        "Aaron Wiggins (Garrett)": "2026-10-26",
+        "Toumani Camara (Garrett)": "2026-10-26",
+        "Darius Acuff Jr. (Hayden)": "2026-10-26",
+        "Zach LaVine (Hayden)": "2026-10-26",
+        "Damian Lillard (Nick)": "2026-10-26",
+        "Dyson Daniels (Nick)": "2026-10-26",
+        "Ty Jerome (Nick)": "2026-10-26"
+      },
+      "counted": 62,
+      "runtime_s": 237.8,
+      "override": null
+    },
+    "durability_prior": {
+      "source": "config/snapshots/PLAYERLIST_2026-10-13.xlsx",
+      "players": 175,
+      "median_gp": 69.0,
+      "flat_gp_share": 0.309,
+      "note": "The NEWEST PRE-SEASON snapshot, named here rather than inferred from a directory listing, so the prior cannot change under a run that did not ask it to",
+      "median_fallbacks": [
+        "Aaron Wiggins",
+        "Alex Caruso",
+        "Cameron Johnson",
+        "Daniel Gafford",
+        "Daniss Jenkins",
+        "De'Andre Hunter",
+        "Derrick Jones Jr.",
+        "Herbert Jones",
+        "Ja'Kobe Walter",
+        "Jakob Poeltl",
+        "Jalen Smith",
+        "Jared McCain",
+        "Jaylen Wells",
+        "Jaylon Tyson",
+        "Jusuf Nurki\u0107",
+        "Kelly Oubre Jr.",
+        "Malik Monk",
+        "Max Christie",
+        "Mitchell Robinson",
+        "Moussa Diabat\u00e9",
+        "Noah Clowney",
+        "Paul Reed",
+        "Pelle Larsson",
+        "Sam Merrill",
+        "Scotty Pippen Jr.",
+        "Tari Eason"
+      ]
+    },
+    "injury_statuses": {
+      "available": false,
+      "count": 0,
+      "non_healthy": [],
+      "problem": "not fetched (--no-fetch-injuries)",
+      "override": true,
+      "unmatched_healthy": [],
+      "rostered_without_status": [],
+      "noted_tags": [],
+      "season_out_override": false,
+      "season_out_conflicts": [],
+      "free_agents": {
+        "count": null,
+        "non_healthy": null,
+        "assumed_healthy": true
+      }
+    }
+  },
+  "outputs": {
+    "stats_report_week1.json": {
+      "present": true,
+      "sha256": "fd96e3129ac3574b250ad3b8152096f5a0b90c7086ae67bc1052ddaf54185cc2",
+      "bytes": 440256,
+      "captured_at": "2026-10-30T16:38:07"
+    },
+    "looking_ahead_week1.json": {
+      "present": true,
+      "sha256": "8fb0f946ba383afc09b400ce0bc4a12d0002ab2fd0fb62d1ce03f99ecc395b47",
+      "bytes": 6596,
+      "captured_at": "2026-10-30T16:38:07"
+    },
+    "angles_week1.json": {
+      "present": true,
+      "sha256": "7dd4462f867f1f8178e90b72969830b9a97543132d725472db424a6cdae630a3",
+      "bytes": 6650,
+      "captured_at": "2026-10-30T17:11:26"
+    },
+    "stats_report_week1.md": {
+      "present": true,
+      "sha256": "f4fb9f8fb515db32b446ad49bd967c47e9a8da9d257de18bb6ae383f6f2520f7",
+      "bytes": 53104,
+      "captured_at": "2026-10-30T17:11:26"
+    }
+  }
+}
