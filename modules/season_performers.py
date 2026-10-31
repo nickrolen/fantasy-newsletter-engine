@@ -49,6 +49,11 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
+
+def _league_now():
+    from .league_clock import league_now
+    return league_now()
+
 import pandas as pd
 
 warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
@@ -555,7 +560,7 @@ def generate_season_performers_data(week: int, base_path: Path, min_gp_pct: floa
     nba_team_games = calculate_team_games(nba_schedule, week_end_dt)
     names = [n for v in rosters.values() for n in v]
     status = {"as_of": week_end, "first_day": first.isoformat(),
-              "built_at": (now or datetime.now()).isoformat(timespec="seconds"),
+              "built_at": (now or _league_now()).isoformat(timespec="seconds"),
               "players": len(names), "yahoo_ids": 0, "points_counted": 0, "bbref_ids": 0,
               "games_counted": 0, "failed": 0, "failures": [], "findings": {}, "cameos": {},
               "yahoo_calls": 0, "bbref_pages": 0, "complete": False, "ran": False}
@@ -570,7 +575,7 @@ def generate_season_performers_data(week: int, base_path: Path, min_gp_pct: floa
         lg = lg or get_yahoo_league(base)
         ids, f = roster_player_ids(lg, rosters)
         failures += f
-        last = min(week_end_dt.date(), (now or datetime.now()).date())
+        last = min(week_end_dt.date(), (now or _league_now()).date())
         status["points_through"] = last.isoformat()
         if first <= last:
             points, status["yahoo_calls"] = yahoo_daily_points(lg, ids, first, last)

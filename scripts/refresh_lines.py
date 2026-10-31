@@ -46,6 +46,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from modules.data_loader import load_all_data, atomic_write_json          # noqa: E402
+from modules.league_clock import league_now, league_today                 # noqa: E402
 from modules.projections import load_all_team_projections                 # noqa: E402
 from modules import simulator_betting as sb                               # noqa: E402
 from modules import week_state as ws                                      # noqa: E402
@@ -97,7 +98,7 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
     """The checks and inputs of a refresh, in the order refresh() has always
     run them; raises exactly where it did. Writes nothing."""
     base = Path(base_path)
-    as_of = as_of or date.today()
+    as_of = as_of or league_today()
     data = data or load_all_data(base, current_week=None)
     week = week or ws.week_for_date(data, as_of)
     entry = ws.week_entry(data, week)
@@ -231,7 +232,7 @@ def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
         "engine": {"commit": _engine["commit"], "dirty": _engine["dirty"],
                    "key": _cal.engine_key({"engine_commit": _engine["commit"],
                                            "engine_dirty": _engine["dirty"]})},
-        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "generated_at": league_now().isoformat(timespec="seconds"),
         "seed": seed, "num_simulations": sims, "state_hash": state.state_hash,
         "completed_dates": [d.isoformat() for d in state.completed],
         "remaining_dates": [d.isoformat() for d in state.remaining],
@@ -249,7 +250,7 @@ def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
             week, sb.get_dates_in_week(entry), rosters,
             (data.injury_overrides or {}).get("players") or [])
         engine = cal.engine_version(base)
-        stamp = datetime.now().isoformat(timespec="seconds")
+        stamp = league_now().isoformat(timespec="seconds")
         logged = cal.append([
             cal.line_record(ln, week=week, seed=seed, num_simulations=sims,
                             engine=engine, line_key=key["key"], as_of=stamp,

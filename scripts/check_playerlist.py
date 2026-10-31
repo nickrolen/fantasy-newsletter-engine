@@ -419,7 +419,8 @@ def main():
     # --- the GP column's meaning, against the season phase ------------------
     flat, shape = gp_column_is_flat(frame["player_proj_GP"])
     first_week_start = _first_week_start()
-    in_season = first_week_start is not None and date.today() >= first_week_start
+    from modules.league_clock import league_today
+    in_season = first_week_start is not None and league_today() >= first_week_start
     print(f"  GP shape: median {shape['median']:.0f}, {shape['within_one']}/{shape['n']} "
           f"players ({shape['share']:.0%}) within one game of it "
           f"-- {'in-season' if flat else 'pre-season'} shaped")

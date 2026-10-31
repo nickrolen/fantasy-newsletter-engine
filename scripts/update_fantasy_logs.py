@@ -491,7 +491,8 @@ def main():
     if args.date:
         target_date = dt.datetime.strptime(args.date, "%Y-%m-%d").date()
     else:
-        target_date = dt.date.today()
+        from modules.league_clock import league_today
+        target_date = league_today()
 
     # Show which week we're processing
     print(f"Processing date: {target_date}")

@@ -61,7 +61,9 @@
         "weekly_add_budget": 3,
         "weekly_add_budget_from": "2026-27",
         "_add_budget_comment": "New for 2026-27: each team gets 3 adds per FANTASY week (week 7, 14 days, has one budget), covering both the Monday window (12:01 AM on the fantasy week's first day until five minutes before the last NBA game of that night starts -- agreed in the group chat, Nick 10-28) and mid-week adds posted in the group chat, which take effect the following Monday. There was NO add budget before 2026-27, so historical add counts are not violations of it. Trades do not cost an add: sync_transactions records both sides of a trade as an add, and those are marked '(via trade)' and excluded.",
-        "_rounds_comment": "total_rounds = roster_size - il_slots and is fixed: you draft into every roster spot that is not an IL slot. keepers_per_team and total_draft_rounds describe the CURRENT season ONLY, and are meaningful only while every manager keeps the same number. From 2027-28 keeper counts differ by manager -- see keeper_rules and data_loader.keepers_for()."
+        "_rounds_comment": "total_rounds = roster_size - il_slots and is fixed: you draft into every roster spot that is not an IL slot. keepers_per_team and total_draft_rounds describe the CURRENT season ONLY, and are meaningful only while every manager keeps the same number. From 2027-28 keeper counts differ by manager -- see keeper_rules and data_loader.keepers_for().",
+        "time_zone": "America/Los_Angeles",
+        "_time_zone_comment": "The league's clock (Nick, 10-30): 'whatever time it is in Portland, Oregon, that is always going to be the league's clock', daylight saving included. An IANA zone name, never a fixed offset. Every league day, Monday window and fantasy-week boundary is in this time; every date taken from 'now' or from a Yahoo timestamp goes through modules/league_clock.py. Required: missing raises. claude/LEAGUE_RULES.md rule 0."
     },
     "tiebreaker_rules": {
         "standings": "h2h_regular_season",

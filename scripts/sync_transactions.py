@@ -29,6 +29,7 @@ import unicodedata
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from modules.data_loader import LEAGUE_KEY, TEAM_TO_MANAGER, YAHOO_GAME_CODE, manager_for_team
+from modules.league_clock import league_date_of_timestamp, league_now
 
 
 # ---------- CONFIGURATION ----------
@@ -74,13 +75,16 @@ def get_league(oauth: OAuth2) -> yfa.League:
 
 
 def parse_transaction_date(date_str: str) -> dt.date:
-    """Parse Yahoo's transaction date format."""
+    """Parse Yahoo's transaction date format. A Unix timestamp is dated on the
+    league's clock (modules/league_clock.py), never the machine's. Anything
+    unparseable raises: it used to become "today", which filed an undated
+    transaction under whatever week the sync happened to run in."""
     if isinstance(date_str, (int, float)):
-        return dt.datetime.fromtimestamp(date_str).date()
+        return league_date_of_timestamp(date_str)
     try:
         return dt.datetime.strptime(date_str[:10], "%Y-%m-%d").date()
     except (ValueError, TypeError):
-        return dt.date.today()
+        raise ValueError(f"unparseable Yahoo transaction date: {date_str!r}") from None
 
 
 class TransactionsAPIError(RuntimeError):
@@ -128,18 +132,21 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
             first_ts = raw_transactions[0].get("timestamp")
             last_ts = raw_transactions[-1].get("timestamp")
             if first_ts:
-                print(f"  [DEBUG] Newest transaction: {dt.datetime.fromtimestamp(int(first_ts)).date()}")
+                print(f"  [DEBUG] Newest transaction: {league_date_of_timestamp(first_ts)}")
             if last_ts:
-                print(f"  [DEBUG] Oldest transaction: {dt.datetime.fromtimestamp(int(last_ts)).date()}")
+                print(f"  [DEBUG] Oldest transaction: {league_date_of_timestamp(last_ts)}")
         
         for txn in raw_transactions:
             txn_type = txn.get("type", "").lower()
             txn_timestamp = txn.get("timestamp")
             
-            if txn_timestamp:
-                txn_date = dt.datetime.fromtimestamp(int(txn_timestamp)).date()
-            else:
-                txn_date = dt.date.today()
+            if not txn_timestamp:
+                # Used to be dated "today". Refuse instead: an undated move
+                # cannot be put in a fantasy week without guessing.
+                raise TransactionsAPIError(
+                    f"Yahoo transaction {txn.get('transaction_key', '?')} has no timestamp; "
+                    "refusing to guess its date")
+            txn_date = league_date_of_timestamp(txn_timestamp)
             
             # Skip if before our start cutoff
             if since_date and txn_date < since_date:
@@ -317,7 +324,7 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
 
     lines = []
     lines.append(f"# Waiver Adds for Week {week}")
-    lines.append(f"# Generated: {dt.datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    lines.append(f"# Generated: {league_now().strftime('%Y-%m-%d %H:%M %Z')}"
                  f"{' (PARTIAL -- week still in progress)' if partial else ''}")
     from modules.transaction_rulings import applied_lines
     lines.extend(applied_lines(list(applied)))
@@ -390,7 +397,7 @@ def apply_transactions(rosters_data: dict, transactions: list[dict]) -> tuple[di
                 changes.append(f"[{txn_date}] {manager}: -{player_name} (not on roster, skipped)")
     
     rosters_data["rosters"] = rosters
-    rosters_data["_last_sync"] = dt.datetime.now().isoformat()
+    rosters_data["_last_sync"] = league_now().isoformat(timespec="seconds")
     
     return rosters_data, changes
 
@@ -597,7 +604,6 @@ def write_il_file(base_path: Path) -> int:
     plan reads this file and nothing else, and refuses one from an earlier
     fantasy week -- so it is written on every --apply sync, changes or not.
     A failed fetch writes nothing and exits non-zero."""
-    import datetime as _dt
     import importlib.util
     from modules import roster_plan
     spec = importlib.util.spec_from_file_location(
@@ -610,7 +616,7 @@ def write_il_file(base_path: Path) -> int:
         print(f"ERROR: could not read the live IL slots from Yahoo ({e}); "
               f"{roster_plan.IL_FILE} NOT written")
         return 2
-    now = _dt.datetime.now()
+    now = league_now()
     week = roster_plan.fantasy_week_on(load_schedule(base_path), now.date())
     path = roster_plan.write_il_slots(base_path, slots, week, now)
     on = {m: v for m, v in slots.items() if v}

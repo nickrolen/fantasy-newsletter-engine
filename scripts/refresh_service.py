@@ -57,6 +57,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from modules.data_loader import atomic_write_json, load_all_data           # noqa: E402
 from modules import simulator_betting as sb                                # noqa: E402
 from modules import week_state as ws                                       # noqa: E402
+from modules.league_clock import league_now, league_today                  # noqa: E402
 import refresh_lines as rl                                                 # noqa: E402
 
 SERVICE_LOG = Path("output") / "refresh_service.log"
@@ -76,7 +77,7 @@ def line_path(base: Path, week: int) -> Path:
 
 
 def _now() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return league_now().isoformat(timespec="seconds")
 
 
 def _log(base: Path, msg: str, loud: bool = False) -> None:
@@ -161,9 +162,9 @@ def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFA
     load/statuses/puller are for tests: the data loader, a tag dict in place
     of the Yahoo fetch, and the per-day log pull."""
     base = Path(base_path)
-    started = datetime.now().isoformat(timespec="microseconds")
+    started = league_now().isoformat(timespec="microseconds")
     run_id = f"{started}-{trigger}"          # microseconds: two runs in one second stay distinct
-    as_of = as_of or date.today()
+    as_of = as_of or league_today()
     load = load or (lambda: load_all_data(base, current_week=None))
     puller = puller or (lambda day: pull_logs_subprocess(base, day))
     rec = {"run_id": run_id, "trigger": trigger, "started_at": started, "as_of": as_of.isoformat(),

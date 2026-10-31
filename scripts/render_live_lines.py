@@ -52,9 +52,9 @@ def main(argv=None) -> int:
         week = a.week
         if week is None:
             from modules.data_loader import load_all_data
-            from datetime import date
+            from modules.league_clock import league_today
             data = load_all_data(base, current_week=None)
-            week = ws.week_for_date(data, date.today())
+            week = ws.week_for_date(data, league_today())
         path = page.payload_path(week, base)
     if not path.is_file():
         print(f"REFUSED: no payload at {path}. Run scripts/refresh_lines.py first.")

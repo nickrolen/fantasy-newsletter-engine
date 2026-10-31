@@ -56,6 +56,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from modules import injury_entries as ie  # noqa: E402
 from modules import nba_reference as nr  # noqa: E402
 from modules.data_loader import PlayerIndex, atomic_write_json  # noqa: E402
+from modules.league_clock import league_today  # noqa: E402
 
 OVERRIDES = Path("config") / "INJURY_OVERRIDES.json"
 SCHEDULE = Path("config") / "SCHEDULE.json"
@@ -85,7 +86,7 @@ def prepare_add(base: Path, name: str, out: str, back: str = None, season: bool 
                 replace: bool = False, today: date = None, reference=None) -> tuple:
     """(new file blob, the entry, lines to show). Raises EntryRefused with what
     to do. Writes nothing."""
-    today = today or date.today()
+    today = today or league_today()
     ref = reference or nr.Reference(base)
     if ref.resolve(name) is None:
         raise ie.EntryRefused(ref.unknown_message(name))
@@ -179,7 +180,7 @@ def _projected(base: Path) -> dict:
 def check_lists(base: Path, tags, today: date = None, reference=None) -> dict:
     """{"tagged": [...], "il": [...], "passed": [...], "unknown": [...], "notes": [...]}.
     Reads; never writes."""
-    today = today or date.today()
+    today = today or league_today()
     ref = reference or nr.Reference(base)
     blob = _read(base, OVERRIDES)
     entries = list(blob.get("players") or [])

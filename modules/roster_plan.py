@@ -66,6 +66,17 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
+
+def _league_now():
+    from .league_clock import league_now
+    return league_now()
+
+
+def _league_today():
+    from .league_clock import league_today
+    return league_today()
+
+
 IL_FILE = Path("data") / "IL_SLOTS.json"
 
 
@@ -114,7 +125,7 @@ def write_il_slots(base_path, slots: dict, fantasy_week: int, fetched_at: dateti
     path = Path(base_path) / IL_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_json(path, {
-        "fetched_at": (fetched_at or datetime.now()).isoformat(timespec="seconds"),
+        "fetched_at": (fetched_at or _league_now()).isoformat(timespec="seconds"),
         "fantasy_week": int(fantasy_week),
         "slots": {m: sorted(v) for m, v in sorted(slots.items())},
         "_comment": "Who sits in an IL slot, from Yahoo's live roster (selected_position). "
@@ -144,7 +155,7 @@ def load_il_slots(base_path, data, today: date = None) -> dict:
         raise ILSlotsError(f"{IL_FILE} is missing: run the roster sync "
                            "(py scripts\\sync_transactions.py --week N --apply, or --il-only)")
     blob = json.loads(path.read_text(encoding="utf-8"))
-    today = today or date.today()
+    today = today or _league_today()
     now_week = week_for_date(data, today)
     if int(blob["fantasy_week"]) < now_week:
         raise ILSlotsError(f"{IL_FILE} is from fantasy week {blob['fantasy_week']} "
