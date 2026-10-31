@@ -118,7 +118,8 @@ def test_it_counts_the_week_that_just_opened(builder):
     ])
 
     class D:
-        pass
+        schedule = {"weeks": [{"week": 1, "start_date": "2026-10-20", "end_date": "2026-10-25"},
+                              {"week": 2, "start_date": "2026-10-26", "end_date": "2026-11-01"}]}
     out = rb.build_add_budget(D(), 1)
     assert out["week"] == 2, "the budget is for the week that opened, not the one that closed"
     assert out["budget"] == 3

@@ -1,5 +1,5 @@
 {
-  "_comment": "The commissioner's rulings on transactions. 'void' on an 'add' (no kind, or kind 'void'): it does not count against the weekly add budget and is not listed as an add; rosters are untouched (ROSTERS.json follows Yahoo). kind 'effective_date' on an 'add': the player is not on that manager's roster for any day before 'effective' (every reader of LINEUPS/PLAYERLOG drops those rows at load time; the logs are never rewritten) and the add counts in the fantasy week containing 'effective'. A ruling that matches no transaction raises, and so does an effective date that would drop a started game. Read by scripts/sync_transactions.py, every reader of waivers_week{N}.txt and every reader of the logs (modules/transaction_rulings.py).",
+  "_comment": "The commissioner's rulings on transactions. 'void' on an 'add' (no kind, or kind 'void'): it does not count against the weekly add budget and is not listed as an add; rosters are untouched (ROSTERS.json follows Yahoo). kind 'effective_date' on an 'add': the player is not on that manager's roster for any day before 'effective' (every reader of LINEUPS/PLAYERLOG drops those rows at load time; the logs are never rewritten) and the add counts in the fantasy week containing 'effective'. kind 'claim_week' on an 'add' (LEAGUE_RULES rule 7): the add was claimed in the group chat in fantasy week 'claim_week' and applied in Yahoo on 'transaction_date' in a later week's Monday window; it counts against claim_week's add budget, not the budget of its Yahoo week, and nothing else changes (rosters, logs and the join date follow Yahoo); it is listed in its Yahoo week's waivers file marked '(week N claim)'. claim_week must be earlier than the week of transaction_date. One add carries at most one ruling. Which week an add counts in is decided by transaction_rulings.add_budget_week alone; pre-season adds count nowhere (Nick, 10-31). A ruling that matches no transaction raises, and so does an effective date that would drop a started game. Read by scripts/sync_transactions.py, every reader of waivers_week{N}.txt and every reader of the logs (modules/transaction_rulings.py).",
   "rulings": [
     {
       "date": "2026-10-26",
@@ -16,11 +16,98 @@
       "manager": "Hayden",
       "player": "Zach LaVine",
       "type": "add",
-      "transaction_date": "2026-10-26",
+      "transaction_date": "2026-10-25",
       "effective": "2026-10-26",
       "by": "Nick",
       "on": "2026-10-30",
-      "reason": "Added late Sunday 10-25 after every game had finished; counted as a week 2 move."
+      "reason": "Added late Sunday 10-25 after every game had finished; counted as a week 2 move. transaction_date corrected 2026-10-31 from 2026-10-26 to 2026-10-25: Yahoo stamped the add Sun 10-25 22:40 Pacific, and since 708afd7 the sync dates transactions on the league clock (Pacific), not the machine clock (the week 2 sync ran on UTC, where it was 10-26 05:40)."
+    },
+    {
+      "date": "2026-10-25",
+      "manager": "Hayden",
+      "type": "add",
+      "player": "Franz Wagner",
+      "ruling": "void",
+      "by": "Nick",
+      "on": "2026-10-31",
+      "reason": "Added Sun 10-25 22:35 Pacific and dropped five minutes later for Zach LaVine. Nick, 10-31: \"that was a mistake and I allowed the void, so the Franz Wagner add never happened effectively.\" Counts in no week's add budget and is not listed."
+    },
+    {
+      "kind": "claim_week",
+      "manager": "Hayden",
+      "player": "Darius Acuff Jr.",
+      "type": "add",
+      "transaction_date": "2026-10-26",
+      "claim_week": 1,
+      "by": "Nick",
+      "on": "2026-10-31",
+      "reason": "Claimed in the group chat during week 1; applied in Yahoo in week 2's Monday window (rule 7)."
+    },
+    {
+      "kind": "claim_week",
+      "manager": "Benton",
+      "player": "Nickeil Alexander-Walker",
+      "type": "add",
+      "transaction_date": "2026-10-26",
+      "claim_week": 1,
+      "by": "Nick",
+      "on": "2026-10-31",
+      "reason": "Claimed in the group chat during week 1; applied in Yahoo in week 2's Monday window (rule 7)."
+    },
+    {
+      "kind": "claim_week",
+      "manager": "Benton",
+      "player": "Paul George",
+      "type": "add",
+      "transaction_date": "2026-10-26",
+      "claim_week": 1,
+      "by": "Nick",
+      "on": "2026-10-31",
+      "reason": "Claimed in the group chat during week 1; applied in Yahoo in week 2's Monday window (rule 7)."
+    },
+    {
+      "kind": "claim_week",
+      "manager": "Benton",
+      "player": "Cameron Boozer",
+      "type": "add",
+      "transaction_date": "2026-10-26",
+      "claim_week": 1,
+      "by": "Nick",
+      "on": "2026-10-31",
+      "reason": "Claimed in the group chat during week 1; applied in Yahoo in week 2's Monday window (rule 7)."
+    },
+    {
+      "kind": "claim_week",
+      "manager": "Nick",
+      "player": "Damian Lillard",
+      "type": "add",
+      "transaction_date": "2026-10-26",
+      "claim_week": 1,
+      "by": "Nick",
+      "on": "2026-10-31",
+      "reason": "Claimed in the group chat during week 1; applied in Yahoo in week 2's Monday window (rule 7)."
+    },
+    {
+      "kind": "claim_week",
+      "manager": "Nick",
+      "player": "Dyson Daniels",
+      "type": "add",
+      "transaction_date": "2026-10-26",
+      "claim_week": 1,
+      "by": "Nick",
+      "on": "2026-10-31",
+      "reason": "Claimed in the group chat during week 1; applied in Yahoo in week 2's Monday window (rule 7)."
+    },
+    {
+      "kind": "claim_week",
+      "manager": "Nick",
+      "player": "Ty Jerome",
+      "type": "add",
+      "transaction_date": "2026-10-26",
+      "claim_week": 1,
+      "by": "Nick",
+      "on": "2026-10-31",
+      "reason": "Claimed in the group chat during week 1; applied in Yahoo in week 2's Monday window (rule 7)."
     }
   ]
 }

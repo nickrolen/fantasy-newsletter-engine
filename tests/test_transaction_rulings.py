@@ -47,6 +47,27 @@ FILE_10_26 = """# Waiver Adds for Week 2
 - [2026-10-26] Nick: Ty Jerome
 """
 
+# The same window dated on the league clock (Pacific, 708afd7), as
+# `python scripts/sync_transactions.py --week 1 --apply` writes it before
+# the rulings: Hayden's Wagner and LaVine adds are Sunday 10-25 there (week 1),
+# so week 2's file starts at Garrett. LaVine comes back as an effective-date
+# add (waiver_lines puts him in week 2).
+FILE_LEAGUE_CLOCK = """# Waiver Adds for Week 2
+# Generated: 2026-10-31 11:11 PDT (PARTIAL -- week still in progress)
+
+- [2026-10-26] Hayden: Zach LaVine
+- [2026-10-26] Garrett: Paul George
+- [2026-10-26] Garrett: Aaron Wiggins
+- [2026-10-26] Garrett: Toumani Camara
+- [2026-10-26] Hayden: Darius Acuff Jr.
+- [2026-10-26] Benton: Nickeil Alexander-Walker
+- [2026-10-26] Benton: Paul George
+- [2026-10-26] Benton: Cameron Boozer
+- [2026-10-26] Nick: Damian Lillard
+- [2026-10-26] Nick: Dyson Daniels
+- [2026-10-26] Nick: Ty Jerome
+"""
+
 GARRETT = {"date": "2026-10-26", "manager": "Garrett", "type": "add", "player": "Paul George",
            "ruling": "void", "by": "Nick", "on": "2026-10-30", "reason": "claimed by Benton first"}
 
@@ -54,12 +75,13 @@ GARRETT = {"date": "2026-10-26", "manager": "Garrett", "type": "add", "player": 
 def world(tmp_path, rulings=None, real=False):
     (tmp_path / "config").mkdir(exist_ok=True)
     (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "config" / "SCHEDULE.json").write_text(json.dumps(SCHEDULE))
     if real:
         shutil.copy(ROOT / tr.RULINGS_FILE, tmp_path / tr.RULINGS_FILE)
     else:
         (tmp_path / tr.RULINGS_FILE).write_text(json.dumps({"rulings": rulings or []}))
     f = tmp_path / "data" / "waivers_week2.txt"
-    f.write_text(FILE_10_26, encoding="utf-8")
+    f.write_text(FILE_LEAGUE_CLOCK if real else FILE_10_26, encoding="utf-8")
     return f
 
 
@@ -73,7 +95,9 @@ def txn(kind, manager, player, d="2026-10-26"):
 def test_the_real_file_holds_garretts_ruling_and_loads():
     rulings = tr.voids(tr.load_rulings(ROOT))
     assert [(r.date, r.manager, r.type, r.player, r.ruling) for r in rulings] == [
-        ("2026-10-26", "Garrett", "add", "Paul George", "void")]
+        ("2026-10-26", "Garrett", "add", "Paul George", "void"),
+        # Nick, 10-31: Hayden's Sunday-night Wagner add "never happened effectively"
+        ("2026-10-25", "Hayden", "add", "Franz Wagner", "void")]
 
 
 def test_a_ruling_the_code_does_not_know_raises(tmp_path):
@@ -144,9 +168,13 @@ def test_garretts_week_2_on_the_10_26_file_is_2_used_1_left(tmp_path, monkeypatc
     assert out["managers"]["Garrett"] == {"used": 2, "remaining": 1,
                                           "players": ["Aaron Wiggins", "Toumani Camara"],
                                           "over_budget": False}
-    assert out["managers"]["Benton"]["players"] == [
-        "Nickeil Alexander-Walker", "Paul George", "Cameron Boozer"]   # Benton's claim stands
-    assert out["rulings_applied"] == ["void 2026-10-26 Garrett add Paul George (Nick, 2026-10-30)"]
+    # Benton's three are week 1 claims (rule 7, Nick 10-31): listed in week
+    # 2's file, counted in week 1, so week 2 is untouched. His Paul George
+    # claim still stands over Garrett's voided add.
+    assert out["managers"]["Benton"] == {"used": 0, "remaining": 3, "players": [],
+                                         "over_budget": False}
+    assert out["managers"]["Hayden"]["players"] == ["Zach LaVine"]
+    assert "void 2026-10-26 Garrett add Paul George (Nick, 2026-10-30)" in out["rulings_applied"]
 
 
 def test_a_file_ruling_that_matches_no_line_raises(tmp_path):

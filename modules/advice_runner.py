@@ -186,9 +186,16 @@ def build_advice(data, week: int, title_odds=None, keeper_watch=None,
     protected, prot_week = adv.protected_keepers(keeper_watch, week, rosters, counts_k)
     k = adv.replacement_k(CURRENT_SEASON, rosters)
     budget = add_budget_for(CURRENT_SEASON) or 0
+    # Adds LEFT in the week the plan is for (the next matchup, week + 1), not
+    # the rule: adds already used in that week's window, counted by
+    # transaction_rulings.add_budget_week (a group-chat claim counts in the
+    # week it was claimed in, rule 7). A manager with none left gets no plan.
+    from .transaction_rulings import adds_by_budget_week
+    used = adds_by_budget_week(data.base_path, data.schedule).get(week + 1, {}) if budget else {}
+    left = {m: max(budget - len(used.get(m, [])), 0) for m in rosters}
 
     plans = [adv.waiver_plan(m, ctxs, fas, None if protected is None else protected[m],
-                             budget, prot_week, replacement_rank=k, il=il.get(m))
+                             left[m], prot_week, replacement_rank=k, il=il.get(m))
              for m in rosters]
     adv.mark_contested(plans)
 
@@ -224,7 +231,7 @@ def build_advice(data, week: int, title_odds=None, keeper_watch=None,
                 "this_week_floor": adv.floor_for(ctxs["this_week"][1]),
                 "season_floor": (adv.floor_for(ctxs["regular_season"][1])
                                  if "regular_season" in ctxs else None)},
-        "replacement_k": k, "adds_budget": budget, "commissioner": COMMISSIONER,
+        "replacement_k": k, "adds_budget": budget, "adds_left": left, "commissioner": COMMISSIONER,
         "il_slots": {m: sorted(v) for m, v in il.items() if v},
         "protected_asof_week": prot_week,
         "personalisation": {"top_season_adds": tops, "max_managers_sharing_top_add": shared},

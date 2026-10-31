@@ -674,7 +674,11 @@ _ACQUISITION_SOURCE = re.compile(r"^(.*?)\s*\(via\s+([^)]+)\)\s*$", re.IGNORECAS
 
 
 def _split_acquisition_source(entry: str) -> tuple[str, str]:
-    """"Jalen Duren (via trade)" -> ("Jalen Duren", "trade")."""
+    """"Jalen Duren (via trade)" -> ("Jalen Duren", "trade"). A "(week N
+    claim)" mark (transaction_rulings, rule 7) is stripped first: it says
+    which week's budget the add used, and is not part of the name."""
+    from .transaction_rulings import split_claim_mark
+    entry, _ = split_claim_mark(entry)
     match = _ACQUISITION_SOURCE.match(str(entry).strip())
     if match:
         return match.group(1).strip(), match.group(2).strip().lower()

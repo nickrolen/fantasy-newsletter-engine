@@ -296,6 +296,8 @@ def load_waivers() -> list:
                 mgr = m.group("mgr").strip()
                 player_raw = m.group("player").strip()
 
+                from modules.transaction_rulings import split_claim_mark
+                player_raw, _ = split_claim_mark(player_raw)    # "(week N claim)", rule 7
                 is_trade = "(via trade)" in player_raw
                 player_name = re.sub(r"\s*\(via trade\)\s*$", "", player_raw).strip()
 

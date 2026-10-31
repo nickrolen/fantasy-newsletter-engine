@@ -243,6 +243,9 @@ def parse_waiver_file(filepath: Path, lines=None) -> list[WaiverAdd]:
             if manager is None:
                 continue
             
+            # A "(week N claim)" mark is not part of the name (rule 7).
+            from .transaction_rulings import split_claim_mark
+            player_raw, _ = split_claim_mark(player_raw)
             # Check for "(via trade)" annotation
             is_trade = "(via trade)" in player_raw.lower()
             player_name = re.sub(

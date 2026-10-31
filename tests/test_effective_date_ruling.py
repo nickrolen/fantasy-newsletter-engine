@@ -117,7 +117,9 @@ def test_the_add_counts_in_the_week_containing_effective(tmp_path):
 def test_the_real_ruling_is_on_file():
     got = [(r.manager, r.player, r.transaction_date, r.effective)
            for r in tr.effective_dates(tr.load_all(ROOT))]
-    assert ("Hayden", "Zach LaVine", "2026-10-26", "2026-10-26") in got
+    # transaction_date corrected 10-31: Yahoo stamped the add Sun 10-25 22:40
+    # Pacific, the league's clock (708afd7); still effective Monday 10-26.
+    assert ("Hayden", "Zach LaVine", "2026-10-25", "2026-10-26") in got
 
 
 def _raw_lavine_row():

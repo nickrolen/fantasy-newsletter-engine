@@ -2962,8 +2962,9 @@ def format_section_10_rumor_mill(data: dict, lookups: dict, trades_context: Opti
                          f"{'him' if len(exhausted) == 1 else 'them'}.**")
             lines.append("")
         lines.append("*Trades do not cost an add. Mid-week adds are posted in "
-                     "the group chat and applied by the commissioner the "
-                     "following Monday, so they are not reflected here.*")
+                     "the group chat and applied the following Monday; each "
+                     "counts against the week it was claimed in, not the "
+                     "week it is applied in.*")
         lines.append("")
     
     # === DRAFT PICK OWNERSHIP CONTEXT (for realistic trade ideas) ===

@@ -326,7 +326,7 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
     lines.append(f"# Waiver Adds for Week {week}")
     lines.append(f"# Generated: {league_now().strftime('%Y-%m-%d %H:%M %Z')}"
                  f"{' (PARTIAL -- week still in progress)' if partial else ''}")
-    from modules.transaction_rulings import applied_lines
+    from modules.transaction_rulings import applied_lines, claim_mark
     lines.extend(applied_lines(list(applied)))
     lines.append("")
 
@@ -341,7 +341,10 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
         for t in adds:
             via = t["details"].get("via", "")
             via_str = f" (via {via})" if via else ""
-            lines.append(f"- [{t['date']}] {t['manager']}: {t['player_name']}{via_str}")
+            # A group-chat claim from an earlier week (a claim_week ruling):
+            # listed here, in its Yahoo week, counted in its claim week.
+            claim = claim_mark(t["claim_week"]) if t.get("claim_week") else ""
+            lines.append(f"- [{t['date']}] {t['manager']}: {t['player_name']}{via_str}{claim}")
         lines.append("")
     else:
         lines.append("No waiver adds this week.")

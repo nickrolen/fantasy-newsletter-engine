@@ -2997,10 +2997,12 @@ def build_add_budget(data: FantasyData, week: int) -> dict:
     week just finished -- it is how many each team has left in the one
     that just opened.
 
-    sync_transactions writes those into waivers_week{N+1}.txt as a partial
-    file when it syncs week N. Before 2026-27 there was no add budget, and
-    this returns None rather than reporting everyone as unlimited or
-    everyone as over.
+    Counted by transaction_rulings.add_budget_week over every synced waivers
+    file (rule 7): a group-chat claim from week N applied in week N+1's
+    window is LISTED in week N+1's file, marked "(week N claim)", and counted
+    in week N -- not here. Before 2026-27 there was no add budget, and this
+    returns None rather than reporting everyone as unlimited or everyone as
+    over.
     """
     budget = add_budget_for(CURRENT_SEASON)
     if budget is None:
@@ -3010,16 +3012,20 @@ def build_add_budget(data: FantasyData, week: int) -> dict:
     root = Path(__file__).resolve().parent.parent
     path = root / "data" / f"waivers_week{upcoming}.txt"
 
-    # The commissioner's rulings (config/TRANSACTION_RULINGS.json): a voided
-    # add is not counted. Garrett's 10-26 Paul George add read as 3 used,
-    # 0 left. A ruling for this week that matches no line raises.
+    # The commissioner's rulings (config/TRANSACTION_RULINGS.json) apply:
+    # a voided add counts nowhere (Garrett's 10-26 Paul George), a claim
+    # counts in its claim week. A ruling that matches no line raises.
+    from . import transaction_rulings as _tr
+    schedule = getattr(data, "schedule", None) or _tr._schedule(root)
     applied = []
     if path.is_file():
-        from .transaction_rulings import waiver_lines
-        kept, applied = waiver_lines(path, root, upcoming, getattr(data, "schedule", None))
-        used = load_waiver_adds(str(path), lines=kept)
-    else:
-        used = {}
+        _, applied = _tr.waiver_lines(path, root, upcoming, schedule)
+    counts = _tr.adds_by_budget_week(root, schedule)
+    used = counts.get(upcoming, {})
+    over = _tr.over_budget(counts, budget)
+    for wk, mgr, n in over:
+        print(f"  WARNING: {mgr} used {n} adds in week {wk}, over the budget of {budget} "
+              "(rule 6; Nick's call what that means)")
     managers = {}
     for manager in MANAGERS:
         players = used.get(manager, []) or []
@@ -3035,8 +3041,10 @@ def build_add_budget(data: FantasyData, week: int) -> dict:
         "managers": managers,
         "source_exists": path.is_file(),
         "rulings_applied": [r.label() for r in applied],
+        "over_budget_weeks": [{"week": wk, "manager": m, "used": n} for wk, m, n in over],
         "_note": (f"Adds used so far in week {upcoming}, which opened at "
-                  f"12:01 AM on its first day. Trades do not count. "
+                  f"12:01 AM on its first day. Trades do not count; a group-chat claim "
+                  f"counts in the week it was claimed in (rule 7). "
                   f"{'No add data synced yet for this week.' if not path.is_file() else ''}"),
     }
 
@@ -3147,7 +3155,8 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
             for _mgr in MANAGERS:
                 token = f"{_mgr}: "
                 if rest.startswith(token):
-                    player = rest[len(token):].strip()
+                    from .transaction_rulings import split_claim_mark
+                    player, _ = split_claim_mark(rest[len(token):])
                     waiver_adds_set.add((_mgr, player))
                     break
 
