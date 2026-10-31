@@ -615,45 +615,104 @@ def _usd(s: str) -> Optional[float]:
     return None if not m else (-1 if m.group(1) == "-" else 1) * float(m.group(2))
 
 
+def _money_range() -> tuple:
+    """(most lost, most won) in a season under the league's pots: every
+    manager's range, the same every week (standing_threads.money_section)."""
+    from modules.standing_threads import rules_from_config
+    r = rules_from_config()
+    lc, pc = r["league_champion"], r["playoff_champion"]
+    return -(lc["per_payer"] + pc["per_payer"]), lc["total"] + pc["total"]
+
+
 def check_money_table(t: Node, title: str, ctx: dict) -> list:
-    """Money and Exposure (standing_threads.money_section). Each probability
-    column is a distribution over the four managers: one regular-season
-    champion, one playoff champion, one Cup winner (100%), two places paying
-    into each pot (200%). Net dollars are zero-sum. Winning the regular season
-    and losing the semifinal is a subset of winning the regular season. The
-    most likely outcome lies inside the range."""
+    """Money and Exposure (standing_threads.money_section), as the page shows
+    it since 10-30: two tables.
+
+    Title and money: title odds are a distribution over the managers (100%);
+    expected net dollars are zero-sum; the most likely outcome lies inside
+    the range the league's pots allow (-$135 to +$270) and its chance is a
+    probability.
+    Pots and the Cup: one playoff champion and one Cup winner (100% each),
+    two places paying into each pot (200% each); winning the regular season
+    and losing the semifinal is a subset of winning the regular season --
+    checked against the title-and-money table above it on the same page.
+
+    The one wide table of earlier pages (with a Range column) is still read."""
     out = []
     rows = _table_rows(t)
     header = [c.text() for c in rows[0]]
     body = [[c.text() for c in r] for r in rows[1:] if r]
     col = {h: i for i, h in enumerate(header)}
     n = len(body)
-    sums = {"Title odds %": 100, "Playoff champion %": 100, "Cup: sixth keeper %": 100,
-            "Into RS pot %": 200, "Into playoff pot %": 200}
-    for h, want in sums.items():
-        if h not in col:
-            out.append(Finding(title, "column missing", h))
-            continue
-        vals = [_num(r[col[h]]) for r in body]
-        if None in vals:
-            out.append(Finding(title, "not a number", h))
-            continue
-        if abs(sum(vals) - want) > 0.051 * n + 0.1:
-            out.append(Finding(title, "column sum", f"{h}: {sum(vals):.1f}, not {want}"))
-    usd = [_usd(r[col["Expected net $"]]) for r in body]
-    if None in usd or abs(sum(usd)) > 0.5 * n + 1e-9:
-        out.append(Finding(title, "zero-sum", f"expected net dollars sum to {sum(x or 0 for x in usd)}"))
+
+    def sums(want: dict):
+        for h, total in want.items():
+            if h not in col:
+                out.append(Finding(title, "column missing", h))
+                continue
+            vals = [_num(r[col[h]]) for r in body]
+            if None in vals:
+                out.append(Finding(title, "not a number", h))
+                continue
+            if abs(sum(vals) - total) > 0.051 * n + 0.1:
+                out.append(Finding(title, "column sum", f"{h}: {sum(vals):.1f}, not {total}"))
+
+    if "Range $" in header:                                  # the pre-10-30 wide table
+        sums({"Title odds %": 100, "Playoff champion %": 100, "Cup: sixth keeper %": 100,
+              "Into RS pot %": 200, "Into playoff pot %": 200})
+        usd = [_usd(r[col["Expected net $"]]) for r in body]
+        if None in usd or abs(sum(usd)) > 0.5 * n + 1e-9:
+            out.append(Finding(title, "zero-sum",
+                               f"expected net dollars sum to {sum(x or 0 for x in usd)}"))
+        for r in body:
+            win, case = _num(r[col["Title odds %"]]), _num(r[col["Win RS, lose semi %"]])
+            if win is not None and case is not None and case > win + 0.1:
+                out.append(Finding(title, "subset",
+                                   f"{r[0]}: win RS and lose semi {case} > win RS {win}"))
+            rng = re.fullmatch(r"(\S+) to (\S+)", r[col["Range $"]].strip())
+            lo, hi = (_usd(rng.group(1)), _usd(rng.group(2))) if rng else (None, None)
+            ml = re.match(r"(\S+) \(([\d.]+)%\)", r[col["Most likely $"]].strip())
+            mv = _usd(ml.group(1)) if ml else None
+            if None in (lo, hi, mv) or not (lo <= mv <= hi):
+                out.append(Finding(title, "range", f"{r[0]}: most likely {r[col['Most likely $']]} "
+                                                   f"outside {r[col['Range $']]}"))
+        return out
+
+    if "Expected net $" in header:                           # title and money
+        sums({"Title odds %": 100})
+        usd = [_usd(r[col["Expected net $"]]) for r in body]
+        if None in usd or abs(sum(usd)) > 0.5 * n + 1e-9:
+            out.append(Finding(title, "zero-sum",
+                               f"expected net dollars sum to {sum(x or 0 for x in usd)}"))
+        lo, hi = _money_range()
+        for r in body:
+            ml = re.match(r"(\S+) \(([\d.]+)%\)", r[col["Most likely $"]].strip()) \
+                if "Most likely $" in col else None
+            mv, mp = (_usd(ml.group(1)), _num(ml.group(2))) if ml else (None, None)
+            if mv is None or not (lo <= mv <= hi):
+                out.append(Finding(title, "range", f"{r[0]}: most likely "
+                                                   f"{r[col['Most likely $']] if 'Most likely $' in col else '?'}"
+                                                   f" outside the pots' ${lo} to +${hi}"))
+            if mp is None or not (0 <= mp <= 100):
+                out.append(Finding(title, "probability", f"{r[0]}: most likely at {mp}%"))
+        ctx["_money_title_odds"] = {r[0]: _num(r[col["Title odds %"]]) for r in body
+                                    if "Title odds %" in col}
+        return out
+
+    sums({"Playoff champ %": 100, "Cup 6th keeper %": 100,              # pots and the Cup
+          "Into RS pot %": 200, "Into playoff pot %": 200})
+    odds = ctx.get("_money_title_odds")
+    if odds is None:
+        out.append(Finding(title, "subset", "no title-and-money table before this one: "
+                                            "win RS and lose semi cannot be checked"))
+        return out
     for r in body:
-        win, case = _num(r[col["Title odds %"]]), _num(r[col["Win RS, lose semi %"]])
-        if win is not None and case is not None and case > win + 0.1:
+        win, case = odds.get(r[0]), _num(r[col["Win RS, lose semi %"]]) \
+            if "Win RS, lose semi %" in col else None
+        if win is None or case is None:
+            out.append(Finding(title, "subset", f"{r[0]}: no title odds or win-RS-lose-semi"))
+        elif case > win + 0.1:
             out.append(Finding(title, "subset", f"{r[0]}: win RS and lose semi {case} > win RS {win}"))
-        rng = re.fullmatch(r"(\S+) to (\S+)", r[col["Range $"]].strip())
-        lo, hi = (_usd(rng.group(1)), _usd(rng.group(2))) if rng else (None, None)
-        ml = re.match(r"(\S+) \(([\d.]+)%\)", r[col["Most likely $"]].strip())
-        mv = _usd(ml.group(1)) if ml else None
-        if None in (lo, hi, mv) or not (lo <= mv <= hi):
-            out.append(Finding(title, "range", f"{r[0]}: most likely {r[col['Most likely $']]} "
-                                               f"outside {r[col['Range $']]}"))
     return out
 
 

@@ -53,7 +53,7 @@ to THIS roster after the drop, which is C2, built on marginal_value (C1).
 Numbers are rendered from the stats report JSON straight into the HTML, never
 through the drafting chat, so they cannot be retyped wrong.
 
-Caveats the grid states on its face:
+Caveats (the page prints no footnote for them -- Nick, 10-30):
   - As of the report run. Rosters change after it.
   - Injuries are INJURY_OVERRIDES plus the week's IL slots (roster_plan),
     the same inputs the betting lines use: an IL occupant sits the whole week.
@@ -243,12 +243,12 @@ def render_html(stats_report: dict) -> str:
         out.append('</tr>')
     out.append('</tbody></table></div>')
 
-    foot = ["As of report time; rosters change after it. Injuries from "
-            "INJURY_OVERRIDES; players in IL slots sit out the whole week."]
+    # No footnote (Nick, 10-30: removed). The one line left is a defect
+    # warning, shown only when a rostered player could not be counted.
     unmatched = sorted({p for r in grid["rows"] for p in r["unmatched_players"]})
     if unmatched:
-        foot.append("Not counted (no team on file): " + ", ".join(unmatched) + ".")
-    out.append(f'<div class="gg-foot">{e(" ".join(foot))}</div></div>')
+        out.append(f'<div class="gg-foot">{e("Not counted (no team on file): " + ", ".join(unmatched) + ".")}</div>')
+    out.append('</div>')
     return "\n".join(out)
 
 

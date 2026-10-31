@@ -120,7 +120,8 @@ def test_every_line_that_talks_about_paying_names_its_pot():
     ex["Benton"].update(league_pot="will_pay", title="eliminated")
     ex["Hayden"].update(playoff_pot="will_pay")
     for ms in (_ms(), _ms(exact=ex)):
-        for x in ms["lines"] + list(T.MONEY_COLUMNS):
+        page_cols = [c for _cap, cols in T.MONEY_PAGE_TABLES for c in cols]
+        for x in ms["lines"] + list(T.MONEY_COLUMNS) + page_cols:
             low = x.lower()
             assert "safe" not in low, x
             if "pay" in low or "owe" in low or "into" in low:
@@ -210,7 +211,8 @@ def test_the_page_lifts_the_paragraphs_and_renders_the_table():
     rest, summ = g.lift_block(BLOCK.split("\n", 1)[1], g.MONEY_HEADER)
     assert "+$135" not in rest and summ.count("<p>") == 1
     html = T.render_money_html(ms, summ)
-    assert html.count("<tr>") == 1 + 4 and "Cup: sixth keeper %" in html
+    # two tables (Nick, 10-30): a header and four managers each
+    assert html.count("<tr>") == 2 * (1 + 4) and "Cup 6th keeper %" in html
     page = f"<html><body><h2>Power Rankings</h2>{html}</body></html>"
     findings, unchecked = pt.check_document(page, {"season": None, "standings": {}})
     assert findings == [] and unchecked == []

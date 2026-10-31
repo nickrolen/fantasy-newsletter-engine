@@ -572,25 +572,55 @@ def money_table_rows(ms: dict) -> list:
     return rows
 
 
+# The page's two tables (Nick, 10-30: the one 10-column table scrolled
+# sideways even on a desktop, and managers read this on their phones). The
+# Range column is gone from the page -- it is the same for every manager
+# every week (the pots' rule: -$135 to +$270), and the drafter's paragraph
+# states it. The md (Step 6.5) keeps MONEY_COLUMNS, Range included.
+MONEY_PAGE_TABLES = (
+    ("Title and money", ("Manager", "Title odds %", "Expected net $", "Most likely $")),
+    ("Pots and the Cup", ("Manager", "Win RS, lose semi %", "Into RS pot %", "Playoff champ %",
+                          "Into playoff pot %", "Cup 6th keeper %")),
+)
+
+
+def money_page_rows(ms: dict) -> tuple:
+    """([[cells]] of the title-and-money table, [[cells]] of the pots table),
+    one row per manager, in order."""
+    title, pots = [], []
+    for m in ms["order"]:
+        r = ms["managers"][m]
+        title.append([m, f"{r['title_odds']:.1f}", _usd(r["expected_dollars"]),
+                      f"{_usd(r['most_likely_dollars'])} ({r['most_likely_pct']:.1f}%)"])
+        pots.append([m, f"{r['p_win_rs_lose_semi']:.1f}", f"{r['p_into_league_pot']:.1f}",
+                     f"{r['p_playoff_champion']:.1f}", f"{r['p_into_playoff_pot']:.1f}",
+                     f"{r['p_sixth_keeper']:.1f}"])
+    return title, pots
+
+
 def render_money_html(ms: Optional[dict], summary_html: str = "") -> str:
-    """The section as the page shows it: the drafter's paragraph(s) first,
-    then the table and the section's own sentences. "" without data."""
+    """The section as the page shows it: the heading, the two tables, then
+    the drafter's paragraph(s) -- prose after the tables it describes (Nick,
+    10-30), and nothing after it. The section's own sentences (ms["lines"])
+    stay in the report and Step 6.5's md, where the writer works from them;
+    the paragraphs are written from the same facts and claim-checked.
+    "" without data."""
     import html as _h
     if not ms or not ms.get("managers"):
         return ""
-    head = "".join(f"<th>{_h.escape(c)}</th>" for c in MONEY_COLUMNS)
-    body = "".join("<tr>" + "".join(f"<td>{_h.escape(c)}</td>" for c in row) + "</tr>"
-                   for row in money_table_rows(ms))
-    lines = "".join(f"<li>{_h.escape(x)}</li>" for x in ms["lines"])
+    tables = []
+    for (caption, cols), rows, cls in zip(MONEY_PAGE_TABLES, money_page_rows(ms),
+                                          ("mx-money", "mx-pots")):
+        head = "".join(f"<th>{_h.escape(c)}</th>" for c in cols)
+        body = "".join("<tr>" + "".join(f"<td>{_h.escape(c)}</td>" for c in row) + "</tr>"
+                       for row in rows)
+        tables.append(f'<h4 class="mx-caption">{_h.escape(caption)}</h4>'
+                      f'<div class="table-wrapper"><table class="mx-table {cls}"><thead><tr>'
+                      f'{head}</tr></thead><tbody>{body}</tbody></table></div>')
     summ = f'<div class="mx-summary">{summary_html}</div>' if summary_html else ""
     return f"""
     <div class="mx-block" data-viz="money-exposure">
       <h3 class="section-title">{_h.escape(MONEY_HEADER)}</h3>
+      {"".join(tables)}
       {summ}
-      <div class="table-wrapper"><table class="mx-table"><thead><tr>{head}</tr></thead>
-      <tbody>{body}</tbody></table></div>
-      <ul class="mx-lines">{lines}</ul>
-      <div class="mx-foot">{ms['sims']:,} simulated seasons. Dollars come from the regular-season
-        pot and the playoff pot only; the Cup's sixth keeper is a separate column and is never
-        added to them. RS = regular season.</div>
     </div>"""

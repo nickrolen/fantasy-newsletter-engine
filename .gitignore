@@ -83,6 +83,9 @@ output/player_card_preview.html
 # Assets - Weekly Drafts
 # --------------------------------------------
 assets/WEEK*_DRAFT.md
+# Player of the Week photos (assets/potw/<player-slug>.png), supplied by Nick each
+# week. Public repo: the photos are not ours to publish.
+assets/potw/
 
 # --------------------------------------------
 # Data Files - Weekly Inputs

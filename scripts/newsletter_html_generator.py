@@ -5,7 +5,7 @@ Generate a beautifully-styled HTML newsletter from a markdown draft.
 Designed to look like a professional sports publication (The Athletic / ESPN vibes).
 
 Usage:
-  python scripts/newsletter_html_generator.py --input assets/WEEK21_DRAFT.md --output output/WEEK21_NEWSLETTER.html --helmet assets/helmet.png --potw assets/potw.png --podium assets/podium.png --stats-report output/stats_report_week21.json
+  python scripts/newsletter_html_generator.py --input assets/WEEK21_DRAFT.md --output output/WEEK21_NEWSLETTER.html --helmet assets/helmet.png --podium assets/podium.png --stats-report output/stats_report_week21.json
 """
 
 from __future__ import annotations
@@ -55,6 +55,65 @@ from modules.data_loader import (
 # a prefix of another.
 _MANAGER_ALT = "|".join(re.escape(m) for m in sorted(MANAGERS, key=len, reverse=True))
 _MANAGER_BY_LOWER = {m.lower(): m for m in MANAGERS}
+
+# The league's team names: config, plus any the stats report carries (a team
+# renamed mid-season -- Benton's "Kevin Quran't" -- still appears in the
+# report's history). Matchup headers are recognised by NAME, never by a
+# character class: [A-Za-z\s]+ missed "Blink-183" (Section 1 rendered one
+# matchup boxed and the other as a bare subheading, 10-30).
+_TEAM_NAMES = set(_CFG_MANAGER_TO_TEAM.values())
+
+
+def set_team_names(stats_report: Optional[dict] = None) -> None:
+    """Config's team names plus every team name the stats report carries."""
+    names = set(_CFG_MANAGER_TO_TEAM.values())
+
+    def walk(o):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if k in ("team_name", "fantasy_team", "team_a", "team_b") and isinstance(v, str) \
+                        and v.strip() and len(v) < 60:
+                    names.add(v.strip())
+                else:
+                    walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+    if stats_report:
+        walk({k: v for k, v in stats_report.items() if k in ("matchups", "report_cards",
+                                                              "standings", "power_rankings")})
+    _TEAM_NAMES.clear()
+    _TEAM_NAMES.update(names)
+
+
+def _team_alt() -> str:
+    return "|".join(re.escape(t) for t in sorted(_TEAM_NAMES, key=len, reverse=True))
+
+
+def scoreboard_header(line: str) -> Optional[str]:
+    """The text of a Section 1 scoreboard line -- two of the league's teams,
+    a score each, "def." or a dash between -- else None."""
+    clean = line.replace('**', '').strip()
+    if not _TEAM_NAMES or len(clean) > 120:
+        return None
+    t, num = _team_alt(), r"\d+(?:\.\d+)?"
+    if re.fullmatch(rf"(?:{t})\s+{num}\s*(?:-{{1,2}}|def\.)\s*(?:{t})\s+{num}", clean):
+        return clean
+    return None
+
+
+def versus_header(line: str) -> Optional[str]:
+    """The text of a betting-preview header "Team A vs Team B" (two of the
+    league's teams), else None. Falls back to the old shape -- any short line
+    with " vs " -- so a header naming a team this page does not know still
+    renders."""
+    clean = line.replace('**', '').strip()
+    if _TEAM_NAMES and re.fullmatch(rf"(?:{_team_alt()})\s+vs\.?\s+(?:{_team_alt()})",
+                                    clean, re.IGNORECASE):
+        return clean
+    if ' vs ' in line.lower() and len(line) < 60:
+        return clean
+    return None
 
 
 # -------------------------
@@ -119,6 +178,63 @@ def image_to_base64(path: str) -> Optional[str]:
         return f"data:{mime};base64,{data}"
     except Exception:
         return None
+
+
+POTW_DIR = Path(__file__).resolve().parent.parent / "assets" / "potw"
+POTW_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+class PotwImageMismatch(SystemExit):
+    """--potw names a file for a different player than this week's winner."""
+
+
+def player_slug(name: str) -> str:
+    """"Luka Don\u010di\u0107" -> "luka-doncic": accents stripped, lowercase,
+    every run of other characters one hyphen."""
+    import unicodedata
+    text = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def potw_winner(markdown_text: str, stats_report: Optional[dict]) -> Optional[str]:
+    """This week's Player of the Week: the stats report's winner, else the
+    draft's "Player of the Week: Name" line."""
+    w = ((stats_report or {}).get("player_of_week") or {}).get("winner") or {}
+    if w.get("player_name"):
+        return str(w["player_name"])
+    m = re.search(r"Player of the Week:\s*([^(\n*]+)", markdown_text.replace("**", ""))
+    return m.group(1).strip() if m else None
+
+
+def resolve_potw_image(winner: Optional[str], explicit: Optional[str] = None,
+                       potw_dir: Path = POTW_DIR, echo=print) -> Optional[str]:
+    """The photo for THIS week's winner, or None -- never another player's.
+
+    The page used to take --potw assets/potw.png every week: a fixed file
+    from 2025-12-01, so week 1 showed Luka Don\u010di\u0107 beside Tyrese Maxey.
+    Now the photo is assets/potw/<player-slug>.png (or .jpg/.jpeg/.webp),
+    supplied by Nick. No file: the podium alone, and one line saying so.
+    An explicit --potw must be named for the winner, or this REFUSES."""
+    if explicit:
+        if not winner:
+            raise PotwImageMismatch(f"--potw {explicit}: this week's Player of the Week is "
+                                    "unknown, so the photo cannot be checked -- refusing")
+        if player_slug(Path(explicit).stem) != player_slug(winner):
+            raise PotwImageMismatch(
+                f"--potw {explicit} is not this week's Player of the Week ({winner}): "
+                f"the file must be named {player_slug(winner)}.png (or .jpg/.jpeg/.webp). "
+                "Refusing -- the page never shows another player's photo.")
+        return explicit
+    if not winner:
+        echo("  Player of the Week photo: no winner found, so no photo (the podium alone)")
+        return None
+    for ext in POTW_EXTS:
+        f = Path(potw_dir) / f"{player_slug(winner)}{ext}"
+        if f.is_file():
+            return str(f)
+    echo(f"  Player of the Week photo: none for {winner} "
+         f"({Path(potw_dir).name}/{player_slug(winner)}.png) -- the podium alone")
+    return None
 
 
 # -------------------------
@@ -603,15 +719,15 @@ def parse_section(text: str, section_name: str) -> str:
         
         # Check for matchup headers FIRST (contain score pattern like "Team1 1234.5 - Team2 1234.5")
         # This must come before subsection header check since matchups also use **bold**
-        clean_check = line.replace('**', '').strip()
-        if len(clean_check) < 80 and re.match(r'^[A-Za-z][A-Za-z\s]+\d+\.?\d*\s*(?:-{1,2}|def\.)\s*[A-Za-z][A-Za-z\s]+\d+\.?\d*$', clean_check):
+        clean_check = scoreboard_header(line)
+        if clean_check:
             html_parts.append(f'<div class="matchup-header">{clean_check}</div>')
             i += 1
             continue
         
         # Check for betting matchup header (Team vs Team) - must come before subsection header check
-        if ' vs ' in line.lower() and len(line) < 60:
-            clean_line = line.replace('**', '').strip()
+        if versus_header(line):
+            clean_line = versus_header(line)
             html_parts.append(f'<div class="matchup-header">{clean_line}</div>')
             i += 1
             
@@ -682,7 +798,7 @@ def parse_section(text: str, section_name: str) -> str:
                 break
             if re.match(r'^.+\d+\.?\d*\s*(?:-{1,2}|def\.)\s*.+\d+\.?\d*$', next_line.replace('**', '')):
                 break
-            if ' vs ' in next_line.lower() and len(next_line) < 60:
+            if versus_header(next_line) or scoreboard_header(next_line):
                 break
             para_lines.append(next_line)
             i += 1
@@ -737,7 +853,8 @@ def keeper_watch_summary_html(section_md: str) -> str:
     **Keeper Watch** line in Stats Corner, up to the next bold header line,
     table or rule. parse_section drops that block from the section body (the
     panel is rendered from the stats report), so it is lifted out here and
-    shown at the top of the panel. "" when the draft has none."""
+    shown below the panel (prose after the table it describes -- Nick,
+    10-30). "" when the draft has none."""
     return lift_block(section_md, KEEPER_WATCH_HEADER)[1]
 
 
@@ -1140,8 +1257,9 @@ def generate_html(
             # It closes this section rather than opening Betting Lines: it is
             # a roster-planning artifact, not a betting one.
             # Money and Exposure (standing_threads.money_section): the drafted
-            # paragraphs are lifted out of the body and shown above the
-            # section's table and its own sentences, rendered from the data.
+            # paragraphs are lifted out of the body and shown BELOW the
+            # section's two tables, rendered from the data (prose after the
+            # table it describes -- Nick, 10-30).
             content, money_summary = lift_block(content, MONEY_HEADER)
             content_html = parse_section(content, heading)
             money_html = ""
@@ -1300,11 +1418,19 @@ def generate_html(
         
         /* Money and Exposure (Section 7) */
         .mx-block {{ margin: 18px 0 8px; }}
+        .mx-caption {{ margin: 14px 0 0; font-size: 0.95em; }}
+        .mx-summary {{ margin-top: 6px; }}
         .mx-summary p {{ margin: 0 0 8px; }}
-        .mx-table td, .mx-table th {{ white-space: nowrap; }}
-        .mx-lines {{ margin: 8px 0 4px 18px; padding: 0; font-size: 0.9em; line-height: 1.45; }}
-        .mx-lines li {{ margin-bottom: 4px; }}
-        .mx-foot {{ font-size: 0.75em; opacity: 0.75; margin-top: 4px; }}
+        /* Fits a 390-px phone without scrolling sideways: headers wrap,
+           numbers do not, cells stay tight. */
+        .mx-table {{ max-width: 100%; margin-top: 8px; margin-bottom: 8px; }}
+        .mx-table th {{ white-space: normal; padding: 8px 6px; line-height: 1.2; }}
+        .mx-table td {{ white-space: nowrap; padding: 6px 6px; }}
+        @media (max-width: 480px) {{
+            .mx-table {{ font-size: 0.78rem; }}
+            .mx-table th {{ padding: 6px 3px; font-size: 0.72rem; }}
+            .mx-table td {{ padding: 5px 3px; }}
+        }}
 
         /* Stats Corner Sub-Navigation */
         .sc-subnav {{
@@ -2156,8 +2282,11 @@ def build_newsletter_html(
     potw_path: Optional[str] = None,
     podium_path: Optional[str] = None,
     stats_report_path: Optional[str] = None,
+    potw_dir: Optional[Path] = None,
 ) -> str:
-    """Build the HTML newsletter from markdown."""
+    """Build the HTML newsletter from markdown. potw_path: an explicit
+    Player of the Week photo, which must be named for the winner; None looks
+    for assets/potw/<winner-slug>.png (resolve_potw_image)."""
     global _paginated_table_counter
     _paginated_table_counter = 0  # Reset for each newsletter build
     # Lore tags (<!--lore:id-->) are for the claim check, not readers -- and
@@ -2175,15 +2304,18 @@ def build_newsletter_html(
     title, subtitle, sections = parse_newsletter(markdown_text)
     
     
-    helmet_base64 = image_to_base64(helmet_path)
-    potw_base64 = image_to_base64(potw_path)
-    podium_base64 = image_to_base64(podium_path)
-    
     # Load stats report for Stats Corner visualizations
     stats_report = None
     if stats_report_path and os.path.exists(stats_report_path):
         with open(stats_report_path, 'r', encoding='utf-8') as f:
             stats_report = json.load(f)
+    set_team_names(stats_report)
+
+    helmet_base64 = image_to_base64(helmet_path)
+    potw_path = resolve_potw_image(potw_winner(markdown_text, stats_report), potw_path,
+                                   potw_dir=potw_dir or POTW_DIR)
+    potw_base64 = image_to_base64(potw_path)
+    podium_base64 = image_to_base64(podium_path)
     
     # Determine data directories for player card builder
     # Stats report lives in output/ which is a child of the project root.
@@ -2303,7 +2435,11 @@ def main():
     ap.add_argument("--input", required=True, help="Path to the markdown draft.")
     ap.add_argument("--output", required=True, help="Output HTML path.")
     ap.add_argument("--helmet", default=None, help="Optional helmet/logo image.")
-    ap.add_argument("--potw", default=None, help="Optional Player of the Week image.")
+    ap.add_argument("--potw", default=None,
+                    help="Player of the Week photo. Normally omitted: the page uses "
+                         "assets/potw/<winner-slug>.png when it exists and the podium alone "
+                         "otherwise. A path given here must be named for this week's winner, "
+                         "or the build refuses.")
     ap.add_argument("--podium", default=None, help="Optional podium image for POTW section.")
     ap.add_argument("--stats-report", default=None, help="Path to stats_report_weekN.json for Stats Corner visualizations.")
     ap.add_argument("--no-log", action="store_true",

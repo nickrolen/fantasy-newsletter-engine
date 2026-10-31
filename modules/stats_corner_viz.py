@@ -543,12 +543,12 @@ def render_keeper_watch(data: dict, player_cards: list = None, summary_html: str
     <div class="sc-viz-block" data-viz="keeper-watch">
       <h3 class="sc-viz-title">Keeper Watch</h3>
       <div class="sc-viz-subtitle">The chance each player is kept next offseason &middot; top {TOP_SHOWN} per team &middot; through {as_of}</div>
-      {summary_block}
-      {note}
       <div class="sc-kw3-grid">{"".join(blocks)}</div>
       <div class="sc-kw3-foot">{line_text} Chances come from a model fitted on every keeper
         decision this league has made (2021-22 to 2026-27): last season's keepers, draft position,
         production over three seasons and this one, availability and age. K = kept this season.</div>
+      {summary_block}
+      {note}
     </div>'''
 
 
@@ -1670,7 +1670,7 @@ def get_stats_corner_css() -> str:
 .sc-kw3-line span { position: relative; top: -0.7em; background: #fff; font-size: 0.58rem; color: #58647a; padding: 0 4px; }
 .sc-kw3-cup { font-size: 0.56rem; color: #7b1fa2; border: 1px solid #ce93d8; border-radius: 3px; padding: 0 3px; margin-left: 3px; white-space: nowrap; }
 .sc-kw3-kept { font-size: 0.55rem; color: #1F4E79; border: 1px solid #90caf9; border-radius: 3px; padding: 0 3px; margin-left: 3px; }
-.sc-kw3-summary { font-size: 0.82rem; color: #3a3a4a; line-height: 1.45; margin: 4px 0 10px; }
+.sc-kw3-summary { font-size: 0.82rem; color: #3a3a4a; line-height: 1.45; margin: 12px 0 8px; }
 .sc-kw3-summary p { margin: 0 0 6px; }
 .sc-kw3-note { font-size: 0.72rem; color: #4a4a5a; background: #f6f8fb; border-left: 3px solid #8a9ab5; padding: 6px 8px; margin-bottom: 10px; }
 .sc-kw3-foot { font-size: 0.6rem; color: #6c757d; margin-top: 8px; line-height: 1.35; }

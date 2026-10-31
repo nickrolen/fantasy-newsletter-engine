@@ -634,7 +634,7 @@ currency); plus the section's sentences, which the page prints as written
 
 ### KEY RULES
 - TWO tables required
-- **MONEY AND EXPOSURE** -- the last thing in Section 7, every week. The page renders its table and its own sentences from the data; you write one or two paragraphs under `**Money and Exposure**`, and they appear at the top of the block:
+- **MONEY AND EXPOSURE** -- the last thing in Section 7, every week. The page renders its two tables from the data (title odds and money; pots and the Cup); you write one or two paragraphs under `**Money and Exposure**`, and they appear below the tables, the last thing in the block (prose always comes after the table it describes). The page shows no range column and no list of the engine's sentences, so state the range once (most lost, most won) and anything else the reader needs in your paragraphs:
   - **Write around the numbers in MONEY AND EXPOSURE -- FACTS; never choose, compute or round your own.** Every figure must be one printed there (the claim check enforces it).
   - **Lead with the named outcome the facts name first** (e.g. newsletter 1 of 2026-27: Hayden's +$135 finish -- win the regular-season pot, lose the semifinal).
   - **Title odds are written rounded, "about 48%"** -- the rounded figures in the facts, never 48.2% in this block -- and say once, while the facts carry it, that the model runs a little confident this early in the season.
@@ -793,11 +793,11 @@ biggest risers and fallers, this season's keepers below the line today
 ### KEY RULES
 - **8 TABLES REQUIRED** -- do not skip any
 - **6 TABLES REMOVED** -- the following are now rendered as interactive visualizations by the HTML generator and must NOT appear in the draft: Positional Scoring Breakdown, Season Waiver Wire ROI, Bench Report, Record Book Snapshot, Keeper Watch, Draft Value Tracker
-- **KEEPER WATCH SUMMARY** -- the panel (each team's top 8 by keep chance, a line after the 5th, the 6th marked "6 if he wins the Cup") is rendered from the data. You write only the one or two paragraphs under **Keeper Watch**, the last thing in Stats Corner, and they appear at the top of the panel:
+- **KEEPER WATCH SUMMARY** -- the panel (each team's top 8 by keep chance, a line after the 5th, the 6th marked "6 if he wins the Cup") is rendered from the data. You write only the one or two paragraphs under **Keeper Watch**, the last thing in Stats Corner, and they appear below the panel (prose always comes after the table it describes):
   - **Write around the numbers in KEEPER WATCH -- SUMMARY FACTS; never choose, compute or round your own.** Every percentage you write must be one printed there (the claim check enforces it).
   - The kind of thing worth saying: who crossed the line since last week, the most crowded line, the biggest risers and fallers, a current keeper below the line. Pick what is interesting; you need not cover all of it.
   - **Language: percentages and "likely", never certainty.** Never "will keep", "will be kept", "safe", "lock", "guaranteed" or "untouchable"; never tier names ("Lock", "Strong Hold", "On the Bubble") -- those are gone. "Sabonis is at 50%, fourth on Nick's roster" is the register.
-  - The early-season note (eventual keepers not yet on a roster) is printed in the panel the first week; do not repeat it.
+  - The early-season note (eventual keepers not yet on a roster) is printed below the panel the first week; do not repeat it.
   - No table, no bullets, and do not start a paragraph with bold text (the page reads a bold line as the end of the summary).
 - **ALL COLUMNS REQUIRED** -- match the table headers exactly as shown; do not drop columns (especially NBA Team)
 - Season tables go AFTER worst performances, BEFORE waiver pickups

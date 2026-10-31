@@ -776,8 +776,10 @@ P2 (format), and ends with a publish/fix verdict.
 ## Step 9: Generate HTML Newsletter
 
 ```cmd
-python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --potw assets\potw.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
+python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
 ```
+
+**Player of the Week photo:** the page uses `assets\potw\<winner-slug>.png` (or `.jpg`/`.jpeg`/`.webp`), the slug taken from the stats report's winner (Tyrese Maxey -> `tyrese-maxey`). No file for this week's winner: the podium alone, and the build prints one line saying so. `--potw <path>` still works, but only for a file named for the winner; anything else refuses.
 
 **What's new:** The `--stats-report` flag loads the JSON stats report and injects interactive Stats Corner visualizations (Positional Breakdown, Draft Value Tracker, Waiver ROI, Keeper Watch) into Section 8. If omitted, the newsletter renders normally without visualizations.
 
@@ -808,12 +810,15 @@ line, risers and fallers; next offseason the real keeper decisions are scored
 against what was published. Commit the file with the week's other outputs.
 
 **Money and Exposure** (the last block of Section 7) is rendered from the
-stats report's `money_section`: a table of each manager's title odds, expected
-net dollars, range, most likely outcome, pot chances and -- separately, never
-added -- the Cup's sixth keeper, plus the section's own sentences (what is
-settled, the named outcome, the odds with what they assume, season totals with
-what they are conditional on). The draft supplies one or two paragraphs under
-`**Money and Exposure**`, written around Step 6.5's MONEY AND EXPOSURE -- FACTS;
+stats report's `money_section` as two short tables that fit a phone: title
+odds, expected net dollars and the most likely outcome; then the pot chances
+and -- separately, never added -- the Cup's sixth keeper. The draft's one or
+two paragraphs under `**Money and Exposure**` come after the tables, the last
+thing in the block (prose always comes after the table it describes). The
+section's own sentences (what is settled, the named outcome, the odds with
+what they assume, season totals with what they are conditional on) and the
+range stay in the report and Step 6.5's md for the writer; the page does not
+print them. The paragraphs are written around Step 6.5's MONEY AND EXPOSURE -- FACTS;
 dollar figures are allowed there every week and nowhere else unless money was
 decided (the claim check). Step 6 runs one extra regular-season pass for each
 manager the roster plan gives a replacement-level stand-in (his odds without
@@ -824,7 +829,8 @@ team's top 8 by keep chance, a line after the 5th, the 6th marked "6 if he
 wins the Cup" until `keeper_rules.cup_winners` records this season's Cup. The
 draft supplies only the one or two summary paragraphs under `**Keeper Watch**`
 (the last thing in Stats Corner), written around Step 6.5's KEEPER WATCH --
-SUMMARY FACTS; the page lifts them into the top of the panel.
+SUMMARY FACTS; the page shows them below the panel (prose always comes after
+the table it describes), followed by the early-season note when it applies.
 
 **Table check (exit code 1 = do not send).** The generator then reconciles every table on the page (`modules/published_tables.py`; standalone: `python scripts\check_published_tables.py output\WEEKN_NEWSLETTER.html`). Summary columns must count the cells beside them, history grids must match the stored finishes, FPPG must be Total / GP, probabilities must sum to 100%, H2H must be antisymmetric, games-grid days must add up to 10 seats, and a row shifted under the wrong header is caught. The page is still written so you can look at it. A table with no relations defined is listed as UNCHECKED -- a new table needs a check. On the six 2025-26 newsletters it finds the two mis-ranked seasons, three scope mixes, and WEEK18's Siakam row (his total printed as FPPG); none of those can ship again.
 
@@ -971,7 +977,7 @@ python scripts\format_stats_report.py --week N
 :: Step 8: Verify draft with VERIFICATION_TEMPLATE.md
 
 :: Step 9: Generate HTML -- this publishes the week's betting lines to data\calibration\published_lines.json and the keepability snapshot to data\keepability\ (--no-log for a preview)
-python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --potw assets\potw.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
+python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
 
 :: Step 10: Update config\LAST_WEEK_RECAP.md and config\RECENT_CONTENT.json
 ```
@@ -1026,7 +1032,7 @@ Make sure you're using the updated `sync_transactions.py` (Feb 2, 2026 fix) that
 | WEEKN_NEWSLETTER.html | `output\` | Final HTML newsletter |
 | WEEKN_DRAFT.md | `assets\` | Newsletter markdown draft |
 | helmet.png | `assets\` | Newsletter header image |
-| potw.png | `assets\` | Player of the Week image |
+| potw\<player-slug>.png | `assets\potw\` | Player of the Week photo, named for the week's winner (e.g. `tyrese-maxey.png`; accents stripped, lowercase, hyphens). You supply it. No file: the page shows the podium alone and Step 9 says so; it never shows another player's photo |
 | podium.png | `assets\` | Podium/standings image |
 | newsletter_template.md | `templates\` | Newsletter content structure & formatting rules |
 | NEWSLETTER_PROMPTS.md | `templates\` | Reusable 3-part drafting prompts (fill in weekly) |
