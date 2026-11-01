@@ -68,6 +68,8 @@ PER_SEASON_CONFIG = {
 
 # Files under config/ that deliberately carry across seasons.
 CROSS_SEASON_CONFIG = {
+    # Which files are league state (P2, 10-31): code-adjacent, not state itself.
+    "config/STATE_MANIFEST.json",
     "config/league_config.json",        # league identity; edited by hand
     "config/league_config.json.example",
     # The injury-override template. Documentation, not state: it shows the three

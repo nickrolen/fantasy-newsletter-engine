@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import format_stats_report as fmt  # noqa: E402
 from modules.storylines import FAMILY, compute_storylines  # noqa: E402
+from league_state import needs_state  # noqa: E402
 
 OUT = ROOT / "archive" / "2025-26" / "output"
 GOLDEN = json.loads((ROOT / "tests" / "fixtures" /
@@ -18,6 +19,7 @@ GOLDEN = json.loads((ROOT / "tests" / "fixtures" /
 
 
 @pytest.mark.parametrize("week", range(16, 24))
+@needs_state("archive/2025-26/output", why="pins the storylines of the 2025-26 reports as published")
 def test_alert_strings_unchanged(week):
     d = json.loads((OUT / f"stats_report_week{week}.json").read_text())
     lk = fmt.build_lookup_tables(d)
@@ -28,6 +30,7 @@ def test_alert_strings_unchanged(week):
         GOLDEN[str(week)]["without"]
 
 
+@needs_state("archive/2025-26/output", why="pins the storylines of the 2025-26 reports as published")
 def test_every_storyline_is_typed():
     for week in range(16, 24):
         d = json.loads((OUT / f"stats_report_week{week}.json").read_text())

@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT))
 
 from modules import transaction_rulings as tr          # noqa: E402
 from modules import league_clock as lc                 # noqa: E402
+from league_state import needs_state  # noqa: E402
 
 LA = ZoneInfo("America/Los_Angeles")
 SCHEDULE = {"weeks": [{"week": 1, "start_date": "2026-10-20", "end_date": "2026-10-25"},
@@ -223,14 +224,14 @@ def machine_clock(request):
         time.tzset()
 
 
-def test_lavines_ruling_matches_his_sunday_2240_pacific_add_on_any_machine(machine_clock):
+def test_lavines_ruling_matches_his_sunday_2240_pacific_add_on_any_machine(machine_clock, tmp_path):
     """Yahoo stamped LaVine's add Sun 10-25 22:40 Pacific (10-26 05:40 UTC).
-    The real ruling, corrected to transaction_date 2026-10-25, matches it on
+    The ruling (as published in 2157743), corrected to transaction_date 2026-10-25, matches it on
     a UTC and a Phoenix machine, and the add counts in week 2."""
     ts = int(datetime(2026, 10, 25, 22, 40, tzinfo=LA).timestamp())
     day = lc.league_date_of_timestamp(ts)
     assert day == date(2026, 10, 25)
-    rulings = tr.load_all(ROOT)
+    rulings = tr.load_all(frozen_world(tmp_path))
     t = {"type": "add", "manager": "Hayden", "player_name": "Zach LaVine", "date": day,
          "timestamp": ts, "details": {}}
     # his voided Wagner add five minutes earlier is in the same window
@@ -252,6 +253,7 @@ def test_lavines_ruling_matches_his_sunday_2240_pacific_add_on_any_machine(machi
     assert tr.add_budget_week(t, rulings, SCHEDULE) == 2
 
 
+@needs_state("config/TRANSACTION_RULINGS.json", why="checks the real rulings file")
 def test_the_real_rulings_load_with_the_real_schedule():
     labels = [r.label() for r in tr.load_all(ROOT)]
     assert "effective 2026-10-26 2026-10-25 Hayden add Zach LaVine (Nick, 2026-10-30)" in labels
@@ -279,7 +281,21 @@ WINDOW = {"txns": [
     ("2026-10-26", "Nick", "Dyson Daniels"), ("2026-10-26", "Nick", "Ty Jerome")]}
 
 
-def _sync_files(tmp_path, rulings_src=ROOT):
+# The rulings as published in 2157743 (frozen): the live file is league state
+# now (P2, 10-31). The listing/counting logic is checked on this copy in every
+# checkout; test_the_real_10_26_window_counts checks the live files.
+FROZEN_RULINGS = ROOT / "tests" / "fixtures" / "transaction_rulings_2026-10-31.json"
+
+
+def frozen_world(tmp_path):
+    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "config" / "SCHEDULE.json").write_text(
+        (ROOT / "config" / "SCHEDULE.json").read_text("utf-8"), encoding="utf-8")
+    (tmp_path / tr.RULINGS_FILE).write_text(FROZEN_RULINGS.read_text("utf-8"), encoding="utf-8")
+    return tmp_path
+
+
+def _sync_files(tmp_path, rulings_src=None):
     """Weeks 1 and 2 as `sync_transactions --week 1 --apply` writes them,
     from the 10-25/10-26 window, through the sync's own writer."""
     import importlib.util
@@ -289,7 +305,8 @@ def _sync_files(tmp_path, rulings_src=ROOT):
     (tmp_path / "config").mkdir(exist_ok=True)
     (tmp_path / "data").mkdir(exist_ok=True)
     (tmp_path / "config" / "SCHEDULE.json").write_text(json.dumps(SCHEDULE))
-    (tmp_path / tr.RULINGS_FILE).write_text((rulings_src / tr.RULINGS_FILE).read_text("utf-8"))
+    src = FROZEN_RULINGS if rulings_src is None else rulings_src / tr.RULINGS_FILE
+    (tmp_path / tr.RULINGS_FILE).write_text(src.read_text("utf-8"))
     rulings = tr.load_all(tmp_path)
     txns = [txn("add", m, p, d) for d, m, p in WINDOW["txns"]]
     w1, a1 = tr.apply_to_transactions(txns, rulings, since=date(2026, 10, 20),

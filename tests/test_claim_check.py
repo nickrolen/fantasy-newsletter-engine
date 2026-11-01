@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from modules import claim_check as cc  # noqa: E402
 import check_draft  # noqa: E402
+from league_state import needs_state  # noqa: E402
 
 ARCHIVE = ROOT / "archive" / "2025-26"
 CONFIG = json.loads((ROOT / "config" / "league_config.json")
@@ -47,12 +48,14 @@ def _check(prepared, week, text):
 
 # ------------------------------------------------------------ real drafts
 
+@needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_clean_published_draft_stays_clean(prepared):
     """Week 17 was published, its report is the one it was written from,
     and every claim in it checks out. Zero findings is the bar."""
     assert _check(prepared, 17, _draft(17)) == []
 
 
+@needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_false_positive_budget_week20(prepared):
     """Week 20 has two known false positives (a sum across paragraphs; a
     nickname, "NAW", the vocabulary doesn't know). More means a
@@ -64,6 +67,7 @@ def test_false_positive_budget_week20(prepared):
         ["27%"]
 
 
+@needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_catches_the_errors_that_shipped_in_week19(prepared):
     """Two arithmetic errors that went out in the published week 19
     newsletter: Garrett's guards beat Benton's by 324.00 (854.15 - 530.15),
@@ -73,6 +77,7 @@ def test_catches_the_errors_that_shipped_in_week19(prepared):
     assert ("unsupported_number", "1684.40") in found
 
 
+@needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_catches_planted_slips(prepared):
     text = _draft(20)
     assert "1633.55" in text
@@ -84,6 +89,7 @@ def test_catches_planted_slips(prepared):
         assert lines, f"planted {good}->{bad} not caught"
 
 
+@needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_table_row_numbers_belong_to_the_row_player(prepared):
     """A row's fantasy-team column must not license every number that
     manager owns: move one player's FPPG into another's row."""
@@ -357,17 +363,20 @@ def _vocab(prepared):
     return prepared[17][1]
 
 
+@needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_dollars_in_a_week_nothing_was_decided_are_findings(prepared):
     f = cc.money_findings(MONEY_DRAFT, _vocab(prepared), [])
     assert [(x.kind, x.section, x.token) for x in f] == [
         ("money_without_event", 1, "$180")]          # section 9 is exempt
 
 
+@needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_dollars_in_a_week_money_was_decided_pass(prepared):
     assert cc.money_findings(MONEY_DRAFT, _vocab(prepared),
                              [["safe_from_paying", "Nick"]]) == []
 
 
+@needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_unknown_money_events_raise_rather_than_pass(prepared):
     with pytest.raises(ValueError):
         cc.money_findings(MONEY_DRAFT, _vocab(prepared), None)

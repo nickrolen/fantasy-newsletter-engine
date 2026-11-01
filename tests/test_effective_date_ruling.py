@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from modules import transaction_rulings as tr          # noqa: E402
+from league_state import needs_state  # noqa: E402
 
 SCHEDULE = {"weeks": [{"week": 1, "start_date": "2026-10-20", "end_date": "2026-10-25"},
                       {"week": 2, "start_date": "2026-10-26", "end_date": "2026-11-01"}]}
@@ -114,6 +115,7 @@ def test_the_add_counts_in_the_week_containing_effective(tmp_path):
     assert wk1 == [] and [t["date"] for t in wk2] == [date(2026, 10, 26)] and len(applied) == 1
 
 
+@needs_state("config/TRANSACTION_RULINGS.json", why="checks the real ruling on file")
 def test_the_real_ruling_is_on_file():
     got = [(r.manager, r.player, r.transaction_date, r.effective)
            for r in tr.effective_dates(tr.load_all(ROOT))]

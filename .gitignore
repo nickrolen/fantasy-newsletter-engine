@@ -198,14 +198,13 @@ _audit_export/
 
 # Live as-of lines. The .json is regenerable output; the .state.json is NOT --
 # it records the week-opening tag baseline and seed, and can only be taken
-# once, on the first day. That one is committed.
+# once, on the first day. Since P2 (10-31) it and the week's tag log
+# (live_lines_weekN.tag_log.jsonl) are league state: kept in the private repo
+# (config/STATE_MANIFEST.json), not committed here.
 output/live_lines_week*.json
-# B3: the midnight refresh service's run log and captured console. The week's
-# tag log (live_lines_weekN.tag_log.jsonl) is NOT ignored: like the state file
-# it is history that cannot be regenerated -- it is what still shows a cleared
-# tag -- so it is committed with it.
+output/live_lines_week*.tag_log.jsonl
+# B3: the midnight refresh service's run log and captured console.
 output/refresh_service.*
-!output/live_lines_week*.state.json
 
 # Staging area for files a builder session could not delete (device_bash cannot
 # rm inside a connected folder). On 2026-10-28 a bundle left here for a timing
@@ -216,3 +215,38 @@ _to_delete/
 
 # keepability v3: the step A hits table the fit report reads (scripts/keeper_backtest.py --json)
 output/keeper_backtest.json
+
+# --------------------------------------------
+# League state -> the private repo nickrolen/newsletter-state (P2, 2026-10-31).
+# config/STATE_MANIFEST.json is the list of what is state; scripts/state.py
+# pull|push moves it between this folder and the private clone in .state/.
+# These were tracked until 10-31 and were untracked with `git rm --cached`
+# (the files stay on disk). What was already public stays public: history is
+# not rewritten. tests/test_state_manifest.py pins that every manifest path is
+# ignored here and tracked by nothing.
+# --------------------------------------------
+# the private clone and the per-machine sync record
+.state/
+.state_sync.json
+config/INJURY_OVERRIDES.json
+config/TRANSACTION_RULINGS.json
+config/TRADES.json
+config/RECENT_CONTENT.json
+config/LAST_WEEK_RECAP.md
+config/POTW_HISTORY.json
+data/PLAYERLIST.xlsx
+data/calibration/published_lines.json
+data/keepability/
+# Weekly snapshots and point-in-time captures. The pinned pre-season
+# durability prior stays tracked and public (Nick, 10-31): league_config's
+# durability_prior.snapshot, read by the public CI's integrity check.
+config/snapshots/*
+!config/snapshots/PLAYERLIST_2026-10-13.xlsx
+# Past seasons' state, archived by start_new_season at the reset.
+archive/
+# The issues and their previews (STATUS task 26).
+output/WEEK*_NEWSLETTER*.html
+# Each week's live-line page. Week 1's two pages stay tracked and public on
+# purpose (Nick, 10-31): output/live_lines_week1.html and
+# output/live_lines_week1_midweek_DEMO.html.
+output/live_lines_week*.html

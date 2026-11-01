@@ -28,6 +28,7 @@ from modules.data_loader import (DURABILITY_PRIOR, FLAT_GP_SHARE_MAX, Durability
                                  DurabilityPriorError, FantasyData, MANAGERS,
                                  gp_column_is_flat, gp_dispersion, load_durability_prior)
 from modules.projections import PlayerProjection, TeamProjections
+from league_state import needs_state  # noqa: E402
 
 ROOT = Path(__file__).parent.parent
 SEED = 20262027
@@ -69,6 +70,7 @@ def _snapshots():
     return out
 
 
+@needs_state("config/snapshots/PLAYERLIST_2026-09-25.xlsx", "config/snapshots/PLAYERLIST_2026-10-05.xlsx", why="measures the guard against every pre-season snapshot actually taken")
 def test_every_pre_season_snapshot_is_pre_season_shaped_and_the_limit_sits_between():
     """3: the guard passes every snapshot taken BEFORE WEEK 1. Their measured
     share is 0.31 and a fresh in-season fetch is 0.96, so 0.80 is not a near miss.

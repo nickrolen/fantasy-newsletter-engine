@@ -25,6 +25,7 @@ from modules import nba_reference as nr
 from modules import roster_plan as rp
 from modules.data_loader import MANAGERS, PlayerIndex
 from modules.projections import PlayerProjection
+from league_state import needs_state  # noqa: E402
 
 ROOT = Path(__file__).parent.parent
 fis = importlib.import_module("modules.fetch_injury_statuses")
@@ -217,6 +218,7 @@ def test_the_team_comes_from_last_season_only_with_a_warning(tmp_path, capsys):
 
 
 # 4 -- Nick's fourteen hand-written entries, recomputed
+@needs_state("config/INJURY_OVERRIDES.json", why="checks Nick's real override entries")
 def test_nicks_entries_recompute_exactly():
     blob = json.loads((ROOT / "config" / "INJURY_OVERRIDES.json").read_text(encoding="utf-8"))
     games = ie.team_games(json.loads((ROOT / "data" / "nba_schedule_2026-27.json").read_text()))
@@ -300,6 +302,7 @@ def test_the_page_parser_maps_team_codes_and_takes_the_last_team():
 
 
 # 7 -- integrity: green today; each shape assertion fails a broken entry
+@needs_state("config/INJURY_OVERRIDES.json", why="checks Nick's real override entries")
 def test_integrity_is_green_on_todays_file():
     vpi = _script("verify_project_integrity")
     if not (ROOT / nr.CACHE).is_file():

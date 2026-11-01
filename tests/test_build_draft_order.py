@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from modules.data_loader import Record
+from league_state import needs_state  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -105,6 +106,7 @@ def test_slot_order_is_reverse_standings(mod):
     assert list(reversed(standings)) == ["Hayden", "Garrett", "Benton", "Nick"]
 
 
+@needs_state("config/TRADES.json", why="checks the league's real trade log and pick ownership")
 def test_real_trades_reconcile_to_even_totals(mod):
     """Every pick is owned by exactly one manager; the league gains none."""
     trades = json.loads((PROJECT_ROOT / "config" / "TRADES.json").read_text(encoding="utf-8"))
@@ -121,6 +123,7 @@ def test_real_trades_reconcile_to_even_totals(mod):
     assert sum(v - rounds for v in tally.values()) == 0
 
 
+@needs_state("config/TRADES.json", why="checks the league's real trade log and pick ownership")
 def test_every_ownership_entry_matches_a_recorded_trade(mod):
     """draft_pick_ownership must not drift from the trade log."""
     trades = json.loads((PROJECT_ROOT / "config" / "TRADES.json").read_text(encoding="utf-8"))

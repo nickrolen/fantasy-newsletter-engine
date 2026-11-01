@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from modules import transaction_rulings as tr          # noqa: E402
 from modules.weekly_stats import load_waiver_adds      # noqa: E402
+from league_state import needs_state  # noqa: E402
 
 SCHEDULE = {"weeks": [{"week": 1, "start_date": "2026-10-20", "end_date": "2026-10-25"},
                       {"week": 2, "start_date": "2026-10-26", "end_date": "2026-11-01"}]}
@@ -68,6 +69,8 @@ FILE_LEAGUE_CLOCK = """# Waiver Adds for Week 2
 - [2026-10-26] Nick: Ty Jerome
 """
 
+FROZEN_RULINGS = ROOT / "tests" / "fixtures" / "transaction_rulings_2026-10-31.json"
+
 GARRETT = {"date": "2026-10-26", "manager": "Garrett", "type": "add", "player": "Paul George",
            "ruling": "void", "by": "Nick", "on": "2026-10-30", "reason": "claimed by Benton first"}
 
@@ -77,7 +80,9 @@ def world(tmp_path, rulings=None, real=False):
     (tmp_path / "data").mkdir(exist_ok=True)
     (tmp_path / "config" / "SCHEDULE.json").write_text(json.dumps(SCHEDULE))
     if real:
-        shutil.copy(ROOT / tr.RULINGS_FILE, tmp_path / tr.RULINGS_FILE)
+        # The rulings as published in 2157743 (frozen). The live file is league
+        # state now (P2, 10-31) and is not in the public checkout.
+        shutil.copy(FROZEN_RULINGS, tmp_path / tr.RULINGS_FILE)
     else:
         (tmp_path / tr.RULINGS_FILE).write_text(json.dumps({"rulings": rulings or []}))
     f = tmp_path / "data" / "waivers_week2.txt"
@@ -92,6 +97,7 @@ def txn(kind, manager, player, d="2026-10-26"):
 
 # ------------------------------------------------------------- the rulings
 
+@needs_state("config/TRANSACTION_RULINGS.json", why="checks the real rulings file")
 def test_the_real_file_holds_garretts_ruling_and_loads():
     rulings = tr.voids(tr.load_rulings(ROOT))
     assert [(r.date, r.manager, r.type, r.player, r.ruling) for r in rulings] == [

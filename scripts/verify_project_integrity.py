@@ -1323,10 +1323,57 @@ def _schedule_weeks():
         return []
 
 
-def check_config_integrity(verbose=False):
+# ----------------------------------------------------------------------------
+# League state (config/STATE_MANIFEST.json, P2 2026-10-31)
+# ----------------------------------------------------------------------------
+# The checks below that read the league's state -- files that live in the
+# private repo nickrolen/newsletter-state, not in this public one -- with the
+# manifest paths each one needs. Two modes, and no third:
+#   default            every path must exist; a missing one FAILS ("pull
+#                      first"), where these checks used to return quietly;
+#   --no-league-state  (the public CI, which has no state) skips exactly these
+#                      checks and lists each one in the output.
+# tests/test_state_manifest.py pins that every check reading a manifest path
+# is listed here and every path listed is a manifest path.
+STATE_CHECKS = {
+    "_check_no_file_survived_the_reset": ["archive"],
+    "_check_career_honors_agree": ["data/LEAGUEHISTORY.xlsx", "config/RECORDS.json"],
+    "_check_pre_data_era_reconciles": ["data/LEAGUEHISTORY.xlsx"],
+    "_check_potw_attribution": ["config/POTW_HISTORY.json"],
+    "_check_injury_overrides_current": ["config/INJURY_OVERRIDES.json", "data/PLAYERLIST.xlsx",
+                                        "config/ROSTERS.json"],
+    "_check_point_in_time_record": ["config/snapshots/point_in_time"],
+}
+
+
+def _state_gate(no_league_state, skipped):
+    """run(check, *args): the check's failures, or [] with the check noted
+    in `skipped` under --no-league-state, or one failure naming the missing
+    state paths."""
+    def run(check, *args):
+        need = STATE_CHECKS.get(check.__name__)
+        if need is None:
+            return check(*args)
+        if no_league_state:
+            skipped.append(f"[STATE] skipped (--no-league-state): {check.__name__} "
+                           f"(reads {', '.join(need)})")
+            return []
+        missing = [p for p in need if not (PROJECT_ROOT / p).exists()]
+        if missing:
+            return [f"[STATE] {check.__name__} needs {', '.join(missing)}, which "
+                    f"{'is' if len(missing) == 1 else 'are'} not here. Run "
+                    "`python scripts/state.py pull` (or pass --no-league-state where there is "
+                    "no league state at all: the public CI)"]
+        return check(*args)
+    return run
+
+
+def check_config_integrity(verbose=False, no_league_state=False):
     """Verify league_config.json structural invariants."""
     failures = []
     warnings = []
+    skipped = []
+    state = _state_gate(no_league_state, skipped)
 
     if not LEAGUE_CONFIG.is_file():
         return {
@@ -1398,28 +1445,31 @@ def check_config_integrity(verbose=False):
                 f"[CONFIG] manager '{mgr}' not referenced as alias target in manager_aliases"
             )
 
-    failures.extend(_check_season_format(cfg, warnings))
-    failures.extend(_check_schedule_matches_config(cfg, warnings))
-    failures.extend(_check_league_keys(cfg, warnings))
-    failures.extend(_check_no_file_survived_the_reset(warnings))
-    failures.extend(_check_career_honors_agree(warnings))
-    failures.extend(_check_pre_data_era_reconciles(cfg, warnings))
-    failures.extend(_check_stored_standings_reconcile(cfg, warnings))
-    failures.extend(_check_potw_attribution(warnings))
-    failures.extend(_check_injury_overrides_current(cfg, warnings))
-    failures.extend(_check_point_in_time_record(cfg, warnings))
-    failures.extend(_check_nba_schedule_fresh(cfg, warnings))
-    failures.extend(_check_durability_prior(cfg, warnings))
+    failures.extend(state(_check_season_format, cfg, warnings))
+    failures.extend(state(_check_schedule_matches_config, cfg, warnings))
+    failures.extend(state(_check_league_keys, cfg, warnings))
+    failures.extend(state(_check_no_file_survived_the_reset, warnings))
+    failures.extend(state(_check_career_honors_agree, warnings))
+    failures.extend(state(_check_pre_data_era_reconciles, cfg, warnings))
+    failures.extend(state(_check_stored_standings_reconcile, cfg, warnings))
+    failures.extend(state(_check_potw_attribution, warnings))
+    failures.extend(state(_check_injury_overrides_current, cfg, warnings))
+    failures.extend(state(_check_point_in_time_record, cfg, warnings))
+    failures.extend(state(_check_nba_schedule_fresh, cfg, warnings))
+    failures.extend(state(_check_durability_prior, cfg, warnings))
 
     if failures:
         status = f"FAIL ({len(failures)} issue(s))"
     else:
         status = "ALL CHECKS PASSED"
+    if skipped:
+        status += f" ({len(skipped)} league-state check(s) skipped)"
     return {
         "label": "[4/6] Config Integrity",
         "status": status,
         "failures": failures,
         "warnings": warnings,
+        "info": skipped,
     }
 
 
@@ -1599,6 +1649,12 @@ def main():
         "--verbose", action="store_true",
         help="Show every file checked, not just issues."
     )
+    parser.add_argument(
+        "--no-league-state", action="store_true",
+        help="Skip the checks that read the league's state (config/STATE_MANIFEST.json), "
+             "listing each one. For the public CI, which has no state. Without it a missing "
+             "state file fails."
+    )
     args = parser.parse_args()
 
     print("=" * 60)
@@ -1609,7 +1665,7 @@ def main():
     results.append(check_python_syntax(args.verbose))
     results.append(check_file_baselines(args.verbose))
     results.append(check_import_chain(args.verbose))
-    results.append(check_config_integrity(args.verbose))
+    results.append(check_config_integrity(args.verbose, args.no_league_state))
     results.append(check_ascii_compliance(args.verbose))
     if args.compare_golden:
         results.append(check_golden_master(args.verbose))

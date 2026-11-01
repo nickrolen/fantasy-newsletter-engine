@@ -40,7 +40,10 @@ jobs:
         run: python -m pytest tests/ -q
 
       - name: Project integrity check
-        run: python scripts/verify_project_integrity.py
+        # The league's state lives in the private repo (config/STATE_MANIFEST.json);
+        # this public checkout has none, so the checks that read it are skipped
+        # and listed. On Nick's machine the flag is never passed.
+        run: python scripts/verify_project_integrity.py --no-league-state
 
       - name: CLI smoke tests (--help must not crash)
         run: |

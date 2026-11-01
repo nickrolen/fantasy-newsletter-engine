@@ -19,6 +19,7 @@ import pytest
 
 from modules import playerlist_freshness, projection_overrides
 from modules.data_loader import DURABILITY_PRIOR, NBA_SCHEDULE_FILE
+from league_state import needs_state  # noqa: E402
 
 ROOT = Path(__file__).parent.parent
 SNAP = ROOT / "config" / "snapshots"
@@ -141,6 +142,7 @@ def test_a_pre_season_baseline_against_an_in_season_file_is_said_not_failed(chec
     assert "signature of stats shifted" not in out
 
 
+@needs_state("config/snapshots/PLAYERLIST_2026-10-05.xlsx", why="Yahoo's real 10-05 -> 10-13 refresh is the negative control")
 def test_a_one_row_shift_against_the_same_baseline_still_fails(check, capsys):
     shutil.copy2(SNAP / "PLAYERLIST_2026-10-05.xlsx", check.SNAPSHOTS / "PLAYERLIST_2026-10-05.xlsx")
     real = _frame(SNAP / "PLAYERLIST_2026-10-13.xlsx").sort_values(
@@ -329,6 +331,7 @@ def _live_pair(check, live=None):
     _rosters(check, frame["player_name"].head(10), "2026-10-26T23:04:00")
 
 
+@needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
 def test_an_ordinary_pair_of_fetches_days_apart_does_not_fail(check, capsys):
     _live_pair(check)
     assert _run(check, []) == 0
@@ -338,6 +341,7 @@ def test_an_ordinary_pair_of_fetches_days_apart_does_not_fail(check, capsys):
     assert "larger share" not in out
 
 
+@needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
 def test_a_shifted_live_file_fails_and_names_the_rows(check, capsys):
     _live_pair(check, _shift(_frame(SNAP / "PLAYERLIST_2026-10-28.xlsx")))
     assert _run(check, []) == 1
@@ -346,6 +350,7 @@ def test_a_shifted_live_file_fails_and_names_the_rows(check, capsys):
     assert "Luka Don" in out and "LAL -> DEN" in out
 
 
+@needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
 def test_a_shift_confined_to_a_few_rows_still_fails_on_its_neighbours(check, capsys):
     live = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx")
     part = pd.concat([live.iloc[:-12], _shift(live.iloc[-13:])]).reset_index(drop=True)
@@ -354,6 +359,7 @@ def test_a_shift_confined_to_a_few_rows_still_fails_on_its_neighbours(check, cap
     assert "on the team the player in the next or previous row had" in capsys.readouterr().out
 
 
+@needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
 def test_a_real_trade_is_reported_not_failed(check, capsys):
     live = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx").copy()
     i = live.index[live["player_name"].str.startswith("Luka")][0]
@@ -366,6 +372,7 @@ def test_a_real_trade_is_reported_not_failed(check, capsys):
     assert "2 player(s) changed NBA teams" in out and "LAL -> MIA" in out and "BOS -> POR" in out
 
 
+@needs_state("config/snapshots/PLAYERLIST_2026-10-05.xlsx", why="Yahoo's real 10-05 -> 10-13 refresh is the negative control")
 def test_the_pre_season_path_still_fails_a_shift_at_the_measured_rate(check, capsys):
     import re
     shutil.copy2(SNAP / "PLAYERLIST_2026-10-05.xlsx", check.SNAPSHOTS / "PLAYERLIST_2026-10-05.xlsx")

@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "_comment": "The league's state: every path here lives in the private repo (private_repo) and is ignored and untracked by this public repo. scripts/state.py copies exactly these paths between the working tree and the private clone at .state/ (pull before a manual run, push after). Read only through modules/state_manifest.py. files: exact paths. dirs: a directory and everything below it. patterns: file names matched in ONE directory, not below it. excluded: paths the engine touches that are deliberately not state. public_exceptions: tracked files inside a manifest dir or pattern that stay public on purpose. Invariants: tests/test_state_manifest.py. Design: claude/SELF_RUNNING_DESIGN.md s.2 (P2, 2026-10-31).",
+  "private_repo": "nickrolen/newsletter-state",
+  "files": [
+    {"path": "data/LINEUPS.xlsx", "what": "daily lineups pulled from Yahoo (update_fantasy_logs)"},
+    {"path": "data/PLAYERLOG.xlsx", "what": "daily player log pulled from Yahoo (update_fantasy_logs)"},
+    {"path": "data/LEAGUEHISTORY.xlsx", "what": "the honour roll and season results, updated weekly"},
+    {"path": "data/IL_SLOTS.json", "what": "who sits in an IL slot now (sync_transactions)"},
+    {"path": "data/PLAYERLIST.xlsx", "what": "Yahoo projections and tags, the live file (fetch_playerlist)"},
+    {"path": "data/calibration/published_lines.json", "what": "every published line, for calibration (weekly build)"},
+    {"path": "config/ROSTERS.json", "what": "current rosters (sync_transactions)"},
+    {"path": "config/RECORDS.json", "what": "the record book (records_tracker, weekly)"},
+    {"path": "config/INJURY_OVERRIDES.json", "what": "Nick's injury overrides (scripts/overrides.py)"},
+    {"path": "config/TRANSACTION_RULINGS.json", "what": "the commissioner's rulings on transactions"},
+    {"path": "config/TRADES.json", "what": "trades and draft-pick ownership"},
+    {"path": "config/RECENT_CONTENT.json", "what": "what recent issues said (Step 10)"},
+    {"path": "config/LAST_WEEK_RECAP.md", "what": "last issue's recap for the next draft (Step 10)"},
+    {"path": "config/POTW_HISTORY.json", "what": "Player of the Week history (format_stats_report)"},
+    {"path": "config/LEAGUE_LORE.json", "what": "the league's lore (Nick's sittings; read for drafting only via output/lore_for_drafting.json)"},
+    {"path": "config/LORE_USAGE.json", "what": "which lore entries have been used"},
+    {"path": "output/lore_for_drafting.json", "what": "the lore export for drafting"},
+    {"path": "output/keeper_backtest.json", "what": "keepability step A hits table (keeper_backtest)"}
+  ],
+  "dirs": [
+    {"path": "data/lore_backups", "what": "lore backups (modules/lore.py)"},
+    {"path": "data/keepability", "what": "published keep chances, one file per week (newsletter_html_generator)"},
+    {"path": "config/snapshots", "what": "weekly PLAYERLIST snapshots and Step 6's point-in-time captures (the pinned durability prior is a public exception)"},
+    {"path": "assets/potw", "what": "Player of the Week photos, supplied by Nick"},
+    {"path": "archive", "what": "past seasons' state, archived by start_new_season at the reset"}
+  ],
+  "patterns": [
+    {"dir": "data", "name": "waivers_week*.txt", "what": "each week's adds (sync_transactions)"},
+    {"dir": "data", "name": "weeklycontextinput_week*.json", "what": "Nick's weekly context input"},
+    {"dir": "assets", "name": "WEEK*_DRAFT.md", "what": "each issue's draft (Step 7)"},
+    {"dir": "output", "name": "WEEK*_NEWSLETTER*.html", "what": "the issues and their previews (Step 9)"},
+    {"dir": "output", "name": "WEEK*_NEWSLETTER.pdf", "what": "the issues as PDF"},
+    {"dir": "output", "name": "stats_report_week*.json", "what": "Step 6's stats report"},
+    {"dir": "output", "name": "stats_report_week*.md", "what": "Step 6.5's formatted report"},
+    {"dir": "output", "name": "looking_ahead_week*.json", "what": "the week preview"},
+    {"dir": "output", "name": "claim_check_week*.md", "what": "the claim check's report"},
+    {"dir": "output", "name": "advice_preview_week*.html", "what": "C2/C3 preview"},
+    {"dir": "output", "name": "angles_week*.json", "what": "the week's angles"},
+    {"dir": "output", "name": "angles_*.md", "what": "the season's angles report"},
+    {"dir": "output", "name": "live_lines_week*.json", "what": "live lines, including each week's .state.json (the week-opening tag baseline and seed)"},
+    {"dir": "output", "name": "live_lines_week*.tag_log.jsonl", "what": "each week's tag log (refresh_lines)"},
+    {"dir": "output", "name": "live_lines_week*.html", "what": "each week's live-line page (week 1's two pages are public exceptions)"},
+    {"dir": "output", "name": "refresh_service.*", "what": "the refresh service's run log and console"}
+  ],
+  "excluded": [
+    {"path": "oauth2.json", "why": "Yahoo credentials: never state, never copied (also oauth2_backup.json, oauth2.backup_*.json, *.oauth, private.json)"},
+    {"path": "newsletter_state.zip", "why": "an old migration archive that contains credentials"},
+    {"path": ".state/", "why": "the private clone itself"},
+    {"path": ".state_sync.json", "why": "state.py's sync record, per machine"},
+    {"path": "output/dryrun/", "why": "dry-run packets, 194 MB, holding old lore copies; Nick's call (STATUS task 37): left where it is, not opened"},
+    {"path": "output/player_card_preview.html", "why": "a regenerable preview page"},
+    {"path": "data/.cache/", "why": "cached basketball-reference pages, re-fetched on demand"},
+    {"path": "config/.file_baselines.json", "why": "the integrity check's size baseline, machine-specific"},
+    {"path": "data/historical/*_BACKUP.json", "why": "rollup safety backups of public history (also *_BACKUP.xlsx)"},
+    {"path": "*.bak", "why": "script safety backups (also *.preRestore)"},
+    {"path": "_backups/", "why": "an old backup folder outside the engine"},
+    {"path": "_to_delete/", "why": "staging for files a session could not delete"},
+    {"path": "_audit_export/", "why": "a staged audit copy, credentials excluded"},
+    {"path": "__pycache__/", "why": "Python caches (also .pytest_cache/, *.cache)"}
+  ],
+  "public_exceptions": [
+    {"path": "config/snapshots/PLAYERLIST_2026-10-13.xlsx", "why": "the pinned pre-season durability prior (league_config durability_prior.snapshot): fixed for the season, already public, read by the public CI's integrity check (Nick, 10-31)"},
+    {"path": "output/live_lines_week1.html", "why": "week 1's live-line page, kept public as a showcase (Nick, 10-31)"},
+    {"path": "output/live_lines_week1_midweek_DEMO.html", "why": "the mid-week demo page, kept public as a showcase (Nick, 10-31)"}
+  ]
+}
