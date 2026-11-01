@@ -3,6004 +3,7206 @@
     {
       "date": "2026-10-20T00:00:00Z",
       "home": "DET",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-10-20T19:00:00Z"
     },
     {
       "date": "2026-10-20T00:00:00Z",
       "home": "SAS",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-10-21T01:30:00Z"
     },
     {
       "date": "2026-10-20T00:00:00Z",
       "home": "NYK",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-10-20T23:00:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "ORL",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-10-21T23:00:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "BKN",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-10-21T23:30:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "TOR",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-10-21T23:30:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "HOU",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-10-22T00:30:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "LAL",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-10-22T02:00:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "NOP",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-10-22T00:00:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "WAS",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-10-21T23:00:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "MIA",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-10-21T23:30:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "POR",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-10-22T02:00:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "LAC",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-10-22T02:30:00Z"
     },
     {
       "date": "2026-10-21T00:00:00Z",
       "home": "MEM",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-10-22T00:00:00Z"
     },
     {
       "date": "2026-10-22T00:00:00Z",
       "home": "PHI",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-10-22T23:00:00Z"
     },
     {
       "date": "2026-10-22T00:00:00Z",
       "home": "OKC",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-10-23T01:30:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "CHA",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-10-23T23:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "MIL",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-10-23T20:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "IND",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-10-23T23:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "MIA",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-10-24T00:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "SAS",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-10-24T01:30:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "LAL",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-10-24T02:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "GSW",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-10-24T02:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "ORL",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-10-23T23:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "UTA",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-10-24T01:30:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "BOS",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-10-23T23:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "SAC",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-10-24T02:00:00Z"
     },
     {
       "date": "2026-10-23T00:00:00Z",
       "home": "WAS",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-10-23T23:00:00Z"
     },
     {
       "date": "2026-10-24T00:00:00Z",
       "home": "CLE",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-10-24T23:30:00Z"
     },
     {
       "date": "2026-10-24T00:00:00Z",
       "home": "PHX",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-10-25T02:00:00Z"
     },
     {
       "date": "2026-10-24T00:00:00Z",
       "home": "ATL",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-10-25T00:30:00Z"
     },
     {
       "date": "2026-10-24T00:00:00Z",
       "home": "CHA",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-10-24T22:00:00Z"
     },
     {
       "date": "2026-10-24T00:00:00Z",
       "home": "PHI",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-10-24T23:30:00Z"
     },
     {
       "date": "2026-10-24T00:00:00Z",
       "home": "DEN",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-10-25T01:00:00Z"
     },
     {
       "date": "2026-10-24T00:00:00Z",
       "home": "DAL",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-10-25T00:00:00Z"
     },
     {
       "date": "2026-10-24T00:00:00Z",
       "home": "CHI",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-10-25T00:00:00Z"
     },
     {
       "date": "2026-10-25T00:00:00Z",
       "home": "PHI",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-10-25T23:30:00Z"
     },
     {
       "date": "2026-10-25T00:00:00Z",
       "home": "BKN",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-10-25T22:00:00Z"
     },
     {
       "date": "2026-10-25T00:00:00Z",
       "home": "OKC",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-10-25T23:00:00Z"
     },
     {
       "date": "2026-10-25T00:00:00Z",
       "home": "UTA",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-10-25T21:00:00Z"
     },
     {
       "date": "2026-10-25T00:00:00Z",
       "home": "SAC",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-10-26T01:00:00Z"
     },
     {
       "date": "2026-10-25T00:00:00Z",
       "home": "NYK",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-10-25T23:00:00Z"
     },
     {
       "date": "2026-10-25T00:00:00Z",
       "home": "MIN",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-10-25T23:00:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "HOU",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-10-27T00:30:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "BOS",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-10-26T23:30:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "MIA",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-10-26T23:30:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "DEN",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-10-27T02:00:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "MIL",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-10-27T00:00:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "UTA",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-10-27T01:00:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "CLE",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-10-26T23:00:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "OKC",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-10-27T00:00:00Z"
     },
     {
       "date": "2026-10-26T00:00:00Z",
       "home": "CHA",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-10-26T23:00:00Z"
     },
     {
       "date": "2026-10-27T00:00:00Z",
       "home": "BOS",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-10-27T23:30:00Z"
     },
     {
       "date": "2026-10-27T00:00:00Z",
       "home": "NYK",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-10-28T00:00:00Z"
     },
     {
       "date": "2026-10-27T00:00:00Z",
       "home": "LAL",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-10-28T03:00:00Z"
     },
     {
       "date": "2026-10-27T00:00:00Z",
       "home": "SAS",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-10-28T00:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "DET",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-10-28T23:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "NOP",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-10-29T00:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "MIN",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-10-29T00:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "MIL",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-10-29T00:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "LAC",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-10-29T02:30:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "ATL",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-10-28T23:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "CHI",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-10-29T00:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "DAL",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-10-29T01:30:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "TOR",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-10-28T23:30:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "IND",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-10-28T23:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "UTA",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-10-29T01:00:00Z"
     },
     {
       "date": "2026-10-28T00:00:00Z",
       "home": "CLE",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-10-28T23:00:00Z"
     },
     {
       "date": "2026-10-29T00:00:00Z",
       "home": "ATL",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-10-30T00:00:00Z"
     },
     {
       "date": "2026-10-29T00:00:00Z",
       "home": "POR",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-10-30T02:00:00Z"
     },
     {
       "date": "2026-10-29T00:00:00Z",
       "home": "NOP",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-10-30T00:00:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "WAS",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-10-30T23:00:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "BOS",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-10-30T23:30:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "PHX",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-10-31T02:00:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "BKN",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-10-30T23:30:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "DAL",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-10-31T00:00:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "MIA",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-10-31T00:00:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "MIN",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-10-31T00:00:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "GSW",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-10-31T02:00:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "PHI",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-10-30T23:30:00Z"
     },
     {
       "date": "2026-10-30T00:00:00Z",
       "home": "TOR",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-10-30T23:30:00Z"
     },
     {
       "date": "2026-10-31T00:00:00Z",
       "home": "NOP",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-10-31T23:00:00Z"
     },
     {
       "date": "2026-10-31T00:00:00Z",
       "home": "MIL",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-11-01T00:00:00Z"
     },
     {
       "date": "2026-10-31T00:00:00Z",
       "home": "SAS",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-11-01T00:00:00Z"
     },
     {
       "date": "2026-10-31T00:00:00Z",
       "home": "HOU",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-01T00:30:00Z"
     },
     {
       "date": "2026-10-31T00:00:00Z",
       "home": "CHA",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-10-31T22:00:00Z"
     },
     {
       "date": "2026-10-31T00:00:00Z",
       "home": "UTA",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-10-31T19:00:00Z"
     },
     {
       "date": "2026-10-31T00:00:00Z",
       "home": "MEM",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-11-01T00:00:00Z"
     },
     {
       "date": "2026-11-01T00:00:00Z",
       "home": "IND",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-01T22:00:00Z"
     },
     {
       "date": "2026-11-01T00:00:00Z",
       "home": "ORL",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-01T20:30:00Z"
     },
     {
       "date": "2026-11-01T00:00:00Z",
       "home": "GSW",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-11-02T01:30:00Z"
     },
     {
       "date": "2026-11-01T00:00:00Z",
       "home": "LAL",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-11-02T02:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "IND",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-11-03T00:30:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "NYK",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-03T00:30:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "HOU",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-03T01:30:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "PHI",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-11-03T00:30:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "CHA",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-11-03T00:30:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "LAL",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-11-03T03:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "MIN",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-11-03T01:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "MEM",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-11-03T01:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "CLE",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-03T00:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "GSW",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-11-03T03:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "DEN",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-03T02:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "DAL",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-11-03T01:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "LAC",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-11-03T03:00:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "SAS",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-11-03T01:30:00Z"
     },
     {
       "date": "2026-11-02T00:00:00Z",
       "home": "ORL",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-11-03T00:30:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "WAS",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-11-05T00:00:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "BKN",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-11-05T00:30:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "NYK",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-11-05T00:30:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "OKC",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-11-05T01:00:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "SAS",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-11-05T02:30:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "MEM",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-11-05T01:00:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "SAC",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-11-05T03:00:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "LAC",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-11-05T03:30:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "BOS",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-11-05T00:30:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "HOU",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-11-05T01:30:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "DET",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-11-05T00:00:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "PHX",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-05T02:00:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "DEN",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-11-05T02:00:00Z"
     },
     {
       "date": "2026-11-04T00:00:00Z",
       "home": "NOP",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-11-05T01:00:00Z"
     },
     {
       "date": "2026-11-05T00:00:00Z",
       "home": "GSW",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-11-06T03:00:00Z"
     },
     {
       "date": "2026-11-05T00:00:00Z",
       "home": "PHX",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-06T02:00:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "CHA",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-07T00:00:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "NOP",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-11-07T01:00:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "MEM",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-07T01:00:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "CLE",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-11-07T00:30:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "LAL",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-07T03:00:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "SAC",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-11-07T03:00:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "MIL",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-11-07T01:00:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "DAL",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-11-07T01:00:00Z"
     },
     {
       "date": "2026-11-06T00:00:00Z",
       "home": "ATL",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-11-07T00:00:00Z"
     },
     {
       "date": "2026-11-07T00:00:00Z",
       "home": "ATL",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-08T00:30:00Z"
     },
     {
       "date": "2026-11-07T00:00:00Z",
       "home": "IND",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-11-07T22:00:00Z"
     },
     {
       "date": "2026-11-07T00:00:00Z",
       "home": "PHX",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-11-08T02:00:00Z"
     },
     {
       "date": "2026-11-07T00:00:00Z",
       "home": "CLE",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-11-08T01:00:00Z"
     },
     {
       "date": "2026-11-07T00:00:00Z",
       "home": "GSW",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-08T01:30:00Z"
     },
     {
       "date": "2026-11-07T00:00:00Z",
       "home": "POR",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-11-08T03:00:00Z"
     },
     {
       "date": "2026-11-07T00:00:00Z",
       "home": "OKC",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-11-08T01:00:00Z"
     },
     {
       "date": "2026-11-08T00:00:00Z",
       "home": "DAL",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-09T00:30:00Z"
     },
     {
       "date": "2026-11-08T00:00:00Z",
       "home": "MIL",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-09T01:00:00Z"
     },
     {
       "date": "2026-11-08T00:00:00Z",
       "home": "DET",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-11-08T23:00:00Z"
     },
     {
       "date": "2026-11-08T00:00:00Z",
       "home": "SAC",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-11-09T02:00:00Z"
     },
     {
       "date": "2026-11-08T00:00:00Z",
       "home": "LAC",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-11-09T02:00:00Z"
     },
     {
       "date": "2026-11-08T00:00:00Z",
       "home": "CHI",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-11-08T20:30:00Z"
     },
     {
       "date": "2026-11-08T00:00:00Z",
       "home": "MIN",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-11-09T00:00:00Z"
     },
     {
       "date": "2026-11-09T00:00:00Z",
       "home": "CHA",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-11-10T00:00:00Z"
     },
     {
       "date": "2026-11-09T00:00:00Z",
       "home": "HOU",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-11-10T01:30:00Z"
     },
     {
       "date": "2026-11-09T00:00:00Z",
       "home": "DAL",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-11-10T01:00:00Z"
     },
     {
       "date": "2026-11-09T00:00:00Z",
       "home": "ATL",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-11-10T00:00:00Z"
     },
     {
       "date": "2026-11-09T00:00:00Z",
       "home": "TOR",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-11-10T00:30:00Z"
     },
     {
       "date": "2026-11-09T00:00:00Z",
       "home": "GSW",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-11-10T03:00:00Z"
     },
     {
       "date": "2026-11-09T00:00:00Z",
       "home": "PHX",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-11-10T02:00:00Z"
     },
     {
       "date": "2026-11-09T00:00:00Z",
       "home": "DET",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-11-10T00:00:00Z"
     },
     {
       "date": "2026-11-10T00:00:00Z",
       "home": "PHI",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-11T01:00:00Z"
     },
     {
       "date": "2026-11-10T00:00:00Z",
       "home": "PHX",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-11-11T02:00:00Z"
     },
     {
       "date": "2026-11-10T00:00:00Z",
       "home": "UTA",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-11-11T02:00:00Z"
     },
     {
       "date": "2026-11-10T00:00:00Z",
       "home": "NYK",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-11-11T00:30:00Z"
     },
     {
       "date": "2026-11-10T00:00:00Z",
       "home": "POR",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-11T04:00:00Z"
     },
     {
       "date": "2026-11-10T00:00:00Z",
       "home": "SAC",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-11T03:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "NOP",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-12T01:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "TOR",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-12T00:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "NYK",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-11-12T00:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "MEM",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-11-12T01:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "HOU",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-11-12T02:30:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "MIL",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-11-12T01:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "POR",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-12T03:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "UTA",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-12T02:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "CHI",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-11-12T01:00:00Z"
     },
     {
       "date": "2026-11-11T00:00:00Z",
       "home": "IND",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-11-12T00:00:00Z"
     },
     {
       "date": "2026-11-12T00:00:00Z",
       "home": "PHX",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-11-13T02:00:00Z"
     },
     {
       "date": "2026-11-12T00:00:00Z",
       "home": "MIN",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-11-13T01:00:00Z"
     },
     {
       "date": "2026-11-12T00:00:00Z",
       "home": "WAS",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-11-13T00:00:00Z"
     },
     {
       "date": "2026-11-12T00:00:00Z",
       "home": "PHI",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-11-13T00:00:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "CHI",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-11-14T01:00:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "MIA",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-11-14T01:00:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "SAS",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-11-14T02:30:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "NOP",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-11-14T01:00:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "ORL",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-11-14T00:00:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "IND",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-11-14T00:00:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "LAC",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-14T03:30:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "SAC",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-14T03:00:00Z"
     },
     {
       "date": "2026-11-13T00:00:00Z",
       "home": "HOU",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-11-14T01:30:00Z"
     },
     {
       "date": "2026-11-14T00:00:00Z",
       "home": "MEM",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-15T01:00:00Z"
     },
     {
       "date": "2026-11-14T00:00:00Z",
       "home": "MIN",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-11-15T01:00:00Z"
     },
     {
       "date": "2026-11-14T00:00:00Z",
       "home": "CLE",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-11-15T00:30:00Z"
     },
     {
       "date": "2026-11-14T00:00:00Z",
       "home": "NOP",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-11-15T00:00:00Z"
     },
     {
       "date": "2026-11-14T00:00:00Z",
       "home": "MIA",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-11-15T01:00:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "MIL",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-11-16T01:00:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "LAC",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-11-15T21:30:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "BOS",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-11-15T23:00:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "WAS",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-11-16T00:00:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "PHI",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-11-15T18:00:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "PHX",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-11-15T21:00:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "TOR",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-11-15T23:00:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "SAC",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-16T02:00:00Z"
     },
     {
       "date": "2026-11-15T00:00:00Z",
       "home": "UTA",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-11-15T22:00:00Z"
     },
     {
       "date": "2026-11-16T00:00:00Z",
       "home": "CLE",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-11-17T00:00:00Z"
     },
     {
       "date": "2026-11-16T00:00:00Z",
       "home": "NOP",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-11-17T01:00:00Z"
     },
     {
       "date": "2026-11-16T00:00:00Z",
       "home": "MIA",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-11-17T00:30:00Z"
     },
     {
       "date": "2026-11-16T00:00:00Z",
       "home": "WAS",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-11-17T00:00:00Z"
     },
     {
       "date": "2026-11-16T00:00:00Z",
       "home": "BOS",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-17T00:00:00Z"
     },
     {
       "date": "2026-11-16T00:00:00Z",
       "home": "BKN",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-11-17T00:30:00Z"
     },
     {
       "date": "2026-11-16T00:00:00Z",
       "home": "DEN",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-11-17T02:00:00Z"
     },
     {
       "date": "2026-11-16T00:00:00Z",
       "home": "MIN",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-17T01:00:00Z"
     },
     {
       "date": "2026-11-17T00:00:00Z",
       "home": "LAL",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-11-18T03:00:00Z"
     },
     {
       "date": "2026-11-17T00:00:00Z",
       "home": "SAS",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-11-18T01:00:00Z"
     },
     {
       "date": "2026-11-17T00:00:00Z",
       "home": "TOR",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-11-18T00:30:00Z"
     },
     {
       "date": "2026-11-17T00:00:00Z",
       "home": "MIN",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-18T01:00:00Z"
     },
     {
       "date": "2026-11-17T00:00:00Z",
       "home": "LAC",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-11-18T04:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "OKC",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-11-19T01:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "DEN",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-19T02:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "BKN",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-11-19T00:30:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "NOP",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-11-19T01:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "DAL",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-11-19T02:30:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "IND",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-11-19T00:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "CLE",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-11-19T00:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "MIA",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-11-19T00:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "ORL",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-11-19T00:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "SAC",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-11-19T03:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "LAL",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-11-19T03:00:00Z"
     },
     {
       "date": "2026-11-18T00:00:00Z",
       "home": "TOR",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-11-19T00:30:00Z"
     },
     {
       "date": "2026-11-19T00:00:00Z",
       "home": "MEM",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-11-20T01:00:00Z"
     },
     {
       "date": "2026-11-19T00:00:00Z",
       "home": "SAS",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-11-20T01:00:00Z"
     },
     {
       "date": "2026-11-19T00:00:00Z",
       "home": "MIN",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-11-20T01:00:00Z"
     },
     {
       "date": "2026-11-19T00:00:00Z",
       "home": "MIL",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-20T01:00:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "ATL",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-11-21T00:00:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "DEN",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-11-21T03:00:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "CLE",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-11-21T00:30:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "OKC",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-11-21T01:00:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "BKN",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-21T00:30:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "UTA",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-11-21T02:30:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "LAL",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-11-21T03:00:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "DET",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-11-21T00:30:00Z"
     },
     {
       "date": "2026-11-20T00:00:00Z",
       "home": "CHI",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-11-21T01:00:00Z"
     },
     {
       "date": "2026-11-21T00:00:00Z",
       "home": "SAC",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-22T03:00:00Z"
     },
     {
       "date": "2026-11-21T00:00:00Z",
       "home": "DAL",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-11-22T01:00:00Z"
     },
     {
       "date": "2026-11-21T00:00:00Z",
       "home": "MIN",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-11-22T01:00:00Z"
     },
     {
       "date": "2026-11-21T00:00:00Z",
       "home": "PHI",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-11-21T18:00:00Z"
     },
     {
       "date": "2026-11-21T00:00:00Z",
       "home": "SAS",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-11-22T01:00:00Z"
     },
     {
       "date": "2026-11-21T00:00:00Z",
       "home": "NYK",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-22T00:30:00Z"
     },
     {
       "date": "2026-11-22T00:00:00Z",
       "home": "GSW",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-23T01:30:00Z"
     },
     {
       "date": "2026-11-22T00:00:00Z",
       "home": "UTA",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-11-23T00:00:00Z"
     },
     {
       "date": "2026-11-22T00:00:00Z",
       "home": "CHI",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-11-23T00:00:00Z"
     },
     {
       "date": "2026-11-22T00:00:00Z",
       "home": "ATL",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-11-22T20:30:00Z"
     },
     {
       "date": "2026-11-22T00:00:00Z",
       "home": "NYK",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-11-23T01:00:00Z"
     },
     {
       "date": "2026-11-22T00:00:00Z",
       "home": "MIA",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-22T23:00:00Z"
     },
     {
       "date": "2026-11-22T00:00:00Z",
       "home": "WAS",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-23T00:00:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "MIN",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-24T00:30:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "CHI",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-11-24T01:00:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "HOU",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-11-24T01:30:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "CHA",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-11-24T00:00:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "TOR",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-11-24T00:30:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "IND",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-24T00:30:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "NOP",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-11-24T01:00:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "PHI",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-11-24T00:00:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "SAC",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-11-24T03:00:00Z"
     },
     {
       "date": "2026-11-23T00:00:00Z",
       "home": "LAL",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-11-24T03:00:00Z"
     },
     {
       "date": "2026-11-24T00:00:00Z",
       "home": "WAS",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-25T01:00:00Z"
     },
     {
       "date": "2026-11-24T00:00:00Z",
       "home": "DEN",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-11-25T03:00:00Z"
     },
     {
       "date": "2026-11-24T00:00:00Z",
       "home": "ORL",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-11-25T00:00:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "MIL",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-26T01:00:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "CHA",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-11-26T00:00:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "NYK",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-11-26T00:30:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "MEM",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-11-26T01:00:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "PHI",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-11-25T22:00:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "OKC",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-11-26T00:30:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "HOU",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-11-26T01:30:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "GSW",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-11-26T03:00:00Z"
     },
     {
       "date": "2026-11-25T00:00:00Z",
       "home": "POR",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-11-26T03:00:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "BOS",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-11-28T01:00:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "TOR",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-28T00:30:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "PHX",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-11-28T02:00:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "UTA",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-11-28T02:30:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "POR",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-11-28T02:30:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "SAS",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-11-28T02:30:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "MIN",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-11-28T01:30:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "NYK",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-11-28T00:00:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "DET",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-11-28T00:30:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "LAC",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-11-28T02:30:00Z"
     },
     {
       "date": "2026-11-27T00:00:00Z",
       "home": "IND",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-11-28T00:30:00Z"
     },
     {
       "date": "2026-11-28T00:00:00Z",
       "home": "CHA",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-11-28T23:00:00Z"
     },
     {
       "date": "2026-11-28T00:00:00Z",
       "home": "CHI",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-11-29T01:00:00Z"
     },
     {
       "date": "2026-11-28T00:00:00Z",
       "home": "MIL",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-11-29T01:00:00Z"
     },
     {
       "date": "2026-11-28T00:00:00Z",
       "home": "WAS",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-28T22:00:00Z"
     },
     {
       "date": "2026-11-28T00:00:00Z",
       "home": "HOU",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-11-29T01:30:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "NYK",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-11-29T23:00:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "SAS",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-11-29T21:00:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "TOR",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-11-29T23:00:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "GSW",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-11-30T01:30:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "MEM",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-11-29T21:00:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "CLE",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-11-29T23:00:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "SAC",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-11-30T02:00:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "POR",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-11-29T23:00:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "DET",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-11-29T23:00:00Z"
     },
     {
       "date": "2026-11-29T00:00:00Z",
       "home": "UTA",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-11-29T22:00:00Z"
     },
     {
       "date": "2026-11-30T00:00:00Z",
       "home": "DAL",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-12-01T01:00:00Z"
     },
     {
       "date": "2026-11-30T00:00:00Z",
       "home": "DET",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-12-01T00:00:00Z"
     },
     {
       "date": "2026-11-30T00:00:00Z",
       "home": "HOU",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-12-01T00:30:00Z"
     },
     {
       "date": "2026-11-30T00:00:00Z",
       "home": "SAC",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-12-01T03:00:00Z"
     },
     {
       "date": "2026-11-30T00:00:00Z",
       "home": "BKN",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-12-01T00:30:00Z"
     },
     {
       "date": "2026-11-30T00:00:00Z",
       "home": "MIL",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-12-01T01:00:00Z"
     },
     {
       "date": "2026-11-30T00:00:00Z",
       "home": "CHA",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-12-01T00:00:00Z"
     },
     {
       "date": "2026-12-01T00:00:00Z",
       "home": "MIA",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-12-02T00:30:00Z"
     },
     {
       "date": "2026-12-01T00:00:00Z",
       "home": "CLE",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-12-02T00:00:00Z"
     },
     {
       "date": "2026-12-01T00:00:00Z",
       "home": "PHX",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-12-02T02:00:00Z"
     },
     {
       "date": "2026-12-01T00:00:00Z",
       "home": "PHI",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-12-02T00:00:00Z"
     },
     {
       "date": "2026-12-01T00:00:00Z",
       "home": "POR",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-12-02T03:00:00Z"
     },
     {
       "date": "2026-12-01T00:00:00Z",
       "home": "CHI",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-12-02T01:00:00Z"
     },
     {
       "date": "2026-12-01T00:00:00Z",
       "home": "HOU",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-12-02T01:30:00Z"
     },
     {
       "date": "2026-12-01T00:00:00Z",
       "home": "GSW",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-12-02T04:00:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "OKC",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-12-03T01:00:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "BOS",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-12-03T00:30:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "PHI",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-12-03T00:00:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "NOP",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-12-03T01:00:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "DET",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-12-03T00:00:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "LAC",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-12-03T03:30:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "MIL",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-12-03T01:00:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "DAL",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-12-03T01:00:00Z"
     },
     {
       "date": "2026-12-02T00:00:00Z",
       "home": "PHX",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-12-03T02:00:00Z"
     },
     {
       "date": "2026-12-03T00:00:00Z",
       "home": "CHI",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-12-04T01:00:00Z"
     },
     {
       "date": "2026-12-03T00:00:00Z",
       "home": "ATL",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-12-04T00:00:00Z"
     },
     {
       "date": "2026-12-03T00:00:00Z",
       "home": "SAS",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-12-04T01:00:00Z"
     },
     {
       "date": "2026-12-03T00:00:00Z",
       "home": "POR",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-12-04T03:00:00Z"
     },
     {
       "date": "2026-12-03T00:00:00Z",
       "home": "MIA",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-12-04T00:30:00Z"
     },
     {
       "date": "2026-12-12T00:00:00Z",
       "home": "POR",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-12-13T03:00:00Z"
     },
     {
       "date": "2026-12-12T00:00:00Z",
       "home": "WAS",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-12-13T00:00:00Z"
     },
     {
       "date": "2026-12-12T00:00:00Z",
       "home": "UTA",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-12-13T02:30:00Z"
     },
     {
       "date": "2026-12-12T00:00:00Z",
       "home": "CLE",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-12-13T01:00:00Z"
     },
     {
       "date": "2026-12-12T00:00:00Z",
       "home": "MEM",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-12-12T22:00:00Z"
     },
     {
       "date": "2026-12-12T00:00:00Z",
       "home": "PHX",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-12-13T02:00:00Z"
     },
     {
       "date": "2026-12-12T00:00:00Z",
       "home": "MIA",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-12-13T01:30:00Z"
     },
     {
       "date": "2026-12-12T00:00:00Z",
       "home": "PHI",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-12-13T00:30:00Z"
     },
     {
       "date": "2026-12-13T00:00:00Z",
       "home": "BKN",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-12-13T20:00:00Z"
     },
     {
       "date": "2026-12-13T00:00:00Z",
       "home": "IND",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-12-13T22:00:00Z"
     },
     {
       "date": "2026-12-13T00:00:00Z",
       "home": "CHI",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-12-13T23:00:00Z"
     },
     {
       "date": "2026-12-13T00:00:00Z",
       "home": "SAS",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-12-14T00:00:00Z"
     },
     {
       "date": "2026-12-13T00:00:00Z",
       "home": "SAC",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-12-14T02:00:00Z"
     },
     {
       "date": "2026-12-13T00:00:00Z",
       "home": "OKC",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-12-13T20:30:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "PHX",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-12-15T02:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "DET",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-12-15T00:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "MEM",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-12-15T01:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "CHI",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-12-15T01:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "DAL",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-12-15T01:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "UTA",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-12-15T02:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "LAL",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-12-15T03:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "HOU",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-12-15T01:30:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "ORL",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-12-15T00:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "CHA",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-12-15T00:00:00Z"
     },
     {
       "date": "2026-12-14T00:00:00Z",
       "home": "BOS",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-12-15T00:30:00Z"
     },
     {
       "date": "2026-12-15T00:00:00Z",
       "home": "POR",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-12-16T04:00:00Z"
     },
     {
       "date": "2026-12-15T00:00:00Z",
       "home": "CLE",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-12-16T01:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "ORL",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-12-17T00:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "BKN",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-12-17T00:30:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "IND",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-12-17T00:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "CHA",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-12-17T00:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "MIN",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-12-17T02:30:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "MEM",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-12-17T01:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "HOU",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-12-17T01:30:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "NOP",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-12-17T01:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "DET",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-12-17T00:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "OKC",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-12-17T01:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "TOR",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-12-17T00:30:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "CHI",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-12-17T01:00:00Z"
     },
     {
       "date": "2026-12-16T00:00:00Z",
       "home": "BOS",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-12-17T00:00:00Z"
     },
     {
       "date": "2026-12-17T00:00:00Z",
       "home": "DEN",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-12-18T02:00:00Z"
     },
     {
       "date": "2026-12-17T00:00:00Z",
       "home": "PHI",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-12-18T00:00:00Z"
     },
     {
       "date": "2026-12-17T00:00:00Z",
       "home": "IND",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-12-18T00:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "SAS",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-12-19T01:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "DET",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-12-19T00:30:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "TOR",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-12-19T00:30:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "MEM",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-12-19T01:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "MIA",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-12-19T00:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "MIN",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-12-19T01:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "WAS",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-12-19T00:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "CHA",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-12-19T00:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "BKN",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-12-19T00:30:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "MIL",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-12-19T01:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "NOP",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-12-19T01:00:00Z"
     },
     {
       "date": "2026-12-18T00:00:00Z",
       "home": "BOS",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-12-19T00:30:00Z"
     },
     {
       "date": "2026-12-19T00:00:00Z",
       "home": "DAL",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-12-20T01:00:00Z"
     },
     {
       "date": "2026-12-19T00:00:00Z",
       "home": "DEN",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2026-12-20T02:00:00Z"
     },
     {
       "date": "2026-12-19T00:00:00Z",
       "home": "ATL",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-12-20T00:00:00Z"
     },
     {
       "date": "2026-12-19T00:00:00Z",
       "home": "CHA",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-12-19T23:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "BOS",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-12-21T01:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "MIL",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-12-21T01:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "TOR",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-12-20T20:30:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "LAC",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-12-21T03:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "ATL",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-12-21T00:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "MEM",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-12-20T21:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "MIA",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-12-20T23:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "NOP",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-12-21T00:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "CLE",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-12-20T23:00:00Z"
     },
     {
       "date": "2026-12-20T00:00:00Z",
       "home": "BKN",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-12-20T20:00:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "MIA",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-12-22T00:30:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "LAC",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-12-22T03:30:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "LAL",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-12-22T03:00:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "NOP",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-12-22T01:00:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "SAS",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-12-22T01:00:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "CLE",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-12-22T00:00:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "CHA",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-12-22T00:00:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "MIN",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-12-22T01:00:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "BKN",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-12-22T00:30:00Z"
     },
     {
       "date": "2026-12-21T00:00:00Z",
       "home": "ORL",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2026-12-22T00:00:00Z"
     },
     {
       "date": "2026-12-22T00:00:00Z",
       "home": "GSW",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-12-23T03:30:00Z"
     },
     {
       "date": "2026-12-22T00:00:00Z",
       "home": "OKC",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-12-23T01:00:00Z"
     },
     {
       "date": "2026-12-22T00:00:00Z",
       "home": "WAS",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-12-23T00:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "ORL",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-12-24T00:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "MIA",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-12-24T00:30:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "WAS",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-12-24T00:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "SAC",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2026-12-24T03:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "LAL",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-12-24T03:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "ATL",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-12-24T00:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "LAC",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-12-24T03:30:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "PHI",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-12-24T00:30:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "PHX",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-12-24T02:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "MIL",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-12-24T01:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "NOP",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-12-24T01:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "BOS",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-12-24T00:30:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "BKN",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-12-24T00:30:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "MEM",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-12-24T01:00:00Z"
     },
     {
       "date": "2026-12-23T00:00:00Z",
       "home": "NYK",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-12-24T00:30:00Z"
     },
     {
       "date": "2026-12-25T00:00:00Z",
       "home": "GSW",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-12-26T03:30:00Z"
     },
     {
       "date": "2026-12-25T00:00:00Z",
       "home": "BOS",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-12-25T19:30:00Z"
     },
     {
       "date": "2026-12-25T00:00:00Z",
       "home": "MIN",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-12-26T01:00:00Z"
     },
     {
       "date": "2026-12-25T00:00:00Z",
       "home": "LAL",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-12-25T22:00:00Z"
     },
     {
       "date": "2026-12-25T00:00:00Z",
       "home": "NYK",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-12-25T17:00:00Z"
     },
     {
       "date": "2026-12-26T00:00:00Z",
       "home": "ATL",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-12-26T20:30:00Z"
     },
     {
       "date": "2026-12-26T00:00:00Z",
       "home": "CHI",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2026-12-27T01:00:00Z"
     },
     {
       "date": "2026-12-26T00:00:00Z",
       "home": "UTA",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-12-26T22:00:00Z"
     },
     {
       "date": "2026-12-26T00:00:00Z",
       "home": "LAC",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-12-27T03:30:00Z"
     },
     {
       "date": "2026-12-26T00:00:00Z",
       "home": "BKN",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-12-26T23:00:00Z"
     },
     {
       "date": "2026-12-26T00:00:00Z",
       "home": "DAL",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2026-12-27T01:00:00Z"
     },
     {
       "date": "2026-12-26T00:00:00Z",
       "home": "WAS",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-12-26T18:00:00Z"
     },
     {
       "date": "2026-12-26T00:00:00Z",
       "home": "ORL",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2026-12-27T00:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "SAS",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2026-12-28T00:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "NYK",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-12-27T23:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "MIA",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2026-12-27T23:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "DEN",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2026-12-28T01:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "LAL",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2026-12-28T02:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "ORL",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-12-27T23:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "GSW",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-12-28T01:30:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "HOU",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2026-12-27T20:30:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "LAC",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-12-28T02:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "DET",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2026-12-28T00:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "SAC",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2026-12-27T23:00:00Z"
     },
     {
       "date": "2026-12-27T00:00:00Z",
       "home": "CLE",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-12-27T23:00:00Z"
     },
     {
       "date": "2026-12-28T00:00:00Z",
       "home": "BOS",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2026-12-29T01:00:00Z"
     },
     {
       "date": "2026-12-28T00:00:00Z",
       "home": "PHX",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2026-12-29T02:00:00Z"
     },
     {
       "date": "2026-12-28T00:00:00Z",
       "home": "DEN",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2026-12-29T03:30:00Z"
     },
     {
       "date": "2026-12-28T00:00:00Z",
       "home": "TOR",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-12-29T00:30:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "POR",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-12-30T03:00:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "ATL",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2026-12-30T00:00:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "LAL",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-12-30T03:30:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "IND",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-12-30T00:00:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "DAL",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2026-12-30T01:00:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "OKC",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-12-30T01:00:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "CHA",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-12-30T00:00:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "SAC",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-12-30T03:00:00Z"
     },
     {
       "date": "2026-12-29T00:00:00Z",
       "home": "MEM",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-12-30T01:00:00Z"
     },
     {
       "date": "2026-12-30T00:00:00Z",
       "home": "CHI",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2026-12-31T01:00:00Z"
     },
     {
       "date": "2026-12-30T00:00:00Z",
       "home": "GSW",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2026-12-31T03:00:00Z"
     },
     {
       "date": "2026-12-30T00:00:00Z",
       "home": "DET",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2026-12-31T00:00:00Z"
     },
     {
       "date": "2026-12-30T00:00:00Z",
       "home": "UTA",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2026-12-31T02:00:00Z"
     },
     {
       "date": "2026-12-30T00:00:00Z",
       "home": "PHX",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2026-12-31T02:00:00Z"
     },
     {
       "date": "2026-12-30T00:00:00Z",
       "home": "TOR",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2026-12-31T00:30:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "SAC",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2026-12-31T23:00:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "MIN",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2026-12-31T21:00:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "CLE",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2026-12-31T20:00:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "NOP",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-01T01:00:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "OKC",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-01T01:00:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "ATL",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2026-12-31T20:00:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "PHX",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-01-01T02:00:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "IND",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2026-12-31T20:00:00Z"
     },
     {
       "date": "2026-12-31T00:00:00Z",
       "home": "CHA",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2026-12-31T18:00:00Z"
     },
     {
       "date": "2027-01-01T00:00:00Z",
       "home": "UTA",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-01-02T02:30:00Z"
     },
     {
       "date": "2027-01-01T00:00:00Z",
       "home": "HOU",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-02T01:30:00Z"
     },
     {
       "date": "2027-01-01T00:00:00Z",
       "home": "TOR",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-02T00:30:00Z"
     },
     {
       "date": "2027-01-01T00:00:00Z",
       "home": "DET",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-01-02T00:30:00Z"
     },
     {
       "date": "2027-01-01T00:00:00Z",
       "home": "MIL",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-01-02T01:00:00Z"
     },
     {
       "date": "2027-01-01T00:00:00Z",
       "home": "WAS",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-01-01T22:00:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "GSW",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-01-03T01:30:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "POR",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-01-03T03:00:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "CHA",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-02T18:00:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "ATL",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-03T00:30:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "CHI",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-03T01:00:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "NOP",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-03T00:00:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "IND",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-03T00:00:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "DEN",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-01-02T22:00:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "PHX",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-03T02:00:00Z"
     },
     {
       "date": "2027-01-02T00:00:00Z",
       "home": "OKC",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-01-03T01:00:00Z"
     },
     {
       "date": "2027-01-03T00:00:00Z",
       "home": "MIL",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-03T22:30:00Z"
     },
     {
       "date": "2027-01-03T00:00:00Z",
       "home": "HOU",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-04T00:00:00Z"
     },
     {
       "date": "2027-01-03T00:00:00Z",
       "home": "DEN",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-03T22:00:00Z"
     },
     {
       "date": "2027-01-03T00:00:00Z",
       "home": "WAS",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-04T00:00:00Z"
     },
     {
       "date": "2027-01-03T00:00:00Z",
       "home": "TOR",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-04T00:00:00Z"
     },
     {
       "date": "2027-01-03T00:00:00Z",
       "home": "ORL",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-03T23:00:00Z"
     },
     {
       "date": "2027-01-03T00:00:00Z",
       "home": "OKC",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-04T01:00:00Z"
     },
     {
       "date": "2027-01-03T00:00:00Z",
       "home": "MIN",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-01-04T00:00:00Z"
     },
     {
       "date": "2027-01-04T00:00:00Z",
       "home": "PHI",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-01-05T00:00:00Z"
     },
     {
       "date": "2027-01-04T00:00:00Z",
       "home": "UTA",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-01-05T02:00:00Z"
     },
     {
       "date": "2027-01-04T00:00:00Z",
       "home": "PHX",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-01-05T02:00:00Z"
     },
     {
       "date": "2027-01-04T00:00:00Z",
       "home": "IND",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-05T00:00:00Z"
     },
     {
       "date": "2027-01-04T00:00:00Z",
       "home": "NOP",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-05T01:00:00Z"
     },
     {
       "date": "2027-01-04T00:00:00Z",
       "home": "POR",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-01-05T03:00:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "CHA",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-01-06T00:00:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "SAC",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-06T03:00:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "ORL",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-06T00:00:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "WAS",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-06T00:00:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "MIA",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-06T00:30:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "CHI",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-01-06T01:00:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "HOU",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-06T01:00:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "DEN",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-06T03:00:00Z"
     },
     {
       "date": "2027-01-05T00:00:00Z",
       "home": "CLE",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-01-06T00:00:00Z"
     },
     {
       "date": "2027-01-06T00:00:00Z",
       "home": "SAS",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-01-07T01:00:00Z"
     },
     {
       "date": "2027-01-06T00:00:00Z",
       "home": "GSW",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-01-07T03:00:00Z"
     },
     {
       "date": "2027-01-06T00:00:00Z",
       "home": "PHI",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-01-07T00:30:00Z"
     },
     {
       "date": "2027-01-06T00:00:00Z",
       "home": "NOP",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-01-07T01:00:00Z"
     },
     {
       "date": "2027-01-06T00:00:00Z",
       "home": "BKN",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-01-07T00:30:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "LAL",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-01-08T03:00:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "SAC",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-08T03:00:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "ORL",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-08T00:00:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "CHA",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-01-08T00:00:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "GSW",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-08T03:00:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "ATL",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-01-08T00:00:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "MIL",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-08T01:00:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "HOU",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-08T01:30:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "BKN",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-08T00:30:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "TOR",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-08T00:30:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "WAS",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-01-08T00:00:00Z"
     },
     {
       "date": "2027-01-07T00:00:00Z",
       "home": "DAL",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-01-08T01:00:00Z"
     },
     {
       "date": "2027-01-08T00:00:00Z",
       "home": "LAL",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-09T03:00:00Z"
     },
     {
       "date": "2027-01-08T00:00:00Z",
       "home": "SAS",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-09T01:00:00Z"
     },
     {
       "date": "2027-01-08T00:00:00Z",
       "home": "PHI",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-09T00:00:00Z"
     },
     {
       "date": "2027-01-08T00:00:00Z",
       "home": "WAS",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-09T00:00:00Z"
     },
     {
       "date": "2027-01-08T00:00:00Z",
       "home": "SAC",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-01-09T03:00:00Z"
     },
     {
       "date": "2027-01-08T00:00:00Z",
       "home": "NOP",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-01-09T01:00:00Z"
     },
     {
       "date": "2027-01-08T00:00:00Z",
       "home": "DAL",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-09T02:30:00Z"
     },
     {
       "date": "2027-01-08T00:00:00Z",
       "home": "TOR",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-01-09T00:30:00Z"
     },
     {
       "date": "2027-01-09T00:00:00Z",
       "home": "LAC",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-01-10T03:30:00Z"
     },
     {
       "date": "2027-01-09T00:00:00Z",
       "home": "POR",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-10T03:00:00Z"
     },
     {
       "date": "2027-01-09T00:00:00Z",
       "home": "GSW",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-10T01:30:00Z"
     },
     {
       "date": "2027-01-09T00:00:00Z",
       "home": "CLE",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-01-09T22:00:00Z"
     },
     {
       "date": "2027-01-09T00:00:00Z",
       "home": "BKN",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-01-09T23:00:00Z"
     },
     {
       "date": "2027-01-09T00:00:00Z",
       "home": "IND",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-01-10T00:00:00Z"
     },
     {
       "date": "2027-01-10T00:00:00Z",
       "home": "SAC",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-11T02:00:00Z"
     },
     {
       "date": "2027-01-10T00:00:00Z",
       "home": "PHX",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-11T00:00:00Z"
     },
     {
       "date": "2027-01-10T00:00:00Z",
       "home": "MEM",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-10T23:00:00Z"
     },
     {
       "date": "2027-01-10T00:00:00Z",
       "home": "MIA",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-01-10T23:00:00Z"
     },
     {
       "date": "2027-01-10T00:00:00Z",
       "home": "ORL",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-01-10T23:00:00Z"
     },
     {
       "date": "2027-01-10T00:00:00Z",
       "home": "TOR",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-01-10T23:00:00Z"
     },
     {
       "date": "2027-01-10T00:00:00Z",
       "home": "ATL",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-01-10T20:00:00Z"
     },
     {
       "date": "2027-01-10T00:00:00Z",
       "home": "DET",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-01-10T23:00:00Z"
     },
     {
       "date": "2027-01-11T00:00:00Z",
       "home": "WAS",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-01-12T00:00:00Z"
     },
     {
       "date": "2027-01-11T00:00:00Z",
       "home": "IND",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-01-12T00:00:00Z"
     },
     {
       "date": "2027-01-11T00:00:00Z",
       "home": "MIN",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-12T01:00:00Z"
     },
     {
       "date": "2027-01-11T00:00:00Z",
       "home": "NYK",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-01-12T00:30:00Z"
     },
     {
       "date": "2027-01-11T00:00:00Z",
       "home": "BOS",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-01-12T00:30:00Z"
     },
     {
       "date": "2027-01-11T00:00:00Z",
       "home": "LAC",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-12T03:00:00Z"
     },
     {
       "date": "2027-01-12T00:00:00Z",
       "home": "MIA",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-01-13T00:30:00Z"
     },
     {
       "date": "2027-01-12T00:00:00Z",
       "home": "UTA",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-13T02:00:00Z"
     },
     {
       "date": "2027-01-12T00:00:00Z",
       "home": "MEM",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-13T01:00:00Z"
     },
     {
       "date": "2027-01-12T00:00:00Z",
       "home": "MIL",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-01-13T01:00:00Z"
     },
     {
       "date": "2027-01-12T00:00:00Z",
       "home": "TOR",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-13T00:30:00Z"
     },
     {
       "date": "2027-01-12T00:00:00Z",
       "home": "POR",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-01-13T03:00:00Z"
     },
     {
       "date": "2027-01-12T00:00:00Z",
       "home": "GSW",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-13T04:00:00Z"
     },
     {
       "date": "2027-01-12T00:00:00Z",
       "home": "PHI",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-01-13T01:00:00Z"
     },
     {
       "date": "2027-01-13T00:00:00Z",
       "home": "GSW",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-14T03:00:00Z"
     },
     {
       "date": "2027-01-13T00:00:00Z",
       "home": "ATL",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-14T00:00:00Z"
     },
     {
       "date": "2027-01-13T00:00:00Z",
       "home": "OKC",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-01-14T02:30:00Z"
     },
     {
       "date": "2027-01-13T00:00:00Z",
       "home": "POR",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-14T03:00:00Z"
     },
     {
       "date": "2027-01-13T00:00:00Z",
       "home": "IND",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-01-14T00:00:00Z"
     },
     {
       "date": "2027-01-13T00:00:00Z",
       "home": "BOS",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-01-14T00:00:00Z"
     },
     {
       "date": "2027-01-13T00:00:00Z",
       "home": "TOR",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-14T00:30:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "PHI",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-01-15T00:00:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "UTA",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-15T02:00:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "DET",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-15T00:00:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "SAC",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-15T03:00:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "DEN",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-15T02:00:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "NYK",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-15T00:30:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "CHI",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-15T01:00:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "SAS",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-01-14T19:00:00Z"
     },
     {
       "date": "2027-01-14T00:00:00Z",
       "home": "LAL",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-01-15T03:00:00Z"
     },
     {
       "date": "2027-01-15T00:00:00Z",
       "home": "MIL",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-16T01:00:00Z"
     },
     {
       "date": "2027-01-15T00:00:00Z",
       "home": "ATL",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-01-16T00:00:00Z"
     },
     {
       "date": "2027-01-15T00:00:00Z",
       "home": "TOR",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-16T00:30:00Z"
     },
     {
       "date": "2027-01-15T00:00:00Z",
       "home": "LAC",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-01-16T03:30:00Z"
     },
     {
       "date": "2027-01-15T00:00:00Z",
       "home": "IND",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-16T00:00:00Z"
     },
     {
       "date": "2027-01-15T00:00:00Z",
       "home": "POR",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-16T03:00:00Z"
     },
     {
       "date": "2027-01-15T00:00:00Z",
       "home": "OKC",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-01-16T01:00:00Z"
     },
     {
       "date": "2027-01-15T00:00:00Z",
       "home": "HOU",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-01-16T01:30:00Z"
     },
     {
       "date": "2027-01-16T00:00:00Z",
       "home": "BOS",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-01-17T00:00:00Z"
     },
     {
       "date": "2027-01-16T00:00:00Z",
       "home": "DEN",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-17T02:00:00Z"
     },
     {
       "date": "2027-01-16T00:00:00Z",
       "home": "MEM",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-17T01:00:00Z"
     },
     {
       "date": "2027-01-16T00:00:00Z",
       "home": "NYK",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-17T00:30:00Z"
     },
     {
       "date": "2027-01-16T00:00:00Z",
       "home": "HOU",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-17T01:30:00Z"
     },
     {
       "date": "2027-01-16T00:00:00Z",
       "home": "PHI",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-16T17:30:00Z"
     },
     {
       "date": "2027-01-17T00:00:00Z",
       "home": "MIA",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-01-17T23:00:00Z"
     },
     {
       "date": "2027-01-17T00:00:00Z",
       "home": "WAS",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-01-17T18:00:00Z"
     },
     {
       "date": "2027-01-17T00:00:00Z",
       "home": "LAL",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-01-18T02:00:00Z"
     },
     {
       "date": "2027-01-17T00:00:00Z",
       "home": "DEN",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-01-18T01:00:00Z"
     },
     {
       "date": "2027-01-17T00:00:00Z",
       "home": "OKC",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-01-17T20:30:00Z"
     },
     {
       "date": "2027-01-17T00:00:00Z",
       "home": "UTA",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-17T22:00:00Z"
     },
     {
       "date": "2027-01-17T00:00:00Z",
       "home": "NOP",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-01-17T15:30:00Z"
     },
     {
       "date": "2027-01-17T00:00:00Z",
       "home": "CHI",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-01-17T20:30:00Z"
     },
     {
       "date": "2027-01-18T00:00:00Z",
       "home": "WAS",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-01-18T20:00:00Z"
     },
     {
       "date": "2027-01-18T00:00:00Z",
       "home": "CLE",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-18T17:00:00Z"
     },
     {
       "date": "2027-01-18T00:00:00Z",
       "home": "MEM",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-01-19T00:30:00Z"
     },
     {
       "date": "2027-01-18T00:00:00Z",
       "home": "NYK",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-18T22:00:00Z"
     },
     {
       "date": "2027-01-18T00:00:00Z",
       "home": "DAL",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-01-19T01:00:00Z"
     },
     {
       "date": "2027-01-18T00:00:00Z",
       "home": "ATL",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-01-18T19:30:00Z"
     },
     {
       "date": "2027-01-18T00:00:00Z",
       "home": "LAC",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-19T03:30:00Z"
     },
     {
       "date": "2027-01-19T00:00:00Z",
       "home": "DAL",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-20T01:00:00Z"
     },
     {
       "date": "2027-01-19T00:00:00Z",
       "home": "TOR",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-20T00:00:00Z"
     },
     {
       "date": "2027-01-19T00:00:00Z",
       "home": "ORL",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-01-20T00:00:00Z"
     },
     {
       "date": "2027-01-19T00:00:00Z",
       "home": "PHI",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-01-20T00:00:00Z"
     },
     {
       "date": "2027-01-19T00:00:00Z",
       "home": "SAC",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-20T03:00:00Z"
     },
     {
       "date": "2027-01-19T00:00:00Z",
       "home": "MIA",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-01-20T00:30:00Z"
     },
     {
       "date": "2027-01-19T00:00:00Z",
       "home": "DEN",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-01-20T03:00:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "BKN",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-21T00:00:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "MIN",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-01-21T01:00:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "BOS",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-01-21T00:30:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "UTA",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-21T02:00:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "PHX",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-21T02:00:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "SAS",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-21T02:30:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "SAC",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-01-21T03:00:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "NOP",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-01-21T01:00:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "ATL",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-01-21T00:00:00Z"
     },
     {
       "date": "2027-01-20T00:00:00Z",
       "home": "NYK",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-01-21T00:30:00Z"
     },
     {
       "date": "2027-01-21T00:00:00Z",
       "home": "BKN",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-22T00:30:00Z"
     },
     {
       "date": "2027-01-21T00:00:00Z",
       "home": "GSW",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-22T03:00:00Z"
     },
     {
       "date": "2027-01-21T00:00:00Z",
       "home": "BOS",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-01-22T00:30:00Z"
     },
     {
       "date": "2027-01-21T00:00:00Z",
       "home": "DEN",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-01-22T02:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "NOP",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-23T01:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "CHA",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-01-23T00:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "DET",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-01-23T00:30:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "OKC",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-23T01:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "GSW",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-01-23T03:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "SAS",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-23T02:30:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "ATL",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-01-23T00:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "ORL",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-01-23T00:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "LAL",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-23T03:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "PHX",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-01-23T02:00:00Z"
     },
     {
       "date": "2027-01-22T00:00:00Z",
       "home": "LAC",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-01-23T03:30:00Z"
     },
     {
       "date": "2027-01-23T00:00:00Z",
       "home": "MIA",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-01-24T01:00:00Z"
     },
     {
       "date": "2027-01-23T00:00:00Z",
       "home": "BOS",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-24T00:00:00Z"
     },
     {
       "date": "2027-01-23T00:00:00Z",
       "home": "DAL",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-24T01:00:00Z"
     },
     {
       "date": "2027-01-23T00:00:00Z",
       "home": "DEN",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-01-24T02:00:00Z"
     },
     {
       "date": "2027-01-23T00:00:00Z",
       "home": "CHI",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-01-23T22:00:00Z"
     },
     {
       "date": "2027-01-23T00:00:00Z",
       "home": "BKN",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-01-23T23:00:00Z"
     },
     {
       "date": "2027-01-24T00:00:00Z",
       "home": "ORL",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-01-24T23:00:00Z"
     },
     {
       "date": "2027-01-24T00:00:00Z",
       "home": "NYK",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-25T00:00:00Z"
     },
     {
       "date": "2027-01-24T00:00:00Z",
       "home": "DET",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-24T23:00:00Z"
     },
     {
       "date": "2027-01-24T00:00:00Z",
       "home": "GSW",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-01-25T01:30:00Z"
     },
     {
       "date": "2027-01-24T00:00:00Z",
       "home": "SAS",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-01-24T20:30:00Z"
     },
     {
       "date": "2027-01-24T00:00:00Z",
       "home": "PHX",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-01-24T21:00:00Z"
     },
     {
       "date": "2027-01-24T00:00:00Z",
       "home": "LAL",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-01-24T21:00:00Z"
     },
     {
       "date": "2027-01-25T00:00:00Z",
       "home": "NOP",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-26T01:00:00Z"
     },
     {
       "date": "2027-01-25T00:00:00Z",
       "home": "CHI",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-26T01:00:00Z"
     },
     {
       "date": "2027-01-25T00:00:00Z",
       "home": "PHI",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-26T00:00:00Z"
     },
     {
       "date": "2027-01-25T00:00:00Z",
       "home": "BKN",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-26T00:30:00Z"
     },
     {
       "date": "2027-01-25T00:00:00Z",
       "home": "MEM",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-01-26T01:00:00Z"
     },
     {
       "date": "2027-01-25T00:00:00Z",
       "home": "CHA",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-01-26T00:00:00Z"
     },
     {
       "date": "2027-01-25T00:00:00Z",
       "home": "DEN",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-26T02:30:00Z"
     },
     {
       "date": "2027-01-25T00:00:00Z",
       "home": "BOS",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-01-26T00:00:00Z"
     },
     {
       "date": "2027-01-26T00:00:00Z",
       "home": "DET",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-01-27T00:00:00Z"
     },
     {
       "date": "2027-01-26T00:00:00Z",
       "home": "IND",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-27T00:00:00Z"
     },
     {
       "date": "2027-01-26T00:00:00Z",
       "home": "SAS",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-01-27T01:00:00Z"
     },
     {
       "date": "2027-01-26T00:00:00Z",
       "home": "UTA",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-01-27T02:00:00Z"
     },
     {
       "date": "2027-01-26T00:00:00Z",
       "home": "LAL",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-01-27T04:00:00Z"
     },
     {
       "date": "2027-01-26T00:00:00Z",
       "home": "NYK",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-27T00:30:00Z"
     },
     {
       "date": "2027-01-26T00:00:00Z",
       "home": "POR",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-01-27T03:00:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "SAS",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-28T01:00:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "TOR",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-01-28T00:30:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "MIN",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-01-28T02:30:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "CLE",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-28T00:00:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "POR",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-01-28T03:00:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "BOS",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-28T00:30:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "HOU",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-01-28T01:30:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "BKN",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-28T00:30:00Z"
     },
     {
       "date": "2027-01-27T00:00:00Z",
       "home": "PHI",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-28T00:00:00Z"
     },
     {
       "date": "2027-01-28T00:00:00Z",
       "home": "NYK",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-01-29T00:00:00Z"
     },
     {
       "date": "2027-01-28T00:00:00Z",
       "home": "ORL",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-29T00:00:00Z"
     },
     {
       "date": "2027-01-28T00:00:00Z",
       "home": "UTA",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-01-29T02:00:00Z"
     },
     {
       "date": "2027-01-28T00:00:00Z",
       "home": "IND",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-29T00:00:00Z"
     },
     {
       "date": "2027-01-28T00:00:00Z",
       "home": "OKC",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-29T01:00:00Z"
     },
     {
       "date": "2027-01-28T00:00:00Z",
       "home": "MIL",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-01-29T02:30:00Z"
     },
     {
       "date": "2027-01-28T00:00:00Z",
       "home": "NOP",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-01-29T01:00:00Z"
     },
     {
       "date": "2027-01-28T00:00:00Z",
       "home": "WAS",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-29T00:00:00Z"
     },
     {
       "date": "2027-01-29T00:00:00Z",
       "home": "MIN",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-01-30T02:30:00Z"
     },
     {
       "date": "2027-01-29T00:00:00Z",
       "home": "TOR",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-01-30T00:00:00Z"
     },
     {
       "date": "2027-01-29T00:00:00Z",
       "home": "DAL",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-01-30T01:00:00Z"
     },
     {
       "date": "2027-01-29T00:00:00Z",
       "home": "BKN",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-01-30T00:30:00Z"
     },
     {
       "date": "2027-01-29T00:00:00Z",
       "home": "HOU",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-01-30T01:30:00Z"
     },
     {
       "date": "2027-01-29T00:00:00Z",
       "home": "BOS",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-30T00:30:00Z"
     },
     {
       "date": "2027-01-30T00:00:00Z",
       "home": "MIL",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-01-31T01:00:00Z"
     },
     {
       "date": "2027-01-30T00:00:00Z",
       "home": "OKC",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-01-30T20:00:00Z"
     },
     {
       "date": "2027-01-30T00:00:00Z",
       "home": "NYK",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-01-31T01:30:00Z"
     },
     {
       "date": "2027-01-30T00:00:00Z",
       "home": "UTA",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-01-31T02:30:00Z"
     },
     {
       "date": "2027-01-30T00:00:00Z",
       "home": "CLE",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-01-31T00:30:00Z"
     },
     {
       "date": "2027-01-30T00:00:00Z",
       "home": "MIA",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-01-30T17:30:00Z"
     },
     {
       "date": "2027-01-30T00:00:00Z",
       "home": "GSW",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-01-30T22:30:00Z"
     },
     {
       "date": "2027-01-30T00:00:00Z",
       "home": "IND",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-01-31T00:00:00Z"
     },
     {
       "date": "2027-01-31T00:00:00Z",
       "home": "ORL",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-01-31T23:00:00Z"
     },
     {
       "date": "2027-01-31T00:00:00Z",
       "home": "TOR",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-01-31T23:00:00Z"
     },
     {
       "date": "2027-01-31T00:00:00Z",
       "home": "OKC",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-01-31T23:00:00Z"
     },
     {
       "date": "2027-01-31T00:00:00Z",
       "home": "DAL",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-02-01T01:30:00Z"
     },
     {
       "date": "2027-01-31T00:00:00Z",
       "home": "CHA",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-02-01T00:00:00Z"
     },
     {
       "date": "2027-01-31T00:00:00Z",
       "home": "MIN",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-01-31T23:00:00Z"
     },
     {
       "date": "2027-01-31T00:00:00Z",
       "home": "DEN",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-02-01T01:00:00Z"
     },
     {
       "date": "2027-01-31T00:00:00Z",
       "home": "DET",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-01-31T20:00:00Z"
     },
     {
       "date": "2027-02-01T00:00:00Z",
       "home": "UTA",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-02-02T02:00:00Z"
     },
     {
       "date": "2027-02-01T00:00:00Z",
       "home": "MIL",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-02-02T01:00:00Z"
     },
     {
       "date": "2027-02-01T00:00:00Z",
       "home": "IND",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-02-02T00:30:00Z"
     },
     {
       "date": "2027-02-01T00:00:00Z",
       "home": "PHI",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-02T00:00:00Z"
     },
     {
       "date": "2027-02-01T00:00:00Z",
       "home": "BKN",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-02-02T00:30:00Z"
     },
     {
       "date": "2027-02-01T00:00:00Z",
       "home": "GSW",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-02-02T03:00:00Z"
     },
     {
       "date": "2027-02-01T00:00:00Z",
       "home": "ATL",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-02-02T00:00:00Z"
     },
     {
       "date": "2027-02-02T00:00:00Z",
       "home": "MIA",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-02-03T00:30:00Z"
     },
     {
       "date": "2027-02-02T00:00:00Z",
       "home": "DET",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-02-03T00:00:00Z"
     },
     {
       "date": "2027-02-02T00:00:00Z",
       "home": "BOS",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-02-03T01:00:00Z"
     },
     {
       "date": "2027-02-02T00:00:00Z",
       "home": "POR",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-02-03T04:00:00Z"
     },
     {
       "date": "2027-02-02T00:00:00Z",
       "home": "ORL",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-03T00:00:00Z"
     },
     {
       "date": "2027-02-02T00:00:00Z",
       "home": "DEN",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-02-03T02:00:00Z"
     },
     {
       "date": "2027-02-02T00:00:00Z",
       "home": "LAC",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-02-03T03:30:00Z"
     },
     {
       "date": "2027-02-02T00:00:00Z",
       "home": "DAL",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-02-03T01:00:00Z"
     },
     {
       "date": "2027-02-03T00:00:00Z",
       "home": "IND",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-02-04T00:00:00Z"
     },
     {
       "date": "2027-02-03T00:00:00Z",
       "home": "PHX",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-02-04T02:00:00Z"
     },
     {
       "date": "2027-02-03T00:00:00Z",
       "home": "LAC",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-02-04T03:30:00Z"
     },
     {
       "date": "2027-02-03T00:00:00Z",
       "home": "DET",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-02-04T00:00:00Z"
     },
     {
       "date": "2027-02-03T00:00:00Z",
       "home": "MEM",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-02-04T01:00:00Z"
     },
     {
       "date": "2027-02-03T00:00:00Z",
       "home": "HOU",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-02-04T02:30:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "CHA",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-02-05T00:30:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "POR",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-02-05T03:00:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "DEN",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-02-05T03:00:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "BKN",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-02-05T00:30:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "MIA",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-02-05T00:30:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "SAC",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-02-05T03:00:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "WAS",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-05T00:00:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "CHI",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-02-05T01:00:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "SAS",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-02-05T01:00:00Z"
     },
     {
       "date": "2027-02-04T00:00:00Z",
       "home": "NYK",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-02-05T00:30:00Z"
     },
     {
       "date": "2027-02-05T00:00:00Z",
       "home": "ATL",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-02-06T00:00:00Z"
     },
     {
       "date": "2027-02-05T00:00:00Z",
       "home": "PHI",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-02-06T00:00:00Z"
     },
     {
       "date": "2027-02-05T00:00:00Z",
       "home": "CHA",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-02-06T00:00:00Z"
     },
     {
       "date": "2027-02-05T00:00:00Z",
       "home": "PHX",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-02-06T02:00:00Z"
     },
     {
       "date": "2027-02-05T00:00:00Z",
       "home": "OKC",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-02-06T02:30:00Z"
     },
     {
       "date": "2027-02-05T00:00:00Z",
       "home": "DEN",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-02-06T02:00:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "SAS",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-02-07T01:30:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "MIN",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-02-06T20:00:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "TOR",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-02-07T00:30:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "CHI",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-07T01:00:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "CLE",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-02-07T00:30:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "SAC",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-02-07T03:00:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "MEM",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-02-06T22:30:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "DAL",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-02-06T20:00:00Z"
     },
     {
       "date": "2027-02-06T00:00:00Z",
       "home": "BKN",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-02-06T23:00:00Z"
     },
     {
       "date": "2027-02-07T00:00:00Z",
       "home": "PHI",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-02-08T00:00:00Z"
     },
     {
       "date": "2027-02-07T00:00:00Z",
       "home": "TOR",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-02-07T23:00:00Z"
     },
     {
       "date": "2027-02-07T00:00:00Z",
       "home": "ATL",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-02-07T20:00:00Z"
     },
     {
       "date": "2027-02-07T00:00:00Z",
       "home": "DET",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-02-07T20:00:00Z"
     },
     {
       "date": "2027-02-07T00:00:00Z",
       "home": "SAC",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-02-08T03:30:00Z"
     },
     {
       "date": "2027-02-07T00:00:00Z",
       "home": "DAL",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-02-07T21:30:00Z"
     },
     {
       "date": "2027-02-07T00:00:00Z",
       "home": "OKC",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-02-08T02:30:00Z"
     },
     {
       "date": "2027-02-07T00:00:00Z",
       "home": "MIN",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-02-07T20:30:00Z"
     },
     {
       "date": "2027-02-08T00:00:00Z",
       "home": "PHI",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-02-09T00:00:00Z"
     },
     {
       "date": "2027-02-08T00:00:00Z",
       "home": "WAS",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-02-09T00:00:00Z"
     },
     {
       "date": "2027-02-08T00:00:00Z",
       "home": "PHX",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-02-09T02:30:00Z"
     },
     {
       "date": "2027-02-08T00:00:00Z",
       "home": "ATL",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-02-09T00:00:00Z"
     },
     {
       "date": "2027-02-08T00:00:00Z",
       "home": "IND",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-09T00:00:00Z"
     },
     {
       "date": "2027-02-08T00:00:00Z",
       "home": "MIL",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-02-09T01:00:00Z"
     },
     {
       "date": "2027-02-08T00:00:00Z",
       "home": "MEM",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-02-09T01:00:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "NYK",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-02-10T00:30:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "BOS",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-02-10T00:30:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "LAC",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-02-10T03:30:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "CHI",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-02-10T01:00:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "UTA",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-02-10T03:00:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "BKN",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-02-10T00:30:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "OKC",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-02-10T01:00:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "MIL",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-02-10T01:00:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "DAL",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-02-10T01:00:00Z"
     },
     {
       "date": "2027-02-09T00:00:00Z",
       "home": "CLE",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-02-10T00:00:00Z"
     },
     {
       "date": "2027-02-10T00:00:00Z",
       "home": "IND",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-02-11T00:00:00Z"
     },
     {
       "date": "2027-02-10T00:00:00Z",
       "home": "PHX",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-02-11T02:00:00Z"
     },
     {
       "date": "2027-02-10T00:00:00Z",
       "home": "BOS",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-02-11T00:30:00Z"
     },
     {
       "date": "2027-02-10T00:00:00Z",
       "home": "LAL",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-02-11T03:00:00Z"
     },
     {
       "date": "2027-02-10T00:00:00Z",
       "home": "WAS",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-02-11T00:00:00Z"
     },
     {
       "date": "2027-02-10T00:00:00Z",
       "home": "ATL",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-11T00:00:00Z"
     },
     {
       "date": "2027-02-10T00:00:00Z",
       "home": "MEM",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-02-11T01:00:00Z"
     },
     {
       "date": "2027-02-11T00:00:00Z",
       "home": "DEN",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-02-12T02:00:00Z"
     },
     {
       "date": "2027-02-11T00:00:00Z",
       "home": "CHA",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-02-12T00:00:00Z"
     },
     {
       "date": "2027-02-11T00:00:00Z",
       "home": "PHI",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-02-12T00:00:00Z"
     },
     {
       "date": "2027-02-11T00:00:00Z",
       "home": "DAL",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-02-12T01:00:00Z"
     },
     {
       "date": "2027-02-11T00:00:00Z",
       "home": "HOU",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-02-12T01:30:00Z"
     },
     {
       "date": "2027-02-11T00:00:00Z",
       "home": "OKC",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-02-12T02:30:00Z"
     },
     {
       "date": "2027-02-11T00:00:00Z",
       "home": "IND",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-02-12T00:00:00Z"
     },
     {
       "date": "2027-02-12T00:00:00Z",
       "home": "WAS",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-02-13T00:00:00Z"
     },
     {
       "date": "2027-02-12T00:00:00Z",
       "home": "TOR",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-02-13T00:30:00Z"
     },
     {
       "date": "2027-02-12T00:00:00Z",
       "home": "LAL",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-02-13T03:30:00Z"
     },
     {
       "date": "2027-02-12T00:00:00Z",
       "home": "NOP",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-02-13T01:00:00Z"
     },
     {
       "date": "2027-02-12T00:00:00Z",
       "home": "MEM",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-02-13T01:00:00Z"
     },
     {
       "date": "2027-02-12T00:00:00Z",
       "home": "ORL",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-02-13T00:00:00Z"
     },
     {
       "date": "2027-02-12T00:00:00Z",
       "home": "BOS",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-02-13T01:00:00Z"
     },
     {
       "date": "2027-02-12T00:00:00Z",
       "home": "ATL",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-02-13T00:00:00Z"
     },
     {
       "date": "2027-02-13T00:00:00Z",
       "home": "CHA",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-02-13T20:00:00Z"
     },
     {
       "date": "2027-02-13T00:00:00Z",
       "home": "POR",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-02-13T20:30:00Z"
     },
     {
       "date": "2027-02-13T00:00:00Z",
       "home": "NYK",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-02-14T01:30:00Z"
     },
     {
       "date": "2027-02-13T00:00:00Z",
       "home": "WAS",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-02-14T00:00:00Z"
     },
     {
       "date": "2027-02-13T00:00:00Z",
       "home": "OKC",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-02-13T22:30:00Z"
     },
     {
       "date": "2027-02-13T00:00:00Z",
       "home": "IND",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-02-13T19:00:00Z"
     },
     {
       "date": "2027-02-13T00:00:00Z",
       "home": "ORL",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-02-14T00:00:00Z"
     },
     {
       "date": "2027-02-14T00:00:00Z",
       "home": "MIA",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-02-14T18:00:00Z"
     },
     {
       "date": "2027-02-14T00:00:00Z",
       "home": "POR",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-02-14T20:30:00Z"
     },
     {
       "date": "2027-02-14T00:00:00Z",
       "home": "HOU",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-02-14T19:00:00Z"
     },
     {
       "date": "2027-02-14T00:00:00Z",
       "home": "NOP",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-02-14T19:00:00Z"
     },
     {
       "date": "2027-02-14T00:00:00Z",
       "home": "CLE",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-02-14T18:00:00Z"
     },
     {
       "date": "2027-02-14T00:00:00Z",
       "home": "ATL",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-02-14T18:00:00Z"
     },
     {
       "date": "2027-02-14T00:00:00Z",
       "home": "BOS",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-02-14T18:00:00Z"
     },
     {
       "date": "2027-02-15T00:00:00Z",
       "home": "UTA",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-02-16T02:00:00Z"
     },
     {
       "date": "2027-02-15T00:00:00Z",
       "home": "GSW",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-02-16T00:30:00Z"
     },
     {
       "date": "2027-02-15T00:00:00Z",
       "home": "CHA",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-02-15T17:00:00Z"
     },
     {
       "date": "2027-02-15T00:00:00Z",
       "home": "MEM",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-02-16T01:00:00Z"
     },
     {
       "date": "2027-02-15T00:00:00Z",
       "home": "OKC",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-02-16T01:00:00Z"
     },
     {
       "date": "2027-02-15T00:00:00Z",
       "home": "DAL",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-02-15T19:30:00Z"
     },
     {
       "date": "2027-02-15T00:00:00Z",
       "home": "WAS",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-02-16T00:00:00Z"
     },
     {
       "date": "2027-02-15T00:00:00Z",
       "home": "MIA",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-02-15T22:00:00Z"
     },
     {
       "date": "2027-02-16T00:00:00Z",
       "home": "LAL",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-02-17T03:00:00Z"
     },
     {
       "date": "2027-02-16T00:00:00Z",
       "home": "LAC",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-02-17T04:00:00Z"
     },
     {
       "date": "2027-02-16T00:00:00Z",
       "home": "CLE",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-02-17T00:00:00Z"
     },
     {
       "date": "2027-02-16T00:00:00Z",
       "home": "POR",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-17T03:00:00Z"
     },
     {
       "date": "2027-02-16T00:00:00Z",
       "home": "ATL",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-02-17T01:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "BKN",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-02-18T00:30:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "OKC",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-02-18T02:30:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "LAC",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-02-18T03:30:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "ORL",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-02-18T00:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "SAC",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-02-18T03:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "WAS",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-02-18T00:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "CLE",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-02-18T00:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "GSW",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-18T03:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "DET",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-02-18T00:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "PHI",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-02-18T00:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "MEM",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-02-18T01:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "CHA",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-02-18T00:00:00Z"
     },
     {
       "date": "2027-02-17T00:00:00Z",
       "home": "DEN",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-02-18T02:00:00Z"
     },
     {
       "date": "2027-02-18T00:00:00Z",
       "home": "MEM",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-02-19T01:00:00Z"
     },
     {
       "date": "2027-02-18T00:00:00Z",
       "home": "LAL",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-02-19T03:00:00Z"
     },
     {
       "date": "2027-02-18T00:00:00Z",
       "home": "POR",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-02-19T03:00:00Z"
     },
     {
       "date": "2027-02-18T00:00:00Z",
       "home": "MIN",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-02-19T00:30:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "CHI",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-02-26T01:00:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "ORL",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-02-26T00:00:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "GSW",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-02-26T03:00:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "DET",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-02-26T00:00:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "NYK",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-02-26T00:30:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "BKN",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-02-26T00:30:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "NOP",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-02-26T01:00:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "CLE",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-02-26T00:00:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "LAC",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-02-26T03:30:00Z"
     },
     {
       "date": "2027-02-25T00:00:00Z",
       "home": "MIL",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-02-26T01:00:00Z"
     },
     {
       "date": "2027-02-26T00:00:00Z",
       "home": "TOR",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-02-27T00:30:00Z"
     },
     {
       "date": "2027-02-26T00:00:00Z",
       "home": "HOU",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-02-27T01:30:00Z"
     },
     {
       "date": "2027-02-26T00:00:00Z",
       "home": "BOS",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-02-27T00:30:00Z"
     },
     {
       "date": "2027-02-26T00:00:00Z",
       "home": "POR",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-02-27T03:00:00Z"
     },
     {
       "date": "2027-02-26T00:00:00Z",
       "home": "MIN",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-02-27T01:00:00Z"
     },
     {
       "date": "2027-02-26T00:00:00Z",
       "home": "DEN",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-02-27T03:00:00Z"
     },
     {
       "date": "2027-02-26T00:00:00Z",
       "home": "SAS",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-02-27T01:00:00Z"
     },
     {
       "date": "2027-02-27T00:00:00Z",
       "home": "CHI",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-02-28T01:00:00Z"
     },
     {
       "date": "2027-02-27T00:00:00Z",
       "home": "PHX",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-02-28T02:00:00Z"
     },
     {
       "date": "2027-02-27T00:00:00Z",
       "home": "DET",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-02-27T22:30:00Z"
     },
     {
       "date": "2027-02-27T00:00:00Z",
       "home": "NYK",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-02-28T01:30:00Z"
     },
     {
       "date": "2027-02-27T00:00:00Z",
       "home": "MEM",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-02-28T01:00:00Z"
     },
     {
       "date": "2027-02-27T00:00:00Z",
       "home": "UTA",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-02-27T20:00:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "ORL",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-02-28T21:30:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "MIN",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-01T00:00:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "SAS",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-02-28T18:00:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "DAL",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-02-28T20:30:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "HOU",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-03-01T02:30:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "NYK",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-03-01T00:30:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "LAC",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-03-01T03:30:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "CHA",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-03-01T00:00:00Z"
     },
     {
       "date": "2027-02-28T00:00:00Z",
       "home": "IND",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-02-28T21:00:00Z"
     },
     {
       "date": "2027-03-01T00:00:00Z",
       "home": "DEN",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-03-02T02:00:00Z"
     },
     {
       "date": "2027-03-01T00:00:00Z",
       "home": "DET",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-03-02T00:00:00Z"
     },
     {
       "date": "2027-03-01T00:00:00Z",
       "home": "HOU",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-03-02T01:30:00Z"
     },
     {
       "date": "2027-03-01T00:00:00Z",
       "home": "CLE",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-02T00:00:00Z"
     },
     {
       "date": "2027-03-01T00:00:00Z",
       "home": "NOP",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-03-02T01:00:00Z"
     },
     {
       "date": "2027-03-01T00:00:00Z",
       "home": "PHX",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-03-02T02:30:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "IND",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-03T00:00:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "MIL",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-03-03T01:00:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "DAL",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-03-03T01:00:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "POR",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-03-03T04:00:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "ORL",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-03-03T00:00:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "NYK",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-03T00:30:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "OKC",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-03-03T01:00:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "MIA",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-03T00:30:00Z"
     },
     {
       "date": "2027-03-02T00:00:00Z",
       "home": "SAC",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-03-03T03:00:00Z"
     },
     {
       "date": "2027-03-03T00:00:00Z",
       "home": "PHX",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-03-04T02:00:00Z"
     },
     {
       "date": "2027-03-03T00:00:00Z",
       "home": "PHI",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-03-04T00:00:00Z"
     },
     {
       "date": "2027-03-03T00:00:00Z",
       "home": "ATL",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-03-04T00:00:00Z"
     },
     {
       "date": "2027-03-03T00:00:00Z",
       "home": "HOU",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-03-04T01:30:00Z"
     },
     {
       "date": "2027-03-03T00:00:00Z",
       "home": "DEN",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-03-04T03:00:00Z"
     },
     {
       "date": "2027-03-03T00:00:00Z",
       "home": "MIA",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-04T00:30:00Z"
     },
     {
       "date": "2027-03-03T00:00:00Z",
       "home": "MIL",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-03-04T01:00:00Z"
     },
     {
       "date": "2027-03-04T00:00:00Z",
       "home": "LAC",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-03-05T03:30:00Z"
     },
     {
       "date": "2027-03-04T00:00:00Z",
       "home": "ORL",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-03-05T00:00:00Z"
     },
     {
       "date": "2027-03-04T00:00:00Z",
       "home": "PHI",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-03-05T00:00:00Z"
     },
     {
       "date": "2027-03-04T00:00:00Z",
       "home": "ATL",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-05T00:30:00Z"
     },
     {
       "date": "2027-03-04T00:00:00Z",
       "home": "DAL",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-03-05T02:30:00Z"
     },
     {
       "date": "2027-03-04T00:00:00Z",
       "home": "SAC",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-05T03:00:00Z"
     },
     {
       "date": "2027-03-04T00:00:00Z",
       "home": "CLE",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-03-05T00:00:00Z"
     },
     {
       "date": "2027-03-04T00:00:00Z",
       "home": "GSW",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-03-05T03:00:00Z"
     },
     {
       "date": "2027-03-05T00:00:00Z",
       "home": "DET",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-06T00:00:00Z"
     },
     {
       "date": "2027-03-05T00:00:00Z",
       "home": "NOP",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-03-06T01:00:00Z"
     },
     {
       "date": "2027-03-05T00:00:00Z",
       "home": "PHX",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-03-06T02:00:00Z"
     },
     {
       "date": "2027-03-05T00:00:00Z",
       "home": "TOR",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-03-06T00:30:00Z"
     },
     {
       "date": "2027-03-05T00:00:00Z",
       "home": "HOU",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-03-06T02:30:00Z"
     },
     {
       "date": "2027-03-05T00:00:00Z",
       "home": "ORL",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-03-06T00:00:00Z"
     },
     {
       "date": "2027-03-06T00:00:00Z",
       "home": "CLE",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-06T22:30:00Z"
     },
     {
       "date": "2027-03-06T00:00:00Z",
       "home": "CHI",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-03-06T22:00:00Z"
     },
     {
       "date": "2027-03-06T00:00:00Z",
       "home": "MIA",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-03-06T20:00:00Z"
     },
     {
       "date": "2027-03-06T00:00:00Z",
       "home": "SAC",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-03-07T03:00:00Z"
     },
     {
       "date": "2027-03-06T00:00:00Z",
       "home": "MEM",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-03-07T01:00:00Z"
     },
     {
       "date": "2027-03-06T00:00:00Z",
       "home": "LAL",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-07T01:30:00Z"
     },
     {
       "date": "2027-03-06T00:00:00Z",
       "home": "WAS",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-03-07T00:00:00Z"
     },
     {
       "date": "2027-03-07T00:00:00Z",
       "home": "LAL",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-03-08T03:30:00Z"
     },
     {
       "date": "2027-03-07T00:00:00Z",
       "home": "GSW",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-03-08T03:00:00Z"
     },
     {
       "date": "2027-03-07T00:00:00Z",
       "home": "DEN",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-03-07T20:30:00Z"
     },
     {
       "date": "2027-03-07T00:00:00Z",
       "home": "SAS",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-03-08T00:30:00Z"
     },
     {
       "date": "2027-03-07T00:00:00Z",
       "home": "BOS",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-07T18:00:00Z"
     },
     {
       "date": "2027-03-07T00:00:00Z",
       "home": "CHI",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-03-07T22:00:00Z"
     },
     {
       "date": "2027-03-08T00:00:00Z",
       "home": "MEM",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-09T01:00:00Z"
     },
     {
       "date": "2027-03-08T00:00:00Z",
       "home": "IND",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-03-09T00:00:00Z"
     },
     {
       "date": "2027-03-08T00:00:00Z",
       "home": "OKC",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-03-09T02:30:00Z"
     },
     {
       "date": "2027-03-08T00:00:00Z",
       "home": "SAC",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-03-09T03:00:00Z"
     },
     {
       "date": "2027-03-08T00:00:00Z",
       "home": "LAC",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-03-09T03:30:00Z"
     },
     {
       "date": "2027-03-08T00:00:00Z",
       "home": "MIN",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-03-09T01:00:00Z"
     },
     {
       "date": "2027-03-08T00:00:00Z",
       "home": "MIA",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-03-09T00:30:00Z"
     },
     {
       "date": "2027-03-08T00:00:00Z",
       "home": "PHI",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-03-09T00:00:00Z"
     },
     {
       "date": "2027-03-09T00:00:00Z",
       "home": "CHI",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-10T01:00:00Z"
     },
     {
       "date": "2027-03-09T00:00:00Z",
       "home": "DET",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-03-10T01:00:00Z"
     },
     {
       "date": "2027-03-09T00:00:00Z",
       "home": "DAL",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-10T01:00:00Z"
     },
     {
       "date": "2027-03-09T00:00:00Z",
       "home": "BKN",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-03-10T00:30:00Z"
     },
     {
       "date": "2027-03-09T00:00:00Z",
       "home": "ORL",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-03-10T00:00:00Z"
     },
     {
       "date": "2027-03-09T00:00:00Z",
       "home": "GSW",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-03-10T04:00:00Z"
     },
     {
       "date": "2027-03-09T00:00:00Z",
       "home": "SAS",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-03-10T01:00:00Z"
     },
     {
       "date": "2027-03-10T00:00:00Z",
       "home": "MIN",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-11T02:30:00Z"
     },
     {
       "date": "2027-03-10T00:00:00Z",
       "home": "POR",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-03-11T03:00:00Z"
     },
     {
       "date": "2027-03-10T00:00:00Z",
       "home": "SAC",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-03-11T03:00:00Z"
     },
     {
       "date": "2027-03-10T00:00:00Z",
       "home": "UTA",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-03-11T02:00:00Z"
     },
     {
       "date": "2027-03-10T00:00:00Z",
       "home": "CHA",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-03-11T00:00:00Z"
     },
     {
       "date": "2027-03-10T00:00:00Z",
       "home": "LAC",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-03-11T03:30:00Z"
     },
     {
       "date": "2027-03-10T00:00:00Z",
       "home": "TOR",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-11T00:30:00Z"
     },
     {
       "date": "2027-03-10T00:00:00Z",
       "home": "MIA",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-03-11T00:00:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "ATL",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-03-12T01:00:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "LAC",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-03-12T03:30:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "CHA",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-03-12T00:00:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "BOS",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-12T00:30:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "DET",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-03-12T00:00:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "LAL",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-03-12T03:00:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "SAS",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-12T00:30:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "CHI",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-03-12T01:00:00Z"
     },
     {
       "date": "2027-03-11T00:00:00Z",
       "home": "DAL",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-03-12T01:00:00Z"
     },
     {
       "date": "2027-03-12T00:00:00Z",
       "home": "LAL",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-03-13T03:00:00Z"
     },
     {
       "date": "2027-03-12T00:00:00Z",
       "home": "DEN",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-03-13T03:00:00Z"
     },
     {
       "date": "2027-03-12T00:00:00Z",
       "home": "MIL",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-03-13T01:00:00Z"
     },
     {
       "date": "2027-03-12T00:00:00Z",
       "home": "BOS",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-13T00:30:00Z"
     },
     {
       "date": "2027-03-12T00:00:00Z",
       "home": "UTA",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-03-13T02:30:00Z"
     },
     {
       "date": "2027-03-12T00:00:00Z",
       "home": "NOP",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-13T01:00:00Z"
     },
     {
       "date": "2027-03-13T00:00:00Z",
       "home": "DET",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-03-13T20:00:00Z"
     },
     {
       "date": "2027-03-13T00:00:00Z",
       "home": "HOU",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-03-13T22:30:00Z"
     },
     {
       "date": "2027-03-13T00:00:00Z",
       "home": "POR",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-03-14T03:30:00Z"
     },
     {
       "date": "2027-03-13T00:00:00Z",
       "home": "CHI",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-14T01:00:00Z"
     },
     {
       "date": "2027-03-13T00:00:00Z",
       "home": "DAL",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-03-14T01:00:00Z"
     },
     {
       "date": "2027-03-13T00:00:00Z",
       "home": "ATL",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-03-13T20:00:00Z"
     },
     {
       "date": "2027-03-13T00:00:00Z",
       "home": "MIN",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-14T01:30:00Z"
     },
     {
       "date": "2027-03-13T00:00:00Z",
       "home": "CHA",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-03-13T23:00:00Z"
     },
     {
       "date": "2027-03-14T00:00:00Z",
       "home": "NYK",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-14T16:00:00Z"
     },
     {
       "date": "2027-03-14T00:00:00Z",
       "home": "SAC",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-03-14T22:00:00Z"
     },
     {
       "date": "2027-03-14T00:00:00Z",
       "home": "TOR",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-03-14T21:00:00Z"
     },
     {
       "date": "2027-03-14T00:00:00Z",
       "home": "LAL",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-03-15T02:00:00Z"
     },
     {
       "date": "2027-03-14T00:00:00Z",
       "home": "DEN",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-03-14T23:30:00Z"
     },
     {
       "date": "2027-03-14T00:00:00Z",
       "home": "OKC",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-03-14T18:30:00Z"
     },
     {
       "date": "2027-03-14T00:00:00Z",
       "home": "MIN",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-03-15T00:00:00Z"
     },
     {
       "date": "2027-03-15T00:00:00Z",
       "home": "DAL",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-16T01:30:00Z"
     },
     {
       "date": "2027-03-15T00:00:00Z",
       "home": "BKN",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-03-15T23:30:00Z"
     },
     {
       "date": "2027-03-15T00:00:00Z",
       "home": "CHI",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-03-16T00:00:00Z"
     },
     {
       "date": "2027-03-15T00:00:00Z",
       "home": "MEM",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-03-16T00:00:00Z"
     },
     {
       "date": "2027-03-15T00:00:00Z",
       "home": "PHI",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-15T23:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "OKC",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-03-17T00:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "GSW",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-03-17T02:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "LAC",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-03-17T03:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "IND",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-03-17T00:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "POR",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-03-17T02:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "NOP",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-03-17T00:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "WAS",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-03-16T23:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "MIL",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-03-17T00:00:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "BOS",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-03-16T23:30:00Z"
     },
     {
       "date": "2027-03-16T00:00:00Z",
       "home": "HOU",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-03-17T00:30:00Z"
     },
     {
       "date": "2027-03-17T00:00:00Z",
       "home": "UTA",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-18T01:00:00Z"
     },
     {
       "date": "2027-03-17T00:00:00Z",
       "home": "HOU",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-03-18T00:30:00Z"
     },
     {
       "date": "2027-03-17T00:00:00Z",
       "home": "PHI",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-03-17T23:00:00Z"
     },
     {
       "date": "2027-03-17T00:00:00Z",
       "home": "OKC",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-03-17T23:30:00Z"
     },
     {
       "date": "2027-03-17T00:00:00Z",
       "home": "GSW",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-18T02:00:00Z"
     },
     {
       "date": "2027-03-17T00:00:00Z",
       "home": "POR",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-03-18T02:00:00Z"
     },
     {
       "date": "2027-03-17T00:00:00Z",
       "home": "LAL",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-03-18T02:00:00Z"
     },
     {
       "date": "2027-03-17T00:00:00Z",
       "home": "NYK",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-03-17T23:30:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "SAS",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-03-19T00:00:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "NOP",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-03-19T00:00:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "DEN",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-03-19T01:00:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "MIL",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-03-19T00:00:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "LAC",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-19T02:30:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "UTA",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-03-19T01:00:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "BOS",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-03-18T23:30:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "WAS",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-18T23:00:00Z"
     },
     {
       "date": "2027-03-18T00:00:00Z",
       "home": "IND",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-18T23:00:00Z"
     },
     {
       "date": "2027-03-19T00:00:00Z",
       "home": "LAL",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-20T02:00:00Z"
     },
     {
       "date": "2027-03-19T00:00:00Z",
       "home": "SAS",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-03-20T00:00:00Z"
     },
     {
       "date": "2027-03-19T00:00:00Z",
       "home": "NOP",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-03-20T00:00:00Z"
     },
     {
       "date": "2027-03-19T00:00:00Z",
       "home": "PHX",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-03-20T02:30:00Z"
     },
     {
       "date": "2027-03-19T00:00:00Z",
       "home": "GSW",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-03-20T02:00:00Z"
     },
     {
       "date": "2027-03-19T00:00:00Z",
       "home": "TOR",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-03-19T23:30:00Z"
     },
     {
       "date": "2027-03-20T00:00:00Z",
       "home": "LAC",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-21T02:30:00Z"
     },
     {
       "date": "2027-03-20T00:00:00Z",
       "home": "DET",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-03-21T00:00:00Z"
     },
     {
       "date": "2027-03-20T00:00:00Z",
       "home": "CLE",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-03-20T23:30:00Z"
     },
     {
       "date": "2027-03-20T00:00:00Z",
       "home": "ORL",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-03-20T23:00:00Z"
     },
     {
       "date": "2027-03-20T00:00:00Z",
       "home": "MIL",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-03-21T00:00:00Z"
     },
     {
       "date": "2027-03-20T00:00:00Z",
       "home": "MEM",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-21T00:00:00Z"
     },
     {
       "date": "2027-03-20T00:00:00Z",
       "home": "NYK",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-03-20T17:00:00Z"
     },
     {
       "date": "2027-03-21T00:00:00Z",
       "home": "LAL",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-03-22T02:00:00Z"
     },
     {
       "date": "2027-03-21T00:00:00Z",
       "home": "MIA",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-03-21T22:00:00Z"
     },
     {
       "date": "2027-03-21T00:00:00Z",
       "home": "BOS",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-03-21T19:00:00Z"
     },
     {
       "date": "2027-03-21T00:00:00Z",
       "home": "PHX",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-03-21T21:00:00Z"
     },
     {
       "date": "2027-03-21T00:00:00Z",
       "home": "BKN",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-03-21T19:00:00Z"
     },
     {
       "date": "2027-03-21T00:00:00Z",
       "home": "PHI",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-03-21T23:30:00Z"
     },
     {
       "date": "2027-03-21T00:00:00Z",
       "home": "UTA",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-21T21:00:00Z"
     },
     {
       "date": "2027-03-22T00:00:00Z",
       "home": "GSW",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-23T02:00:00Z"
     },
     {
       "date": "2027-03-22T00:00:00Z",
       "home": "MEM",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-03-23T00:00:00Z"
     },
     {
       "date": "2027-03-22T00:00:00Z",
       "home": "LAC",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-03-23T02:30:00Z"
     },
     {
       "date": "2027-03-22T00:00:00Z",
       "home": "MIN",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-03-23T01:30:00Z"
     },
     {
       "date": "2027-03-22T00:00:00Z",
       "home": "CLE",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-03-22T23:00:00Z"
     },
     {
       "date": "2027-03-22T00:00:00Z",
       "home": "ORL",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-03-22T23:00:00Z"
     },
     {
       "date": "2027-03-22T00:00:00Z",
       "home": "CHI",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-03-23T00:00:00Z"
     },
     {
       "date": "2027-03-22T00:00:00Z",
       "home": "MIL",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-03-23T00:00:00Z"
     },
     {
       "date": "2027-03-23T00:00:00Z",
       "home": "BKN",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-23T23:30:00Z"
     },
     {
       "date": "2027-03-23T00:00:00Z",
       "home": "MIA",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-03-24T00:00:00Z"
     },
     {
       "date": "2027-03-23T00:00:00Z",
       "home": "NYK",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-03-23T23:30:00Z"
     },
     {
       "date": "2027-03-23T00:00:00Z",
       "home": "PHX",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-24T03:00:00Z"
     },
     {
       "date": "2027-03-23T00:00:00Z",
       "home": "UTA",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-24T01:00:00Z"
     },
     {
       "date": "2027-03-23T00:00:00Z",
       "home": "POR",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-24T02:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "SAC",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-03-25T02:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "MIN",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-03-25T00:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "WAS",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-03-24T23:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "CHA",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-03-24T23:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "NYK",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-03-24T23:30:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "IND",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-24T23:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "LAC",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-03-25T02:30:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "PHX",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-25T02:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "CHI",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-03-25T00:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "GSW",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-25T02:00:00Z"
     },
     {
       "date": "2027-03-24T00:00:00Z",
       "home": "BOS",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-03-24T23:30:00Z"
     },
     {
       "date": "2027-03-25T00:00:00Z",
       "home": "MEM",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-03-26T00:00:00Z"
     },
     {
       "date": "2027-03-25T00:00:00Z",
       "home": "BKN",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-03-25T23:30:00Z"
     },
     {
       "date": "2027-03-25T00:00:00Z",
       "home": "DET",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-03-25T23:00:00Z"
     },
     {
       "date": "2027-03-25T00:00:00Z",
       "home": "CLE",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-03-25T23:00:00Z"
     },
     {
       "date": "2027-03-25T00:00:00Z",
       "home": "IND",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-03-25T23:00:00Z"
     },
     {
       "date": "2027-03-25T00:00:00Z",
       "home": "GSW",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-26T02:00:00Z"
     },
     {
       "date": "2027-03-25T00:00:00Z",
       "home": "MIA",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-03-25T23:30:00Z"
     },
     {
       "date": "2027-03-26T00:00:00Z",
       "home": "OKC",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-03-27T00:00:00Z"
     },
     {
       "date": "2027-03-26T00:00:00Z",
       "home": "PHX",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-03-27T02:00:00Z"
     },
     {
       "date": "2027-03-26T00:00:00Z",
       "home": "DAL",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-03-27T00:00:00Z"
     },
     {
       "date": "2027-03-26T00:00:00Z",
       "home": "CHA",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-03-26T23:00:00Z"
     },
     {
       "date": "2027-03-26T00:00:00Z",
       "home": "MIN",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-03-27T00:00:00Z"
     },
     {
       "date": "2027-03-26T00:00:00Z",
       "home": "POR",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-27T02:00:00Z"
     },
     {
       "date": "2027-03-27T00:00:00Z",
       "home": "MIA",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-28T00:00:00Z"
     },
     {
       "date": "2027-03-27T00:00:00Z",
       "home": "WAS",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-03-27T23:00:00Z"
     },
     {
       "date": "2027-03-27T00:00:00Z",
       "home": "CHI",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-03-28T00:00:00Z"
     },
     {
       "date": "2027-03-27T00:00:00Z",
       "home": "POR",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-03-28T02:00:00Z"
     },
     {
       "date": "2027-03-27T00:00:00Z",
       "home": "DET",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-03-27T19:00:00Z"
     },
     {
       "date": "2027-03-27T00:00:00Z",
       "home": "SAC",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-28T02:00:00Z"
     },
     {
       "date": "2027-03-27T00:00:00Z",
       "home": "ATL",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-03-27T23:00:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "NOP",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-28T23:00:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "WAS",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-03-28T22:00:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "HOU",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-03-28T19:00:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "BKN",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-03-28T19:00:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "ORL",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-03-28T16:30:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "MIN",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-28T23:30:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "DEN",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-03-29T02:00:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "PHX",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-29T01:00:00Z"
     },
     {
       "date": "2027-03-28T00:00:00Z",
       "home": "CHA",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-03-28T22:00:00Z"
     },
     {
       "date": "2027-03-29T00:00:00Z",
       "home": "MIL",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-03-30T00:00:00Z"
     },
     {
       "date": "2027-03-29T00:00:00Z",
       "home": "SAC",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-03-30T02:00:00Z"
     },
     {
       "date": "2027-03-29T00:00:00Z",
       "home": "BKN",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-03-29T23:30:00Z"
     },
     {
       "date": "2027-03-29T00:00:00Z",
       "home": "CHI",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-03-30T00:00:00Z"
     },
     {
       "date": "2027-03-29T00:00:00Z",
       "home": "DET",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-03-29T23:00:00Z"
     },
     {
       "date": "2027-03-29T00:00:00Z",
       "home": "CLE",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-03-29T23:00:00Z"
     },
     {
       "date": "2027-03-29T00:00:00Z",
       "home": "ATL",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-03-29T23:00:00Z"
     },
     {
       "date": "2027-03-29T00:00:00Z",
       "home": "SAS",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-03-30T01:30:00Z"
     },
     {
       "date": "2027-03-30T00:00:00Z",
       "home": "IND",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-03-31T00:00:00Z"
     },
     {
       "date": "2027-03-30T00:00:00Z",
       "home": "POR",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-03-31T03:00:00Z"
     },
     {
       "date": "2027-03-30T00:00:00Z",
       "home": "MEM",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-03-31T00:00:00Z"
     },
     {
       "date": "2027-03-30T00:00:00Z",
       "home": "CHA",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-03-30T23:00:00Z"
     },
     {
       "date": "2027-03-30T00:00:00Z",
       "home": "ORL",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-03-31T00:00:00Z"
     },
     {
       "date": "2027-03-30T00:00:00Z",
       "home": "UTA",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-03-31T01:00:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "WAS",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-03-31T23:00:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "BKN",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-03-31T23:30:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "DAL",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-04-01T01:30:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "PHI",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-03-31T23:00:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "POR",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-04-01T02:00:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "ATL",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-03-31T23:00:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "MIL",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-04-01T00:00:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "SAS",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-04-01T00:00:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "MIN",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-04-01T00:00:00Z"
     },
     {
       "date": "2027-03-31T00:00:00Z",
       "home": "DET",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-03-31T23:00:00Z"
     },
     {
       "date": "2027-04-01T00:00:00Z",
       "home": "CLE",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-04-01T23:00:00Z"
     },
     {
       "date": "2027-04-01T00:00:00Z",
       "home": "NYK",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-04-01T23:30:00Z"
     },
     {
       "date": "2027-04-01T00:00:00Z",
       "home": "OKC",
-      "away": "LAL"
+      "away": "LAL",
+      "tip_utc": "2027-04-02T01:30:00Z"
     },
     {
       "date": "2027-04-01T00:00:00Z",
       "home": "IND",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-04-01T23:00:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "TOR",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-04-03T00:30:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "MIL",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-04-03T00:00:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "PHX",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-04-03T02:00:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "CHI",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-04-03T00:00:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "MIN",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-04-02T23:30:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "HOU",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-04-03T00:30:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "BOS",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-04-02T23:30:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "BKN",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-04-02T23:30:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "WAS",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-04-02T23:00:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "DAL",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-04-03T00:00:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "LAC",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-04-03T02:30:00Z"
     },
     {
       "date": "2027-04-02T00:00:00Z",
       "home": "POR",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-04-03T02:00:00Z"
     },
     {
       "date": "2027-04-03T00:00:00Z",
       "home": "OKC",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-04-03T21:00:00Z"
     },
     {
       "date": "2027-04-03T00:00:00Z",
       "home": "ORL",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-04-03T23:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "PHI",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-04-04T17:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "MIL",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-04-04T18:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "NYK",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-04-04T23:30:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "CLE",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-04-04T19:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "HOU",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-04-04T20:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "SAC",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-04-04T22:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "TOR",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-04-04T19:30:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "DEN",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-04-04T21:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "DET",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-04-04T19:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "DAL",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-04-04T19:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "LAC",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-04-04T20:30:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "UTA",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-04-04T21:00:00Z"
     },
     {
       "date": "2027-04-04T00:00:00Z",
       "home": "LAL",
-      "away": "SAS"
+      "away": "SAS",
+      "tip_utc": "2027-04-05T02:00:00Z"
     },
     {
       "date": "2027-04-05T00:00:00Z",
       "home": "CLE",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-04-05T23:00:00Z"
     },
     {
       "date": "2027-04-05T00:00:00Z",
       "home": "ORL",
-      "away": "MIA"
+      "away": "MIA",
+      "tip_utc": "2027-04-05T23:00:00Z"
     },
     {
       "date": "2027-04-05T00:00:00Z",
       "home": "NOP",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-04-06T00:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "MIL",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-04-07T00:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "LAL",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-04-07T02:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "MEM",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-04-07T00:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "CHA",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-04-06T23:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "LAC",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-04-07T02:30:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "DEN",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-04-07T01:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "ATL",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-04-07T00:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "UTA",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-04-07T01:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "TOR",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-04-06T23:30:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "GSW",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-04-07T03:00:00Z"
     },
     {
       "date": "2027-04-06T00:00:00Z",
       "home": "SAS",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-04-07T00:00:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "TOR",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-04-07T23:30:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "ORL",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-04-07T23:00:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "CHI",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-04-08T00:00:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "SAS",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-04-07T23:30:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "POR",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-04-08T02:00:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "DET",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-04-07T23:00:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "LAL",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-04-08T02:00:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "HOU",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-04-08T00:30:00Z"
     },
     {
       "date": "2027-04-07T00:00:00Z",
       "home": "MEM",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-04-08T00:00:00Z"
     },
     {
       "date": "2027-04-08T00:00:00Z",
       "home": "OKC",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-04-09T01:30:00Z"
     },
     {
       "date": "2027-04-08T00:00:00Z",
       "home": "DEN",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-04-09T01:00:00Z"
     },
     {
       "date": "2027-04-08T00:00:00Z",
       "home": "UTA",
-      "away": "NOP"
+      "away": "NOP",
+      "tip_utc": "2027-04-09T01:00:00Z"
     },
     {
       "date": "2027-04-08T00:00:00Z",
       "home": "MIL",
-      "away": "NYK"
+      "away": "NYK",
+      "tip_utc": "2027-04-09T00:00:00Z"
     },
     {
       "date": "2027-04-08T00:00:00Z",
       "home": "MIA",
-      "away": "PHI"
+      "away": "PHI",
+      "tip_utc": "2027-04-08T23:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "CHA",
-      "away": "BKN"
+      "away": "BKN",
+      "tip_utc": "2027-04-09T23:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "ATL",
-      "away": "BOS"
+      "away": "BOS",
+      "tip_utc": "2027-04-09T23:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "IND",
-      "away": "CLE"
+      "away": "CLE",
+      "tip_utc": "2027-04-09T23:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "SAC",
-      "away": "DAL"
+      "away": "DAL",
+      "tip_utc": "2027-04-10T02:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "SAS",
-      "away": "DEN"
+      "away": "DEN",
+      "tip_utc": "2027-04-10T01:30:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "NYK",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-04-09T23:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "OKC",
-      "away": "GSW"
+      "away": "GSW",
+      "tip_utc": "2027-04-10T00:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "UTA",
-      "away": "LAC"
+      "away": "LAC",
+      "tip_utc": "2027-04-10T01:30:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "PHX",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-04-10T02:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "CHI",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-04-10T00:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "LAL",
-      "away": "MIN"
+      "away": "MIN",
+      "tip_utc": "2027-04-10T02:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "HOU",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-04-10T00:30:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "ORL",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-04-09T23:00:00Z"
     },
     {
       "date": "2027-04-09T00:00:00Z",
       "home": "MIA",
-      "away": "WAS"
+      "away": "WAS",
+      "tip_utc": "2027-04-10T00:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "CLE",
-      "away": "ATL"
+      "away": "ATL",
+      "tip_utc": "2027-04-11T22:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "PHI",
-      "away": "CHA"
+      "away": "CHA",
+      "tip_utc": "2027-04-11T22:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "NOP",
-      "away": "CHI"
+      "away": "CHI",
+      "tip_utc": "2027-04-11T22:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "WAS",
-      "away": "DET"
+      "away": "DET",
+      "tip_utc": "2027-04-11T22:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "MIN",
-      "away": "HOU"
+      "away": "HOU",
+      "tip_utc": "2027-04-12T00:30:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "NYK",
-      "away": "IND"
+      "away": "IND",
+      "tip_utc": "2027-04-11T22:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "DAL",
-      "away": "MEM"
+      "away": "MEM",
+      "tip_utc": "2027-04-12T00:30:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "BOS",
-      "away": "MIL"
+      "away": "MIL",
+      "tip_utc": "2027-04-11T22:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "DEN",
-      "away": "OKC"
+      "away": "OKC",
+      "tip_utc": "2027-04-12T00:30:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "MIA",
-      "away": "ORL"
+      "away": "ORL",
+      "tip_utc": "2027-04-11T22:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "LAL",
-      "away": "PHX"
+      "away": "PHX",
+      "tip_utc": "2027-04-12T00:30:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "SAS",
-      "away": "POR"
+      "away": "POR",
+      "tip_utc": "2027-04-12T00:30:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "LAC",
-      "away": "SAC"
+      "away": "SAC",
+      "tip_utc": "2027-04-12T00:30:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "BKN",
-      "away": "TOR"
+      "away": "TOR",
+      "tip_utc": "2027-04-11T22:00:00Z"
     },
     {
       "date": "2027-04-11T00:00:00Z",
       "home": "GSW",
-      "away": "UTA"
+      "away": "UTA",
+      "tip_utc": "2027-04-12T00:30:00Z"
     }
   ],
   "fetched_at": "2026-10-29T16:35:10",
-  "source": "bbref"
+  "source": "bbref",
+  "tips_fetched_at": "2026-10-31T23:03:20",
+  "tips_source": "bbref"
 }
