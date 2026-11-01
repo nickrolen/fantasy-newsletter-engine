@@ -98,6 +98,15 @@ SCHEMA = 1
 WEEKLY_BUILD = "weekly_build"          # generate_stats_report, the pre-week line
 LIVE_REFRESH = "live_refresh"          # refresh_lines, a mid-week re-issue
 
+# WHAT IS SCORED (Nick, 10-30; design s.1 decision 4, step 1a): only Monday's
+# published lines. A live re-price is HISTORY: it is still recorded (the hub's
+# line chart wants it), but no curve scores it. Scoring it would score the
+# LAST re-price of each week -- a near-certain line on Sunday -- and from the
+# nightly run there would be dozens of them a week. curve() scores
+# SCORED_SOURCES only and lists every other source under "history", counted,
+# labelled, never scored. tests/test_calibration_log.py pins it.
+SCORED_SOURCES = (WEEKLY_BUILD,)
+
 # What makes two records the same published line: the LINE KEY, which is
 # week_state.line_cache_key -- the same answer B3's refresh service uses to
 # decide that nothing changed, over the played state, the tags, the
@@ -532,8 +541,10 @@ def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
           mix_versions: bool = False) -> dict:
     """Calibration of the settled lines, BY ENGINE VERSION AND BY SOURCE.
 
-    Returns {"groups": {group label: metrics}, "unsettled": n, "engines": [...],
-    "sources": [...]}. A group label is group_label(engine, source):
+    Returns {"groups": {group label: metrics}, "history": {group label:
+    counts}, "unsettled": n, "engines": [...], "sources": [...]}. Only
+    SCORED_SOURCES (the weekly build) are scored, in "groups"; every other
+    source (the live re-prices) is counted in "history" and never scored. A group label is group_label(engine, source):
     "abc1234 / weekly_build". mix_versions=True pools every version per source,
     the engine part labelled as mixed; anything else keeps them apart, because
     the engine changed under the lines (see the module docstring). Asking for
@@ -551,12 +562,22 @@ def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
         by_engine = {label: done}
     else:
         by_engine = {k: [r for r in done if engine_key(r) == k] for k in engines}
-    groups = {}
+    groups, history = {}, {}
     for eng, members in by_engine.items():
         for src in sorted({str(r.get("source")) for r in members}):
-            groups[group_label(eng, src)] = [r for r in members if str(r.get("source")) == src]
+            rows_ = [r for r in members if str(r.get("source")) == src]
+            if src in SCORED_SOURCES:
+                groups[group_label(eng, src)] = rows_
+            else:
+                kept, info = latest_per_matchup_week(rows_)
+                history[group_label(eng, src)] = {
+                    "n_records": len(rows_), "n_lines": len(kept),
+                    "weeks": sorted({int(r["week"]) for r in kept}),
+                    "note": "history, not scored: only Monday's published lines are scored "
+                            "(Nick, 10-30)"}
     return {
         "groups": {k: _metrics(v) for k, v in groups.items()},
+        "history": history,
         "engines": engines,
         "sources": sources,
         "settled": len(done),
@@ -674,4 +695,10 @@ def format_curve(result: dict) -> list:
                        f"(skill {prob['brier_skill_vs_coin_flip']:+.3f}), "
                        f"log loss {prob['log_loss']:.3f} vs {prob['coin_flip_log_loss']:.3f}, "
                        f"favourite {prob['hit_rate']['correct']}/{prob['hit_rate']['n']}")
+    for key, h in sorted((result.get("history") or {}).items()):
+        eng, _, src = key.rpartition(" / ")
+        what = SOURCE_LABELS.get(src)
+        weeks = f", weeks {h['weeks'][0]}-{h['weeks'][-1]}" if h["weeks"] else ""
+        out.append(f"    engine {eng}, {src}" + (f" ({what})" if what else "")
+                   + f": {h['n_records']} settled record(s){weeks} -- {h['note']}")
     return out

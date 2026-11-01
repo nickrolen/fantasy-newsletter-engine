@@ -597,6 +597,28 @@ def main():
         print()
 
     # -------------------------------------------------------------------------
+    # Title-odds history (step 1a; design s.1 decision 4): every run that
+    # priced title odds appends one row to output/title_odds_history.jsonl --
+    # history for the hub's chart, never scored (calibration reads only the
+    # published lines). Not on a dry run or a repro: those are not runs of
+    # record. A malformed history file is reported, not repaired.
+    # -------------------------------------------------------------------------
+    if run_sims and not (args.dry_run or args.repro):
+        from modules import title_odds_history as toh
+        from modules.league_clock import league_now as _ln
+        try:
+            row = toh.row_from_report(report, base_path=base_path,
+                                      run_id=f"{_ln().isoformat(timespec='microseconds')}"
+                                             "-generate_stats_report",
+                                      produced_by=f"generate_stats_report ({run_mode})",
+                                      seed=args.seed, num_simulations=args.title_sims)
+            toh.append(base_path, row)
+            print(f"Title odds recorded in {toh.HISTORY_FILE} (history, not scored)")
+        except (toh.HistoryCorrupt, ValueError) as e:
+            print(f"TITLE ODDS HISTORY NOT WRITTEN: {e}")
+        print()
+
+    # -------------------------------------------------------------------------
     # Point-in-time capture: freeze the inputs behind this week's lines.
     # Overwritten in place every week, unrecoverable afterwards -- see
     # modules/point_in_time.py. Only publishable runs write one.

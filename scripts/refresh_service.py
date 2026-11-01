@@ -26,7 +26,13 @@ A run:
   4. if the key equals the one on output/live_lines_weekN.json, does
      nothing: the line is left byte-for-byte as it was. A dirty or unknown
      engine never matches (the commit does not identify the code);
-  5. otherwise prices the line (refresh_lines.price): the line, the week's
+  5. otherwise, if games are on (modules/price_lock: from the league day's
+     first tip until the day ends), prices NOTHING: the run is recorded as
+     "locked" with what is waiting ("Lines locked while games are on. N
+     changes waiting; priced after tonight's games.") and exits 0 -- a lock
+     is not a failure. A day whose tip times are not all known refuses
+     (TipTimeMissing), as any refusal does;
+  6. otherwise prices the line (refresh_lines.price): the line, the week's
      state, the calibration records and the tag log, with the run that
      produced it and the key written into the line.
 
@@ -58,6 +64,7 @@ from modules.data_loader import atomic_write_json, load_all_data           # noq
 from modules import simulator_betting as sb                                # noqa: E402
 from modules import week_state as ws                                       # noqa: E402
 from modules.league_clock import league_now, league_today                  # noqa: E402
+from modules import price_lock                                             # noqa: E402
 import refresh_lines as rl                                                 # noqa: E402
 
 SERVICE_LOG = Path("output") / "refresh_service.log"
@@ -154,13 +161,14 @@ def _record(base: Path, week: int, run: dict) -> dict:
 
 def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFAULT_NUM_SIMULATIONS,
         trigger: str = "manual", pull_logs: bool = True, load=None, statuses=None,
-        puller=None) -> dict:
-    """One service run. Returns {"outcome": "priced"|"unchanged"|"failed",
+        puller=None, now=None) -> dict:
+    """One service run. Returns {"outcome": "priced"|"unchanged"|"locked"|"failed",
     "exit": 0|1, "run_id", "week", ...}. Never raises: a refusal is the
     "failed" outcome, logged and recorded.
 
     load/statuses/puller are for tests: the data loader, a tag dict in place
-    of the Yahoo fetch, and the per-day log pull."""
+    of the Yahoo fetch, and the per-day log pull. now: the moment the price
+    lock is judged at (default: now on the league clock)."""
     base = Path(base_path)
     started = league_now().isoformat(timespec="microseconds")
     run_id = f"{started}-{trigger}"          # microseconds: two runs in one second stay distinct
@@ -189,6 +197,14 @@ def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFA
         if key["cacheable"] and on_disk_key == key["key"]:
             rec["outcome"] = "unchanged"
             msg = f"week {week} as of {as_of}: nothing changed (key {key['key']}); line left as is"
+        elif (lock := price_lock.status(now, data.nba_schedule))["locked"]:
+            waiting = rl.waiting_changes(p, key)
+            rec["outcome"] = "locked"
+            rec["lock"] = lock
+            rec["waiting"] = waiting
+            rec["message"] = price_lock.lock_message(len(waiting))
+            msg = (f"week {week} as of {as_of}: {rec['message']} (first tip {lock['first_tip']}; "
+                   f"waiting: {', '.join(waiting)}); nothing priced or written")
         else:
             rec["why_priced"] = ("no line on disk" if on_disk is None else
                                  key["why_not"] if not key["cacheable"] else

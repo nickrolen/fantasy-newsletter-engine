@@ -200,6 +200,45 @@ def test_every_gitignored_path_the_engine_names_is_state_or_excluded():
                            f"state (config/STATE_MANIFEST.json) nor excluded: {offenders}")
 
 
+# Paths the scan finds that git neither tracks nor ignores, on purpose. Each
+# is a name fragment the code builds a pattern from, a generic glob used to
+# scan a folder, or a public default -- never a file the engine writes as
+# league state. Anything else that is neither tracked nor ignored would be
+# committed to the public repo by a stray `git add -A` (step 1a, 10-31: the
+# first version of this guard checked ignored paths only and let a new state
+# file under output/ through).
+NEITHER_ON_PURPOSE = {
+    "data/nba_schedule_": "a name prefix (data/nba_schedule_<season>.json is tracked, public)",
+    "data/waivers_week": "a name prefix of the waivers pattern (state)",
+    "output/stats_report_week": "a name prefix of the stats-report pattern (state)",
+    "output/*": "a generic glob: code that scans output/",
+    "output/*.html": "a generic glob: code that scans output/ for pages",
+    "data/nba_schedule.json": "the schedule's fallback default name; the configured "
+                              "data/nba_schedule_2026-27.json is tracked and public",
+    "data/calibration": "the directory; its one file, published_lines.json, is state",
+}
+
+
+@needs_git
+def test_no_path_the_engine_names_would_be_committed_by_accident():
+    """Every path the engine names is tracked (public on purpose), ignored
+    (state or excluded, checked above), or listed in NEITHER_ON_PURPOSE."""
+    paths = engine_paths()
+    sample = {p: p.replace("*", "7") for p in paths}
+    ign = ignored(list(sample.values()))
+    tracked = set(git("ls-files", "-z").split("\0"))
+    stray = []
+    for p, s in sample.items():
+        if s in ign or p in NEITHER_ON_PURPOSE:
+            continue
+        if s in tracked or any(f.startswith(s.rstrip("/") + "/") for f in tracked):
+            continue
+        stray.append(p)
+    assert not stray, ("paths the engine reads or writes that git neither tracks nor "
+                       f"ignores -- a `git add -A` would publish them: {sorted(stray)}. "
+                       "League state goes in config/STATE_MANIFEST.json and .gitignore")
+
+
 # ============================================================ 4. pull and push
 
 STATE = Path(ROOT / "scripts" / "state.py")

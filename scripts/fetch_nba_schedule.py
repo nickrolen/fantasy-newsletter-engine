@@ -25,6 +25,20 @@ SOURCES
            normally from all three.
     auto   try nba, fall back to bbref. The default.
 
+TIP TIMES (step 1a, 2026-10-31; claude/SELF_RUNNING_DESIGN.md s.4.1)
+    Every game keeps its tip as a UTC instant, "tip_utc": "2026-11-03T00:30:00Z".
+    bbref's "Start (ET)" ("7:30p") is converted through the zone database
+    (America/New_York), never a fixed offset; nba's gameDateTimeUTC is used as
+    is. A game with no time yet (TBD, postponed, an unset Cup knockout game)
+    is stored with "tip_utc": null -- never guessed. Every tip must fall, on
+    the league's clock (modules/league_clock), on the game's listed date, or
+    the fetch raises naming the game. Only modules/price_lock.py reads tip_utc:
+    nothing that prices a line or a season does (tests/test_price_lock.py).
+
+    --tips-only adds the tips to the existing file and changes nothing else:
+    the refetched games must match it exactly (date, home, away), or the file
+    is left alone and the differences are printed (exit 2).
+
 For manual download:
     The NBA schedule can be downloaded from:
     https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json
@@ -73,6 +87,83 @@ BBREF_MONTHS = ["october", "november", "december", "january", "february",
 # Everything else already matches the NBA's tricodes, which are what
 # PLAYERLOG and the projections key off.
 BBREF_TO_NBA = {"BRK": "BKN", "CHO": "CHA", "PHO": "PHX"}
+
+BBREF_ZONE = "America/New_York"   # bbref's "Start (ET)"
+
+
+class TipCheckFailed(ValueError):
+    """A tip time that does not fit its game: unparseable, or not on the
+    game's listed date on the league's clock."""
+
+
+def bbref_tip_utc(day, text):
+    """bbref's Start (ET) text ("7:30p", "10:00p", "12:00p") on `day` as a UTC
+    instant "YYYY-MM-DDTHH:MM:SSZ", through the zone database. Empty or TBD
+    -> None (no time yet). Anything else raises: a format change must not
+    turn into a quietly wrong time."""
+    import re as _re
+    from datetime import datetime, timezone
+    from zoneinfo import ZoneInfo
+    raw = _re.sub(r"<[^>]+>", "", str(text or "")).strip()
+    if raw == "" or raw.upper() in ("TBD", "TBA", "PPD", "POSTPONED"):
+        return None
+    m = _re.fullmatch(r"(\d{1,2}):(\d{2})\s*([ap])m?", raw, _re.I)
+    if not m:
+        raise TipCheckFailed(f"{day}: unrecognised Start (ET) {raw!r}")
+    hour, minute, ap = int(m.group(1)), int(m.group(2)), m.group(3).lower()
+    if not (1 <= hour <= 12 and 0 <= minute < 60):
+        raise TipCheckFailed(f"{day}: unrecognised Start (ET) {raw!r}")
+    hour = (hour % 12) + (12 if ap == "p" else 0)
+    local = datetime(day.year, day.month, day.day, hour, minute, tzinfo=ZoneInfo(BBREF_ZONE))
+    return local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def tip_league_date(tip_utc):
+    """The league day (modules/league_clock) a tip instant falls on."""
+    from datetime import datetime, timezone
+    from modules.league_clock import league_date_of_timestamp
+    t = datetime.strptime(tip_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    return league_date_of_timestamp(t.timestamp())
+
+
+def check_tips(games) -> None:
+    """Every game's tip, on the league's clock, falls on its listed date.
+    Raises naming each game that does not."""
+    bad = []
+    for g in games:
+        tip = g.get("tip_utc")
+        if tip is None:
+            continue
+        on = tip_league_date(tip)
+        if on.isoformat() != str(g["date"])[:10]:
+            bad.append(f"{g['away']} @ {g['home']} listed {str(g['date'])[:10]}, tip {tip} "
+                       f"is {on} on the league's clock")
+    if bad:
+        raise TipCheckFailed("tip times that do not fall on their game's date:\n  "
+                             + "\n  ".join(bad))
+
+
+def add_tips_only(old: dict, new: dict):
+    """(old's file with each game's tip_utc taken from `new`, problems).
+    `problems` lists every game that is not in both files with the same date,
+    home and away -- if there is any, nothing may be written."""
+    key = lambda g: (str(g.get("date"))[:10], g.get("home"), g.get("away"))
+    new_tips = {}
+    for g in new.get("games", []):
+        new_tips[key(g)] = g.get("tip_utc")
+    old_keys = [key(g) for g in old.get("games", [])]
+    problems = []
+    if len(set(old_keys)) != len(old_keys):
+        problems.append("the existing file lists a game twice")
+    for k in old_keys:
+        if k not in new_tips:
+            problems.append(f"in the file, not in the refetch: {k[0]} {k[2]} @ {k[1]}")
+    for k in sorted(set(new_tips) - set(old_keys)):
+        problems.append(f"in the refetch, not in the file: {k[0]} {k[2]} @ {k[1]}")
+    merged = dict(old)
+    merged["games"] = [{**g, "tip_utc": new_tips.get(key(g))} for g in old.get("games", [])]
+    return merged, problems
+
 
 BROWSER_HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -134,6 +225,9 @@ def _parse_bbref_month(html: str, year: int) -> list:
         return BBREF_TO_NBA.get(found.group(1), found.group(1))
 
     games = []
+    if 'data-stat="game_start_time"' not in table.group(0):
+        raise TipCheckFailed("a basketball-reference month page has no Start (ET) column "
+                             "(data-stat=game_start_time): the markup changed")
     for row in _re.findall(r"<tr[^>]*>(.*?)</tr>", table.group(0), _re.S):
         raw_date = cell(row, "date_game")
         away = tricode(cell(row, "visitor_team_name"))
@@ -149,6 +243,7 @@ def _parse_bbref_month(html: str, year: int) -> list:
             "date": parsed.strftime("%Y-%m-%dT00:00:00Z"),
             "home": home,
             "away": away,
+            "tip_utc": bbref_tip_utc(parsed.date(), cell(row, "game_start_time")),
         })
     return games
 
@@ -257,20 +352,29 @@ def trim_schedule(full_schedule: dict) -> dict:
                 if game.get("gameSubtype", "").lower() == "preseason":
                     continue
                     
+                tip = game.get("gameDateTimeUTC") or None
+                if tip and str(game.get("gameStatusText", "")).strip().upper().startswith("TBD"):
+                    tip = None          # a placeholder time, not a tip
+                if tip:
+                    tip = str(tip)[:19].replace(" ", "T") + "Z"
                 games.append({
                     "date": game.get("gameDateEst", ""),
                     "home": game.get("homeTeam", {}).get("teamTricode", ""),
                     "away": game.get("awayTeam", {}).get("teamTricode", ""),
+                    "tip_utc": tip,
                 })
     
     # Handle already-trimmed format (just validate/pass through)
     elif "games" in full_schedule:
         for game in full_schedule["games"]:
-            games.append({
+            g = {
                 "date": game.get("date", ""),
                 "home": game.get("home", game.get("home_team", "")),
                 "away": game.get("away", game.get("away_team", "")),
-            })
+            }
+            if "tip_utc" in game:
+                g["tip_utc"] = game["tip_utc"]
+            games.append(g)
     
     else:
         print("Warning: Unrecognized schedule format")
@@ -376,6 +480,12 @@ def main():
              "file it replaces (normally refused as a partial fetch)",
     )
     parser.add_argument(
+        "--tips-only",
+        action="store_true",
+        help="add each game's tip time to the existing file and change nothing else; "
+             "refuses (exit 2, file untouched) if any game differs",
+    )
+    parser.add_argument(
         "--keep-full",
         action="store_true",
         help="Also save the full (untrimmed) schedule",
@@ -420,6 +530,30 @@ def main():
                 old = json.load(f)
         except (OSError, json.JSONDecodeError):
             old = None
+    check_tips(trimmed.get("games", []))
+    if args.tips_only:
+        if not old:
+            print(f"\nREFUSED: --tips-only needs the existing {args.output} to add tips to.")
+            sys.exit(2)
+        merged, problems = add_tips_only(old, trimmed)
+        if problems:
+            print(f"\nSTOPPED: the refetch does not match {args.output} game for game, so "
+                  f"nothing was written. {len(problems)} difference(s):")
+            for line in problems:
+                print(f"  {line}")
+            print("A moved, added or removed game is Nick's call (STATUS task 33).")
+            sys.exit(2)
+        check_tips(merged["games"])
+        merged["tips_fetched_at"] = stamp({}, source)["fetched_at"]
+        merged["tips_source"] = source
+        with open(args.output, "w", encoding="utf-8") as f:
+            json.dump(merged, f, indent=2)
+        n = len(merged["games"])
+        timed = sum(1 for g in merged["games"] if g.get("tip_utc"))
+        print(f"\nAdded tip times to {args.output}: {timed} of {n} games timed, "
+              f"{n - timed} with no time yet (tip_utc null). Nothing else changed.")
+        return
+
     diff = diff_schedules(old, trimmed) if old else None
     if diff:
         problem = shrink_problem(diff)

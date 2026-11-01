@@ -246,6 +246,12 @@ config/snapshots/*
 archive/
 # The issues and their previews (STATUS task 26).
 output/WEEK*_NEWSLETTER*.html
+# Every title-odds run, kept as history and never scored (step 1a, 10-31).
+output/title_odds_history.jsonl
+# Nick's weekly context input in config/ (format_stats_report reads it there
+# too), and an optional legacy league-history file data_loader reads if present.
+config/weeklycontextinput_week*.json
+data/LEAGUE_HISTORY_DETAILED.json
 # Each week's live-line page. Week 1's two pages stay tracked and public on
 # purpose (Nick, 10-31): output/live_lines_week1.html and
 # output/live_lines_week1_midweek_DEMO.html.

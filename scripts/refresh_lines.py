@@ -60,6 +60,38 @@ CAVEATS = [
 ]
 
 
+class PricesLocked(RuntimeError):
+    """Games are on (modules/price_lock): nothing was priced or written."""
+
+
+def waiting_changes(p, key) -> list:
+    """What the line on disk lacks: the cache-key parts that differ from the
+    line's own key, or why there is nothing to compare. What a locked run
+    reports as "N changes waiting"."""
+    path = p.out_dir / f"live_lines_week{p.week}.json"
+    on_disk = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+    if on_disk is None:
+        return ["no line on disk"]
+    if not key["cacheable"]:
+        return [key["why_not"] or "the key is not cacheable"]
+    parts = (on_disk.get("cache") or {}).get("parts")
+    if not parts:
+        return ["the line on disk has no cache key (a manual refresh)"]
+    return [k for k, v in key["parts"].items() if parts.get(k) != v]
+
+
+def lock_check(p, key, now=None) -> None:
+    """Refuse to price while games are on (modules/price_lock, the one
+    place it is decided): raises PricesLocked with the hub's message, or
+    TipTimeMissing on a day whose tip times are not all known."""
+    from modules import price_lock
+    st = price_lock.status(now, p.data.nba_schedule)
+    if st["locked"]:
+        waiting = waiting_changes(p, key)
+        raise PricesLocked(price_lock.lock_message(len(waiting))
+                           + f" (first tip {st['first_tip']}; waiting: {', '.join(waiting)})")
+
+
 class SeedChanged(RuntimeError):
     pass
 
@@ -272,9 +304,11 @@ def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
 def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATIONS, seed=None,
             statuses=None, no_tags=False, allow_missing_days=False,
             assume_tags_since_week_start=False, reseed=False, dry_run=False, data=None,
-            allow_season_out_conflict=False) -> dict:
+            allow_season_out_conflict=False, now=None) -> dict:
     p = prepare(base_path, week, as_of, seed, statuses, no_tags, allow_missing_days,
                 assume_tags_since_week_start, reseed, dry_run, data, allow_season_out_conflict)
+    if not dry_run:
+        lock_check(p, cache_key(p, sims), now)     # a dry run writes nothing, so prints
     return price(p, sims, dry_run)
 
 
@@ -299,9 +333,13 @@ def main(argv=None):
     ap.add_argument("--base-path", default=".")
     a = ap.parse_args(argv)
     st = json.loads(Path(a.statuses).read_text(encoding="utf-8")) if a.statuses else None
-    p = refresh(a.base_path, a.week, a.as_of, a.sims, a.seed, st, a.no_tags, a.allow_missing_days,
-                a.assume_tags_since_week_start, a.reseed, a.dry_run,
-                allow_season_out_conflict=a.allow_season_out_conflict)
+    try:
+        p = refresh(a.base_path, a.week, a.as_of, a.sims, a.seed, st, a.no_tags,
+                    a.allow_missing_days, a.assume_tags_since_week_start, a.reseed, a.dry_run,
+                    allow_season_out_conflict=a.allow_season_out_conflict)
+    except PricesLocked as e:
+        print(f"{e}\nNothing was priced or written. The 12:01 AM run prices it.")
+        return 0
     print(f"Week {p['week']} as of {p['as_of']}  seed {p['seed']}  state {p['state_hash']}")
     for ln in p["lines"]:
         print(f"  {ln['matchup']:22s} {ln['manager_a']} {ln['spread_a']:+.1f}  "

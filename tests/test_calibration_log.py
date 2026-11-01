@@ -473,18 +473,20 @@ def test_the_latest_as_of_is_scored_and_a_tie_goes_to_the_later_appended(tmp_pat
     assert kept[0]["line_key"] == "x"
 
 
-def test_a_weekly_build_line_and_a_live_refresh_line_are_separate_curves(tmp_path):
-    """Nick 10-28: a group is engine x source. Two products' lines on one
-    matchup-week share one outcome, so they are never pooled -- the weekly
-    build's curve is the newsletter's line, the live refresh's the live page's."""
+def test_a_weekly_build_line_and_a_live_refresh_line_are_never_pooled(tmp_path):
+    """Nick 10-28: a group is engine x source; two products' lines on one
+    matchup-week share one outcome, so they are never pooled. And (Nick 10-30,
+    decision 4; step 1a) only the weekly build is SCORED: the live re-prices
+    are history, counted apart and never given statistics."""
     cal.append(_refreshes(2, 1) + _refreshes(2, 5, source=cal.LIVE_REFRESH, start=1), tmp_path)
     _settle_weeks(tmp_path, (2,))
-    groups = cal.curve(tmp_path)["groups"]
-    assert set(groups) == {"abc1234 / weekly_build", "abc1234 / live_refresh"}
-    wk, live = groups["abc1234 / weekly_build"], groups["abc1234 / live_refresh"]
+    res = cal.curve(tmp_path)
+    assert set(res["groups"]) == {"abc1234 / weekly_build"}
+    wk = res["groups"]["abc1234 / weekly_build"]
     assert (wk["n_records"], wk["n_lines"]) == (2, 2)
+    live = res["history"]["abc1234 / live_refresh"]
     assert (live["n_records"], live["n_lines"]) == (10, 2)
-    assert sorted(c["of"] for c in live["collapsed"]) == [5, 5]
+    assert "not scored" in live["note"] and "level" not in live and "probability" not in live
 
 
 def test_one_record_from_each_source_lands_in_two_groups_of_one_line(tmp_path):
@@ -493,10 +495,47 @@ def test_one_record_from_each_source_lands_in_two_groups_of_one_line(tmp_path):
                tmp_path)
     cal.settle(_week_scores(2, 1500.0, 1450.0), tmp_path)
     for mode in ({}, {"mix_versions": True}, {"engine": "abc1234"}):
-        groups = cal.curve(tmp_path, **mode)["groups"]
-        assert len(groups) == 2, mode
-        assert sorted(g["n_lines"] for g in groups.values()) == [1, 1], mode
-        assert {k.rpartition(" / ")[2] for k in groups} == {cal.WEEKLY_BUILD, cal.LIVE_REFRESH}
+        res = cal.curve(tmp_path, **mode)
+        assert [g["n_lines"] for g in res["groups"].values()] == [1], mode
+        assert {k.rpartition(" / ")[2] for k in res["groups"]} == {cal.WEEKLY_BUILD}, mode
+        assert [h["n_lines"] for h in res["history"].values()] == [1], mode
+        assert {k.rpartition(" / ")[2] for k in res["history"]} == {cal.LIVE_REFRESH}, mode
+
+
+def test_nightly_style_live_records_change_no_score(tmp_path):
+    """Step 1a: a log with dozens of nightly re-prices per week scores exactly
+    as the same log without them -- every statistic, every group."""
+    cal.append(_refreshes(2, 1) + _refreshes(3, 1), tmp_path / "plain")
+    _settle_weeks(tmp_path / "plain", (2, 3))
+    nightly = []
+    for w in (2, 3):
+        nightly += _refreshes(w, 7, source=cal.LIVE_REFRESH, start=1)
+    cal.append(_refreshes(2, 1) + _refreshes(3, 1) + nightly, tmp_path / "busy")
+    _settle_weeks(tmp_path / "busy", (2, 3))
+    plain, busy = cal.curve(tmp_path / "plain"), cal.curve(tmp_path / "busy")
+    assert plain["groups"] == busy["groups"]
+    assert busy["history"] and not plain["history"]
+    lines = cal.format_curve(busy)
+    assert any("history, not scored" in ln and "live_refresh" in ln for ln in lines)
+
+
+def test_only_the_weekly_build_is_a_scored_source():
+    assert cal.SCORED_SOURCES == (cal.WEEKLY_BUILD,)
+
+
+def test_the_curve_on_todays_log_is_unchanged_by_the_rule():
+    """The newsletter shows no calibration (format_curve is console-only); the
+    one reader, Step 6's console, prints the same curve on today's log: it holds
+    weekly-build records only."""
+    log = ROOT / cal.LOG_RELPATH
+    if not log.is_file():
+        pytest.skip("the calibration log is league state, not in this checkout")
+    lines = cal.load_log(ROOT)["lines"]
+    res = cal.curve(ROOT)
+    if all(r.get("source") == cal.WEEKLY_BUILD for r in lines):
+        assert res["history"] == {}
+    scored = [r for r in lines if r.get("source") in cal.SCORED_SOURCES]
+    assert res["groups"] == cal.curve(ROOT, lines=scored)["groups"]
 
 
 def test_two_engines_on_one_week_stay_apart_each_deduplicated(tmp_path):

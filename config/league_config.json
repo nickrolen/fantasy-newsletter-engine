@@ -316,6 +316,8 @@
         "_scale": "Persistent error in a player's level -- the engine being wrong about who is good, all season (modules/projections.py, projection_error_sd). Its width is DERIVED, not chosen: in the normal model behind the shrinkage curve, k0 = (per-game sd / prior error)^2, so the error at zero games is DEFAULT_PLAYER_VARIANCE / sqrt(projection_shrinkage.k0_games) = 0.35 / sqrt(20) = 7.8% of his level, narrowing to that times sqrt(k0 / (k + k0)) after k appearances. This key scales that derived value; 1.0 = as derived. Change k0 and the width follows. Set 2026-10-28 (HANDOFF_PERSISTENT_ERROR)."
     },
     "roster_moves": {
+        "yahoo_max_adds_setting": 6,
+        "_yahoo_max_adds_comment": "What Yahoo's Max Adds per week must show (Nick set it 10-31). It differs from league_structure.weekly_add_budget (3, the league's rule) ON PURPOSE: Yahoo sees a group-chat claim only when it is applied in the NEXT week's window (rule 7), so in one Yahoo week a team can apply up to 3 claims from the week before plus 3 adds of its own. The engine enforces the 3; the settings-drift check (modules/yahoo_settings.py) requires Yahoo to show this. Required: missing raises.",
         "il_eligible_tags": ["O", "OFS"],
         "_il_eligible_tags": "Only these Yahoo tags make a player eligible for an IL slot (LEAGUE_RULES.md, 2026-27 IL rules, rule 2). The simulator's roster plan treats a player with a live INJURY_OVERRIDES entry as O (modules/roster_plan.py).",
         "replacement_rank": 4,
@@ -365,6 +367,39 @@
             "_comment": "Season -> the manager who won that season's Cup (weeks 22-23). That manager keeps one extra player the FOLLOWING season. null means the Cup has not been played or the result has not been recorded yet; keepers_for() refuses to guess and treats every manager as base until it is filled in. scripts/start_new_season.py will not let a season be archived while its Cup winner is still null.",
             "2026-27": null
         }
+    },
+    "yahoo_settings": {
+        "_comment": "The Yahoo league settings the engine models, beyond league_structure and roster_moves (step 1a, 10-31): the settings-drift check (modules/yahoo_settings.py, scripts/check_yahoo_settings.py) refuses when Yahoo shows anything else. Read from Yahoo 10-31 and put to Nick the same day (step 1a); his answer is recorded in claude/STEP1A_RESULT_2026-10-31.md. Settings the engine has no rule for are listed in _unchecked, on purpose. Every key is required: missing raises.",
+        "scoring_type": "headpoint",
+        "uses_playoff": false,
+        "_uses_playoff_comment": "Yahoo's own playoffs stay off: the league's postseason (weeks 16-23, then the Cup) is the engine's (postseason_format).",
+        "waiver_time_days": 0,
+        "uses_faab": false,
+        "_waivers_comment": "Rule 8: no waivers, free agents first come first served.",
+        "can_trade_draft_picks": true,
+        "trade_deadline": "2027-03-04",
+        "_trade_deadline_comment": "Yahoo trade_end_date. Nick confirmed 10-31 that 2027-03-04 is the league's real deadline; the move ledger (step 2) refuses a chat trade after it.",
+        "stat_values": {
+            "FGM": 1,
+            "FGA": -0.45,
+            "FTM": 1,
+            "FTA": -0.75,
+            "3PTM": 3,
+            "PTS": 0.5,
+            "REB": 1.5,
+            "AST": 2,
+            "ST": 3,
+            "BLK": 3,
+            "TO": -2
+        },
+        "_stat_values_comment": "Yahoo's fantasy-point value of each scoring category. The engine takes points from Yahoo, so a changed value would silently make this season's points incomparable with history.",
+        "_unchecked": [
+            "waiver_type",
+            "waiver_rule",
+            "post_draft_players",
+            "trade_ratify_type",
+            "trade_reject_time"
+        ]
     },
     "payouts": {
         "_comment": "Manager-to-manager payments; the league keeps no pot. USD.",

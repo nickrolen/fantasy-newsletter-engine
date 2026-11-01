@@ -20,7 +20,9 @@
     {"path": "config/LEAGUE_LORE.json", "what": "the league's lore (Nick's sittings; read for drafting only via output/lore_for_drafting.json)"},
     {"path": "config/LORE_USAGE.json", "what": "which lore entries have been used"},
     {"path": "output/lore_for_drafting.json", "what": "the lore export for drafting"},
-    {"path": "output/keeper_backtest.json", "what": "keepability step A hits table (keeper_backtest)"}
+    {"path": "output/keeper_backtest.json", "what": "keepability step A hits table (keeper_backtest)"},
+    {"path": "output/title_odds_history.jsonl", "what": "every title-odds run, append-only history; never scored (modules/title_odds_history, step 1a)"},
+    {"path": "data/LEAGUE_HISTORY_DETAILED.json", "what": "an optional legacy league-history file, read if present (data_loader)"}
   ],
   "dirs": [
     {"path": "data/lore_backups", "what": "lore backups (modules/lore.py)"},
@@ -32,6 +34,7 @@
   "patterns": [
     {"dir": "data", "name": "waivers_week*.txt", "what": "each week's adds (sync_transactions)"},
     {"dir": "data", "name": "weeklycontextinput_week*.json", "what": "Nick's weekly context input"},
+    {"dir": "config", "name": "weeklycontextinput_week*.json", "what": "Nick's weekly context input, the other place format_stats_report looks"},
     {"dir": "assets", "name": "WEEK*_DRAFT.md", "what": "each issue's draft (Step 7)"},
     {"dir": "output", "name": "WEEK*_NEWSLETTER*.html", "what": "the issues and their previews (Step 9)"},
     {"dir": "output", "name": "WEEK*_NEWSLETTER.pdf", "what": "the issues as PDF"},
