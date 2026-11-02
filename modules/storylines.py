@@ -329,8 +329,13 @@ def compute_storylines(data: dict, predictions: Optional[dict],
         except (ValueError, IndexError):
             pass
 
+    # No magic number before presentation.magic_number_from_week (Nick,
+    # 11-02); the value stays in power_rankings. The report week is read only
+    # when there is one to show, and never defaulted.
+    from .data_loader import shows_magic_number
     for pr in (data.get("power_rankings") or []):
-        if pr.get("magic_number") and pr.get("rank") == 1:
+        if pr.get("magic_number") and pr.get("rank") == 1 and shows_magic_number(
+                (data.get("metadata") or {}).get("week")):
             add(Storyline("clinch_watch", (pr["manager"],),
                           f" -> CLINCH WATCH: {pr['manager']}'s magic number "
                           f"is {pr['magic_number']}",

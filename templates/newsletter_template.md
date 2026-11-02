@@ -234,6 +234,7 @@ SCORING TRENDS (from scoring_trends, for both managers in matchup):
 - **SEASON INJURY CONTEXT:** When injuries significantly impacted a matchup, weave in season-long non-IL injury burden for context. Example: "This was yet another injury-plagued week for Hayden, who has now lost 116 games to injury this season -> 51 more than any other manager." This adds depth without making every matchup about injuries.
 - **HISTORICAL CLAIM VERIFICATION:** Before writing ANY "most/worst/best in league history" or "in X years of the league" claim, you MUST check the extracted historical data. For luck index claims, check `historical_luck.managers` for all seasons. Hayden's -3.6 luck index is NOT "the most unlucky season in league history" -- it's #6 all-time (Benton's 2020-21 at -7.6 is the actual worst). Use "one of the unluckiest" or "the worst of Hayden's career" (after verifying) instead. See Critical Rule #13.
 - **CURRENT TEAM HEALTH:** Use `current_team_health` to show the health state GOING INTO the matchup. This is crucial for forward-looking context:
+  - **What it counts (11-02):** every player in an IL slot for the coming week (out all week), every override covering the week, and every Q/D/O tag with no override (the games the injury model expects him to miss). Each player's `why` says which: "IL slot", "override, back MM-DD", or "O tag, expected to miss ~N of M games". Say why in those words; never call a tagged player out for the week.
   - "Hayden enters Week 14 at 83.8% health with Jokic (59.2 FPPG) still sidelined, while Benton is nearly full strength at 93.8%"
   - "For the first time since Week 10, Nick is playing without a major injury -> AD's return bumps him to 100% health"
   - Combine with non-IL burden for the full picture: "Hayden's 83.8% current health is actually an improvement -> he's dealt with a league-high 24.9% season burden"
@@ -580,7 +581,7 @@ Note: "championships" = number of titles won (read live values from power_rankin
 Note: "expected_record" = projected final record based on simulations (e.g., "14.4-6.6")
 
 From title_odds:
-- Magic number (if applicable): [title_odds.magic_number]
+- Magic number (if applicable; week 8 report on only): [title_odds.magic_number]
 
 SEASON INJURY BURDEN (from season_injury_burden, all managers):
 | Manager | Season Burden | Games Lost to Injury | IL Games | Top IL Player |
@@ -625,7 +626,7 @@ currency); plus the section's sentences, which the page prints as written
 | 1 | [Team] | [W-L] | [X]% | [ -> / -> / -> ] |
 [4 rows]
 
-[3-4 paragraphs -> title race narrative, each team's outlook, magic numbers, draft pick positioning implications (check the SEASON TRADE LOG and DRAFT PICK OWNERSHIP blocks in the stats report to see who actually owns whose picks -> do NOT assume last place = #1 overall pick, as picks may have been traded). EVERY stat must be from extraction.]
+[3-4 paragraphs -> title race narrative, each team's outlook, magic numbers (week 8 report on only), draft pick positioning implications (check the SEASON TRADE LOG and DRAFT PICK OWNERSHIP blocks in the stats report to see who actually owns whose picks -> do NOT assume last place = #1 overall pick, as picks may have been traded). EVERY stat must be from extraction.]
 
 **Money and Exposure**
 
@@ -664,7 +665,8 @@ currency); plus the section's sentences, which the page prints as written
   - "Hayden has been cold for weeks -> his last 3 average of 1,450 is 8% below his season norm"
   - Trends can signal whether a team's record reflects their true strength or luck
 - Trend arrows: ^ (improved), v (declined), ??" (unchanged)
-- **MAGIC NUMBER:** If present, the magic number applies to the 1st place team clinching over the **2nd place team specifically**. For example, "Nick's magic number is 7" means any combination of Nick wins + **Benton** losses (the 2nd place team) totaling 7 clinches. Do NOT say "non-Nick losses" -> only losses by the 2nd place challenger count. **CRITICAL: A magic number of 2 does NOT mean "one win clinches." It means TWO events are needed (e.g., a Nick win AND a Benton loss). NEVER write "a win clinches" unless the magic number is literally 1.**
+- **NO MAGIC NUMBER BEFORE THE WEEK 8 REPORT** (Nick, 11-02). The stats report prints none before then; don't write one, or mention magic numbers at all. The claim check flags it.
+- **MAGIC NUMBER:** If present (week 8 report on), the magic number applies to the 1st place team clinching over the **2nd place team specifically**. For example, "Nick's magic number is 7" means any combination of Nick wins + **Benton** losses (the 2nd place team) totaling 7 clinches. Do NOT say "non-Nick losses" -> only losses by the 2nd place challenger count. **CRITICAL: A magic number of 2 does NOT mean "one win clinches." It means TWO events are needed (e.g., a Nick win AND a Benton loss). NEVER write "a win clinches" unless the magic number is literally 1.**
 - **ELIMINATION CHECK:** Before writing about any team's playoff/title hopes, verify: games_back vs weeks_remaining. If games_back > weeks_remaining, the team is mathematically eliminated. Do NOT write "not quite eliminated" for a team that IS eliminated. Hayden at 4-12 with 5 weeks left and 9 games back = eliminated.
 - **DRAFT PICK OWNERSHIP DEFAULTS:** In the DRAFT PICK OWNERSHIP table, only NON-DEFAULT ownership is listed. If a pick is NOT listed, the original team STILL OWNS IT. Example: Benton owns Nick's 2026 1st (listed as "1_Nick": "Benton"), but Benton also still owns HIS OWN 2026 1st (not listed because it's default). Do NOT write "Benton's 1st round pick is actually Nick's" -- Benton has BOTH his own 1st AND Nick's 1st.
 - **DO NOT list career win rates explicitly** -> career stats can inform your tone (e.g., "defying his historical struggles" or "continuing his usual dominance") but should not be dumped as a list like "Nick leads at 60.4%, followed by..."
@@ -1075,6 +1077,7 @@ TRADE HISTORY (from all_time_records.trade_partners):
 ```
 
 ### KEY RULES
+- **THE ADVICE IS OFF until the new engine ships (Nick, 11-01).** While `season.legacy_advice` is "off", Section 10 of the stats report has no trade finder or waiver plans, only the line "The advice returns with the new engine." The page prints that line itself at the top of Rumor Mill: do not retype it, and write no advice, trade finder or waiver plans of your own. If you mention the advice anywhere, use that sentence word for word (never "Section 10 returns...": the claim check reads the 10 as an unsourced number). Hot Streaks, Slump Watch and the rest of Rumor Mill are unchanged.
 - **TRADE FINDER AND WAIVER PLANS (when the stats report has the block):** the tables are rendered into the HTML automatically -- never retype them. Write around them.
   - **Never call a trade fair, and never say both sides "win".** Gains are measured against NOT trading. Every trade has a differential: say who moves ahead of whom ("Nick gains 200, Hayden 150 -- Nick moves 50 ahead, and both pull away from Benton and Garrett"). In a four-team league a trade is a two-on-two move.
   - The trade order is the smaller side's gain: how likely the reluctant side is to say yes. Do not describe it as a ranking of fairness or quality.

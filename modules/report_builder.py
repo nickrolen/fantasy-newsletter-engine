@@ -1274,49 +1274,112 @@ def build_season_injury_burden(data: FantasyData) -> dict:
     return injury_burden
 
 
+class TeamHealthInputError(ValueError):
+    """Current Team Health refuses rather than default: an IL file for
+    another week, or no statement about the tags at all."""
+
+
+def _md(d) -> str:
+    return f"{d.month:02d}-{d.day:02d}"
+
+
+def _tilde(x: float) -> str:
+    s = f"{x:.1f}"
+    return s[:-2] if s.endswith(".0") else s
+
+
 def build_current_team_health(
     data: FantasyData,
     week: int,
     injury_overrides: dict = None,
+    injury_statuses=None,
+    il_state: dict = None,
 ) -> dict:
     """
-    Build current team health snapshot for the upcoming week.
-    
-    This measures each team's health at the TIME of newsletter generation,
-    showing what percentage of their projected production is available.
-    
-    Unlike season_injury_burden (which tracks historical injury impact),
-    this shows the CURRENT state - useful for matchup previews and
-    identifying teams that are "finally getting healthy" vs "still decimated".
-    
+    Each team's health entering week N+1: the share of its projected FPPG
+    that is available, and who is not, and why.
+
+    Unavailable (STATUS task 20; Nick, 11-02, after the week 2 issue printed
+    Garrett at 100.0% with Kon Knueppel in his IL slot for all of week 3):
+      1. every player in an IL slot for week N+1 (data/IL_SLOTS.json, or
+         data.il_slots / il_state): out the whole week, whatever his tag
+         (rule 5). Why: "IL slot".
+      2. an OFS tag: out for the season (absence precedence step 0).
+      3. an INJURY_OVERRIDES entry covering the week, as before: out_weeks
+         -> out; return_week with return_games/total_week_games -> the
+         missed share. Why: "override, back MM-DD".
+      4. a Q/D/O tag with no override touching the week
+         (absence.tag_suppressed): the games the absence model expects him
+         to miss of his team's games that week -- absence.missed_distribution,
+         the chain the simulators draw from, anchored on the week's first
+         day as theirs is. A tag alone costs at most MAX_TAG_GAMES games.
+         Why: "O tag, expected to miss ~1.6 of 4 games".
+
+    The weighting is PLAYERLIST's projected FPPG, as before.
+
+    RAISES (TeamHealthInputError) on an IL state for a week other than N+1,
+    and on injury_statuses None (no statement about the tags). A run
+    explicitly priced without tags (fetch_injury_statuses.Tags.none(): --fast,
+    --repro, --allow-no-injury-statuses, all recorded in the report metadata)
+    counts IL slots and overrides and says the tags were not counted
+    ("tags": "not counted ...").
+
     Args:
         data: FantasyData container
-        week: Current week number (health is calculated for week+1)
-        injury_overrides: INJURY_OVERRIDES data dict (optional, uses data.injury_overrides if not provided)
-    
-    Returns:
-        Dict with team health data and rankings
+        week: the report week (health is for week + 1)
+        injury_overrides: INJURY_OVERRIDES data (default data.injury_overrides)
+        injury_statuses: the run's Yahoo tags (rostered player -> tag)
+        il_state: {"fantasy_week", "slots"}; default data.il_slots, else the
+            checked file (roster_plan.load_il_slots)
     """
-    # Use data.injury_overrides if not explicitly provided
+    from . import absence
+    from .roster_plan import load_il_slots, check_against_rosters
+    from .simulator_betting import schedule_week_dates, team_season_dates
+
     if injury_overrides is None:
         injury_overrides = data.injury_overrides if data.injury_overrides else {"players": []}
-    
-    # Load player projections from PLAYERLIST
+    if injury_statuses is None:
+        raise TeamHealthInputError(
+            "Current Team Health needs the run's injury tags (a Q/D/O player misses games, an "
+            "OFS player the season): pass injury_statuses, or Tags.none() for a run priced "
+            "without tags")
+    no_tags = bool(getattr(injury_statuses, "free_agents_assumed_healthy", False)) and \
+        not len(injury_statuses)
+    tags = PlayerIndex(dict(injury_statuses))
+
+    target_week = week + 1
+    week_dates = sorted(schedule_week_dates(data).get(target_week) or [])
+
+    # Load player projections (and NBA teams) from PLAYERLIST
     playerlist = data.playerlist
     proj_by_player = PlayerIndex()
+    team_by_player = PlayerIndex()
     for _, row in playerlist.iterrows():
         name = row['player_name']
-        proj_fppg = row.get('projectedFPPG', 0) or 0
-        proj_by_player[name] = float(proj_fppg)
-    
-    # Get rosters
-    rosters = {}
-    if hasattr(data, 'get_current_rosters'):
-        rosters = data.get_current_rosters()
+        proj_by_player[name] = float(row.get('projectedFPPG', 0) or 0)
+        team_by_player[name] = str(row.get('player_nba_team') or "").upper()
+
+    rosters = data.get_current_rosters() if hasattr(data, 'get_current_rosters') \
+        else get_rosters_from_lineups(data.lineups)
+
+    # Who sits in an IL slot for week N+1
+    if week_dates:
+        il = il_state if il_state is not None else getattr(data, "il_slots", None)
+        if il is None:
+            il = load_il_slots(getattr(data, "base_path", "."), data)
+        if int(il.get("fantasy_week", -1)) != target_week:
+            raise TeamHealthInputError(
+                f"the IL state is for fantasy week {il.get('fantasy_week')}, and Current Team "
+                f"Health is for week {target_week}: re-run the roster sync "
+                "(python scripts/sync_transactions.py --week N --apply, or --il-only)")
+        check_against_rosters(il, rosters)
+        il_slots = {m: PlayerIndex({n: True for n in v}) for m, v in (il.get("slots") or {}).items()}
+        il_week = target_week
     else:
-        # Fall back to extracting from lineups
-        rosters = get_rosters_from_lineups(data.lineups)
-    
+        # After the last week of the schedule there is no week N+1: no IL
+        # state or tag game to count. Overrides only, and said so.
+        il_slots, il_week = {}, None
+
     # Build injury lookup: player -> {out_weeks, notes, return fields}
     injury_lookup = PlayerIndex()
     for entry in injury_overrides.get("players", []):
@@ -1328,87 +1391,142 @@ def build_current_team_health(
             "return_games": entry.get("return_games"),
             "total_week_games": entry.get("total_week_games"),
             "return_notes": entry.get("return_notes", ""),
+            "return_date": absence.parse_return_date(entry.get("return_date"), player_name),
+            "out_from": absence.parse_out_from(entry.get("out_from")),
         }
-    
-    # Calculate health for next week (week + 1)
-    target_week = week + 1
-    
+
+    week_start = {int(w["week"]): date.fromisoformat(str(w["start_date"])[:10])
+                  for w in (data.schedule or {}).get("weeks", [])}
+    season_dates = team_season_dates(data) if week_dates else {}
+
+    def back_date(info):
+        if info["return_date"] is not None:
+            return info["return_date"]
+        if info["return_week"] is not None and int(info["return_week"]) in week_start:
+            return week_start[int(info["return_week"])]
+        return None
+
+    def override_why(info):
+        d = back_date(info)
+        return f"override, back {_md(d)}" if d is not None else "override, no return date"
+
     teams = {}
-    returning_players = []  # Track players returning this week across all teams
-    
+    returning_players = []
+
     for manager in MANAGERS:
         roster = rosters.get(manager, [])
-        
+        slot = il_slots.get(manager) or PlayerIndex()
+
         total_fppg = 0.0
         injured_fppg = 0.0
         injured_players = []
-        
+
         for player in roster:
             proj = proj_by_player.get(player, 0)
             total_fppg += proj
-            
-            if player not in injury_lookup:
-                continue
-            
-            injury_info = injury_lookup[player]
-            out_weeks = injury_info["out_weeks"]
-            return_week = injury_info["return_week"]
-            return_games = injury_info["return_games"]
-            total_week_games = injury_info["total_week_games"]
-            
-            # Case 1: Player is fully out this week
-            if target_week in out_weeks:
+            info = injury_lookup.get(player)
+            tag = tags.get(player)
+            remaining = None
+            if info is not None:
+                remaining = sum(1 for w in info["out_weeks"] if w >= target_week)
+
+            # 1. an IL slot: out the whole week, whatever his tag (rule 5)
+            if player in slot:
                 injured_fppg += proj
-                
-                # Calculate remaining weeks
-                remaining_weeks = sum(1 for w in out_weeks if w >= target_week)
-                
-                # Determine if season-long (18+ weeks out)
-                is_season_long = len(out_weeks) >= 18
-                
                 injured_players.append({
-                    "player": player,
-                    "proj_fppg": round(proj, 1),
-                    "notes": injury_info["notes"],
-                    "remaining_weeks": remaining_weeks,
-                    "is_season_long": is_season_long,
-                    "status": "out",
-                    "availability_pct": 0,
+                    "player": player, "proj_fppg": round(proj, 1),
+                    "notes": info["notes"] if info else "",
+                    "remaining_weeks": remaining if remaining else 1,
+                    "is_season_long": bool(info and len(info["out_weeks"]) >= 18)
+                                      or absence.season_out(tag),
+                    "status": "out", "availability_pct": 0,
+                    "source": "il_slot", "why": "IL slot",
                 })
-            
-            # Case 2: Player is returning this week with partial availability
-            elif return_week == target_week and return_games and total_week_games:
-                availability_pct = (return_games / total_week_games) * 100
-                unavailable_fppg = proj * (1 - return_games / total_week_games)
-                injured_fppg += unavailable_fppg
-                
+                continue
+
+            # 2. OFS: out for the season (precedence step 0)
+            if absence.season_out(tag):
+                injured_fppg += proj
                 injured_players.append({
-                    "player": player,
-                    "proj_fppg": round(proj, 1),
-                    "notes": injury_info["return_notes"] or injury_info["notes"],
-                    "remaining_weeks": 0,
-                    "is_season_long": False,
-                    "status": "returning",
-                    "availability_pct": round(availability_pct, 0),
-                    "return_games": return_games,
-                    "total_week_games": total_week_games,
+                    "player": player, "proj_fppg": round(proj, 1),
+                    "notes": info["notes"] if info else "",
+                    "remaining_weeks": remaining or 0, "is_season_long": True,
+                    "status": "out", "availability_pct": 0,
+                    "source": "season_out", "why": "OFS tag, out for the season",
                 })
-                
-                returning_players.append({
-                    "player": player,
-                    "manager": manager,
-                    "proj_fppg": round(proj, 1),
-                    "return_games": return_games,
-                    "total_week_games": total_week_games,
-                    "return_notes": injury_info["return_notes"],
-                })
-        
+                continue
+
+            if info is not None:
+                out_weeks = info["out_weeks"]
+                return_week = info["return_week"]
+                return_games = info["return_games"]
+                total_week_games = info["total_week_games"]
+
+                # 3a. override: fully out this week
+                if target_week in out_weeks:
+                    injured_fppg += proj
+                    injured_players.append({
+                        "player": player, "proj_fppg": round(proj, 1),
+                        "notes": info["notes"], "remaining_weeks": remaining,
+                        "is_season_long": len(out_weeks) >= 18,
+                        "status": "out", "availability_pct": 0,
+                        "source": "override", "why": override_why(info),
+                    })
+                    continue
+
+                # 3b. override: returning this week with partial availability
+                if return_week == target_week and return_games and total_week_games:
+                    availability_pct = (return_games / total_week_games) * 100
+                    injured_fppg += proj * (1 - return_games / total_week_games)
+                    injured_players.append({
+                        "player": player, "proj_fppg": round(proj, 1),
+                        "notes": info["return_notes"] or info["notes"],
+                        "remaining_weeks": 0, "is_season_long": False,
+                        "status": "returning", "availability_pct": round(availability_pct, 0),
+                        "return_games": return_games, "total_week_games": total_week_games,
+                        "source": "override",
+                        "why": f"{override_why(info)} ({return_games} of {total_week_games} games)",
+                    })
+                    returning_players.append({
+                        "player": player, "manager": manager, "proj_fppg": round(proj, 1),
+                        "return_games": return_games, "total_week_games": total_week_games,
+                        "return_notes": info["return_notes"],
+                    })
+                    continue
+
+            # 4. a Q/D/O tag no override governs this week: the absence model
+            ctag = absence.chain_tag(tag) if tag is not None else None
+            if ctag is None or not week_dates or no_tags:
+                continue
+            if info is not None and absence.tag_suppressed(
+                    target_week, week_dates, info["out_weeks"], info["return_week"],
+                    info["out_from"]):
+                continue
+            team = team_by_player.get(player)
+            if not team:
+                raise TeamHealthInputError(f"{player} ({manager}) is tagged {tag} but has no NBA "
+                                           "team in PLAYERLIST: his games can't be counted")
+            games = [d for d in season_dates.get(team, []) if week_dates[0] <= d <= week_dates[-1]]
+            n = len(games)
+            dist = absence.missed_distribution(ctag)
+            expected = sum(p * min(r, n) for r, p in enumerate(dist))
+            share = expected / n if n else 0.0
+            injured_fppg += proj * share
+            injured_players.append({
+                "player": player, "proj_fppg": round(proj, 1),
+                "notes": "", "remaining_weeks": 0, "is_season_long": False,
+                "status": "tagged", "availability_pct": round(100 * (1 - share), 0),
+                "tag": ctag, "expected_missed": round(expected, 2), "week_games": n,
+                "source": "tag",
+                "why": f"{ctag} tag, expected to miss ~{_tilde(expected)} of {n} games",
+            })
+
         healthy_fppg = total_fppg - injured_fppg
         health_pct = (healthy_fppg / total_fppg * 100) if total_fppg > 0 else 100.0
-        
+
         # Sort injured players by proj_fppg descending
         injured_players.sort(key=lambda x: -x["proj_fppg"])
-        
+
         teams[manager] = {
             "health_pct": round(health_pct, 1),
             "injured_players": injured_players,
@@ -1417,10 +1535,10 @@ def build_current_team_health(
             "total_fppg": round(total_fppg, 1),
             "num_injured": len(injured_players),
         }
-    
+
     # Create rankings (sorted by health_pct descending)
     rankings = sorted(MANAGERS, key=lambda m: -teams[m]["health_pct"])
-    
+
     return {
         "as_of_week": target_week,
         "teams": teams,
@@ -1428,6 +1546,12 @@ def build_current_team_health(
         "healthiest": rankings[0],
         "most_injured": rankings[-1],
         "returning_players": returning_players,  # Players with confirmed partial returns
+        "counted": {
+            "il_slots_week": il_week,
+            "tags": ("not counted: this run was priced without tags" if no_tags
+                     else "counted" if week_dates else "no week after this one"),
+            "overrides": "counted",
+        },
     }
 
 
@@ -3291,6 +3415,21 @@ def _run_advice_guarded(data, week, run_simulations, title_odds, keeper_watch,
                 "week": week, "publish_reason": f"{type(e).__name__}: {e}"}
 
 
+def _advice_off(week) -> dict:
+    """report["advice"] when season.legacy_advice is "off": C2/C3 did not
+    run. `launched` is False: C2/C3 never launched, so the rumor mill's old
+    heuristic trade ideas and free-agent targets stay in Section 10 until
+    advice v2 ships (Nick, 11-02: "B is fine for Rumor Mill"). With the
+    switch "on", the launch rule (cleared from advice_publish_from_week) is
+    unchanged. advice_render prints the one line (OFF_LINE)."""
+    launched = False
+    print("C2/C3 off (season.legacy_advice); Section 10 prints its one line.")
+    return {"ran": False, "status": "off", "published": False, "launched": launched,
+            "week": week, "legacy_advice": "off",
+            "publish_reason": "season.legacy_advice is \"off\" until advice v2 ships "
+                              "(claude/ADVICE_V2_DESIGN.md)"}
+
+
 def _published_line_records(data, betting_lines, seed, num_betting_sims,
                            injury_statuses) -> list:
     """calibration_log records for the lines this build publishes."""
@@ -3547,8 +3686,15 @@ def build_stats_report(
     # the report: the whole block, import included, is guarded, and
     # advice_runner.run_advice_safely turns engine failures into a status
     # Section 10 prints. Test: tests/test_advice_wiring.py.
-    advice = _run_advice_guarded(data, week, run_simulations, title_odds,
-                                 keeper_watch_data, injury_statuses, freshness_tracker)
+    # season.legacy_advice (required, read OUTSIDE the guard so a bad switch
+    # raises): "off" means C2/C3 never runs (Nick, 11-01; advice v2,
+    # claude/ADVICE_V2_DESIGN.md) and Section 10 prints one line instead.
+    from .data_loader import legacy_advice_on
+    if legacy_advice_on():
+        advice = _run_advice_guarded(data, week, run_simulations, title_odds,
+                                     keeper_watch_data, injury_statuses, freshness_tracker)
+    else:
+        advice = _advice_off(week)
     if advice.get("launched"):
         # From the launch week the old trade ideas / FA targets never stand in
         # for C2/C3, even when C2/C3 did not run -- Section 10 says why instead.
@@ -3656,7 +3802,8 @@ def build_stats_report(
         
         "season_injury_burden": build_season_injury_burden(data),
         
-        "current_team_health": build_current_team_health(data, week),
+        "current_team_health": build_current_team_health(data, week,
+                                                          injury_statuses=injury_statuses),
 
         # === NEW FEATURES ===
         "luck_index": luck_index_data,

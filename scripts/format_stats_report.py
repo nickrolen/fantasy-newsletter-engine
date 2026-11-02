@@ -1008,6 +1008,8 @@ def get_key_players_for_matchup(
         return_note = ""
         if status == "returning" and return_games and total_games:
             return_note = f"returning {return_games}/{total_games} games"
+        elif status == "tagged":
+            return_note = ip.get("why", "")
         
         injury_lookup[player] = {
             "status": status,
@@ -1225,6 +1227,20 @@ def build_lookup_tables(data: dict) -> dict:
 # SECTION FORMATTERS
 # =============================================================================
 
+def _health_why(p: dict) -> str:
+    """Why a player counts against Current Team Health, in the report's own
+    words (report_builder.build_current_team_health: "IL slot", "override,
+    back MM-DD", "O tag, expected to miss ~1.6 of 3 games"). A report written
+    before 11-02 has no "why": its old wording is kept."""
+    if p.get("why"):
+        return p["why"]
+    if p.get("is_season_long"):
+        return "season-long"
+    if p.get("status") == "returning":
+        return f"returning {p.get('return_games', '?')}/{p.get('total_week_games', '?')} games"
+    return f"{p.get('remaining_weeks', 0)} weeks remaining, status: out"
+
+
 def format_section_1_matchup_summaries(data: dict, lookups: dict) -> str:
     """Format Section 1: Matchup Summaries."""
     lines = ["## SECTION 1: MATCHUP SUMMARIES\n"]
@@ -1373,20 +1389,13 @@ def format_section_1_matchup_summaries(data: dict, lookups: dict) -> str:
             lines.append(f"- {mgr}: {health_pct:.1f}% healthy ({injured_fppg:.1f} proj FPPG out)")
             
             injured = th.get("injured_players", [])
-            out_players = [p for p in injured if p.get("status") == "out" and not p.get("is_season_long")]
-            returning = [p for p in injured if p.get("status") == "returning"]
-            season_long = [p for p in injured if p.get("is_season_long")]
-            
-            if out_players or returning or season_long:
-                parts = []
-                for p in out_players:
-                    parts.append(f"{p['player']} ({p['proj_fppg']:.1f} FPPG, {p['remaining_weeks']} weeks remaining, status: out)")
-                for p in returning:
-                    parts.append(f"{p['player']} ({p['proj_fppg']:.1f} FPPG, returning {p.get('return_games', '?')}/{p.get('total_week_games', '?')} games)")
-                for p in season_long:
-                    parts.append(f"{p['player']} (season-long)")
-                
-                lines.append(f"  - Injured: {'; '.join(parts) if parts else 'None'}")
+            # Every player who counts against the percentage, and why: an IL
+            # slot, an override, or a tag (build_current_team_health, 11-02).
+            if injured:
+                parts = [f"{p['player']} ({p['proj_fppg']:.1f} FPPG, {_health_why(p)})"
+                         if not p.get("is_season_long") or p.get("why")
+                         else f"{p['player']} (season-long)" for p in injured]
+                lines.append(f"  - Injured: {'; '.join(parts)}")
         
         lines.append("")
         
@@ -2249,7 +2258,9 @@ def _format_section_7_playoff(data: dict, lookups: dict, playoff_odds: dict, pre
             
             key_injured = []
             for p in injured:
-                if p.get("is_season_long"):
+                if p.get("why"):                     # 11-02 on: the report's own reason
+                    key_injured.append(f"{p['player']} ({p['why']})")
+                elif p.get("is_season_long"):
                     key_injured.append(f"{p['player']} (season)")
                 elif p.get("status") == "returning":
                     key_injured.append(f"{p['player']} (returning {p.get('return_games', '?')}/{p.get('total_week_games', '?')})")
@@ -2362,10 +2373,15 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
                 lines.append(f"- {mgr}: {current:.1f}% (no previous data)")
         lines.append("")
     
-    # Magic number -- find the first manager with a magic_number set
+    # Magic number -- find the first manager with a magic_number set. None
+    # before presentation.magic_number_from_week (Nick, 11-02); the JSON
+    # keeps the value.
+    from modules.data_loader import shows_magic_number
+    _show_magic = any(pr.get("magic_number") for pr in rankings) and shows_magic_number(
+        (data.get("metadata") or {}).get("week"))
     for _mgr_name in MANAGERS:
         _mgr_pr = lookups["power_rankings"].get(_mgr_name, {})
-        if _mgr_pr.get("magic_number"):
+        if _show_magic and _mgr_pr.get("magic_number"):
             lines.append(f"**Magic Number:** {_mgr_name}'s magic number is {_mgr_pr['magic_number']}")
             break
         lines.append("")
@@ -2404,7 +2420,9 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
         
         key_injured = []
         for p in injured:
-            if p.get("is_season_long"):
+            if p.get("why"):                     # 11-02 on: the report's own reason
+                key_injured.append(f"{p['player']} ({p['why']})")
+            elif p.get("is_season_long"):
                 key_injured.append(f"{p['player']} (season)")
             elif p.get("status") == "returning":
                 key_injured.append(f"{p['player']} (returning {p.get('return_games', '?')}/{p.get('total_week_games', '?')})")
@@ -2889,6 +2907,10 @@ def format_section_9_around_nba(data: dict, lookups: dict, injury_timelines: Opt
             notes = p.get("notes", "")
             remaining = p.get("remaining_weeks", 0)
             player_name = p["player"]
+            if p.get("source") in ("il_slot", "tag") and not notes:
+                # in an IL slot, or tagged, with no override behind it
+                lines.append(f"- {player_name} ({mgr}): {p['why']}.")
+                continue
             
             # Enrich with timeline data if available
             timeline = (injury_timelines or {}).get(player_name)

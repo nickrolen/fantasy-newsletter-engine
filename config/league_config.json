@@ -101,6 +101,8 @@
         "playoff_start_week": 16,
         "total_weeks": 23,
         "nba_schedule_file": "data/nba_schedule_2026-27.json",
+        "legacy_advice": "off",
+        "_legacy_advice_comment": "Section 10's old C2/C3 advice (waiver plans and the trade finder). \"off\": the weekly build does not run it at all (about 15 minutes saved) and Section 10 prints one line where it went, \"The advice returns with the new engine.\" \"on\": as before. Required: missing or any other value raises. Nick, 11-01: the old advice won't publish; it is being rebuilt as advice v2 (claude/ADVICE_V2_DESIGN.md). The modules stay: v2's replay check may reuse pieces.",
         "advice_publish_from_week": 3,
         "_advice_comment": "C2/C3 (Section 10 waiver plans and trade finder) publish from this report week when the premise check (scripts/validate_marginal_value.py) is CLEAR for this season, or when advice_premise_override names the band the check recorded. Otherwise they run as a preview (output/advice_preview_weekN.html) and Section 10 says why. UNSTABLE, a missing check or another season's check always block. MARGINAL means talk, not ship -- unless Nick overrides it here, dated and attributed.",
         "advice_premise_override": {
@@ -113,6 +115,10 @@
         "_advice_premise_override_comment": "Nick, 10-29, after the premise gate came back FAIL (gap points 78.7 vs 169 needed, mutual-gain swaps 22 vs 24; C2C3_GATE_RESULT_2026-10-29): publish Section 10 anyway. The gate keeps running and recording; every build prints 'published on Nick's override of a FAIL premise gate (10-29)'. Remove this key to return to CLEAR-only.",
         "stream_drop_pool": 4,
         "_stream_drop_pool_comment": "Nick, 10-29: a one-week stream (Section 10's this-week plan) may only drop one of the bottom N ACTIVE players on the roster by PROJECTED points per game (the PLAYERLIST pre-season projection, not actual-blended). No keeper protection: a projected keeper in the bottom N is on the block. IL occupants are not ranked (dropping one frees no active spot for the add); a player with no projection is never a drop. Fixed from the roster at the start of the plan; players the plan adds never join it. Season moves are not limited by it. Required: missing or below 1 raises (STREAM_DROPS_RESULT_2026-10-29)."
+    },
+    "presentation": {
+        "magic_number_from_week": 8,
+        "_magic_number_comment": "No magic number reaches the drafter or the page before this report week: not the ANGLES ranking (no CLINCH WATCH), the storyline alerts, the standing threads, Section 7's facts, or any template. It is still computed and kept in the report JSON (power_rankings[].magic_number); clinch logic is unchanged. Required: missing or not a whole number >= 1 raises. Nick, 11-02: \"we probably should have just no mention at all of 'magic numbers' until like, at least week 8 or something? Theyre pretty pointless to report on before that point.\""
     },
     "season_structure": {
         "_comment": "Per-season week layout. season.regular_season_weeks describes ONLY the current season; historical seasons varied and the engine must not assume one shape for all time. regular_through = last regular-season week. bracket = a postseason bracket was played.",

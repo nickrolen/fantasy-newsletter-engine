@@ -32,10 +32,14 @@ def _load(name):
 @pytest.fixture(scope="module")
 def failed_report():
     """build_stats_report on the project's own data, C2/C3 forced to raise,
-    launch week forced to 1 so the failure must be SAID, not hidden."""
+    launch week forced to 1 so the failure must be SAID, not hidden.
+
+    Covers the RETIRED path: season.legacy_advice "on". Since 11-02 the live
+    config is "off" (tests/test_legacy_advice_off.py)."""
     import modules.data_loader as dl
     import modules.report_builder as rb
     mp = pytest.MonkeyPatch()
+    mp.setattr(dl, "SEASON_CONFIG", dict(dl.SEASON_CONFIG, legacy_advice="on"))
 
     def boom(*a, **k):
         raise RuntimeError("engine exploded on purpose")

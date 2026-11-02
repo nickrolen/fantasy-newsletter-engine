@@ -326,7 +326,7 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
     lines.append(f"# Waiver Adds for Week {week}")
     lines.append(f"# Generated: {league_now().strftime('%Y-%m-%d %H:%M %Z')}"
                  f"{' (PARTIAL -- week still in progress)' if partial else ''}")
-    from modules.transaction_rulings import applied_lines, claim_mark
+    from modules.transaction_rulings import applied_lines, claim_mark, made_in_mark
     lines.extend(applied_lines(list(applied)))
     lines.append("")
 
@@ -344,6 +344,10 @@ def write_waivers_file(transactions: list[dict], week: int, base_path: Path,
             # A group-chat claim from an earlier week (a claim_week ruling):
             # listed here, in its Yahoo week, counted in its claim week.
             claim = claim_mark(t["claim_week"]) if t.get("claim_week") else ""
+            # An effective-date add listed in its effective week but made in
+            # an earlier one, whose budget it uses (Nick, 11-01).
+            if t.get("made_on"):
+                claim += made_in_mark(t["made_on"], week, load_schedule(base_path))
             lines.append(f"- [{t['date']}] {t['manager']}: {t['player_name']}{via_str}{claim}")
         lines.append("")
     else:
@@ -555,12 +559,20 @@ def main():
     # Monday morning, inside the free-add window, before any game tips.
     # They used to be printed to the console and thrown away, so nothing
     # downstream could say how many adds anyone had left.
+    # Only week N+1's own transactions go in its file. Run for an older week
+    # (--week 1 once week 3 has opened), an open-ended window put week 3's
+    # adds into week 2's file too, where every reader raised on them (found
+    # 2026-11-02). The last week of the schedule has no next week to cap at.
+    try:
+        next_end = get_week_date_range(schedule, args.week + 1)[1]
+    except ValueError:
+        next_end = None
     try:
         # From every transaction since the week opened, so an effective-date
         # ruling can move an add stamped inside the week into the next one.
         post_counted, post_applied = apply_to_transactions(
             all_transactions, rulings,
-            since=week_end + dt.timedelta(days=1), until=None)
+            since=week_end + dt.timedelta(days=1), until=next_end)
     except RulingError as e:
         print(f"ERROR: {e}")
         print(f"Partial waivers file for week {args.week + 1} and ROSTERS.json NOT written.")

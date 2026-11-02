@@ -27,11 +27,13 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from modules import claim_check as cc  # noqa: E402
+from modules.data_loader import magic_number_from_week as _magic_from  # noqa: E402
 
 LORE_FILE = "config/LEAGUE_LORE.json"
 KIND_ORDER = ["unsupported_number", "unsupported_superlative",
               "unsourced_history", "fact_as_tendency", "approximate_number",
-              "bad_lore_ref", "money_without_event", "report_card_order"]
+              "bad_lore_ref", "money_without_event", "report_card_order",
+              "magic_number_early"]
 KIND_LABEL = {
     "unsupported_number": "Numbers with no source",
     "unsupported_superlative": "Rankings with no source",
@@ -41,6 +43,7 @@ KIND_LABEL = {
     "approximate_number": "Approximate numbers (template rule 2: give it)",
     "money_without_event": "Dollar figures in a week nothing was decided",
     "report_card_order": "Report cards out of overall_score order",
+    "magic_number_early": f"Magic number before the week {_magic_from()} report",
 }
 
 
@@ -77,6 +80,8 @@ def run(draft_text: str, week: int, out_dirs: list[Path], config: dict,
     cards = (meta.get("current_report") or {}).get("report_cards")
     if cards:
         findings += cc.report_card_findings(draft_text, cards)
+    # No magic number before presentation.magic_number_from_week (Nick, 11-02)
+    findings += cc.magic_number_findings(draft_text, vocab, int(week))
     if money_events is not None:
         findings += cc.money_findings(draft_text, vocab, money_events)
         # VOICE.md: the decomposition ships as "912 -> 1498", never as a

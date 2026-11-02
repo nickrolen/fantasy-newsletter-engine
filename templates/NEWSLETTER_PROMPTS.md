@@ -13,7 +13,7 @@ Before opening the drafting chat, pull these from the **stats report markdown**:
 1. **Week number, dates, and season** " e.g., Week 16, Feb 2"8, 2025-26
 2. **Key storylines (3"5 bullets)** " The big narratives. Check:
    - Matchup results (upsets? streaks extended/snapped? blowouts?)
-   - Title odds shifts / magic number changes
+   - Title odds shifts / magic number changes (magic numbers from the week 8 report on only)
    - POTW winner and notable stat lines
    - Milestones (career wins, records, first-time achievements)
    - Running threads from `LAST_WEEK_RECAP.md` that resolved or continued
@@ -21,7 +21,7 @@ Before opening the drafting chat, pull these from the **stats report markdown**:
    **Storyline templates (pick 3-5, fill with specific numbers):**
    - **Upset/decisive win:** "[Manager] [beats/upsets] [Manager] [score]-[score] [as a +X underdog / covering the X-point spread]. [Key stat or streak implication]."
    - **Streak:** "[Manager] extends [win/loss] streak to [N]. [Context: record chase, season best, etc.]"
-   - **Title race:** "[Manager]'s magic number drops to [N]. Title odds: [X]%."
+   - **Title race:** "[Manager]'s magic number drops to [N]. Title odds: [X]%." (Week 8 report on. Before that: "Title odds: [X]%." and no magic number.)
    - **POTW:** "[Player] wins POTW -- [FP] FP, [games] games, [FPPG] FPPG. [Manager] has won [N] straight POTWs / [N] total this season."
    - **Trade:** "[Manager A]-[Manager B] trade: [key pieces]. **All-time trade history: [N] deals between them** (verify against `trade_partners` data). First-ever / Nth trade between them this season."
 3. **Fantasy trades this week?** " Check if `weeklycontextinput_weekN.json` exists
@@ -141,7 +141,9 @@ Finish the Week [FILL IN: N] Newsletter. Write **Sections 9"10** and the closing
 [FILL IN: Copy full rosters from ROSTERS.json " all 4 managers with all players listed]
 
 ### Section 10: Rumor Mill
-Use the rumor_mill data from the stats report. Cover trade ideas, free agent targets, hot streaks, and slump watch per the template's instructions.
+Use the rumor_mill data from the stats report. Cover trade ideas, free agent targets, hot streaks, and slump watch per the template's instructions. Cover only what the stats report has: an empty list gets no subsection.
+
+**The advice is off** until the new engine ships: the stats report's Section 10 says only "The advice returns with the new engine." The page prints that line itself; don't retype it and write no advice (trade finder, waiver plans) of your own. If you mention the advice, use that sentence word for word.
 
 **CRITICAL for Section 10:**
 ' Check DRAFT PICK OWNERSHIP in the stats report before writing any trade involving picks

@@ -92,11 +92,65 @@ def test_a_voided_add_counts_nowhere(tmp_path):
     assert tr.add_budget_week(add("2026-10-26", "Benton", "Paul George"), rulings, SCHEDULE) == 2
 
 
-def test_an_effective_date_add_counts_in_its_effective_week(tmp_path):
+def test_an_effective_date_add_counts_in_the_week_it_was_made(tmp_path):
+    """Nick, 11-01: "Lavine should have counted against his week 1 budget,
+    not his week 2 budget." Made Sun 10-25 (week 1), effective Mon 10-26: the
+    budget week is the Yahoo date's; the effective date governs only the logs."""
     rulings = tr.load_all(world(tmp_path, [LAVINE]))
     # by its Yahoo date, and by the date a waivers file carries once re-dated
     for d in ("2026-10-25", "2026-10-26"):
+        assert tr.add_budget_week(add(d, "Hayden", "Zach LaVine"), rulings, SCHEDULE) == 1
+
+
+def test_an_effective_date_add_made_and_effective_in_one_week_counts_there(tmp_path):
+    rule = {**LAVINE, "transaction_date": "2026-10-27", "effective": "2026-10-28"}
+    rulings = tr.load_all(world(tmp_path, [rule]))
+    for d in ("2026-10-27", "2026-10-28"):
         assert tr.add_budget_week(add(d, "Hayden", "Zach LaVine"), rulings, SCHEDULE) == 2
+
+
+def test_an_effective_date_add_made_pre_season_counts_nowhere(tmp_path):
+    """Its Yahoo date decides, so a pre-season add effective in week 1 is
+    still pre-season (Nick, 10-31)."""
+    rule = {**LAVINE, "transaction_date": "2026-10-19", "effective": "2026-10-21"}
+    rulings = tr.load_all(world(tmp_path, [rule]))
+    assert tr.add_budget_week(add("2026-10-21", "Hayden", "Zach LaVine"), rulings, SCHEDULE) is None
+
+
+def test_an_effective_date_add_made_on_opening_day_is_not_guessed(tmp_path):
+    rule = {**LAVINE, "transaction_date": "2026-10-20", "effective": "2026-10-21"}
+    rulings = tr.load_all(world(tmp_path, [rule]))
+    with pytest.raises(tr.RulingError, match="first day"):
+        tr.add_budget_week(add("2026-10-21", "Hayden", "Zach LaVine"), rulings, SCHEDULE)
+
+
+def test_an_effective_date_add_is_listed_in_its_effective_week_marked(tmp_path):
+    """Listed where the player joined (week 2), marked "(week 1 add)": the
+    week it was made in and whose budget it uses. A line written before the
+    mark existed gets it at read time; a rewrite keeps it, once."""
+    base = world(tmp_path, [LAVINE], {1: [], 2: ["- [2026-10-26] Hayden: Zach LaVine"]})
+    (base / "data" / "waivers_week1.txt").write_text(
+        "# Waiver Adds for Week 1\n# RULING applied: " + tr.load_all(base)[0].label()
+        + "\n\nNo waiver adds this week.\n", encoding="utf-8")
+    path = base / "data" / "waivers_week2.txt"
+    lines, applied = tr.waiver_lines(path, base, 2, SCHEDULE)
+    assert "- [2026-10-26] Hayden: Zach LaVine (week 1 add)" in lines and len(applied) == 1
+    assert tr.parse_add_line("- [2026-10-26] Hayden: Zach LaVine (week 1 add)")["player"] == "Zach LaVine"
+    assert tr.adds_by_budget_week(base, SCHEDULE) == {1: {"Hayden": ["Zach LaVine"]}}
+    assert len(tr.rewrite_waivers_file(path, base, 2, SCHEDULE, echo=lambda *_: None)) == 1
+    text = path.read_text("utf-8")
+    assert "Zach LaVine (week 1 add)" in text and text.count("# RULING applied") == 1
+    assert tr.rewrite_waivers_file(path, base, 2, SCHEDULE, echo=lambda *_: None) == []
+    assert path.read_text("utf-8") == text
+
+
+def test_a_wrong_or_unbacked_add_mark_raises(tmp_path):
+    base = world(tmp_path, [LAVINE], {2: ["- [2026-10-26] Hayden: Zach LaVine (week 2 add)"]})
+    with pytest.raises(tr.RulingError, match="made in week 1"):
+        tr.waiver_lines(base / "data" / "waivers_week2.txt", base, 2, SCHEDULE)
+    base = world(tmp_path, [], {2: ["- [2026-10-26] Garrett: Aaron Wiggins (week 1 add)"]})
+    with pytest.raises(tr.RulingError, match="no effective_date ruling"):
+        tr.waiver_lines(base / "data" / "waivers_week2.txt", base, 2, SCHEDULE)
 
 
 def test_pre_season_adds_count_nowhere():
@@ -250,7 +304,8 @@ def test_lavines_ruling_matches_his_sunday_2240_pacific_add_on_any_machine(machi
             and x["player_name"] == "Zach LaVine"] == [(date(2026, 10, 26), "Zach LaVine")]
     lavine = [r for r in rulings if r.kind == "effective_date" and r.player == "Zach LaVine"]
     assert lavine and lavine[0] in ap1 and lavine[0] in ap2      # recorded in both weeks' files
-    assert tr.add_budget_week(t, rulings, SCHEDULE) == 2
+    # made Sunday 10-25 Pacific: week 1's budget (Nick, 11-01)
+    assert tr.add_budget_week(t, rulings, SCHEDULE) == 1
 
 
 @needs_state("config/TRANSACTION_RULINGS.json", why="checks the real rulings file")
@@ -267,7 +322,15 @@ def test_the_real_rulings_load_with_the_real_schedule():
         ("Benton", "Cameron Boozer", "2026-10-26", 1),
         ("Nick", "Damian Lillard", "2026-10-26", 1),
         ("Nick", "Dyson Daniels", "2026-10-26", 1),
-        ("Nick", "Ty Jerome", "2026-10-26", 1)])
+        ("Nick", "Ty Jerome", "2026-10-26", 1),
+        # the week-2 chat claims, applied in Yahoo on 11-02 (reviewing session)
+        ("Hayden", "Yaxel Lendeborg", "2026-11-02", 2),
+        ("Hayden", "Brandin Podziemski", "2026-11-02", 2),
+        ("Hayden", "Anthony Black", "2026-11-02", 2),
+        ("Benton", "Devin Booker", "2026-11-02", 2),
+        ("Benton", "Caleb Wilson", "2026-11-02", 2),
+        ("Nick", "Desmond Bane", "2026-11-02", 2),
+        ("Nick", "Miles Bridges", "2026-11-02", 2)])
 
 
 # ========================================== listing vs counting (s.3c)
@@ -325,7 +388,7 @@ def test_the_sync_lists_claims_in_their_yahoo_week_marked(tmp_path, capsys):
     assert "No waiver adds this week." in w1 and "Wagner" not in w1.split("\n\n", 1)[1]
     adds2 = [ln for ln in w2.splitlines() if ln.startswith("- [")]
     assert adds2 == [
-        "- [2026-10-26] Hayden: Zach LaVine",
+        "- [2026-10-26] Hayden: Zach LaVine (week 1 add)",
         "- [2026-10-26] Garrett: Aaron Wiggins",
         "- [2026-10-26] Garrett: Toumani Camara",
         "- [2026-10-26] Hayden: Darius Acuff Jr. (week 1 claim)",
@@ -343,14 +406,14 @@ def test_the_sync_lists_claims_in_their_yahoo_week_marked(tmp_path, capsys):
 def test_counted_in_the_claim_week_even_though_listed_in_the_next(tmp_path):
     counts = tr.adds_by_budget_week(_sync_files(tmp_path), SCHEDULE)
     assert {w: {m: len(v) for m, v in by.items()} for w, by in counts.items()} == {
-        1: {"Hayden": 1, "Benton": 3, "Nick": 3},
-        2: {"Hayden": 1, "Garrett": 2}}
+        1: {"Hayden": 2, "Benton": 3, "Nick": 3},
+        2: {"Garrett": 2}}
     assert tr.over_budget(counts, 3) == []
 
 
 def test_week_2_adds_left_before_and_after_the_rulings(tmp_path, monkeypatch):
     """Before: the 10-26 file counted every claim in week 2 (Hayden, Benton
-    and Nick 0 left). After: 2, 1, 3, 3."""
+    and Nick 0 left). After: 3, 1, 3, 3 (LaVine is a week 1 add: Nick, 11-01)."""
     from modules import report_builder as rb
     base = _sync_files(tmp_path)
     monkeypatch.setattr(rb, "__file__", str(base / "modules" / "report_builder.py"))
@@ -359,7 +422,7 @@ def test_week_2_adds_left_before_and_after_the_rulings(tmp_path, monkeypatch):
         schedule = SCHEDULE
     out = rb.build_add_budget(D(), 1)
     assert {m: (v["used"], v["remaining"]) for m, v in out["managers"].items()} == {
-        "Hayden": (1, 2), "Garrett": (2, 1), "Benton": (0, 3), "Nick": (0, 3)}
+        "Hayden": (0, 3), "Garrett": (2, 1), "Benton": (0, 3), "Nick": (0, 3)}
     assert out["over_budget_weeks"] == []
 
 
@@ -385,8 +448,13 @@ def test_no_parser_keeps_the_mark_in_a_player_name(tmp_path):
     from modules.waiver_roi import parse_waiver_file
     line = "- [2026-10-26] Benton: Cameron Boozer (week 1 claim)"
     f = tmp_path / "waivers_week2.txt"
-    f.write_text(line + "\n- [2026-10-27] Nick: X (via trade) \n", encoding="utf-8")
+    f.write_text(line + "\n- [2026-10-27] Nick: X (via trade) \n"
+                 "- [2026-10-26] Hayden: Zach LaVine (week 1 add)\n", encoding="utf-8")
     assert load_waiver_adds(str(f))["Benton"] == ["Cameron Boozer"]
+    assert load_waiver_adds(str(f))["Hayden"] == ["Zach LaVine"]
+    assert [a.player_name for a in parse_waiver_file(f)][-1] == "Zach LaVine"
+    assert tr._parse_line("- [2026-10-26] Hayden: Zach LaVine (week 1 add)") == (
+        "2026-10-26", "Hayden", "Zach LaVine")
     assert [a.player_name for a in parse_waiver_file(f)][0] == "Cameron Boozer"
     assert tr._parse_line(line) == ("2026-10-26", "Benton", "Cameron Boozer")
     p = tr.parse_add_line(line)
@@ -472,7 +540,9 @@ def test_no_module_counts_adds_by_week_but_through_add_budget_week():
 
     tr_path = ROOT / "modules" / "transaction_rulings.py"
     week_callers = {fn.name for fn in _functions(tr_path) if "week_of" in _calls(fn)}
-    assert week_callers == {"load_all", "_placed", "add_budget_week", "_add_on_file"}
+    # made_in_mark: the "(week N add)" listing mark, not a budget
+    assert week_callers == {"load_all", "_placed", "add_budget_week", "_add_on_file",
+                            "made_in_mark"}
     by_name = {fn.name: fn for fn in _functions(tr_path)}
     assert "add_budget_week" in _calls(by_name["adds_by_budget_week"])
 
@@ -503,8 +573,44 @@ def test_the_real_10_26_window_counts():
         pytest.fail("data/waivers_week1.txt and week 2's were written before the league clock and "
                     "these rulings; regenerate them with `python scripts/sync_transactions.py "
                     f"--week 1 --apply` (claude/CLAIM_WEEK_RULINGS_RESULT_2026-10-31.md): {e}")
+    # weeks 1-2's files only: the 10-25/10-26 window. LaVine is a week 1 add
+    # (made Sun 10-25; Nick, 11-01); the week-2 chat claims are in week 3's file.
     assert got == {
-        1: {"Hayden": ["Darius Acuff Jr."],
+        1: {"Hayden": ["Zach LaVine", "Darius Acuff Jr."],
             "Benton": ["Nickeil Alexander-Walker", "Paul George", "Cameron Boozer"],
             "Nick": ["Damian Lillard", "Dyson Daniels", "Ty Jerome"]},
-        2: {"Hayden": ["Zach LaVine"], "Garrett": ["Aaron Wiggins", "Toumani Camara"]}}
+        2: {"Garrett": ["Aaron Wiggins", "Toumani Camara"]}}
+
+
+@needs_state("data/waivers_week1.txt", "data/waivers_week2.txt", "data/waivers_week3.txt",
+             "config/TRANSACTION_RULINGS.json", "config/SCHEDULE.json",
+             why="the season's real add table (HANDOFF_SECTION10_OFF_AND_BUDGET_WEEK, 11-02)")
+def test_the_real_add_table_weeks_1_to_3():
+    """The brief's table, through adds_by_budget_week (every counter's
+    source). Wagner (Hayden, void 10-25) and Garrett's Paul George (void
+    10-26) are not adds; pre-season adds count nowhere; nobody is over."""
+    schedule = json.loads((ROOT / "config" / "SCHEDULE.json").read_text("utf-8"))
+    counts = tr.adds_by_budget_week(ROOT, schedule)
+    got = {w: {m: sorted(v) for m, v in by.items()} for w, by in counts.items()}
+    assert got == {
+        1: {"Nick": ["Damian Lillard", "Dyson Daniels", "Ty Jerome"],
+            "Hayden": ["Darius Acuff Jr.", "Zach LaVine"],
+            "Benton": ["Cameron Boozer", "Nickeil Alexander-Walker", "Paul George"]},
+        2: {"Nick": ["Desmond Bane", "Miles Bridges"],
+            "Hayden": ["Anthony Black", "Brandin Podziemski", "Yaxel Lendeborg"],
+            "Benton": ["Caleb Wilson", "Devin Booker"],
+            "Garrett": ["Aaron Wiggins", "Toumani Camara"]}}
+    assert 3 not in got                                     # week 3 so far: nobody
+    assert "Franz Wagner" not in str(got)
+    assert "Paul George" not in got[1].get("Garrett", []) + got[2]["Garrett"]
+    assert tr.over_budget(counts, 3) == []
+
+
+def test_the_syncs_next_week_file_holds_only_next_weeks_transactions():
+    """Found 11-02: `--week 1` run once week 3 had opened put week 3's adds
+    (the 11-02 week-2 claims) into week 2's partial file, where every reader
+    raised. The partial file's window ends with week N+1."""
+    src = (ROOT / "scripts" / "sync_transactions.py").read_text("utf-8")
+    call = re.search(r"post_counted, post_applied = apply_to_transactions\((.*?)\)\n", src, re.S)
+    assert call and "until=next_end" in call.group(1), "the week N+1 file's window must be capped"
+    assert "get_week_date_range(schedule, args.week + 1)[1]" in src

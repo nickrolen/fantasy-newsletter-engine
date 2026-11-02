@@ -49,7 +49,8 @@ to land in them -- exact, from wins and games left, with the payout config
 saying which places pay. It counts 1, like a decisive bracket game, and is
 as unusual as the earlier of: how early it was settled against prior
 seasons, or how much doubt the week resolved. The title race is also a
-standing thread printed every week, with the leader's magic number.
+standing thread printed every week, with the leader's magic number from
+the report week presentation.magic_number_from_week names (8; Nick, 11-02).
 
 A week with no lead says so (is_dead): the best angle moved neither race,
 or was no rarer than a coin flip and decided nothing. The block then tells
@@ -1141,10 +1142,14 @@ def money_line(sel: dict) -> str:
     if ev is None:
         raise KeyError("angles selection has no money_events")
     if not ev:
+        # The exemption is claim_check's own (MONEY_BLOCK): "anywhere" here
+        # contradicted it, and the week 2 drafter caught that (11-02).
+        from modules.claim_check import MONEY_BLOCK_NAME, MONEY_BLOCK_SECTION
+        where = f"Section {MONEY_BLOCK_SECTION}'s {MONEY_BLOCK_NAME} block"
         return ("**Money this week: nothing was decided.** Quote no dollar "
-                "figures anywhere in the newsletter; a pot can be named "
-                "without its amount. (Checked: a dollar figure this week is a "
-                "claim-check finding.)")
+                f"figures outside {where}; a pot can be named without its "
+                f"amount. (Checked: a dollar figure outside {where} this week "
+                "is a claim-check finding.)")
     words = {"clinched_title": "clinched the regular-season title",
              "out_of_title": "out of the regular-season title race",
              "safe_from_paying": "settled out of the regular-season pot's "

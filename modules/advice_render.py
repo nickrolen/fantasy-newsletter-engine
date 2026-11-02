@@ -37,11 +37,24 @@ def _since(item: dict, week: int) -> str:
     return f"on the table since week {first}"
 
 
+# Section 10's one line while season.legacy_advice is "off" (Nick, 11-01;
+# claude/ADVICE_V2_DESIGN.md). Not "Section 10 returns...": the claim check
+# reads the "10" as an unsourced number (it flagged that in the week 2 draft).
+OFF_LINE = "The advice returns with the new engine."
+
+
+def is_off(advice: Optional[dict]) -> bool:
+    return bool(advice) and advice.get("status") == "off"
+
+
 def status_line(advice: Optional[dict]) -> Optional[str]:
     """The sentence Section 10 prints when the engine's output is not in it,
-    or None when it is (or when nothing should be said: pre-launch)."""
+    or None when it is (or when nothing should be said: pre-launch). With the
+    old advice off it is OFF_LINE, every week."""
     if not advice:
         return None
+    if is_off(advice):
+        return OFF_LINE
     if advice.get("published"):
         return None
     if not advice.get("launched"):
@@ -65,6 +78,8 @@ def _trade_lines(t: dict, week: int) -> dict:
 def render_markdown(advice: Optional[dict], managers: list) -> str:
     if not advice:
         return ""
+    if is_off(advice):
+        return OFF_LINE + "\n"                 # exactly the one line, as given
     line = status_line(advice)
     if line:
         return f"**{line}**\n"

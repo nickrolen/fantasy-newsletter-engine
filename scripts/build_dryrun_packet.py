@@ -341,8 +341,16 @@ def packet(season: str, week: int, dest: Path) -> Path:
         shutil.rmtree(out)
     out.mkdir(parents=True)
     so = dest / "output"
+    # The Section 10 preview exists only while the old advice runs
+    # (season.legacy_advice "on"); off (Nick, 11-01) the report never runs it.
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from modules.data_loader import legacy_advice_on
+    advice_on = legacy_advice_on(json.loads(
+        (dest / "config" / "league_config.json").read_text(encoding="utf-8"))["season"])
     for name in (f"stats_report_week{week}.md", f"stats_report_week{week}.json",
-                 f"advice_preview_week{week}.html", f"angles_week{week}.json"):
+                 *([f"advice_preview_week{week}.html"] if advice_on else []),
+                 f"angles_week{week}.json"):
         if not (so / name).exists():
             raise FileNotFoundError(f"{name} missing: run --stage report first")
         shutil.copy2(so / name, out / name)
@@ -385,6 +393,10 @@ def packet(season: str, week: int, dest: Path) -> Path:
                            "lore_for_drafting.json", f"weeklycontextinput_week{week}.json")
                if (out / f).exists()]
     n_lore = len(json.loads((out / "lore_for_drafting.json").read_text(encoding="utf-8"))["entries"])
+    preview_note = (f"`advice_preview_week{week}.html` is the Section 10 preview: open it in a "
+                    "browser.\nIt is never part of the newsletter." if advice_on else
+                    "Section 10's old advice is off (season.legacy_advice); the report prints "
+                    "\"The advice returns with the new engine.\" and there is no preview.")
     readme = f"""# Dry run: {season} week {week}
 
 Built {time.strftime('%Y-%m-%d %H:%M')} by scripts/build_dryrun_packet.py, from today's code,
@@ -401,8 +413,7 @@ header for exactly how). The ANGLES block has {lead} this week.
 4. Tell the session; it runs the claim check against this week's sandbox and
    builds the HTML (which runs the table check).
 
-`advice_preview_week{week}.html` is the Section 10 preview: open it in a browser.
-It is never part of the newsletter.
+{preview_note}
 
 ## What is as it was, and what is not
 

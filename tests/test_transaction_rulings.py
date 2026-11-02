@@ -179,7 +179,9 @@ def test_garretts_week_2_on_the_10_26_file_is_2_used_1_left(tmp_path, monkeypatc
     # claim still stands over Garrett's voided add.
     assert out["managers"]["Benton"] == {"used": 0, "remaining": 3, "players": [],
                                          "over_budget": False}
-    assert out["managers"]["Hayden"]["players"] == ["Zach LaVine"]
+    # LaVine: listed in week 2's file, counted in week 1, the week he was
+    # added in (Nick, 11-01)
+    assert out["managers"]["Hayden"]["players"] == []
     assert "void 2026-10-26 Garrett add Paul George (Nick, 2026-10-30)" in out["rulings_applied"]
 
 

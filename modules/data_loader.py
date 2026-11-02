@@ -200,6 +200,52 @@ WEEKLY_ADD_BUDGET = LEAGUE_STRUCTURE.get("weekly_add_budget")
 WEEKLY_ADD_BUDGET_FROM = LEAGUE_STRUCTURE.get("weekly_add_budget_from", "")
 COMMISSIONER = _LEAGUE_CONFIG.get("commissioner")
 ADVICE_PUBLISH_FROM_WEEK = SEASON_CONFIG.get("advice_publish_from_week")
+LEGACY_ADVICE_VALUES = ("off", "on")
+
+
+PRESENTATION = _LEAGUE_CONFIG.get("presentation", {})
+
+
+def magic_number_from_week(presentation: dict = None) -> int:
+    """presentation.magic_number_from_week: the first report week a magic
+    number is shown (Nick, 11-02: none "until like, at least week 8").
+    Required: missing, or anything but a whole number >= 1, RAISES."""
+    cfg = PRESENTATION if presentation is None else presentation
+    if "magic_number_from_week" not in cfg:
+        raise ValueError("config/league_config.json presentation.magic_number_from_week is "
+                         "missing: the first report week a magic number may be shown")
+    v = cfg["magic_number_from_week"]
+    if isinstance(v, bool) or not isinstance(v, int) or v < 1:
+        raise ValueError(f"config/league_config.json presentation.magic_number_from_week is "
+                         f"{v!r}: it must be a whole number >= 1")
+    return v
+
+
+def shows_magic_number(report_week, presentation: dict = None) -> bool:
+    """Whether a magic number may reach the drafter or the page in this
+    report week. The value is computed either way (report JSON, clinch
+    logic); only what is shown changes. A report week that is missing or not
+    a whole number RAISES rather than default either way."""
+    if isinstance(report_week, bool) or not isinstance(report_week, int):
+        raise ValueError(f"report week {report_week!r}: cannot tell whether to show a magic number")
+    return report_week >= magic_number_from_week(presentation)
+
+
+def legacy_advice_on(season_config: dict = None) -> bool:
+    """season.legacy_advice: whether the weekly build runs Section 10's old
+    C2/C3 advice. Required, "off" or "on"; missing or anything else RAISES
+    (Nick, 11-01: off until advice v2 ships, claude/ADVICE_V2_DESIGN.md).
+    Read at call time, outside the advice's own failure guard, so a bad
+    switch stops the build instead of printing as an advice failure."""
+    cfg = SEASON_CONFIG if season_config is None else season_config
+    if "legacy_advice" not in cfg:
+        raise ValueError("config/league_config.json season.legacy_advice is missing: set it to "
+                         "\"off\" or \"on\" (claude/ADVICE_V2_DESIGN.md)")
+    v = cfg["legacy_advice"]
+    if not isinstance(v, str) or v not in LEGACY_ADVICE_VALUES:
+        raise ValueError(f"config/league_config.json season.legacy_advice is {v!r}: it must be "
+                         "\"off\" or \"on\"")
+    return v == "on"
 
 
 def stream_drop_pool(season_config=None) -> int:

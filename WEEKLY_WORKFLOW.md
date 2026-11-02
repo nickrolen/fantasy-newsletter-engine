@@ -622,6 +622,8 @@ python scripts\generate_stats_report.py --week WEEK
 
 ### Step 6 -- C2/C3 (trade finder and waiver plans)
 
+**OFF since 2026-11-02** (`season.legacy_advice: "off"`, Nick 11-01): the build does not run C2/C3 at all, and Section 10 prints one line, "The advice returns with the new engine.", until advice v2 ships (`claude/ADVICE_V2_DESIGN.md`). The rest of this step describes the switch set to `"on"`.
+
 Runs inside Step 6 on every full run (skipped by `--fast`, which Section 10 then says). Adds about 2.5 minutes.
 
 - **Publishes** into Section 10 only from `season.advice_publish_from_week` (week 3 in 2026-27) **and** only if the premise check recorded CLEAR for this season. Run it once after the draft:

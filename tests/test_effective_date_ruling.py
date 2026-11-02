@@ -93,9 +93,11 @@ def test_an_unknown_kind_raises(tmp_path):
         tr.load_all(tmp_path)
 
 
-def test_the_add_counts_in_the_week_containing_effective(tmp_path):
+def test_the_add_is_listed_in_the_week_containing_effective(tmp_path):
     """Stamped Sunday 10-25 (week 1) by a sync run in Phoenix, effective
-    Monday 10-26 (week 2): it leaves week 1's count and joins week 2's."""
+    Monday 10-26 (week 2): it leaves week 1's list and joins week 2's, marked
+    "(week 1 add)". It COUNTS in week 1, the week it was made in (Nick, 11-01;
+    tests/test_claim_week_rulings.py)."""
     from modules.weekly_stats import load_waiver_adds
     rule = {**LAVINE, "transaction_date": "2026-10-25"}
     base = world(tmp_path, [rule], files={1: ["- [2026-10-25] Hayden: Zach LaVine"],
@@ -104,6 +106,9 @@ def test_the_add_counts_in_the_week_containing_effective(tmp_path):
     w2, _ = tr.waiver_lines(base / "data" / "waivers_week2.txt", base, 2, SCHEDULE)
     assert load_waiver_adds("x", lines=w1)["Hayden"] == []
     assert load_waiver_adds("x", lines=w2)["Hayden"] == ["Franz Wagner", "Zach LaVine"]
+    assert "- [2026-10-26] Hayden: Zach LaVine (week 1 add)" in w2
+    assert tr.add_budget_week({"date": "2026-10-26", "manager": "Hayden", "player": "Zach LaVine"},
+                              tr.load_all(base), SCHEDULE) == 1
     # the sync: re-dated into week 2, out of week 1
     txn = {"type": "add", "manager": "Hayden", "player_name": "Zach LaVine",
            "date": date(2026, 10, 25), "details": {}}

@@ -39,7 +39,12 @@ from dataclasses import dataclass, field, replace
 from typing import Iterable, Optional
 
 EXEMPT_SECTIONS = {9}          # Around the NBA: web-sourced, Step 8 checks it
-MONEY_BLOCK = "money and exposure"   # Section 7's block: figures every week
+# Section 7's Money and Exposure block carries dollar figures every week, so
+# money_findings exempts it. angles.money_line names the exemption from these
+# two constants (one definition: the instruction and the check can't drift).
+MONEY_BLOCK_NAME = "Money and Exposure"
+MONEY_BLOCK_SECTION = 7
+MONEY_BLOCK = MONEY_BLOCK_NAME.lower()
 APPROX_TOLERANCE = 0.10        # "nearly 60" may be 54..66
 LORE_TAG = re.compile(r"<!--\s*lore:([A-Za-z0-9_.-]+)\s*-->")
 
@@ -769,6 +774,26 @@ def money_findings(draft: str, vocab: Vocabulary, money_events,
         if m:
             out.append(Finding("money_without_event", u.section, u.line,
                                m.group(0), u.text[:200]))
+    return out
+
+
+MAGIC = re.compile(r"\bmagic\s+numbers?\b", re.IGNORECASE)
+
+
+def magic_number_findings(draft: str, vocab: Vocabulary, week: int,
+                          presentation: dict = None) -> list[Finding]:
+    """A magic number written before presentation.magic_number_from_week
+    (Nick, 11-02: none "until like, at least week 8"). The value is still in
+    the report JSON, so number tracing alone would pass it; this rule is by
+    week. From that week on: nothing."""
+    from .data_loader import shows_magic_number
+    if shows_magic_number(week, presentation):
+        return []
+    out = []
+    for u in split_units(draft, vocab):
+        m = MAGIC.search(LORE_TAG.sub("", u.raw))
+        if m:
+            out.append(Finding("magic_number_early", u.section, u.line, m.group(0), u.text[:200]))
     return out
 
 

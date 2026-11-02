@@ -158,8 +158,9 @@ def regular_season(sm, week, reg_last, rules, money=(), pairings=None) -> list[s
     for w in range(1, upto + 1):
         for ev, m in decided_status(sm, w, reg_last, pairings):
             first.setdefault((ev, m), w)
+    from .data_loader import shows_magic_number      # none before week 8 (Nick, 11-02)
     if mn and mn[1] > 0 and not any(ev == "clinched_title"
-                                    for ev, _ in first):
+                                    for ev, _ in first) and shows_magic_number(int(week)):
         out.append(f"{mn[0]}'s magic number for the title: {mn[1]}.")
     for (ev, m), w in sorted(first.items(), key=lambda x: (x[1], x[0])):
         if (ev, m) not in money:

@@ -31,8 +31,15 @@ reader blamed Hayden for a 44.2-point blunder he could not have avoided.
   The player is not on that manager's roster for any day before `effective`:
   every reader of LINEUPS/PLAYERLOG drops that player-manager's rows dated
   before it (apply_effective_dates) -- at load time, never by rewriting the
-  logs, so the next log pull cannot bring the row back. And the add counts in
-  the fantasy week containing `effective`, whatever date the sync stamped.
+  logs, so the next log pull cannot bring the row back. The add is LISTED in
+  the waivers file of the week containing `effective` (that is when the
+  player joined), marked "(week N add)" when its Yahoo date falls in another
+  week N. It COUNTS against the budget of the week it was MADE in: the week
+  containing `transaction_date`, like any unruled add (Nick, 11-01: "Lavine
+  should have counted against his week 1 budget, not his week 2 budget";
+  LEAGUE_RULES rule 7: a move uses the budget of the week it is made in, and
+  a Sunday move counts for that Sunday's week). An effective date governs the
+  logs and the pickup's "since" date, never the budget.
 
 CLAIM WEEK ("kind": "claim_week") -- LEAGUE_RULES rule 7 (Nick, 10-30): a
 midweek add posted in the group chat uses the add budget of the fantasy week
@@ -90,6 +97,10 @@ _LINE = re.compile(r"^-\s*\[(\d{4}-\d{2}-\d{2})\]\s+(.+)$")
 # an earlier week, applied in this week's Monday window (rule 7). Listed here,
 # counted in its claim week. Every parser of these lines strips it.
 CLAIM_MARK = re.compile(r"\s*\(week (\d+) claim\)\s*$", re.IGNORECASE)
+# "(week 1 add)": an effective-date add listed in its effective week's file
+# but made (Yahoo date) in an earlier week, whose budget it uses (Nick,
+# 11-01). Every parser strips it too (split_claim_mark strips both marks).
+ADD_MARK = re.compile(r"\s*\(week (\d+) add\)\s*$", re.IGNORECASE)
 BENCH_SLOTS = {"BN", "IL", "IL+"}
 
 
@@ -180,13 +191,39 @@ def claim_mark(week: int) -> str:
     return f" (week {int(week)} claim)"
 
 
+def effective_mark(week: int) -> str:
+    """The mark on an effective-date add listed outside the week it was made
+    in: " (week 1 add)"."""
+    return f" (week {int(week)} add)"
+
+
+def made_in_mark(made_on, listed_week: int, schedule: dict) -> str:
+    """The mark for an effective-date add listed in `listed_week`'s file and
+    made on `made_on` (its Yahoo date): " (week N add)" when that is another
+    week N, else "". Listing only; add_budget_week decides the budget."""
+    made = week_of(str(made_on), schedule)
+    if made is None:
+        raise RulingError(f"an effective-date add made on {made_on} is in no fantasy week of the "
+                          "schedule given -- it cannot be marked")
+    return "" if made == int(listed_week) else effective_mark(made)
+
+
+def split_mark(text: str):
+    """(text without its mark, the mark's week or None, "claim" / "add" /
+    None). "Zach LaVine (week 1 add)" -> ("Zach LaVine", 1, "add")."""
+    for kind, rx in (("claim", CLAIM_MARK), ("add", ADD_MARK)):
+        m = rx.search(str(text))
+        if m:
+            return str(text)[:m.start()].strip(), int(m.group(1)), kind
+    return str(text).strip(), None, None
+
+
 def split_claim_mark(text: str):
     """("Cameron Boozer (week 1 claim)") -> ("Cameron Boozer", 1); unmarked
-    text -> (text, None)."""
-    m = CLAIM_MARK.search(str(text))
-    if not m:
-        return str(text).strip(), None
-    return str(text)[:m.start()].strip(), int(m.group(1))
+    text -> (text, None). An "(week N add)" mark is stripped too (the name
+    never carries either mark), with None for the week: it is not a claim."""
+    name, week, kind = split_mark(text)
+    return name, (week if kind == "claim" else None)
 
 
 def _yahoo_day(r) -> str:
@@ -306,6 +343,9 @@ def apply_to_transactions(transactions: list[dict], rulings: list, since=None, u
                               f"log for {since} to {until or 'today'}, not 1 -- fix {RULINGS_FILE}")
         for t in hits[:1]:
             t["date"] = date.fromisoformat(r.effective)
+            # the day it was made: the writer marks it "(week N add)" when
+            # that is another week, whose budget it uses (Nick, 11-01)
+            t["made_on"] = r.transaction_date
             # Recorded in the window it was stamped in too: that week's file
             # is missing the add on purpose, and its readers must know so
             # (waiver_lines raises on an unrecorded effective-date add).
@@ -377,18 +417,20 @@ def _parse_line(ln: str):
 
 def parse_add_line(ln: str):
     """One waivers-file add line as {"date", "manager", "player", "via",
-    "marked_claim_week"}, or None for anything else (headers, comments)."""
+    "marked_claim_week", "marked_add_week"}, or None for anything else
+    (headers, comments)."""
     from .data_loader import MANAGERS
     m = _LINE.match(ln.strip())
     if not m:
         return None
     for mgr in sorted(MANAGERS, key=len, reverse=True):
         if m.group(2).startswith(f"{mgr}: "):
-            rest, marked = split_claim_mark(m.group(2)[len(mgr) + 2:])
+            rest, marked, mkind = split_mark(m.group(2)[len(mgr) + 2:])
             v = re.match(r"^(.*?)\s*\(via\s+([^)]+)\)\s*$", rest, re.IGNORECASE)
             player, via = (v.group(1).strip(), v.group(2).strip().lower()) if v else (rest, "")
             return {"date": m.group(1), "manager": mgr, "player": player, "via": via,
-                    "marked_claim_week": marked}
+                    "marked_claim_week": marked if mkind == "claim" else None,
+                    "marked_add_week": marked if mkind == "add" else None}
     return None
 
 
@@ -405,7 +447,11 @@ def waiver_lines(path, base_path, week: int, schedule: dict) -> tuple[list[str],
     Effective date: an add stamped in this week (transaction_date) must be
     here (or recorded); it is removed when `effective` is in another week.
     An add whose `effective` is in this week but was stamped in another is
-    added here, as "- [effective] Manager: Player". Otherwise this RAISES."""
+    listed here, as "- [effective] Manager: Player (week N add)", N being the
+    week it was made in and whose budget it uses (Nick, 11-01). A line the
+    sync wrote before the mark existed gets it at read time. Otherwise, and
+    on a mark that disagrees with the rulings or has none behind it, this
+    RAISES."""
     lines = Path(path).read_text(encoding="utf-8").splitlines()
     recorded = {ln[len(APPLIED_PREFIX):].strip() for ln in lines if ln.startswith(APPLIED_PREFIX)}
     rulings = load_all(base_path)
@@ -416,21 +462,39 @@ def waiver_lines(path, base_path, week: int, schedule: dict) -> tuple[list[str],
                 if (p := _parse_line(ln)) and p[0] == day and p[1] == r.manager
                 and _same_player(r.player, p[2])]
 
+    effective_listed = []           # (ruling, the week it was made in) listed here
     for r in effective_dates(rulings):
-        stamped, counts = _placed(r, schedule, r.transaction_date, r.effective)
+        # stamped: the week it was made in (its budget week); listed: the
+        # week it took effect in (where it is listed)
+        stamped, listed = _placed(r, schedule, r.transaction_date, r.effective)
         if stamped == int(week):
             hits = hits_for(r, r.transaction_date)
             if len(hits) > 1 or (not hits and r.label() not in recorded):
                 raise RulingError(f"ruling '{r.label()}' matches {len(hits)} adds in {path} and "
                                   f"the file does not record it as applied -- fix {RULINGS_FILE} "
                                   "or the file")
-            if hits and counts != int(week):
+            if hits and listed != int(week):
                 del keep[hits[0]]
                 applied.append(r)
-        elif counts == int(week) and r.label() not in recorded \
-                and not hits_for(r, r.effective):
-            keep.append(f"- [{r.effective}] {r.manager}: {r.player}")
-            applied.append(r)
+        elif listed == int(week):
+            effective_listed.append((r, stamped))
+            hits = hits_for(r, r.effective)
+            if len(hits) > 1:
+                raise RulingError(f"ruling '{r.label()}' matches {len(hits)} adds in {path}, "
+                                  f"not 1 -- fix {RULINGS_FILE} or the file")
+            if hits:
+                i = hits[0]
+                base_line, marked, mkind = split_mark(keep[i])
+                if mkind == "claim" or (marked is not None and marked != stamped):
+                    raise RulingError(f"{path}: '{keep[i]}' is marked "
+                                      f"'{(keep[i][len(base_line):]).strip()}', but ruling "
+                                      f"'{r.label()}' says it was made in week {stamped}")
+                keep[i] = base_line + effective_mark(stamped)
+                if marked is None:                  # the mark is new: a rewrite keeps it
+                    applied.append(r)
+            elif r.label() not in recorded:
+                keep.append(f"- [{r.effective}] {r.manager}: {r.player}{effective_mark(stamped)}")
+                applied.append(r)
 
     for r in voids(rulings):
         if _placed(r, schedule, r.date)[0] != int(week):
@@ -468,6 +532,12 @@ def waiver_lines(path, base_path, week: int, schedule: dict) -> tuple[list[str],
             applied.append(r)
     for ln in keep:
         p = parse_add_line(ln)
+        if p and p["marked_add_week"] is not None and not any(
+                r.manager == p["manager"] and r.effective == p["date"] and w == p["marked_add_week"]
+                and _same_player(r.player, p["player"]) for r, w in effective_listed):
+            raise RulingError(f"{path}: '{ln.strip()}' is marked as a week "
+                              f"{p['marked_add_week']} add but no effective_date ruling in "
+                              f"{RULINGS_FILE} says so")
         if p and p["marked_claim_week"] is not None and not any(
                 r.manager == p["manager"] and r.transaction_date == p["date"]
                 and _same_player(r.player, p["player"]) for r in claims):
@@ -489,7 +559,8 @@ def rewrite_waivers_file(path, base_path, week: int, schedule: dict, echo=print)
     head = 0
     while head < len(keep) and keep[head].startswith("#"):
         head += 1
-    keep[head:head] = applied_lines(applied)
+    have = set(keep[:head])
+    keep[head:head] = [ln for ln in applied_lines(applied) if ln not in have]
     Path(path).write_text("\n".join(keep) + "\n", encoding="utf-8")
     for r in applied:
         echo(f"  RULING applied to {path}: {r.label()} -- {r.reason}")
@@ -521,7 +592,12 @@ def add_budget_week(add, rulings, schedule):
         (Nick, 10-31: before the first tip of the season adds count nowhere);
       - a voided add: None;
       - a claim_week add: the ruling's claim_week;
-      - an effective_date add: the week containing `effective`;
+      - an effective_date add: the week containing its Yahoo date
+        (`transaction_date`), the day it was MADE, like an unruled add.
+        `effective` moves the logs and where the add is listed, never its
+        budget (Nick, 11-01: "Lavine should have counted against his week 1
+        budget, not his week 2 budget"; rule 7). The add is matched by
+        either date, since a waivers file carries the effective one;
       - otherwise the week containing the add's own date (the league clock;
         sync_transactions dates it).
 
@@ -537,8 +613,7 @@ def add_budget_week(add, rulings, schedule):
     if via == "trade":
         return None
     first = _first_day(schedule)
-    d = date.fromisoformat(day)
-    if d < first:
+    if date.fromisoformat(day) < first:
         return None
     hits = []
     for r in rulings:
@@ -556,11 +631,15 @@ def add_budget_week(add, rulings, schedule):
         return None
     if r is not None and r.kind == "claim_week":
         return int(r.claim_week)
-    if d == first and not (r is not None and r.kind == "effective_date"):
-        raise RulingError(f"the add {day} {manager} {player} is on the season's first day: "
+    # the day the add was made: an effective-date add's Yahoo date
+    on = r.transaction_date if r is not None and r.kind == "effective_date" else day
+    d = date.fromisoformat(on)
+    if d < first:
+        return None
+    if d == first:
+        raise RulingError(f"the add {day} {manager} {player} was made on the season's first day: "
                           "before the first tip it counts nowhere, after it in week 1, and the "
                           "first tip time is not stored -- rule it, or store tip times")
-    on = r.effective if r is not None else day
     wk = week_of(on, schedule)
     if wk is None:
         raise RulingError(f"the add {day} {manager} {player} is dated {on}, in no fantasy week "
