@@ -22,14 +22,17 @@
     {"path": "output/lore_for_drafting.json", "what": "the lore export for drafting"},
     {"path": "output/keeper_backtest.json", "what": "keepability step A hits table (keeper_backtest)"},
     {"path": "output/title_odds_history.jsonl", "what": "every title-odds run, append-only history; never scored (modules/title_odds_history, step 1a)"},
-    {"path": "data/LEAGUE_HISTORY_DETAILED.json", "what": "an optional legacy league-history file, read if present (data_loader)"}
+    {"path": "data/LEAGUE_HISTORY_DETAILED.json", "what": "an optional legacy league-history file, read if present (data_loader)"},
+    {"path": "data/player_actuals.json", "what": "every rostered player's daily fantasy points and games played, one finished league day at a time (scripts/fetch_player_actuals.py; the hub's FPPG and L14; step 1b)"},
+    {"path": "output/hub_state.json", "what": "the hub's payload: names, rosters, lines, title odds (scripts/build_hub_state.py; step 1b)"}
   ],
   "dirs": [
     {"path": "data/lore_backups", "what": "lore backups (modules/lore.py)"},
     {"path": "data/keepability", "what": "published keep chances, one file per week (newsletter_html_generator)"},
     {"path": "config/snapshots", "what": "weekly PLAYERLIST snapshots and Step 6's point-in-time captures (the pinned durability prior is a public exception)"},
     {"path": "assets/potw", "what": "Player of the Week photos, supplied by Nick"},
-    {"path": "archive", "what": "past seasons' state, archived by start_new_season at the reset"}
+    {"path": "archive", "what": "past seasons' state, archived by start_new_season at the reset"},
+    {"path": "output/hub_archive", "what": "the newsletter archive the hub publishes: each issue's plaintext bytes, written once by content hash, and its index (modules/hub_archive.py; step 1b)"}
   ],
   "patterns": [
     {"dir": "data", "name": "waivers_week*.txt", "what": "each week's adds (sync_transactions)"},
@@ -64,7 +67,9 @@
     {"path": "_backups/", "why": "an old backup folder outside the engine"},
     {"path": "_to_delete/", "why": "staging for files a session could not delete"},
     {"path": "_audit_export/", "why": "a staged audit copy, credentials excluded"},
-    {"path": "__pycache__/", "why": "Python caches (also .pytest_cache/, *.cache)"}
+    {"path": "__pycache__/", "why": "Python caches (also .pytest_cache/, *.cache)"},
+    {"path": "output/hub_preview.html", "why": "the hub's plaintext local preview: regenerable from output/hub_state.json (scripts/build_hub.py), never published"},
+    {"path": "output/hub_publish/", "why": "the hub's publish directory: encrypted files only, regenerable (scripts/build_hub.py); step 1c publishes it"}
   ],
   "public_exceptions": [
     {"path": "config/snapshots/PLAYERLIST_2026-10-13.xlsx", "why": "the pinned pre-season durability prior (league_config durability_prior.snapshot): fixed for the season, already public, read by the public CI's integrity check (Nick, 10-31)"},

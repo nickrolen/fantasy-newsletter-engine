@@ -256,3 +256,13 @@ data/LEAGUE_HISTORY_DETAILED.json
 # purpose (Nick, 10-31): output/live_lines_week1.html and
 # output/live_lines_week1_midweek_DEMO.html.
 output/live_lines_week*.html
+
+# Step 1b, the hub (2026-11-02). League state (config/STATE_MANIFEST.json):
+# the player-actuals cache, the hub payload, and the newsletter archive.
+data/player_actuals.json
+output/hub_state.json
+output/hub_archive/
+# Regenerable, never state: the plaintext preview (never published) and the
+# publish directory (encrypted files only; step 1c publishes it).
+output/hub_preview.html
+output/hub_publish/

@@ -97,7 +97,9 @@ def test_nothing_that_scores_probabilities_reaches_the_history():
     week's odds for the delta.)"""
     users = sorted(p.name for p in [*(ROOT / "modules").glob("*.py"), *(ROOT / "scripts").glob("*.py")]
                    if REFERS.search(p.read_text(encoding="utf-8")))
-    assert users == ["generate_stats_report.py", "title_odds_history.py"], users
+    # hub_state (step 1b) reads it for display: the hub's odds column and its
+    # "title odds over time" chart, which is what decision 4 keeps the history for.
+    assert users == ["generate_stats_report.py", "hub_state.py", "title_odds_history.py"], users
     for scorer in ("calibration_log.py", "backtest_metrics.py"):
         src = (ROOT / "modules" / scorer).read_text(encoding="utf-8")
         assert "title_odds_history" not in src, scorer

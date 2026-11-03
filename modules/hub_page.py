@@ -1,0 +1,580 @@
+"""
+hub_page.py -- the hub as one self-contained page, and its decrypt shell
+(Step 1b; design s.3). Built on live_lines_page's rules.
+
+THE PAGE DISPLAYS; THE ENGINE COMPUTES
+    Every number on the page is a string from output/hub_state.json, printed
+    as is. Sorting a roster reorders rows by orders the payload carries;
+    nothing is compared or rounded here. The one value the page works out is
+    the payload's AGE in words ("updated 3 hours ago"), because it depends on
+    the reader's clock, not the engine's: the renderer writes it for the
+    moment of rendering, and the page's script refreshes it when opened, with
+    the stale banner over STALE_HOURS. That is the only arithmetic in it.
+
+FRESHNESS IS ALWAYS SHOWN, and a payload older than STALE_HOURS puts a
+banner above everything else (design s.3 invariant).
+
+NO EXTERNAL ANYTHING: system fonts, inline styles and script, no images. The
+page works offline once decrypted.
+
+LORE NEVER REACHES IT: every payload string passes live_lines_page.clean
+(VOICE rule 21's tag strip, then HTML escaping).
+
+TWO MODES
+    preview  output/hub_preview.html: plaintext, for review on Nick's machine;
+             issues link to the archive's plaintext files. Never published.
+    publish  the same page, encrypted inside the decrypt shell
+             (shell_html); issues open through window.HUB, which decrypts them
+             on tap.
+"""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from typing import Optional
+
+from .live_lines_page import clean
+
+STALE_HOURS = 36
+
+FONT = ('-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,'
+        'system-ui,sans-serif')
+
+CSS = """
+*{box-sizing:border-box}
+body{margin:0;background:#F4F5F7;color:#121417;font-family:%(font)s;
+font-variant-numeric:tabular-nums;-webkit-text-size-adjust:100%%}
+a{color:#1D5FD1;text-decoration:none}
+button{font:inherit;color:inherit}
+.wrap{max-width:560px;margin:0 auto;padding-bottom:28px}
+.stale{background:#7A1E14;color:#fff;padding:14px 18px;font-size:15px;font-weight:700;line-height:1.4}
+.mismatch{background:#4a1714;color:#ffd9d6;padding:12px 18px;font-size:13px;line-height:1.4}
+header.top{background:#121417;color:#fff;padding:20px 20px 18px;display:flex;flex-direction:column;gap:10px}
+.row-b{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.h-title{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.h-sub{font-size:13px;color:#C9CED6}
+.fresh{display:flex;align-items:center;gap:8px;font-size:13px;color:#C9CED6}
+.dot{width:8px;height:8px;border-radius:4px;background:#4C9AFF;display:inline-block;flex:none}
+.lock{background:#2A2F37;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.4;color:#E6E9EE}
+.lock.on{background:#3A2A12;color:#FFE2B8}
+section{padding:20px 16px 4px;display:flex;flex-direction:column;gap:12px}
+h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5B6270}
+.aside{font-size:12px;color:#5B6270}
+.card{background:#fff;border-radius:14px;box-shadow:0 1px 2px rgba(18,20,23,.06);overflow:hidden}
+.m-card{padding:16px;display:flex;flex-direction:column;gap:12px}
+.m-side{display:flex;justify-content:space-between;align-items:center}
+.m-side .l,.m-side .r{display:flex;flex-direction:column}
+.m-side .r{text-align:right}
+.big{font-size:16px;font-weight:700}
+.dim{color:#5B6270;font-weight:500}
+.small{font-size:13px;color:#5B6270}
+.bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:#E3E6EB}
+.bar .a{background:#1D5FD1}.bar .b{flex-grow:1;background:#E8A15C}
+.bets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.bet{background:#F4F5F7;border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:2px}
+.lbl{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em}
+.bet .v{font-size:14px;font-weight:600}
+.clock{font-size:12px;color:#5B6270}
+.pr-h,.pr-row{display:grid;grid-template-columns:24px minmax(0,1fr) 40px 76px 42px;gap:6px;
+padding:10px 14px;align-items:center}
+.pr-h{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;
+border-bottom:1px solid #E3E6EB}
+.pr-h .odds-h{all:unset;cursor:pointer;text-align:right;color:#1D5FD1;font-size:11px;font-weight:700;
+text-transform:uppercase;letter-spacing:.06em}
+.pr-row{all:unset;box-sizing:border-box;display:grid;grid-template-columns:24px minmax(0,1fr) 40px 76px 42px;
+gap:6px;align-items:center;padding:12px 14px;min-height:44px;border-bottom:1px solid #EEF0F3;cursor:pointer;width:100%%}
+.rank{font-size:16px;font-weight:800}
+.tm{display:flex;flex-direction:column;min-width:0}
+.tm .n{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.num{text-align:right;font-size:14px}
+.oddc{text-align:right;display:flex;flex-direction:column}
+.oddc .o{font-size:15px;font-weight:700}
+.oddc .d{font-size:12px;font-weight:600}
+.d.up{color:#1D5FD1}.d.down{color:#B4560C}.d.flat,.d.none{color:#5B6270}
+.adds-over{color:#B3261E;font-weight:700}
+.link{display:block;padding:12px 14px;font-size:13px;font-weight:600}
+.note{font-size:12px;color:#5B6270;line-height:1.5}
+.tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:#E3E6EB;padding:4px;border-radius:10px}
+.tab{all:unset;cursor:pointer;text-align:center;min-height:40px;display:flex;align-items:center;justify-content:center;
+border-radius:8px;font-size:14px;font-weight:600;color:#5B6270}
+.tab.on{background:#fff;color:#121417}
+.g-h,.g-r{display:grid;gap:2px;padding:6px 10px;align-items:center}
+.g-h{font-size:11px;font-weight:600;color:#5B6270;padding-top:10px}
+.g-h .d{text-align:center;display:flex;flex-direction:column}
+.g-h .d span:last-child{font-weight:500}
+.g-r{border-top:1px solid #EEF0F3}
+.g-r .m{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.c{text-align:center;font-size:13px;padding:6px 0;border-radius:6px;font-weight:500}
+.c.light{background:#FBE3CF}.c.over{background:#E3ECFB;font-weight:700}.c.off{color:#9AA1AC}
+.k{text-align:right;font-size:14px;font-weight:700}.k.i{font-size:13px;color:#5B6270;font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px;font-size:11px;color:#5B6270;border-top:1px solid #EEF0F3}
+.legend .sw{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:6px}
+.fa-h,.fa-r{display:grid;grid-template-columns:minmax(0,1fr) 48px 46px 46px;gap:4px;padding:10px 14px;align-items:center}
+.fa-h{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #E3E6EB}
+.fa-r{border-bottom:1px solid #EEF0F3}
+.pn{display:flex;flex-direction:column;min-width:0}
+.pn .n{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pn .s{font-size:11px;color:#5B6270}
+.empty{padding:14px;font-size:14px;color:#5B6270;line-height:1.5}
+.mv{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid #EEF0F3}
+.mv .when{width:52px;flex:none;display:flex;flex-direction:column;font-size:12px;color:#5B6270}
+.mv .when b{color:#121417}
+.mv .body{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:14px;line-height:1.4}
+.chip{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:#E3ECFB;color:#17489E;white-space:nowrap}
+.chip.il,.chip.out{background:#FBE3CF;color:#8A3F06}.chip.q{background:#FFF1C9;color:#6B4E00}
+.chip.st{background:#E3ECFB;color:#17489E}
+.issue{all:unset;box-sizing:border-box;cursor:pointer;background:#121417;color:#fff;border-radius:14px;padding:16px;
+display:flex;justify-content:space-between;align-items:center;min-height:44px;width:100%%}
+.issue .t{display:flex;flex-direction:column;gap:2px}
+.issue .k1{font-size:12px;color:#C9CED6;text-transform:uppercase;letter-spacing:.06em}
+.issue .k2{font-size:17px;font-weight:700}
+.arch{padding:4px 14px}
+.arch .row{all:unset;box-sizing:border-box;cursor:pointer;display:flex;justify-content:space-between;padding:10px 0;
+border-top:1px solid #EEF0F3;font-size:14px;color:#1D5FD1;width:100%%}
+.arch .hd{padding:10px 0;font-size:13px;color:#5B6270}
+footer{padding:20px 16px;font-size:11px;color:#8F96A3;line-height:1.6}
+.view[hidden]{display:none}
+.rh{background:#121417;color:#fff;padding:16px 20px 18px;display:flex;flex-direction:column;gap:12px}
+.back{color:#9CC2FF;font-size:14px;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat{background:#2A2F37;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.stat .lbl{color:#C9CED6}.stat .v{font-size:16px;font-weight:700}
+.size{font-size:13px;color:#E6E9EE}
+.rt-h,.rt-r{display:grid;grid-template-columns:minmax(0,1fr) 44px 44px 44px 30px 44px;gap:2px;align-items:center;padding:4px 10px}
+.rt-h{border-bottom:1px solid #E3E6EB}
+.sb{all:unset;cursor:pointer;min-height:40px;display:flex;align-items:center;justify-content:flex-end;font-size:11px;
+font-weight:700;color:#5B6270;text-transform:uppercase}
+.sb.first{justify-content:flex-start;letter-spacing:.06em}
+.sb.on{color:#1D5FD1}
+.rt-r{padding:9px 10px;border-bottom:1px solid #EEF0F3}
+.rt-r.il{background:#FBF8F5}
+.rt-r .tags{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.rt-r .v{text-align:right;font-size:14px;color:#3A404A}
+.rt-r .v.f{font-weight:600;color:#121417}
+.rt-r .v.ks{color:#1D5FD1;font-weight:600}
+.ch-r{padding:10px 14px;border-bottom:1px solid #EEF0F3;display:flex;flex-direction:column;gap:6px}
+.ch-b{display:grid;grid-template-columns:64px minmax(0,1fr) 52px;gap:8px;align-items:center;font-size:12px}
+.ch-b .track{height:8px;background:#EEF0F3;border-radius:4px;overflow:hidden}
+.ch-b .fill{height:100%%;background:#1D5FD1}
+#issue-view{position:fixed;inset:0;background:#fff;z-index:10;display:flex;flex-direction:column}
+#issue-view[hidden]{display:none}
+#issue-view .bar2{background:#121417;padding:10px 16px}
+#issue-view iframe{flex:1;border:0;width:100%%}
+""" % {"font": FONT}
+
+
+def age_words(generated_at: datetime, now: datetime) -> tuple:
+    """(words, stale) -- the same rule as the page's script."""
+    seconds = (now - generated_at).total_seconds()
+    minutes = int(seconds // 60)
+    if seconds < 60:
+        words = "just now"
+    elif minutes < 60:
+        words = f"{minutes} minute{'' if minutes == 1 else 's'} ago"
+    else:
+        hours = int(round(seconds / 3600.0))
+        if seconds / 3600.0 < STALE_HOURS:
+            words = f"{hours} hour{'' if hours == 1 else 's'} ago"
+        else:
+            days = int(round(seconds / 86400.0))
+            words = f"{days} day{'' if days == 1 else 's'} ago"
+    return words, seconds >= STALE_HOURS * 3600
+
+
+STALE_TEXT = ("This hub is more than %d hours old and may be wrong. The nightly update has not "
+              "run since %s." % (STALE_HOURS, "%s"))
+
+
+def _tags(chips) -> str:
+    return "".join(f'<span class="chip {clean(c["kind"])}">{clean(c["text"])}</span>' for c in chips)
+
+
+def render(payload: dict, *, now: datetime = None, mode: str = "preview",
+           archive_href: str = "hub_archive/") -> str:
+    """The page as one HTML string. mode "preview" or "publish"."""
+    if mode not in ("preview", "publish"):
+        raise ValueError(f"mode {mode!r}")
+    gen = datetime.fromisoformat(payload["generated_at"])
+    now = now or datetime.now(gen.tzinfo)
+    words, stale = age_words(gen, now)
+    h = payload["header"]
+    o = ["<!DOCTYPE html>", '<html lang="en"><head><meta charset="utf-8">',
+         '<meta name="viewport" content="width=device-width,initial-scale=1">',
+         '<meta name="robots" content="noindex">',
+         f"<title>{clean(h['title'])}</title>", f"<style>{CSS}</style></head><body>",
+         f'<div class="wrap" id="hub" data-epoch="{int(payload["generated_epoch_ms"])}" '
+         f'data-stale-hours="{STALE_HOURS}">']
+    o.append(f'<div class="stale" id="stale"{"" if stale else " hidden"}>'
+             f'{clean(STALE_TEXT % payload["generated_text"])}</div>')
+
+    # ---------------------------------------------------------------- main view
+    o.append('<div class="view" id="v-main">')
+    if h.get("engine_mismatch"):
+        o.append(f'<div class="mismatch"><b>Do not price anything off this page.</b> '
+                 f'{clean(h["engine_mismatch"])}.</div>')
+    o.append('<header class="top">'
+             f'<div class="row-b"><div class="h-title">{clean(h["title"])}</div>'
+             f'<div class="h-sub">{clean(h["week_label"])}</div></div>'
+             f'<div class="fresh"><span class="dot"></span><span>Updated <span id="age">{clean(words)}</span>'
+             f' ({clean(payload["generated_text"])})</span></div>'
+             f'<div class="lock{" on" if h["lock"]["locked"] else ""}">{clean(h["lock"]["text"])}</div>'
+             '</header>')
+
+    mu = payload["matchups"]
+    o.append("<section><h2>This week's matchups</h2>")
+    for c in mu["cards"]:
+        o.append('<div class="card m-card"><div style="display:flex;flex-direction:column;gap:8px">')
+        for s in ("a", "b"):
+            x = c[s]
+            o.append(f'<div class="m-side"><div class="l"><span class="big">{clean(x["team"])}</span>'
+                     f'<span class="small">{clean(x["manager"])}</span></div>'
+                     f'<div class="r"><span class="big">{clean(x["now"])} <span class="dim">&rarr; '
+                     f'{clean(x["proj"])}</span></span><span class="small">{clean(x["win"])} to win</span>'
+                     "</div></div>")
+        o.append(f'</div><div class="bar"><div class="a" style="width:{clean(c["bar_a"])}"></div>'
+                 '<div class="b"></div></div><div class="bets">'
+                 f'<div class="bet"><span class="lbl">Spread</span><span class="v">{clean(c["spread"])}</span></div>'
+                 f'<div class="bet"><span class="lbl">O/U</span><span class="v">{clean(c["total"])}</span></div>'
+                 f'<div class="bet"><span class="lbl">Moneyline</span><span class="v">{clean(c["moneyline"])}</span></div>'
+                 f'</div><div class="clock">{clean(mu["clock"])} &middot; {clean(h["line_text"])}</div></div>')
+    o.append("</section>")
+
+    pw = payload["power"]
+    o.append('<section><div class="row-b"><h2>Power rankings</h2>'
+             '<span class="aside">Tap a team for its roster</span></div><div class="card">'
+             '<div class="pr-h"><span>#</span><span>Team</span><span style="text-align:right">W-L</span>'
+             f'<button class="odds-h" data-open="v-chart">{clean(pw["label"])} &rsaquo;</button>'
+             '<span style="text-align:right">Adds</span></div>')
+    for r in pw["rows"]:
+        o.append(f'<button class="pr-row" data-open="v-roster-{clean(r["manager"])}">'
+                 f'<span class="rank">{clean(r["rank"])}</span>'
+                 f'<span class="tm"><span class="n">{clean(r["team"])}</span>'
+                 f'<span class="small" style="font-size:12px">{clean(r["manager"])}</span></span>'
+                 f'<span class="num">{clean(r["record"])}</span>'
+                 f'<span class="oddc"><span class="o">{clean(r["odds"])}</span>'
+                 f'<span class="d {clean(r["delta_dir"])}">{clean(r["delta"])}</span></span>'
+                 f'<span class="num{" adds-over" if r["adds_over"] else ""}">{clean(r["adds"])}</span></button>')
+    o.append(f'<button class="link" data-open="v-chart" style="all:unset;cursor:pointer;display:block;'
+             f'padding:12px 14px;font-size:13px;font-weight:600;color:#1D5FD1">'
+             f'{clean(pw["label"])} over time &rarr;</button></div>'
+             f'<div class="note">{clean(pw["as_of"])}. {clean(pw["note"])}</div></section>')
+
+    gr = payload["grid"]
+    o.append('<section><h2>Games grid</h2><div class="tabs">')
+    for i, t in enumerate(gr["tabs"]):
+        o.append(f'<button class="tab{" on" if i == 0 else ""}" data-tab="{clean(t["key"])}">{clean(t["label"])}</button>')
+    o.append("</div>")
+    for i, t in enumerate(gr["tabs"]):
+        cols = f'grid-template-columns:52px repeat({len(t["days"])},minmax(0,1fr)) 40px 32px'
+        o.append(f'<div class="card tabp" data-tabp="{clean(t["key"])}"{"" if i == 0 else " hidden"}>')
+        o.append(f'<div class="g-h" style="{cols}"><span>{clean(t["range"])}</span>')
+        for d in t["days"]:
+            o.append(f'<span class="d"><span>{clean(d["dow"])}</span><span>{clean(d["day"])}</span></span>')
+        o.append('<span style="text-align:right">Starts</span><span style="text-align:right">Idle</span></div>')
+        for r in t["rows"]:
+            o.append(f'<div class="g-r" style="{cols}"><span class="m">{clean(r["manager"])}</span>')
+            for c in r["cells"]:
+                o.append(f'<span class="c {clean(c["kind"])}">{clean(c["n"])}</span>')
+            o.append(f'<span class="k">{clean(r["starts"])}</span><span class="k i">{clean(r["idle"])}</span></div>')
+        if not t["days"]:
+            o.append('<div class="empty">No days left in this week.</div>')
+        o.append('<div class="legend">'
+                 f'<span><span class="sw" style="background:#FBE3CF"></span>{clean(gr["legend"]["light"])}</span>'
+                 f'<span><span class="sw" style="background:#E3ECFB"></span>{clean(gr["legend"]["over"])}</span>'
+                 f'</div><div class="empty" style="padding:0 10px 10px;font-size:12px">{clean(t["note"])} '
+                 f'{clean(gr["foot"])}</div></div>')
+    o.append("</section>")
+
+    fa = payload["free_agents"]
+    o.append('<section><div class="row-b"><h2>Best free agents</h2><span class="aside">by Yahoo projection'
+             '</span></div><div class="card"><div class="fa-h"><span>Player</span><span style="text-align:right">'
+             'Proj</span><span style="text-align:right">GL</span><span style="text-align:right">Next</span></div>')
+    for r in fa["rows"]:
+        o.append(f'<div class="fa-r"><span class="pn"><span class="n">{clean(r["name"])}</span>'
+                 f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span></span>'
+                 f'<span class="num" style="font-weight:600">{clean(r["proj"])}</span>'
+                 f'<span class="num">{clean(r["gl"])}</span><span class="num">{clean(r["next"])}</span></div>')
+    o.append(f'<div class="empty" style="font-size:12px">{clean(fa["note"])}</div></div></section>')
+
+    if payload.get("advice") is not None:
+        raise ValueError("the hub's advice slot renders only its empty state until advice v2 exists")
+    o.append(f'<section><h2>Advice</h2><div class="card"><div class="empty" id="advice-empty">'
+             f'{clean(payload["advice_empty"])}</div></div></section>')
+
+    mv = payload["moves"]
+    o.append("<section><h2>Moves &middot; last 7 days</h2><div class=\"card\">")
+    if not mv["items"]:
+        o.append(f'<div class="empty">{clean(mv["empty"])}</div>')
+    for x in mv["items"]:
+        o.append(f'<div class="mv"><div class="when"><b>{clean(x["day"])}</b><span>{clean(x["date"])}</span></div>'
+                 f'<div class="body"><span><b>{clean(x["who"])}</b> {clean(x["what"])}</span>'
+                 f'<span style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip st">{clean(x["state"])}</span>'
+                 f'<span class="small" style="font-size:11px">{clean(x["note"])}</span></span></div></div>')
+    o.append(f'<div class="empty" style="font-size:12px">{clean(mv["note"])}</div></div></section>')
+
+    nl = payload["newsletter"]
+    o.append("<section><h2>The newsletter</h2>")
+
+    def issue_attr(i):
+        if mode == "publish":
+            return f'data-issue="{clean(i["file"])}"'
+        return f'data-href="{clean(archive_href + i["file"].replace(".enc", ".html"))}"'
+
+    if nl["current"]:
+        c = nl["current"]
+        o.append(f'<button class="issue" {issue_attr(c)}><span class="t"><span class="k1">Latest issue</span>'
+                 f'<span class="k2">{clean(c["label"])}</span></span><span style="font-size:20px;color:#9CC2FF">'
+                 f'&rarr;</span></button>')
+    else:
+        o.append(f'<div class="card"><div class="empty">{clean(nl["empty"])}</div></div>')
+    o.append(f'<div class="card arch"><div class="hd">{clean(nl["note"])}</div>')
+    for i in nl["archive"]:
+        o.append(f'<button class="row" {issue_attr(i)}><span>{clean(i["label"])}</span>'
+                 f'<span class="small">{clean(i["size"])}</span></button>')
+    if not nl["archive"]:
+        o.append('<div class="row" style="cursor:default;color:#5B6270">The latest issue is the only one so far.</div>')
+    o.append("</div></section>")
+
+    eng = payload["engine"]
+    o.append(f'<footer>Engine {clean(eng["key"])} &middot; {clean(payload["sources"]["line"])} &middot; '
+             f'actual points through {clean(payload["sources"]["actuals_through"])}'
+             + (' &middot; <a href="#" id="forget">Forget this phone</a>' if mode == "publish" else
+                " &middot; local preview, not published")
+             + "</footer>")
+    o.append("</div>")
+
+    # ---------------------------------------------------------------- roster views
+    cols = [("name", "Player"), ("fppg", "FPPG"), ("proj", "Proj"), ("l14", "L14"), ("gl", "GL"),
+            ("keep", "Keep")]
+    for m, rb in payload["rosters"].items():
+        o.append(f'<div class="view" id="v-roster-{clean(m)}" hidden>'
+                 '<div class="rh"><a href="#" class="back" data-open="v-main">&larr; Power rankings</a>'
+                 f'<div style="display:flex;flex-direction:column;gap:2px"><div class="h-title">{clean(rb["team"])}</div>'
+                 f'<div class="h-sub">{clean(rb["subtitle"])}</div></div><div class="stats">'
+                 f'<div class="stat"><span class="lbl">{clean(rb["odds_label"])}</span><span class="v">{clean(rb["odds"])}</span></div>'
+                 f'<div class="stat"><span class="lbl">Adds</span><span class="v">{clean(rb["adds"])}</span></div>'
+                 f'<div class="stat"><span class="lbl">Games left</span><span class="v">{clean(rb["starts"])}</span></div>'
+                 f'</div><div class="size">{clean(rb["size"])}</div></div>'
+                 '<section style="padding:16px 12px 24px;gap:10px"><div class="row-b" style="padding:0 4px">'
+                 '<h2>Roster</h2><span class="aside">Sorted by <span class="sortlbl">'
+                 f'{dict(cols)[rb["default_order"]]}</span> &middot; tap a column</span></div>'
+                 f'<div class="card rt" data-orders=\'{clean(json.dumps(rb["orders"]))}\' '
+                 f'data-default="{clean(rb["default_order"])}"><div class="rt-h">')
+        for key, label in cols:
+            on = " on" if key == rb["default_order"] else ""
+            first = " first" if key == "name" else ""
+            o.append(f'<button class="sb{first}{on}" data-sort="{key}">{label}</button>')
+        o.append('</div><div class="rt-body">')
+        order = rb["orders"][rb["default_order"]]
+        for i in order:
+            p = rb["players"][i]
+            o.append(f'<div class="rt-r{" il" if p["in_il"] else ""}" data-i="{i}">'
+                     f'<div class="pn"><span class="n">{clean(p["name"])}</span><span class="tags">'
+                     f'<span class="s">{clean(p["pos"])} &middot; {clean(p["nba"])}</span>{_tags(p["tags"])}</span></div>'
+                     f'<span class="v f">{clean(p["fppg"])}</span><span class="v">{clean(p["proj"])}</span>'
+                     f'<span class="v">{clean(p["l14"])}</span><span class="v" style="color:#121417">{clean(p["gl"])}</span>'
+                     f'<span class="v{" ks" if p["keep_strong"] else ""}">{clean(p["keep"])}</span></div>')
+        o.append(f'</div></div><div class="note" style="padding:0 4px">{clean(rb["note"])}</div></section></div>')
+
+    # ---------------------------------------------------------------- the chart view
+    ch = pw["chart"]
+    o.append('<div class="view" id="v-chart" hidden><div class="rh">'
+             '<a href="#" class="back" data-open="v-main">&larr; Power rankings</a>'
+             f'<div class="h-title">{clean(pw["label"])} over time</div></div>'
+             '<section><div class="card">')
+    for pt in ch["points"]:
+        o.append(f'<div class="ch-r"><span class="lbl">{clean(pt["label"])}</span>')
+        for v in pt["values"]:
+            o.append(f'<div class="ch-b"><span>{clean(v["manager"])}</span><span class="track">'
+                     f'<span class="fill" style="display:block;width:{clean(v["width"])}"></span></span>'
+                     f'<span style="text-align:right;font-weight:600">{clean(v["text"])}</span></div>')
+        o.append("</div>")
+    o.append(f'</div><div class="note">{clean(ch["note"])}</div></section></div>')
+
+    o.append('<div id="issue-view" hidden><div class="bar2"><a href="#" class="back" id="issue-close">'
+             '&larr; Back to the hub</a></div><iframe id="issue-frame" title="Newsletter"></iframe></div>')
+    o.append("</div>")
+    o.append(f"<script>{PAGE_JS}</script></body></html>")
+    return "\n".join(o)
+
+
+PAGE_JS = r"""
+(function(){
+var hub=document.getElementById('hub');
+function show(id){
+  var vs=document.querySelectorAll('.view');
+  for(var i=0;i<vs.length;i++){vs[i].hidden=(vs[i].id!==id);}
+  window.scrollTo(0,0);
+}
+function route(){var h=location.hash.replace('#','');show(document.getElementById(h)?h:'v-main');}
+window.addEventListener('hashchange',route);
+function age(){
+  var ms=Date.now()-Number(hub.getAttribute('data-epoch'));
+  var lim=Number(hub.getAttribute('data-stale-hours'))*3600000, w;
+  var m=Math.floor(ms/60000);
+  if(ms<60000){w='just now';}
+  else if(m<60){w=m+(m===1?' minute':' minutes')+' ago';}
+  else if(ms<lim){var h=Math.round(ms/3600000);w=h+(h===1?' hour':' hours')+' ago';}
+  else{var d=Math.round(ms/86400000);w=d+(d===1?' day':' days')+' ago';}
+  document.getElementById('age').textContent=w;
+  document.getElementById('stale').hidden=!(ms>=lim);
+}
+age();setInterval(age,60000);
+function sortTable(card,key){
+  var orders=JSON.parse(card.getAttribute('data-orders'));
+  var body=card.querySelector('.rt-body');
+  var rows={};var rs=body.children;
+  for(var i=0;i<rs.length;i++){rows[rs[i].getAttribute('data-i')]=rs[i];}
+  var ord=orders[key];
+  for(var j=0;j<ord.length;j++){body.appendChild(rows[String(ord[j])]);}
+  var bs=card.querySelectorAll('.sb');
+  for(var k=0;k<bs.length;k++){bs[k].classList.toggle('on',bs[k].getAttribute('data-sort')===key);}
+  var view=card.closest('.view');
+  view.querySelector('.sortlbl').textContent=card.querySelector('.sb[data-sort="'+key+'"]').textContent;
+}
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-open]');
+  if(t){e.preventDefault();var id=t.getAttribute('data-open');
+    if(id==='v-main'){history.pushState('',document.title,location.pathname+location.search);show('v-main');}
+    else{location.hash=id;}
+    return;}
+  t=e.target.closest('[data-tab]');
+  if(t){var key=t.getAttribute('data-tab');
+    var ts=document.querySelectorAll('[data-tab]');for(var i=0;i<ts.length;i++){ts[i].classList.toggle('on',ts[i]===t);}
+    var ps=document.querySelectorAll('[data-tabp]');for(var j=0;j<ps.length;j++){ps[j].hidden=(ps[j].getAttribute('data-tabp')!==key);}
+    return;}
+  t=e.target.closest('[data-sort]');
+  if(t){sortTable(t.closest('.rt'),t.getAttribute('data-sort'));return;}
+  t=e.target.closest('[data-href]');
+  if(t){openFrame(t.getAttribute('data-href'));return;}
+  t=e.target.closest('[data-issue]');
+  if(t){var f=t.getAttribute('data-issue');
+    if(!window.HUB){return;}
+    t.disabled=true;
+    window.HUB.openIssue(f).then(function(url){t.disabled=false;openFrame(url);},
+      function(){t.disabled=false;alertBox('That issue could not be opened.');});
+    return;}
+  if(e.target.id==='issue-close'){e.preventDefault();document.getElementById('issue-view').hidden=true;
+    document.getElementById('issue-frame').removeAttribute('src');return;}
+  if(e.target.id==='forget'){e.preventDefault();if(window.HUB){window.HUB.forget();}return;}
+});
+function openFrame(url){var v=document.getElementById('issue-view');document.getElementById('issue-frame').src=url;v.hidden=false;}
+function alertBox(msg){var d=document.createElement('div');
+  d.className='stale';d.textContent=msg;document.body.insertBefore(d,document.body.firstChild);}
+route();
+})();
+"""
+
+
+# =============================================================================
+# the decrypt shell
+# =============================================================================
+
+SHELL_CSS = """
+*{box-sizing:border-box}
+html,body{margin:0;background:#121417;color:#fff;font-family:%(font)s}
+.u{max-width:420px;min-height:100vh;margin:0 auto;display:flex;flex-direction:column;justify-content:center;
+padding:32px 28px;gap:28px}
+.t{font-size:30px;font-weight:800;letter-spacing:-.02em}
+.s{font-size:15px;color:#C9CED6;line-height:1.5}
+label{font-size:13px;font-weight:600;color:#C9CED6}
+input[type=password]{width:100%%;height:50px;border-radius:12px;border:1px solid #3A404A;background:#1E2228;
+color:#fff;font-size:17px;padding:0 14px;font-family:inherit}
+.rem{display:flex;gap:10px;align-items:center;font-size:14px;color:#C9CED6;min-height:44px;font-weight:400}
+.rem input{width:20px;height:20px}
+button{height:52px;border-radius:12px;background:#4C9AFF;color:#0B1B33;font-size:17px;font-weight:700;border:0;
+width:100%%;font-family:inherit;cursor:pointer}
+button:disabled{opacity:.6}
+.msg{min-height:20px;font-size:14px;color:#FFB4A8}
+.f{font-size:12px;color:#8F96A3;line-height:1.5}
+""" % {"font": FONT}
+
+SHELL_JS = r"""
+(function(){
+var B=JSON.parse(document.getElementById('hub-bundle').textContent);
+var STORE='hub-key-v1';
+function unb64(s){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++){u[i]=b.charCodeAt(i);}return u;}
+function b64(u){var s='';for(var i=0;i<u.length;i++){s+=String.fromCharCode(u[i]);}return btoa(s);}
+function getStored(){try{var v=JSON.parse(localStorage.getItem(STORE)||'null');return v;}catch(e){return null;}}
+function setStored(v){try{localStorage.setItem(STORE,JSON.stringify(v));}catch(e){}}
+function clearStored(){try{localStorage.removeItem(STORE);}catch(e){}}
+function derive(pass){
+  return crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveBits'])
+  .then(function(k){return crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:unb64(B.salt),iterations:B.iter},k,256);})
+  .then(function(bits){return new Uint8Array(bits);});
+}
+function openWith(raw){
+  return crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt'])
+  .then(function(k){return crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(B.iv)},k,unb64(B.ct));})
+  .then(function(pt){return JSON.parse(new TextDecoder().decode(pt));});
+}
+function mount(inner){
+  window.HUB={
+    openIssue:function(file){
+      var k=inner.issues[file];
+      if(!k){return Promise.reject(new Error('unknown issue'));}
+      return fetch('issues/'+file).then(function(r){if(!r.ok){throw new Error('fetch');}return r.arrayBuffer();})
+      .then(function(buf){var u=new Uint8Array(buf);
+        return crypto.subtle.importKey('raw',unb64(k),'AES-GCM',false,['decrypt']).then(function(key){
+          return crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},key,u.slice(12));});})
+      .then(function(pt){return URL.createObjectURL(new Blob([pt],{type:'text/html'}));});
+    },
+    forget:function(){clearStored();location.reload();}
+  };
+  var doc=new DOMParser().parseFromString(inner.page,'text/html');
+  document.title=doc.title;
+  var st=doc.querySelectorAll('style');
+  for(var i=0;i<st.length;i++){document.head.appendChild(st[i].cloneNode(true));}
+  var old=document.getElementById('shell-style');if(old){old.remove();}
+  document.body.innerHTML=doc.body.innerHTML;
+  var ss=document.body.querySelectorAll('script');
+  for(var j=0;j<ss.length;j++){var n=document.createElement('script');n.textContent=ss[j].textContent;ss[j].replaceWith(n);}
+}
+var form=document.getElementById('unlock'),msg=document.getElementById('msg'),btn=document.getElementById('go');
+function tryStored(){
+  var s=getStored();
+  if(!s){return Promise.resolve(false);}
+  if(s.salt!==B.salt){clearStored();return Promise.resolve(false);}
+  return openWith(unb64(s.key)).then(function(inner){mount(inner);return true;},function(){clearStored();return false;});
+}
+tryStored().then(function(ok){if(!ok){form.hidden=false;document.getElementById('pass').focus();}});
+form.addEventListener('submit',function(e){
+  e.preventDefault();msg.textContent='';btn.disabled=true;btn.textContent='Opening...';
+  var pass=document.getElementById('pass').value;
+  derive(pass).then(function(raw){
+    return openWith(raw).then(function(inner){
+      if(document.getElementById('remember').checked){setStored({salt:B.salt,key:b64(raw)});}else{clearStored();}
+      mount(inner);
+    });
+  }).catch(function(){msg.textContent='Wrong passphrase.';btn.disabled=false;btn.textContent='Open the hub';});
+});
+})();
+"""
+
+
+def shell_html(bundle_json: str) -> str:
+    """The published index.html: the unlock form, the encrypted bundle and
+    the WebCrypto decryptor. It holds no league content: no name, no number."""
+    if "</" in bundle_json:
+        raise ValueError("bundle JSON must not contain '</'")
+    return "\n".join([
+        "<!DOCTYPE html>", '<html lang="en"><head><meta charset="utf-8">',
+        '<meta name="viewport" content="width=device-width,initial-scale=1">',
+        '<meta name="robots" content="noindex">',
+        "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; "
+        "script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; "
+        "frame-src blob:; img-src data: blob:\">",
+        "<title>League Hub</title>", f'<style id="shell-style">{SHELL_CSS}</style></head><body>',
+        '<form class="u" id="unlock" hidden autocomplete="off">',
+        '<div style="display:flex;flex-direction:column;gap:8px"><div class="t">League Hub</div>',
+        '<div class="s">Enter the league passphrase. This phone can remember it after the first time.</div></div>',
+        '<div style="display:flex;flex-direction:column;gap:10px"><label for="pass">Passphrase</label>',
+        '<input id="pass" type="password" placeholder="four words, spaces OK" autocapitalize="none" '
+        'autocorrect="off" spellcheck="false">',
+        '<label class="rem"><input type="checkbox" id="remember" checked> Remember on this phone</label></div>',
+        '<button id="go" type="submit">Open the hub</button><div class="msg" id="msg"></div>',
+        '<div class="f">Everything on this page is encrypted. Without the passphrase, all the site holds '
+        'is scrambled data.</div></form>',
+        f'<script type="application/json" id="hub-bundle">{bundle_json}</script>',
+        f"<script>{SHELL_JS}</script></body></html>"])

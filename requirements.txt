@@ -38,6 +38,11 @@ beautifulsoup4>=4.12.0
 tzdata>=2024.1
 
 # --------------------------------------------
+# The hub's encryption (modules/hub_crypto.py): AES-GCM, PBKDF2-SHA256
+# --------------------------------------------
+cryptography>=42.0
+
+# --------------------------------------------
 # HTTP Requests (dependency for APIs)
 # --------------------------------------------
 requests>=2.28.0
