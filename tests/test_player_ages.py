@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+from league_state import needs_state
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -68,6 +70,7 @@ def test_no_source_is_no_age_not_the_nearest_jr(fp, monkeypatch):
     assert "10582" not in got                                    # unaged, reported -- not 29
 
 
+@needs_state("config/PLAYER_AGES.json", why="it checks the real age cache, league state since 11-03")
 def test_the_committed_cache_ages_the_rookies_as_rookies():
     ages = json.loads((ROOT / "config" / "PLAYER_AGES.json").read_text(encoding="utf-8"))["ages"]
     for pid in ("10582", "10588", "10590"):                      # Acuff, Brown Jr., Peterson

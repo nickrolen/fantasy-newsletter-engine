@@ -74,6 +74,31 @@ def expected_roster_size(on_il: int = 0) -> int:
     return active_spots() + min(on_il, il_slots)
 
 
+def live_rosters(oauth_file=None) -> dict:
+    """{manager: {"players": [every rostered player], "il": [those in an IL
+    slot]}} from Yahoo's live rosters, in one pass (step 1c's nightly sync
+    compares the first with ROSTERS.json and writes the second). Managers by
+    team KEY; names accent-stripped as the transaction sync spells them."""
+    from modules.fetch_injury_statuses import OAuth2, YAHOO_API_AVAILABLE, get_league, strip_accents
+    from modules.data_loader import manager_for_team
+    from modules.yahoo_auth import build_oauth
+    if not YAHOO_API_AVAILABLE:
+        raise RuntimeError("yahoo_oauth / yahoo_fantasy_api are not installed")
+    oauth_file = Path(oauth_file or PROJECT_ROOT / "oauth2.json")
+    if not oauth_file.is_file():
+        raise RuntimeError(f"no {oauth_file.name}")
+    lg = get_league(build_oauth(str(oauth_file), OAuth2=OAuth2))
+    out = {}
+    for key, team in lg.teams().items():
+        manager = manager_for_team(team["name"], key, base_path=PROJECT_ROOT)
+        roster = lg.to_team(key).roster()
+        out[manager] = {
+            "players": [strip_accents(p["name"]) for p in roster],
+            "il": [strip_accents(p["name"]) for p in roster
+                   if str(p.get("selected_position", "")).upper() in IL_SLOTS]}
+    return out
+
+
 def live_il_names(oauth_file=None) -> dict:
     """{manager: [players in an IL slot right now]}, from Yahoo's live rosters
     (lg.to_team(key).roster(), the selected_position update_fantasy_logs

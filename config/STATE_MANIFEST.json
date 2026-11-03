@@ -24,7 +24,14 @@
     {"path": "output/title_odds_history.jsonl", "what": "every title-odds run, append-only history; never scored (modules/title_odds_history, step 1a)"},
     {"path": "data/LEAGUE_HISTORY_DETAILED.json", "what": "an optional legacy league-history file, read if present (data_loader)"},
     {"path": "data/player_actuals.json", "what": "every rostered player's daily fantasy points and games played, one finished league day at a time (scripts/fetch_player_actuals.py; the hub's FPPG and L14; step 1b)"},
-    {"path": "output/hub_state.json", "what": "the hub's payload: names, rosters, lines, title odds (scripts/build_hub_state.py; step 1b)"}
+    {"path": "config/PLAYER_AGES.json", "what": "player ages keyed by Yahoo id; rewritten by every fetch_playerlist run, the nightly one included (step 1c-i finding; moved 11-03). Not private, but written by runs, so state (P2 rule)"},
+    {"path": "output/hub_state.json", "what": "the hub's payload: names, rosters, lines, title odds (scripts/build_hub_state.py; step 1b)"},
+    {"path": "output/nightly_runs.jsonl", "what": "the run record: one row per nightly / pre-tip / closing run, each step's outcome and time (modules/nightly.py; step 1c)"},
+    {"path": "data/transaction_log.jsonl", "what": "every Yahoo transaction with its Pacific time and the rulings that apply, append-only (modules/transaction_log.py; step 1c)"},
+    {"path": "output/title_odds_latest.json", "what": "the latest title-odds run's whole result, read by the hub's power rankings (modules/title_odds_run.py; step 1c)"},
+    {"path": "output/stakes.json", "what": "each team's leverage in each remaining week, from the latest season pass, for task 18b (modules/title_odds_run.py; step 1c)"},
+    {"path": "output/tag_records.jsonl", "what": "every Yahoo injury-tag fetch, append-only: the hub's statuses and the closing line's pre-tip tags (modules/tag_records.py; step 1c)"},
+    {"path": "config/.leaguehistory_applied_weeks.json", "what": "which weeks update_leaguehistory has applied, per season (changes weekly; moved private in step 1c)"}
   ],
   "dirs": [
     {"path": "data/lore_backups", "what": "lore backups (modules/lore.py)"},
@@ -51,7 +58,8 @@
     {"dir": "output", "name": "live_lines_week*.json", "what": "live lines, including each week's .state.json (the week-opening tag baseline and seed)"},
     {"dir": "output", "name": "live_lines_week*.tag_log.jsonl", "what": "each week's tag log (refresh_lines)"},
     {"dir": "output", "name": "live_lines_week*.html", "what": "each week's live-line page (week 1's two pages are public exceptions)"},
-    {"dir": "output", "name": "refresh_service.*", "what": "the refresh service's run log and console"}
+    {"dir": "output", "name": "refresh_service.*", "what": "the refresh service's run log and console"},
+    {"dir": "output", "name": "closing_line_week*.json", "what": "each week's closing line, the official line, priced once after the Monday window closes (modules/closing_line.py; step 1c)"}
   ],
   "excluded": [
     {"path": "oauth2.json", "why": "Yahoo credentials: never state, never copied (also oauth2_backup.json, oauth2.backup_*.json, *.oauth, private.json)"},

@@ -3488,6 +3488,7 @@ def build_stats_report(
     injury_statuses: dict[str, str] = None,
     freshness_tracker: "FreshnessTracker" = None,
     season_performers: dict = None,
+    season_pass_out: list = None,
 ) -> dict:
     """
     Build complete stats report for a week.
@@ -3505,6 +3506,9 @@ def build_stats_report(
               Required when run_simulations is set.
         injury_statuses: Dict mapping player_name -> injury status (from Yahoo API)
         freshness_tracker: Optional tracker to filter stale/repetitive content
+        season_pass_out: a list the season pass is appended to, so the caller
+              can record the run through modules/title_odds_run (step 1c: one
+              path for the weekly build's title odds and the nightly run's)
     
     Returns:
         Complete stats report as dict (JSON-serializable)
@@ -3573,10 +3577,11 @@ def build_stats_report(
     if run_simulations:
         through = ("cup" if bracket_rounds() and cup_rounds()
                    else "playoffs" if bracket_rounds() else "regular")
-        season_pass = run_season(
-            data, num_simulations=num_title_sims, seed=seed,
-            injury_statuses=injury_statuses, through=through,
-        )
+        from .title_odds_run import run_pass
+        season_pass = run_pass(data, seed=seed, sims=num_title_sims,
+                               statuses=injury_statuses, through=through)
+        if season_pass_out is not None:
+            season_pass_out.append(season_pass)
         title_odds = season_pass.playoff_result() if use_playoff_odds else season_pass.title_result()
         # The Cup is a separate competition with its own seeding (points over
         # weeks 1-21), so it is its own readout rather than overwriting the

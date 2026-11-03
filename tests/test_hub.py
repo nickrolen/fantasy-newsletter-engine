@@ -82,8 +82,9 @@ def sample_payload(**over) -> dict:
                                   "next": "4"}], "note": "Chat claims arrive with the ledger."},
         "advice": None, "advice_empty": "Advice is being rebuilt; it returns here once it is ready.",
         "checklist": None,
-        "moves": {"items": [{"day": "Mon", "date": "11/2", "who": "Mgr One", "what": "added Free Guy",
-                             "note": "week 2 claim", "state": "Applied", "kind": "add"}],
+        "moves": {"items": [{"day": "Mon", "date": "11/2", "time": "6:11 AM", "who": "Mgr One",
+                             "what": "added Free Guy", "note": "week 2 claim", "state": "Applied",
+                             "kind": "add"}],
                   "empty": "No moves in the last 7 days.", "note": "by date."},
         "newsletter": {"current": {"week": "2", "label": "Week 2 \u00b7 Oct 26\u2013Nov 1",
                                    "file": "week02-aaaaaaaaaaaa.enc", "size": "2.4 MB"},
@@ -456,7 +457,8 @@ def real():
     from modules import player_actuals, live_lines_page
     from modules.league_clock import league_now
     needed = [ROOT / "data" / "player_actuals.json", ROOT / "output" / "title_odds_history.jsonl",
-              ROOT / "config" / "ROSTERS.json"]
+              ROOT / "output" / "title_odds_latest.json", ROOT / "output" / "tag_records.jsonl",
+              ROOT / "data" / "transaction_log.jsonl", ROOT / "config" / "ROSTERS.json"]
     if not all(p.exists() for p in needed):
         pytest.skip("league state not in this checkout (the hub's real inputs)")
     kdir = ROOT / "data" / "keepability"
@@ -483,21 +485,24 @@ def test_real_build_wrote_nothing_to_keepability(real):
     assert real["keep_before"] == real["keep_after"]
 
 
-def test_real_power_order_is_build_power_rankings_and_odds_the_latest_row(real):
+def test_real_power_order_is_build_power_rankings_and_odds_the_latest_run(real):
+    """Invariant 6 of step 1c: the hub reads output/title_odds_latest.json, and
+    its power-rankings order equals build_power_rankings' on that run."""
     from modules.data_loader import load_all_data, MANAGERS
     from modules.report_builder import build_power_rankings
-    from modules import keepability_v3, title_odds_history as toh
+    from modules import keepability_v3, title_odds_history as toh, title_odds_run as tor_mod
     p = real["payload"]
     data = load_all_data(ROOT, current_week=None)
-    tor, latest, _prev, report = hs.title_odds_inputs(ROOT, data, MANAGERS)
+    tor, latest, _prev = hs.title_odds_inputs(ROOT, data, MANAGERS)
+    assert latest == tor_mod.load_latest(ROOT)
     kw = keepability_v3.keeper_watch(data, p["week"] - 1, root=ROOT)
     ranked = build_power_rankings(tor, data.records, data.leaguehistory, keeper_watch=kw)
     assert [r["manager"] for r in p["power"]["rows"]] == [r["manager"] for r in ranked]
-    rows = toh.read(ROOT)
     for r in p["power"]["rows"]:
-        assert r["odds"] == f"{rows[-1]['title_odds'][r['manager']]:.1f}%"
-    # and the published report of that run ordered them the same way
-    assert [r["manager"] for r in p["power"]["rows"]] == [r["manager"] for r in report["power_rankings"]]
+        assert r["odds"] == f"{latest['title_odds'][r['manager']]:.1f}%"
+    # the latest run has its history row, with the same odds
+    row = next(r for r in toh.read(ROOT) if r["run_id"] == latest["run_id"])
+    assert row["title_odds"] == latest["title_odds"]
 
 
 def test_real_injury_status_equals_team_health(real):
@@ -506,8 +511,9 @@ def test_real_injury_status_equals_team_health(real):
     from modules.roster_plan import load_il_slots
     p = real["payload"]
     data = load_all_data(ROOT, current_week=None)
-    st = json.loads((ROOT / "output" / f"live_lines_week{p['week']}.state.json").read_text(encoding="utf-8"))
-    tags = {n: t["tag"] for n, t in st["tags"].items()}
+    from modules import tag_records
+    rosters_ = data.get_current_rosters()
+    tags = tag_records.hub_tags(tag_records.latest(ROOT), [n for v in rosters_.values() for n in v])
     health = build_current_team_health(data, p["week"] - 1, injury_statuses=tags,
                                        il_state=load_il_slots(ROOT, data))
     rosters = data.get_current_rosters()

@@ -519,8 +519,39 @@ def test_nightly_style_live_records_change_no_score(tmp_path):
     assert any("history, not scored" in ln and "live_refresh" in ln for ln in lines)
 
 
-def test_only_the_weekly_build_is_a_scored_source():
-    assert cal.SCORED_SOURCES == (cal.WEEKLY_BUILD,)
+def test_the_closing_line_and_the_weekly_build_are_the_scored_sources():
+    """Step 1c (Nick, 11-03): the closing line is the official line, scored
+    and the headline; the Monday-morning newsletter line stays scored as its
+    own group; live re-prices stay history."""
+    assert cal.SCORED_SOURCES == (cal.CLOSING, cal.WEEKLY_BUILD)
+    assert cal.HEADLINE_SOURCE == cal.CLOSING
+    assert cal.LIVE_REFRESH not in cal.SCORED_SOURCES
+
+
+def test_the_closing_line_is_scored_the_morning_line_separately_never_pooled(tmp_path):
+    """Invariant 8: the closing record is scored; the morning record is scored
+    too, as its own group; a live re-price is not; the closing group is the
+    headline and is printed first."""
+    cal.append(_refreshes(2, 1) + _refreshes(2, 1, source=cal.CLOSING, start=3)
+               + _refreshes(2, 4, source=cal.LIVE_REFRESH, start=5), tmp_path)
+    _settle_weeks(tmp_path, (2,))
+    res = cal.curve(tmp_path)
+    assert set(res["groups"]) == {"abc1234 / closing", "abc1234 / weekly_build"}
+    assert res["headline"] == cal.CLOSING
+    assert (res["groups"]["abc1234 / closing"]["n_lines"],
+            res["groups"]["abc1234 / weekly_build"]["n_lines"]) == (2, 2)
+    assert set(res["history"]) == {"abc1234 / live_refresh"}
+    # never pooled: each group equals the curve of its own records alone
+    lines = cal.load_log(tmp_path)["lines"]
+    for src in (cal.CLOSING, cal.WEEKLY_BUILD):
+        alone = cal.curve(tmp_path, lines=[r for r in lines if r["source"] == src])["groups"]
+        # (as JSON: a two-line group's spread statistics are NaN, and NaN != NaN)
+        assert json.dumps(alone[f"abc1234 / {src}"], sort_keys=True) == \
+            json.dumps(res["groups"][f"abc1234 / {src}"], sort_keys=True)
+    printed = cal.format_curve(res)
+    first = next(i for i, ln in enumerate(printed) if "closing" in ln)
+    second = next(i for i, ln in enumerate(printed) if "weekly_build" in ln)
+    assert first < second and printed[first].strip().startswith("HEADLINE: engine abc1234, closing")
 
 
 def test_the_curve_on_todays_log_is_unchanged_by_the_rule():

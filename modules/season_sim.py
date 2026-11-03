@@ -239,6 +239,13 @@ class SeasonPass:
     # {manager: [{"week", "name", "covers", "level"}]} -- what the money
     # section states its odds assume (standing_threads.money_section)
     standins: dict = field(default_factory=dict)
+    # every week still to be decided, per iteration and manager: 1.0 won the
+    # week, 0.0 lost it, 0.5 a regular-season T, NaN no game that week (step
+    # 1c: the stakes, modules/title_odds_run.stakes). Regular-season weeks
+    # (in progress or future) read off the same score matrices the season
+    # is played on; bracket weeks off each iteration's own series. Recorded,
+    # never drawn: no number above depends on it.
+    week_results: dict = field(default_factory=dict)
 
     # ---- readouts --------------------------------------------------------
     def title_result(self):
@@ -359,6 +366,19 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
                           "assumptions": list(state.assumptions)}
 
     reg_weeks = [reg_entries[w] for w in sorted(pending + future)]
+    # each undecided regular-season week's result, per iteration, read off the
+    # matrices simulate_full_season plays (week_outcome's rule, vectorised)
+    week_results = {}
+    for wd in reg_weeks:
+        w = int(wd["week"])
+        arr = np.full((n, len(managers)), np.nan)
+        for mu in wd.get("matchups", []):
+            a, b = mu["manager_a"], mu["manager_b"]
+            sa, sb = np.asarray(mats[w][a], float), np.asarray(mats[w][b], float)
+            ra = np.where(sa > sb, 1.0, np.where(sa < sb, 0.0, 0.5))
+            arr[:, idx[a]] = ra
+            arr[:, idx[b]] = 1.0 - ra
+        week_results[w] = arr
     remaining_pairs = [(mu["manager_a"], mu["manager_b"]) for w in reg_weeks
                        for mu in w.get("matchups", [])]
     remaining_games = {m: sum(1 for w in reg_weeks for mu in w.get("matchups", [])
@@ -426,6 +446,17 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
             sweeps[s.round_name][i, counts[s.round_name]] = swept
             counts[s.round_name] += 1
         semi_pairs_all.append(tuple(pairs))
+        for s in br.series:
+            loser_of = {s.manager_a: s.manager_b, s.manager_b: s.manager_a}
+            for k, wk in enumerate(range(s.weeks[0], s.weeks[1] + 1)):
+                if wk in decided_bracket:
+                    continue
+                arr = week_results.get(wk)
+                if arr is None:
+                    arr = week_results[wk] = np.full((n, len(managers)), np.nan)
+                won = s.week_winners[k]
+                arr[i, idx[won]] = 1.0
+                arr[i, idx[loser_of[won]]] = 0.0
         out["dollars"][i] = dollars_for(order, br.semi_losers, br.champ_winner,
                                         br.consolation_winner, managers, rules)
         if not play_cup:
@@ -457,6 +488,7 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         cup_finish=out["cup_finish"], cup_week_points=out["cup_week_points"],
         dollars=out["dollars"], third_place=third, data=data,
         standins=_standins_played(plan, managers),
+        week_results=week_results,
     )
 
 

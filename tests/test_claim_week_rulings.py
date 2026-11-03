@@ -594,7 +594,7 @@ def test_the_real_add_table_weeks_1_to_3():
     schedule = json.loads((ROOT / "config" / "SCHEDULE.json").read_text("utf-8"))
     counts = tr.adds_by_budget_week(ROOT, schedule)
     got = {w: {m: sorted(v) for m, v in by.items()} for w, by in counts.items()}
-    assert got == {
+    assert {w: v for w, v in got.items() if w in (1, 2)} == {
         1: {"Nick": ["Damian Lillard", "Dyson Daniels", "Ty Jerome"],
             "Hayden": ["Darius Acuff Jr.", "Zach LaVine"],
             "Benton": ["Cameron Boozer", "Nickeil Alexander-Walker", "Paul George"]},
@@ -602,7 +602,9 @@ def test_the_real_add_table_weeks_1_to_3():
             "Hayden": ["Anthony Black", "Brandin Podziemski", "Yaxel Lendeborg"],
             "Benton": ["Caleb Wilson", "Devin Booker"],
             "Garrett": ["Aaron Wiggins", "Toumani Camara"]}}
-    assert 3 not in got                                     # week 3 so far: nobody
+    # week 3 so far (updated 11-03, step 1c's builder: the pin said "nobody",
+    # true until Monday 11-02's two direct window adds, each 1 of 3; STATUS 11-03)
+    assert got.get(3) == {"Benton": ["Davion Mitchell"], "Garrett": ["De'Aaron Fox"]}
     assert "Franz Wagner" not in str(got)
     assert "Paul George" not in got[1].get("Garrett", []) + got[2]["Garrett"]
     assert tr.over_budget(counts, 3) == []

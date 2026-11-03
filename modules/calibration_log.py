@@ -97,6 +97,8 @@ SCHEMA = 1
 # The source that produced a record, for reading the log by eye.
 WEEKLY_BUILD = "weekly_build"          # generate_stats_report, the pre-week line
 LIVE_REFRESH = "live_refresh"          # refresh_lines, a mid-week re-issue
+CLOSING = "closing"                    # the closing line: priced once at the Monday window's
+                                       # close (modules/closing_line, step 1c)
 
 # WHAT IS SCORED (Nick, 10-30; design s.1 decision 4, step 1a): only Monday's
 # published lines. A live re-price is HISTORY: it is still recorded (the hub's
@@ -105,7 +107,13 @@ LIVE_REFRESH = "live_refresh"          # refresh_lines, a mid-week re-issue
 # nightly run there would be dozens of them a week. curve() scores
 # SCORED_SOURCES only and lists every other source under "history", counted,
 # labelled, never scored. tests/test_calibration_log.py pins it.
-SCORED_SOURCES = (WEEKLY_BUILD,)
+#
+# THE CLOSING LINE IS THE OFFICIAL LINE (Nick, 11-03; step 1c): it is scored
+# and it is the HEADLINE wherever calibration is shown. The Monday-morning
+# newsletter line (WEEKLY_BUILD) stays scored too, as its own group beside
+# it. The two are never pooled (a group is engine x source).
+SCORED_SOURCES = (CLOSING, WEEKLY_BUILD)
+HEADLINE_SOURCE = CLOSING
 
 # What makes two records the same published line: the LINE KEY, which is
 # week_state.line_cache_key -- the same answer B3's refresh service uses to
@@ -542,8 +550,9 @@ def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
     """Calibration of the settled lines, BY ENGINE VERSION AND BY SOURCE.
 
     Returns {"groups": {group label: metrics}, "history": {group label:
-    counts}, "unsettled": n, "engines": [...], "sources": [...]}. Only
-    SCORED_SOURCES (the weekly build) are scored, in "groups"; every other
+    counts}, "headline": the official line's source, "unsettled": n,
+    "engines": [...], "sources": [...]}. Only SCORED_SOURCES (the closing
+    line, the headline, and the weekly build) are scored, in "groups"; every other
     source (the live re-prices) is counted in "history" and never scored. A group label is group_label(engine, source):
     "abc1234 / weekly_build". mix_versions=True pools every version per source,
     the engine part labelled as mixed; anything else keeps them apart, because
@@ -573,10 +582,11 @@ def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
                 history[group_label(eng, src)] = {
                     "n_records": len(rows_), "n_lines": len(kept),
                     "weeks": sorted({int(r["week"]) for r in kept}),
-                    "note": "history, not scored: only Monday's published lines are scored "
-                            "(Nick, 10-30)"}
+                    "note": "history, not scored: only the closing line (official) and Monday's "
+                            "newsletter line are scored (Nick, 10-30, 11-03)"}
     return {
         "groups": {k: _metrics(v) for k, v in groups.items()},
+        "headline": HEADLINE_SOURCE,
         "history": history,
         "engines": engines,
         "sources": sources,
@@ -585,7 +595,16 @@ def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
     }
 
 
-SOURCE_LABELS = {WEEKLY_BUILD: "the newsletter's line", LIVE_REFRESH: "the live page's line"}
+SOURCE_LABELS = {CLOSING: "the closing line, the official line", WEEKLY_BUILD: "the newsletter's line",
+                 LIVE_REFRESH: "the live page's line"}
+
+
+def _group_order(key: str) -> tuple:
+    """The headline source's groups first, then the other scored sources in
+    SCORED_SOURCES order, each by engine."""
+    eng, _, src = key.rpartition(" / ")
+    rank = SCORED_SOURCES.index(src) if src in SCORED_SOURCES else len(SCORED_SOURCES)
+    return (rank, eng)
 
 
 def group_label(engine: str, source: str) -> str:
@@ -667,12 +686,13 @@ def format_curve(result: dict) -> list:
         out.append("    (no settled line yet, so there is no curve: the first "
                    "week's lines settle on next week's build)")
         return out
-    for key, m in sorted(result["groups"].items()):
+    for key, m in sorted(result["groups"].items(), key=lambda kv: _group_order(kv[0])):
         if not m["n_lines"]:
             continue
         eng, _, src = key.rpartition(" / ")
         what = SOURCE_LABELS.get(src)
-        name = f"engine {eng}, {src}" + (f" ({what})" if what else "")
+        name = (("HEADLINE: " if src == HEADLINE_SOURCE else "")
+                + f"engine {eng}, {src}" + (f" ({what})" if what else ""))
         out.append(f"    {name}: {m['n_lines']} line(s) from {m['n_records']} settled "
                    f"record(s), weeks {m['weeks'][0]}-{m['weeks'][-1]}"
                    if m["weeks"] else f"    {name}")

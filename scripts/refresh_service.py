@@ -113,6 +113,29 @@ def days_to_pull(data, week: int, as_of: date) -> list:
     return out
 
 
+def missing_days(data, as_of: date) -> list:
+    """EVERY finished league day of the season so far (strictly before as_of)
+    with NBA games on which LINEUPS lacks rows for some manager -- across week
+    boundaries (step 1c). days_to_pull covers one week only, so a Monday run
+    (as_of the new week's first day) never pulled Sunday, the previous week's
+    last day. The fantasy weeks come from the schedule; a day before the
+    season's first week or after its last is not a league day."""
+    from modules.data_loader import MANAGERS
+    lu = data.lineups
+    have_by_day = {}
+    if lu is not None and len(lu):
+        for d, m in zip(lu["date"].astype(str).str[:10], lu["manager"]):
+            have_by_day.setdefault(d, set()).add(m)
+    out = []
+    for w in data.schedule.get("weeks", []):
+        for d in sb.get_dates_in_week(w):
+            if d >= as_of or not sb._playing_teams(data, d):
+                continue
+            if any(m not in have_by_day.get(d.isoformat(), set()) for m in MANAGERS):
+                out.append(d)
+    return sorted(set(out))
+
+
 def pull_logs_subprocess(base: Path, day: date) -> None:
     """update_fantasy_logs.py for one day, run from the project folder (it
     reads oauth2.json and config/ relative to the working directory)."""
@@ -182,7 +205,9 @@ def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFA
         week = week or ws.week_for_date(data, as_of)
         rec["week"] = week
         if pull_logs:
-            todo = days_to_pull(data, week, as_of)
+            # every missing finished day, across the week boundary (step 1c):
+            # a Monday run pulls Sunday, the previous week's last day
+            todo = missing_days(data, as_of)
             for d in todo:
                 puller(d)
                 rec["logs_pulled"].append(d.isoformat())

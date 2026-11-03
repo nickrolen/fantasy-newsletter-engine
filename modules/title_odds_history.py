@@ -15,7 +15,9 @@ output/title_odds_history.jsonl, one JSON object per line, APPEND-ONLY:
     run_id, produced_by, as_of (the league clock, when the run priced),
     week, engine {commit, dirty}, engine_key, seed, num_simulations,
     title_odds {manager: %}, and playoff_odds / cup_odds when the run
-    computed them.
+    computed them. From step 1c (modules/title_odds_run, the one path): kind
+    ("nightly", "pretip", "closing" or "weekly_build"), expected_record
+    {manager: [W, L, T]}, and playoff_odds as {manager: % champion}.
 A row is never rewritten. A malformed existing file RAISES (naming the line);
 it is never truncated or repaired here.
 """
@@ -28,7 +30,7 @@ from pathlib import Path
 HISTORY_FILE = Path("output") / "title_odds_history.jsonl"
 REQUIRED = ("run_id", "produced_by", "as_of", "engine", "engine_key", "seed",
             "num_simulations", "title_odds")
-OPTIONAL = ("week", "playoff_odds", "cup_odds")
+OPTIONAL = ("week", "playoff_odds", "cup_odds", "kind", "expected_record")
 
 
 class HistoryCorrupt(ValueError):
@@ -90,7 +92,8 @@ def append(base_path, row: dict) -> dict:
 
 
 def make_row(*, base_path, run_id: str, produced_by: str, seed: int, num_simulations: int,
-             title_odds: dict, week=None, playoff_odds=None, cup_odds=None, as_of=None) -> dict:
+             title_odds: dict, week=None, playoff_odds=None, cup_odds=None, as_of=None,
+             kind: str = None, expected_record: dict = None) -> dict:
     """A row for one run, stamped with the engine (calibration_log's one
     definition) and the league clock."""
     from .calibration_log import engine_key, engine_version
@@ -110,22 +113,8 @@ def make_row(*, base_path, run_id: str, produced_by: str, seed: int, num_simulat
         row["playoff_odds"] = playoff_odds
     if cup_odds:
         row["cup_odds"] = {str(m): float(v) for m, v in cup_odds.items()}
+    if kind is not None:
+        row["kind"] = str(kind)
+    if expected_record is not None:
+        row["expected_record"] = {str(m): [float(x) for x in v] for m, v in expected_record.items()}
     return row
-
-
-def row_from_report(report: dict, *, base_path, run_id: str, produced_by: str, seed: int,
-                    num_simulations: int) -> dict:
-    """The row for a weekly build's stats report: its power rankings' title
-    odds (or championship odds in playoff weeks) and its Cup odds."""
-    pr = report.get("power_rankings") or []
-    odds = {r["manager"]: r["title_odds"] for r in pr if r.get("title_odds") is not None}
-    if not odds:
-        raise ValueError("this report has no title odds (a --fast run?): nothing to record")
-    playoff = report.get("playoff_odds")
-    return make_row(base_path=base_path, run_id=run_id, produced_by=produced_by, seed=seed,
-                    num_simulations=num_simulations, title_odds=odds,
-                    week=(report.get("metadata") or {}).get("week") or report.get("week"),
-                    playoff_odds=({"playoff_round": playoff.get("playoff_round"),
-                                   "finish_distribution": playoff.get("finish_distribution")}
-                                  if playoff else None),
-                    cup_odds=(report.get("cup_odds") or {}).get("cup_odds"))

@@ -443,6 +443,7 @@ def main():
         print(f"  Betting line simulations: {args.betting_sims}")
         run_sims = True
     
+    season_passes = []          # the season pass, recorded below (modules/title_odds_run)
     try:
         report = build_stats_report(
             data,
@@ -455,6 +456,7 @@ def main():
             injury_statuses=injury_statuses,
             freshness_tracker=freshness_tracker,
             season_performers=season_performers,
+            season_pass_out=season_passes,
         )
     except Exception as e:
         print(f"ERROR building report: {e}")
@@ -603,17 +605,22 @@ def main():
     # published lines). Not on a dry run or a repro: those are not runs of
     # record. A malformed history file is reported, not repaired.
     # -------------------------------------------------------------------------
+    # Since step 1c the run is recorded through modules/title_odds_run, the
+    # one path the nightly run uses too: the history row (now with expected
+    # records, playoff and Cup odds), output/title_odds_latest.json (what the
+    # hub's power rankings read) and output/stakes.json.
     if run_sims and not (args.dry_run or args.repro):
-        from modules import title_odds_history as toh
+        from modules import title_odds_history as toh, title_odds_run as tor
         from modules.league_clock import league_now as _ln
         try:
-            row = toh.row_from_report(report, base_path=base_path,
-                                      run_id=f"{_ln().isoformat(timespec='microseconds')}"
-                                             "-generate_stats_report",
-                                      produced_by=f"generate_stats_report ({run_mode})",
-                                      seed=args.seed, num_simulations=args.title_sims)
-            toh.append(base_path, row)
-            print(f"Title odds recorded in {toh.HISTORY_FILE} (history, not scored)")
+            if len(season_passes) != 1:
+                raise ValueError(f"the build ran {len(season_passes)} season passes, not 1")
+            tor.record(base_path, season_passes[0],
+                       run_id=f"{_ln().isoformat(timespec='microseconds')}-generate_stats_report",
+                       produced_by=f"generate_stats_report ({run_mode})", kind="weekly_build",
+                       week=week)
+            print(f"Title odds recorded in {toh.HISTORY_FILE}, {tor.LATEST_FILE.as_posix()} and "
+                  f"{tor.STAKES_FILE.as_posix()} (history, not scored)")
         except (toh.HistoryCorrupt, ValueError) as e:
             print(f"TITLE ODDS HISTORY NOT WRITTEN: {e}")
         print()

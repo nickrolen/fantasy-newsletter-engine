@@ -65,8 +65,14 @@ def content_hash(frame: pd.DataFrame) -> str:
 
 
 def stamp(frame: pd.DataFrame, source: str, now: Optional[datetime] = None) -> dict:
+    # The league clock, with its offset (step 1c): the closing line must tell
+    # whether projections were fetched before Monday's first tip, and a naive
+    # machine time (Phoenix on Nick's desktop, UTC on a runner) cannot say.
+    if now is None:
+        from .league_clock import league_now
+        now = league_now()
     return {
-        "fetched_at": (now or datetime.now()).isoformat(timespec="seconds"),
+        "fetched_at": now.isoformat(timespec="seconds"),
         "source": source,
         "rows": int(len(frame)),
         "content_sha256": content_hash(frame),

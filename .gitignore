@@ -266,3 +266,19 @@ output/hub_archive/
 # publish directory (encrypted files only; step 1c publishes it).
 output/hub_preview.html
 output/hub_publish/
+# Step 1c, the nightly run (2026-11-03). League state (config/STATE_MANIFEST.json):
+# the run record, the transaction log, the latest title-odds run, the stakes,
+# the tag records, each week's closing line, and update_leaguehistory's
+# applied-weeks ledger (tracked until now; untracked with git rm --cached,
+# history not rewritten).
+output/nightly_runs.jsonl
+data/transaction_log.jsonl
+output/title_odds_latest.json
+output/stakes.json
+output/tag_records.jsonl
+output/closing_line_week*.json
+config/.leaguehistory_applied_weeks.json
+
+# Player ages (moved to league state 11-03): every fetch_playerlist run rewrites
+# it, the nightly one included, so it lives in the private repo with the rest.
+config/PLAYER_AGES.json

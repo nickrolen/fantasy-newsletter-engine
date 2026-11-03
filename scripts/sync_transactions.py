@@ -95,7 +95,25 @@ class TransactionsAPIError(RuntimeError):
     """
 
 
-def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None, until_date: Optional[dt.date] = None) -> list[dict]:
+YAHOO_FETCH_COUNT = 250
+
+
+def fetch_raw(lg) -> list:
+    """Yahoo's transaction log as Yahoo returns it, newest first: ONE call of
+    up to YAHOO_FETCH_COUNT rows. The nightly sync (step 1c) parses this once
+    for the transaction log and once for the adds files and rosters. A full
+    page may have cut older transactions off: transaction_log.sync refuses
+    one that does not overlap what is already logged (a possible gap).
+    Raises TransactionsAPIError."""
+    try:
+        raw = lg.transactions(tran_types="add,drop,trade", count=YAHOO_FETCH_COUNT)
+    except Exception as e:
+        raise TransactionsAPIError(str(e)) from e
+    return list(raw or [])
+
+
+def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None, until_date: Optional[dt.date] = None,
+                            raw: Optional[list] = None) -> list[dict]:
     """
     Fetch recent transactions from Yahoo.
 
@@ -122,7 +140,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
     try:
         # Get transactions - increase count to get older transactions
         # API returns newest-first, so we need enough to reach back to our target week
-        raw_transactions = lg.transactions(tran_types="add,drop,trade", count=250)
+        raw_transactions = raw if raw is not None else fetch_raw(lg)
         
         # Debug: show what we got back
         print(f"  [DEBUG] API returned {len(raw_transactions) if raw_transactions else 0} raw transactions")
@@ -207,10 +225,13 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                 # Debug: show what we parsed for this player
                 print(f"  [DEBUG] {txn_date} | {action_type.upper():5} | {player_name} | dest={dest_team_name} src={source_team_name}")
                 
-                # Determine the action and team
+                # Determine the action and team (by KEY first: a key survives
+                # a rename, data_loader.manager_for_team)
+                dest_key = txn_data.get("destination_team_key")
+                source_key = txn_data.get("source_team_key")
                 if action_type == "add":
                     fantasy_team = dest_team_name
-                    manager = manager_for_team(fantasy_team)
+                    manager = manager_for_team(fantasy_team, dest_key)
                     transactions.append({
                         "type": "add",
                         "player_name": player_name,
@@ -222,7 +243,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                     })
                 elif action_type == "drop":
                     fantasy_team = source_team_name
-                    manager = manager_for_team(fantasy_team)
+                    manager = manager_for_team(fantasy_team, source_key)
                     transactions.append({
                         "type": "drop",
                         "player_name": player_name,
@@ -235,7 +256,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                 elif action_type == "trade":
                     # For trades, we record both sides
                     if dest_team_name:
-                        manager = manager_for_team(dest_team_name)
+                        manager = manager_for_team(dest_team_name, dest_key)
                         transactions.append({
                             "type": "add",
                             "player_name": player_name,
@@ -246,7 +267,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                             "details": {"via": "trade"},
                         })
                     if source_team_name:
-                        manager = manager_for_team(source_team_name)
+                        manager = manager_for_team(source_team_name, source_key)
                         transactions.append({
                             "type": "drop",
                             "player_name": player_name,
@@ -431,6 +452,14 @@ def main():
         help="Fantasy week number to process (required unless --il-only)",
     )
     parser.add_argument(
+        "--nightly",
+        action="store_true",
+        help="the nightly run's sync (step 1c): append Yahoo's log to "
+             "data/transaction_log.jsonl, write the CURRENT week's partial adds "
+             "file, refresh ROSTERS.json (checked against Yahoo's live rosters) "
+             "and data/IL_SLOTS.json. Never rewrites a finished week's adds file.",
+    )
+    parser.add_argument(
         "--il-only",
         action="store_true",
         help="only refresh data/IL_SLOTS.json (who sits in an IL slot now) from "
@@ -441,6 +470,13 @@ def main():
     base_path = Path(args.base_path)
     if args.il_only:
         return write_il_file(base_path)
+    if args.nightly:
+        try:
+            nightly_sync(base_path)
+        except Exception as e:                       # noqa: BLE001 -- a refusal, said plainly
+            print(f"REFUSED: {type(e).__name__}: {e}")
+            return 1
+        return 0
     if args.week is None:
         parser.error("--week is required unless --il-only")
     
@@ -605,12 +641,146 @@ def main():
     else:
         print(f"\n[DRY RUN] Run with --apply to save changes to ROSTERS.json")
     
-    # Show final roster counts
+    if not args.apply:
+        # Show final roster counts (no IL file is written on a dry run, so
+        # active and IL cannot be told apart: say so rather than guess)
+        print("\nRoster counts (dry run: IL slots not read):")
+        for manager, players in updated_rosters.get("rosters", {}).items():
+            print(f"  {manager}: {len(players)} players")
+        return 0
+    rc = write_il_file(base_path)
+    if rc == 0:
+        _print_roster_counts(updated_rosters.get("rosters", {}), base_path)
+    return rc
+
+
+def roster_count_lines(rosters: dict, il_slots: dict) -> list:
+    """"Benton: 15 active, 1 IL" per manager (STATUS task 20c): the active
+    roster and the IL slots counted apart, as the rules count them (rule 1:
+    15 active, 2 IL). A player in an IL slot who is not on the roster raises."""
+    from modules.data_loader import PlayerIndex
+    out = []
+    for manager, players in rosters.items():
+        idx = PlayerIndex({n: n for n in players})
+        il = list((il_slots or {}).get(manager) or [])
+        stray = [n for n in il if idx.get(n) is None]
+        if stray:
+            raise ValueError(f"{manager}'s IL slot holds {stray}, who are not on his roster")
+        out.append(f"{manager}: {len(players) - len(il)} active, {len(il)} IL")
+    return out
+
+
+def _print_roster_counts(rosters: dict, base_path: Path) -> None:
+    il = json.loads((base_path / "data" / "IL_SLOTS.json").read_text(encoding="utf-8"))
     print("\nRoster counts:")
-    for manager, players in updated_rosters.get("rosters", {}).items():
-        print(f"  {manager}: {len(players)} players")
-    
-    return write_il_file(base_path) if args.apply else 0
+    for line in roster_count_lines(rosters, il.get("slots") or {}):
+        print(f"  {line}")
+
+
+# =============================================================================
+# the nightly mode (step 1c)
+# =============================================================================
+
+class RosterMismatch(RuntimeError):
+    """ROSTERS.json after the transactions is not Yahoo's live roster."""
+
+
+def nightly_sync(base_path, *, run_id: str = None, now=None, raw=None, live=None,
+                 echo=print) -> dict:
+    """The nightly run's sync (design s.4 step 3; HANDOFF_STEP1C1 s.2):
+
+      1. one read of Yahoo's transaction log, appended to
+         data/transaction_log.jsonl (modules/transaction_log);
+      2. THE CURRENT WEEK's partial adds file, data/waivers_week{N}.txt, as
+         the --week N-1 sync writes it for N. A finished week's file is never
+         written here (only the Monday --week N --apply run does that);
+      3. ROSTERS.json: the transactions since the previous week opened,
+         applied as the weekly sync applies them, then CHECKED against
+         Yahoo's live rosters -- a difference raises and nothing is written;
+      4. data/IL_SLOTS.json from the same live rosters.
+
+    raw: Yahoo's transactions (tests); live: {manager: {"players", "il"}}
+    (tests). Raises on any refusal; writes nothing before every check passed,
+    except the transaction log, which only ever appends Yahoo's facts."""
+    from modules import transaction_log as tlog
+    from modules import roster_plan
+    from modules.data_loader import PlayerIndex
+    from modules.transaction_rulings import load_rulings, apply_to_transactions
+    base_path = Path(base_path)
+    now = now or league_now()
+    today = now.date()
+    schedule = load_schedule(base_path)
+    if not schedule:
+        raise RuntimeError("config/SCHEDULE.json is missing or empty")
+    week = roster_plan.fantasy_week_on(schedule, today)
+    week_start, week_end = get_week_date_range(schedule, week)
+    if week_end < today:
+        raise RuntimeError(f"week {week} ended {week_end}: the nightly sync never writes a "
+                           "finished week's adds file")
+    rulings = load_rulings(base_path)
+    if raw is None:
+        oauth = OAuth2(None, None, from_file=str(base_path / "oauth2.json"))
+        if not oauth.token_is_valid():
+            oauth.refresh_access_token()
+        raw = fetch_raw(get_league(oauth))
+
+    # 1. the log
+    logged = tlog.sync(base_path, raw, manager_of=lambda name, key: manager_for_team(name, key),
+                       week_of=lambda d: tlog.week_containing(schedule, d), rulings=rulings,
+                       run_id=run_id, now=now, page_full=len(raw) >= YAHOO_FETCH_COUNT)
+    echo(f"  transaction log: {logged['appended']} new, {logged['rulings_rows']} rulings row(s), "
+         f"{logged['total']} logged")
+
+    # 2. the current week's partial adds file
+    parsed = get_recent_transactions(None, since_date=None, until_date=None, raw=raw)
+    counted, applied = apply_to_transactions(parsed, rulings, since=week_start, until=week_end,
+                                             echo=lambda *_: None)
+    path = base_path / WAIVERS_PATH_TEMPLATE.format(week=week)
+
+    # 3. ROSTERS.json: from the previous week's opening (Monday's run must
+    # still see Sunday's moves), the weekly sync's own apply
+    prev_start = week_start
+    try:
+        prev_start = get_week_date_range(schedule, week - 1)[0]
+    except ValueError:
+        pass
+    since = [t for t in parsed if t["date"] >= prev_start]
+    rosters_data = load_rosters(base_path)
+    if not rosters_data:
+        raise RuntimeError("config/ROSTERS.json is missing")
+    updated, changes = apply_transactions(json.loads(json.dumps(rosters_data)), since)
+    if live is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "check_rosters", Path(__file__).resolve().parent / "check_rosters.py")
+        cr = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cr)
+        live = cr.live_rosters(base_path / "oauth2.json")
+    diffs = []
+    ros = updated.get("rosters", {})
+    if sorted(ros) != sorted(live):
+        diffs.append(f"managers {sorted(ros)} vs Yahoo {sorted(live)}")
+    for m in sorted(set(ros) & set(live)):
+        mine, yahoo = PlayerIndex({n: n for n in ros[m]}), PlayerIndex({n: n for n in live[m]["players"]})
+        extra = [n for n in ros[m] if yahoo.get(n) is None]
+        missing = [n for n in live[m]["players"] if mine.get(n) is None]
+        if extra or missing:
+            diffs.append(f"{m}: ROSTERS.json also has {extra}, Yahoo also has {missing}")
+    if diffs:
+        raise RosterMismatch("after the transactions, ROSTERS.json is not Yahoo's live roster -- "
+                             + "; ".join(diffs) + ". Nothing was written but the transaction log; "
+                             "run python scripts\\sync_transactions.py --week N --apply and check.")
+
+    # every check passed: write
+    write_waivers_file(counted, week, base_path, partial=True, applied=applied)
+    save_rosters(updated, base_path)
+    il = {m: v["il"] for m, v in live.items()}
+    roster_plan.write_il_slots(base_path, il, week, now)
+    counts = roster_count_lines(ros, il)
+    for line in counts:
+        echo(f"  {line}")
+    return {"week": week, "log": logged, "adds_file": path.as_posix(), "roster_changes": changes,
+            "il": {m: v for m, v in il.items() if v}, "counts": counts}
 
 
 def write_il_file(base_path: Path) -> int:

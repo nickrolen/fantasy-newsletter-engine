@@ -307,7 +307,8 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
     if not mv["items"]:
         o.append(f'<div class="empty">{clean(mv["empty"])}</div>')
     for x in mv["items"]:
-        o.append(f'<div class="mv"><div class="when"><b>{clean(x["day"])}</b><span>{clean(x["date"])}</span></div>'
+        o.append(f'<div class="mv"><div class="when"><b>{clean(x["day"])}</b><span>{clean(x["date"])}</span>'
+                 f'<span>{clean(x["time"])}</span></div>'
                  f'<div class="body"><span><b>{clean(x["who"])}</b> {clean(x["what"])}</span>'
                  f'<span style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip st">{clean(x["state"])}</span>'
                  f'<span class="small" style="font-size:11px">{clean(x["note"])}</span></span></div></div>')

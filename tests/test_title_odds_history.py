@@ -65,20 +65,22 @@ def test_a_bad_row_is_refused(tmp_path, change):
     assert not (tmp_path / toh.HISTORY_FILE).exists()
 
 
-def test_a_weekly_reports_row(tmp_path, monkeypatch):
+def test_a_row_carries_kind_expected_records_and_playoff_and_cup_odds(tmp_path, monkeypatch):
+    """Step 1c: every run's row (title_odds_run.record, the one path) carries
+    its kind and each manager's expected record, and playoff and Cup odds as
+    {manager: %} when the pass computed them."""
     from modules import calibration_log as cal
     monkeypatch.setattr(cal, "engine_version", lambda base=".": {"commit": "abc1234", "dirty": False})
-    report = {"metadata": {"week": 2},
-              "power_rankings": [{"manager": "Nick", "title_odds": 40.0},
-                                 {"manager": "Hayden", "title_odds": 60.0}],
-              "cup_odds": {"cup_odds": {"Nick": 30.0, "Hayden": 70.0}}}
-    r = toh.row_from_report(report, base_path=tmp_path, run_id="w2", produced_by="t", seed=5,
-                            num_simulations=100)
-    assert (r["week"], r["title_odds"], r["cup_odds"], r["engine_key"]) == \
-        (2, {"Nick": 40.0, "Hayden": 60.0}, {"Nick": 30.0, "Hayden": 70.0}, "abc1234")
-    with pytest.raises(ValueError, match="no title odds"):
-        toh.row_from_report({"power_rankings": None}, base_path=tmp_path, run_id="x",
-                            produced_by="t", seed=1, num_simulations=1)
+    r = toh.make_row(base_path=tmp_path, run_id="w2", produced_by="t", seed=5, num_simulations=100,
+                     title_odds={"Nick": 40.0, "Hayden": 60.0}, week=2,
+                     playoff_odds={"Nick": 45.0, "Hayden": 55.0}, cup_odds={"Nick": 30.0, "Hayden": 70.0},
+                     kind="nightly", expected_record={"Nick": (7.5, 7.5, 0.0), "Hayden": (8, 7, 0)})
+    toh.append(tmp_path, r)
+    back = toh.read(tmp_path)[0]
+    assert (back["week"], back["kind"], back["engine_key"]) == (2, "nightly", "abc1234")
+    assert back["expected_record"] == {"Nick": [7.5, 7.5, 0.0], "Hayden": [8.0, 7.0, 0.0]}
+    assert back["playoff_odds"] == {"Nick": 45.0, "Hayden": 55.0}
+    assert back["cup_odds"] == {"Nick": 30.0, "Hayden": 70.0}
 
 
 def test_the_history_is_league_state():
@@ -99,17 +101,45 @@ def test_nothing_that_scores_probabilities_reaches_the_history():
                    if REFERS.search(p.read_text(encoding="utf-8")))
     # hub_state (step 1b) reads it for display: the hub's odds column and its
     # "title odds over time" chart, which is what decision 4 keeps the history for.
-    assert users == ["generate_stats_report.py", "hub_state.py", "title_odds_history.py"], users
+    # title_odds_run (step 1c) is the one path that writes a row, for the
+    # weekly build and the nightly run alike.
+    # The closing line (step 1c) writes its own row, marked kind "closing".
+    assert users == ["closing_line.py", "generate_stats_report.py", "hub_state.py",
+                     "title_odds_history.py", "title_odds_run.py"], users
     for scorer in ("calibration_log.py", "backtest_metrics.py"):
         src = (ROOT / "modules" / scorer).read_text(encoding="utf-8")
         assert "title_odds_history" not in src, scorer
+
+
+SCORERS = ("calibration_log.py", "backtest_metrics.py")
+
+
+def test_nothing_that_scores_reads_the_latest_file_or_the_stakes():
+    """Invariant 7 of step 1c: calibration never reads the title-odds history,
+    the latest file or the stakes (the 1a source pin, extended)."""
+    for scorer in SCORERS:
+        src = (ROOT / "modules" / scorer).read_text(encoding="utf-8")
+        for name in ("title_odds_history", "title_odds_latest", "stakes.json", "title_odds_run",
+                     "STAKES_FILE", "LATEST_FILE"):
+            assert name not in src, (scorer, name)
+    # and the only reader of the latest file is the hub (through
+    # title_odds_run.load_latest); nothing reads the stakes yet (18b will)
+    srcs = {p.name: p.read_text(encoding="utf-8")
+            for p in [*(ROOT / "modules").glob("*.py"), *(ROOT / "scripts").glob("*.py")]}
+    assert {n for n, s in srcs.items() if "load_latest(" in s} == {"hub_state.py", "title_odds_run.py"}
+    # (the weekly build names it in a comment and a print, and writes it
+    # through title_odds_run.record)
+    assert {n for n, s in srcs.items() if "stakes.json" in s} <= {"title_odds_run.py",
+                                                                  "generate_stats_report.py"}
+    assert {n for n, s in srcs.items() if "STAKES_FILE" in s} <= {"title_odds_run.py",
+                                                                  "generate_stats_report.py"}
 
 
 def test_the_weekly_build_writes_a_row_only_on_a_run_of_record():
     src = (ROOT / "scripts" / "generate_stats_report.py").read_text(encoding="utf-8")
     tree = ast.parse(src)
     guards = [n for n in ast.walk(tree) if isinstance(n, ast.If)
-              and "toh.append(" in (ast.get_source_segment(src, n) or "")]
+              and "tor.record(" in (ast.get_source_segment(src, n) or "")]
     assert guards, "the history append is not guarded"
     test = ast.get_source_segment(src, guards[-1].test)
     assert "run_sims" in test and "dry_run" in test and "repro" in test

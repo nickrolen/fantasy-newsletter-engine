@@ -126,9 +126,15 @@ class Prepared(SimpleNamespace):
 
 def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_tags=False,
             allow_missing_days=False, assume_tags_since_week_start=False, reseed=False,
-            dry_run=False, data=None, allow_season_out_conflict=False) -> Prepared:
+            dry_run=False, data=None, allow_season_out_conflict=False,
+            fresh_tags=False) -> Prepared:
     """The checks and inputs of a refresh, in the order refresh() has always
-    run them; raises exactly where it did. Writes nothing."""
+    run them; raises exactly where it did. Writes nothing.
+
+    fresh_tags: ignore the week's stored tag record and anchor the given tags
+    as a week-opening baseline (the closing line, modules/closing_line: its
+    tags are Monday's before the first tip, and a record written later in the
+    week must not lend them an anchor). Every other caller leaves it False."""
     base = Path(base_path)
     as_of = as_of or league_today()
     data = data or load_all_data(base, current_week=None)
@@ -180,7 +186,7 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
         live = dict(live)
         # The roster plan reads the free agents' tags apart (stand-in level).
         plan_tags = Tags(live, free_agents)
-    previous = stored.get("tags") if stored else None
+    previous = stored.get("tags") if stored and not fresh_tags else None
     anchors, events, tag_assumptions = ws.reconcile_tags(
         previous, live, as_of, week_start, assume_tags_since_week_start)
     assumptions += tag_assumptions
@@ -224,6 +230,15 @@ def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
     cache key). `key` is cache_key(p, sims) if the caller already has it; it
     is also each calibration record's identity."""
     key = key or cache_key(p, sims)
+    res, payload = compute(p, sims, extra)
+    if not dry_run:
+        _write(p, res, payload, sims, key, produced_by)
+    return payload
+
+
+def compute(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, extra: dict = None) -> tuple:
+    """(the simulation result, the line's payload): price() without writing.
+    The closing line (modules/closing_line) prices through this too."""
     data, week, entry, as_of, seed = p.data, p.week, p.entry, p.as_of, p.seed
     live, anchors, events, assumptions = p.live, p.anchors, p.events, list(p.assumptions)
     teams, state, base, out_dir = p.teams, p.state, p.base, p.out_dir
@@ -272,33 +287,44 @@ def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
         "lines": lines,
     }
     payload.update(extra or {})
-    if not dry_run:
-        # E1: a re-issued line is a NEW calibration record with its own as-of
-        # timestamp and state hash, never an edit of the pre-week one -- the
-        # log says what was on the page when (modules/calibration_log.py).
-        from modules import calibration_log as cal
-        rosters = {m: list(v) for m, v in (data.get_current_rosters() or {}).items() if v}
-        governing = cal.overrides_governing(
-            week, sb.get_dates_in_week(entry), rosters,
-            (data.injury_overrides or {}).get("players") or [])
-        engine = cal.engine_version(base)
-        stamp = league_now().isoformat(timespec="seconds")
-        logged = cal.append([
-            cal.line_record(ln, week=week, seed=seed, num_simulations=sims,
-                            engine=engine, line_key=key["key"], as_of=stamp,
-                            state_hash=state.state_hash,
-                            source=cal.LIVE_REFRESH, tags=live or {},
+    return res, payload
+
+
+def calibration_records(p: Prepared, res, sims: int, key: dict, *, source: str, as_of: str) -> list:
+    """The calibration records of a priced line (E1): one per matchup."""
+    from modules import calibration_log as cal
+    data, week, entry = p.data, p.week, p.entry
+    rosters = {m: list(v) for m, v in (data.get_current_rosters() or {}).items() if v}
+    governing = cal.overrides_governing(
+        week, sb.get_dates_in_week(entry), rosters,
+        (data.injury_overrides or {}).get("players") or [])
+    engine = cal.engine_version(p.base)
+    return [cal.line_record(ln, week=week, seed=p.seed, num_simulations=sims,
+                            engine=engine, line_key=key["key"], as_of=as_of,
+                            state_hash=p.state.state_hash, source=source, tags=p.live or {},
                             overrides_governing=governing)
-            for ln in res.lines], base)
-        payload["calibration_logged"] = logged["added"]
-        atomic_write_json(out_dir / f"live_lines_week{week}.json", payload)
-        atomic_write_json(p.state_path, {"week": week, "seed": seed, "as_of": as_of.isoformat(),
-                                         "tags": ws.tag_record(anchors, live)})
-        # B3: the tag events accumulate; the line's own copy is overwritten
-        ws.append_tag_log(out_dir, week, as_of=as_of, generated_at=payload["generated_at"],
-                          produced_by=produced_by, seed=seed, state_hash=state.state_hash,
-                          events=events)
-    return payload
+            for ln in res.lines]
+
+
+def _write(p: Prepared, res, payload: dict, sims: int, key: dict, produced_by: str) -> None:
+    """A priced live line's writes: the calibration records, the line, the
+    week's state, the tag log."""
+    # E1: a re-issued line is a NEW calibration record with its own as-of
+    # timestamp and state hash, never an edit of the pre-week one -- the
+    # log says what was on the page when (modules/calibration_log.py).
+    from modules import calibration_log as cal
+    week, out_dir = p.week, p.out_dir
+    stamp = league_now().isoformat(timespec="seconds")
+    logged = cal.append(calibration_records(p, res, sims, key, source=cal.LIVE_REFRESH,
+                                            as_of=stamp), p.base)
+    payload["calibration_logged"] = logged["added"]
+    atomic_write_json(out_dir / f"live_lines_week{week}.json", payload)
+    atomic_write_json(p.state_path, {"week": week, "seed": p.seed, "as_of": p.as_of.isoformat(),
+                                     "tags": ws.tag_record(p.anchors, p.live)})
+    # B3: the tag events accumulate; the line's own copy is overwritten
+    ws.append_tag_log(out_dir, week, as_of=p.as_of, generated_at=payload["generated_at"],
+                      produced_by=produced_by, seed=p.seed, state_hash=p.state.state_hash,
+                      events=p.events)
 
 
 def refresh(base_path=".", week=None, as_of=None, sims=sb.DEFAULT_NUM_SIMULATIONS, seed=None,

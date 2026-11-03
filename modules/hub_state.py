@@ -24,7 +24,8 @@ newsletter (design invariant 17):
   grid         games by players who will play (s.1a of the 1b handoff)
   free_agents  data_loader.free_agents, top N by Yahoo projection
   advice       null: the slot only (advice v2)
-  moves        the synced waivers files and TRADES.json, last 7 days
+  moves        data/transaction_log.jsonl (step 1c): Yahoo's adds, drops and
+               trades with their times, last 7 days
   newsletter   the archive index (modules/hub_archive)
 
 RAISES (HubInputError, or the builder's own error) on a missing input, naming
@@ -197,53 +198,52 @@ ODDS_KEY = {"title": "title_odds", "playoff": "playoff_odds", "cup": "cup_odds"}
 
 
 def title_odds_inputs(base: Path, data, managers) -> tuple:
-    """(TitleOddsResult for build_power_rankings, latest history row, the row
-    before it or None, the report it came from).
+    """(TitleOddsResult for build_power_rankings, the latest run's whole
+    result, the history row before that run's or None).
 
-    The history row is the record of the title-odds run (decision 4). It holds
-    the odds; build_power_rankings also needs each team's expected record (its
-    second sort term), which that run's stats report holds. The report must
-    be the same run (week and seed), and its records must still be the
-    league's: otherwise the odds no longer describe the standings."""
+    Step 1c: the latest title-odds run's result is output/title_odds_latest.json
+    (modules/title_odds_run, written by the nightly run and the weekly build
+    alike): its odds, expected records (build_power_rankings' second sort
+    term) and finish distributions, from ONE run. It no longer comes from
+    stats_report_weekN.json, so the Monday-ordering refusal of 1b is gone.
+
+    The run must describe today's standings. The league's records (RECORDS)
+    must equal either the records the run saw, or those plus every week the
+    run had fully banked from the logs (a 12:01 AM Monday run, before the
+    weekly build records the week): otherwise the build refuses."""
     from . import title_odds_history as toh
+    from . import title_odds_run as tor_mod
     from .simulator_title_odds import TitleOddsResult
-    rows = toh.read(base)
-    if not rows:
-        raise HubInputError(f"{toh.HISTORY_FILE} has no rows: the hub's title odds come from it")
-    latest, prev = rows[-1], (rows[-2] if len(rows) > 1 else None)
-    week = latest.get("week")
-    if week is None:
-        raise HubInputError(f"{toh.HISTORY_FILE}'s latest row ({latest['run_id']}) has no week")
-    rp = base / "output" / f"stats_report_week{int(week)}.json"
-    if not rp.is_file():
-        raise HubInputError(f"{rp.relative_to(base)} is missing: power rankings need the expected "
-                            f"records of the title-odds run {latest['run_id']}")
-    report = json.loads(rp.read_text(encoding="utf-8"))
-    if (report.get("metadata") or {}).get("seed") != latest["seed"]:
-        raise HubInputError(
-            f"{rp.relative_to(base)} (seed {(report.get('metadata') or {}).get('seed')}) is not the run "
-            f"that wrote the latest title-odds row {latest['run_id']} (seed {latest['seed']}): "
-            "the hub cannot order the power rankings from two runs. Step 1c's nightly run passes "
-            "its own TitleOddsResult")
-    published = {p["manager"]: p for p in report.get("power_rankings") or []}
-    if set(published) != set(managers):
-        raise HubInputError(f"{rp.relative_to(base)} has no power rankings for every manager")
+    try:
+        latest = tor_mod.load_latest(base)
+    except (FileNotFoundError, ValueError) as e:
+        raise HubInputError(str(e)) from None
+    if set(latest["title_odds"]) != set(managers):
+        raise HubInputError(f"the latest title-odds run {latest['run_id']} has odds for "
+                            f"{sorted(latest['title_odds'])}, not {sorted(managers)}")
     records = {m: data.get_manager_record(m) for m in managers}
-    changed = [m for m in managers if str(records[m]) != published[m]["record"]]
-    if changed:
-        moved = ", ".join(f"{m} {published[m]['record']} -> {records[m]}" for m in changed)
+    now = {m: str(records[m]) for m in managers}
+    if now != latest["records"] and now != latest["records_after_banked"]:
+        moved = ", ".join(f"{m} {latest['records'][m]} -> {now[m]}" for m in managers
+                          if now[m] != latest["records"][m])
         raise HubInputError(
-            f"records changed since the title-odds run {latest['run_id']} ({moved}): "
-            "a week's results are in and its title odds are not. Run the weekly build first")
-    odds = {m: float(latest["title_odds"][m]) for m in managers}
+            f"the records moved since the title-odds run {latest['run_id']} ({moved}): its odds no "
+            "longer describe the standings. Run python scripts\\nightly.py")
+    rows = toh.read(base)
+    ids = [r["run_id"] for r in rows]
+    if latest["run_id"] not in ids:
+        raise HubInputError(f"the latest title-odds run {latest['run_id']} has no row in "
+                            f"{toh.HISTORY_FILE}: the two were not written by one run")
+    prev_rows = rows[:ids.index(latest["run_id"])]
+    prev = prev_rows[-1] if prev_rows else None
     tor = TitleOddsResult(
-        num_simulations=int(latest["num_simulations"]), current_week=int(week),
-        title_odds=odds,
-        expected_record={m: _parse_expected(published[m]["expected_record"]) for m in managers},
-        finish_distribution={m: {int(k): v for k, v in published[m]["finish_distribution"].items()}
+        num_simulations=int(latest["num_simulations"]), current_week=int(latest["pass_current_week"]),
+        title_odds={m: float(latest["title_odds"][m]) for m in managers},
+        expected_record={m: tuple(float(x) for x in latest["expected_record"][m]) for m in managers},
+        finish_distribution={m: {int(k): float(v) for k, v in latest["finish_distribution"][m].items()}
                              for m in managers},
         magic_numbers={}, current_records=records, h2h_records={}, title_odds_delta={})
-    return tor, latest, prev, report
+    return tor, latest, prev
 
 
 def build_power(base: Path, data, managers, keeper_watch: dict, week: int, adds: dict,
@@ -251,7 +251,7 @@ def build_power(base: Path, data, managers, keeper_watch: dict, week: int, adds:
     """(the power block, the build_power_rankings rows it was ordered by)."""
     from .report_builder import build_power_rankings
     from .data_loader import MANAGER_TO_TEAM
-    tor, latest, prev, _report = title_odds_inputs(base, data, managers)
+    tor, latest, prev = title_odds_inputs(base, data, managers)
     ranked = build_power_rankings(tor, data.records, data.leaguehistory, keeper_watch=keeper_watch)
     kind = odds_kind(week, season_config, cup_weeks)
     key = ODDS_KEY[kind]
@@ -286,7 +286,7 @@ def build_power(base: Path, data, managers, keeper_watch: dict, week: int, adds:
                                  for m in [x["manager"] for x in rows]]})
     note = (f"Change is since the run before ({_clock_text(datetime.fromisoformat(prev['as_of']))})."
             if prev else "Change appears from the second run in the history.")
-    block = {"kind": kind, "label": ODDS_LABEL[kind], "rows": rows,
+    block = {"kind": kind, "label": ODDS_LABEL[kind], "rows": rows, "run_id": latest["run_id"],
              "as_of": f"{ODDS_LABEL[kind]} as of {_clock_text(as_of)}",
              "note": note + f" Adds are this week's, out of {budget}, and count chat claims in the "
                            "week they were made.",
@@ -482,15 +482,16 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     status = price_lock.status(now, data.nba_schedule)
     line_at = datetime.fromisoformat(line["generated_at"])
 
-    # --- the tags the line was priced with (its state file), the IL slots
-    sp_ = base / "output" / f"live_lines_week{week}.state.json"
-    if not sp_.is_file():
-        raise HubInputError(f"{sp_.relative_to(base)} is missing: the hub's injury tags are the "
-                            "live line's")
-    tag_state = json.loads(sp_.read_text(encoding="utf-8"))
-    tags = {n: t["tag"] for n, t in (tag_state.get("tags") or {}).items()}
+    # --- the tags: the latest Yahoo fetch (output/tag_records.jsonl, step 1c),
+    # facts that update every night whether or not the line was priced
     from .roster_plan import load_il_slots, check_against_rosters
+    from . import tag_records
     rosters = {m: list(v) for m, v in data.get_current_rosters().items()}
+    try:
+        tag_row = tag_records.latest(base)
+    except tag_records.TagRecordError as e:
+        raise HubInputError(str(e)) from None
+    tags = tag_records.hub_tags(tag_row, [n for v in rosters.values() for n in v])
     il_state = load_il_slots(base, data)
     if int(il_state.get("fantasy_week", -1)) != week:
         raise HubInputError(f"data/IL_SLOTS.json is for fantasy week {il_state.get('fantasy_week')}, "
@@ -673,9 +674,10 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "moves": moves,
         "newsletter": newsletter,
         "sources": {"line": (Path("output") / f"live_lines_week{week}.json").as_posix(),
-                    "title_odds": "output/title_odds_history.jsonl",
+                    "title_odds": f"the title-odds run {power['run_id']} (modules/title_odds_run)",
                     "actuals_through": yesterday.isoformat(),
-                    "tags": f"the week {week} live line's tag record, as of {tag_state.get('as_of')}",
+                    "tags": f"Yahoo's tags fetched {tag_row['taken_at']} ({tag_row['mode']} run "
+                            f"{tag_row['run_id']})",
                     "il_slots": "data/IL_SLOTS.json"},
     }
     return payload
@@ -686,59 +688,26 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
 # =============================================================================
 
 def build_moves(base: Path, schedule: dict, today: date) -> dict:
-    """Adds from the synced waivers files (their "(week N claim/add)" marks
-    kept) and trades from TRADES.json, dated within the last 7 days, newest
-    first. The waivers files carry dates, not times; nothing else is
-    inferred."""
-    import re
-    from . import transaction_rulings as tr
-    from .keeper_history import trade_dates
-    from .data_loader import CURRENT_SEASON
+    """Every Yahoo transaction of the last 7 league days -- adds, drops and
+    trades, each with its time on the league clock -- from the transaction
+    log (data/transaction_log.jsonl, step 1c), newest first. The "(week N
+    claim)" / "(week N add)" marks come from the rulings that apply to each
+    (modules/transaction_log.feed_item). Raises if the log is missing: the
+    nightly sync writes it."""
+    from . import transaction_log as tlog
+    if not (base / tlog.LOG_FILE).is_file():
+        raise HubInputError(f"{tlog.LOG_FILE.as_posix()} is missing: run python scripts\\nightly.py "
+                            "(or python scripts\\sync_transactions.py --nightly)")
     start = today - timedelta(days=MOVES_DAYS - 1)
-    items = []
-    for f in sorted((base / "data").glob("waivers_week*.txt")):
-        m = re.search(r"waivers_week(\d+)\.txt$", f.name)
-        if not m:
-            continue
-        lines, _ = tr.waiver_lines(f, base, int(m.group(1)), schedule)
-        for ln in lines:
-            p = tr.parse_add_line(ln)
-            if p is None:
-                continue
-            d = date.fromisoformat(p["date"])
-            if not (start <= d <= today):
-                continue
-            note = (f"week {p['marked_claim_week']} claim" if p["marked_claim_week"] else
-                    f"week {p['marked_add_week']} add" if p["marked_add_week"] else "")
-            items.append({"_d": d, "day": d.strftime("%a"), "date": f"{d.month}/{d.day}",
-                          "who": p["manager"], "what": f"added {p['player']}", "note": note,
-                          "state": "Applied", "kind": "add"})
-    tp = base / "config" / "TRADES.json"
-    if tp.is_file():
-        for t in json.loads(tp.read_text(encoding="utf-8")).get("trades", []):
-            if t.get("season") not in (None, CURRENT_SEASON):
-                continue
-            first, _last = trade_dates(t.get("date"), CURRENT_SEASON)
-            d = date.fromisoformat(first)
-            if not (start <= d <= today):
-                continue
-            got: Dict[str, list] = {}
-            for mv in t.get("players", []):
-                got.setdefault(mv["to_manager"], []).append(mv["player_name"])
-            if not got:
-                raise HubInputError(f"config/TRADES.json: the {t.get('date')} trade lists no players")
-            what = "; ".join(f"{mg} gets {', '.join(ps)}" for mg, ps in got.items())
-            items.append({"_d": d, "day": d.strftime("%a"), "date": f"{d.month}/{d.day}",
-                          "who": "Trade:", "what": what, "note": "", "state": "Applied",
-                          "kind": "trade"})
-    items.sort(key=lambda x: x["_d"], reverse=True)
+    items = [tlog.feed_item(t, schedule) for t in tlog.transactions(base)
+             if start <= date.fromisoformat(t["league_day"]) <= today]
+    items.sort(key=lambda x: x["_ts"], reverse=True)
     for x in items:
-        del x["_d"]
+        del x["_ts"]
     return {"items": items,
             "empty": "No moves in the last 7 days.",
-            "note": ("Yahoo adds and trades from the synced files, by date (they record no time). "
-                     "Chat claims, drops and injury entries join this feed with the move ledger "
-                     "(step 2).")}
+            "note": ("Every Yahoo add, drop and trade, with its time (Pacific). Chat claims and "
+                     "injury entries join this feed with the move ledger (step 2).")}
 
 
 def newsletter_block(index: dict, schedule: dict) -> dict:

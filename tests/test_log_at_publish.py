@@ -145,5 +145,8 @@ def test_step_6_marks_each_run_mode():
 # 5 -- the live line still logs at refresh time: it goes straight onto the page
 def test_refresh_lines_still_logs_at_refresh_time():
     src = (ROOT / "scripts" / "refresh_lines.py").read_text(encoding="utf-8")
-    assert "cal.append([" in src and "source=cal.LIVE_REFRESH" in src
+    # (step 1c: the records are built by calibration_records(), which the
+    # closing line shares with its own source; the live write still appends
+    # them as source live_refresh, at refresh time)
+    assert "cal.append(calibration_records(" in src and "source=cal.LIVE_REFRESH" in src
     # and behaviourally: test_calibration_log.test_a_rerun_after_a_pause_appends_nothing_and_a_moved_input_appends

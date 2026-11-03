@@ -11,13 +11,17 @@ the live tags are all in it. Simulation i reads column i of every week,
 plays the fantasy schedule's matchups on those scores, and ranks the season
 with data_loader.standings_order (a T is half a win).
 
-WHAT THE NUMBER IS CONDITIONAL ON: today's rosters, frozen. "Given no
-further moves, here is where you finish." That is deliberate: it is what
-makes a waiver counterfactual readable -- drop one player, add another, and
-the odds move by exactly that move (common random numbers), not by noise.
-Modelling future adds (A5) would wash that signal out, so A5 stays deferred
-by design. For the same reason simulated season point totals run LOW: every
-injury absorbed is never replaced.
+WHAT THE NUMBER IS CONDITIONAL ON: today's rosters, plus only the moves the
+league's rules force (modules/roster_plan.py, task 27d): at each future
+Monday window a player out on an injury override goes to an IL slot with one
+replacement-level stand-in pickup (within the week's 3 adds), and an IL
+player is activated at the first window he is healthy. No other add, drop or
+trade is modelled. That is deliberate: it keeps a waiver counterfactual
+readable -- drop one player, add another, and the odds move by exactly that
+move (common random numbers), not by noise. Modelling discretionary future
+adds (A5) would wash that signal out, so A5 stays deferred by design. For
+the same reason simulated season point totals run LOW: a short absence is
+never replaced, only a long one (an override) gets a stand-in.
 
 This file used to carry its own week model (a per-manager games count from
 PLAYERLOG with a 1500-point default when PLAYERLOG was empty, never reading
@@ -185,7 +189,8 @@ def run_title_odds_simulation(
 ) -> TitleOddsResult:
     """The regular-season title race: a READOUT of the season pass
     (season_sim.run_season), stopped after the regular season -- a later
-    stage cannot move it. Conditional on today's rosters, frozen.
+    stage cannot move it. Conditional on today's rosters and the moves the
+    roster plan forces (module docstring).
 
     seed is required: the same keyed draws as the betting lines and brackets.
     team_projections: rosters to simulate (default: today's). Pass a changed

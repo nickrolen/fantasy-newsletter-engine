@@ -5,12 +5,12 @@ build_hub_state.py -- write output/hub_state.json, the hub's one payload.
     python scripts/build_hub_state.py [--allow-engine-mismatch]
 
 Reads only what is on disk (modules/hub_state.py lists every source): this
-week's live line, the title-odds history and its report, the rosters, IL
-slots and tags, data/player_actuals.json, PLAYERLIST, the waivers files, the
-newsletter archive. Run first, in this order, if they are not current:
-
-    python scripts/refresh_lines.py --week N        (before the day's first tip)
-    python scripts/fetch_player_actuals.py
+week's live line, the latest title-odds run (output/title_odds_latest.json)
+and the history, the rosters, IL slots, the latest tag record
+(output/tag_records.jsonl), data/player_actuals.json, PLAYERLIST, the
+transaction log, the newsletter archive. The nightly run (python
+scripts\\nightly.py) writes every one of them and then builds the hub; run
+this by hand only after it.
 
 Refuses (exit 1) on any missing or inconsistent input, naming the file.
 --allow-engine-mismatch builds from a live line priced by another engine (an
