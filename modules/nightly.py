@@ -82,10 +82,24 @@ def scheduled_guard_admits(now_utc: datetime) -> bool:
 # the steps
 # =============================================================================
 
+def child_env() -> dict:
+    """The environment every child script runs in: UTF-8 stdout and stderr.
+
+    A child's stdout here is a pipe, not a console, and on Windows Python
+    then writes in the locale's code page (cp1252), which cannot encode a
+    name like "Jokic" with its accent: fetch_playerlist died printing one on
+    Nick's machine on 11-03 (the builder's Linux VM is UTF-8, so it never
+    showed). Forcing UTF-8 here, and decoding it as UTF-8 below, makes the
+    run independent of the machine's code page."""
+    import os
+    return dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+
+
 def _subprocess(base: Path, args: list, what: str) -> str:
     cmd = [sys.executable, *args]
     try:
-        r = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True, timeout=STEP_TIMEOUT_S)
+        r = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", env=child_env(), timeout=STEP_TIMEOUT_S)
     except subprocess.TimeoutExpired:
         raise StepRefused(f"{what} ran past {STEP_TIMEOUT_S}s")
     if r.returncode != 0:

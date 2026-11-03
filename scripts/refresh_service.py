@@ -142,8 +142,11 @@ def pull_logs_subprocess(base: Path, day: date) -> None:
     cmd = [sys.executable, str(Path(base) / "scripts" / "update_fantasy_logs.py"),
            "--date", day.isoformat()]
     try:
-        r = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True,
-                           timeout=PULL_TIMEOUT_S)
+        import os
+        # UTF-8 through the pipe whatever the machine's code page (modules/nightly.child_env)
+        r = subprocess.run(cmd, cwd=str(base), capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=PULL_TIMEOUT_S,
+                           env=dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1"))
     except subprocess.TimeoutExpired:
         raise LogPullFailed(f"update_fantasy_logs.py --date {day} ran past {PULL_TIMEOUT_S}s")
     if r.returncode != 0:

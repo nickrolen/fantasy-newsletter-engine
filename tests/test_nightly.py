@@ -234,3 +234,16 @@ def test_the_engine_step_refuses_a_dirty_engine_unless_allowed(monkeypatch):
     monkeypatch.setattr(cal, "engine_version", lambda base=".": {"commit": None, "dirty": False})
     with pytest.raises(nightly.StepRefused, match="unknown"):
         nightly.Run(".", "nightly", echo=lambda *a: None).step_engine()
+
+
+def test_a_child_that_prints_an_accented_name_does_not_die_on_the_code_page(tmp_path, monkeypatch):
+    """11-03, Nick's machine: fetch_playerlist died printing an accented name
+    into the pipe (Windows writes a pipe in cp1252). Force the worst case --
+    the parent's environment asking for cp1252 -- and the child must still
+    print it, and the parent must read it back intact."""
+    from modules import nightly
+    script = tmp_path / "child.py"
+    script.write_text('print("Nikola Joki\\u0107")\n', encoding="utf-8")
+    monkeypatch.setenv("PYTHONIOENCODING", "cp1252")
+    out = nightly._subprocess(tmp_path, [str(script)], "child")
+    assert "Joki\u0107" in out
