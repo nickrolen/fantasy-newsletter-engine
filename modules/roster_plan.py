@@ -32,8 +32,20 @@ THE PLAN, at each window after the current week, for every manager alike
      lowest-projected active players (effective_fppg, stand-ins included)
      until 15.
   2. PLACE ON IL every active player whose override has him out for the whole
-     week, longest return first, into the open slots. The rest stay active
-     and do not play, as before.
+     week, into the open slots. When the injured outnumber the IL slots --
+     the IL occupants still out plus the active players out all week -- the
+     team DECIDES (task 18b, INJURED_DROP_DESIGN s.3.5-3.6; modules/
+     injured_drop): the slots go to those worth most after their return
+     (injured_drop.value_after_return, keeper term included; ties by the
+     longer absence), which can move an IL occupant back to an active spot;
+     each of the rest is held (active, scoring nothing) or DROPPED as
+     injured_drop.decide says. A drop uses one of the week's adds for a
+     stand-in ("Replacement for dropped <name> (level)"); with no add left
+     he is held, re-decided at the next window. The decision's inputs come
+     from a DropContext (for_run: modules/drop_inputs, read only when a
+     decision is needed). With no usable stakes file yet (the bootstrap,
+     drop_inputs) the plan places as before -- longest return first, the
+     rest held -- and says so (take_notes).
   3. FILL every empty active spot up to 15 with stand-ins, at most
      weekly_add_budget per fantasy week (Nick 10-28: everyone keeps all 15
      filled). A spot the budget cannot reach waits for the next window.
@@ -183,6 +195,76 @@ def no_il(fantasy_week: int) -> dict:
 
 
 # =============================================================================
+# the injured-drop decision's inputs (task 18b)
+# =============================================================================
+
+@dataclass
+class DropContext:
+    """What build() needs when a team has more injured players than IL slots.
+    Every field but config is a callable, called only then:
+        note()                  None when the stakes can be used, else the
+                                bootstrap note (the plan then places as before)
+        stakes(manager, window) injured_drop.TeamStakes
+        keep(manager)           {name: keep chance} for his real players
+        games(team, week, from_day=None)  his NBA team's games that week
+        availability(projection)          the share of games he plays
+    modules/drop_inputs.context builds the real one; a test builds its own."""
+    config: object
+    note: object
+    stakes: object
+    keep: object
+    games: object
+    availability: object
+
+    @classmethod
+    def unavailable(cls, note: str):
+        """A context that always takes the bootstrap path with `note`."""
+        def never(*a, **k):
+            raise AssertionError("an unavailable DropContext was asked for an input")
+        return cls(config=None, note=lambda: note, stakes=never, keep=never, games=never,
+                   availability=never)
+
+
+# Notes a plan makes (the bootstrap), for the run that made it to report:
+# nightly.Run appends them to its step's detail and prints them. Process-wide
+# on purpose -- the plan is built deep inside the line and the season pass.
+_NOTES: list = []
+
+
+def take_notes() -> list:
+    """The notes recorded since the last call, each once, and clear them."""
+    out = list(dict.fromkeys(_NOTES))
+    _NOTES.clear()
+    return out
+
+
+def _candidate(name, p, stakes, day_of, level, gp, drops):
+    """injured_drop.Candidate for `p` from this window through the stakes'
+    last week: his expected points if he stays (0 while out, his part of a
+    midweek-return week), a stand-in's at `level` on his NBA team."""
+    from .injured_drop import Candidate
+    sub = standin(f"Replacement for {name} ({level:.1f})", p, level, gp)
+    a_him, a_sub = float(drops.availability(p)), float(drops.availability(sub))
+    rd = _return_date(p)
+    pts, spts, back = {}, {}, None
+    for w in range(int(stakes.window_week), int(stakes.last_week) + 1):
+        day = day_of.get(w)
+        if day is None:
+            raise KeyError(f"week {w} has no window day: the schedule ends before the stakes do")
+        full = drops.games(p.nba_team, w)
+        spts[w] = float(level) * full * a_sub
+        if _out_for_week(p, w):
+            pts[w] = 0.0
+        elif rd is not None and rd > day:
+            pts[w] = _proj(p) * drops.games(p.nba_team, w, rd) * a_him
+        else:
+            pts[w] = _proj(p) * full * a_him
+        if back is None and _available_from(p, w, day):
+            back = w
+    return Candidate(name, back, pts, spts)
+
+
+# =============================================================================
 # the plan -- pure
 # =============================================================================
 
@@ -287,10 +369,65 @@ def _pool_at_open(rostered, players, week, day, start_week, tag_idx, assume_heal
     return sorted(pool)
 
 
+def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rules, no_standins):
+    """One team's window when its injured outnumber its IL slots (s.3.5-3.6).
+    (placed: active -> IL, displaced: IL -> active, decisions, to_drop)."""
+    from . import injured_drop as idr
+    from .data_loader import PlayerIndex
+    cfg = drops.config
+    level, _rank_name = level_now()
+    stakes = drops.stakes(m, week)
+    known = PlayerIndex(dict(drops.keep(m)))
+    keep = {}
+    for n in s["active"] + s["il"]:
+        if n in s["standins"]:
+            continue
+        c = known.get(n)
+        if c is None:
+            raise KeyError(f"week {week}: no keep chance for {n} ({m}); the decision needs every "
+                           "real player's")
+        keep[n] = float(c)
+    contested = list(s["il"]) + list(out)
+    cand = {n: _candidate(n, P(n), stakes, day_of, level, standin_gp, drops) for n in contested}
+    value = {n: idr.value_after_return(cand[n], stakes, keep, cfg) for n in contested}
+    order = sorted(sorted(contested), key=lambda n: _return_order(P(n)), reverse=True)
+    order = sorted(order, key=lambda n: -value[n])          # stable: ties by the longer absence
+    slots = order[:rules["il_slots"]]
+    excess = order[rules["il_slots"]:]
+    placed = [n for n in out if n in slots]
+    displaced = [n for n in s["il"] if n not in slots]
+    decisions, wants = [], []
+    for n in excess:
+        d = idr.decide(m, cand[n], stakes, keep, cfg)
+        decisions.append({"player": n, "action": d.action, "reason": d.reason,
+                          "cost_hold": round(d.cost_hold, 6), "cost_drop": round(d.cost_drop, 6),
+                          "keeper_term": round(d.keeper_term, 6), "keep_rank": d.keep_rank,
+                          "keep_chance": d.keep_chance, "little_left": d.little_left,
+                          "carried_out": d.action == idr.HOLD})
+        if d.action == idr.DROP:
+            wants.append((-(d.cost_hold - d.cost_drop), n))
+    # a drop needs an add for his stand-in, after the placements and open spots
+    left = rules["add_budget"] - (rules["active_spots"] - (len(s["active"]) - len(placed)
+                                                           + len(displaced)))
+    to_drop = []
+    for _edge, n in sorted(wants):
+        row = next(r for r in decisions if r["player"] == n)
+        if no_standins:
+            row["carried_out"], row["reason"] = False, row["reason"] + "; held: no stand-ins in this plan"
+        elif left > 0:
+            to_drop.append(n)
+            row["carried_out"] = True
+            left -= 1
+        else:
+            row["carried_out"], row["reason"] = False, row["reason"] + "; held: no add left this week"
+    return placed, displaced, decisions, to_drop
+
+
 def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, players,
           statuses: dict, rules: dict, standin_gp: float, order: list = None,
-          assume_healthy: bool = False, no_standins=frozenset()) -> dict:
-    """{week: {manager: {"active", "il", "added", "dropped", "waiting", "standins"}}}
+          assume_healthy: bool = False, no_standins=frozenset(), drops: DropContext = None) -> dict:
+    """{week: {manager: {"active", "il", "added", "dropped", "waiting", "standins",
+    "decisions"}}}
     from start_week (the IL file's week, locked) through the last window.
 
     rosters:    {manager: [names]} -- ROSTERS.json, the spelling the roster uses
@@ -308,8 +445,12 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                 empty, so every plan the engine plays is unchanged.
     order:      ignored by the result -- kept so a test can hand in any order
                 and show the plan does not move
+    drops:      the injured-drop decision's inputs (DropContext), used only when
+                a team's injured outnumber its IL slots; None then RAISES.
     "added" is the stand-ins added that week, "standins" their projections,
-    "waiting" the open spots the add budget left for the next window.
+    "waiting" the open spots the add budget left for the next window,
+    "decisions" each injured-drop decision that week (player, action, why,
+    the costs, whether a drop was carried out), or the bootstrap note.
     Raises rather than guess: an over-full start, a pool too small for
     replacement_rank, two stand-ins with one name."""
     from .data_loader import PlayerIndex
@@ -337,8 +478,10 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
             raise ValueError(f"{m} has {len(il)} players in IL slots, more than {rules['il_slots']}")
         state[m] = {"active": active, "il": il, "standins": set(), "open_count": 0}
     plan = {int(start_week): {m: {"active": sorted(state[m]["active"]), "il": sorted(state[m]["il"]),
-                                   "added": [], "dropped": [], "waiting": 0, "standins": {}}
+                                   "added": [], "dropped": [], "waiting": 0, "standins": {},
+                                   "decisions": []}
                               for m in managers}}
+    day_of = {int(w): d for w, d in windows}
 
     for week, day in windows:
         week = int(week)
@@ -373,31 +516,58 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                 s["active"].remove(low)
                 dropped.append(low)
             # 2. place on IL: an override that has him out all week makes him O
+            displaced, decisions, to_drop = [], [], []
             if "O" not in rules["il_eligible_tags"]:
                 placed = []
             else:
                 out = sorted(sorted(n for n in s["active"] if _out_for_week(P(n), week)),
                              key=lambda n: _return_order(P(n)), reverse=True)  # stable: ties by name
-                placed = out[:max(0, rules["il_slots"] - len(s["il"]))]
+                contested = list(s["il"]) + out
+                note = None
+                if len(contested) > rules["il_slots"]:
+                    if drops is None:
+                        raise ValueError(
+                            f"week {week}: {m} has {len(contested)} injured players for "
+                            f"{rules['il_slots']} IL slots ({', '.join(contested)}): a hold-or-drop "
+                            "decision is needed and the plan was given no DropContext")
+                    note = drops.note()
+                    if note is not None:
+                        decisions.append({"bootstrap": note, "players": sorted(contested)})
+                if len(contested) <= rules["il_slots"] or note is not None:
+                    placed = out[:max(0, rules["il_slots"] - len(s["il"]))]
+                else:
+                    placed, displaced, decisions, to_drop = _decide_window(
+                        m, week, s, out, P, drops, day_of, level_now, standin_gp, rules,
+                        m in no_standins)
             for n in placed:
                 s["active"].remove(n)
                 s["il"].append(n)
+            for n in displaced:
+                s["il"].remove(n)
+                s["active"].append(n)
+            for n in to_drop:
+                s["active"].remove(n)
+                dropped.append(n)
             # 3. fill every empty active spot, up to the add budget: first a
-            # stand-in for each IL placement (his positions and team), then
-            # one per remaining open spot (the rank-th free agent's). Spots the
-            # budget cannot reach wait for the next window -- the league's
-            # rule, not an error.
+            # stand-in for each IL placement (his positions and team) that
+            # opened a spot, then one for each injured player dropped, then
+            # one per remaining open spot (the rank-th free agent's). Spots
+            # the budget cannot reach wait for the next window -- the
+            # league's rule, not an error. (A drop is made only when an add
+            # is left for his stand-in: _decide_window.)
             need = 0 if m in no_standins else rules["active_spots"] - len(s["active"])
             if need:
                 level, rank_name = level_now()
                 if standin_gp is None:
                     raise ValueError(f"week {week}: {m} needs a stand-in and there is no "
                                      "median GP to give him")
-            covers = list(placed)[:need]
+            covers = list(placed)[:min(need, max(0, len(placed) - len(displaced)))]
             names = []
             for n in covers:
                 names.append((f"Replacement for {n} ({level:.1f})", P(n)))
-            for _ in range(need - len(covers)):
+            for n in to_drop[:max(0, need - len(covers))]:
+                names.append((f"Replacement for dropped {n} ({level:.1f})", P(n)))
+            for _ in range(need - len(names)):
                 s["open_count"] += 1
                 names.append((f"Replacement for open spot {s['open_count']}, {m} ({level:.1f})",
                               players.get(rank_name)))
@@ -413,7 +583,8 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                 added.append(nm)
             assert len(s["active"]) <= rules["active_spots"] and len(s["il"]) <= rules["il_slots"]
             out_week[m] = {"active": sorted(s["active"]), "il": sorted(s["il"]), "added": added,
-                           "dropped": dropped, "waiting": len(names) - len(take), "standins": made}
+                           "dropped": dropped, "waiting": len(names) - len(take), "standins": made,
+                           "decisions": decisions}
         plan[week] = out_week
     return plan
 
@@ -430,6 +601,7 @@ class Run:
     _weeks: dict = field(default_factory=dict, repr=False)
     standins: dict = field(default_factory=dict, repr=False)
     standin_gp: float = None
+    notes: list = field(default_factory=list)
 
     def projection(self, name):
         """The projection the plan uses for `name`: a stand-in by exact name,
@@ -477,7 +649,8 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     from .data_loader import PlayerIndex
     fa = getattr(statuses, "free_agents", None)
     assume = bool(getattr(statuses, "free_agents_assumed_healthy", False))
-    fp = key_string(id(team_projections), *sorted(f"{k}={v}" for k, v in (statuses or {}).items()),
+    fp = key_string(id(team_projections), id(getattr(data, "drop_context", None)),
+                    *sorted(f"{k}={v}" for k, v in (statuses or {}).items()),
                     "free_agents", *sorted(f"{k}={v}" for k, v in (fa or {}).items()),
                     f"assumed={assume}", f"fa_fetched={fa is not None}",
                     "no_standins", *sorted(no_standins))
@@ -499,13 +672,24 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     players = PlayerIndex(everyone)
     start = int(il["fantasy_week"])
     gp = standin_gp(data, team_projections)
+    drops = getattr(data, "drop_context", None)
+    if drops is None:
+        from .drop_inputs import context
+        drops = context(data, getattr(data, "base_path", "."), keep_week=start - 1)
     plan = build(start_week=start, il_slots=il.get("slots") or {}, rosters=rosters,
                  windows=windows_for(data, start), players=players,
                  statuses={**dict(fa or {}), **dict(statuses or {})}, assume_healthy=assume,
                  rules=rules(), standin_gp=gp, order=[m for m in pick_order() if m in rosters],
-                 no_standins=frozenset(no_standins))
+                 no_standins=frozenset(no_standins), drops=drops)
     made = {n: p for w in plan.values() for v in w.values() for n, p in v["standins"].items()}
-    run = Run(start_week=start, plan=plan, players=players, standins=made, standin_gp=gp)
+    notes = list(dict.fromkeys(d["bootstrap"] for w in plan.values() for v in w.values()
+                               for d in v["decisions"] if "bootstrap" in d))
+    for n in notes:
+        if n not in _NOTES:
+            print(f"  roster plan: {n}")
+        _NOTES.append(n)
+    run = Run(start_week=start, plan=plan, players=players, standins=made, standin_gp=gp,
+              notes=notes)
     cache[fp] = (team_projections, run)
     return run
 
@@ -554,8 +738,14 @@ def format_plan(plan: dict) -> list:
                 bits.append("drops " + ", ".join(v["dropped"]))
             if v.get("waiting"):
                 bits.append(f"{v['waiting']} open spot(s) wait for the next window (add budget)")
+            for d in v.get("decisions") or []:
+                if "bootstrap" in d:
+                    bits.append(f"{', '.join(d['players'])}: {d['bootstrap']}")
+                else:
+                    bits.append(f"{d['player']}: {d['action']}"
+                                + ("" if d["carried_out"] else " (held)") + f" -- {d['reason']}")
             prev = plan.get(week - 1, {}).get(m)
-            changed = (v["added"] or v["dropped"] or v.get("waiting")
+            changed = (v["added"] or v["dropped"] or v.get("waiting") or v.get("decisions")
                        or (prev is not None and prev["il"] != v["il"]))
             if week == min(plan) or changed:
                 lines.append(f"week {week:2d}  {m:8s} " + "; ".join(bits))

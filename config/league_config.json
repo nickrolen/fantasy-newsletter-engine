@@ -329,6 +329,27 @@
         "replacement_rank": 4,
         "_replacement_rank": "The level of every pickup the roster plan makes (modules/roster_plan.py): an IL placement or an empty active spot, at each fantasy-week window, up to weekly_add_budget. Not a named player but a stand-in, 'Replacement for <player> (level)' or 'Replacement for open spot N, <manager> (level)', at the replacement_rank-th best effective_fppg among free agents as the window opens (before that window's drops, so pickup order cannot matter; the league has no waivers). An IL stand-in carries the injured player's positions and NBA team; an open-spot stand-in, the rank-th free agent's. 4 (Nick, 10-28: 'something like the 3rd-5th best'; real pickups weigh FPPG and schedule fit, not best producer). When the real pickup syncs, he replaces the stand-in."
     },
+    "injured_drop": {
+        "_comment": "When the roster plan drops an injured player instead of holding him in an active spot (task 18b; claude/INJURED_DROP_DESIGN.md s.3; modules/injured_drop.py, called by modules/roster_plan.py at every future window). Stake units are the change in rs_weight x P(regular-season title) + playoff_weight x P(champion); a point in week w is worth that week's stake x the density at zero of the team's simulated margin (output/stakes.json, the previous run's). Drop only when holding costs at least (1 + margin) x dropping AND the difference is at least floor. M, F and K were fitted 11-04 on Nick's scenarios (s.5) as revised by him that day (claude/HANDOFF_18B_REFIT_AND_WIRE_2026-11-04.md: 2, 3, 4, 5, 6, 8, 9 pinned; 1, 7, 9b, 10, 11 direction only), on six simulation seeds; the region common to all six is M 0-1.10, K 0-0.36, F 0-0.122, and the values are its deepest point, rounded (tests/injured_drop_scenarios.py, scripts/fit_injured_drop.py; claude/INJURED_DROP_RESULT_2_2026-11-04.md). Every key is required: missing raises.",
+        "rs_weight": 2,
+        "_rs_weight": "Nick, 11-03: the regular-season title against the playoff title, 2 to 1, as the money ($180 v $90). Sets the stake of every scenario.",
+        "playoff_weight": 1,
+        "_playoff_weight": "The 1 of Nick's 2 to 1 (11-03). Sets the stake of every scenario; the playoff weeks decide scenarios 4, 8 and 10.",
+        "rs_little_left": 0.05,
+        "_rs_little_left": "Before the playoffs a team with a regular-season title chance under this has little left to play for and holds every keeper candidate (Nick, 11-03). Scenario 6 (and 7 and 11b's teams are under it).",
+        "playoff_little_left": 0.05,
+        "_playoff_little_left": "From the playoffs on, the same with the playoff title chance (Nick's revision, 11-03: one or the other, never both; every team makes the playoffs, so an 0-10 team's playoff chance must not count before week 16). No scenario is under it.",
+        "protected_keepers": 4,
+        "_protected_keepers": "A team's top 4 by keep chance (K = 5) are never dropped (Nick, 11-01; ADVICE_V2_DESIGN decision 3a). Scenario 8: a 55-FPPG player is a top-4 keeper in practice (Nick, 11-04).",
+        "keeper_candidates": 6,
+        "_keeper_candidates": "A keeper candidate is in his team's top 6 by keep chance (Nick agreed, 11-03): he carries the keeper term, and a team with little left to play for holds him. Scenarios 1, 6 and 9.",
+        "margin": 0.25,
+        "_margin": "M. Drops need holding to cost at least 1.25 x dropping. The drops pinned in scenarios 3 (the binding one: holding costs about 2.15 x dropping) and 9 cap it at about 1.1; nothing pinned needs it above 0 -- it is inertia by design (s.3.4: a drop is permanent, the stakes are estimates, small edges flip the nightly odds). Fitted value, the common region's deepest point.",
+        "floor": 0.04,
+        "_floor": "F, stake units. The edge must be at least this. Scenario 3 and 9's pinned drops cap it at about 0.12; scenarios 7 and 10 sit near it (7 holds, its edge about 0.033; 10 drops, about 0.049 -- both direction-only). Fitted value.",
+        "keeper_weight": 0.075,
+        "_keeper_weight": "K, stake units per unit of keep chance, for a keeper candidate. Scenario 9's pinned drop of a no. 5 candidate caps it at about 0.36 (at M = 0); scenario 1's direction check needs only K >= 0. At 0.075 the no. 5 in scenario 1 still drops (claude/INJURED_DROP_RESULT_2_2026-11-04.md). Fitted value."
+    },
     "durability_prior": {
         "snapshot": "config/snapshots/PLAYERLIST_2026-10-13.xlsx",
         "_comment": "WHERE THE BASELINE HAZARD GETS player_proj_GP, and deliberately NOT the live data/PLAYERLIST.xlsx. The column changes meaning when the season starts: PRE-SEASON it is projected games out of 82 with a durability haircut on everyone (measured 2026-10-22 across all three stored snapshots: mean 69.1-69.3, sd 4.9-5.0, 31% of players within one game of the median), IN-SEASON it is games out of those REMAINING, marked down only for players Yahoo already knows are hurt (a fresh fetch the same day: mean 77.7, sd 2.74, 96% within one game of the median; GP correlates 0.52 against the stored file while FPPG correlates 0.97 -- only GP breaks). Taking it live in-season drops the hazard from about 16% to about 1.5% a game, which switches the injury model off and puts title odds back to Hayden at 78% (claude/HANDOFF_DURABILITY_PRIOR_2026-10-22.md).",

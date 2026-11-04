@@ -516,7 +516,10 @@ def _standins_played(plan, managers) -> dict:
             for nm in v.get("added", []):
                 p = plan.standins.get(nm)
                 cov = None
-                if nm.startswith("Replacement for ") and "open spot" not in nm:
+                # an IL placement's stand-in covers his IL stint; an open spot's,
+                # and a dropped injured player's (task 18b), fill a roster spot
+                if (nm.startswith("Replacement for ") and "open spot" not in nm
+                        and not nm.startswith("Replacement for dropped ")):
                     cov = nm[len("Replacement for "):].rsplit(" (", 1)[0]
                 out.setdefault(m, []).append({
                     "week": int(w), "name": nm, "covers": cov,

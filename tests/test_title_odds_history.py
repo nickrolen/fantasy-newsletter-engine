@@ -123,16 +123,19 @@ def test_nothing_that_scores_reads_the_latest_file_or_the_stakes():
                      "STAKES_FILE", "LATEST_FILE"):
             assert name not in src, (scorer, name)
     # and the only reader of the latest file is the hub (through
-    # title_odds_run.load_latest); nothing reads the stakes yet (18b will)
+    # title_odds_run.load_latest); the stakes' one reader is the roster plan's
+    # injured-drop inputs (task 18b: modules/drop_inputs)
     srcs = {p.name: p.read_text(encoding="utf-8")
             for p in [*(ROOT / "modules").glob("*.py"), *(ROOT / "scripts").glob("*.py")]}
     assert {n for n, s in srcs.items() if "load_latest(" in s} == {"hub_state.py", "title_odds_run.py"}
     # (the weekly build names it in a comment and a print, and writes it
     # through title_odds_run.record)
     assert {n for n, s in srcs.items() if "stakes.json" in s} <= {"title_odds_run.py",
-                                                                  "generate_stats_report.py"}
+                                                                  "generate_stats_report.py",
+                                                                  "drop_inputs.py"}
     assert {n for n, s in srcs.items() if "STAKES_FILE" in s} <= {"title_odds_run.py",
-                                                                  "generate_stats_report.py"}
+                                                                  "generate_stats_report.py",
+                                                                  "drop_inputs.py"}
 
 
 def test_the_weekly_build_writes_a_row_only_on_a_run_of_record():

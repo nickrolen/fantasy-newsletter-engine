@@ -59,14 +59,19 @@ def _league(extra=None, fa=12, size=15, top=40.0):
     return players, rosters
 
 
-def _build(players, rosters, il=None, statuses=None, order=None, rules=None):
+def _build(players, rosters, il=None, statuses=None, order=None, rules=None, drops=None):
     """Every player stated HEALTHY unless `statuses` says otherwise: the pool
-    must be tagged (an untagged free agent raises)."""
+    must be tagged (an untagged free agent raises). drops: the injured-drop
+    inputs (task 18b); none given, a team with more injured than IL slots raises."""
     tags = {n: "HEALTHY" for n in players}
     tags.update(statuses or {})
     return rp.build(start_week=2, il_slots=il or {}, rosters=rosters, windows=WINDOWS,
                     players=PlayerIndex(players), statuses=tags,
-                    rules=rules or RULES, standin_gp=GP, order=order or list(MANAGERS))
+                    rules=rules or RULES, standin_gp=GP, order=order or list(MANAGERS), drops=drops)
+
+
+# the stakes bootstrap (task 18b): with no usable stakes the plan places as it always did
+NO_STAKES = rp.DropContext.unavailable("no stakes yet: planned without injured drops (test)")
 
 
 def _standins(plan):
@@ -129,7 +134,11 @@ def test_three_placements_in_one_week_fill_two_slots_and_the_third_stays_active(
     players, rosters = _league()
     for j in range(3):
         players[f"Nick_{j}"] = _p(f"Nick_{j}", 40.0 - j, out=[3, 4], ret="2026-11-16")
-    plan = _build(players, rosters)
+    with pytest.raises(ValueError, match="no DropContext"):
+        _build(players, rosters)                    # 18b: three injured, two slots -- a decision
+    plan = _build(players, rosters, drops=NO_STAKES)
+    assert plan[3]["Nick"]["decisions"] == [{"bootstrap": NO_STAKES.note(),
+                                             "players": ["Nick_0", "Nick_1", "Nick_2"]}]
     assert plan[3]["Nick"]["il"] == ["Nick_0", "Nick_1"]
     assert plan[3]["Nick"]["added"] == ["Replacement for Nick_0 (27.0)", "Replacement for Nick_1 (27.0)"]
     assert "Nick_2" in plan[3]["Nick"]["active"], "no slot left: he stays active and does not play"
@@ -170,7 +179,7 @@ def test_the_slot_and_budget_invariants_hold_every_week():
             out = [w for w in STARTS if w >= 3
                    and (date.fromisoformat(STARTS[w]) + timedelta(days=6)) < date.fromisoformat(ret)]
             players[f"{m}_{j}"] = _p(f"{m}_{j}", 40.0 - j, out=out, ret=ret)
-    plan = _build(players, rosters)
+    plan = _build(players, rosters, drops=NO_STAKES)
     for w, managers in plan.items():
         for m, v in managers.items():
             assert len(v["active"]) <= 15 and len(v["il"]) <= 2 and len(v["added"]) <= 3, (w, m)

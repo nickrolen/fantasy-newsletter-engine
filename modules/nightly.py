@@ -341,11 +341,19 @@ class Run:
         from .league_clock import league_now
         started = league_now()
         rows, error, outcome = [], None, "ok"
+        from .roster_plan import take_notes
+        take_notes()                                    # this run's notes only
         for name in STEPS[self.mode]:
             fn = (steps or {}).get(name) or getattr(self, f"step_{name}")
             t0 = time.perf_counter()
             try:
                 detail = fn()
+                # the roster plan's notes (task 18b: the stakes bootstrap) go on
+                # the step that built the plan, in the run record and on screen
+                from .roster_plan import take_notes
+                notes = take_notes()
+                if notes:
+                    detail = "; ".join([str(detail or "")] + notes) if detail else "; ".join(notes)
                 rows.append({"step": name, "outcome": "ok", "seconds": round(time.perf_counter() - t0, 2),
                              "detail": str(detail or "")})
                 self.echo(f"  [{name}] ok ({rows[-1]['seconds']} s): {detail}")
