@@ -59,6 +59,8 @@ pytest-xdist>=3.5.0     # -n 2: the suite is ~145s serially, ~95s on two cores.
                         # A command run against the desktop VM is capped at
                         # 180s, so -n 2 is what keeps the WHOLE suite
                         # verifiable in one run (2026-10-22).
+PyYAML>=6.0             # tests/test_cloud_run.py reads the cloud workflow files
+                        # (deploy/state-repo/.github/workflows) as YAML (step 1c-ii)
 # pytest-cov>=4.0.0
 
 # Code formatting

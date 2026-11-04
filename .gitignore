@@ -278,6 +278,10 @@ output/stakes.json
 output/tag_records.jsonl
 output/closing_line_week*.json
 config/.leaguehistory_applied_weeks.json
+# Step 1c-ii (2026-11-03): a week recorded as having no closing line (state),
+# and state_overlay.py's marker on a runner's checkout (never state).
+output/closing_none_week*.json
+.state_overlay.json
 
 # Player ages (moved to league state 11-03): every fetch_playerlist run rewrites
 # it, the nightly one included, so it lives in the private repo with the rest.

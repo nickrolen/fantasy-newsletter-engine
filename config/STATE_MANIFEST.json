@@ -59,7 +59,8 @@
     {"dir": "output", "name": "live_lines_week*.tag_log.jsonl", "what": "each week's tag log (refresh_lines)"},
     {"dir": "output", "name": "live_lines_week*.html", "what": "each week's live-line page (week 1's two pages are public exceptions)"},
     {"dir": "output", "name": "refresh_service.*", "what": "the refresh service's run log and console"},
-    {"dir": "output", "name": "closing_line_week*.json", "what": "each week's closing line, the official line, priced once after the Monday window closes (modules/closing_line.py; step 1c)"}
+    {"dir": "output", "name": "closing_line_week*.json", "what": "each week's closing line, the official line, priced once after the Monday window closes (modules/closing_line.py; step 1c)"},
+    {"dir": "output", "name": "closing_none_week*.json", "what": "a week with no closing line (no pre-tip tag record), recorded once so the scheduled run never retries it (closing_line.record_none; step 1c-ii)"}
   ],
   "excluded": [
     {"path": "oauth2.json", "why": "Yahoo credentials: never state, never copied (also oauth2_backup.json, oauth2.backup_*.json, *.oauth, private.json)"},
@@ -77,7 +78,8 @@
     {"path": "_audit_export/", "why": "a staged audit copy, credentials excluded"},
     {"path": "__pycache__/", "why": "Python caches (also .pytest_cache/, *.cache)"},
     {"path": "output/hub_preview.html", "why": "the hub's plaintext local preview: regenerable from output/hub_state.json (scripts/build_hub.py), never published"},
-    {"path": "output/hub_publish/", "why": "the hub's publish directory: encrypted files only, regenerable (scripts/build_hub.py); step 1c publishes it"}
+    {"path": "output/hub_publish/", "why": "the hub's publish directory: encrypted files only, regenerable (scripts/build_hub.py); step 1c publishes it"},
+    {"path": ".state_overlay.json", "why": "scripts/state_overlay.py's marker on a runner's engine checkout: overlay in completed, so overlay out may copy back. Per checkout, never copied"}
   ],
   "public_exceptions": [
     {"path": "config/snapshots/PLAYERLIST_2026-10-13.xlsx", "why": "the pinned pre-season durability prior (league_config durability_prior.snapshot): fixed for the season, already public, read by the public CI's integrity check (Nick, 10-31)"},

@@ -83,11 +83,14 @@ def hits(data: bytes, terms: Iterable[str]) -> List[str]:
     return [t for t in terms if t.encode("utf-8") in data]
 
 
-def scan_dir(path: Path, terms: Iterable[str]) -> dict:
-    """{relative file: [terms found]} for every file under `path`."""
+def scan_dir(path: Path, terms: Iterable[str], skip=()) -> dict:
+    """{relative file: [terms found]} for every file under `path`. skip: names
+    of top-level directories left out (scripts/hub_deploy.py: ".git", which is
+    never pushed as files)."""
     terms = list(terms)
     found = {}
-    files = sorted(p for p in Path(path).rglob("*") if p.is_file())
+    files = sorted(p for p in Path(path).rglob("*")
+                   if p.is_file() and p.relative_to(path).parts[0] not in skip)
     for f in files:
         h = hits(f.read_bytes(), terms)
         if h:

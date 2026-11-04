@@ -42,6 +42,21 @@ exits 0 and prices nothing.
 --scheduled (1c-ii's cron fires at 07:01 and 08:01 UTC): exit 0 and do
 nothing unless the league clock is in the 00:xx hour. Exactly one of the two
 firings passes on every day, across both DST changes (tests/test_nightly.py).
+With --pretip, --scheduled admits only [first tip - 45 min, first tip) on a
+window day instead. Both decisions are scripts/run_guard.py's (standard
+library only; the workflow's guard job runs the same functions).
+
+STEP 1c-ii (HANDOFF_STEP1C2):
+  - a scheduled nightly run first prices the latest closed week's closing line
+    when it is due (closing_line.due): a week with no pre-tip tag record is
+    recorded once as "no closing line" (closing_line.record_none) and the
+    night goes on; any other refusal stops the run (exit 1);
+  - the engine step compares HEAD with $ENGINE_COMMIT when it is set (the
+    runner sets it from the private repo's ENGINE_COMMIT; design invariant 3);
+  - --ignore-clock (only with --scheduled, nightly mode): the workflow's
+    force input, workflow_dispatch only. It skips the 00:xx guard, nothing else;
+  - --no-closing-line --week N --reason TEXT: Nick records by hand that week N
+    has no closing line, when its refusal is permanent.
 """
 
 from __future__ import annotations
@@ -70,12 +85,30 @@ class StepRefused(RuntimeError):
     """A step refused; the run stops here."""
 
 
+def run_guard():
+    """scripts/run_guard.py, the one definition of both scheduled guards."""
+    scripts = str(Path(__file__).resolve().parent.parent / "scripts")
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    import run_guard as rg
+    return rg
+
+
 def scheduled_guard_admits(now_utc: datetime) -> bool:
     """1c-ii's guard: True only when the league clock reads 00:xx."""
     from .league_clock import league_tz
-    if now_utc.tzinfo is None:
-        raise ValueError("the guard needs an aware time")
-    return now_utc.astimezone(league_tz()).hour == 0
+    return run_guard().admits_nightly(now_utc, league_tz())
+
+
+def pretip_guard_admits(now_utc: datetime, base_path=".") -> tuple:
+    """(admitted, why): only in [first tip - 45 min, first tip) on a window day."""
+    return run_guard().admits_pretip(now_utc, Path(base_path))
+
+
+def engine_head(base: Path) -> str:
+    r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(base), capture_output=True, text=True,
+                       timeout=20)
+    return r.stdout.strip() if r.returncode == 0 else ""
 
 
 # =============================================================================
@@ -128,6 +161,7 @@ class Run:
         self.echo = echo
         self.run_id = f"{self.now.isoformat(timespec='microseconds')}-{mode}"
         self.ctx = {}
+        self.exception = None
 
     # -- 1
     def step_engine(self):
@@ -142,6 +176,17 @@ class Run:
             raise StepRefused(f"the engine at {eng['commit']} is dirty (uncommitted changes under "
                               "modules/, scripts/ or league_config.json): a line priced now names "
                               "no code. Commit first.")
+        pin = os.environ.get("ENGINE_COMMIT")
+        if pin is not None:
+            pin = pin.strip()
+            if len(pin) != 40 or any(c not in "0123456789abcdef" for c in pin):
+                raise StepRefused(f"ENGINE_COMMIT is set but is not a full commit SHA: {pin!r}")
+            head = engine_head(self.base)
+            if head != pin:
+                raise StepRefused(f"the engine checkout is at {head or 'an unknown commit'}, not "
+                                  f"ENGINE_COMMIT {pin}: a run never prices on code other than "
+                                  "the pinned engine (design invariant 3)")
+            self.ctx["engine_pinned"] = pin
         return f"{eng['commit']}{' (dirty, --allow-dirty-engine)' if eng['dirty'] else ''}"
 
     # -- the window (pretip, closing)
@@ -306,6 +351,7 @@ class Run:
                 self.echo(f"  [{name}] ok ({rows[-1]['seconds']} s): {detail}")
             except Exception as e:                          # noqa: BLE001 -- the policy
                 error = f"{type(e).__name__}: {e}"
+                self.exception = e
                 rows.append({"step": name, "outcome": "refused",
                              "seconds": round(time.perf_counter() - t0, 2), "detail": error})
                 self.echo(f"  [{name}] REFUSED ({rows[-1]['seconds']} s): {error}")
@@ -327,30 +373,96 @@ class Run:
         return row
 
 
+def scheduled_closing(base_path=".", *, now: datetime = None, allow_dirty_engine: bool = False,
+                      sims: int = None, title_sims: int = None, echo=print, data=None,
+                      steps: dict = None) -> dict:
+    """The scheduled nightly run's first job (HANDOFF_STEP1C2 s.3): price the
+    latest closed week's closing line when it is due.
+
+    Returns {"week": N or None, "outcome": "not due" | "ok" | "none recorded"
+    | "refused", "row": the closing run's row or None}. "refused" stops the
+    nightly run; "none recorded" (no pre-tip tag record: tag_records.NoPretipTags)
+    writes output/closing_none_weekN.json once and lets the night go on."""
+    from . import closing_line
+    from .league_clock import league_now
+    from .tag_records import NoPretipTags
+    now = now or league_now()
+    week = closing_line.due(base_path, now, data=data)
+    if week is None:
+        return {"week": None, "outcome": "not due", "row": None}
+    echo(f"closing line due: week {week}")
+    crun = Run(base_path, "closing", week=week, now=now, allow_dirty_engine=allow_dirty_engine,
+               sims=sims, title_sims=title_sims, echo=echo)
+    row = crun.execute(steps)
+    if row["outcome"] != "refused":
+        return {"week": week, "outcome": "ok", "row": row}
+    if isinstance(crun.exception, NoPretipTags):
+        p = closing_line.record_none(base_path, week, reason=str(crun.exception),
+                                     run_id=crun.run_id, now=now)
+        echo(f"week {week}: no closing line this week (no pre-tip tag record); recorded once "
+             f"in {Path(p).relative_to(Path(base_path)).as_posix()}, never retried")
+        return {"week": week, "outcome": "none recorded", "row": row}
+    return {"week": week, "outcome": "refused", "row": row}
+
+
 def main(argv=None) -> int:
     import argparse
     ap = argparse.ArgumentParser(description="The nightly run, Monday's pre-tip run, or a week's "
-                                             "closing line (step 1c-i).")
+                                             "closing line (steps 1c-i, 1c-ii).")
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--pretip", action="store_true", help="Monday's pre-tip run (before the first tip)")
     g.add_argument("--closing", action="store_true", help="the closing line for --week N")
+    g.add_argument("--no-closing-line", action="store_true",
+                   help="record that --week N has no closing line (with --reason), once")
     ap.add_argument("--week", type=int)
+    ap.add_argument("--reason", help="with --no-closing-line: why (recorded)")
     ap.add_argument("--scheduled", action="store_true",
-                    help="exit 0 doing nothing unless the league clock reads 00:xx (1c-ii's cron)")
+                    help="the cloud's cron: exit 0 doing nothing unless the guard admits this "
+                         "moment (scripts/run_guard.py); a nightly run then prices a due "
+                         "closing line first")
+    ap.add_argument("--ignore-clock", action="store_true",
+                    help="with --scheduled (nightly only): skip the 00:xx guard -- the "
+                         "workflow's force input, workflow_dispatch only")
     ap.add_argument("--allow-dirty-engine", action="store_true",
                     help="builder testing only: run on uncommitted code. The runner never passes it")
     ap.add_argument("--sims", type=int, help="line simulations (default: the line's default)")
     ap.add_argument("--title-sims", type=int, help="title-odds simulations (default: season_sims)")
     ap.add_argument("--base-path", default=".")
     a = ap.parse_args(argv)
+    if a.week is not None and not (a.closing or a.no_closing_line):
+        ap.error("--week goes with --closing or --no-closing-line")
+    if a.ignore_clock and not a.scheduled:
+        ap.error("--ignore-clock goes with --scheduled")
+    if a.scheduled and (a.closing or a.no_closing_line):
+        ap.error("--scheduled is for the nightly and pre-tip runs")
+    if a.ignore_clock and a.pretip:
+        ap.error("--ignore-clock is for the nightly run only: the pre-tip run has its window")
+    from datetime import timezone
+    if a.no_closing_line:
+        return _no_closing_line(a)
     if a.scheduled:
-        from datetime import timezone
-        if not scheduled_guard_admits(datetime.now(timezone.utc)):
+        now_utc = datetime.now(timezone.utc)
+        if a.pretip:
+            ok, why = pretip_guard_admits(now_utc, a.base_path)
+            if not ok:
+                print(f"--pretip --scheduled: {why}; nothing to do.")
+                return _ran(False)
+        elif a.ignore_clock:
+            print("--scheduled --ignore-clock: the 00:xx guard is skipped (forced run).")
+        elif not scheduled_guard_admits(now_utc):
             print("--scheduled: the league clock is not in the 00:xx hour; nothing to do.")
-            return 0
-    if a.week is not None and not a.closing:
-        ap.error("--week goes with --closing")
+            return _ran(False)
     mode = "pretip" if a.pretip else "closing" if a.closing else "nightly"
+    if a.scheduled and mode == "nightly":
+        c = scheduled_closing(a.base_path, allow_dirty_engine=a.allow_dirty_engine, sims=a.sims,
+                              title_sims=a.title_sims)
+        if c["outcome"] == "refused":
+            row = c["row"]
+            print(f"closing run for week {c['week']} REFUSED in {row['seconds']} s: {row['error']} "
+                  f"(recorded in {RUNS_FILE.as_posix()}); the nightly run does not start")
+            return _ran(True, 1)
+        if c["outcome"] != "not due":
+            print(f"closing line, week {c['week']}: {c['outcome']}")
     run = Run(a.base_path, mode, week=a.week, allow_dirty_engine=a.allow_dirty_engine,
               sims=a.sims, title_sims=a.title_sims)
     print(f"{mode} run {run.run_id}")
@@ -358,4 +470,43 @@ def main(argv=None) -> int:
     print(f"{mode} run {row['outcome'].upper()} in {row['seconds']} s"
           + (f": {row['error']}" if row["error"] else "")
           + f" (recorded in {RUNS_FILE.as_posix()})")
-    return row["exit"]
+    return _ran(True, row["exit"]) if a.scheduled else row["exit"]
+
+
+def _ran(ran: bool, code: int = 0) -> int:
+    """Under the workflow ($GITHUB_OUTPUT set): ran=true|false for its later
+    steps -- a scheduled run the guard declined built no hub, so nothing is
+    published and no failure issue is closed. Returns `code`."""
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write(f"ran={'true' if ran else 'false'}\n")
+    return code
+
+
+def _no_closing_line(a) -> int:
+    """--no-closing-line --week N --reason TEXT (Nick, by hand)."""
+    from . import closing_line, price_lock
+    from .data_loader import load_all_data
+    from .league_clock import league_now
+    from .week_state import week_entry
+    if a.week is None or not (a.reason or "").strip():
+        print("REFUSED: --no-closing-line needs --week N and --reason")
+        return 1
+    now = league_now()
+    try:
+        data = load_all_data(a.base_path, current_week=None)
+        monday = date.fromisoformat(str(week_entry(data, a.week)["start_date"])[:10])
+        close = price_lock.window_close(monday, data.nba_schedule)
+        if now < close:
+            print(f"REFUSED: week {a.week}'s window closes {close.isoformat(timespec='minutes')}; "
+                  "nothing to record before it")
+            return 1
+        p = closing_line.record_none(a.base_path, a.week, reason=a.reason,
+                                     run_id=f"{now.isoformat(timespec='seconds')}-no-closing-line",
+                                     now=now, by="nightly.py --no-closing-line (by hand)")
+    except (closing_line.ClosingRefused, KeyError) as e:
+        print(f"REFUSED: {e}")
+        return 1
+    print(f"recorded: week {a.week} has no closing line ({p})")
+    return 0

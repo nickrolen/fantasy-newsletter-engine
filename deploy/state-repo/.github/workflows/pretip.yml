@@ -1,0 +1,33 @@
+# Monday's pre-tip run, in the private repo's Actions (step 1c-ii).
+#
+# Lives in the ENGINE at deploy/state-repo/.github/workflows/pretip.yml and is
+# installed into the private repo by `python scripts\state.py install-workflows`.
+# Edit it in the engine, never in the private repo.
+name: Pre-tip
+
+on:
+  schedule:
+    # Every 15 minutes through Monday on the league clock, under both offsets:
+    #   15:00-23:45 UTC Monday + 00:00-03:45 UTC Tuesday
+    #   = 07:00-19:45 PST, 08:00-20:45 PDT.
+    # The guard (scripts/run_guard.py pretip) admits a firing only in
+    # [first tip - 45 min, first tip) on a window day (a fantasy week's first
+    # day), so three firings run on a window Monday and the rest exit in
+    # seconds. The range reaches back to the morning for the holiday Mondays
+    # whose first tip is 9:00 AM Pacific (MLK Day 2027-01-18, Presidents' Day
+    # 2027-02-15) and forward to 19:30 Pacific; tests/test_cloud_run.py checks
+    # every window day of the season against it.
+    - cron: '*/15 15-23 * * 1'
+    - cron: '*/15 0-3 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  pretip:
+    uses: ./.github/workflows/run.yml
+    with:
+      mode: pretip
+    secrets: inherit

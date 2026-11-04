@@ -314,7 +314,12 @@ def test_every_path_that_writes_a_live_price_consults_the_lock():
 def test_only_the_lock_and_the_fetch_read_a_tip_time():
     readers = sorted(p.name for p in [*(ROOT / "modules").glob("*.py"), *(ROOT / "scripts").glob("*.py")]
                      if "tip_utc" in p.read_text(encoding="utf-8"))
-    assert readers == ["fetch_nba_schedule.py", "price_lock.py"], readers
+    # run_guard.py (step 1c-ii) reads the first tip for the workflow's pre-tip
+    # guard on the runner's own Python, standard library only, so it cannot
+    # import price_lock (modules/ pulls in pandas). It decides only whether a
+    # firing runs, never a price; tests/test_cloud_run.py pins that its first
+    # tip equals price_lock.first_tip on every window day of the season.
+    assert readers == ["fetch_nba_schedule.py", "price_lock.py", "run_guard.py"], readers
 
 
 # ============================== 4. tip times change no price (readers date-only)

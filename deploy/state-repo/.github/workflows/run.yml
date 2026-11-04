@@ -1,0 +1,381 @@
+# One run of the engine on the private repo's state: the guard, then (only if
+# it says go) the run itself. Called by nightly.yml and pretip.yml; never
+# scheduled on its own. Step 1c-ii (claude/HANDOFF_STEP1C2_CLOUD_RUN_2026-11-03.md s.4).
+#
+# Lives in the ENGINE at deploy/state-repo/.github/workflows/run.yml and is
+# installed into the private repo by `python scripts\state.py install-workflows`.
+# Edit it in the engine, never in the private repo.
+#
+# SECRETS (private repo -> Settings -> Secrets and variables -> Actions), only
+# ever referenced here, never printed:
+#   YAHOO_OAUTH_JSON  the contents of oauth2.json (written to the runner, mode 600)
+#   HUB_PASSPHRASE    the hub's passphrase (the run step's environment only)
+#   HUB_DEPLOY_TOKEN  a fine-grained token: newsletter-hub, Contents read and write
+# The workflow's own token (contents: write, issues: write) commits state and
+# opens the failure issue. Never a personal token for those.
+#
+# NEVER passed here: the by-hand escape flags (a dirty engine, an engine
+# mismatch, no league state). tests/test_cloud_run.py reads these files and
+# fails if any of them appears, even in a comment.
+name: Run
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: 'nightly or pretip'
+        type: string
+        required: true
+      force:
+        description: 'nightly only, from workflow_dispatch only: skip the time guard'
+        type: boolean
+        default: false
+
+env:
+  TZ: America/Los_Angeles
+  ENGINE_REPO: nickrolen/fantasy-newsletter-engine
+  HUB_REPO: nickrolen/newsletter-hub
+  MODE: ${{ inputs.mode }}
+  # A schedule can never force: the caller passes force only from
+  # workflow_dispatch, and it is checked against the event again here.
+  FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
+  RUN_ID: ${{ github.run_id }}
+  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # The guard: the runner's own python3, the standard library, four files of the
+  # engine. Most firings stop here, in seconds. No concurrency group: an idle
+  # firing never waits behind, or displaces, a run that writes state.
+  # ---------------------------------------------------------------------------
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.guard.outputs.go }}
+      reason: ${{ steps.guard.outputs.reason }}
+    steps:
+      - name: ENGINE_COMMIT (the private repo, that one file)
+        uses: actions/checkout@v6
+        with:
+          path: state
+          sparse-checkout: /ENGINE_COMMIT
+          sparse-checkout-cone-mode: false
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Pin
+        id: pin
+        run: |
+          c="$(tr -d '[:space:]' < state/ENGINE_COMMIT)"
+          if ! [[ "$c" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "ENGINE_COMMIT is not a full commit SHA: '$c'"
+            exit 1
+          fi
+          echo "commit=$c" >> "$GITHUB_OUTPUT"
+
+      - name: The guard's four files, from the engine at ENGINE_COMMIT
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.ENGINE_REPO }}
+          ref: ${{ steps.pin.outputs.commit }}
+          path: engine
+          sparse-checkout: |
+            /scripts/run_guard.py
+            /config/league_config.json
+            /config/SCHEDULE.json
+            /data/nba_schedule_*.json
+          sparse-checkout-cone-mode: false
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Guard
+        id: guard
+        run: |
+          if [ "$MODE" = nightly ] && [ "$FORCE" = true ]; then
+            echo "force (workflow_dispatch): the 12:01 AM time guard is skipped"
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set +e
+          python3 engine/scripts/run_guard.py "$MODE" --base-path engine > guard.log 2>&1
+          rc=$?
+          cat guard.log
+          if [ "$rc" -ne 0 ]; then
+            echo "reason=$(tail -n 1 guard.log | cut -c1-160)" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+  # The guard itself failed (a missing file or tip time): the failure issue.
+  guard-failed:
+    needs: guard
+    if: failure() && needs.guard.result == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Open or comment on the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REASON: ${{ needs.guard.outputs.reason }}
+        run: |
+          title="Nightly run failed: guard: ${REASON:-see the run log}"
+          printf 'The %s guard failed: %s\n\nRun: %s\n\nThis issue closes on the next good run.\n' \
+            "$MODE" "${REASON:-see the run log}" "$RUN_URL" > body.md
+          gh label create run-failed --repo "$GITHUB_REPOSITORY" --color B60205 \
+            --description "A nightly or pre-tip run failed" --force
+          n="$(gh issue list --repo "$GITHUB_REPOSITORY" --label run-failed --state open \
+                --json number --jq '.[0].number // empty')"
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body-file body.md
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label run-failed --body-file body.md
+          fi
+
+  # ---------------------------------------------------------------------------
+  # The run. One concurrency group for every workflow that writes state, never
+  # cancelled: runs queue (design s.2.4).
+  # ---------------------------------------------------------------------------
+  run:
+    needs: guard
+    if: needs.guard.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: newsletter-state
+      cancel-in-progress: false
+    steps:
+      - name: Check out the private repo (state)
+        id: state
+        uses: actions/checkout@v6
+        with:
+          path: state
+
+      - name: ENGINE_COMMIT
+        id: pin
+        run: |
+          c="$(tr -d '[:space:]' < state/ENGINE_COMMIT)"
+          if ! [[ "$c" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "ENGINE_COMMIT is not a full commit SHA: '$c'" | tee "$RUNNER_TEMP/pin.log"
+            exit 1
+          fi
+          echo "commit=$c" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the engine at ENGINE_COMMIT
+        id: engine
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.ENGINE_REPO }}
+          ref: ${{ steps.pin.outputs.commit }}
+          path: engine
+          persist-credentials: false
+
+      - name: Refuse unless the engine checkout is exactly ENGINE_COMMIT
+        id: engine-check
+        env:
+          PIN: ${{ steps.pin.outputs.commit }}
+        run: |
+          head="$(git -C engine rev-parse HEAD)"
+          if [ "$head" != "$PIN" ]; then
+            echo "the engine checkout is at $head, not ENGINE_COMMIT $PIN" | tee "$RUNNER_TEMP/engine-check.log"
+            exit 1
+          fi
+          echo "engine at ENGINE_COMMIT $PIN"
+
+      - name: Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: engine/requirements.txt
+
+      - name: Requirements
+        id: install
+        run: |
+          python -m pip install -q -r engine/requirements.txt 2>&1 | tee "$RUNNER_TEMP/install.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Overlay the state onto the engine
+        id: overlay-in
+        working-directory: engine
+        run: |
+          python scripts/state_overlay.py in --state-dir ../state 2>&1 | tee "$RUNNER_TEMP/overlay-in.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Credentials
+        id: credentials
+        working-directory: engine
+        env:
+          YAHOO_OAUTH_JSON: ${{ secrets.YAHOO_OAUTH_JSON }}
+          HUB_PASSPHRASE: ${{ secrets.HUB_PASSPHRASE }}
+        run: |
+          if [ -z "$YAHOO_OAUTH_JSON" ]; then
+            echo "the secret YAHOO_OAUTH_JSON is not set" | tee "$RUNNER_TEMP/credentials.log"; exit 1
+          fi
+          if [ -z "$HUB_PASSPHRASE" ]; then
+            echo "the secret HUB_PASSPHRASE is not set" | tee "$RUNNER_TEMP/credentials.log"; exit 1
+          fi
+          umask 077
+          printf '%s' "$YAHOO_OAUTH_JSON" > oauth2.json
+          if ! python -c "import json; json.load(open('oauth2.json'))" 2>/dev/null; then
+            echo "the secret YAHOO_OAUTH_JSON is not valid JSON" | tee "$RUNNER_TEMP/credentials.log"; exit 1
+          fi
+          echo "oauth2.json written (mode 600); contents not shown"
+
+      - name: Rows in the run record before the run
+        id: before
+        working-directory: engine
+        run: |
+          n=0
+          if [ -f output/nightly_runs.jsonl ]; then n="$(wc -l < output/nightly_runs.jsonl)"; fi
+          echo "rows=$n" >> "$GITHUB_OUTPUT"
+
+      - name: Run
+        id: run
+        working-directory: engine
+        env:
+          HUB_PASSPHRASE: ${{ secrets.HUB_PASSPHRASE }}
+          ENGINE_COMMIT: ${{ steps.pin.outputs.commit }}
+        run: |
+          if [ "$MODE" = pretip ]; then
+            set -- --pretip --scheduled
+          elif [ "$MODE" = nightly ] && [ "$FORCE" = true ]; then
+            set -- --scheduled --ignore-clock
+          elif [ "$MODE" = nightly ]; then
+            set -- --scheduled
+          else
+            echo "unknown mode '$MODE'" | tee "$RUNNER_TEMP/run.log"; exit 1
+          fi
+          echo "python scripts/nightly.py $*"
+          python scripts/nightly.py "$@" 2>&1 | tee "$RUNNER_TEMP/run.log"
+          exit "${PIPESTATUS[0]}"
+
+      # -- always (good or refused): copy back, commit only if something changed
+      - name: Copy the state back
+        id: overlay-out
+        if: always() && steps.overlay-in.outcome == 'success'
+        working-directory: engine
+        run: |
+          python scripts/state_overlay.py out --state-dir ../state 2>&1 | tee "$RUNNER_TEMP/overlay-out.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Commit the state to the private repo
+        id: commit-state
+        if: always() && steps.overlay-out.outcome == 'success'
+        working-directory: state
+        env:
+          OUTCOME: ${{ steps.run.outcome }}
+        run: |
+          {
+            git config user.name "newsletter-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            if git diff --cached --quiet; then
+              echo "state unchanged: nothing to commit"
+              exit 0
+            fi
+            git commit -q -m "$MODE run $RUN_ID: $OUTCOME" -m "$RUN_URL"
+            if git push -q origin HEAD; then
+              echo "state committed: $(git rev-parse --short HEAD)"
+              exit 0
+            fi
+            b="rescue/run-$RUN_ID"
+            git push -q origin "HEAD:refs/heads/$b"
+            echo "the private repo moved during the run: this run's state is on branch $b, not merged; ask before merging it"
+            exit 1
+          } 2>&1 | tee "$RUNNER_TEMP/commit-state.log"
+          exit "${PIPESTATUS[0]}"
+
+      # -- publish, on success only, and only when the run ran: a scheduled run
+      #    the guard declined at its start (ran=false) built no hub
+      - name: HUB_DEPLOY_TOKEN is set
+        id: hub-token
+        if: steps.run.outputs.ran == 'true'
+        env:
+          HUB_DEPLOY_TOKEN: ${{ secrets.HUB_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$HUB_DEPLOY_TOKEN" ]; then
+            echo "the secret HUB_DEPLOY_TOKEN is not set" | tee "$RUNNER_TEMP/hub-token.log"; exit 1
+          fi
+
+      - name: Check out the hub repo
+        id: hub-checkout
+        if: steps.run.outputs.ran == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.HUB_REPO }}
+          ref: main
+          path: hub
+          token: ${{ secrets.HUB_DEPLOY_TOKEN }}
+
+      - name: Stage the hub, and scan exactly what will be pushed
+        id: publish-scan
+        if: steps.run.outputs.ran == 'true'
+        working-directory: engine
+        run: |
+          python scripts/hub_deploy.py --target ../hub 2>&1 | tee "$RUNNER_TEMP/publish-scan.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Publish the hub (only if it changed)
+        id: publish
+        if: steps.run.outputs.ran == 'true'
+        working-directory: hub
+        run: |
+          {
+            git config user.name "newsletter-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            if git diff --cached --quiet; then
+              echo "hub unchanged: nothing to publish"
+              exit 0
+            fi
+            git commit -q -m "hub: $MODE run $RUN_ID"
+            git push -q origin HEAD:main
+            echo "hub published: $(git rev-parse --short HEAD)"
+          } 2>&1 | tee "$RUNNER_TEMP/publish.log"
+          exit "${PIPESTATUS[0]}"
+
+      # -- the failure issue: one open at a time; the next good run closes it
+      - name: Close the failure issue
+        if: success() && steps.run.outputs.ran == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create run-failed --repo "$GITHUB_REPOSITORY" --color B60205 \
+            --description "A nightly or pre-tip run failed" --force
+          for n in $(gh issue list --repo "$GITHUB_REPOSITORY" --label run-failed --state open \
+                       --json number --jq '.[].number'); do
+            gh issue close "$n" --repo "$GITHUB_REPOSITORY" \
+              --comment "Closed by the good $MODE run $RUN_ID: $RUN_URL"
+          done
+
+      - name: Open or comment on the failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ steps.before.outputs.rows }}
+          OUTCOMES: >-
+            state=${{ steps.state.outcome }},pin=${{ steps.pin.outcome }},engine=${{ steps.engine.outcome }},engine-check=${{ steps.engine-check.outcome }},python=${{ steps.python.outcome }},install=${{ steps.install.outcome }},overlay-in=${{ steps.overlay-in.outcome }},credentials=${{ steps.credentials.outcome }},run=${{ steps.run.outcome }},overlay-out=${{ steps.overlay-out.outcome }},commit-state=${{ steps.commit-state.outcome }},hub-token=${{ steps.hub-token.outcome }},hub-checkout=${{ steps.hub-checkout.outcome }},publish-scan=${{ steps.publish-scan.outcome }},publish=${{ steps.publish.outcome }}
+        run: |
+          s=engine/scripts/run_issue.py
+          if [ -f "$s" ]; then
+            args=(--outcomes "$OUTCOMES" --runs-file engine/output/nightly_runs.jsonl
+                  --skip "${ROWS:-0}" --logs "$RUNNER_TEMP")
+            title="$(python3 "$s" title "${args[@]}")"
+            python3 "$s" body "${args[@]}" --run-url "$RUN_URL" --mode "$MODE" > "$RUNNER_TEMP/issue.md"
+          else
+            title="Nightly run failed: checkout: see the run log"
+            printf 'Run: %s\n' "$RUN_URL" > "$RUNNER_TEMP/issue.md"
+          fi
+          echo "$title"
+          gh label create run-failed --repo "$GITHUB_REPOSITORY" --color B60205 \
+            --description "A nightly or pre-tip run failed" --force
+          n="$(gh issue list --repo "$GITHUB_REPOSITORY" --label run-failed --state open \
+                --json number --jq '.[0].number // empty')"
+          if [ -n "$n" ]; then
+            printf '\n**%s**\n' "$title" >> "$RUNNER_TEMP/issue.md"
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/issue.md"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label run-failed \
+              --body-file "$RUNNER_TEMP/issue.md"
+          fi

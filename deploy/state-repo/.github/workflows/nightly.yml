@@ -1,0 +1,33 @@
+# The nightly run, in the private repo's Actions (step 1c-ii).
+#
+# Lives in the ENGINE at deploy/state-repo/.github/workflows/nightly.yml and is
+# installed into the private repo by `python scripts\state.py install-workflows`.
+# Edit it in the engine, never in the private repo. No secrets in this file:
+# they are only referenced, in run.yml.
+name: Nightly
+
+on:
+  schedule:
+    # 12:01 AM Pacific is 08:01 UTC in standard time and 07:01 UTC in daylight
+    # time. Both fire every day; the guard (scripts/run_guard.py) admits only
+    # the one at 00:xx on the league clock, so the run is right across both
+    # DST changes without editing this line.
+    - cron: '1 7,8 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Run now: skip the 12:01 AM time guard (by hand only; a schedule never forces)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  nightly:
+    uses: ./.github/workflows/run.yml
+    with:
+      mode: nightly
+      force: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
+    secrets: inherit

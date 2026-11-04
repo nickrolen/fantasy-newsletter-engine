@@ -55,6 +55,90 @@ def run_id_for(week: int) -> str:
     return f"closing-week{int(week)}"
 
 
+# =============================================================================
+# when is a closing line due? (step 1c-ii, HANDOFF_STEP1C2 s.3)
+# =============================================================================
+#
+# The scheduled nightly run asks this before its own steps. The answer is the
+# LATEST window day (a fantasy week's first day) whose close has passed; it is
+# due unless that week already has its closing line or its "no closing line"
+# record. So a missed night is caught up on the next one, and a week is never
+# priced twice. Only the latest week is ever considered: a closing line priced
+# a week late would see moves made after its close.
+#
+# "No closing line this week" (HANDOFF s.3): a week whose Monday has no tag
+# record from before its first tip (tag_records.NoPretipTags) cannot be priced
+# now or ever, so it is recorded ONCE in output/closing_none_weekN.json and
+# never retried. Every other refusal stops the run and is retried the next
+# night: those are fixable (a sync, a schedule refetch, Nick's ruling).
+# Nick can record one by hand when a refusal is permanent:
+#     python scripts\nightly.py --no-closing-line --week N --reason "..."
+
+
+def none_path(base_path, week: int) -> Path:
+    return Path(base_path) / "output" / f"closing_none_week{int(week)}.json"
+
+
+def settled(base_path, week: int) -> str:
+    """"priced", "none" or "" (neither the line nor the record exists)."""
+    if closing_path(base_path, week).is_file():
+        return "priced"
+    if none_path(base_path, week).is_file():
+        return "none"
+    return ""
+
+
+def latest_closed_week(now: datetime, weeks, schedule):
+    """The week of the latest window day whose close is at or before `now`
+    (None before the first close). weeks: SCHEDULE.json's week entries;
+    schedule: the NBA schedule (tip times). Raises price_lock's TipTimeMissing
+    / NoGames for a window day whose close cannot be placed."""
+    from . import price_lock
+    if now.tzinfo is None:
+        raise ValueError("latest_closed_week needs an aware time")
+    days = sorted(((date.fromisoformat(str(w["start_date"])[:10]), int(w["week"])) for w in weeks),
+                  reverse=True)
+    for day, week in days:
+        if day > now.date():
+            continue
+        if price_lock.window_close(day, schedule) <= now:
+            return week
+    return None
+
+
+def due(base_path, now: datetime, data=None):
+    """The week whose closing line the scheduled nightly run must price first,
+    or None."""
+    from .data_loader import load_all_data
+    data = data or load_all_data(base_path, current_week=None)
+    week = latest_closed_week(now, data.schedule.get("weeks", []), data.nba_schedule)
+    if week is None or settled(base_path, week):
+        return None
+    return week
+
+
+def record_none(base_path, week: int, *, reason: str, run_id: str, now: datetime,
+                by: str = "nightly.py (scheduled)") -> Path:
+    """Write output/closing_none_weekN.json: week N has no closing line, once.
+    Refuses when the week already has its line or its record."""
+    if not str(reason or "").strip():
+        raise ClosingRefused("a 'no closing line' record needs its reason")
+    got = settled(base_path, week)
+    if got:
+        raise ClosingRefused(f"week {week} already has its closing "
+                             + ("line" if got == "priced" else "'no closing line' record")
+                             + ": nothing to record")
+    p = none_path(base_path, week)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    body = json.dumps({"schema": 1, "week": int(week), "outcome": "no closing line this week",
+                       "reason": str(reason), "recorded_at": now.isoformat(timespec="seconds"),
+                       "run_id": run_id, "by": by}, indent=2) + "\n"
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(body, encoding="utf-8")
+    tmp.replace(p)
+    return p
+
+
 def pre_close_data(base_path, monday: date, data=None):
     """The league's data as at Monday's first tip: LINEUPS and PLAYERLOG cut
     to the days before Monday, the logs' week recomputed from what is left."""

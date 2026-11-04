@@ -347,13 +347,18 @@ def test_nothing_changed_is_said_and_does_nothing(two):
 
 
 def test_pull_refuses_local_edits_not_yet_pushed(two):
+    """P2's guarantee, unchanged: local edits are never overwritten. Since
+    1c-ii (HANDOFF_STEP1C2 s.5) pull refuses only when the SAME file changed
+    on both sides; disjoint changes merge (the tests after s.4 below). This
+    test was P2's with the runner editing a different file (LINEUPS); it now
+    edits the same file, which is the case that must still refuse."""
     a, b = two
     run_state(b, "pull")
-    write(b, "data/LINEUPS.xlsx", b"new rows")
+    write(b, "data/waivers_week2.txt", "- [2026-10-26] A: B, runner\n")
     run_state(b, "push")
     write(a, "data/waivers_week2.txt", "- [2026-10-26] A: C\n")
     rc, out = run_state(a, "pull")
-    assert rc == 1 and "data/waivers_week2.txt" in out and "push it first" in out
+    assert rc == 1 and "data/waivers_week2.txt" in out and "changed here AND in the private repo" in out
     assert (a / "data/waivers_week2.txt").read_text() == "- [2026-10-26] A: C\n"   # untouched
 
 
@@ -443,6 +448,147 @@ def test_status_names_what_differs(two):
     assert rc == 0
     assert re.search(r"changed here\s+config/ROSTERS.json", out)
     assert re.search(r"changed in the private repo\s+data/LINEUPS.xlsx", out)
+
+
+# ================================ 4b. 1c-ii: the three-way pull, set-engine, workflows
+#
+# HANDOFF_STEP1C2 s.5: Nick pulls Monday morning and builds; the cloud's
+# pre-tip run commits mid-afternoon; Nick's push then refuses ("the private
+# repo moved") and, before 1c-ii, pull refused too ("state changed here"): a
+# deadlock. pull now merges when the two sides changed different files.
+
+def _record(root):
+    return json.loads((root / ".state_sync.json").read_text(encoding="utf-8"))
+
+
+def test_disjoint_changes_merge_on_pull_and_then_push(two):
+    a, b = two                                   # a: Nick's desktop; b: the cloud run
+    assert run_state(b, "pull")[0] == 0
+    write(b, "data/LINEUPS.xlsx", b"the pre-tip run's rows")
+    (b / "data/lore_backups/2026-10-01.json").unlink()
+    assert run_state(b, "push")[0] == 0
+    write(a, "config/ROSTERS.json", '{"rosters": {"Nick": ["x"]}}\r\n')   # Nick's newsletter build
+    write(a, "data/waivers_week3.txt", "new here\n")
+    rc, out = run_state(a, "push")
+    assert rc == 1 and "pull first" in out
+    rc, out = run_state(a, "pull")
+    assert rc == 0, out
+    assert "kept     config/ROSTERS.json" in out and "updated  data/LINEUPS.xlsx" in out
+    assert (a / "data/LINEUPS.xlsx").read_bytes() == b"the pre-tip run's rows"
+    assert not (a / "data/lore_backups/2026-10-01.json").exists()
+    assert (a / "config/ROSTERS.json").read_bytes() == b'{"rosters": {"Nick": ["x"]}}\r\n'
+    assert (a / "data/waivers_week3.txt").read_text() == "new here\n"
+    rc, out = run_state(a, "push")
+    assert rc == 0 and "config/ROSTERS.json" in out and "data/waivers_week3.txt" in out, out
+    assert "data/LINEUPS.xlsx" not in out                     # already the private repo's
+    # and the other way: the runner pulls Nick's changes
+    write(b, "output/nightly_runs.jsonl", "{}\n")            # the runner's own, not pushed
+    rc, out = run_state(b, "pull")
+    assert rc == 0, out
+    assert (b / "config/ROSTERS.json").read_bytes() == b'{"rosters": {"Nick": ["x"]}}\r\n'
+    assert (b / "output/nightly_runs.jsonl").read_text() == "{}\n"
+    assert run_state(b, "push")[0] == 0
+    rc, out = run_state(a, "pull")
+    assert rc == 0 and (a / "output/nightly_runs.jsonl").read_text() == "{}\n"
+    assert tree(a, [*SEED, "data/waivers_week3.txt", "output/nightly_runs.jsonl"]) == \
+        tree(b, [*SEED, "data/waivers_week3.txt", "output/nightly_runs.jsonl"])
+
+
+def test_an_overlap_refuses_and_changes_nothing(two):
+    a, b = two
+    run_state(b, "pull")
+    write(b, "config/ROSTERS.json", "runner\n")
+    write(b, "data/LINEUPS.xlsx", b"runner rows")
+    run_state(b, "push")
+    write(a, "config/ROSTERS.json", "desk\n")
+    write(a, "data/waivers_week2.txt", "desk only\n")
+    before = {"files": tree(a, [*SEED, *OUTSIDE]), "head": sh("rev-parse", "HEAD", cwd=a / ".state"),
+              "record": _record(a)}
+    rc, out = run_state(a, "pull")
+    assert rc == 1 and "config/ROSTERS.json" in out and "data/waivers_week2.txt" not in out.split("nothing")[0]
+    assert "data/LINEUPS.xlsx" not in out                      # only the real overlap is named
+    assert tree(a, [*SEED, *OUTSIDE]) == before["files"]
+    assert sh("rev-parse", "HEAD", cwd=a / ".state") == before["head"]
+    assert _record(a) == before["record"]
+
+
+def test_the_same_bytes_on_both_sides_is_not_an_overlap(two):
+    a, b = two
+    run_state(b, "pull")
+    write(b, "config/ROSTERS.json", "same\n")
+    run_state(b, "push")
+    write(a, "config/ROSTERS.json", "same\n")
+    rc, out = run_state(a, "pull")
+    assert rc == 0, out
+    assert run_state(a, "push")[1].strip().startswith("nothing changed")
+
+
+def test_pull_with_local_changes_and_nothing_new_keeps_them(two):
+    a, _ = two
+    write(a, "config/ROSTERS.json", "desk\n")
+    rc, out = run_state(a, "pull")
+    assert rc == 0 and "1 local change(s) kept" in out
+    assert (a / "config/ROSTERS.json").read_text() == "desk\n"
+    assert run_state(a, "push")[0] == 0
+
+
+def _engine_remote(tmp_path, root):
+    """Give a fake engine folder an origin with a main branch."""
+    remote = tmp_path / "remotes" / "engine.git"
+    if not remote.exists():
+        remote.mkdir(parents=True)
+        sh("init", "-q", "--bare", str(remote), cwd=tmp_path)
+    sh("branch", "-M", "main", cwd=root)
+    sh("remote", "add", "origin", str(remote), cwd=root)
+    sh("push", "-q", "origin", "main", cwd=root)
+
+
+def test_set_engine_refuses_a_dirty_or_unpushed_engine_then_pins_it(two, tmp_path):
+    a, b = two
+    _engine_remote(tmp_path, a)
+    write(a, "modules/x.py", "v1\n")
+    sh("add", "modules/x.py", cwd=a)
+    sh("commit", "-q", "-m", "code", cwd=a)                    # committed, not pushed
+    rc, out = run_state(a, "set-engine")
+    assert rc == 1 and "not on origin/main" in out
+    sh("push", "-q", "origin", "main", cwd=a)
+    write(a, "modules/x.py", "v2 uncommitted\n")
+    rc, out = run_state(a, "set-engine")
+    assert rc == 1 and "uncommitted" in out and "modules/x.py" in out
+    sh("checkout", "-q", "--", "modules/x.py", cwd=a)
+    head = sh("rev-parse", "HEAD", cwd=a).strip()
+    rc, out = run_state(a, "set-engine")
+    assert rc == 0, out
+    assert (a / ".state" / "ENGINE_COMMIT").read_text().strip() == head
+    assert _record(a)["commit"] == sh("rev-parse", "HEAD", cwd=a / ".state").strip()
+    assert run_state(a, "set-engine")[1].strip().endswith("nothing changed")
+    write(a, "config/ROSTERS.json", "after\n")
+    assert run_state(a, "push")[0] == 0                         # the record moved along
+    assert run_state(b, "pull")[0] == 0
+    assert (b / ".state" / "ENGINE_COMMIT").read_text().strip() == head
+
+
+def test_install_workflows_keeps_the_next_push_working(two):
+    a, b = two
+    src = a / "deploy" / "state-repo" / ".github" / "workflows"
+    src.mkdir(parents=True)
+    for f in (ROOT / "deploy" / "state-repo" / ".github" / "workflows").glob("*.yml"):
+        shutil.copy(f, src / f.name)
+    write(a / ".state", "stray.txt", "x\n")
+    rc, out = run_state(a, "install-workflows")
+    assert rc == 1 and "uncommitted changes" in out
+    (a / ".state" / "stray.txt").unlink()
+    rc, out = run_state(a, "install-workflows")
+    assert rc == 0, out
+    for f in src.iterdir():
+        assert (a / ".state" / ".github" / "workflows" / f.name).read_bytes() == f.read_bytes()
+    assert run_state(a, "install-workflows")[1].strip().endswith("nothing changed")
+    write(a, "config/ROSTERS.json", "after\n")
+    rc, out = run_state(a, "push")
+    assert rc == 0, out
+    assert run_state(b, "pull")[0] == 0
+    assert (b / ".state" / ".github" / "workflows" / "run.yml").is_file()
+    assert not (b / ".github").exists()                        # never copied out as state
 
 
 # ======================================================= 5. .state is never staged

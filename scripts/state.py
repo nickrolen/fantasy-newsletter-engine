@@ -14,6 +14,8 @@ the working tree and .state/, in both directions, and touches nothing else.
     python scripts/state.py pull     before a manual run: private repo -> here
     python scripts/state.py push     after it: here -> private repo, commit, push
     python scripts/state.py init     once: the first push into an EMPTY clone
+    python scripts/state.py set-engine         point the cloud run at this engine's HEAD
+    python scripts/state.py install-workflows  copy deploy/state-repo/.github/ into the private repo
 
 THE SYNC RECORD (.state_sync.json, gitignored, per machine) holds the private
 repo's commit and every state file's SHA-256 at the last pull, push or init.
@@ -23,6 +25,16 @@ That is how the two refusals that matter work:
   - push refuses when the private repo moved since the last sync (someone
     else -- the nightly run -- pushed; pull first).
 A manual run never silently races the nightly one (design s.2.3).
+
+THE THREE-WAY PULL (step 1c-ii, HANDOFF_STEP1C2 s.5). Once the cloud commits
+state every night, Nick can pull in the morning, change state by hand, and
+find at push time that the private repo moved (the pre-tip run). pull then
+compares, file by file, against the sync record: the files changed here, and
+the files changed in the private repo since the last sync (git diff of the
+recorded commit and the remote's). When the two sets do not overlap -- or
+overlap only where both sides hold the same bytes -- pull takes the private
+repo's changes and keeps the local ones, which the next push sends. A real
+overlap refuses, naming the files, and changes nothing here or in .state/.
 
 Every refusal names the file(s) and what to do, and exits 1. Standard library
 plus `git` on PATH. Nothing here reads a file's contents except to hash and
@@ -171,6 +183,24 @@ def copy_state(src: Path, dst: Path, man) -> tuple:
     return copied, deleted
 
 
+def blob_sha(clone: Path, ref: str, rel: str):
+    """SHA-256 of `rel`'s bytes at `ref` in the clone, or None if absent there.
+    The private repo sets `* -text`, so the blob is the file's bytes."""
+    r = subprocess.run(["git", "cat-file", "blob", f"{ref}:{rel}"], cwd=str(clone),
+                       capture_output=True)
+    if r.returncode != 0:
+        return None
+    return hashlib.sha256(r.stdout).hexdigest()
+
+
+def changed_between(clone: Path, man, old: str, new: str) -> list:
+    """State paths that differ between two commits of the private repo."""
+    if old == new:
+        return []
+    out = git("diff", "--name-only", "--no-renames", old, new, cwd=clone)
+    return sorted(p for p in out.splitlines() if p.strip() and man.contains(p))
+
+
 def diff(a: dict, b: dict) -> list:
     """Paths whose hash differs between two {path: hash} maps (either side missing too)."""
     return sorted(p for p in set(a) | set(b) if a.get(p) != b.get(p))
@@ -238,20 +268,59 @@ def cmd_pull(root: Path, man, out=print) -> int:
                           "new, run `python scripts/state.py init`; otherwise ask before going on")
         changed = []
     else:
+        if head(clone) != rec["commit"]:
+            raise Refusal(f"{CLONE_DIR}\\ is at {str(head(clone))[:12]}, but the last sync was "
+                          f"{rec['commit'][:12]}: a command that never finished, or a commit made "
+                          "by hand. Look at `git -C .state log` and ask before going on")
         changed = diff(local, rec["files"])
-    if changed:
-        raise Refusal("state changed here since the last sync and is not pushed:\n"
-                      + _list(changed)
-                      + "\npush it first (`python scripts/state.py push`), or ask before "
-                        "throwing it away")
+    if not changed:
+        git("pull", "-q", "--ff-only", cwd=clone)
+        copied, deleted = copy_state(clone, root, man)
+        save_record(root, head(clone), hashes(root, man), "pull")
+        out(f"pulled {head(clone)[:12]}: {len(copied)} file(s) updated, {len(deleted)} removed")
+        for p in copied:
+            out(f"  updated  {p}")
+        for p in deleted:
+            out(f"  removed  {p}")
+        return 0
+    # Local changes not yet pushed: the three-way check, file by file.
+    remote = remote_head(clone)
+    if remote is None:
+        raise Refusal("the private repo has no branch to pull")
+    theirs = changed_between(clone, man, rec["commit"], remote)
+    both = sorted(set(changed) & set(theirs))
+    clash = [p for p in both if local.get(p) != blob_sha(clone, remote, p)]
+    if clash:
+        raise Refusal("the same state file(s) changed here AND in the private repo since the last "
+                      "sync:\n" + _list(clash)
+                      + "\nnothing was changed, here or in .state\\. Ask before going on: one "
+                        "side's version of each has to be chosen by hand")
     git("pull", "-q", "--ff-only", cwd=clone)
-    copied, deleted = copy_state(clone, root, man)
-    save_record(root, head(clone), hashes(root, man), "pull")
-    out(f"pulled {head(clone)[:12]}: {len(copied)} file(s) updated, {len(deleted)} removed")
-    for p in copied:
+    if head(clone) != remote:
+        raise Refusal(f"{CLONE_DIR}\\ did not fast-forward to {remote[:12]}: ask before going on")
+    took, removed = [], []
+    for rel in theirs:
+        assert man.contains(rel), rel          # never anything outside the manifest
+        if rel in both:
+            continue                           # the same bytes on both sides already
+        src, dst = clone / rel, root / rel
+        if src.is_file():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            took.append(rel)
+        elif dst.is_file():
+            dst.unlink()
+            removed.append(rel)
+    save_record(root, head(clone), hashes(clone, man), "pull (kept local changes)")
+    kept = sorted(set(changed) - set(both))
+    out(f"pulled {head(clone)[:12]}: {len(took)} file(s) updated, {len(removed)} removed from the "
+        f"private repo; {len(kept)} local change(s) kept, not yet pushed -- push them next")
+    for p in took:
         out(f"  updated  {p}")
-    for p in deleted:
+    for p in removed:
         out(f"  removed  {p}")
+    for p in kept:
+        out(f"  kept     {p}  (changed here)")
     return 0
 
 
@@ -323,7 +392,105 @@ def cmd_init(root: Path, man, out=print) -> int:
     return 0
 
 
-COMMANDS = {"status": cmd_status, "pull": cmd_pull, "push": cmd_push, "init": cmd_init}
+ENGINE_BRANCH = "main"
+WORKFLOWS_SRC = Path("deploy") / "state-repo" / ".github"
+
+
+def _synced_clone(root: Path, man):
+    """The checks every command that commits to the private repo shares with
+    push: a record, a clean clone at the recorded commit, a remote that has
+    not moved."""
+    clone = clone_checks(root, man)
+    rec = load_record(root)
+    if rec is None:
+        raise Refusal(f"there is no sync record ({SYNC_FILE}): pull first")
+    if dirty(clone):
+        raise Refusal(f"{CLONE_DIR}\\ has uncommitted changes of its own:\n" + _list(dirty(clone))
+                      + "\nnothing here makes those; ask before discarding")
+    if head(clone) != rec["commit"]:
+        raise Refusal(f"{CLONE_DIR}\\ is at {str(head(clone))[:12]}, but the last sync was "
+                      f"{rec['commit'][:12]}: look at `git -C .state log` and ask before going on")
+    remote = remote_head(clone)
+    if remote != rec["commit"]:
+        raise Refusal(f"the private repo moved since the last sync ({rec['commit'][:12]} -> "
+                      f"{str(remote)[:12]}): pull first (`python scripts/state.py pull`)")
+    return clone, rec
+
+
+def _commit_only(clone: Path, msg: str) -> str:
+    git("add", "-A", cwd=clone)
+    git("commit", "-q", "-m", msg, cwd=clone)
+    git("push", "-q", "-u", "origin", branch(clone), cwd=clone)
+    return head(clone)
+
+
+def cmd_set_engine(root: Path, man, out=print) -> int:
+    """Write this engine's HEAD into the private repo's ENGINE_COMMIT, commit,
+    push. The cloud run checks the engine out at that commit and refuses any
+    other (design invariant 3)."""
+    tracked = [ln for ln in git("status", "--porcelain", "--untracked-files=no", cwd=root).splitlines()
+               if ln.strip()]
+    if tracked:
+        raise Refusal("the engine has uncommitted changes:\n" + _list(tracked)
+                      + "\ncommit (and push) them first: the cloud runs only committed code")
+    git("fetch", "-q", "origin", ENGINE_BRANCH, cwd=root)
+    eng = git("rev-parse", "HEAD", cwd=root)
+    on = subprocess.run(["git", "merge-base", "--is-ancestor", eng, f"origin/{ENGINE_BRANCH}"],
+                        cwd=str(root), capture_output=True)
+    if on.returncode != 0:
+        raise Refusal(f"the engine's HEAD {eng[:12]} is not on origin/{ENGINE_BRANCH}: push it "
+                      "first (the cloud can only check out a pushed commit)")
+    clone, rec = _synced_clone(root, man)
+    pin = clone / "ENGINE_COMMIT"
+    old = pin.read_text(encoding="utf-8").strip() if pin.is_file() else ""
+    if old == eng:
+        out(f"ENGINE_COMMIT is already {eng[:12]}: nothing changed")
+        return 0
+    pin.write_text(eng + "\n", encoding="utf-8")
+    commit = _commit_only(clone, f"set-engine: ENGINE_COMMIT {old[:12] or '(none)'} -> {eng[:12]}\n\n"
+                                 f"from {platform.node()} at {league_time()}\n")
+    save_record(root, commit, rec["files"], "set-engine")
+    out(f"ENGINE_COMMIT {old[:12] or '(none)'} -> {eng[:12]}; pushed {commit[:12]}")
+    return 0
+
+
+def _tree(d: Path) -> dict:
+    return {p.relative_to(d).as_posix(): p for p in d.rglob("*") if p.is_file()} if d.is_dir() else {}
+
+
+def cmd_install_workflows(root: Path, man, out=print) -> int:
+    """Make the private repo's .github/ exactly deploy/state-repo/.github/,
+    commit, push, and move the sync record along so the next push works."""
+    src = root / WORKFLOWS_SRC
+    if not (src / "workflows").is_dir():
+        raise Refusal(f"{WORKFLOWS_SRC.as_posix()}/workflows is missing in the engine")
+    clone, rec = _synced_clone(root, man)
+    dst = clone / ".github"
+    have, want = _tree(dst), _tree(src)
+    changed = []
+    for rel, p in want.items():
+        if rel not in have or have[rel].read_bytes() != p.read_bytes():
+            (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(p, dst / rel)
+            changed.append(rel)
+    for rel in sorted(set(have) - set(want)):
+        (dst / rel).unlink()
+        changed.append(rel)
+    if not changed:
+        out("the private repo's workflows already match: nothing changed")
+        return 0
+    commit = _commit_only(clone, f"install-workflows: {len(changed)} file(s) from the engine at "
+                                 f"{git('rev-parse', '--short', 'HEAD', cwd=root)}\n\n"
+                                 + "\n".join(f"- .github/{p}" for p in changed) + "\n")
+    save_record(root, commit, rec["files"], "install-workflows")
+    out(f"installed {len(changed)} workflow file(s); pushed {commit[:12]}")
+    for p in changed:
+        out(f"  .github/{p}")
+    return 0
+
+
+COMMANDS = {"status": cmd_status, "pull": cmd_pull, "push": cmd_push, "init": cmd_init,
+            "set-engine": cmd_set_engine, "install-workflows": cmd_install_workflows}
 
 
 def main(argv=None) -> int:
