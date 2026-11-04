@@ -1,6 +1,6 @@
 # Weekly Newsletter Workflow Guide
 
-**Last updated:** February 10, 2026
+**Last updated:** November 4, 2026 (the cloud era: the hub and the nightly run live in GitHub Actions since 11-04)
 
 This is the complete step-by-step workflow for generating the CHS Alumni Fantasy Basketball League weekly newsletter. Run these steps every Monday after the previous week ends.
 
@@ -10,6 +10,45 @@ cd <project_root>
 ```
 
 > **Batch file note:** If you put any of these commands in a `.bat` file, replace `%d` with `%%d` and `%N` with `%%N` in `for` loops.
+
+---
+
+## Read this first: the cloud era (since 2026-11-04)
+
+The league's state lives in the private repo `nickrolen/newsletter-state`, and **GitHub Actions runs the engine there on its own**:
+
+| Run | When | What |
+|---|---|---|
+| **Nightly** | 12:01 AM Pacific (**1:01 AM Phoenix** until 3-14-2027, then 12:01 AM) | pulls the day's box scores, syncs Yahoo (rosters, IL, the transaction log), checks the league settings, refreshes projections and tags, re-prices the line and title odds, updates player stats, publishes the hub. **On Tuesdays it first prices the closing line** of the window that just closed. |
+| **Pre-tip** | Monday afternoons, in the 45 minutes before the first tip | the last unlocked price of the week, and the tag record the closing line uses |
+
+The hub is **https://nickrolen.github.io/newsletter-hub/** (encrypted; the passphrase is the `HUB_PASSPHRASE` secret). A run that refuses opens **one** issue in `newsletter-state` ("Nightly run failed: ..."); the next good run closes it. GitHub notifies your phone.
+
+**The rules for anything you run on this machine:**
+
+1. **Start with `python scripts\state.py pull`. End with `python scripts\state.py push`.** Every time, Monday's newsletter included. `pull` merges when the cloud and you changed different files, and refuses (naming them) when you both changed the same one.
+2. **Don't run `nightly.py` by hand.** The cloud does the nightly run, Monday's pre-tip run and the closing line.
+3. **Monday: push your newsletter's state before about 4:15 PM Phoenix** (the pre-tip window opens 45 minutes before the first tip). Your build and the pre-tip run write some of the same files (rosters, title odds), and those can't be merged. This rule goes away when the newsletter build moves into the cloud (Step 4 of the self-running build).
+4. **Never push state while a cloud run is going** (about 1:01-1:10 AM Phoenix, and Monday's pre-tip window). If you do, the cloud's push is rejected, its state goes to a `rescue/run-<id>` branch, and an issue opens: ask before merging it.
+5. **After any engine update** (a commit the reviewing session made): `git push`, then **`python scripts\state.py set-engine`**, or the cloud keeps running the old engine.
+6. **Chat claims** (league rule 7): apply them in Yahoo in the Monday window, then the reviewing session writes their `claim_week` rulings **before** Step 4's sync. Until the move ledger exists (Step 2 of the build), that order matters.
+7. **The Monday window closes 5 minutes before the last tip** (about 7:55 PM Phoenix). Moves made after your morning sync are caught by the cloud's next nightly run; you don't need to sync again.
+8. **After the issue goes out: `python scripts\archive_issue.py --week N`**, then `state.py push`. The hub's archive shows it from the next run.
+
+**What still happens here, by hand, each Monday:** Steps 0-10 below, the newsletter. The cloud already pulled Sunday's box scores at 1:01 AM; Step 1 pulling them again is harmless (rows are deduplicated).
+
+**Two things that live in the public engine repo, not in state:** the NBA schedule file (Step 0) and the code. If Step 0's refetch changes the schedule, tell the reviewing session: it commits the file, then `git push` and `python scripts\state.py set-engine` so the cloud uses the new schedule.
+
+**The Monday order, in one place:**
+```cmd
+python scripts\state.py pull
+:: Steps 0-9 below (the newsletter)
+python scripts\state.py push            :: before ~4:15 PM Phoenix
+:: send the issue, then:
+python scripts\archive_issue.py --week N
+:: Step 10 (recap), then:
+python scripts\state.py push
+```
 
 ---
 
@@ -34,7 +73,7 @@ Look these up in `config\SCHEDULE.json` if unsure.
 **Run this first, every week.** It catches silent file truncation, broken imports, config drift, and encoding corruption that any earlier Cowork/automated edit session might have introduced.
 
 ```cmd
-py scripts\verify_project_integrity.py
+python scripts\verify_project_integrity.py
 ```
 
 **Also run it:**
@@ -55,7 +94,7 @@ py scripts\verify_project_integrity.py
 If you make a deliberate structural change (add/remove modules, intentionally rewrite a large file), refresh the baseline:
 
 ```cmd
-py scripts\verify_project_integrity.py --baseline
+python scripts\verify_project_integrity.py --baseline
 ```
 
 ## Step 0b: The test suite
@@ -63,18 +102,18 @@ py scripts\verify_project_integrity.py --baseline
 **Once per machine** (and after any `requirements.txt` change):
 
 ```cmd
-py -m pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 `-n 2` needs `pytest-xdist`, which that line installs along with everything
-else; `py -m pip install pytest-xdist` on its own does just this. Without it
+else; `python -m pip install pytest-xdist` on its own does just this. Without it
 the command below fails with `error: unrecognized arguments: -n` -- that is a
 missing package, not a broken suite.
 
 Then, every week:
 
 ```cmd
-py -m pytest tests\ -q -n 2
+python -m pytest tests\ -q -n 2
 ```
 
 **Always `-n 2`.** The suite is around 1,180 tests and takes about 145 seconds
@@ -177,6 +216,8 @@ python scripts\generate_rosters.py --week WEEK --show-diff
 
 Updates ROSTERS.json with waiver/trade moves and creates the waivers file for the newsletter.
 
+**Before it, on a Monday with chat claims:** apply the claims in Yahoo first, then have the reviewing session write their `claim_week` rulings (`config\TRANSACTION_RULINGS.json`), then sync. A claim synced without its ruling counts in the wrong week's budget. **Moves made in Yahoo after this sync** (until the window closes, ~7:55 PM Phoenix) are picked up by the cloud's next nightly run.
+
 ```cmd
 :: Dry run first -> see what it finds without changing anything
 python scripts\sync_transactions.py --week WEEK
@@ -233,8 +274,8 @@ Every simulator runs on the `projectedFPPG` column, so this file being right
 matters more than almost anything else in the workflow.
 
 ```
-py scripts/fetch_playerlist.py --execute
-py scripts/check_playerlist.py --snapshot
+python scripts/fetch_playerlist.py --execute
+python scripts/check_playerlist.py --snapshot
 ```
 
 That is the whole step. About twenty seconds.
@@ -628,7 +669,7 @@ Runs inside Step 6 on every full run (skipped by `--fast`, which Section 10 then
 
 - **Publishes** into Section 10 only from `season.advice_publish_from_week` (week 3 in 2026-27) **and** only if the premise check recorded CLEAR for this season. Run it once after the draft:
   ```cmd
-  py scripts\validate_marginal_value.py
+  python scripts\validate_marginal_value.py
   ```
   It writes `config\snapshots\MV_PREMISE_CHECK.json`. **MARGINAL means talk, not ship** -- there is deliberately no flag to override it.
 - **Otherwise** it runs as a preview: `output\advice_preview_weekN.html`, not part of the newsletter. **Weeks 1 and 2: open it and read it.** Ship in week 3 only if both previews read clean.
@@ -834,6 +875,8 @@ draft supplies only the one or two summary paragraphs under `**Keeper Watch**`
 SUMMARY FACTS; the page shows them below the panel (prose always comes after
 the table it describes), followed by the early-season note when it applies.
 
+**After you send it: archive it** (`python scripts\archive_issue.py --week N`, then `python scripts\state.py push`). The hub shows the archived issue from its next run. An issue is archived once by its content: archiving a different file for the same week refuses, so archive only the version you actually sent.
+
 **Table check (exit code 1 = do not send).** The generator then reconciles every table on the page (`modules/published_tables.py`; standalone: `python scripts\check_published_tables.py output\WEEKN_NEWSLETTER.html`). Summary columns must count the cells beside them, history grids must match the stored finishes, FPPG must be Total / GP, probabilities must sum to 100%, H2H must be antisymmetric, games-grid days must add up to 10 seats, and a row shifted under the wrong header is caught. The page is still written so you can look at it. A table with no relations defined is listed as UNCHECKED -- a new table needs a check. On the six 2025-26 newsletters it finds the two mis-ranked seasons, three scope mixes, and WEEK18's Siakam row (his total printed as FPPG); none of those can ship again.
 
 ---
@@ -859,78 +902,35 @@ After the newsletter is finalized and distributed, update two files so the next 
 
 ### 10b: Update RECENT_CONTENT.json
 
+> **Under review (STATUS task 24):** the engine also writes `RECENT_CONTENT.json` itself, and the file has two meanings that need reconciling. Until that's settled, keep doing the step below.
+
 Ask Claude: *"Now update RECENT_CONTENT.json -- append this week's headlines and section openers."*
 
 This prevents future newsletters from reusing the same phrasing or angles. The prompts template instructs the drafting Claude to check this file before writing.
 
 ---
 
-## Live line: the midnight refresh (B3)
+## Live line and the hub: the cloud (since 2026-11-04)
 
-Outside the weekly sequence. Once a day, at midnight, Windows Task Scheduler
-re-prices this week's live line: it pulls the day just finished into the logs,
-fetches the Yahoo tags, and writes `output\live_lines_weekN.json` -- **only if
-something that moves the line changed**. Make any `config\INJURY_OVERRIDES.json`
-edit before midnight; the run picks it up with everything else. Manual refresh
-(`py scripts\refresh_lines.py`) is unchanged and still works any time.
+The old Windows Task Scheduler refresh (B3, `schtasks`) is **retired**: the cloud's nightly run does everything it did (logs, tags, the line's cache key, the price lock) and more (title odds, player stats, the hub). **If you ever created the Windows task, delete it** (`schtasks /Delete /TN "Newsletter\Live line midnight refresh" /F`), or it would race the cloud.
 
-**Create the task (once):**
-```cmd
-schtasks /Create /TN "Newsletter\Live line midnight refresh" /SC DAILY /ST 00:00 /F ^
-  /TR "cmd /c cd /d C:\Users\1429524\Desktop\newsletter && py scripts\refresh_service.py --trigger scheduled >> output\refresh_service.out 2>&1"
-```
-`schtasks` cannot set two settings that matter on a desktop; set them once in PowerShell:
-```powershell
-Set-ScheduledTask -TaskName "Live line midnight refresh" -TaskPath "\Newsletter\" -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun)
-```
-(`-StartWhenAvailable`: a midnight missed while the PC was off runs at the next
-start. `-WakeToRun`: wake from sleep for it.) The task runs as you, when you are
-logged on -- the Yahoo token in `oauth2.json` is yours.
-
-**Run it by hand, same arguments:**
-```cmd
-py scripts\refresh_service.py --trigger scheduled
-py scripts\refresh_service.py --skip-log-pull          :: logs already pulled
-py scripts\refresh_service.py --as-of 2026-11-04       :: price a given day
-schtasks /Run /TN "Newsletter\Live line midnight refresh"
-```
-
-**What a run does:**
-1. Runs `update_fantasy_logs.py --date D` for every completed day of the week
-   LINEUPS does not cover yet (at midnight: yesterday; on a rerun: nothing).
-   **Close `PLAYERLOG.xlsx` and `LINEUPS.xlsx` before you go to bed** -- Excel
-   holding them open makes the pull fail, and the run with it.
-2. Checks everything a manual refresh checks (the week's seed, the tags and
-   their anchors, every completed day in the logs) and refuses where it refuses.
-3. Computes the line's **cache key**: the played state, the tags, the
-   projections, the INJURY_OVERRIDES entries that govern this week, the
-   schedule, the seed, the simulation count and the engine commit. Same key as
-   the line on disk: nothing is written. A dirty engine always re-prices.
-4. Otherwise prices and writes the line, the week's state, the calibration
-   records, and the tag log.
-
-**Files (all in `output\`, all untracked):**
-| file | what |
+**Where to look:**
+| What | Where |
 |---|---|
-| `live_lines_weekN.json` | the line; `produced_by` names the run, `cache` holds the key |
-| `live_lines_weekN.runs.json` | every run: outcome (`priced`, `unchanged`, `failed`), the error, the days pulled; `line_produced_by` and `failed_since_line` |
-| `live_lines_weekN.tag_log.jsonl` | every tag event of every refresh, manual or scheduled -- a tag that cleared is still here |
-| `refresh_service.log` | one line per run; a refusal with its traceback |
-| `refresh_service.out` | the console output Task Scheduler captured |
+| Did last night run? | `newsletter-state` -> Actions -> Nightly (and any open "Nightly run failed" issue) |
+| Each run's steps and times | `output\nightly_runs.jsonl` (after `state.py pull`) |
+| The line's own runs | `output\live_lines_weekN.runs.json` |
+| The hub | https://nickrolen.github.io/newsletter-hub/ |
 
-**When a run fails** (Yahoo down, a missing log day, an unmodelled tag, a pull
-that failed): it writes nothing to the line, logs `REFUSED` with the reason,
-and exits 1 -- Task Scheduler shows "Last Run Result 0x1". The line on disk is
-the last good one; `failed_since_line` in the runs file lists the failures since.
-Fix the cause, then run it by hand.
+**Prices lock while games are on:** from a league day's first tip until the next 12:01 AM run, nothing re-prices lines or title odds (`modules/price_lock.py`). A manual `python scripts\refresh_lines.py --week N` during that time keeps the locked prices.
 
-**Known limitations:** a game still in progress when a day is pulled is logged
-as it stood and is not pulled again. By midnight Arizona time the late West
-Coast games have normally finished; a manual pull earlier in the evening is
-where this bites. A player tagged `Q` most
-mornings who plays anyway is re-anchored at every fresh tag (considered, left
-for now: see `week_state.reconcile_tags`). Disable the task in the offseason:
-outside every fantasy week a run fails (`... is in no fantasy week`).
+**A midweek manual re-price** (rarely needed now): `state.py pull`, then `python scripts\update_fantasy_logs.py --date <each missing day>` first (a re-price refuses with a missing log day), then `python scripts\refresh_lines.py --week N`, then `state.py push`.
+
+**Run the cloud by hand** (e.g. after fixing a failure): `newsletter-state` -> Actions -> Nightly -> Run workflow, tick **force**.
+
+**If Yahoo's login stops working** (every run fails at `logs`, `sync` or `settings` with a 401 / "not authorized"): `python scripts\reauth_yahoo.py` here, then paste the new `oauth2.json` contents into the `YAHOO_OAUTH_JSON` secret (Settings -> Secrets and variables -> Actions). Never paste it into a chat.
+
+**If the hub stops updating but state still commits:** the `HUB_DEPLOY_TOKEN` (a fine-grained token, about a year) expired. Regenerate it on github.com and update the secret.
 
 ---
 
@@ -939,7 +939,10 @@ outside every fantasy week a run fails (`... is in no fantasy week`).
 ```cmd
 cd <project_root>
 
-:: Step 0: Fresh NBA schedule (season and output both come from config)
+:: First, always
+python scripts\state.py pull
+
+:: Step 0: Fresh NBA schedule (if it changed, the reviewing session commits it; then git push and state.py set-engine) (season and output both come from config)
 python scripts\fetch_nba_schedule.py
 
 :: Step 1: Pull Yahoo data (replace dates for your week)
@@ -981,7 +984,16 @@ python scripts\format_stats_report.py --week N
 :: Step 9: Generate HTML -- this publishes the week's betting lines to data\calibration\published_lines.json and the keepability snapshot to data\keepability\ (--no-log for a preview)
 python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
 
+:: Push before ~4:15 PM Phoenix on a Monday (the pre-tip run)
+python scripts\state.py push
+
+:: After sending: archive the issue for the hub
+python scripts\archive_issue.py --week N
+
 :: Step 10: Update config\LAST_WEEK_RECAP.md and config\RECENT_CONTENT.json
+
+:: Last, always
+python scripts\state.py push
 ```
 
 ---
@@ -989,7 +1001,7 @@ python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --outp
 ## Troubleshooting
 
 **Yahoo OAuth expired:**
-Scripts auto-refresh tokens, but if it fails, delete `oauth2.json` and re-authenticate.
+Scripts auto-refresh tokens. If that fails, run `python scripts\reauth_yahoo.py`, then update the `YAHOO_OAUTH_JSON` secret in `newsletter-state` with the new file's contents (the cloud has its own copy).
 
 **"No lineups found for week N":**
 Step 1 hasn't been run yet, or the dates pulled don't match the week in `config\SCHEDULE.json`.
