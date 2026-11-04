@@ -246,6 +246,11 @@ class SeasonPass:
     # is played on; bracket weeks off each iteration's own series. Recorded,
     # never drawn: no number above depends on it.
     week_results: dict = field(default_factory=dict)
+    # the same weeks' MARGINS, per iteration and manager: his score minus
+    # his opponent's that week, NaN no game (task 18b: how much one point
+    # moves a week's result -- INJURED_DROP_DESIGN s.3.1, modules/
+    # injured_drop). Read off the same matrices and series; never drawn.
+    week_margins: dict = field(default_factory=dict)
 
     # ---- readouts --------------------------------------------------------
     def title_result(self):
@@ -368,17 +373,21 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
     reg_weeks = [reg_entries[w] for w in sorted(pending + future)]
     # each undecided regular-season week's result, per iteration, read off the
     # matrices simulate_full_season plays (week_outcome's rule, vectorised)
-    week_results = {}
+    week_results, week_margins = {}, {}
     for wd in reg_weeks:
         w = int(wd["week"])
         arr = np.full((n, len(managers)), np.nan)
+        marg = np.full((n, len(managers)), np.nan)
         for mu in wd.get("matchups", []):
             a, b = mu["manager_a"], mu["manager_b"]
             sa, sb = np.asarray(mats[w][a], float), np.asarray(mats[w][b], float)
             ra = np.where(sa > sb, 1.0, np.where(sa < sb, 0.0, 0.5))
             arr[:, idx[a]] = ra
             arr[:, idx[b]] = 1.0 - ra
+            marg[:, idx[a]] = sa - sb
+            marg[:, idx[b]] = sb - sa
         week_results[w] = arr
+        week_margins[w] = marg
     remaining_pairs = [(mu["manager_a"], mu["manager_b"]) for w in reg_weeks
                        for mu in w.get("matchups", [])]
     remaining_games = {m: sum(1 for w in reg_weeks for mu in w.get("matchups", [])
@@ -454,9 +463,13 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
                 arr = week_results.get(wk)
                 if arr is None:
                     arr = week_results[wk] = np.full((n, len(managers)), np.nan)
+                    week_margins[wk] = np.full((n, len(managers)), np.nan)
                 won = s.week_winners[k]
                 arr[i, idx[won]] = 1.0
                 arr[i, idx[loser_of[won]]] = 0.0
+                sc = br.scores_by_week[wk]
+                week_margins[wk][i, idx[s.manager_a]] = float(sc[s.manager_a]) - float(sc[s.manager_b])
+                week_margins[wk][i, idx[s.manager_b]] = float(sc[s.manager_b]) - float(sc[s.manager_a])
         out["dollars"][i] = dollars_for(order, br.semi_losers, br.champ_winner,
                                         br.consolation_winner, managers, rules)
         if not play_cup:
@@ -489,6 +502,7 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         dollars=out["dollars"], third_place=third, data=data,
         standins=_standins_played(plan, managers),
         week_results=week_results,
+        week_margins=week_margins,
     )
 
 

@@ -39,6 +39,17 @@ of both. A week the team cannot win or cannot lose in any iteration has no
 leverage: null, with the counts, never a number made up. A regular-season
 week whose every day is already banked is decided and has no row.
 
+SCHEMA 2 (task 18b) adds, read off the same iterations and still drawing
+nothing:
+    each row's margin_mean, margin_sd -- his score minus his opponent's that
+        week, over the iterations he has a game. modules/injured_drop turns
+        a point into a change in the week's win chance with them (the
+        margin's density at zero, a normal fit: phi(mean/sd)/sd);
+    each team's rs_title and champion -- P(regular-season title) and
+        P(champion) over the whole pass ("little left to play for", design
+        s.3.3); champion is null when the pass stopped before the bracket;
+    the season the file is for.
+
 Nothing that scores probabilities reads any of these files (invariant 13;
 tests/test_title_odds_history.py pins it for all three).
 """
@@ -55,6 +66,7 @@ LATEST_FILE = Path("output") / "title_odds_latest.json"
 STAKES_FILE = Path("output") / "stakes.json"
 KINDS = ("nightly", "pretip", "closing", "weekly_build")
 SCHEMA = 1
+STAKES_SCHEMA = 2           # 2: margins, rs_title / champion, season (task 18b)
 
 
 class TitleOddsLocked(RuntimeError):
@@ -79,6 +91,16 @@ def run_pass(data, *, seed: int, sims: int, statuses, through: str = None):
 # =============================================================================
 # the stakes
 # =============================================================================
+
+def margin_stats(margin) -> dict:
+    """{margin_mean, margin_sd} over the iterations with a game (not NaN);
+    both None when there is none."""
+    m = np.asarray(margin, float)
+    m = m[~np.isnan(m)]
+    if not len(m):
+        return {"margin_mean": None, "margin_sd": None}
+    return {"margin_mean": float(m.mean()), "margin_sd": float(m.std())}
+
 
 def leverage(won: np.ndarray, outcome: np.ndarray) -> dict:
     """P(outcome | won the week) - P(outcome | lost it), over the iterations.
@@ -119,15 +141,23 @@ def stakes(sp) -> dict:
     bracket = set(bracket_weeks()) if sp.through in ("playoffs", "cup") else set()
     title = {j: sp.reg_finish[:, 0] == j for j in range(len(sp.managers))}
     champ = {j: sp.playoff_finish[:, 0] == j for j in range(len(sp.managers))}
-    out = {m: {"regular_season": {}, "playoffs": {}} for m in sp.managers}
+    played_bracket = sp.through in ("playoffs", "cup")
+    out = {m: {"rs_title": float(title[j].mean()),
+               "champion": float(champ[j].mean()) if played_bracket else None,
+               "regular_season": {}, "playoffs": {}} for j, m in enumerate(sp.managers)}
+    margins = getattr(sp, "week_margins", None) or {}
     for w in sorted(sp.week_results):
         arr = sp.week_results[w]
+        marg = margins.get(w)
+        if marg is None:
+            raise ValueError(f"the season pass has results but no margins for week {w}")
         if w <= last_reg:
             if _decided_by_banking(sp, w):
                 continue
             for j, m in enumerate(sp.managers):
                 lv = leverage(arr[:, j], title[j])
                 lv["rs_leverage"] = lv.pop("leverage")
+                lv.update(margin_stats(marg[:, j]))
                 out[m]["regular_season"][str(w)] = lv
         elif w in bracket:
             for j, m in enumerate(sp.managers):
@@ -135,6 +165,7 @@ def stakes(sp) -> dict:
                     continue
                 lv = leverage(arr[:, j], champ[j])
                 lv["playoff_leverage"] = lv.pop("leverage")
+                lv.update(margin_stats(marg[:, j]))
                 out[m]["playoffs"][str(w)] = lv
     return out
 
@@ -198,8 +229,10 @@ def latest_payload(sp, ro: dict, *, run_id: str, kind: str, produced_by: str, as
 
 
 def stakes_payload(sp, *, run_id: str, kind: str, as_of: datetime, week: int) -> dict:
+    from .data_loader import CURRENT_SEASON
     return {
-        "schema": SCHEMA, "run_id": run_id, "kind": kind, "as_of": as_of.isoformat(timespec="seconds"),
+        "schema": STAKES_SCHEMA, "season": CURRENT_SEASON, "run_id": run_id, "kind": kind,
+        "as_of": as_of.isoformat(timespec="seconds"),
         "week": int(week), "seed": int(sp.seed), "num_simulations": int(sp.num_simulations),
         "through": sp.through,
         "definition": {
@@ -207,6 +240,8 @@ def stakes_payload(sp, *, run_id: str, kind: str, as_of: datetime, week: int) ->
             "playoff_leverage": "P(champion | wins week w) - P(... | loses week w)",
             "wins_week": "the team's own matchup that week; a regular-season T is in neither group",
             "null": "the team never wins (or never loses) that week in the simulation; the counts say which",
+            "margin_mean / margin_sd": "his score minus his opponent's that week, over the iterations with a game",
+            "rs_title / champion": "P(regular-season title) / P(champion) over the whole pass; champion null without a bracket",
             "source": "the iterations of this run's season pass; no extra simulation"},
         "teams": stakes(sp),
     }

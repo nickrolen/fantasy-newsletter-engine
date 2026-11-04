@@ -50,8 +50,14 @@ def _fake_pass():
     champ = np.array([0, 1, 0, 1, 0, 1, 1, 1])
     reg_finish = np.stack([reg_first, 1 - reg_first], axis=1)
     playoff_finish = np.stack([champ, 1 - champ], axis=1)
+    # margins (task 18b): A's in week 3 are 10, 20, ..., 80 (mean 45), B's the negatives;
+    # week 16's are +-5 by the result
+    m3 = np.arange(10.0, 90.0, 10.0)
+    m16 = np.where(w16[:, 0] == 1, 5.0, -5.0)
     return SimpleNamespace(managers=["A", "B"], regular_weeks=(1, 15), through="playoffs",
                            week_results={3: w3, 16: w16}, reg_finish=reg_finish,
+                           week_margins={3: np.stack([m3, -m3], axis=1),
+                                         16: np.stack([m16, -m16], axis=1)},
                            playoff_finish=playoff_finish, in_progress={}, data=None)
 
 
@@ -69,6 +75,25 @@ def test_the_stakes_on_a_hand_built_pass():
     assert a16["playoff_leverage"] == pytest.approx(0.75)
     assert st["B"]["playoffs"]["16"]["playoff_leverage"] == pytest.approx(1.0 - 0.25)
     assert "16" not in st["A"]["regular_season"] and "3" not in st["A"]["playoffs"]
+    # schema 2 (task 18b): margins over the iterations with a game; title and champion odds
+    assert a3["margin_mean"] == pytest.approx(45.0)
+    assert a3["margin_sd"] == pytest.approx(float(np.arange(10.0, 90.0, 10.0).std()))
+    assert b3["margin_mean"] == pytest.approx(-45.0)
+    assert (a16["margin_mean"], a16["margin_sd"]) == (pytest.approx(0.0), pytest.approx(5.0))
+    assert st["A"]["rs_title"] == 0.5 and st["A"]["champion"] == 3 / 8
+    assert st["B"]["rs_title"] == 0.5 and st["B"]["champion"] == 5 / 8
+
+
+def test_margins_are_recorded_beside_results_and_never_drawn(real_pass):
+    """Each week's margin agrees in sign with its result, and a week with no
+    game has neither (task 18b)."""
+    sp = real_pass
+    assert set(sp.week_margins) == set(sp.week_results)
+    for w, res in sp.week_results.items():
+        marg = sp.week_margins[w]
+        assert np.array_equal(np.isnan(res), np.isnan(marg)), w
+        ok = ~np.isnan(res)
+        assert ((marg[ok] > 0) == (res[ok] == 1.0)).all() and ((marg[ok] < 0) == (res[ok] == 0.0)).all(), w
 
 
 def test_price_refuses_while_locked_and_writes_nothing(tmp_path, monkeypatch):
@@ -134,6 +159,7 @@ def test_record_writes_the_row_the_latest_file_and_the_stakes(tmp_path, real_pas
     assert (latest["seed"], latest["num_simulations"], latest["as_of"]) == \
         (20262027, 600, "2026-11-04T00:01:00-08:00")
     assert stakes["run_id"] == latest["run_id"] == "r1"
+    assert stakes["schema"] == tor.STAKES_SCHEMA == 2 and stakes["season"] == "2026-27"
     assert set(stakes["teams"]) == set(latest["title_odds"])
     with pytest.raises(toh.HistoryCorrupt):          # a repeated run id: nothing more written
         tor.record(tmp_path, real_pass, run_id="r1", produced_by="test", kind="nightly", week=3)
