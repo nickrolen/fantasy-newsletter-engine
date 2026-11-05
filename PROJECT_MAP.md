@@ -25,7 +25,7 @@ In `WEEKLY_WORKFLOW.md` order. Each step's real inputs and outputs:
 | Step | Script | Reads | Writes |
 |---|---|---|---|
 | 0a | `verify_project_integrity.py` | everything | nothing |
-| 0 | `fetch_nba_schedule.py` | basketball-reference (cdn.nba.com 403s) | the file `league_config.season.nba_schedule_file` names |
+| 0 | `fetch_nba_schedule.py` | basketball-reference (cdn.nba.com 403s) | the refetched copy `data/nba_schedule_<season>.refetched.json` (league state: push it); read instead of `season.nba_schedule_file` whenever it exists. The nightly run refetches it too (task 33) |
 | 1 | `update_fantasy_logs.py --date D` | Yahoo API, once per day | appends `LINEUPS.xlsx`, `PLAYERLOG.xlsx` |
 | 2 | `update_leaguehistory.py --week N` | the two logs | `LEAGUEHISTORY.xlsx` |
 | 3 | `generate_rosters.py --week N` | `LINEUPS.xlsx` | `ROSTERS.json` |
@@ -265,8 +265,12 @@ Three things are allowed to stop a week. Respect them.
 
 Step 6 itself refuses to run in season on an NBA schedule fetched more than
 8 days ago (`modules/schedule_freshness.py`; `--allow-stale-schedule`
-overrides and is recorded). `fetch_nba_schedule` refuses a refresh that
-loses more than 10% of games and logs every change set.
+overrides and is recorded). `fetch_nba_schedule` (and the nightly run's
+refetch, `modules/nba_schedule.refetch`) refuses a refresh with fewer games,
+in all or for any team, unless `--force` (a person's call), and leaves out the
+NBA Cup final. Until the NBA posts each team's last games (the Cup knockout
+window), the loader stands in for them on estimated days
+(`season.nba_unscheduled_window`, task 46).
 
 `verify_project_integrity` also guards the point-in-time record: a latest
 report with no capture under `config/snapshots/point_in_time/` FAILS, an

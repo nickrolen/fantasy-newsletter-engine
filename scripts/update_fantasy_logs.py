@@ -262,7 +262,11 @@ def build_nba_schedule_map():
     # so join it directly to project_root -- mirrors how data_loader.py resolves the same config value.
     script_dir = Path(__file__).parent          # scripts/
     project_root = script_dir.parent            # newsletter/
-    schedule_path = project_root / NBA_SCHEDULE_FILE
+    # The refetched copy when there is one (task 33), read RAW: the opponents
+    # written into the logs are real games only, never the loader's stand-ins
+    # for unscheduled ones (task 46; modules/nba_schedule.py).
+    from modules.nba_schedule import schedule_path as _schedule_path
+    schedule_path = _schedule_path(project_root)
 
     if not schedule_path.exists():
         raise FileNotFoundError(

@@ -137,9 +137,14 @@ def load_schedule(base_path: Path) -> dict:
 
 
 def load_nba_schedule(base_path: Path) -> List[dict]:
-    """Load NBA game schedule from the configured schedule file."""
-    with open(base_path / NBA_SCHEDULE_FILE, encoding="utf-8") as f:
-        return json.load(f).get('games', [])
+    """The NBA games as stored, from the file the engine reads: the refetched
+    copy when there is one (task 33), else NBA_SCHEDULE_FILE. Stored games
+    only: season performers count games already played, and a stand-in for an
+    unscheduled game (task 46) is never on a played day."""
+    from .nba_schedule import read_raw, refetched_relpath
+    base = Path(base_path)
+    copy = base / refetched_relpath(NBA_SCHEDULE_FILE)
+    return read_raw(copy if copy.is_file() else base / NBA_SCHEDULE_FILE).get('games', [])
 
 
 def get_week_end_date(schedule: dict, week: int) -> datetime:

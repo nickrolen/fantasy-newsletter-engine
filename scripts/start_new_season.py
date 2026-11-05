@@ -746,6 +746,8 @@ def print_manual_checklist(season: str) -> None:
        - yahoo.current_league_key -> new Yahoo league ID for the new season
        - yahoo.historical_league_keys -> add "{season}" with its league key
        - season.nba_schedule_file -> new filename (e.g. "data/nba_schedule_2027-28.json")
+       - season.nba_unscheduled_window -> the new season's NBA Cup knockout dates
+                                 (NBA key dates), or null dates if none
        - manager_to_team         -> update if any team names changed
        - season_structure        -> add the new season. Only needed if its
                                     shape differs from postseason_format;

@@ -55,13 +55,14 @@ jobs:
       go: ${{ steps.guard.outputs.go }}
       reason: ${{ steps.guard.outputs.reason }}
     steps:
-      - name: ENGINE_COMMIT and the night's marker (the private repo, two files)
+      - name: ENGINE_COMMIT, the night's marker and the refetched schedule (the private repo)
         uses: actions/checkout@v6
         with:
           path: state
           sparse-checkout: |
             /ENGINE_COMMIT
             /output/nightly_last.json
+            /data/nba_schedule_*.refetched.json
           sparse-checkout-cone-mode: false
           filter: blob:none
           persist-credentials: false
@@ -374,6 +375,32 @@ jobs:
           else
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label move-ledger \
               --body-file "$RUNNER_TEMP/ledger.md"
+          fi
+
+      # -- the NBA schedule's flag (task 46): stand-ins still there at their week's
+      #    window. Its own issue: the run did not fail, and a good run closes the
+      #    failure issue, so that one could not carry it
+      - name: Open or comment on the schedule issue
+        if: always() && steps.run.outputs.schedule_flags == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ steps.before.outputs.rows }}
+        run: |
+          s=engine/scripts/schedule_issue.py
+          args=(--runs-file engine/output/nightly_runs.jsonl --skip "${ROWS:-0}")
+          title="$(python3 "$s" title "${args[@]}")"
+          python3 "$s" body "${args[@]}" --run-url "$RUN_URL" > "$RUNNER_TEMP/schedule.md"
+          echo "$title"
+          gh label create nba-schedule --repo "$GITHUB_REPOSITORY" --color 0E8A16 \
+            --description "NBA games still unscheduled at their week's window: refetch the schedule" --force
+          n="$(gh issue list --repo "$GITHUB_REPOSITORY" --label nba-schedule --state open \
+                --json number --jq '.[0].number // empty')"
+          if [ -n "$n" ]; then
+            printf '\n**%s**\n' "$title" >> "$RUNNER_TEMP/schedule.md"
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/schedule.md"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label nba-schedule \
+              --body-file "$RUNNER_TEMP/schedule.md"
           fi
 
       - name: Open or comment on the failure issue

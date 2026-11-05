@@ -145,7 +145,8 @@ def stale_problem(
     if age > max_age_days:
         return (f"the NBA schedule was fetched {when} ({how}), {age} days ago; "
                 f"the limit in season is {max_age_days}. Run "
-                "py scripts\\fetch_nba_schedule.py (Step 0).")
+                "python scripts\\fetch_nba_schedule.py (Step 0), or let the nightly run "
+                "refetch it.")
     return None
 
 

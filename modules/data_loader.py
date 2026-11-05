@@ -1377,11 +1377,26 @@ def load_records(path: Path) -> dict:
     return load_json_file(path)
 
 
-def load_nba_schedule(path: Path) -> dict:
-    """Load NBA schedule JSON file."""
-    if not path.exists():
+def load_nba_schedule(path: Path, today=None) -> dict:
+    """The NBA schedule as the engine reads it: the file's games plus a
+    stand-in for every game the NBA has not scheduled yet (task 46,
+    modules/nba_schedule.py: "tbd": true, inside season.nba_unscheduled_window;
+    raises rather than guess). The file itself is never changed. `today`
+    (the league day) defaults to the league clock's. Which file: callers pass
+    nba_schedule.schedule_path(base) -- the refetched copy when there is one."""
+    from . import nba_schedule as ns
+    if not Path(path).exists():
         raise FileNotFoundError(f"NBA schedule file not found: {path}")
-    return load_json_file(path)
+    raw = ns.read_raw(path)
+    if today is None:
+        from .league_clock import league_today
+        today = league_today()
+    return ns.with_standins(raw, ns.window_config(), today)
+
+
+def _schedule_path(base: Path) -> Path:
+    from .nba_schedule import schedule_path
+    return schedule_path(base)
 
 
 def load_league_history_detailed(path: Path) -> Optional[dict]:
@@ -1766,7 +1781,9 @@ def load_all_data(
         schedule=load_schedule(base / file_paths["schedule"]),
         injury_overrides={"players": []},     # resolved below, once PLAYERLIST is in
         records=load_records(base / file_paths["records"]),
-        nba_schedule=load_nba_schedule(base / file_paths["nba_schedule"]),
+        # the refetched copy when there is one (task 33), unless a caller names a file
+        nba_schedule=load_nba_schedule(base / file_paths["nba_schedule"] if "nba_schedule" in (paths or {})
+                                       else _schedule_path(base)),
         league_history_detailed=load_league_history_detailed(
             base / file_paths["league_history_detailed"]
         ),

@@ -225,8 +225,12 @@ def rosters_synced_at():
 
 def team_game_dates():
     """{team: set of scheduled game dates}, or None without a schedule."""
+    from modules.data_loader import load_nba_schedule
+    from modules.nba_schedule import schedule_path
     try:
-        blob = json.loads((PROJECT_ROOT / NBA_SCHEDULE_FILE).read_text(encoding="utf-8"))
+        # the engine's schedule: the refetched copy when there is one, with the
+        # stand-ins for unscheduled games (task 46; a StandInError is not caught)
+        blob = load_nba_schedule(schedule_path(PROJECT_ROOT))
     except (OSError, json.JSONDecodeError, TypeError):
         return None
     out = {}

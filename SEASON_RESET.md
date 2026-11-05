@@ -152,12 +152,16 @@ Phase 2 truncates `PLAYERLOG.xlsx` and `LINEUPS.xlsx` to header-only. The archiv
    - `yahoo.current_league_key` (new Yahoo league ID)
    - `yahoo.historical_league_keys` (add the archived season)
    - `season.nba_schedule_file` (new filename)
+   - `season.nba_unscheduled_window` (the new season's NBA Cup knockout dates,
+     from the NBA's key dates; null dates if every game is already scheduled)
    - `manager_to_team` (if any team names changed)
 
 3. **Fetch the new NBA schedule:**
    ```
-   py scripts/fetch_nba_schedule.py --season <new> --output data/nba_schedule_<new>.json
+   python scripts/fetch_nba_schedule.py --season <new> --output data/nba_schedule_<new>.json
    ```
+   (the engine's committed seed; from then on the nightly run keeps the
+   refetched copy, `data/nba_schedule_<new>.refetched.json`, current)
 
 4. **Create `config/SCHEDULE.json`** for the new season (matchups and dates)
 

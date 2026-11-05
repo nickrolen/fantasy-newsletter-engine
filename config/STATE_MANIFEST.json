@@ -47,6 +47,7 @@
   ],
   "patterns": [
     {"dir": "data", "name": "waivers_week*.txt", "what": "each week's adds (sync_transactions)"},
+    {"dir": "data", "name": "nba_schedule_*.refetched.json", "what": "the NBA schedule as refetched by the nightly run (or fetch_nba_schedule.py on a desk), never shrinking; read instead of the engine's committed file when present (modules/nba_schedule.schedule_path; task 33, 11-05)"},
     {"dir": "data", "name": "weeklycontextinput_week*.json", "what": "Nick's weekly context input"},
     {"dir": "config", "name": "weeklycontextinput_week*.json", "what": "Nick's weekly context input, the other place format_stats_report looks"},
     {"dir": "assets", "name": "WEEK*_DRAFT.md", "what": "each issue's draft (Step 7)"},

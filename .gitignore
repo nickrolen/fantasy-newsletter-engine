@@ -303,3 +303,5 @@ output/move_checklist_week*.json
 # The filled drafting prompts (task 10a, 11-05): league state, they hold
 # managers, team names and rosters (scripts/prepare_prompts.py).
 output/prompts_week*.md
+# the refetched NBA schedule: league state, in the private repo (task 33)
+data/nba_schedule_*.refetched.json

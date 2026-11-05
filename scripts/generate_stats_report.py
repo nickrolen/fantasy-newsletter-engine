@@ -218,9 +218,9 @@ def main():
     # A3: the NBA schedule must be fresh in season. --repro rebuilds a past
     # week and is exempt; --allow-stale-schedule is an explicit override.
     from modules.schedule_freshness import stale_problem, season_window_from
-    from modules.data_loader import NBA_SCHEDULE_FILE as _NBA_FILE
+    from modules.nba_schedule import schedule_path as _schedule_path
     stale = None if args.repro else stale_problem(
-        data.nba_schedule, base_path / _NBA_FILE if _NBA_FILE else None,
+        data.nba_schedule, _schedule_path(base_path),        # the file actually read (task 33)
         season_window_from(data.schedule))
     if stale and not args.allow_stale_schedule:
         print(f"REFUSED: {stale}")

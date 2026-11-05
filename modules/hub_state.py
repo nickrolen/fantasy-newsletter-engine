@@ -619,17 +619,15 @@ def stash_rows(fa_records, av: Availability, window, top_n: int) -> List[dict]:
     eligible tags are the ledger's own (roster_moves.il_eligible_tags, the
     rule's one home in the config). A display, not advice."""
     from . import absence
-    from .move_ledger import il_eligible_tags
-    eligible = set(il_eligible_tags())
+    from .move_ledger import il_eligible_tags, tag_il_eligible
+    eligible = il_eligible_tags()
     rows = []
     for r in fa_records:
         n = r["player_name"]
         tag = av.tags.get(n)
-        if tag is None:
-            continue                                     # healthy: no tag
-        season = bool(absence.season_out(tag))
-        if not ((season and "OFS" in eligible) or absence.normalised_tag(tag) in eligible):
+        if not tag_il_eligible(tag, eligible):           # the ledger's own rule (task 47)
             continue
+        season = bool(absence.season_out(tag))
         proj = float(r["projectedFPPG"])
         st = free_agent_status(av, n, tag, window)
         rows.append({"name": n, "pos": str(r.get("player_position(s)") or ""), "nba": av.info[n]["nba_team"],
@@ -650,11 +648,15 @@ def open_il_text(managers, il_slots: dict, il_cap: int) -> str:
 
 
 def build_grid_tab(av: Availability, managers, days: List[date], light_max: int,
-                   nba_games_on: Dict[date, int]) -> dict:
+                   nba_games_on: Dict[date, int], standins: dict = None) -> dict:
     """One tab: per manager, per day, the count who will play; overflow over
     10; Starts = the positional fit (schedule_strength.fill_daily_lineup_detail,
-    the newsletter grid's own fit; never more than 10); Idle = count - starts."""
+    the newsletter grid's own fit; never more than 10); Idle = count - starts.
+    standins: {NBA team: {dates}} of the schedule's stand-ins for games the NBA
+    has not scheduled (nba_schedule.standin_team_dates, task 46): a cell
+    counting any is "est": "1" -- an estimated day, not a sure game."""
     from .schedule_strength import fill_daily_lineup_detail, MAX_STARTERS_PER_DAY
+    standins = standins or {}
     rows = []
     for m in managers:
         cells, starts, idle = [], 0, 0
@@ -674,9 +676,10 @@ def build_grid_tab(av: Availability, managers, days: List[date], light_max: int,
                 kind = "light"
             else:
                 kind = "normal"
+            est = any(d in standins.get(av.info[p]["nba_team"], ()) for p in ps)
             cells.append({"n": str(n), "kind": kind,
                           "overflow": str(max(0, n - MAX_STARTERS_PER_DAY)),
-                          "starts": str(s)})
+                          "starts": str(s), "est": "1" if est else ""})
         rows.append({"manager": m, "cells": cells, "starts": str(starts), "idle": str(idle),
                      "_starts": starts})
     rows.sort(key=lambda r: (-r["_starts"], r["manager"]))
@@ -688,6 +691,19 @@ def build_grid_tab(av: Availability, managers, days: List[date], light_max: int,
                       f"{days[-1].strftime('%b')+' ' if days[-1].month != days[0].month else ''}{days[-1].day}"
                       if days else ""),
             "rows": rows}
+
+
+def unscheduled_note(nba_schedule: dict, days) -> str:
+    """Task 46: the one line ("2 games per team in Dec 4-11 not yet scheduled by
+    the NBA; counted on estimated days") for a grid tab or the free-agent
+    columns whose days touch the unscheduled window -- only while the loaded
+    schedule has stand-ins (nba_schedule.info). "" otherwise."""
+    from . import nba_schedule as ns
+    block = ns.info(nba_schedule)
+    if block is None:
+        return ""
+    a, b = date.fromisoformat(block["from"]), date.fromisoformat(block["to"])
+    return ns.note_text(block) if any(a <= d <= b for d in days) else ""
 
 
 def roster_size_text(n_rostered: int, n_in_il: int, active_cap: int, il_cap: int) -> str:
@@ -800,18 +816,26 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     # --- the grid: this week as rosters stand; next week with the ledger's
     # pending moves applied at their windows, in the checklist's order (43a)
     next_av, pending_note = next_week_availability(base, now, data, av, week, tag_row, tags)
-    this_tab = build_grid_tab(av, managers, this_days, cfg["light_night_max"], nba_games_on)
-    next_tab = build_grid_tab(next_av, managers, next_days, cfg["light_night_max"], nba_games_on)
+    # the NBA's unscheduled games (task 46): stand-ins on estimated days
+    from . import nba_schedule as ns
+    sdates = ns.standin_team_dates(data.nba_schedule)
+
+    def schedule_note(days) -> str:
+        return unscheduled_note(data.nba_schedule, days)
+
+    this_tab = build_grid_tab(av, managers, this_days, cfg["light_night_max"], nba_games_on, sdates)
+    next_tab = build_grid_tab(next_av, managers, next_days, cfg["light_night_max"], nba_games_on, sdates)
     grid = {"tabs": [
-        dict(this_tab, key="this", label="Rest of this week",
+        dict(this_tab, key="this", label="Rest of this week", schedule_note=schedule_note(this_days),
              note=f"From {_mon_d(today)}. Counts players who will play: not in an IL slot, not "
                   "out under an O tag (at most his team's next 3 games), OFS, or an injury entry."),
-        dict(next_tab, key="next", label="Next week",
+        dict(next_tab, key="next", label="Next week", schedule_note=schedule_note(next_days),
              note=pending_note + " IL slots as they will stand, injury entries by date, OFS out. "
                   "An O tag costs at most his team's next 3 games from today, which can reach into "
                   "next week."),
     ], "legend": {"light": f"Light night ({cfg['light_night_max']} or fewer)",
-                  "over": "More than 10: some sit"},
+                  "over": "More than 10: some sit",
+                  "est": "Estimated: games the NBA has not scheduled yet"},
         "foot": "Starts: games that fit a starting lineup. Idle: games by players who sit."}
     starts_left = {r["manager"]: r["starts"] for r in this_tab["rows"]}
 
@@ -965,6 +989,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                              f"its games are one column." for w in long_weeks)
     pts_label = PTS_LABEL if len(shown) == 2 else (f"Pts ({shown[0]['label']})" if shown else PTS_LABEL)
     free = {"rows": fa_rows, "aside": aside, "pts_label": pts_label, "mode": fcols["mode"],
+            "schedule_note": schedule_note([d for c in shown for d in c["days"]]),
             "cols": [c["label"] for c in fcols["cols"]],
             "weeks": [c["week"] for c in fcols["cols"]],
             "empty": "No pickup joins a roster again this season.",

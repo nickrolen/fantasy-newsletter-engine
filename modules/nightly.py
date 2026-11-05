@@ -17,6 +17,20 @@ s.2.4 and s.4 the design. The nightly run:
                    current week's partial adds file, ROSTERS.json (checked
                    against Yahoo's live rosters), IL_SLOTS.json
    4 settings      yahoo_settings.check: a drift refuses
+  4b schedule      (nightly only; task 33) refetch the NBA schedule at most once a
+                   league day (modules/nba_schedule.refetch, through
+                   fetch_nba_schedule.fetch_trimmed, basketball-reference):
+                   written to the refetched
+                   copy (league state) only if it never shrinks; a failed or
+                   refused fetch keeps the stored schedule and is named in the
+                   detail -- it never fails the night. Then (task 46) the stand-ins
+                   for games the NBA has not scheduled are counted into the run
+                   record's "schedule" block; from the window day of the fantasy
+                   week holding the unscheduled window (Mon 11-30) on, stand-ins
+                   still there are a flag: schedule_flags=true under the workflow
+                   (the schedule issue, scripts/schedule_issue.py). Stand-ins
+                   still needed on or after the window's first day raise (the
+                   loader's rule): that does fail the night
    5 tags          fetch_playerlist --execute --no-bbref-ages and
                    check_playerlist (the live
                    file only; no daily PLAYERLIST snapshot), then Yahoo's
@@ -89,8 +103,8 @@ MODES = ("nightly", "pretip", "closing")
 STEP_TIMEOUT_S = 900
 
 STEPS = {
-    "nightly": ("engine", "logs", "sync", "settings", "tags", "ledger", "line", "title_odds", "actuals",
-                "hub"),
+    "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "ledger", "line", "title_odds",
+                "actuals", "hub"),
     "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "ledger", "line", "title_odds",
                "hub"),
     "closing": ("engine", "window", "sync", "closing"),
@@ -291,6 +305,50 @@ class Run:
         got = ys.check(ys.fetch_raw())
         return f"{len(got)} modelled settings match"
 
+    # -- 4b
+    def step_schedule(self):
+        from . import nba_schedule as ns
+        from .data_loader import load_nba_schedule, load_schedule
+        prior = schedule_attempt_today(self.base, self.today)
+        if prior is not None:
+            fetched = {"outcome": "skipped", "why": f"already tried today ({prior})"}
+        else:
+            import fetch_nba_schedule as fns
+            # basketball-reference: the source the refetch's checks are built on (its
+            # remarks mark the NBA Cup final); cdn.nba.com 403s everywhere (Sep 2026)
+            fetched = ns.refetch(self.base, self.today, lambda: fns.fetch_trimmed(source="bbref"))
+        # recorded before the load, which may raise: a retried night never refetches twice
+        self.ctx["schedule"] = {"league_day": self.today.isoformat(), "refetch": fetched}
+        path = ns.schedule_path(self.base)
+        sched = load_nba_schedule(path, today=self.today)       # raises past the window
+        block = ns.info(sched)
+        flags = []
+        if block:
+            win = ns.window_config()
+            warn = ns.warn_from(load_schedule(self.base / "config" / "SCHEDULE.json"), win)
+            if warn is not None and self.today >= warn:
+                flags.append(f"STANDINS {block['games']} stand-in games: {ns.note_text(block)} The "
+                             f"window was {warn:%a %m-%d}: refetch the schedule (the nightly run "
+                             f"refetches it; last refetch: {fetched['outcome']}"
+                             + (f", {fetched['why']}" if fetched.get("why") else "") + ")")
+        self.ctx["schedule"] = {
+            "league_day": self.today.isoformat(),
+            "file": path.relative_to(self.base).as_posix() if path.is_relative_to(self.base) else str(path),
+            "refetch": fetched, "standins": block["games"] if block else 0,
+            "per_team": block["per_team"] if block else {}, "flags": flags}
+        bits = [f"refetch {fetched['outcome']}"
+                + (f" from {fetched['source']}" if fetched.get("source") else "")
+                + (f" ({fetched['games']} games, +{fetched['added']} -{fetched['removed']}, "
+                   f"{len(fetched['moved'])} moved)" if fetched["outcome"] in ("updated", "unchanged") else "")
+                + (f": {fetched['why']}" if fetched.get("why") else "")]
+        bits += [f"moved {m}" for m in fetched.get("moved") or []]
+        bits += [f"NBA Cup final left out: {c}" for c in fetched.get("cup_final") or []]
+        bits.append(f"{block['games']} stand-in games ({ns.note_text(block)})" if block
+                    else "no stand-ins: every team at its full schedule")
+        if flags:
+            bits.append(f"{len(flags)} FLAG(S): " + " | ".join(flags))
+        return "; ".join(bits)
+
     # -- 5
     def step_tags(self):
         from . import tag_records
@@ -467,6 +525,8 @@ class Run:
                "exit": 1 if outcome == "refused" else 0, "error": error}
         if self.ctx.get("ledger") is not None:
             row["ledger"] = self.ctx["ledger"]
+        if self.ctx.get("schedule") is not None:
+            row["schedule"] = self.ctx["schedule"]
         from .jsonl_log import append_rows
         append_rows(self.base / RUNS_FILE, [row])
         return row
@@ -580,6 +640,12 @@ def main(argv=None) -> int:
         for f_ in flags:
             print(f"  {f_}")
         _ledger_flags(True)
+    sflags = (row.get("schedule") or {}).get("flags") or []
+    if sflags:
+        print(f"NBA SCHEDULE: {len(sflags)} flag(s):")
+        for f_ in sflags:
+            print(f"  {f_}")
+        _schedule_flags(True)
     return _ran(True, row["exit"]) if a.scheduled else row["exit"]
 
 
@@ -591,6 +657,34 @@ def _ledger_flags(on: bool) -> None:
     if out and on:
         with open(out, "a", encoding="utf-8") as f:
             f.write("ledger_flags=true\n")
+
+
+def _schedule_flags(on: bool) -> None:
+    """Under the workflow: schedule_flags=true, for the step that opens (or
+    comments on) the schedule issue (scripts/schedule_issue.py): stand-ins
+    still there at the window of the week they fall in. Not a failure."""
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out and on:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write("schedule_flags=true\n")
+
+
+def schedule_attempt_today(base_path, today: date):
+    """The run id of tonight's earlier nightly run that already tried the
+    refetch (the run record), or None: the refetch runs at most once a league
+    day, a retried night included."""
+    from .jsonl_log import read_rows
+    p = Path(base_path) / RUNS_FILE
+    if not p.is_file():
+        return None
+    for r in reversed(read_rows(p)):
+        sc = r.get("schedule") or {}
+        if r.get("mode") != "nightly" or sc.get("league_day") != today.isoformat():
+            continue
+        out = (sc.get("refetch") or {}).get("outcome")
+        if out not in (None, "skipped"):
+            return r.get("run_id")
+    return None
 
 
 def _ran(ran: bool, code: int = 0) -> int:

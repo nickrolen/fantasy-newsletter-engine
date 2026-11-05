@@ -272,10 +272,11 @@ def test_every_transaction_lands_in_exactly_one_week_the_budget_week_by_the_one_
     # Bridges (Yahoo 11-02, week 3) was claimed in week 2: his add/drop is under week 2, the drop with it
     assert whats["2"] == ["added Miles Bridges, dropped Ty Jerome"]
     assert "week 2 claim" in tab(feed, "2")["items"][0]["note"]
-    assert sorted(whats["3"]) == sorted(["added Davion Mitchell", "dropped Kawhi Leonard", "added Void Guy",
+    assert sorted(whats["3"]) == sorted(["added Davion Mitchell", "dropped Kawhi Leonard",
                                          "Hayden gets Jayson Tatum; Benton gets Scottie Barnes"])
     assert whats["pre"] == ["added Early Guy, dropped Old Guy"]
-    assert sum(len(v) for v in whats.values()) == 6                 # six transactions, each once
+    # six transactions, each once -- except the voided add, which is hidden (task 45)
+    assert sum(len(v) for v in whats.values()) == 5
 
 
 def test_adds_used_are_the_counters_totals(tmp_path):
@@ -294,15 +295,38 @@ def test_the_log_and_the_counter_must_agree_or_the_build_raises(tmp_path):
         moves(tmp_path / "b", counts={**COUNTS, 3: {"Benton": ["Davion Mitchell"], "Garrett": ["Void Guy"]}})
 
 
-def test_a_voided_add_is_struck_marked_and_counts_nowhere(tmp_path):
+VOID_ADD_DROP = raw(12, _ts(2026, 11, 3, 7, 40), "add/drop", _player("Void Two", 12, "add", dst="Blink-183"),
+                    _player("Kept Drop", 13, "drop", src="Blink-183"))
+VOID2 = tr.Ruling("2026-11-03", "Garrett", "add", "Void Two", "void", "Nick", "2026-11-04", "test")
+
+
+def test_a_voided_add_is_hidden_completely_and_counts_nowhere(tmp_path):
+    """Task 45 (Nick, 11-05): hidden, not struck. A move that was only the
+    voided add is not shown; nothing on the page is struck or says Voided."""
     feed = moves(tmp_path)
-    it = next(x for x in tab(feed, "3")["items"] if x["what"] == "added Void Guy")
-    assert it["state"] == "Voided" and "voided" in it["note"]
-    assert it["parts"] == [{"kind": "add", "marker": "+", "text": "added Void Guy", "void": True}]
+    assert "Void Guy" not in str(feed)
     assert "Garrett 0 of 3" in [u["text"] for u in tab(feed, "3")["used"]]
     page = hub_page.render(sample_payload(moves=feed), now=GEN)
-    assert '<span class="mvp add void"><span class="mk">+</span><span class="t">added Void Guy</span></span>' in page
-    assert ".mvp.void .t{text-decoration:line-through}" in page
+    assert "Void Guy" not in page and "line-through" not in page and "Voided" not in visible_text(page)
+    assert "mvp.void" not in page and " void\"" not in page
+
+
+def test_a_real_drop_in_a_voided_add_drop_shows_as_a_plain_drop(tmp_path):
+    """The Buzelis case: the add is voided, the drop in the same Yahoo
+    transaction is a real move, shown as an ordinary drop the week it happened."""
+    feed = moves(tmp_path, rulings=(VOID, VOID2, CLAIMED),
+                 txs=(ADD, ADD_DROP, DROP, TRADE, PRE_ADD, VOID_ADD, VOID_ADD_DROP))
+    assert "Void Two" not in str(feed)
+    it = [x for x in tab(feed, "3")["items"] if "Kept Drop" in x["what"]]
+    assert len(it) == 1
+    it = it[0]
+    assert (it["what"], it["kind"], it["state"], it["note"]) == ("dropped Kept Drop", "drop", "Applied", "")
+    assert it["parts"] == [{"kind": "drop", "marker": "\u2212", "text": "dropped Kept Drop"}]
+    assert "Garrett 0 of 3" in [u["text"] for u in tab(feed, "3")["used"]]      # the void counts nowhere
+    with pytest.raises(hub_moves.MovesError, match="Void Two"):                 # and the counter still checks
+        moves(tmp_path / "b", rulings=(VOID, VOID2, CLAIMED),
+              txs=(ADD, ADD_DROP, DROP, TRADE, PRE_ADD, VOID_ADD, VOID_ADD_DROP),
+              counts={**COUNTS, 3: {"Benton": ["Davion Mitchell"], "Garrett": ["Void Two"]}})
 
 
 def test_pending_ledger_entries_sit_under_their_claim_week(tmp_path):
@@ -390,7 +414,7 @@ def test_real_every_transaction_lands_in_one_week_by_add_budget_week(real_moves)
     ledger = tr.ledger_by_mode(ROOT)
     first = min(date.fromisoformat(str(w["start_date"])[:10]) for w in sched["weeks"])
     n_items = {t["key"]: len([x for x in t["items"] if x.get("kind") != "ledger"]) for t in real_moves["feed"]["weeks"]}
-    want = {}
+    want, hidden = {}, 0
     for t in txs:
         pl = hub_moves.place(t, rulings, sched, ledger, first)
         for p in t["players"]:
@@ -399,9 +423,11 @@ def test_real_every_transaction_lands_in_one_week_by_add_budget_week(real_moves)
                                         rulings, sched, ledger)
                 if bw is not None:
                     assert pl["bucket"] == bw, (t["key"], p["name"])
-        want[str(pl["bucket"])] = want.get(str(pl["bucket"]), 0) + 1
-    assert sum(n_items.values()) == len(txs)
-    assert {k: v for k, v in n_items.items() if v} == want
+        shown = hub_moves.yahoo_item(t, pl, sched) is not None      # a lone voided add is hidden (45)
+        hidden += 0 if shown else 1
+        want[str(pl["bucket"])] = want.get(str(pl["bucket"]), 0) + (1 if shown else 0)
+    assert sum(n_items.values()) == len(txs) - hidden
+    assert {k: v for k, v in n_items.items() if v} == {k: v for k, v in want.items() if v}
 
 
 def test_real_adds_used_equal_adds_by_budget_week(real_moves):
@@ -420,11 +446,18 @@ def test_real_pre_season_and_voided_moves(real_moves):
     pre = [x["what"] for x in tabs["pre"]["items"]]
     for name in ("Jaren Jackson Jr.", "Julius Randle", "Isaiah Hartenstein", "Day'Ron Sharpe"):
         assert any(f"added {name}" in w for w in pre), name                # rule 14: counted nowhere
-    voided = {(t["key"], p["text"]) for t in real_moves["feed"]["weeks"] for x in t["items"]
-              for p in x["parts"] if p.get("void")}
-    assert voided == {("1", "added Franz Wagner"), ("2", "added Paul George")}
-    pg = [x for x in tabs["2"]["items"] if x["who"] == "Garrett" and "added Paul George" in x["what"]]
-    assert len(pg) == 1 and pg[0]["state"] == "Voided"
+    # task 45: the two voided adds are hidden, not struck
+    texts = [(t["key"], x["who"], p["text"]) for t in real_moves["feed"]["weeks"] for x in t["items"]
+             for p in x["parts"]]
+    assert not [x for x in texts if x[2] in ("added Franz Wagner",) or x[1:] == ("Garrett", "added Paul George")]
+    assert not any(p.get("void") for t in real_moves["feed"]["weeks"] for x in t["items"] for p in x["parts"])
+    assert not any(x["state"] == "Voided" for t in real_moves["feed"]["weeks"] for x in t["items"])
+    # Hayden's 10-25 22:35 +Wagner -Buzelis: the Buzelis drop stays, a plain week-1 drop
+    buz = [x for x in tabs["1"]["items"] if x["what"] == "dropped Matas Buzelis"]
+    assert len(buz) == 1 and (buz[0]["who"], buz[0]["kind"], buz[0]["state"]) == ("Hayden", "drop", "Applied")
+    # Garrett's Paul George drop (10-26 07:29), its own transaction, stays as it was
+    assert [x["what"] for x in tabs["2"]["items"] if x["who"] == "Garrett" and "Paul George" in x["what"]] \
+        == ["dropped Paul George"]
 
 
 # =============================================================================

@@ -37,7 +37,9 @@ reads a tip.
     --now 2026-11-09T23:30:00Z   decide for that instant (tests and rehearsals)
     --base-path DIR              the engine checkout (default: this repo)
     --state-dir DIR              where output/nightly_last.json is (the private
-                                 checkout in the workflow; default: --base-path)
+                                 checkout in the workflow; default: --base-path),
+                                 and the refetched NBA schedule when there is one
+                                 (schedule_file; task 33)
 
 THE NIGHT'S MARKER (output/nightly_last.json, league state): {"league_day",
 "attempts", "ok", "run_id", "finished_at"}, written by modules/nightly.py after
@@ -116,18 +118,38 @@ def window_days(base=ROOT) -> list:
     return sorted(date.fromisoformat(str(w["start_date"])[:10]) for w in weeks)
 
 
-def _games_on(base, day: date) -> list:
+REFETCH_SUFFIX = ".refetched"      # modules/nba_schedule.REFETCH_SUFFIX (tests pin the two agree)
+
+
+def schedule_file(base, state_dir=None) -> tuple:
+    """(root, relative path) of the NBA schedule the run reads: the refetched
+    copy (state, task 33: <nba_schedule_file stem>.refetched.json) when there
+    is one -- in the state checkout first, then in the engine tree (where the
+    overlay puts it on the runner and on a desk) -- else the engine's file.
+    modules/nba_schedule.schedule_path's rule; this module cannot import it."""
     rel = str(_key(_read(base, "config/league_config.json"), "season", "nba_schedule_file",
-                   where="config/league_config.json"))
+                   where="config/league_config.json")).replace("\\", "/")
+    p = Path(rel)
+    if p.suffix != ".json":
+        raise GuardError(f"season.nba_schedule_file {rel!r} is not a .json file")
+    copy = (p.parent / f"{p.stem}{REFETCH_SUFFIX}.json").as_posix()
+    for root in ([state_dir] if state_dir is not None else []) + [base]:
+        if (Path(root) / copy).is_file():
+            return Path(root), copy
+    return Path(base), rel
+
+
+def _games_on(base, day: date, state_dir=None) -> list:
+    root, rel = schedule_file(base, state_dir)
     d = day.isoformat()
-    return [g for g in _read(base, rel).get("games", []) if str(g.get("date", ""))[:10] == d]
+    return [g for g in _read(root, rel).get("games", []) if str(g.get("date", ""))[:10] == d]
 
 
-def first_tip(base, day: date, tz: ZoneInfo = None):
+def first_tip(base, day: date, tz: ZoneInfo = None, state_dir=None):
     """The day's first tip on the league clock, or None on a day with no games.
     Raises GuardError when any game that day has no tip time."""
     tz = tz or league_zone(base)
-    games = _games_on(base, day)
+    games = _games_on(base, day, state_dir)
     missing = [f"{g.get('away')} @ {g.get('home')}" for g in games if not g.get("tip_utc")]
     if missing:
         raise GuardError(f"{day}: no tip time for {', '.join(missing)} -- the pre-tip window "
@@ -186,21 +208,21 @@ def admits_nightly(now_utc: datetime, tz: ZoneInfo, marker: dict = None) -> bool
     return nightly_decision(now_utc, tz, marker)[0]
 
 
-def pretip_window(base, day: date, tz: ZoneInfo = None):
+def pretip_window(base, day: date, tz: ZoneInfo = None, state_dir=None):
     """(start, end) = [first tip - 45 min, first tip) on a window day; None on
     any other day, or a window day with no games."""
     tz = tz or league_zone(base)
     if day not in window_days(base):
         return None
-    tip = first_tip(base, day, tz)
+    tip = first_tip(base, day, tz, state_dir)
     return None if tip is None else (tip - PRETIP_LEAD, tip)
 
 
-def admits_pretip(now_utc: datetime, base=ROOT) -> tuple:
+def admits_pretip(now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
     """(admitted, why)."""
     tz = league_zone(base)
     now = _aware(now_utc).astimezone(tz)
-    win = pretip_window(base, now.date(), tz)
+    win = pretip_window(base, now.date(), tz, state_dir)
     if win is None:
         return False, f"{now.date()} is not a window day with games"
     start, end = win
@@ -215,7 +237,7 @@ def decide(mode: str, now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
         tz = league_zone(base)
         return nightly_decision(now_utc, tz, read_marker(state_dir if state_dir else base))
     if mode == "pretip":
-        return admits_pretip(now_utc, base)
+        return admits_pretip(now_utc, base, state_dir)
     raise ValueError(f"mode must be one of {MODES}")
 
 
@@ -223,7 +245,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Does this scheduled firing run? (standard library only)")
     ap.add_argument("mode", choices=MODES)
     ap.add_argument("--base-path", default=str(ROOT))
-    ap.add_argument("--state-dir", help="where output/nightly_last.json is (default: --base-path)")
+    ap.add_argument("--state-dir", help="where output/nightly_last.json and the refetched schedule "
+                                        "are (default: --base-path)")
     ap.add_argument("--now", help="an ISO instant with its offset (tests); default: now")
     a = ap.parse_args(argv)
     now = datetime.fromisoformat(a.now.replace("Z", "+00:00")) if a.now else datetime.now(timezone.utc)

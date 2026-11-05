@@ -13,8 +13,12 @@ counts in (LEAGUE_RULES rules 6-7, 14; Nick, 11-05):
   - a drop paired with an add (one Yahoo add/drop) is shown with its add;
     a standalone drop and a trade are shown under the week they happened in;
   - a voided add (TRANSACTION_RULINGS "void": Paul George 10-26, Franz Wagner
-    10-25) counts nowhere: it is shown under the week it happened in, struck
-    through and marked "Voided";
+    10-25) counts nowhere and is HIDDEN (Nick, 11-05: hidden completely, not
+    struck). A real drop in the same Yahoo transaction is a real move: it is
+    shown as an ordinary drop under the week it happened in (Hayden's
+    Wagner add/drop: the Buzelis drop). A move that was only the voided add
+    is not shown at all. A later, separate drop of the same player is its own
+    transaction and stays (Garrett's Paul George drop, 10-26 07:29);
   - a pre-season move (before the season's first fantasy day; rule 14:
     counted nowhere) is shown under "Pre-season";
   - a group-chat entry in the move ledger that is not applied yet (pending),
@@ -113,10 +117,12 @@ def place(t: dict, rulings, schedule: dict, ledger, first: date) -> dict:
     return {"bucket": buckets.pop(), "adds": counted, "void": void}
 
 
-def yahoo_item(t: dict, pl: dict, schedule: dict) -> dict:
-    """transaction_log.feed_item, with a voided add struck ("void": true on
-    its part, state "Voided") and, when the add counts in a week other than
-    the one it happened in and no ruling says so, "week N claim"."""
+def yahoo_item(t: dict, pl: dict, schedule: dict):
+    """transaction_log.feed_item with every voided add left out (task 45:
+    hidden, not struck), or None when nothing else was in the move. What is
+    left of an add/drop is shown as what it now is (a drop). When the add
+    counts in a week other than the one it happened in and no ruling says so:
+    "week N claim"."""
     from . import transaction_log as tlog
     it = tlog.feed_item(t, schedule)
     it["parts"] = [dict(x) for x in it["parts"]]
@@ -124,9 +130,14 @@ def yahoo_item(t: dict, pl: dict, schedule: dict) -> dict:
         hit = [x for x in it["parts"] if x["kind"] == "add" and x["text"] == f"added {n}"]
         if len(hit) != 1:
             raise MovesError(f"transaction {t['key']}: the voided add of {n} is not one part of its move")
-        hit[0]["void"] = True
+        it["parts"].remove(hit[0])
     if pl["void"]:
-        it["state"] = "Voided"
+        if not it["parts"]:
+            return None                                  # only the voided add: no move to show
+        it["what"] = ", ".join(x["text"] for x in it["parts"])
+        it["note"] = "; ".join(x for x in it["note"].split("; ") if x and x != "voided: counts nowhere")
+        kinds = {x["kind"] for x in it["parts"]}
+        it["kind"] = "add" if kinds == {"add"} else "drop" if kinds == {"drop"} else "add-drop"
     when = t.get("fantasy_week")
     if isinstance(pl["bucket"], int) and when is not None and pl["bucket"] != int(when) \
             and f"week {pl['bucket']}" not in it["note"]:
@@ -151,7 +162,8 @@ def by_week(transactions: list, rulings, schedule: dict, ledger, counts: dict, *
     for t in transactions:
         pl = place(t, rulings, schedule, ledger, first)
         it = yahoo_item(t, pl, schedule)
-        buckets.setdefault(pl["bucket"], []).append(it)
+        if it is not None:
+            buckets.setdefault(pl["bucket"], []).append(it)
         for m, n in pl["adds"]:
             placed.setdefault(pl["bucket"], {}).setdefault(m, []).append(n)
 
@@ -220,8 +232,7 @@ def by_week(transactions: list, rulings, schedule: dict, ledger, counts: dict, *
             "note": ("Every move of the season, under the week whose add budget it used: a "
                      "group-chat claim under the week it was claimed in, though it joins the roster "
                      "the next Monday (rule 7); a drop with the add it was paired with; a drop or a "
-                     "trade on its own under the week it happened. Voided adds are struck through "
-                     "and count nowhere. Times are Pacific.")}
+                     "trade on its own under the week it happened. Times are Pacific.")}
 
 
 def build(base_path, schedule: dict, week: int, *, managers, budget: int, live_claims=()) -> dict:

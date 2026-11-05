@@ -101,6 +101,14 @@
         "playoff_start_week": 16,
         "total_weeks": 23,
         "nba_schedule_file": "data/nba_schedule_2026-27.json",
+        "nba_unscheduled_window": {
+          "_comment": "Required (modules/nba_schedule.py, task 46). The NBA posts each team's last games of the regular season only after the NBA Cup group stage (11-27): until then the schedule has {games_per_team} minus 2 per team and nothing from {from} to {to}, the knockout window. The loader adds a stand-in (tbd) for every owed game, paired with another team that owes one, spread over these days; it never writes them to the schedule file. from/to/cup_final null = no window, and any team short of games_per_team raises. A team over games_per_team raises; stand-ins still needed on or after from raise (the NBA has posted them: refetch). cup_final: the Cup final is not a regular-season game; basketball-reference lists it (marked NBA Cup), so the refetch drops the one NBA Cup game on this day. Lives in season beside nba_schedule_file because it describes that file: update both at the season reset.",
+          "from": "2026-12-04",
+          "to": "2026-12-11",
+          "cup_final": "2026-12-11",
+          "games_per_team": 82,
+          "source": "NBA key dates, Emirates NBA Cup 2026 knockout rounds (quarterfinals Dec 4-5, semifinals Dec 8-9, final Dec 11)"
+        },
         "legacy_advice": "off",
         "_legacy_advice_comment": "Section 10's old C2/C3 advice (waiver plans and the trade finder). \"off\": the weekly build does not run it at all (about 15 minutes saved) and Section 10 prints one line where it went, \"The advice returns with the new engine.\" \"on\": as before. Required: missing or any other value raises. Nick, 11-01: the old advice won't publish; it is being rebuilt as advice v2 (claude/ADVICE_V2_DESIGN.md). The modules stay: v2's replay check may reuse pieces.",
         "advice_publish_from_week": 3,

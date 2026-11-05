@@ -69,6 +69,13 @@ from modules.schedule_freshness import (  # noqa: E402
 # following the documented command refreshed a file nothing reads and
 # left the live one frozen -- silently, since both files exist.
 DEFAULT_OUTPUT = Path(NBA_SCHEDULE_FILE or "data/nba_schedule.json")
+# Task 33 (11-05): with no --output, the fetch goes through modules/
+# nba_schedule.refetch -- the nightly run's own path -- and writes the
+# REFETCHED COPY (data/nba_schedule_<season>.refetched.json, league state:
+# push it with python scripts\state.py push). The engine's file above is the
+# committed seed, read only while no copy exists; writing it while a copy
+# exists refuses (the copy would hide it).
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 try:
     import requests
@@ -244,6 +251,9 @@ def _parse_bbref_month(html: str, year: int) -> list:
             "home": home,
             "away": away,
             "tip_utc": bbref_tip_utc(parsed.date(), cell(row, "game_start_time")),
+            # "NBA Cup" marks every Cup game, the final included: kept only until
+            # nba_schedule.exclude_cup_final drops the final (task 33), never written
+            "remarks": _re.sub(r"<[^>]+>", "", cell(row, "game_remarks") or "").strip(),
         })
     return games
 
@@ -374,6 +384,8 @@ def trim_schedule(full_schedule: dict) -> dict:
             }
             if "tip_utc" in game:
                 g["tip_utc"] = game["tip_utc"]
+            if game.get("remarks"):
+                g["remarks"] = game["remarks"]
             games.append(g)
     
     else:
@@ -463,9 +475,10 @@ def main():
     parser.add_argument(
         "--output", "-o",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help=f"Output file path (default: {DEFAULT_OUTPUT}, the file "
-             f"league_config.season.nba_schedule_file actually reads)",
+        default=None,
+        help="Output file path (default: the refetched copy, "
+             "data/nba_schedule_<season>.refetched.json -- league state, read instead of "
+             f"{DEFAULT_OUTPUT} whenever it exists; push it with state.py push)",
     )
     parser.add_argument(
         "--source",
@@ -476,8 +489,9 @@ def main():
     parser.add_argument(
         "--force",
         action="store_true",
-        help="write even if the new schedule has >10%% fewer games than the "
-             "file it replaces (normally refused as a partial fetch)",
+        help="write even if the new schedule has fewer games than the one it "
+             "replaces, in all or for any team (normally refused: a partial fetch, "
+             "or a postponement with no new date yet -- Nick's call)",
     )
     parser.add_argument(
         "--tips-only",
@@ -493,6 +507,13 @@ def main():
     
     args = parser.parse_args()
     
+    if args.output is None and not args.tips_only and not args.keep_full:
+        return _refetch_copy(args)
+    if args.output is None:
+        from modules.nba_schedule import schedule_path
+        args.output = schedule_path(PROJECT_ROOT)
+    _refuse_hidden_engine_write(args.output)
+
     # Get the schedule
     if args.input:
         full_schedule = load_schedule_from_file(args.input)
@@ -554,9 +575,15 @@ def main():
               f"{n - timed} with no time yet (tip_utc null). Nothing else changed.")
         return
 
+    from modules.nba_schedule import exclude_cup_final, never_shrinks, window_config
+    games, final = exclude_cup_final(trimmed.get("games", []), window_config()["cup_final"])
+    trimmed = {"games": games}
+    for g in final:
+        print(f"  The NBA Cup final ({g['away']} @ {g['home']} {g['date'][:10]}) is not a "
+              "regular-season game: left out.")
     diff = diff_schedules(old, trimmed) if old else None
     if diff:
-        problem = shrink_problem(diff)
+        problem = shrink_problem(diff) or "; ".join(never_shrinks(old, trimmed)) or None
         if problem and not args.force:
             print(f"\nREFUSED: {problem}")
             print(f"  {args.output} was left as it was. Re-run, or pass --force "
@@ -586,5 +613,70 @@ def main():
             print(f"  {g['date'][:10]}: {g['away']} @ {g['home']}")
 
 
+def fetch_trimmed(season: str = None, source: str = "auto"):
+    """(trimmed schedule, source) for modules/nba_schedule.refetch: the nightly
+    run's fetch and this script's default. Tips are checked. Raises on any
+    failure (never sys.exit): the caller keeps the stored schedule."""
+    season = season or CURRENT_SEASON
+    try:
+        if source == "bbref":
+            full, src = fetch_from_bbref(season), "bbref"
+        else:
+            try:
+                full, src = fetch_nba_schedule(), "nba"
+            except Exception as e:                      # noqa: BLE001 -- cdn.nba.com 403s (Sep 2026)
+                if source == "nba":
+                    raise
+                print(f"cdn.nba.com failed ({e}); falling back to basketball-reference.")
+                full, src = fetch_from_bbref(season), "bbref"
+    except SystemExit as e:
+        raise RuntimeError(f"the schedule fetch stopped (exit {e.code}): no games parsed") from None
+    trimmed = trim_schedule(full)
+    if not trimmed.get("games"):
+        raise RuntimeError(f"the {src} fetch returned no games")
+    check_tips(trimmed["games"])
+    return trimmed, src
+
+
+def _refuse_hidden_engine_write(output: Path) -> None:
+    """Writing the engine's file while a refetched copy exists would change a
+    file nothing reads."""
+    from modules.nba_schedule import engine_path, refetched_path
+    eng, copy = engine_path(PROJECT_ROOT).resolve(), refetched_path(PROJECT_ROOT)
+    if Path(output).resolve() == eng and copy.is_file():
+        print(f"REFUSED: {copy.relative_to(PROJECT_ROOT).as_posix()} exists and is what the engine "
+              f"reads; writing {output} would change nothing. Drop --output to refetch the copy.")
+        sys.exit(2)
+
+
+def _refetch_copy(args) -> int:
+    """The default: modules/nba_schedule.refetch, the nightly run's own path:
+    the NBA Cup final left out, never shrinking (unless --force), the
+    stand-ins checked, then the refetched copy written (league state)."""
+    from modules.league_clock import league_today
+    from modules.nba_schedule import refetch
+    if args.input:
+        src_name = f"file:{args.input.name}"
+        fetch = lambda: (trim_schedule(load_schedule_from_file(args.input)), src_name)  # noqa: E731
+    else:
+        fetch = lambda: fetch_trimmed(args.season, args.source)                     # noqa: E731
+    out = refetch(PROJECT_ROOT, league_today(), fetch, force=args.force)
+    print(f"\n{out['outcome'].upper()}: compared with {out['from']}"
+          + (f" -- {out['why']}" if out.get("why") else ""))
+    if out["outcome"] in ("failed", "refused"):
+        print("  Nothing was written; the stored schedule stays."
+              + (" Pass --force if a drop is real (a postponement with no new date)."
+                 if out["outcome"] == "refused" else ""))
+        return 1
+    print(f"  Wrote {out['to']}: {out['games']} games from {out['source']} "
+          f"(+{out['added']} -{out['removed']}, {len(out['moved'])} moved).")
+    for line in out["moved"][:20]:
+        print(f"    moved {line}")
+    for line in out["cup_final"]:
+        print(f"  The NBA Cup final ({line}) is not a regular-season game: left out.")
+    print("  League state: push it with python scripts\\state.py push")
+    return 0
+
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

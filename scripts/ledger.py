@@ -51,7 +51,7 @@ def cmd_add(a) -> int:
     print(f"  claimed {row['claimed_at'][:16].replace('T', ' ')} Pacific: week {row['claim_week']}'s "
           f"budget; applied in the {row['window']} window (week {row['window_week']})")
     for c in row["checks"]:
-        print(f"  ok: {c}")
+        print(f"  {c}" if c.startswith("WARNING: ") else f"  ok: {c}")
     if a.dry_run:
         print("--dry-run: nothing written")
         return 0

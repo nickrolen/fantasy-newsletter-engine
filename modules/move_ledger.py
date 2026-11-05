@@ -48,7 +48,14 @@ THE RULES IT ENFORCES (LEAGUE_RULES rules 1-15):
     claim is that Sunday's week (the league clock, rule 0);
   - <= weekly_add_budget (3) adds per budget week, Yahoo's 6 notwithstanding;
   - the roster after the window is legal (1-3): 15 active, 2 IL, IL only for
-    O / OFS (or a live injury entry, which the engine reads as O);
+    a player TAGGED O or OFS in Yahoo (rule 2; task 47, Nick 11-05: Yahoo
+    enforces only its own tag). One function decides it, tag_il_eligible, on
+    roster_moves.il_eligible_tags (the hub's stash table reads the same). At
+    the window -- the checklist, its re-check, ledger.py check -- the tag alone
+    decides. At entry an IL+ for a player with no eligible tag but a live
+    injury entry covering the window day is ACCEPTED WITH A WARNING ("not
+    tagged O/OFS in Yahoo now: he must be by Monday's window or the move
+    fails"); that warning is the only place an injury entry counts here;
   - an add that would put a team over 15 active must name its IL placement or
     a drop (15); an activation needs room the same way;
   - a claim cannot be cancelled (12); a claimed player may be dropped before
@@ -152,6 +159,19 @@ def il_eligible_tags(cfg=None) -> tuple:
     if "il_eligible_tags" not in rm:
         raise LedgerError("league_config.json roster_moves.il_eligible_tags is missing")
     return tuple(str(t).upper() for t in rm["il_eligible_tags"])
+
+
+def tag_il_eligible(tag, eligible_tags=None) -> bool:
+    """Rule 2, the one definition (task 47): a player may go into an IL slot
+    only when his Yahoo tag is one of roster_moves.il_eligible_tags (O, OFS;
+    OFS's aliases count as OFS). Nothing else makes him eligible -- not an
+    injury entry: Yahoo enforces only its own tag. The ledger (World) and the
+    hub's stash table (hub_state.stash_rows) both call this."""
+    from . import absence
+    if tag is None:
+        return False
+    eligible = set(eligible_tags if eligible_tags is not None else il_eligible_tags())
+    return absence.normalised_tag(tag) in eligible or (absence.season_out(tag) and "OFS" in eligible)
 
 
 def trade_deadline(cfg=None) -> date:
@@ -485,23 +505,34 @@ class World:
         return self._tag_idx.get(name)
 
     def il_eligible(self, name: str, day: date) -> tuple:
-        """(eligible, why) on `day`: tagged O or OFS (roster_moves.il_eligible_tags),
-        or a live injury entry keeping him out that day (the engine reads it as O)."""
+        """(eligible, why) at the window (`day`): his Yahoo tag alone
+        (tag_il_eligible, rule 2). An injury entry does not count."""
         from . import absence
-        from .data_loader import PlayerIndex
         tag = self.tag(name)
-        if tag is not None and (absence.normalised_tag(tag) in self.eligible_tags
-                                or (absence.season_out(tag) and "OFS" in self.eligible_tags)):
+        if tag_il_eligible(tag, self.eligible_tags):
             return True, f"tagged {absence.normalised_tag(tag)}"
+        return False, (f"{name} is tagged {absence.normalised_tag(tag) if tag else 'healthy'} in Yahoo: "
+                       f"only {' or '.join(self.eligible_tags)} may go into an IL slot ({day:%a %m-%d}; "
+                       "rule 2: Yahoo enforces its own tag)")
+
+    def il_entry_check(self, name: str, day: date) -> tuple:
+        """(accepted, why, warning) when an entry is MADE, for the window on
+        `day`: an eligible tag -> accepted; no eligible tag but a live injury
+        entry keeping him out on `day` -> accepted with the warning (he must be
+        tagged by then); neither -> refused. The only place an injury entry is
+        read for IL eligibility (task 47)."""
+        ok, why = self.il_eligible(name, day)
+        if ok:
+            return True, why, None
+        from .data_loader import PlayerIndex
+        from .hub_state import override_out_on
         e = PlayerIndex({o["player_name"]: o for o in self.overrides or []}).get(name)
-        if e is not None:
-            from .hub_state import override_out_on
-            w = self.week_of(day)
-            if w is not None and override_out_on(e, day, w, self.weeks[w][0]):
-                return True, "out under an injury entry"
-        return False, (f"{name} is tagged {absence.normalised_tag(tag) if tag else 'healthy'}"
-                       f" with no injury entry covering {day:%a %m-%d}: only O or OFS may go into an "
-                       "IL slot (rule 2)")
+        w = self.week_of(day)
+        if e is not None and w is not None and override_out_on(e, day, w, self.weeks[w][0]):
+            return True, f"out under an injury entry on {day:%a %m-%d}", (
+                f"IL+{name}: not tagged {'/'.join(self.eligible_tags)} in Yahoo now: he must be by "
+                f"Monday's window ({day:%a %m-%d}) or the move fails")
+        return False, why[:-1] + f"; no injury entry covers {day:%a %m-%d} either)", None
 
     @classmethod
     def from_base(cls, base_path=".", now: datetime = None, data=None) -> "World":
@@ -605,7 +636,8 @@ def _start(world: World) -> dict:
     return out
 
 
-def simulate(world: World, ents: list, upto_week: int, *, strict: set, check_day=None) -> dict:
+def simulate(world: World, ents: list, upto_week: int, *, strict: set, check_day=None,
+             at_entry: bool = False) -> dict:
     """Apply `ents` (live entries, in entry order) window by window up to
     `upto_week`, each window in the checklist's order: IL placements, drops,
     trades, adds, drops of players joining in that window (rule 12), IL
@@ -614,10 +646,15 @@ def simulate(world: World, ents: list, upto_week: int, *, strict: set, check_day
     already reflected in Yahoo's roster (applied before the sync caught up) is
     skipped, and one that can no longer apply is noted, never raised.
 
+    at_entry: an entry being made (make_entry): IL eligibility by
+    World.il_entry_check (an injury entry is accepted with a warning);
+    otherwise by the tag alone, World.il_eligible (task 47).
+
     Returns {"teams": {m: _Team}, "lines": {week: [line]}, "problems":
-    [(entry id, manager, reason)], "notes": [...]}."""
+    [(entry id, manager, reason)], "notes": [...], "warnings": [(entry id,
+    manager, warning)]}."""
     teams = _start(world)
-    lines, problems, notes = {}, [], []
+    lines, problems, notes, warnings = {}, [], [], []
     windows = sorted({int(e["window_week"]) for e in ents if int(e["window_week"]) <= upto_week})
     for w in windows:
         day = world.window_day(w)
@@ -669,7 +706,12 @@ def simulate(world: World, ents: list, upto_week: int, *, strict: set, check_day
                             notes.append(f"entry {x['entry']}: IL+{n} skipped, not on {m}'s roster")
                         continue
                     if x["strict"]:
-                        ok, why = world.il_eligible(n, check_day or day)
+                        if at_entry:
+                            ok, why, warn = world.il_entry_check(n, check_day or day)
+                            if ok and warn:
+                                warnings.append((x["entry"], m, warn))
+                        else:
+                            ok, why = world.il_eligible(n, check_day or day)
                         if not ok:
                             problem(x, why)
                             continue
@@ -742,7 +784,7 @@ def simulate(world: World, ents: list, upto_week: int, *, strict: set, check_day
             if len(t.active) > world.active_spots:
                 notes.append(f"{m} has {len(t.active)} active after the {day:%m-%d} window")
         lines[w] = {"lines": out_lines, "stopped": stopped}
-    return {"teams": teams, "lines": lines, "problems": problems, "notes": notes}
+    return {"teams": teams, "lines": lines, "problems": problems, "notes": notes, "warnings": warnings}
 
 
 # =============================================================================
@@ -961,7 +1003,7 @@ def make_entry(world: World, text: str, rows: list, states: list, *, claimed_at:
         checks.append(f"week {cw} adds: {len(used)} used before, {len(used) + len(full['add'])} of "
                       f"{world.budget} with this one")
     # the roster after the window: rules 1-3, 15
-    after = simulate(world, lv + [new], ww, strict={new["id"]})
+    after = simulate(world, lv + [new], ww, strict={new["id"]}, at_entry=True)
     mine = [p for p in after["problems"] if p[0] == new["id"]]
     if mine:
         raise EntryRefused(mine[0][2])
@@ -976,10 +1018,14 @@ def make_entry(world: World, text: str, rows: list, states: list, *, claimed_at:
     for m in ([full["manager"]] if full["kind"] == "move" else [s["manager"] for s in full["sides"]]):
         t = after["teams"][m]
         checks.append(f"{m} after the {wday:%m-%d} window: {len(t.active)} active, {len(t.il)} IL")
+    warns = [w_ for eid, _m, w_ in after["warnings"] if eid == new["id"]]
     if full["kind"] == "move" and full["il_place"]:
         for n in full["il_place"]:
-            checks.append(f"IL+{n}: {world.il_eligible(n, now.date())[1]} now; checked again at the window")
-    new["checks"] = checks
+            checks.append(f"IL+{n}: {world.il_entry_check(n, wday)[1]} now; only his Yahoo tag counts "
+                          "at the window")
+    new["checks"] = checks + [f"WARNING: {w_}" for w_ in warns]
+    if warns:
+        new["warnings"] = warns
     return new
 
 

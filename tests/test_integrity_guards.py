@@ -110,11 +110,21 @@ def test_the_schedule_fetcher_writes_where_config_reads():
     """Three names were in play: the script defaulted to
     data/nba_schedule.json, the workflow said nba_schedule_2025-26.json,
     and config read nba_schedule_2026-27.json. Only the third was loaded."""
+    # Task 33 (11-05): with no --output the fetch goes through
+    # nba_schedule.refetch, which writes the refetched copy -- the file
+    # nba_schedule.schedule_path (every reader) prefers. Writing the engine's
+    # file while a copy exists refuses (the copy would hide it).
     from modules.data_loader import NBA_SCHEDULE_FILE
+    from modules import nba_schedule as ns
     src = (PROJECT_ROOT / "scripts" / "fetch_nba_schedule.py").read_text(
         encoding="utf-8")
     assert "DEFAULT_OUTPUT = Path(NBA_SCHEDULE_FILE" in src
-    assert "default=DEFAULT_OUTPUT" in src
+    assert "if args.output is None and not args.tips_only and not args.keep_full:\n        return _refetch_copy(args)" in src
+    assert "out = refetch(PROJECT_ROOT, league_today(), fetch, force=args.force)" in src
+    assert "_refuse_hidden_engine_write(args.output)" in src
+    assert "atomic_write_json(refetched_path(base, cfg)" in (PROJECT_ROOT / "modules" / "nba_schedule.py").read_text(
+        encoding="utf-8")
+    assert ns.refetched_relpath(NBA_SCHEDULE_FILE) == NBA_SCHEDULE_FILE[:-len(".json")] + ".refetched.json"
     assert NBA_SCHEDULE_FILE, "league_config names no NBA schedule file"
 
 

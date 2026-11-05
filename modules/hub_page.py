@@ -114,6 +114,9 @@ border-radius:8px;font-size:14px;font-weight:600;color:#5B6270}
 .g-r .m{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .c{text-align:center;font-size:13px;padding:6px 0;border-radius:6px;font-weight:500}
 .c.light{background:#FBE3CF}.c.over{background:#E3ECFB;font-weight:700}.c.off{color:#9AA1AC}
+.c.est{font-style:italic;outline:1px dashed #8A919C;outline-offset:-2px}
+.legend .sw.est{outline:1px dashed #8A919C;outline-offset:-1px;background:#fff}
+.snote{font-size:12px;font-weight:600;color:#7A4A00}
 .k{text-align:right;font-size:14px;font-weight:700}.k.i{font-size:13px;color:#5B6270;font-weight:500}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px;font-size:11px;color:#5B6270;border-top:1px solid #EEF0F3}
 .legend .sw{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:6px}
@@ -124,7 +127,6 @@ border-radius:8px;font-size:14px;font-weight:600;color:#5B6270}
 .wk{font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:0 10px;border-radius:8px;border:1px solid #C9CED6;
 background:#fff;color:#121417}
 .used{display:flex;flex-wrap:wrap;gap:6px 14px;padding:12px 14px;border-bottom:1px solid #EEF0F3;font-size:13px;font-weight:600}
-.mvp.void .t{text-decoration:line-through}
 .fa-r .tags{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .fa-r .pts{font-weight:700;color:#121417}
 .fa-h{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #E3E6EB}
@@ -206,17 +208,10 @@ STALE_TEXT = ("This hub is more than %d hours old and may be wrong. The nightly 
 
 
 def _move_parts(parts) -> str:
-    """One line per part; a voided add (task 43) is struck through and still
-    carries its marker and colour (the item's state chip says "Voided")."""
-    out = []
-    for x in parts:
-        if x.get("void"):
-            out.append(f'<span class="mvp {clean(x["kind"])} void"><span class="mk">{clean(x["marker"])}</span>'
-                       f'<span class="t">{clean(x["text"])}</span></span>')
-        else:
-            out.append(f'<span class="mvp {clean(x["kind"])}"><span class="mk">{clean(x["marker"])}</span>'
-                       f'{clean(x["text"])}</span>')
-    return "".join(out)
+    """One line per part. A voided add is not in the payload at all (task 45:
+    hidden, not struck; modules/hub_moves.yahoo_item)."""
+    return "".join(f'<span class="mvp {clean(x["kind"])}"><span class="mk">{clean(x["marker"])}</span>'
+                   f'{clean(x["text"])}</span>' for x in parts)
 
 
 def _tags(chips) -> str:
@@ -324,14 +319,22 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
         for r in t["rows"]:
             o.append(f'<div class="g-r" style="{cols}"><span class="m">{clean(r["manager"])}</span>')
             for c in r["cells"]:
-                o.append(f'<span class="c {clean(c["kind"])}">{clean(c["n"])}</span>')
+                if c["est"]:
+                    o.append(f'<span class="c {clean(c["kind"])} est" title="estimated">{clean(c["n"])}</span>')
+                else:
+                    o.append(f'<span class="c {clean(c["kind"])}">{clean(c["n"])}</span>')
             o.append(f'<span class="k">{clean(r["starts"])}</span><span class="k i">{clean(r["idle"])}</span></div>')
         if not t["days"]:
             o.append('<div class="empty">No days left in this week.</div>')
         o.append('<div class="legend">'
                  f'<span><span class="sw" style="background:#FBE3CF"></span>{clean(gr["legend"]["light"])}</span>'
                  f'<span><span class="sw" style="background:#E3ECFB"></span>{clean(gr["legend"]["over"])}</span>'
-                 f'</div><div class="empty" style="padding:0 10px 10px;font-size:12px">{clean(t["note"])} '
+                 + (f'<span><span class="sw est"></span>{clean(gr["legend"]["est"])}</span>'
+                    if t["schedule_note"] else "")
+                 + '</div>'
+                 + (f'<div class="empty snote" style="padding:0 10px 6px">{clean(t["schedule_note"])}</div>'
+                    if t["schedule_note"] else "")
+                 + f'<div class="empty" style="padding:0 10px 10px;font-size:12px">{clean(t["note"])} '
                  f'{clean(gr["foot"])}</div></div>')
     o.append("</section>")
 
@@ -350,6 +353,8 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  f'<span class="num">{clean(r["proj"])}</span>'
                  f'<span class="num">{clean(r["g1"])}</span><span class="num">{clean(r["g2"])}</span>'
                  f'<span class="num pts">{clean(r["pts"])}</span></div>')
+    if fa["schedule_note"]:
+        o.append(f'<div class="empty snote">{clean(fa["schedule_note"])}</div>')
     o.append(f'<div class="empty" style="font-size:12px">{clean(fa["note"])}</div></div></section>')
 
     # the stash candidates (task 42), under the free agents

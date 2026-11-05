@@ -54,9 +54,10 @@ def _games(schedule):
     if schedule is None:
         from pathlib import Path
         from .data_loader import NBA_SCHEDULE_FILE, load_nba_schedule
+        from .nba_schedule import schedule_path
         if not NBA_SCHEDULE_FILE:
             raise TipTimeMissing("league_config season.nba_schedule_file is not set")
-        schedule = load_nba_schedule(Path(__file__).resolve().parent.parent / NBA_SCHEDULE_FILE)
+        schedule = load_nba_schedule(schedule_path(Path(__file__).resolve().parent.parent))
     return (schedule or {}).get("games", [])
 
 

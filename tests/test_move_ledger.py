@@ -227,11 +227,14 @@ def test_il_plus_of_a_non_o_player_refuses():
     refused(w, [], "Nick move: +Bane IL+Pat Nick02", "tagged Q", "only O or OFS")
 
 
-def test_il_plus_with_a_live_injury_entry_is_eligible():
+def test_il_plus_with_a_live_injury_entry_is_accepted_with_a_warning():
+    # task 47: at entry only, and with a warning; the window reads the tag alone
+    # (tests/test_il_tag_rule.py has the rest)
     entry = {"player_name": "Pat Nick02", "out_weeks": [4, 5], "return_week": 6}
     w = make_world(overrides=[entry])
     row = enter(w, [], "Nick move: +Bane IL+Pat Nick02")
     assert any("injury entry" in c for c in row["checks"])
+    assert row["warnings"] and "must be by Monday's window" in row["warnings"][0]
 
 
 def test_il_plus_of_a_player_already_in_il_refuses_naming_the_slot():
