@@ -299,3 +299,7 @@ output/hub_salt.json
 config/MOVE_LEDGER.json
 data/move_ledger_states.jsonl
 output/move_checklist_week*.json
+
+# The filled drafting prompts (task 10a, 11-05): league state, they hold
+# managers, team names and rosters (scripts/prepare_prompts.py).
+output/prompts_week*.md

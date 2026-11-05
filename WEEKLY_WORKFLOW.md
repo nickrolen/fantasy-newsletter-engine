@@ -714,17 +714,26 @@ python scripts\format_stats_report.py --week WEEK
 
 ## Step 7: Draft the Newsletter (with Claude)
 
-The newsletter is drafted in a **separate Claude chat** using a 3-part prompt system. The prompts live in `templates\NEWSLETTER_PROMPTS.md` -- open that file and follow its instructions.
+```cmd
+python scripts\prepare_prompts.py --week N
+```
 
-### Pre-Flight (before opening the drafting chat)
+Then open `output\prompts_weekN.md` and follow it top to bottom: it lists the files to upload with Part 1, by path (each checked to exist), then Parts 1, 2 and 3, filled and ready to paste into a **separate Claude chat**. Run it after Step 6.5, between `state.py pull` and `push` like any manual run. It fills the week, dates and season (`config\SCHEDULE.json`, the config), the league line ("now in its twelfth season", from `league_season_number`), the manager table (the config's managers and team names; star players = each manager's top three in the report's keeper watch by keep chance), the KEY STORYLINES (the report's ANGLES block, verbatim), the trade block (week N's trades from the move ledger and Yahoo's transaction log, picks from `data\weeklycontextinput_weekN.json`; deleted when there are none), Section 9's search dates, and the rosters with IL-slot players marked. **It refuses rather than guess:** a missing or other week's report, a report not formatted from its JSON (rerun Step 6.5), an ANGLES block that did not run, last week's IL file (`state.py pull`), a ledger trade and a Yahoo trade that disagree, a midweek Yahoo trade, a missing upload. Fix what it names and rerun. `output\prompts_weekN.md` holds names: it is league state (`config\STATE_MANIFEST.json`), never committed.
+
+### By hand (the fallback, if the script refuses and the fix can't wait)
+
+The prompts live in `templates\NEWSLETTER_PROMPTS.md` -- open that file and follow its instructions; its `BY HAND ONLY` part has the checklist below.
+
+#### Pre-Flight (before opening the drafting chat)
 
 Open `output\stats_report_weekN.md` and `config\LAST_WEEK_RECAP.md` to pull:
 1. Week number, dates, and season
-2. 3-5 key storylines (matchup results, upsets, streaks, title odds, POTW, milestones)
-3. Whether fantasy trades happened (does `data\weeklycontextinput_weekN.json` exist?)
-4. Current rosters from `config\ROSTERS.json` (needed for Part 3)
+2. The key storylines: the report's ANGLES block, verbatim (matchup results, upsets, streaks, title odds, POTW, milestones are what it ranks)
+3. Whether fantasy trades happened (`python scripts\ledger.py list`; does `data\weeklycontextinput_weekN.json` exist?)
+4. Current rosters from `config\ROSTERS.json`, IL-slot players (`data\IL_SLOTS.json`) marked (IL) (needed for Part 3)
+5. The manager table: the config's managers and team names, each manager's top three in the report's keeper watch
 
-Fill in the `[FILL IN]` placeholders in the prompts.
+Fill in the `[FILL IN: ...]` placeholders in the prompts and resolve the `[IF ...]` blocks.
 
 ### Upload these files with Part 1:
 1. `output\stats_report_weekN.md` (single source of truth for all numbers)
@@ -978,7 +987,8 @@ python scripts\generate_stats_report.py --week N
 :: Step 6.5: Format stats report (JSON -> Markdown)
 python scripts\format_stats_report.py --week N
 
-:: Step 7: Draft newsletter with Claude (open NEWSLETTER_PROMPTS.md, fill in placeholders, run 3 parts in new chat)
+:: Step 7: Fill the drafting prompts, then run its 3 parts in a new Claude chat (open output\prompts_weekN.md)
+python scripts\prepare_prompts.py --week N
 :: Step 8: Verify draft with VERIFICATION_TEMPLATE.md
 
 :: Step 9: Generate HTML -- this publishes the week's betting lines to data\calibration\published_lines.json and the keepability snapshot to data\keepability\ (--no-log for a preview)

@@ -65,7 +65,8 @@
     {"dir": "output", "name": "refresh_service.*", "what": "the refresh service's run log and console"},
     {"dir": "output", "name": "closing_line_week*.json", "what": "each week's closing line, the official line, priced once after the Monday window closes (modules/closing_line.py; step 1c)"},
     {"dir": "output", "name": "closing_none_week*.json", "what": "a week with no closing line (no pre-tip tag record), recorded once so the scheduled run never retries it (closing_line.record_none; step 1c-ii)"},
-    {"dir": "output", "name": "move_checklist_week*.json", "what": "each Monday window's move checklist, written by that Monday's 12:01 run (modules/move_ledger.checklist; step 2)"}
+    {"dir": "output", "name": "move_checklist_week*.json", "what": "each Monday window's move checklist, written by that Monday's 12:01 run (modules/move_ledger.checklist; step 2)"},
+    {"dir": "output", "name": "prompts_week*.md", "what": "each week's filled drafting prompts: managers, team names, rosters, the ANGLES block (scripts/prepare_prompts.py; task 10a, 11-05)"}
   ],
   "excluded": [
     {"path": "oauth2.json", "why": "Yahoo credentials: never state, never copied (also oauth2_backup.json, oauth2.backup_*.json, *.oauth, private.json)"},
