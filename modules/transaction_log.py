@@ -301,10 +301,21 @@ def after(base_path, moment: datetime, rows: list = None) -> list:
 # the hub's moves feed
 # =============================================================================
 
+# The moves feed's marker for each kind of part (task 39): never colour alone.
+PART_MARKER = {"add": "+", "drop": "\u2212", "trade": "\u21c4"}
+
+
+def _part(kind: str, text: str) -> dict:
+    return {"kind": kind, "marker": PART_MARKER[kind], "text": text}
+
+
 def feed_item(t: dict, schedule: dict) -> dict:
     """One transaction as the hub's moves feed shows it: who, what, the time
     (Pacific), and the "(week N claim)" / "(week N add)" marks the waivers
-    files carry, from the rulings that apply."""
+    files carry, from the rulings that apply. `parts` is the same as `what`,
+    one line per add, drop or trade side, each with its kind and its marker
+    (+ / minus / the two-way arrow), adds first: the page colours each by
+    kind (task 39). `what` stays the parts' texts joined."""
     at = datetime.fromisoformat(t["time"])
     by_player = {r["player"]: r for r in t.get("rulings") or []}
     parts, notes, who = [], [], []
@@ -312,13 +323,14 @@ def feed_item(t: dict, schedule: dict) -> dict:
         got = {}
         for p in t["players"]:
             got.setdefault(p["to"]["manager"] or p["to"]["type"], []).append(p["name"])
-        what = "; ".join(f"{m} gets {', '.join(v)}" for m, v in got.items())
+        tparts = [_part("trade", f"{m} gets {', '.join(v)}") for m, v in got.items()]
+        what = "; ".join(x["text"] for x in tparts)
         return {"_ts": int(t["timestamp"]), "day": at.strftime("%a"), "date": f"{at.month}/{at.day}",
                 "time": at.strftime("%I:%M %p").lstrip("0"), "who": "Trade:", "what": what,
-                "note": "", "state": "Applied", "kind": "trade"}
+                "parts": tparts, "note": "", "state": "Applied", "kind": "trade"}
     for p in sorted(t["players"], key=lambda p: (p["action"] != "add", p["name"])):
         if p["action"] == "add":
-            parts.append(f"added {p['name']}")
+            parts.append(_part("add", f"added {p['name']}"))
             who.append(p["to"]["manager"])
             r = by_player.get(p["name"])
             if r and r["kind"] == "claim_week":
@@ -331,7 +343,7 @@ def feed_item(t: dict, schedule: dict) -> dict:
             elif r and r["kind"] == "void":
                 notes.append("voided: counts nowhere")
         else:
-            parts.append(f"dropped {p['name']}")
+            parts.append(_part("drop", f"dropped {p['name']}"))
             who.append(p["from"]["manager"])
     managers = sorted({w for w in who if w})
     if len(managers) != 1:
@@ -340,4 +352,5 @@ def feed_item(t: dict, schedule: dict) -> dict:
     kind = "add" if t["type"] == "add" else "drop" if t["type"] == "drop" else "add-drop"
     return {"_ts": int(t["timestamp"]), "day": at.strftime("%a"), "date": f"{at.month}/{at.day}",
             "time": at.strftime("%I:%M %p").lstrip("0"), "who": managers[0],
-            "what": ", ".join(parts), "note": "; ".join(notes), "state": "Applied", "kind": kind}
+            "what": ", ".join(x["text"] for x in parts), "parts": parts, "note": "; ".join(notes),
+            "state": "Applied", "kind": kind}

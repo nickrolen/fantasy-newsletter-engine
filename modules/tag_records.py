@@ -101,4 +101,8 @@ def hub_tags(row: dict, rostered) -> dict:
     models (absence.chain_tag) -- the same set the line's state file kept."""
     from . import absence
     resolved, _unmatched, _missing = absence.resolve_tags(row["tags"]["rostered"] or {}, rostered)
-    return {n: str(t) for n, t in dict(resolved).items() if absence.chain_tag(t) is not None}
+    # OFS is kept too: it is no chain tag (the line prices it as a season-long
+    # out), but the hub's statuses and grid must see it (reviewing session,
+    # 11-04: a rostered OFS player showed as healthy and counted in the grid)
+    return {n: str(t) for n, t in dict(resolved).items()
+            if absence.chain_tag(t) is not None or absence.season_out(t)}

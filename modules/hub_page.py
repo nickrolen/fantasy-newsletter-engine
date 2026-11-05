@@ -41,6 +41,13 @@ STALE_HOURS = 36
 FONT = ('-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,'
         'system-ui,sans-serif')
 
+# The moves feed's colours (task 39; Nick, 11-04): added bright green, dropped
+# bright red, trades purple, each also marked + / minus / two-way arrow (the
+# marker is in the payload), so colour is never the only signal. Every one is
+# at least 4.5:1 against the card (#FFFFFF) and the page (#F4F5F7), WCAG AA
+# for body text: tests/test_hub.py pins it.
+MOVE_COLOURS = {"add": "#008033", "drop": "#D50000", "trade": "#8A2BE2"}
+
 CSS = """
 *{box-sizing:border-box}
 body{margin:0;background:#F4F5F7;color:#121417;font-family:%(font)s;
@@ -110,7 +117,9 @@ border-radius:8px;font-size:14px;font-weight:600;color:#5B6270}
 .k{text-align:right;font-size:14px;font-weight:700}.k.i{font-size:13px;color:#5B6270;font-weight:500}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px;font-size:11px;color:#5B6270;border-top:1px solid #EEF0F3}
 .legend .sw{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:6px}
-.fa-h,.fa-r{display:grid;grid-template-columns:minmax(0,1fr) 48px 46px 46px;gap:4px;padding:10px 14px;align-items:center}
+.fa-h,.fa-r{display:grid;grid-template-columns:minmax(0,1fr) 40px 30px 36px 50px;gap:4px;padding:10px 12px;align-items:center}
+.fa-r .tags{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.fa-r .pts{font-weight:700;color:#121417}
 .fa-h{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #E3E6EB}
 .fa-r{border-bottom:1px solid #EEF0F3}
 .pn{display:flex;flex-direction:column;min-width:0}
@@ -121,6 +130,8 @@ border-radius:8px;font-size:14px;font-weight:600;color:#5B6270}
 .mv .when{width:52px;flex:none;display:flex;flex-direction:column;font-size:12px;color:#5B6270}
 .mv .when b{color:#121417}
 .mv .body{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:14px;line-height:1.4}
+.mvp{font-weight:600}.mvp .mk{display:inline-block;width:1.1em;font-weight:800}
+.mvp.add{color:%(add)s}.mvp.drop{color:%(drop)s}.mvp.trade{color:%(trade)s}
 .chip{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:#E3ECFB;color:#17489E;white-space:nowrap}
 .chip.il,.chip.out{background:#FBE3CF;color:#8A3F06}.chip.q{background:#FFF1C9;color:#6B4E00}
 .chip.st{background:#E3ECFB;color:#17489E}
@@ -161,7 +172,8 @@ font-weight:700;color:#5B6270;text-transform:uppercase}
 #issue-view[hidden]{display:none}
 #issue-view .bar2{background:#121417;padding:10px 16px}
 #issue-view iframe{flex:1;border:0;width:100%%}
-""" % {"font": FONT}
+""" % {"font": FONT, "add": MOVE_COLOURS["add"], "drop": MOVE_COLOURS["drop"],
+       "trade": MOVE_COLOURS["trade"]}
 
 
 def age_words(generated_at: datetime, now: datetime) -> tuple:
@@ -184,6 +196,11 @@ def age_words(generated_at: datetime, now: datetime) -> tuple:
 
 STALE_TEXT = ("This hub is more than %d hours old and may be wrong. The nightly update has not "
               "run since %s." % (STALE_HOURS, "%s"))
+
+
+def _move_parts(parts) -> str:
+    return "".join(f'<span class="mvp {clean(x["kind"])}"><span class="mk">{clean(x["marker"])}</span>'
+                   f'{clean(x["text"])}</span>' for x in parts)
 
 
 def _tags(chips) -> str:
@@ -287,14 +304,17 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
     o.append("</section>")
 
     fa = payload["free_agents"]
-    o.append('<section><div class="row-b"><h2>Best free agents</h2><span class="aside">by Yahoo projection'
+    o.append(f'<section><div class="row-b"><h2>Best free agents</h2><span class="aside">{clean(fa["aside"])}'
              '</span></div><div class="card"><div class="fa-h"><span>Player</span><span style="text-align:right">'
-             'Proj</span><span style="text-align:right">GL</span><span style="text-align:right">Next</span></div>')
+             'Proj</span><span style="text-align:right">GL</span><span style="text-align:right">Next</span>'
+             f'<span style="text-align:right">{clean(fa["pts_label"])}</span></div>')
     for r in fa["rows"]:
-        o.append(f'<div class="fa-r"><span class="pn"><span class="n">{clean(r["name"])}</span>'
-                 f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span></span>'
-                 f'<span class="num" style="font-weight:600">{clean(r["proj"])}</span>'
-                 f'<span class="num">{clean(r["gl"])}</span><span class="num">{clean(r["next"])}</span></div>')
+        o.append(f'<div class="fa-r" data-status="{clean(r["status"])}"><span class="pn">'
+                 f'<span class="n">{clean(r["name"])}</span><span class="tags">'
+                 f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span>{_tags(r["tags"])}</span></span>'
+                 f'<span class="num">{clean(r["proj"])}</span>'
+                 f'<span class="num">{clean(r["gl"])}</span><span class="num">{clean(r["next"])}</span>'
+                 f'<span class="num pts">{clean(r["pts"])}</span></div>')
     o.append(f'<div class="empty" style="font-size:12px">{clean(fa["note"])}</div></div></section>')
 
     if payload.get("advice") is not None:
@@ -309,7 +329,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
     for x in mv["items"]:
         o.append(f'<div class="mv"><div class="when"><b>{clean(x["day"])}</b><span>{clean(x["date"])}</span>'
                  f'<span>{clean(x["time"])}</span></div>'
-                 f'<div class="body"><span><b>{clean(x["who"])}</b> {clean(x["what"])}</span>'
+                 f'<div class="body"><b>{clean(x["who"])}</b>{_move_parts(x["parts"])}'
                  f'<span style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip st">{clean(x["state"])}</span>'
                  f'<span class="small" style="font-size:11px">{clean(x["note"])}</span></span></div></div>')
     o.append(f'<div class="empty" style="font-size:12px">{clean(mv["note"])}</div></div></section>')

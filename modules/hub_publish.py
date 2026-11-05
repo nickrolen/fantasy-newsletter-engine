@@ -98,6 +98,21 @@ def scan_dir(path: Path, terms: Iterable[str], skip=()) -> dict:
     return {"files": [str(f.relative_to(path)).replace("\\", "/") for f in files], "hits": found}
 
 
+def scratch_refusal(base_path, out) -> str:
+    """Why `out` may not take a scratch write, or "" when it may: a path in
+    the league state (config/STATE_MANIFEST.json) is the nightly run's."""
+    from . import state_manifest
+    base = Path(base_path).resolve()
+    o = Path(out).resolve()
+    try:
+        rel = o.relative_to(base).as_posix()
+    except ValueError:
+        return ""
+    if state_manifest.load(base).contains(rel):
+        return f"{rel} is league state (config/STATE_MANIFEST.json): a scratch build writes elsewhere"
+    return ""
+
+
 def _write_if_changed(path: Path, data: bytes) -> None:
     if path.is_file() and path.read_bytes() == data:
         return
@@ -108,9 +123,11 @@ def _write_if_changed(path: Path, data: bytes) -> None:
 
 
 def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
-          iterations: int = None, now=None) -> dict:
+          iterations: int = None, now=None, out_dir=None) -> dict:
     """Write the publish directory and scan it. Returns a report; raises
-    PlaintextLeak on any hit, PublishError on a stray file."""
+    PlaintextLeak on any hit, PublishError on a stray file. out_dir: write
+    there instead of output/hub_publish/ (a scratch build: scripts/build_hub.py
+    --out-dir)."""
     from . import hub_archive, hub_page, hub_crypto
     base = Path(base_path)
     idx = hub_archive.verify(base)
@@ -133,7 +150,7 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
     else:
         raise PlaintextLeak(f"the decrypt shell still matched a scan term after {MAX_RESEAL} fresh "
                             "encryptions: that is not chance; the shell itself carries plaintext")
-    out = publish_dir(base)
+    out = Path(out_dir) if out_dir is not None else publish_dir(base)
     expected = {"index.html"} | {f"issues/{f}" for f in by_file}
     if out.exists():
         stray = sorted(str(p.relative_to(out)).replace("\\", "/") for p in out.rglob("*")
@@ -146,8 +163,8 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
         _write_if_changed(out / "issues" / f, (hub_archive.archive_dir(base) / f).read_bytes())
     scan = scan_dir(out, terms)
     if scan["hits"]:
-        raise PlaintextLeak(f"plaintext in {PUBLISH_RELDIR}: {scan['hits']}")
+        raise PlaintextLeak(f"plaintext in {out}: {scan['hits']}")
     sizes = {f: (out / f).stat().st_size for f in scan["files"]}
-    return {"dir": str(PUBLISH_RELDIR), "files": scan["files"], "sizes": sizes,
+    return {"dir": str(PUBLISH_RELDIR) if out_dir is None else str(out), "files": scan["files"], "sizes": sizes,
             "reseals": attempt - 1, "terms": len(terms), "bundle_salt": bundle["salt"],
             "iterations": bundle["iter"]}
