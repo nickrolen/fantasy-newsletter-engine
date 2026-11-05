@@ -289,3 +289,6 @@ config/PLAYER_AGES.json
 
 # The night's marker (11-05): league state, written by every nightly-mode run.
 output/nightly_last.json
+
+# The hub's salt (11-05): league state; a new one makes every phone ask for the passphrase again.
+output/hub_salt.json

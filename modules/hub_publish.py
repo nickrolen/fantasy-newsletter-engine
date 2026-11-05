@@ -19,7 +19,7 @@ fails the build.
 Ciphertext is random, and a short name ("Nick") can turn up in random bytes
 by chance (about once in a hundred builds for the base64 page bundle). That
 is not a leak, but the scan cannot tell, so the bundle is re-encrypted with a
-fresh salt and IV until it is clean, before anything is written, and
+fresh IV until it is clean, before anything is written, and
 archive_issue does the same for an issue at archive time. The scan itself is
 never relaxed.
 """
@@ -122,6 +122,40 @@ def _write_if_changed(path: Path, data: bytes) -> None:
     tmp.replace(path)
 
 
+SALT_REL = Path("output") / "hub_salt.json"
+
+
+def hub_salt(base_path, create: bool = True) -> bytes:
+    """The hub's PBKDF2 salt, the same for every build (league state,
+    output/hub_salt.json). With the salt fixed, the key a phone derived from
+    the passphrase stays valid across nightly builds; it stops working only
+    when the passphrase changes, and then the page just asks again (the
+    shell drops a stored key that fails to decrypt). Created once, at the
+    first build that has none; a malformed file raises."""
+    from . import hub_crypto
+    p = Path(base_path) / SALT_REL
+    if p.is_file():
+        try:
+            salt = hub_crypto.unb64(json.loads(p.read_text(encoding="utf-8"))["salt"])
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            raise PublishError(f"{SALT_REL} is malformed ({e}): fix it or remove it to start a new "
+                               "salt (every phone then asks for the passphrase once)") from None
+        if len(salt) != hub_crypto.SALT_BYTES:
+            raise PublishError(f"{SALT_REL} holds a {len(salt)}-byte salt, not {hub_crypto.SALT_BYTES}")
+        return salt
+    if not create:
+        raise PublishError(f"{SALT_REL} is missing")
+    salt = hub_crypto.new_salt()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_text(json.dumps({"salt": hub_crypto.b64(salt),
+                               "_comment": "The hub's PBKDF2 salt (modules/hub_publish.hub_salt). "
+                                           "Keep it: a new one makes every phone ask again."},
+                              indent=2) + "\n", encoding="utf-8")
+    tmp.replace(p)
+    return salt
+
+
 def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
           iterations: int = None, now=None, out_dir=None) -> dict:
     """Write the publish directory and scan it. Returns a report; raises
@@ -142,6 +176,7 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
     inner = json.dumps({"page": page, "issues": {f: e["key_b64"] for f, e in by_file.items()}},
                        separators=(",", ":")).encode("utf-8")
     kw = {} if iterations is None else {"iterations": iterations}
+    kw["salt"] = hub_salt(base)
     for attempt in range(1, MAX_RESEAL + 1):
         bundle = hub_crypto.make_bundle(passphrase, inner, **kw)
         shell = hub_page.shell_html(hub_crypto.bundle_json(bundle)).encode("utf-8")

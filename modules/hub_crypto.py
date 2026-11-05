@@ -2,7 +2,9 @@
 hub_crypto.py -- the hub's encryption (Step 1b; design s.3, decision 2).
 
     page    AES-256-GCM, key = PBKDF2-HMAC-SHA256(passphrase, salt,
-            ITERATIONS), a new random 16-byte salt and 12-byte IV per build.
+            ITERATIONS), the hub's 16-byte salt (kept in league state,
+            output/hub_salt.json, so remembered phones stay unlocked) and a
+            new random 12-byte IV per build.
             The browser derives the same key with WebCrypto.
     issues  each archived issue is encrypted ONCE, at archive time, with its
             own random 256-bit AES-GCM key (modules/hub_archive). That key is
@@ -91,10 +93,21 @@ def new_key() -> bytes:
     return secrets.token_bytes(KEY_BYTES)
 
 
-def make_bundle(passphrase: str, plaintext: bytes, iterations: int = ITERATIONS) -> dict:
+def new_salt() -> bytes:
+    return secrets.token_bytes(SALT_BYTES)
+
+
+def make_bundle(passphrase: str, plaintext: bytes, iterations: int = ITERATIONS,
+                salt: bytes = None) -> dict:
     """The page bundle the decrypt shell carries: version, KDF, iterations,
-    salt, iv, ciphertext. A new salt and IV every call."""
-    salt = secrets.token_bytes(SALT_BYTES)
+    salt, iv, ciphertext. A new IV every call. The salt is the hub's own,
+    kept across builds (hub_publish.hub_salt) so a phone's remembered key
+    keeps working night after night (Nick, 11-05: the hub asked again the
+    morning after "remember this phone"); a new random one when none is
+    given (tests)."""
+    salt = new_salt() if salt is None else salt
+    if len(salt) != SALT_BYTES:
+        raise ValueError(f"the salt must be {SALT_BYTES} bytes")
     key = derive_key(passphrase, salt, iterations)
     sealed = seal(key, plaintext)
     return {"v": BUNDLE_VERSION, "kdf": "PBKDF2-SHA256", "iter": iterations, "salt": b64(salt),

@@ -567,3 +567,50 @@ def test_real_publish_directory_has_no_plaintext():
     assert len(terms) > 100
     scan = hub_publish.scan_dir(ROOT / "output" / "hub_publish", terms)
     assert scan["files"] and scan["hits"] == {}
+
+
+# --- 11-05: "remember this phone" survives the nightly rebuild ----------------
+
+def _bundle_of(tmp_path):
+    shell = (hub_publish.publish_dir(tmp_path) / "index.html").read_text(encoding="utf-8")
+    return json.loads(re.search(r'id="hub-bundle">(.*?)</script>', shell, re.S).group(1))
+
+
+def test_a_remembered_phone_still_opens_the_next_nights_build(tmp_path):
+    """Nick, 11-05: the hub asked for the passphrase again the morning after
+    "remember this phone", because every build drew a new salt. The salt is
+    now the hub's own (output/hub_salt.json): the key a phone stored from
+    last night's page opens tonight's, while the IV still changes."""
+    p = publish_world(tmp_path)
+    hub_publish.build(tmp_path, p, PASS, terms=TERMS, iterations=1000, now=GEN)
+    first = _bundle_of(tmp_path)
+    stored = hub_crypto.derive_key(PASS, hub_crypto.unb64(first["salt"]), first["iter"])
+    assert (tmp_path / "output" / "hub_salt.json").is_file()
+    hub_publish.build(tmp_path, p, PASS, terms=TERMS, iterations=1000, now=GEN)
+    second = _bundle_of(tmp_path)
+    assert second["salt"] == first["salt"] and second["iv"] != first["iv"]
+    assert hub_crypto.open_sealed(stored, hub_crypto.unb64(second["iv"]) + hub_crypto.unb64(second["ct"]))
+    # a changed passphrase: the stored key fails, and the shell drops it and asks again
+    hub_publish.build(tmp_path, p, PASS + " changed", terms=TERMS, iterations=1000, now=GEN)
+    third = _bundle_of(tmp_path)
+    from cryptography.exceptions import InvalidTag
+    with pytest.raises(InvalidTag):
+        hub_crypto.open_sealed(stored, hub_crypto.unb64(third["iv"]) + hub_crypto.unb64(third["ct"]))
+    assert "function(){clearStored();return false;}" in hub_page.SHELL_JS
+
+
+def test_the_hub_salt_is_created_once_and_a_malformed_one_raises(tmp_path):
+    a = hub_publish.hub_salt(tmp_path)
+    assert hub_publish.hub_salt(tmp_path) == a and len(a) == 16
+    (tmp_path / "output" / "hub_salt.json").write_text('{"salt": 3}', encoding="utf-8")
+    with pytest.raises(hub_publish.PublishError, match="malformed"):
+        hub_publish.hub_salt(tmp_path)
+
+
+def test_the_hub_salt_is_league_state_and_ignored():
+    import subprocess
+    from modules import state_manifest as sm
+    rel = "output/hub_salt.json"
+    assert sm.load(ROOT).contains(rel)
+    r = subprocess.run(["git", "check-ignore", "--no-index", rel], cwd=str(ROOT), capture_output=True, text=True)
+    assert r.stdout.split() == [rel]
