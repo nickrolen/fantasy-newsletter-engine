@@ -671,6 +671,18 @@ def add_budget_week(add, rulings, schedule, ledger=None):
 LEDGER_BY_MODE = object()     # adds_by_budget_week's default: the ledger iff ledger_mode is "on"
 
 
+def ledger_by_mode(base_path):
+    """add_budget_week's `ledger` argument as the mode says: the move ledger's
+    claims (move_ledger.budget_claims) when roster_moves.ledger_mode is "on",
+    None (the rulings alone) in "shadow". adds_by_budget_week's default, and
+    the hub's moves by budget week (modules/hub_moves) place each logged add
+    with the same argument, so the two can never count by different rules."""
+    from . import move_ledger
+    if move_ledger.mode() == "on":
+        return move_ledger.budget_claims(move_ledger.entries(move_ledger.read_rows(Path(base_path))))
+    return None
+
+
 def adds_by_budget_week(base_path, schedule: dict, ledger=LEDGER_BY_MODE) -> dict:
     """{budget week: {manager: [player, ...]}} over every synced waivers file
     (data/waivers_week*.txt), the rulings applied, each add placed by
@@ -682,9 +694,7 @@ def adds_by_budget_week(base_path, schedule: dict, ledger=LEDGER_BY_MODE) -> dic
     None) to choose (move_ledger.shadow_compare does both)."""
     base = Path(base_path)
     if ledger is LEDGER_BY_MODE:
-        from . import move_ledger
-        ledger = (move_ledger.budget_claims(move_ledger.entries(move_ledger.read_rows(base)))
-                  if move_ledger.mode() == "on" else None)
+        ledger = ledger_by_mode(base)
     rulings = load_all(base, schedule)
     out: dict = {}
     files = []

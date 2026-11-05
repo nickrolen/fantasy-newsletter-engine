@@ -104,5 +104,11 @@ def hub_tags(row: dict, rostered) -> dict:
     # OFS is kept too: it is no chain tag (the line prices it as a season-long
     # out), but the hub's statuses and grid must see it (reviewing session,
     # 11-04: a rostered OFS player showed as healthy and counted in the grid)
-    return {n: str(t) for n, t in dict(resolved).items()
-            if absence.chain_tag(t) is not None or absence.season_out(t)}
+    return {n: str(t) for n, t in dict(resolved).items() if kept_for_hub(t)}
+
+
+def kept_for_hub(tag) -> bool:
+    """A tag the hub's statuses and grid read: one the line chains, or OFS
+    (hub_tags; the next-week grid's joining players, hub_state)."""
+    from . import absence
+    return absence.chain_tag(tag) is not None or bool(absence.season_out(tag))

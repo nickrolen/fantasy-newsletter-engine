@@ -794,7 +794,16 @@ def budget_claims(ents: list) -> list:
 
 def _yahoo_added(world: World, claim: dict) -> bool:
     """The Yahoo add applying `claim` is in the log (on its window day, to its team)."""
-    for t in world.transactions:
+    return claim_in_log(world.transactions, claim)
+
+
+def claim_in_log(transactions, claim: dict) -> bool:
+    """The Yahoo add applying `claim` ({"manager", "player", "window"}) is in
+    `transactions` (the transaction log): made on its window day, to its team.
+    A claim applied in Monday's window is pending until the night's
+    verification, so a counter that adds pending claims to Yahoo's must skip
+    these (adds_used here; the hub's moves by budget week)."""
+    for t in transactions:
         if t["league_day"] != claim["window"]:
             continue
         for p in t["players"]:
@@ -1036,6 +1045,25 @@ def _line_text(x: dict) -> str:
             "add": f"{m}: add {n}",
             "drop_after_join": f"{m}: drop {n} (just added; rule 12)",
             "il_activate": f"{m}: activate {n} from the IL slot"}[x["phase"]]
+
+
+line_text = _line_text          # one checklist line in words (the hub's grid note uses it too)
+
+
+def rosters_after(world: World, rows: list, states: list, upto_week: int) -> dict:
+    """The rosters as they will stand once every live entry (pending, unvoided,
+    its window still open) up to window `upto_week` is applied, window by
+    window in the checklist's order (simulate, every entry non-strict: a part
+    already in Yahoo's roster is skipped, one that can no longer apply is
+    noted). Facts, in both ledger modes: the hub's next-week grid (task 43a).
+    {"rosters": {m: [names]}, "il": {m: [names]}, "lines": [checklist line
+    texts, in order], "notes": [parts that could not apply], "entries": [ids]}."""
+    ents = [e for e in live(world, entries(rows), states) if int(e["window_week"]) <= int(upto_week)]
+    sim = simulate(world, ents, int(upto_week), strict=set())
+    lines = [line_text(x) for w in sorted(sim["lines"]) for x in sim["lines"][w]["lines"]]
+    return {"rosters": {m: list(t.active) + list(t.il) for m, t in sim["teams"].items()},
+            "il": {m: list(t.il) for m, t in sim["teams"].items()},
+            "lines": lines, "notes": list(sim["notes"]), "entries": [e["id"] for e in ents]}
 
 
 def checklist(world: World, rows: list, states: list, week: int, *, run_id: str = None) -> dict:
@@ -1323,6 +1351,9 @@ def hub_view(base_path, now: datetime, nba_schedule, *, feed_days: int = 7) -> d
       chips     {manager: {player: [chip]}}               "leaves Mon MM-DD", "IL from ...",
                                                            "active from ..."
       pending_adds {claim week: {manager: [player]}}      live claims not yet in Yahoo
+      live_claims  [{"manager", "player", "window", "claim_week", "entry"}]
+                                                           the same claims, one row each
+                                                           (the moves by budget week)
       feed      [moves-feed items], the entries claimed in the last `feed_days`
                 days or still pending, with their states
     Live = pending, unvoided, its window not yet closed."""
@@ -1330,7 +1361,8 @@ def hub_view(base_path, now: datetime, nba_schedule, *, feed_days: int = 7) -> d
     base = Path(base_path)
     rows, states = read_rows(base), read_states(base)
     ents = entries(rows)
-    out = {"claimed": {}, "dropped": {}, "joins": {}, "chips": {}, "pending_adds": {}, "feed": []}
+    out = {"claimed": {}, "dropped": {}, "joins": {}, "chips": {}, "pending_adds": {}, "live_claims": [],
+           "feed": []}
     since = now.date() - timedelta(days=feed_days - 1)
     for e in ents:
         st = state_of(e, states)
@@ -1349,6 +1381,8 @@ def hub_view(base_path, now: datetime, nba_schedule, *, feed_days: int = 7) -> d
                         {"player": n, "window": e["window"], "entry": e["id"],
                          "text": f"+ {n} joins {_mon(wday)} (claimed {_mon(claimed.date())})"})
                     out["pending_adds"].setdefault(int(e["claim_week"]), {}).setdefault(m, []).append(n)
+                    out["live_claims"].append({"manager": m, "player": n, "window": e["window"],
+                                               "claim_week": int(e["claim_week"]), "entry": e["id"]})
                 elif ph == "drop":
                     out["claimed"].pop(n, None)
                     out["dropped"][n] = info

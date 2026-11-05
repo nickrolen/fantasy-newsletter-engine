@@ -208,14 +208,19 @@ def test_the_feed_shows_drops_and_trades_with_times(tmp_path):
     assert "Hayden gets Jayson Tatum" in items[1]["what"]
 
 
-def test_the_hub_feed_reads_the_log_newest_first(tmp_path):
-    from modules import hub_state
+def test_the_hub_moves_read_the_log_newest_first_in_each_week(tmp_path):
+    """The hub's moves (task 43: by budget week, modules/hub_moves) read this
+    log, newest first within a week; no log raises."""
+    from modules import hub_moves
     _sync(tmp_path, [ADD, ADD_DROP, DROP, TRADE])
-    feed = hub_state.build_moves(tmp_path, SCHEDULE, date(2026, 11, 5))
-    assert [x["time"] for x in feed["items"]] == ["8:45 PM", "9:05 AM", "11:18 AM", "6:12 AM"]
+    feed = hub_moves.by_week(tlog.transactions(tmp_path), [], SCHEDULE, None,
+                             {3: {"Benton": ["Davion Mitchell"], "Nick": ["Miles Bridges"]}}, week=3,
+                             managers=["Nick", "Hayden", "Garrett", "Benton"], budget=3, mode="shadow")
+    wk3 = next(t for t in feed["weeks"] if t["key"] == "3")
+    assert [x["time"] for x in wk3["items"]] == ["8:45 PM", "9:05 AM", "11:18 AM", "6:12 AM"]
     assert "dates only" not in feed["note"] and "adds only" not in feed["note"]
-    with pytest.raises(hub_state.HubInputError, match="transaction_log"):
-        hub_state.build_moves(tmp_path / "nowhere", SCHEDULE, date(2026, 11, 5))
+    with pytest.raises(hub_moves.MovesError, match="transaction_log"):
+        hub_moves.build(tmp_path / "nowhere", SCHEDULE, 3, managers=["Nick"], budget=3)
 
 
 # =============================================================================

@@ -433,9 +433,11 @@
         ]
     },
     "hub": {
-        "_comment": "The hub page (Step 1b, claude/HANDOFF_STEP1B_HUB_PAGE_2026-10-31.md; modules/hub_state.py). Both keys required. free_agents_top_n: how many free agents the hub lists, by Yahoo projection. light_night_max: a day on the games grid with this many players or fewer playing is marked light (the approved mockup's legend: 4 or fewer).",
+        "_comment": "The hub page (Step 1b, claude/HANDOFF_STEP1B_HUB_PAGE_2026-10-31.md; modules/hub_state.py). Every key required (stash_top_n added 11-05). free_agents_top_n: how many free agents the hub lists, by Yahoo projection. light_night_max: a day on the games grid with this many players or fewer playing is marked light (the approved mockup's legend: 4 or fewer).",
         "free_agents_top_n": 10,
-        "light_night_max": 4
+        "light_night_max": 4,
+        "stash_top_n": 5,
+        "_stash_top_n": "Task 42 (Nick, 11-05): the hub's stash table under the free agents lists at most this many free agents tagged O or OFS (rule 2: only they can go straight into an IL slot), by Yahoo's projection. A display, not advice. Required: missing or below 1 raises (modules/hub_state.hub_config)."
     },
     "payouts": {
         "_comment": "Manager-to-manager payments; the league keeps no pot. USD.",

@@ -160,7 +160,7 @@ def test_the_ranking_orders_by_two_week_points_then_proj_then_name():
     assert [r["name"] for r in rows] == ["F4", "F1", "F2", "F3", "F0"]
     assert [r["pts"] for r in rows] == ["100.0", "80.0", "80.0", "80.0", "0.0"]
     f0 = rows[-1]
-    assert (f0["proj"], f0["gl"], f0["next"], f0["status"]) == ("45.0", "0", "0", "override")
+    assert (f0["proj"], f0["g1"], f0["g2"], f0["status"]) == ("45.0", "0", "0", "override")
     assert all(isinstance(v, str) for r in rows for k, v in r.items()
                if not k.startswith("_") and k not in ("tags",))
 
@@ -196,7 +196,7 @@ def test_the_free_agent_numbers_on_the_page_are_payload_strings():
     p = sample_payload()
     page = hub_page.render(p, now=GEN)
     sec = page[page.index("Best free agents"):page.index("<h2>Advice</h2>")]
-    known = " ".join(payload_strings(p["free_agents"]))
+    known = " ".join(payload_strings(p["free_agents"])) + " " + " ".join(payload_strings(p["stash"]))
     for n in re.findall(r"\d+(?:[.,]\d+)*", visible_text(sec)):
         assert n in known, n
 
@@ -220,8 +220,11 @@ def test_the_feed_items_carry_each_parts_kind_and_marker(tmp_path):
 
 
 def test_each_kind_renders_its_class_and_marker_and_an_add_drop_shows_both(tmp_path):
+    from modules import hub_moves
     _sync(tmp_path, [ADD, ADD_DROP, DROP, TRADE])
-    feed = hs.build_moves(tmp_path, SCHEDULE, D(11, 5))
+    feed = hub_moves.by_week(tlog.transactions(tmp_path), [], SCHEDULE, None,
+                             {3: {"Benton": ["Davion Mitchell"], "Nick": ["Miles Bridges"]}}, week=3,
+                             managers=["Nick", "Hayden", "Garrett", "Benton"], budget=3, mode="shadow")
     page = hub_page.render(sample_payload(moves=feed), now=GEN)
     for kind, marker, text in (("add", "+", "added Davion Mitchell"), ("drop", "\u2212", "dropped Kawhi Leonard"),
                                ("trade", "\u21c4", "Hayden gets Jayson Tatum")):
@@ -344,19 +347,25 @@ def real_all_free_agents():
     return payload
 
 
+def _games(r):
+    """Both columns' games; a chat-dropped player's first column is a dash
+    before the window closes (he plays from the next Monday)."""
+    return sum(int(r[k]) for k in ("g1", "g2") if r[k].isdigit())
+
+
 def test_real_kawhi_scores_nothing_and_ranks_below_every_healthy_free_agent_with_games(real_all_free_agents):
     p = real_all_free_agents
     rows = p["free_agents"]["rows"]
     names = [r["name"] for r in rows]
     if "Kawhi Leonard" not in names:
         pytest.skip("Kawhi Leonard is not a free agent today")
-    if p["week"] + 1 > 5:
-        pytest.skip("past week 4: next week is no longer inside Kawhi's out weeks")
+    if max(w for w in p["free_agents"]["weeks"] if w is not None) > 5:
+        pytest.skip("the columns reach past week 5: no longer inside Kawhi's out weeks (back 11-23)")
     k = rows[names.index("Kawhi Leonard")]
-    assert (k["gl"], k["next"], k["pts"]) == ("0", "0", "0.0")
+    assert (k["g1"], k["g2"], k["pts"]) == ("0", "0", "0.0")
     assert [c["text"] for c in k["tags"]] == ["O \u00b7 back 11-23"]
     healthy_with_games = [i for i, r in enumerate(rows)
-                          if r["status"] == "healthy" and int(r["gl"]) + int(r["next"]) > 0]
+                          if r["status"] == "healthy" and _games(r) > 0]
     assert healthy_with_games and max(healthy_with_games) < names.index("Kawhi Leonard")
 
 
@@ -367,8 +376,8 @@ def test_real_free_agents_are_ranked_by_points_then_proj_then_name(real_all_free
     # sorted wherever the rounded values differ
     for a, b in zip(keys, keys[1:]):
         assert a[:1] <= b[:1]
-    for r in rows:                     # Pts = Proj x (GL + Next), up to the strings' rounding
-        games = int(r["gl"]) + int(r["next"])
+    for r in rows:                     # Pts = Proj x (both columns' games), up to the strings' rounding
+        games = _games(r)
         assert abs(float(r["pts"]) - float(r["proj"]) * games) <= 0.05 * games + 0.05 + 1e-9, r["name"]
 
 

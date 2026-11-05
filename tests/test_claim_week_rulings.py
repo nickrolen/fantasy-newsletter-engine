@@ -539,9 +539,18 @@ def test_no_module_counts_adds_by_week_but_through_add_budget_week():
     # the hub (step 1b) shows adds used of 3 per manager, through adds_by_budget_week
     # the move ledger (step 2) counts through adds_by_budget_week too: the World's
     # Yahoo-add count (from_base and its yahoo_adds) and shadow mode's comparison
+    # the hub's moves by budget week (task 43, 11-05): its adds-used totals are
+    # adds_by_budget_week's, and it places every logged add with add_budget_week
+    # and the same ledger argument (ledger_by_mode), checked below
     assert set(counters) == {"report_builder.py:build_add_budget", "advice_runner.py:build_advice",
                              "hub_state.py:build", "move_ledger.py:from_base",
-                             "move_ledger.py:yahoo_adds", "move_ledger.py:shadow_compare"}
+                             "move_ledger.py:yahoo_adds", "move_ledger.py:shadow_compare",
+                             "hub_moves.py:build"}
+    hm = {fn.name: fn for fn in _functions(ROOT / "modules" / "hub_moves.py")}
+    assert "add_budget_week" in _calls(hm["place"])
+    assert {"ledger_by_mode", "adds_by_budget_week"} <= _calls(hm["build"])
+    by_name_tr = {fn.name: fn for fn in _functions(ROOT / "modules" / "transaction_rulings.py")}
+    assert "ledger_by_mode" in _calls(by_name_tr["adds_by_budget_week"])
 
     tr_path = ROOT / "modules" / "transaction_rulings.py"
     week_callers = {fn.name for fn in _functions(tr_path) if "week_of" in _calls(fn)}

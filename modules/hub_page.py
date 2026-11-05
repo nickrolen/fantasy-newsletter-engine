@@ -117,7 +117,14 @@ border-radius:8px;font-size:14px;font-weight:600;color:#5B6270}
 .k{text-align:right;font-size:14px;font-weight:700}.k.i{font-size:13px;color:#5B6270;font-weight:500}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px;font-size:11px;color:#5B6270;border-top:1px solid #EEF0F3}
 .legend .sw{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:6px}
-.fa-h,.fa-r{display:grid;grid-template-columns:minmax(0,1fr) 40px 30px 36px 50px;gap:4px;padding:10px 12px;align-items:center}
+.fa-h,.fa-r{display:grid;grid-template-columns:minmax(0,1fr) 40px 38px 38px 50px;gap:4px;padding:10px 12px;align-items:center}
+.st-h,.st-r{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:4px;padding:10px 12px;align-items:center}
+.st-h{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #E3E6EB}
+.st-r{border-bottom:1px solid #EEF0F3}
+.wk{font:inherit;font-size:14px;font-weight:600;min-height:40px;padding:0 10px;border-radius:8px;border:1px solid #C9CED6;
+background:#fff;color:#121417}
+.used{display:flex;flex-wrap:wrap;gap:6px 14px;padding:12px 14px;border-bottom:1px solid #EEF0F3;font-size:13px;font-weight:600}
+.mvp.void .t{text-decoration:line-through}
 .fa-r .tags{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
 .fa-r .pts{font-weight:700;color:#121417}
 .fa-h{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #E3E6EB}
@@ -199,8 +206,17 @@ STALE_TEXT = ("This hub is more than %d hours old and may be wrong. The nightly 
 
 
 def _move_parts(parts) -> str:
-    return "".join(f'<span class="mvp {clean(x["kind"])}"><span class="mk">{clean(x["marker"])}</span>'
-                   f'{clean(x["text"])}</span>' for x in parts)
+    """One line per part; a voided add (task 43) is struck through and still
+    carries its marker and colour (the item's state chip says "Voided")."""
+    out = []
+    for x in parts:
+        if x.get("void"):
+            out.append(f'<span class="mvp {clean(x["kind"])} void"><span class="mk">{clean(x["marker"])}</span>'
+                       f'<span class="t">{clean(x["text"])}</span></span>')
+        else:
+            out.append(f'<span class="mvp {clean(x["kind"])}"><span class="mk">{clean(x["marker"])}</span>'
+                       f'{clean(x["text"])}</span>')
+    return "".join(out)
 
 
 def _tags(chips) -> str:
@@ -322,16 +338,34 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
     fa = payload["free_agents"]
     o.append(f'<section><div class="row-b"><h2>Best free agents</h2><span class="aside">{clean(fa["aside"])}'
              '</span></div><div class="card"><div class="fa-h"><span>Player</span><span style="text-align:right">'
-             'Proj</span><span style="text-align:right">GL</span><span style="text-align:right">Next</span>'
+             f'Proj</span><span style="text-align:right">{clean(fa["cols"][0])}</span>'
+             f'<span style="text-align:right">{clean(fa["cols"][1])}</span>'
              f'<span style="text-align:right">{clean(fa["pts_label"])}</span></div>')
+    if not fa["rows"]:
+        o.append(f'<div class="empty">{clean(fa["empty"])}</div>')
     for r in fa["rows"]:
         o.append(f'<div class="fa-r" data-status="{clean(r["status"])}"><span class="pn">'
                  f'<span class="n">{clean(r["name"])}</span><span class="tags">'
                  f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span>{_tags(r["tags"])}</span></span>'
                  f'<span class="num">{clean(r["proj"])}</span>'
-                 f'<span class="num">{clean(r["gl"])}</span><span class="num">{clean(r["next"])}</span>'
+                 f'<span class="num">{clean(r["g1"])}</span><span class="num">{clean(r["g2"])}</span>'
                  f'<span class="num pts">{clean(r["pts"])}</span></div>')
     o.append(f'<div class="empty" style="font-size:12px">{clean(fa["note"])}</div></div></section>')
+
+    # the stash candidates (task 42), under the free agents
+    st = payload["stash"]
+    o.append(f'<section><div class="row-b"><h2>Stash candidates</h2><span class="aside">{clean(st["aside"])}'
+             f'</span></div><div class="card"><div class="empty" style="font-size:13px">{clean(st["open_il"])}</div>'
+             '<div class="st-h"><span>Player</span><span style="text-align:right">Proj</span></div>')
+    if not st["rows"]:
+        o.append(f'<div class="empty">{clean(st["empty"])}</div>')
+    for r in st["rows"]:
+        o.append(f'<div class="st-r" data-status="{clean(r["status"])}"><span class="pn">'
+                 f'<span class="n">{clean(r["name"])}</span><span class="tags">'
+                 f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span>{_tags(r["tags"])}</span>'
+                 + (f'<span class="s">{clean(r["season_note"])}</span>' if r["season"] else "")
+                 + f'</span><span class="num">{clean(r["proj"])}</span></div>')
+    o.append(f'<div class="empty" style="font-size:12px">{clean(st["note"])}</div></div></section>')
 
     if payload.get("advice") is not None:
         raise ValueError("the hub's advice slot renders only its empty state until advice v2 exists")
@@ -339,16 +373,29 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              f'{clean(payload["advice_empty"])}</div></div></section>')
 
     mv = payload["moves"]
-    o.append("<section><h2>Moves &middot; last 7 days</h2><div class=\"card\">")
-    if not mv["items"]:
-        o.append(f'<div class="empty">{clean(mv["empty"])}</div>')
-    for x in mv["items"]:
-        o.append(f'<div class="mv"><div class="when"><b>{clean(x["day"])}</b><span>{clean(x["date"])}</span>'
-                 f'<span>{clean(x["time"])}</span></div>'
-                 f'<div class="body"><b>{clean(x["who"])}</b>{_move_parts(x["parts"])}'
-                 f'<span style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip st">{clean(x["state"])}</span>'
-                 f'<span class="small" style="font-size:11px">{clean(x["note"])}</span></span></div></div>')
-    o.append(f'<div class="empty" style="font-size:12px">{clean(mv["note"])}</div></div></section>')
+    o.append('<section><div class="row-b"><h2>Moves</h2><select class="wk" id="mv-week" aria-label="Budget week">')
+    for t in mv["weeks"]:
+        sel = " selected" if t["key"] == mv["default"] else ""
+        o.append(f'<option value="{clean(t["key"])}"{sel}>{clean(t["label"])}</option>')
+    o.append("</select></div>")
+    for t in mv["weeks"]:
+        hid = "" if t["key"] == mv["default"] else " hidden"
+        o.append(f'<div class="card" data-mvw="{clean(t["key"])}"{hid}>')
+        if t["used"] is not None:
+            o.append('<div class="used">' + "".join(
+                f'<span class="{"adds-over" if u["over"] else ""}">{clean(u["text"])}</span>' for u in t["used"])
+                + "</div>")
+        o.append(f'<div class="empty" style="font-size:12px;padding:8px 14px">{clean(t["used_note"])}</div>')
+        if not t["items"]:
+            o.append(f'<div class="empty">{clean(mv["empty"])}</div>')
+        for x in t["items"]:
+            o.append(f'<div class="mv"><div class="when"><b>{clean(x["day"])}</b><span>{clean(x["date"])}</span>'
+                     f'<span>{clean(x["time"])}</span></div>'
+                     f'<div class="body"><b>{clean(x["who"])}</b>{_move_parts(x["parts"])}'
+                     f'<span style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip st">{clean(x["state"])}</span>'
+                     f'<span class="small" style="font-size:11px">{clean(x["note"])}</span></span></div></div>')
+        o.append("</div>")
+    o.append(f'<div class="note">{clean(mv["note"])}</div></section>')
 
     nl = payload["newsletter"]
     o.append("<section><h2>The newsletter</h2>")
@@ -499,6 +546,11 @@ document.addEventListener('click',function(e){
     document.getElementById('issue-frame').removeAttribute('src');return;}
   if(e.target.id==='forget'){e.preventDefault();if(window.HUB){window.HUB.forget();}return;}
 });
+var wk=document.getElementById('mv-week');
+if(wk){wk.addEventListener('change',function(){
+  var ps=document.querySelectorAll('[data-mvw]');
+  for(var i=0;i<ps.length;i++){ps[i].hidden=(ps[i].getAttribute('data-mvw')!==wk.value);}
+});}
 function openFrame(url){var v=document.getElementById('issue-view');document.getElementById('issue-frame').src=url;v.hidden=false;}
 function alertBox(msg){var d=document.createElement('div');
   d.className='stale';d.textContent=msg;document.body.insertBefore(d,document.body.firstChild);}
