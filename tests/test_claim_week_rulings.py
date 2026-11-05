@@ -537,8 +537,11 @@ def test_no_module_counts_adds_by_week_but_through_add_budget_week():
                 counters.append(f"{path.name}:{fn.name}")
     assert not offenders, offenders
     # the hub (step 1b) shows adds used of 3 per manager, through adds_by_budget_week
+    # the move ledger (step 2) counts through adds_by_budget_week too: the World's
+    # Yahoo-add count (from_base and its yahoo_adds) and shadow mode's comparison
     assert set(counters) == {"report_builder.py:build_add_budget", "advice_runner.py:build_advice",
-                             "hub_state.py:build"}
+                             "hub_state.py:build", "move_ledger.py:from_base",
+                             "move_ledger.py:yahoo_adds", "move_ledger.py:shadow_compare"}
 
     tr_path = ROOT / "modules" / "transaction_rulings.py"
     week_callers = {fn.name for fn in _functions(tr_path) if "week_of" in _calls(fn)}

@@ -425,7 +425,8 @@ def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rul
 
 def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, players,
           statuses: dict, rules: dict, standin_gp: float, order: list = None,
-          assume_healthy: bool = False, no_standins=frozenset(), drops: DropContext = None) -> dict:
+          assume_healthy: bool = False, no_standins=frozenset(), drops: DropContext = None,
+          known: dict = None) -> dict:
     """{week: {manager: {"active", "il", "added", "dropped", "waiting", "standins",
     "decisions"}}}
     from start_week (the IL file's week, locked) through the last window.
@@ -447,6 +448,19 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                 and show the plan does not move
     drops:      the injured-drop decision's inputs (DropContext), used only when
                 a team's injured outnumber its IL slots; None then RAISES.
+    known:      the move ledger's pending moves (step 2, "on" mode only;
+                move_ledger.known_moves): {window week: {manager: {"il_place",
+                "drop", "add", "il_activate"}}}. Each is a KNOWN pickup: applied at
+                its window before the plan's own moves (IL placements, drops,
+                adds, then drops of a player who joins in that window -- rule 12 --
+                then activations), the added player by name, never a stand-in,
+                and using none of that window's stand-in budget (the claim used
+                its claim week's, rule 7). A window at or before start_week (the
+                Monday's own window, still open) is applied to the start. A part
+                that cannot apply (a player not where it says) RAISES: the ledger
+                checked it, so the rosters moved under it. None: no known moves
+                (shadow mode, and every plan before step 2) -- the plan is
+                unchanged.
     "added" is the stand-ins added that week, "standins" their projections,
     "waiting" the open spots the add budget left for the next window,
     "decisions" each injured-drop decision that week (player, action, why,
@@ -477,9 +491,14 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
         if len(il) > rules["il_slots"]:
             raise ValueError(f"{m} has {len(il)} players in IL slots, more than {rules['il_slots']}")
         state[m] = {"active": active, "il": il, "standins": set(), "open_count": 0}
+    known = {int(w): v for w, v in (known or {}).items()}
+    start_known = {}
+    for w in sorted(w for w in known if w <= int(start_week)):
+        for m, mv in known[w].items():
+            start_known.setdefault(m, []).extend(_apply_known(state, m, mv, w, players, rules))
     plan = {int(start_week): {m: {"active": sorted(state[m]["active"]), "il": sorted(state[m]["il"]),
                                    "added": [], "dropped": [], "waiting": 0, "standins": {},
-                                   "decisions": []}
+                                   "decisions": [], **({"known": start_known[m]} if m in start_known else {})}
                               for m in managers}}
     day_of = {int(w): d for w, d in windows}
 
@@ -506,6 +525,9 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
         for m in managers:
             s = state[m]
             added, dropped, made = [], [], {}
+            # 0. the ledger's known moves for this window (on mode only)
+            known_here = (_apply_known(state, m, known[week][m], week, players, rules)
+                          if m in known.get(week, {}) else None)
             # 1. activate; over 15, drop the lowest-projected (stand-ins too)
             back = [n for n in s["il"] if _available_from(P(n), week, day)]
             for n in back:
@@ -585,8 +607,62 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
             out_week[m] = {"active": sorted(s["active"]), "il": sorted(s["il"]), "added": added,
                            "dropped": dropped, "waiting": len(names) - len(take), "standins": made,
                            "decisions": decisions}
+            if known_here is not None:
+                out_week[m]["known"] = known_here
         plan[week] = out_week
     return plan
+
+
+def _apply_known(state: dict, m: str, mv: dict, week: int, players, rules: dict) -> list:
+    """Apply one manager's known ledger moves at a window (build's `known`),
+    in the checklist's order. Returns what was done, for the plan's record."""
+    from .data_loader import PlayerIndex
+    if m not in state:
+        raise ValueError(f"week {week}: the ledger has moves for {m!r}, who has no roster")
+    s = state[m]
+    done = []
+
+    def where(n):
+        for lst in ("active", "il"):
+            hit = PlayerIndex({x: x for x in s[lst]}).get(n)
+            if hit is not None:
+                return lst, hit
+        return None, None
+
+    adds = [a for a in mv.get("add") or []]
+    for n in mv.get("il_place") or []:
+        lst, hit = where(n)
+        if lst != "active":
+            raise ValueError(f"week {week}: ledger IL+{n} for {m}, who is not in his active roster")
+        s["active"].remove(hit); s["il"].append(hit); done.append(f"IL+{hit}")
+    later = []
+    for n in mv.get("drop") or []:
+        lst, hit = where(n)
+        if lst is None:
+            if PlayerIndex({a: a for a in adds}).get(n) is not None:
+                later.append(n)                       # rule 12: he joins first, then leaves
+                continue
+            raise ValueError(f"week {week}: ledger -{n} for {m}, who is not on his roster")
+        s[lst].remove(hit); done.append(f"-{hit}")
+    for n in adds:
+        p = players.get(n)
+        if p is None:
+            raise ValueError(f"week {week}: ledger +{n} for {m} has no projection (not in PLAYERLIST)")
+        key = PlayerIndex({k: k for k in dict.keys(players)}).canonical(n) or n
+        if where(key)[0] is not None:
+            raise ValueError(f"week {week}: ledger +{n} for {m}, who already has him")
+        s["active"].append(key); done.append(f"+{key}")
+    for n in later:
+        lst, hit = where(n)
+        s[lst].remove(hit); done.append(f"-{hit} (joined and dropped, rule 12)")
+    for n in mv.get("il_activate") or []:
+        lst, hit = where(n)
+        if lst != "il":
+            raise ValueError(f"week {week}: ledger IL-{n} for {m}, who is not in an IL slot")
+        s["il"].remove(hit); s["active"].append(hit); done.append(f"IL-{hit}")
+    if len(s["il"]) > rules["il_slots"]:
+        raise ValueError(f"week {week}: the ledger leaves {m} with {len(s['il'])} in IL slots")
+    return done
 
 
 # =============================================================================
@@ -649,7 +725,14 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     from .data_loader import PlayerIndex
     fa = getattr(statuses, "free_agents", None)
     assume = bool(getattr(statuses, "free_agents_assumed_healthy", False))
+    known = getattr(data, "known_moves", None)
+    if known is None:
+        from . import move_ledger
+        # shadow mode: nothing is priced from a pending move (Nick, 11-04)
+        known = (move_ledger.known_moves(getattr(data, "base_path", "."))
+                 if move_ledger.mode() == "on" else {})
     fp = key_string(id(team_projections), id(getattr(data, "drop_context", None)),
+                    "known", json.dumps(known, sort_keys=True),
                     *sorted(f"{k}={v}" for k, v in (statuses or {}).items()),
                     "free_agents", *sorted(f"{k}={v}" for k, v in (fa or {}).items()),
                     f"assumed={assume}", f"fa_fetched={fa is not None}",
@@ -680,7 +763,7 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
                  windows=windows_for(data, start), players=players,
                  statuses={**dict(fa or {}), **dict(statuses or {})}, assume_healthy=assume,
                  rules=rules(), standin_gp=gp, order=[m for m in pick_order() if m in rosters],
-                 no_standins=frozenset(no_standins), drops=drops)
+                 no_standins=frozenset(no_standins), drops=drops, known=known)
     made = {n: p for w in plan.values() for v in w.values() for n, p in v["standins"].items()}
     notes = list(dict.fromkeys(d["bootstrap"] for w in plan.values() for v in w.values()
                                for d in v["decisions"] if "bootstrap" in d))

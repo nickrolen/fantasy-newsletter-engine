@@ -91,6 +91,11 @@ CROSS_SEASON_CONFIG = {
     # keepers are chosen (scripts/fit_keepability_v3.py), so it carries through
     # the reset untouched; the weekly build only reads it.
     "config/keepability_v3_params.json",
+    # The move ledger (step 2): append-only, never rewritten, so never reset;
+    # every entry carries its own dates (claim week, window day), and only a
+    # pending entry whose window is still open does anything, so last
+    # season's settled entries are inert. Revisit with the season reset (19c).
+    "config/MOVE_LEDGER.json",
 }
 
 

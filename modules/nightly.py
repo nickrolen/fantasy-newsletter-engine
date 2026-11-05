@@ -23,6 +23,17 @@ s.2.4 and s.4 the design. The nightly run:
                    injury tags, recorded in output/tag_records.jsonl. Tags
                    are facts: recorded before anything asks to price, so a
                    locked night still refreshes them, and the hub reads them
+ 5b ledger        the move ledger (step 2, modules/move_ledger): verify every
+                   pending entry against tonight's transaction log and IL slots
+                   (applied / missing / conflict) and flag every Yahoo move
+                   outside a Monday window that matches no entry, into
+                   data/move_ledger_states.jsonl; on a window day the first run
+                   publishes that Monday's checklist (output/move_checklist_
+                   weekN.json, IL eligibility on tonight's tags); in shadow mode,
+                   the ledger's add counts beside the rulings'. Anything to look
+                   at goes in the run record's "ledger" block and, under the
+                   workflow, ledger_flags=true (the ledger issue). A flag never
+                   stops the run: the hub still builds.
    6 line          refresh_service.run (cache key, price lock, records),
                    with step 5's tags
    7 title_odds    title_odds_run.price at the week's seed: the history row,
@@ -78,8 +89,10 @@ MODES = ("nightly", "pretip", "closing")
 STEP_TIMEOUT_S = 900
 
 STEPS = {
-    "nightly": ("engine", "logs", "sync", "settings", "tags", "line", "title_odds", "actuals", "hub"),
-    "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "line", "title_odds", "hub"),
+    "nightly": ("engine", "logs", "sync", "settings", "tags", "ledger", "line", "title_odds", "actuals",
+                "hub"),
+    "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "ledger", "line", "title_odds",
+               "hub"),
     "closing": ("engine", "window", "sync", "closing"),
 }
 
@@ -299,6 +312,52 @@ class Run:
         done.append(f"{n} rostered tag(s) recorded at {row['taken_at']}")
         return "; ".join(done)
 
+    # -- 5b
+    def step_ledger(self):
+        from . import move_ledger as ml
+        from .data_loader import load_all_data
+        mode = ml.mode()
+        rows, states = ml.read_rows(self.base), ml.read_states(self.base)
+        data = load_all_data(self.base, current_week=None)
+        world = ml.World.from_base(self.base, now=self.now, data=data)
+        new, rep = ml.verify(world, rows, states, run_id=self.run_id)
+        ml.append_states(self.base, new)
+        states = states + new
+        flags = list(rep["flags"])
+        bits = [f"{mode}: {len(rep['applied'])} applied, {len(rep['missing'])} missing, "
+                f"{len(rep['conflict'])} conflict, {len(rep['pending'])} pending, "
+                f"{len(rep['unmatched'])} outside a window"]
+        wk = world.current_week()
+        cl_block = None
+        if self.mode == "nightly" and self.today == world.window_day(wk):
+            path = ml.checklist_path(self.base, wk)
+            if path.is_file():
+                bits.append(f"week {wk} checklist already published")
+            else:
+                cl = ml.checklist(world, rows, states, wk, run_id=self.run_id)
+                from .data_loader import atomic_write_json
+                atomic_write_json(path, cl, indent=1)
+                bits.append(f"week {wk} checklist: {len(cl['lines'])} line(s), "
+                            f"{len(cl['stopped'])} team(s) stopped")
+                flags += [f"CHECKLIST STOPPED {x['team']}: {x['reason']}" for x in cl["stopped"]]
+                cl_block = {"week": wk, "lines": len(cl["lines"]), "stopped": cl["stopped"]}
+        shadow = None
+        if mode == "shadow":
+            cmp_ = ml.shadow_compare(self.base, data.schedule, ml.entries(rows))
+            shadow = {"differences": [d["text"] for d in cmp_["differences"]], "error": cmp_["error"]}
+            if cmp_["error"]:
+                flags.append(f"SHADOW the ledger's count could not be made: {cmp_['error']}")
+            flags += [f"SHADOW {d}" for d in shadow["differences"]]
+            bits.append(f"shadow: {len(cmp_['differences'])} difference(s) from the rulings"
+                        + (" (error)" if cmp_["error"] else ""))
+        self.ctx["ledger"] = {"mode": mode, "flags": flags, "applied": rep["applied"],
+                              "missing": rep["missing"], "conflict": rep["conflict"],
+                              "unmatched": rep["unmatched"], "pending": rep["pending"],
+                              "checklist": cl_block, "shadow": shadow}
+        if flags:
+            bits.append(f"{len(flags)} FLAG(S): " + " | ".join(flags))
+        return "; ".join(bits)
+
     # -- 6
     def step_line(self):
         import refresh_service as rs
@@ -406,6 +465,8 @@ class Run:
                "engine": {"commit": eng.get("commit"), "dirty": eng.get("dirty")},
                "allow_dirty_engine": self.allow_dirty, "steps": rows, "outcome": outcome,
                "exit": 1 if outcome == "refused" else 0, "error": error}
+        if self.ctx.get("ledger") is not None:
+            row["ledger"] = self.ctx["ledger"]
         from .jsonl_log import append_rows
         append_rows(self.base / RUNS_FILE, [row])
         return row
@@ -513,7 +574,23 @@ def main(argv=None) -> int:
     print(f"{mode} run {row['outcome'].upper()} in {row['seconds']} s"
           + (f": {row['error']}" if row["error"] else "")
           + f" (recorded in {RUNS_FILE.as_posix()})")
+    flags = (row.get("ledger") or {}).get("flags") or []
+    if flags:
+        print(f"MOVE LEDGER: {len(flags)} flag(s) to look at:")
+        for f_ in flags:
+            print(f"  {f_}")
+        _ledger_flags(True)
     return _ran(True, row["exit"]) if a.scheduled else row["exit"]
+
+
+def _ledger_flags(on: bool) -> None:
+    """Under the workflow: ledger_flags=true, for the step that opens (or
+    comments on) the ledger issue (scripts/ledger_issue.py). A flag is not a
+    failure: the run stays green and the hub publishes."""
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out and on:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write("ledger_flags=true\n")
 
 
 def _ran(ran: bool, code: int = 0) -> int:

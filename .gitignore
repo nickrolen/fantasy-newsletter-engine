@@ -292,3 +292,10 @@ output/nightly_last.json
 
 # The hub's salt (11-05): league state; a new one makes every phone ask for the passphrase again.
 output/hub_salt.json
+
+# The move ledger (step 2, 11-05): league state. The entries (written only by
+# scripts/ledger.py), what verification found (the nightly run), and each
+# Monday window's checklist.
+config/MOVE_LEDGER.json
+data/move_ledger_states.jsonl
+output/move_checklist_week*.json

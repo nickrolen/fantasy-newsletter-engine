@@ -662,7 +662,15 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     if budget is None:
         raise HubInputError(f"no add budget for {CURRENT_SEASON}")
     sched = data.schedule
-    adds = tr.adds_by_budget_week(base, sched).get(week, {})
+    # the move ledger (step 2): facts update as soon as an entry lands
+    from . import move_ledger as ml
+    ledger_mode = ml.mode()
+    lv = ml.hub_view(base, now, data.nba_schedule, feed_days=MOVES_DAYS)
+    adds = {m: list(v) for m, v in tr.adds_by_budget_week(base, sched).get(week, {}).items()}
+    if ledger_mode == "on":
+        # the ledger's count: a claim is used the moment it is posted (rule 12)
+        for m, v in (lv["pending_adds"].get(week) or {}).items():
+            adds.setdefault(m, []).extend(v)
     power, ranked = build_power(base, data, managers, kw, week, adds, budget,
                                 _LEAGUE_CONFIG["season"], cup_weeks())
     actuals = pa.load(base)
@@ -748,6 +756,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
             j = joined.get((m, n))
             if j:
                 chips.append({"text": f"since {_md(date.fromisoformat(j))}", "kind": "new"})
+            chips += (lv["chips"].get(m) or {}).get(n, [])
             sort = {"name": n.lower(),
                     "fppg": (s_pts / s_gp) if s_gp else -1.0,
                     "proj": float(row.get("projectedFPPG") or 0.0),
@@ -777,18 +786,39 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
             "starts": f"{starts_left[m]} starts",
             "size": roster_size_text(len(rosters.get(m, [])), n_il, active_cap, il_cap),
             "players": players, "orders": orders, "default_order": "proj",
+            "pending": [{"text": j["text"]} for j in lv["joins"].get(m, [])],
             "note": ("FPPG and L14 are actual points per game (L14: the last 14 days). Proj is "
                      "Yahoo's projection. GL is games left this week. Keep is the chance he is "
                      f"one of your {kv3.line_for(kw, m)} keepers.")}
 
     # --- free agents (task 39): status, playable games, ranked by points over two weeks
     from . import absence
-    fa_records = dl_free_agents(pl, rosters).to_dict("records")
-    fa_names = [r["player_name"] for r in fa_records]
+    claimed_idx = PlayerIndex(dict(lv["claimed"]))
+    fa_records = [r for r in dl_free_agents(pl, rosters).to_dict("records")
+                  if claimed_idx.get(r["player_name"]) is None]          # rule 10: reserved
+    dropped = {}                                                         # rule 11: free next week
+    for n, info in lv["dropped"].items():
+        row = proj.get(n)
+        if row is None:
+            raise HubInputError(f"{n}, dropped in the chat (ledger entry {info['entry']}), is not in "
+                                "data/PLAYERLIST.xlsx")
+        dropped[row["player_name"]] = info
+    fa_names = [r["player_name"] for r in fa_records] + list(dropped)
     fa_av = av.for_free_agents(fa_names, free_agent_tags(tag_row, fa_names))
     ranked_fa = rank_free_agents(fa_records, fa_av, this_days, next_days)
+    if dropped:
+        later = rank_free_agents([proj.get(n) for n in dropped], fa_av, [], next_days)
+        for r in later:
+            info = dropped[r["name"]]
+            r["gl"] = DASH
+            r["tags"] = [{"text": f"available from {_ml_mon(info['window'])}", "kind": "new"}] + r["tags"]
+        ranked_fa = sorted(ranked_fa + later, key=lambda x: (-x["_pts"], -x["_proj"], x["name"]))
     fa_rows = []
-    for r in ranked_fa[:cfg["free_agents_top_n"]]:
+    top = ranked_fa[:cfg["free_agents_top_n"]]
+    # a player dropped in the chat is news: always listed, in rank order, even
+    # below the top N (his points count next week only)
+    top += [r for r in ranked_fa[cfg["free_agents_top_n"]:] if r["name"] in dropped]
+    for r in top:
         fa_rows.append({k: v for k, v in r.items() if not k.startswith("_")})
     free = {"rows": fa_rows, "aside": "by projected points, rest of this week + next",
             "pts_label": PTS_LABEL,
@@ -796,11 +826,22 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                      "rest of this week (GL) and next week (Next). GL and Next count only games he "
                      f"will play: an injury entry's dates, OFS, and an O tag's next "
                      f"{absence.MAX_TAG_GAMES} games (no injury entry) are left out. Injured players stay listed: an O "
-                     "or OFS player can go straight into an open IL slot. Chat claims and drops "
-                     "show here once the move ledger exists (step 2).")}
+                     "or OFS player can go straight into an open IL slot. A player claimed in the "
+                     "group chat leaves this list at once; one dropped in the chat joins it, "
+                     "available from the next Monday (no games this week).")}
 
-    # --- moves
-    moves = build_moves(base, sched, today)
+    # --- moves: Yahoo's transactions and the ledger's entries, newest first
+    moves = build_moves(base, sched, today, ledger_items=lv["feed"])
+
+    # --- the Monday window's checklist, under the header on the window day
+    checklist = None
+    if today == date.fromisoformat(str(ws.week_entry(data, week)["start_date"])[:10]):
+        checklist = ml.hub_checklist(base, week)
+        if checklist is None:
+            raise HubInputError(f"today is week {week}'s window and its move checklist "
+                                f"({ml.checklist_path(Path('.'), week).as_posix()}) was never published: "
+                                "the 12:01 nightly run writes it -- run python scripts\\nightly.py "
+                                "(or python scripts\\state.py pull)")
 
     # --- newsletter
     if archive_index is None:
@@ -830,7 +871,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "free_agents": free,
         "advice": None,
         "advice_empty": "Advice is being rebuilt; it returns here once it is ready.",
-        "checklist": None,
+        "checklist": checklist,
         "moves": moves,
         "newsletter": newsletter,
         "sources": {"line": (Path("output") / f"live_lines_week{week}.json").as_posix(),
@@ -838,7 +879,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                     "actuals_through": yesterday.isoformat(),
                     "tags": f"Yahoo's tags fetched {tag_row['taken_at']} ({tag_row['mode']} run "
                             f"{tag_row['run_id']})",
-                    "il_slots": "data/IL_SLOTS.json"},
+                    "il_slots": "data/IL_SLOTS.json",
+                    "ledger": f"config/MOVE_LEDGER.json ({ledger_mode} mode)"},
     }
     return payload
 
@@ -847,7 +889,12 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
 # moves and the newsletter
 # =============================================================================
 
-def build_moves(base: Path, schedule: dict, today: date) -> dict:
+def _ml_mon(day: str) -> str:
+    d = date.fromisoformat(str(day)[:10])
+    return f"{d:%a} {d:%m-%d}"
+
+
+def build_moves(base: Path, schedule: dict, today: date, ledger_items: list = ()) -> dict:
     """Every Yahoo transaction of the last 7 league days -- adds, drops and
     trades, each with its time on the league clock -- from the transaction
     log (data/transaction_log.jsonl, step 1c), newest first. The "(week N
@@ -861,13 +908,15 @@ def build_moves(base: Path, schedule: dict, today: date) -> dict:
     start = today - timedelta(days=MOVES_DAYS - 1)
     items = [tlog.feed_item(t, schedule) for t in tlog.transactions(base)
              if start <= date.fromisoformat(t["league_day"]) <= today]
+    items += [dict(x) for x in ledger_items]
     items.sort(key=lambda x: x["_ts"], reverse=True)
     for x in items:
         del x["_ts"]
     return {"items": items,
             "empty": "No moves in the last 7 days.",
-            "note": ("Every Yahoo add, drop and trade, with its time (Pacific). Chat claims and "
-                     "injury entries join this feed with the move ledger (step 2).")}
+            "note": ("Every Yahoo add, drop and trade, with its time (Pacific), and every group-chat "
+                     "move from the ledger, with the time it was posted and its state: Pending until "
+                     "it is applied in its Monday window, then Applied (or Missing, or Conflict).")}
 
 
 def newsletter_block(index: dict, schedule: dict) -> dict:

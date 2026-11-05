@@ -33,7 +33,9 @@
     {"path": "output/title_odds_latest.json", "what": "the latest title-odds run's whole result, read by the hub's power rankings (modules/title_odds_run.py; step 1c)"},
     {"path": "output/stakes.json", "what": "each team's leverage in each remaining week, from the latest season pass, for task 18b (modules/title_odds_run.py; step 1c)"},
     {"path": "output/tag_records.jsonl", "what": "every Yahoo injury-tag fetch, append-only: the hub's statuses and the closing line's pre-tip tags (modules/tag_records.py; step 1c)"},
-    {"path": "config/.leaguehistory_applied_weeks.json", "what": "which weeks update_leaguehistory has applied, per season (changes weekly; moved private in step 1c)"}
+    {"path": "config/.leaguehistory_applied_weeks.json", "what": "which weeks update_leaguehistory has applied, per season (changes weekly; moved private in step 1c)"},
+    {"path": "config/MOVE_LEDGER.json", "what": "the move ledger: every group-chat claim, drop and trade Nick entered, append-only; written only by scripts/ledger.py (modules/move_ledger.py; step 2)"},
+    {"path": "data/move_ledger_states.jsonl", "what": "what verification found for each ledger entry (applied / missing / conflict) and every Yahoo move outside a Monday window, append-only; written by the nightly run (modules/move_ledger.verify; step 2)"}
   ],
   "dirs": [
     {"path": "data/lore_backups", "what": "lore backups (modules/lore.py)"},
@@ -62,7 +64,8 @@
     {"dir": "output", "name": "live_lines_week*.html", "what": "each week's live-line page (week 1's two pages are public exceptions)"},
     {"dir": "output", "name": "refresh_service.*", "what": "the refresh service's run log and console"},
     {"dir": "output", "name": "closing_line_week*.json", "what": "each week's closing line, the official line, priced once after the Monday window closes (modules/closing_line.py; step 1c)"},
-    {"dir": "output", "name": "closing_none_week*.json", "what": "a week with no closing line (no pre-tip tag record), recorded once so the scheduled run never retries it (closing_line.record_none; step 1c-ii)"}
+    {"dir": "output", "name": "closing_none_week*.json", "what": "a week with no closing line (no pre-tip tag record), recorded once so the scheduled run never retries it (closing_line.record_none; step 1c-ii)"},
+    {"dir": "output", "name": "move_checklist_week*.json", "what": "each Monday window's move checklist, written by that Monday's 12:01 run (modules/move_ledger.checklist; step 2)"}
   ],
   "excluded": [
     {"path": "oauth2.json", "why": "Yahoo credentials: never state, never copied (also oauth2_backup.json, oauth2.backup_*.json, *.oauth, private.json)"},

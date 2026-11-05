@@ -351,6 +351,31 @@ jobs:
               --comment "Closed by the good $MODE run $RUN_ID: $RUN_URL"
           done
 
+      # -- the move ledger's flags (step 2): their own issue, never the failure
+      #    issue -- a flag does not fail the run, and a good run does not close it
+      - name: Open or comment on the ledger issue
+        if: always() && steps.run.outputs.ledger_flags == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ steps.before.outputs.rows }}
+        run: |
+          s=engine/scripts/ledger_issue.py
+          args=(--runs-file engine/output/nightly_runs.jsonl --skip "${ROWS:-0}")
+          title="$(python3 "$s" title "${args[@]}")"
+          python3 "$s" body "${args[@]}" --run-url "$RUN_URL" > "$RUNNER_TEMP/ledger.md"
+          echo "$title"
+          gh label create move-ledger --repo "$GITHUB_REPOSITORY" --color FBCA04 \
+            --description "The move ledger flagged something (missing, conflict, outside a window, shadow)" --force
+          n="$(gh issue list --repo "$GITHUB_REPOSITORY" --label move-ledger --state open \
+                --json number --jq '.[0].number // empty')"
+          if [ -n "$n" ]; then
+            printf '\n**%s**\n' "$title" >> "$RUNNER_TEMP/ledger.md"
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/ledger.md"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label move-ledger \
+              --body-file "$RUNNER_TEMP/ledger.md"
+          fi
+
       - name: Open or comment on the failure issue
         if: failure()
         env:

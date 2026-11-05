@@ -578,7 +578,7 @@ def _first_day(schedule: dict):
     return min(starts)
 
 
-def add_budget_week(add, rulings, schedule):
+def add_budget_week(add, rulings, schedule, ledger=None):
     """The fantasy week whose add budget `add` uses, or None when it uses none.
     THE ONE PLACE this is decided (LEAGUE_RULES rules 6-7; design s.6.1a);
     every counter of adds calls it, and a source test pins that.
@@ -604,7 +604,16 @@ def add_budget_week(add, rulings, schedule):
     RAISES on two rulings naming one add, and on an add on the season's first
     day itself or in no fantasy week: the first tip is not stored (design
     s.4.1), so an opening-day add cannot be told pre-season from week 1, and
-    an add after the season cannot be placed. Neither is guessed."""
+    an add after the season cannot be placed. Neither is guessed.
+
+    `ledger` (step 2; "on" mode, modules/move_ledger.budget_claims): the move
+    ledger's claims, [{"manager", "player", "window", "claim_week", "entry"}].
+    A Yahoo add matched to a claim -- same manager and player, made on the
+    claim's window day -- counts in the claim's week (rule 7) and nowhere
+    else. A claim_week ruling naming the same add must agree with it (shadow
+    mode writes both); a void or effective-date ruling on it, a disagreeing
+    claim week, or two claims on one add RAISE. None: the rulings alone
+    (shadow mode, and every week before the ledger)."""
     get = add.get if isinstance(add, dict) else (lambda k, d=None: getattr(add, k, d))
     day = str(get("date"))[:10]
     manager = get("manager")
@@ -627,6 +636,18 @@ def add_budget_week(add, rulings, schedule):
                           + "; ".join(f"'{r.label()}'" for r in hits)
                           + " -- one add has one week")
     r = hits[0] if hits else None
+    if ledger:
+        lhits = [c for c in ledger if c["manager"] == manager and str(c["window"])[:10] == day
+                 and _same_player(c["player"], player)]
+        if len(lhits) > 1:
+            raise RulingError(f"{len(lhits)} ledger claims name the add {day} {manager} {player} "
+                              f"(entries {', '.join(str(c['entry']) for c in lhits)}) -- one add has one week")
+        if lhits:
+            c = lhits[0]
+            if r is not None and not (r.kind == "claim_week" and int(r.claim_week) == int(c["claim_week"])):
+                raise RulingError(f"the add {day} {manager} {player} is ledger entry {c['entry']}'s claim "
+                                  f"(week {c['claim_week']}) and also ruled '{r.label()}': they disagree")
+            return int(c["claim_week"])
     if r is not None and r.kind == "void":
         return None
     if r is not None and r.kind == "claim_week":
@@ -647,11 +668,23 @@ def add_budget_week(add, rulings, schedule):
     return wk
 
 
-def adds_by_budget_week(base_path, schedule: dict) -> dict:
+LEDGER_BY_MODE = object()     # adds_by_budget_week's default: the ledger iff ledger_mode is "on"
+
+
+def adds_by_budget_week(base_path, schedule: dict, ledger=LEDGER_BY_MODE) -> dict:
     """{budget week: {manager: [player, ...]}} over every synced waivers file
     (data/waivers_week*.txt), the rulings applied, each add placed by
-    add_budget_week. A claim listed in week 2's file lands in week 1 here."""
+    add_budget_week. A claim listed in week 2's file lands in week 1 here.
+
+    ledger: by default the move ledger's claims when roster_moves.ledger_mode
+    is "on", and None (the rulings alone) in "shadow" -- so every reader of the
+    add count follows the mode with no change of its own. Pass a list (or
+    None) to choose (move_ledger.shadow_compare does both)."""
     base = Path(base_path)
+    if ledger is LEDGER_BY_MODE:
+        from . import move_ledger
+        ledger = (move_ledger.budget_claims(move_ledger.entries(move_ledger.read_rows(base)))
+                  if move_ledger.mode() == "on" else None)
     rulings = load_all(base, schedule)
     out: dict = {}
     files = []
@@ -665,7 +698,7 @@ def adds_by_budget_week(base_path, schedule: dict) -> dict:
             p = parse_add_line(ln)
             if p is None:
                 continue
-            bw = add_budget_week(p, rulings, schedule)
+            bw = add_budget_week(p, rulings, schedule, ledger)
             if bw is not None:
                 out.setdefault(bw, {}).setdefault(p["manager"], []).append(p["player"])
     return out

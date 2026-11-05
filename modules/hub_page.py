@@ -238,6 +238,22 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              f'<div class="lock{" on" if h["lock"]["locked"] else ""}">{clean(h["lock"]["text"])}</div>'
              '</header>')
 
+    # the Monday window's move checklist (step 2), under the header on the window day only
+    cl = payload.get("checklist")
+    if cl is not None:
+        o.append(f'<section><div class="row-b"><h2>{clean(cl["title"])}</h2><span class="aside">'
+                 f'{clean(cl["closes"])}</span></div><div class="card">')
+        if not cl["lines"] and not cl["stopped"]:
+            o.append(f'<div class="empty">{clean(cl["empty"])}</div>')
+        for x in cl["lines"]:
+            o.append(f'<div class="mv"><div class="when"><b>{clean(x["n"])}</b></div><div class="body">'
+                     f'<span>{clean(x["text"])}</span><span style="display:flex;gap:6px">'
+                     f'<span class="chip st">{clean(x["state"])}</span></span></div></div>')
+        for x in cl["stopped"]:
+            o.append(f'<div class="mv"><div class="when"><b>!</b></div><div class="body">'
+                     f'<span class="chip out">{clean(x["text"])}</span></div></div>')
+        o.append(f'<div class="empty" style="font-size:12px">{clean(cl["note"])}</div></div></section>')
+
     mu = payload["matchups"]
     o.append("<section><h2>This week's matchups</h2>")
     for c in mu["cards"]:
@@ -396,7 +412,10 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                      f'<span class="v f">{clean(p["fppg"])}</span><span class="v">{clean(p["proj"])}</span>'
                      f'<span class="v">{clean(p["l14"])}</span><span class="v" style="color:#121417">{clean(p["gl"])}</span>'
                      f'<span class="v{" ks" if p["keep_strong"] else ""}">{clean(p["keep"])}</span></div>')
-        o.append(f'</div></div><div class="note" style="padding:0 4px">{clean(rb["note"])}</div></section></div>')
+        o.append('</div></div>')
+        for j in rb["pending"]:
+            o.append(f'<div class="note" style="padding:0 4px"><span class="chip new">{clean(j["text"])}</span></div>')
+        o.append(f'<div class="note" style="padding:0 4px">{clean(rb["note"])}</div></section></div>')
 
     # ---------------------------------------------------------------- the chart view
     ch = pw["chart"]
