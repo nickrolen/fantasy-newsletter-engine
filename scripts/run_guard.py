@@ -2,15 +2,19 @@
 """
 run_guard.py -- does this scheduled firing run? (step 1c-ii)
 
-    python scripts/run_guard.py nightly     the 12:01 AM run: admitted only when the
-                                            league clock reads 00:xx
+    python scripts/run_guard.py nightly     the night's run: admitted from 12:00 to
+                                            5:59 AM league time, until the night's run
+                                            has happened (output/nightly_last.json)
     python scripts/run_guard.py pretip      Monday's pre-tip run: admitted only in
                                             [first tip - 45 min, first tip) on a
                                             window day (a fantasy week's first day)
 
 STANDARD LIBRARY ONLY, ON PURPOSE (HANDOFF_STEP1C2 s.2). Most firings do
-nothing: one of the two nightly crons every day (07:01 and 08:01 UTC; only one
-is 00:xx Pacific) and every Monday pre-tip firing outside its 45 minutes. The
+nothing: the nightly cron fires every 30 minutes through the early morning
+(GitHub delays or drops scheduled firings under load: on 11-05 the first
+scheduled night never fired at all), and only the first firing of the night
+that finds no run recorded for tonight goes; every Monday pre-tip firing
+outside its 45 minutes does nothing too. The
 workflow's guard job runs this on the runner's own Python, before anything is
 installed, with only these files checked out of the engine:
     config/league_config.json        league_structure.time_zone, season.nba_schedule_file
@@ -32,6 +36,15 @@ reads a tip.
 
     --now 2026-11-09T23:30:00Z   decide for that instant (tests and rehearsals)
     --base-path DIR              the engine checkout (default: this repo)
+    --state-dir DIR              where output/nightly_last.json is (the private
+                                 checkout in the workflow; default: --base-path)
+
+THE NIGHT'S MARKER (output/nightly_last.json, league state): {"league_day",
+"attempts", "ok", "run_id", "finished_at"}, written by modules/nightly.py after
+every nightly-mode run. The guard admits a nightly firing when the league
+clock is in [00:00, NIGHTLY_LAST_HOUR) and the marker is missing, is for an
+earlier league day, or records a failed night with fewer than
+NIGHTLY_MAX_ATTEMPTS attempts. A malformed marker raises.
 
 Prints the decision and why. Exit 0 either way; when $GITHUB_OUTPUT is set it
 also writes go=true|false there for the workflow.
@@ -49,6 +62,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 ROOT = Path(__file__).resolve().parent.parent
 PRETIP_LEAD = timedelta(minutes=45)
+NIGHTLY_LAST_HOUR = 6          # league clock: no nightly firing is admitted from 6:00 AM
+NIGHTLY_MAX_ATTEMPTS = 2       # a failed night is retried once, then waits for Nick
+MARKER_REL = "output/nightly_last.json"
 MODES = ("nightly", "pretip")
 
 
@@ -128,10 +144,46 @@ def _aware(now_utc: datetime) -> datetime:
     return now_utc
 
 
-def admits_nightly(now_utc: datetime, tz: ZoneInfo) -> bool:
-    """True only when the league clock reads 00:xx: exactly one of the two
-    cron firings (07:01 and 08:01 UTC) every day, across both DST changes."""
-    return _aware(now_utc).astimezone(tz).hour == 0
+def read_marker(state_dir) -> dict:
+    """The night's marker, or None when there is none yet. Raises GuardError
+    on a malformed one: the guard never guesses whether tonight has run."""
+    p = Path(state_dir) / MARKER_REL
+    if not p.is_file():
+        return None
+    try:
+        m = json.loads(p.read_text(encoding="utf-8"))
+        day = date.fromisoformat(str(m["league_day"]))
+        attempts, ok = m["attempts"], m["ok"]
+    except (ValueError, KeyError, TypeError) as e:
+        raise GuardError(f"{MARKER_REL} is malformed ({e}): fix or remove it") from None
+    if not isinstance(attempts, int) or attempts < 1 or not isinstance(ok, bool):
+        raise GuardError(f"{MARKER_REL} is malformed: attempts must be a positive int, ok a bool")
+    return {**m, "league_day": day}
+
+
+def nightly_decision(now_utc: datetime, tz: ZoneInfo, marker: dict = None) -> tuple:
+    """(admitted, why). Admitted when the league clock is in [00:00,
+    NIGHTLY_LAST_HOUR) and tonight's run has not happened: no marker, a marker
+    for an earlier league day, or a failed night with attempts left."""
+    now = _aware(now_utc).astimezone(tz)
+    if now.hour >= NIGHTLY_LAST_HOUR:
+        return False, f"league clock {now:%Y-%m-%d %H:%M %Z}: outside the night's window (00:00-{NIGHTLY_LAST_HOUR:02d}:00)"
+    if marker is None:
+        return True, f"league clock {now:%Y-%m-%d %H:%M %Z}: no night recorded yet"
+    if marker["league_day"] < now.date():
+        return True, f"league clock {now:%Y-%m-%d %H:%M %Z}: tonight's run has not happened"
+    if marker["league_day"] > now.date():
+        raise GuardError(f"{MARKER_REL} is for {marker['league_day']}, after today ({now.date()})")
+    if marker["ok"]:
+        return False, f"tonight's run already happened ({marker.get('run_id')})"
+    if marker["attempts"] >= NIGHTLY_MAX_ATTEMPTS:
+        return False, f"tonight's run failed {marker['attempts']} time(s); waiting for a run by hand"
+    return True, f"tonight's run failed once ({marker.get('run_id')}); one more attempt"
+
+
+def admits_nightly(now_utc: datetime, tz: ZoneInfo, marker: dict = None) -> bool:
+    """nightly_decision's verdict alone."""
+    return nightly_decision(now_utc, tz, marker)[0]
 
 
 def pretip_window(base, day: date, tz: ZoneInfo = None):
@@ -158,12 +210,10 @@ def admits_pretip(now_utc: datetime, base=ROOT) -> tuple:
     return False, f"outside the pre-tip window {start:%H:%M}-{end:%H:%M} {end:%Z}"
 
 
-def decide(mode: str, now_utc: datetime, base=ROOT) -> tuple:
+def decide(mode: str, now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
     if mode == "nightly":
         tz = league_zone(base)
-        ok = admits_nightly(now_utc, tz)
-        t = now_utc.astimezone(tz)
-        return ok, f"league clock {t:%Y-%m-%d %H:%M %Z}" + ("" if ok else ": not the 00:xx hour")
+        return nightly_decision(now_utc, tz, read_marker(state_dir if state_dir else base))
     if mode == "pretip":
         return admits_pretip(now_utc, base)
     raise ValueError(f"mode must be one of {MODES}")
@@ -173,11 +223,12 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Does this scheduled firing run? (standard library only)")
     ap.add_argument("mode", choices=MODES)
     ap.add_argument("--base-path", default=str(ROOT))
+    ap.add_argument("--state-dir", help="where output/nightly_last.json is (default: --base-path)")
     ap.add_argument("--now", help="an ISO instant with its offset (tests); default: now")
     a = ap.parse_args(argv)
     now = datetime.fromisoformat(a.now.replace("Z", "+00:00")) if a.now else datetime.now(timezone.utc)
     try:
-        ok, why = decide(a.mode, now, Path(a.base_path))
+        ok, why = decide(a.mode, now, Path(a.base_path), Path(a.state_dir) if a.state_dir else None)
     except (GuardError, ValueError) as e:
         print(f"GUARD REFUSED ({a.mode}): {e}")
         return 1

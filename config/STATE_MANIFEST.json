@@ -25,6 +25,7 @@
     {"path": "data/LEAGUE_HISTORY_DETAILED.json", "what": "an optional legacy league-history file, read if present (data_loader)"},
     {"path": "data/player_actuals.json", "what": "every rostered player's daily fantasy points and games played, one finished league day at a time (scripts/fetch_player_actuals.py; the hub's FPPG and L14; step 1b)"},
     {"path": "config/PLAYER_AGES.json", "what": "player ages keyed by Yahoo id; rewritten by every fetch_playerlist run, the nightly one included (step 1c-i finding; moved 11-03). Not private, but written by runs, so state (P2 rule)"},
+    {"path": "output/nightly_last.json", "what": "the night's marker: league day, attempts, ok (modules/nightly.record_night; read by scripts/run_guard.py so one nightly run happens a night, 11-05)"},
     {"path": "output/hub_state.json", "what": "the hub's payload: names, rosters, lines, title odds (scripts/build_hub_state.py; step 1b)"},
     {"path": "output/nightly_runs.jsonl", "what": "the run record: one row per nightly / pre-tip / closing run, each step's outcome and time (modules/nightly.py; step 1c)"},
     {"path": "data/transaction_log.jsonl", "what": "every Yahoo transaction with its Pacific time and the rulings that apply, append-only (modules/transaction_log.py; step 1c)"},

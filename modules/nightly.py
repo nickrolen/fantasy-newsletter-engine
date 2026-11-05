@@ -39,9 +39,12 @@ outputs of the steps after it are left exactly as the last good run wrote
 them; the run is recorded and exits 1. A price lock is not a failure: the run
 exits 0 and prices nothing.
 
---scheduled (1c-ii's cron fires at 07:01 and 08:01 UTC): exit 0 and do
-nothing unless the league clock is in the 00:xx hour. Exactly one of the two
-firings passes on every day, across both DST changes (tests/test_nightly.py).
+--scheduled (the cron fires every 30 minutes through the early morning): exit
+0 and do nothing unless the guard admits the firing: the league clock is in
+[00:00, 06:00) and tonight's run hasn't happened (output/nightly_last.json,
+written by record_night after every nightly-mode run; a failed night is
+retried once). GitHub delays and drops scheduled firings (11-05: the first
+scheduled night never fired), so one late or lost firing only delays the night.
 With --pretip, --scheduled admits only [first tip - 45 min, first tip) on a
 window day instead. Both decisions are scripts/run_guard.py's (standard
 library only; the workflow's guard job runs the same functions).
@@ -54,7 +57,7 @@ STEP 1c-ii (HANDOFF_STEP1C2):
   - the engine step compares HEAD with $ENGINE_COMMIT when it is set (the
     runner sets it from the private repo's ENGINE_COMMIT; design invariant 3);
   - --ignore-clock (only with --scheduled, nightly mode): the workflow's
-    force input, workflow_dispatch only. It skips the 00:xx guard, nothing else;
+    force input, workflow_dispatch only. It skips the night's guard, nothing else;
   - --no-closing-line --week N --reason TEXT: Nick records by hand that week N
     has no closing line, when its refusal is permanent.
 """
@@ -94,10 +97,37 @@ def run_guard():
     return rg
 
 
-def scheduled_guard_admits(now_utc: datetime) -> bool:
-    """1c-ii's guard: True only when the league clock reads 00:xx."""
+def scheduled_guard_decision(now_utc: datetime, base_path=".") -> tuple:
+    """The nightly guard (scripts/run_guard.py): (admitted, why), reading the
+    night's marker from this tree (the overlaid state, in the workflow)."""
     from .league_clock import league_tz
-    return run_guard().admits_nightly(now_utc, league_tz())
+    rg = run_guard()
+    return rg.nightly_decision(now_utc, league_tz(), rg.read_marker(base_path))
+
+
+def scheduled_guard_admits(now_utc: datetime, base_path=".") -> bool:
+    return scheduled_guard_decision(now_utc, base_path)[0]
+
+
+def record_night(base_path, run_row: dict, ok: bool, now=None) -> dict:
+    """After every nightly-mode run: output/nightly_last.json, the marker the
+    guard reads (one run a night; a failed night retried once). A run on the
+    same league day adds an attempt; ok sticks once any attempt succeeded."""
+    from .data_loader import atomic_write_json
+    from .league_clock import league_now
+    rg = run_guard()
+    now = now or league_now()
+    day = now.date()
+    path = Path(base_path) / rg.MARKER_REL
+    prev = rg.read_marker(base_path)
+    same = prev is not None and prev["league_day"] == day
+    m = {"league_day": day.isoformat(),
+         "attempts": (prev["attempts"] + 1) if same else 1,
+         "ok": bool(ok or (same and prev["ok"])),
+         "run_id": run_row.get("run_id"),
+         "finished_at": run_row.get("finished_at")}
+    atomic_write_json(path, m)
+    return m
 
 
 def pretip_guard_admits(now_utc: datetime, base_path=".") -> tuple:
@@ -429,7 +459,7 @@ def main(argv=None) -> int:
                          "moment (scripts/run_guard.py); a nightly run then prices a due "
                          "closing line first")
     ap.add_argument("--ignore-clock", action="store_true",
-                    help="with --scheduled (nightly only): skip the 00:xx guard -- the "
+                    help="with --scheduled (nightly only): skip the night's guard -- the "
                          "workflow's force input, workflow_dispatch only")
     ap.add_argument("--allow-dirty-engine", action="store_true",
                     help="builder testing only: run on uncommitted code. The runner never passes it")
@@ -456,10 +486,12 @@ def main(argv=None) -> int:
                 print(f"--pretip --scheduled: {why}; nothing to do.")
                 return _ran(False)
         elif a.ignore_clock:
-            print("--scheduled --ignore-clock: the 00:xx guard is skipped (forced run).")
-        elif not scheduled_guard_admits(now_utc):
-            print("--scheduled: the league clock is not in the 00:xx hour; nothing to do.")
-            return _ran(False)
+            print("--scheduled --ignore-clock: the night's guard is skipped (forced run).")
+        else:
+            ok, why = scheduled_guard_decision(now_utc, a.base_path)
+            if not ok:
+                print(f"--scheduled: {why}; nothing to do.")
+                return _ran(False)
     mode = "pretip" if a.pretip else "closing" if a.closing else "nightly"
     if a.scheduled and mode == "nightly":
         c = scheduled_closing(a.base_path, allow_dirty_engine=a.allow_dirty_engine, sims=a.sims,
@@ -468,6 +500,7 @@ def main(argv=None) -> int:
             row = c["row"]
             print(f"closing run for week {c['week']} REFUSED in {row['seconds']} s: {row['error']} "
                   f"(recorded in {RUNS_FILE.as_posix()}); the nightly run does not start")
+            record_night(a.base_path, row, ok=False)
             return _ran(True, 1)
         if c["outcome"] != "not due":
             print(f"closing line, week {c['week']}: {c['outcome']}")
@@ -475,6 +508,8 @@ def main(argv=None) -> int:
               sims=a.sims, title_sims=a.title_sims)
     print(f"{mode} run {run.run_id}")
     row = run.execute()
+    if mode == "nightly":
+        record_night(a.base_path, row, ok=row["exit"] == 0)
     print(f"{mode} run {row['outcome'].upper()} in {row['seconds']} s"
           + (f": {row['error']}" if row["error"] else "")
           + f" (recorded in {RUNS_FILE.as_posix()})")

@@ -286,3 +286,6 @@ output/closing_none_week*.json
 # Player ages (moved to league state 11-03): every fetch_playerlist run rewrites
 # it, the nightly one included, so it lives in the private repo with the rest.
 config/PLAYER_AGES.json
+
+# The night's marker (11-05): league state, written by every nightly-mode run.
+output/nightly_last.json

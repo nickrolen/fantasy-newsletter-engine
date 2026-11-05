@@ -94,7 +94,7 @@ def firings(exprs, start_utc: datetime, end_utc: datetime) -> list:
 
 
 def test_the_nightly_cron_and_the_pretip_crons():
-    assert crons(WORKFLOWS["nightly.yml"]) == ["1 7,8 * * *"]
+    assert crons(WORKFLOWS["nightly.yml"]) == ["1,31 7-11 * * *"]   # 11-05: late/dropped firings
     assert crons(WORKFLOWS["pretip.yml"]) == ["*/15 15-23 * * 1", "*/15 0-3 * * 2"]
     assert crons(WORKFLOWS["run.yml"]) == []          # never scheduled on its own
 
@@ -216,14 +216,14 @@ def test_the_run_job_runs_only_what_the_guard_admits_and_copies_back_always():
 # 2. the guards
 # =============================================================================
 
-def test_the_nightly_guard_is_one_definition_shared_with_nightly_py():
+def test_the_nightly_guard_is_one_definition_shared_with_nightly_py(tmp_path):
     from modules.league_clock import league_tz
     assert rg.league_zone(ROOT).key == league_tz().key
     day = date(2026, 10, 1)
     while day <= date(2027, 4, 30):
-        for h in (7, 8):
+        for h in (7, 8, 11):
             f = datetime(day.year, day.month, day.day, h, 1, tzinfo=timezone.utc)
-            assert nightly.scheduled_guard_admits(f) == rg.admits_nightly(f, LA)
+            assert nightly.scheduled_guard_admits(f, tmp_path) == rg.admits_nightly(f, LA, None)
         day += timedelta(days=1)
     src = (ROOT / "modules" / "nightly.py").read_text(encoding="utf-8")
     assert ".hour == 0" not in src            # the decision lives in run_guard only
@@ -303,7 +303,7 @@ def test_the_guard_cli_writes_go_for_the_workflow(tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_OUTPUT", str(out))
     assert rg.main(["pretip", "--now", "2026-11-09T23:30:00Z"]) == 0
     assert rg.main(["pretip", "--now", "2026-11-10T00:00:00Z"]) == 0
-    assert rg.main(["nightly", "--now", "2026-11-09T08:01:00Z"]) == 0
+    assert rg.main(["nightly", "--now", "2026-11-09T08:01:00Z", "--state-dir", str(tmp_path)]) == 0
     assert out.read_text().splitlines() == ["go=true", "go=false", "go=true"]
 
 
@@ -356,8 +356,8 @@ def test_scheduled_pretip_uses_the_pretip_guard_not_the_midnight_one(monkeypatch
     seen = {}
     monkeypatch.setattr(nightly, "pretip_guard_admits",
                         lambda now, base=".": seen.setdefault("pretip", (False, "outside")))
-    monkeypatch.setattr(nightly, "scheduled_guard_admits",
-                        lambda now: seen.setdefault("nightly", True))
+    monkeypatch.setattr(nightly, "scheduled_guard_decision",
+                        lambda now, base=".": seen.setdefault("nightly", (True, "test")))
     assert nightly.main(["--pretip", "--scheduled"]) == 0
     assert "pretip" in seen and "nightly" not in seen
 
@@ -448,12 +448,15 @@ def test_any_other_refusal_stops_the_run_and_is_retried_the_next_night(tmp_path)
 
 
 def test_the_scheduled_nightly_run_stops_when_the_closing_line_refuses(monkeypatch):
-    monkeypatch.setattr(nightly, "scheduled_guard_admits", lambda now: True)
+    monkeypatch.setattr(nightly, "scheduled_guard_decision", lambda now, base=".": (True, "test"))
+    marked = []
+    monkeypatch.setattr(nightly, "record_night", lambda base, row, ok, now=None: marked.append(ok))
     monkeypatch.setattr(nightly, "scheduled_closing", lambda *a, **k: {
         "week": 4, "outcome": "refused", "row": {"seconds": 1.0, "error": "ClosingRefused: x"}})
     started = []
     monkeypatch.setattr(nightly.Run, "execute", lambda self, steps=None: started.append(1))
     assert nightly.main(["--scheduled"]) == 1 and started == []
+    assert marked == [False]                  # the night counts as one failed attempt
 
 
 def test_the_none_record_is_league_state_and_ignored():

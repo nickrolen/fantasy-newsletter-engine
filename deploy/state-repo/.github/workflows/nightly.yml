@@ -8,11 +8,14 @@ name: Nightly
 
 on:
   schedule:
-    # 12:01 AM Pacific is 08:01 UTC in standard time and 07:01 UTC in daylight
-    # time. Both fire every day; the guard (scripts/run_guard.py) admits only
-    # the one at 00:xx on the league clock, so the run is right across both
-    # DST changes without editing this line.
-    - cron: '1 7,8 * * *'
+    # Every 30 minutes from 07:01 to 11:31 UTC: midnight to about 4:30 AM
+    # Pacific in daylight time, 11 PM to about 3:30 AM in standard time. The
+    # guard (scripts/run_guard.py) admits the first firing after midnight on
+    # the league clock that finds tonight's run hasn't happened
+    # (output/nightly_last.json); the rest exit in seconds. GitHub delays and
+    # drops scheduled firings under load (11-05: the first scheduled night
+    # never fired), so one late or lost firing only delays the night.
+    - cron: '1,31 7-11 * * *'
   workflow_dispatch:
     inputs:
       force:

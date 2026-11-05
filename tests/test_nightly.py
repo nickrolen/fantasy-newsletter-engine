@@ -37,22 +37,87 @@ LA = ZoneInfo("America/Los_Angeles")
 # 3. the scheduled guard
 # =============================================================================
 
-def test_the_guard_admits_exactly_one_firing_every_day_of_the_season():
-    day = date(2026, 10, 1)
-    seen = {}
+def _night_firings(day):
+    """The nightly cron's firings ('1,31 7-11 * * *', UTC) on a UTC day."""
+    return [datetime(day.year, day.month, day.day, h, m, tzinfo=timezone.utc)
+            for h in range(7, 12) for m in (1, 31)]
+
+
+def test_one_run_a_night_every_night_of_the_season(tmp_path):
+    """11-05: GitHub never fired the first scheduled night. Firings every 30
+    minutes; the guard admits the first one after midnight (league clock)
+    that finds tonight's run hasn't happened, and none after it once the
+    run succeeds -- on every night, across both DST changes."""
+    from modules import nightly as N
+    rg = N.run_guard()
+    day, marker, admitted_at = date(2026, 10, 1), None, {}
     while day <= date(2027, 4, 30):
-        firings = [datetime(day.year, day.month, day.day, h, 1, tzinfo=timezone.utc) for h in (7, 8)]
-        admitted = [f for f in firings if nightly.scheduled_guard_admits(f)]
-        assert len(admitted) == 1, (day, firings)
-        seen[day] = admitted[0].hour
+        for f in _night_firings(day):
+            if rg.nightly_decision(f, LA, marker)[0]:
+                league_day = f.astimezone(LA).date()
+                assert league_day not in admitted_at, (league_day, f)
+                admitted_at[league_day] = f.astimezone(LA)
+                marker = {"league_day": league_day, "attempts": 1, "ok": True}
         day += timedelta(days=1)
-    # the two DST changes: 11-01-2026 (fall back) and 03-14-2027 (spring forward)
-    assert seen[date(2026, 11, 1)] == 7 and seen[date(2026, 11, 2)] == 8
-    assert seen[date(2027, 3, 13)] == 8 and seen[date(2027, 3, 14)] == 8 and seen[date(2027, 3, 15)] == 7
-    # the admitted firing is 12:01 AM on the league clock
-    for d, h in seen.items():
-        t = datetime(d.year, d.month, d.day, h, 1, tzinfo=timezone.utc).astimezone(LA)
-        assert (t.hour, t.minute) == (0, 1)
+    for d in (date(2026, 10, 2), date(2026, 11, 1), date(2026, 11, 2), date(2027, 3, 14), date(2027, 3, 15)):
+        t = admitted_at[d]
+        assert t.date() == d and (t.hour, t.minute) in ((0, 1), (0, 31)), (d, t)
+    assert len(admitted_at) >= 210
+
+
+def test_a_late_or_dropped_firing_only_delays_the_night():
+    from modules import nightly as N
+    rg = N.run_guard()
+    f = datetime(2026, 11, 6, 10, 31, tzinfo=timezone.utc)        # 2:31 AM PST, the earlier ones lost
+    assert rg.nightly_decision(f, LA, {"league_day": date(2026, 11, 5), "attempts": 1, "ok": True})[0]
+    assert not rg.nightly_decision(f, LA, {"league_day": date(2026, 11, 6), "attempts": 1, "ok": True})[0]
+    six = datetime(2026, 11, 6, 14, 1, tzinfo=timezone.utc)       # 6:01 AM PST: too late
+    assert not rg.nightly_decision(six, LA, None)[0]
+
+
+def test_a_failed_night_is_retried_once():
+    from modules import nightly as N
+    rg = N.run_guard()
+    f = datetime(2026, 11, 6, 9, 1, tzinfo=timezone.utc)
+    d = date(2026, 11, 6)
+    assert rg.nightly_decision(f, LA, {"league_day": d, "attempts": 1, "ok": False})[0]
+    assert not rg.nightly_decision(f, LA, {"league_day": d, "attempts": 2, "ok": False})[0]
+
+
+def test_a_marker_from_the_future_or_malformed_raises(tmp_path):
+    from modules import nightly as N
+    rg = N.run_guard()
+    f = datetime(2026, 11, 6, 9, 1, tzinfo=timezone.utc)
+    with pytest.raises(rg.GuardError):
+        rg.nightly_decision(f, LA, {"league_day": date(2026, 11, 7), "attempts": 1, "ok": True})
+    (tmp_path / "output").mkdir()
+    (tmp_path / "output" / "nightly_last.json").write_text('{"league_day": "2026-11-06"}', encoding="utf-8")
+    with pytest.raises(rg.GuardError):
+        rg.read_marker(tmp_path)
+
+
+def test_record_night_counts_attempts_and_keeps_success(tmp_path):
+    from modules import nightly as N
+    at = lambda h, m=0: datetime(2026, 11, 6, h, m, tzinfo=LA)
+    m1 = N.record_night(tmp_path, {"run_id": "a"}, ok=False, now=at(0, 1))
+    assert (m1["attempts"], m1["ok"]) == (1, False)
+    m2 = N.record_night(tmp_path, {"run_id": "b"}, ok=True, now=at(0, 31))
+    assert (m2["attempts"], m2["ok"]) == (2, True)
+    m3 = N.record_night(tmp_path, {"run_id": "c"}, ok=False, now=at(7, 40))   # a forced run later that day
+    assert (m3["attempts"], m3["ok"]) == (3, True)
+    m4 = N.record_night(tmp_path, {"run_id": "d"}, ok=True, now=datetime(2026, 11, 7, 0, 1, tzinfo=LA))
+    assert (m4["league_day"], m4["attempts"]) == ("2026-11-07", 1)
+    assert N.run_guard().read_marker(tmp_path)["league_day"] == date(2026, 11, 7)
+
+
+def test_the_marker_is_league_state_and_ignored():
+    import subprocess
+    from modules import state_manifest as sm
+    root = Path(__file__).resolve().parents[1]
+    rel = "output/nightly_last.json"
+    assert sm.load(root).contains(rel)
+    r = subprocess.run(["git", "check-ignore", "--no-index", rel], cwd=str(root), capture_output=True, text=True)
+    assert r.stdout.split() == [rel]
 
 
 def test_the_guard_needs_an_aware_time():

@@ -55,11 +55,13 @@ jobs:
       go: ${{ steps.guard.outputs.go }}
       reason: ${{ steps.guard.outputs.reason }}
     steps:
-      - name: ENGINE_COMMIT (the private repo, that one file)
+      - name: ENGINE_COMMIT and the night's marker (the private repo, two files)
         uses: actions/checkout@v6
         with:
           path: state
-          sparse-checkout: /ENGINE_COMMIT
+          sparse-checkout: |
+            /ENGINE_COMMIT
+            /output/nightly_last.json
           sparse-checkout-cone-mode: false
           filter: blob:none
           persist-credentials: false
@@ -93,12 +95,12 @@ jobs:
         id: guard
         run: |
           if [ "$MODE" = nightly ] && [ "$FORCE" = true ]; then
-            echo "force (workflow_dispatch): the 12:01 AM time guard is skipped"
+            echo "force (workflow_dispatch): the night's guard is skipped"
             echo "go=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           set +e
-          python3 engine/scripts/run_guard.py "$MODE" --base-path engine > guard.log 2>&1
+          python3 engine/scripts/run_guard.py "$MODE" --base-path engine --state-dir state > guard.log 2>&1
           rc=$?
           cat guard.log
           if [ "$rc" -ne 0 ]; then
