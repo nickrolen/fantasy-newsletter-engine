@@ -126,10 +126,14 @@ def run_guard():
 
 def scheduled_guard_decision(now_utc: datetime, base_path=".") -> tuple:
     """The nightly guard (scripts/run_guard.py): (admitted, why), reading the
-    night's marker from this tree (the overlaid state, in the workflow)."""
+    night's marker from this tree (the overlaid state, in the workflow), with
+    the same window as the workflow's guard (run_guard.night_cutoff: to the
+    day's first tip less an hour, at most noon, at least 6:00; 11-07)."""
     from .league_clock import league_tz
     rg = run_guard()
-    return rg.nightly_decision(now_utc, league_tz(), rg.read_marker(base_path))
+    tz = league_tz()
+    cut, why = rg.night_cutoff(rg.ROOT, rg._aware(now_utc).astimezone(tz).date(), tz, base_path)
+    return rg.nightly_decision(now_utc, tz, rg.read_marker(base_path), cut, why)
 
 
 def scheduled_guard_admits(now_utc: datetime, base_path=".") -> bool:

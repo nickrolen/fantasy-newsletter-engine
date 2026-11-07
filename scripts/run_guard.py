@@ -64,7 +64,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 ROOT = Path(__file__).resolve().parent.parent
 PRETIP_LEAD = timedelta(minutes=45)
-NIGHTLY_LAST_HOUR = 6          # league clock: no nightly firing is admitted from 6:00 AM
+NIGHTLY_LAST_HOUR = 6          # league clock: the night's window always runs at least to 6:00 AM
+NIGHTLY_LATEST_HOUR = 12       # ... and, for a late firing, at most to noon (11-07)
+NIGHTLY_TIP_MARGIN = timedelta(minutes=60)   # ... and never past the day's first tip less this
 NIGHTLY_MAX_ATTEMPTS = 2       # a failed night is retried once, then waits for Nick
 MARKER_REL = "output/nightly_last.json"
 MODES = ("nightly", "pretip")
@@ -183,13 +185,41 @@ def read_marker(state_dir) -> dict:
     return {**m, "league_day": day}
 
 
-def nightly_decision(now_utc: datetime, tz: ZoneInfo, marker: dict = None) -> tuple:
-    """(admitted, why). Admitted when the league clock is in [00:00,
-    NIGHTLY_LAST_HOUR) and tonight's run has not happened: no marker, a marker
-    for an earlier league day, or a failed night with attempts left."""
+def night_cutoff(base, day: date, tz: ZoneInfo, state_dir=None) -> tuple:
+    """(cutoff, why): the end of `day`'s nightly window on the league clock.
+
+    GitHub's scheduler delays firings by hours and drops most of them (11-05,
+    11-06: none, then one at 6:49 AM Pacific), so a late firing should still
+    do the night's work while that is harmless: the window runs to the day's
+    first tip less NIGHTLY_TIP_MARGIN (before the price lock), at most to
+    NIGHTLY_LATEST_HOUR, and never ends before NIGHTLY_LAST_HOUR (the old
+    fixed cutoff). A day with no games runs to NIGHTLY_LATEST_HOUR. If the
+    first tip can't be placed (a game with no tip time), the old 6:00 cutoff
+    applies and the reason says so: the nightly run is never refused for it."""
+    base_cut = datetime.combine(day, datetime.min.time(), tzinfo=tz).replace(hour=NIGHTLY_LAST_HOUR)
+    latest = base_cut.replace(hour=NIGHTLY_LATEST_HOUR)
+    try:
+        tip = first_tip(base, day, tz, state_dir)
+    except GuardError as e:
+        return base_cut, f"the first tip can't be placed ({e}); window to {base_cut:%H:%M}"
+    if tip is None:
+        return latest, f"no games today; window to {latest:%H:%M}"
+    cut = max(base_cut, min(latest, tip - NIGHTLY_TIP_MARGIN))
+    return cut, f"first tip {tip:%H:%M}; window to {cut:%H:%M}"
+
+
+def nightly_decision(now_utc: datetime, tz: ZoneInfo, marker: dict = None, cutoff: datetime = None,
+                     cutoff_why: str = None) -> tuple:
+    """(admitted, why). Admitted when the league clock is in [00:00, cutoff)
+    and tonight's run has not happened: no marker, a marker for an earlier
+    league day, or a failed night with attempts left. `cutoff` (night_cutoff)
+    defaults to NIGHTLY_LAST_HOUR on the league clock."""
     now = _aware(now_utc).astimezone(tz)
-    if now.hour >= NIGHTLY_LAST_HOUR:
-        return False, f"league clock {now:%Y-%m-%d %H:%M %Z}: outside the night's window (00:00-{NIGHTLY_LAST_HOUR:02d}:00)"
+    if cutoff is None:
+        cutoff = now.replace(hour=NIGHTLY_LAST_HOUR, minute=0, second=0, microsecond=0)
+    if now >= cutoff.astimezone(tz):
+        return False, (f"league clock {now:%Y-%m-%d %H:%M %Z}: outside the night's window "
+                       f"(00:00-{cutoff.astimezone(tz):%H:%M}{'; ' + cutoff_why if cutoff_why else ''})")
     if marker is None:
         return True, f"league clock {now:%Y-%m-%d %H:%M %Z}: no night recorded yet"
     if marker["league_day"] < now.date():
@@ -235,7 +265,8 @@ def admits_pretip(now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
 def decide(mode: str, now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
     if mode == "nightly":
         tz = league_zone(base)
-        return nightly_decision(now_utc, tz, read_marker(state_dir if state_dir else base))
+        cut, why = night_cutoff(base, _aware(now_utc).astimezone(tz).date(), tz, state_dir)
+        return nightly_decision(now_utc, tz, read_marker(state_dir if state_dir else base), cut, why)
     if mode == "pretip":
         return admits_pretip(now_utc, base, state_dir)
     raise ValueError(f"mode must be one of {MODES}")
