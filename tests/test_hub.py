@@ -102,7 +102,6 @@ def sample_payload(**over) -> dict:
                   "aside": "tagged O or OFS, by projection", "open_il": "Open IL slots now: Mgr Two 2.",
                   "empty": "No free agent is tagged O or OFS.", "note": "A display, not advice."},
         "advice": None, "advice_empty": "Advice is being rebuilt; it returns here once it is ready.",
-        "checklist": None,
         "moves": {"weeks": [{"key": "pre", "label": "Pre-season", "used": None, "used_note": "Count nowhere.",
                              "items": []},
                             {"key": "3", "label": "Week 3 \u00b7 Nov 2\u20138", "used_note": "Adds used.",

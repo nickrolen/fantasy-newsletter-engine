@@ -259,6 +259,20 @@ def title_odds_inputs(base: Path, data, managers) -> tuple:
     return tor, latest, prev
 
 
+def shown_record(latest: dict, manager: str) -> str:
+    """The W-L the hub prints for `manager`: the latest title-odds run's
+    records_after_banked (F5, 11-10). The Monday 12:01 AM run banks the week
+    that just finished from the logs, so the hub's records move overnight,
+    before the weekly build records the week in RECORDS (title_odds_inputs
+    has already checked that RECORDS equals the run's records or these).
+    Missing raises: never fall back to a stale record."""
+    after = latest.get("records_after_banked") or {}
+    if manager not in after:
+        raise HubInputError(f"the latest title-odds run {latest.get('run_id')} has no "
+                            f"records_after_banked for {manager}")
+    return str(after[manager])
+
+
 def build_power(base: Path, data, managers, keeper_watch: dict, week: int, adds: dict,
                 budget: int, season_config: dict, cup_weeks: list) -> tuple:
     """(the power block, the build_power_rankings rows it was ordered by)."""
@@ -284,7 +298,7 @@ def build_power(base: Path, data, managers, keeper_watch: dict, week: int, adds:
             delta, ddir = DASH, "none"
         used = len((adds or {}).get(m, []))
         rows.append({"rank": str(pr["rank"]), "manager": m, "team": MANAGER_TO_TEAM.get(m, m),
-                     "record": pr["record"], "odds": _pct(shown[m]), "delta": delta,
+                     "record": shown_record(latest, m), "odds": _pct(shown[m]), "delta": delta,
                      "delta_dir": ddir, "adds": f"{used} / {budget}",
                      "adds_over": used > budget})
     as_of = datetime.fromisoformat(latest["as_of"])
@@ -1020,16 +1034,6 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     except hub_moves.MovesError as e:
         raise HubInputError(str(e)) from None
 
-    # --- the Monday window's checklist, under the header on the window day
-    checklist = None
-    if today == date.fromisoformat(str(ws.week_entry(data, week)["start_date"])[:10]):
-        checklist = ml.hub_checklist(base, week)
-        if checklist is None:
-            raise HubInputError(f"today is week {week}'s window and its move checklist "
-                                f"({ml.checklist_path(Path('.'), week).as_posix()}) was never published: "
-                                "the 12:01 nightly run writes it -- run python scripts\\nightly.py "
-                                "(or python scripts\\state.py pull)")
-
     # --- newsletter
     if archive_index is None:
         from . import hub_archive
@@ -1059,7 +1063,6 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "stash": stash,
         "advice": None,
         "advice_empty": "Advice is being rebuilt; it returns here once it is ready.",
-        "checklist": checklist,
         "moves": moves,
         "newsletter": newsletter,
         "sources": {"line": (Path("output") / f"live_lines_week{week}.json").as_posix(),

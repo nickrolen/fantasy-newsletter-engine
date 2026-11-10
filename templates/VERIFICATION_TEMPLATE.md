@@ -16,12 +16,16 @@ argued itself into a claim is the worst possible auditor of it.
    - `assets\WEEK{N}_DRAFT.md` -- the draft to audit
    - `output\stats_report_week{N}.md` -- the single source of truth
    - `output\stats_report_week{N-1}.md` -- *(only for claims about last week)*
+   - `output\lore_for_drafting.json` -- approved, current lore only (`python scripts\review_lore.py --export`)
    - `templates\VERIFICATION_TEMPLATE.md` -- this file
+
+   Upload only these. Never upload or point the chat at `config\LEAGUE_LORE.json`: it holds
+   proposals and rejections, and the prompt's first line tells the chat to open nothing else.
 3. Paste the prompt below, filling in `[FILL IN]`
 4. Fix every P0 and P1 finding, then re-run if the fixes were substantial
 
-**Ground rule:** the stats report, and APPROVED entries of
-`config/LEAGUE_LORE.json`, are the only sources of truth. If a number in the
+**Ground rule:** the stats report, and the approved lore in
+`output/lore_for_drafting.json` (the export), are the only sources of truth. If a number in the
 draft is not in the stats report, it is wrong -- even if it sounds right, and
 even if it is true. Unverifiable is a finding. Lore supplies what the numbers
 can't (history, reputations, nicknames); a sentence using it carries a
@@ -37,13 +41,15 @@ fact is being told as character.
 ## The Prompt
 
 ```
+Use only the files uploaded to this chat. Do not open any other file in my folder, and never `config/LEAGUE_LORE.json`.
+
 You are fact-checking a fantasy basketball newsletter before publication. You
 did not write it and you have no stake in it. Your job is to find errors.
 
 FILES
 - WEEK[FILL IN]_DRAFT.md -- the newsletter draft under audit
 - stats_report_week[FILL IN].md -- the ONLY source of truth for every number
-- LEAGUE_LORE.json -- approved entries are the only source for history and
+- lore_for_drafting.json -- approved lore, the only source for history and
   reputations; anything tagged <!--lore:id--> must match its entry
 
 METHOD (do not skip)

@@ -1,6 +1,8 @@
 # Weekly Newsletter Workflow Guide
 
-**Last updated:** November 4, 2026 (the cloud era: the hub and the nightly run live in GitHub Actions since 11-04)
+**Last updated:** November 9, 2026 (the first full Monday on the cloud; HANDOFF_MONDAY_FIXES F10)
+
+**Times are league time (Pacific), with Phoenix in brackets.** The league's clock is Pacific (rule 0). Phoenix is one hour ahead of Pacific until 3-14-2027 and the same after it.
 
 This is the complete step-by-step workflow for generating the CHS Alumni Fantasy Basketball League weekly newsletter. Run these steps every Monday after the previous week ends.
 
@@ -19,8 +21,8 @@ The league's state lives in the private repo `nickrolen/newsletter-state`, and *
 
 | Run | When | What |
 |---|---|---|
-| **Nightly** | 12:01 AM Pacific (**1:01 AM Phoenix** until 3-14-2027, then 12:01 AM) | pulls the day's box scores, syncs Yahoo (rosters, IL, the transaction log), checks the league settings, refreshes projections and tags, re-prices the line and title odds, updates player stats, publishes the hub. **On Tuesdays it first prices the closing line** of the window that just closed. |
-| **Pre-tip** | Monday afternoons, in the 45 minutes before the first tip | the last unlocked price of the week, and the tag record the closing line uses |
+| **Nightly** | just after 12:00 AM Pacific: the first firing after midnight that finds the night not yet run (12:05 AM on 11-08) [about 1:05 AM Phoenix until 3-14-2027] | pulls the day's box scores, syncs Yahoo (rosters, IL, the transaction log), checks the league settings, refreshes projections and tags, re-prices the line and title odds, updates player stats, publishes the hub. **On Tuesdays it first prices the closing line** of the window that just closed. |
+| **Pre-tip** | Monday, in the 45 minutes before the first tip. cron-job.org fires every 15 minutes, 7:00 AM-7:45 PM Pacific; the guard admits only `[first tip - 45 min, first tip)`, so usually three runs (3:15, 3:30, 3:45 PM Pacific [4:15-4:45 PM Phoenix] for a 4:00 PM tip) | the last unlocked price of the week, player actuals for anyone added that day, the hub, and the tag record the closing line uses. A refused run is simply retried by the next firing in the window |
 
 The hub is **https://nickrolen.github.io/newsletter-hub/** (encrypted; the passphrase is the `HUB_PASSPHRASE` secret). A run that refuses opens **one** issue in `newsletter-state` ("Nightly run failed: ..."); the next good run closes it. GitHub notifies your phone.
 
@@ -28,14 +30,16 @@ The hub is **https://nickrolen.github.io/newsletter-hub/** (encrypted; the passp
 
 1. **Start with `python scripts\state.py pull`. End with `python scripts\state.py push`.** Every time, Monday's newsletter included. `pull` merges when the cloud and you changed different files, and refuses (naming them) when you both changed the same one.
 2. **Don't run `nightly.py` by hand.** The cloud does the nightly run, Monday's pre-tip run and the closing line.
-3. **Monday: push your newsletter's state before about 4:15 PM Phoenix** (the pre-tip window opens 45 minutes before the first tip). Your build and the pre-tip run write some of the same files (rosters, title odds), and those can't be merged. This rule goes away when the newsletter build moves into the cloud (Step 4 of the self-running build).
-4. **Never push state while a cloud run is going** (about 1:01-1:10 AM Phoenix, and Monday's pre-tip window). If you do, the cloud's push is rejected, its state goes to a `rescue/run-<id>` branch, and an issue opens: ask before merging it.
+3. **Monday: push your newsletter's state before the pre-tip window opens: first tip - 45 minutes, league time** (for a 4:00 PM Pacific tip, 3:15 PM Pacific [4:15 PM Phoenix]). The first tip moves (MLK Day and Presidents' Day tip at 9:00 AM Pacific), so check it: `python scripts\run_guard.py pretip` prints the day's window, e.g. `outside the pre-tip window 15:15-16:00 PST`. Your build and the pre-tip run write some of the same files (rosters, title odds), and those can't be merged. This rule goes away when the newsletter build moves into the cloud (Step 4 of the self-running build).
+4. **Never push state while a cloud run is going** (just after midnight Pacific for a few minutes [about 1:05 AM Phoenix], and Monday's pre-tip window). If you do, the cloud's push is rejected, its state goes to a `rescue/run-<id>` branch, and an issue opens: ask before merging it.
 5. **After any engine update** (a commit the reviewing session made): `git push`, then `python scripts\state.py pull`, then **`python scripts\state.py set-engine`**, or the cloud keeps running the old engine. `set-engine` refuses until you've pulled whatever the cloud committed since your last sync, so pull first, every time.
-6. **Chat claims** (league rule 7): apply them in Yahoo in the Monday window, then the reviewing session writes their `claim_week` rulings **before** Step 4's sync. Until the move ledger exists (Step 2 of the build), that order matters.
-7. **The Monday window closes 5 minutes before the last tip** (about 7:55 PM Phoenix). Moves made after your morning sync are caught by the cloud's next nightly run; you don't need to sync again.
+6. **The Monday checklist is yours, not the hub's:** `python scripts\ledger.py checklist` prints it per team, in order, with each blocked team's reason and a Yahoo add link on every add line (since 11-09 it is no longer on the hub).
+6b. **Chat claims** (league rule 7): apply them in Yahoo in the Monday window, then the reviewing session writes their `claim_week` rulings **before** Step 4's sync. Until the move ledger exists (Step 2 of the build), that order matters.
+7. **The Monday window closes 5 minutes before the last tip** (about 6:55 PM Pacific [7:55 PM Phoenix]). Moves made after your morning sync are caught by the cloud's next nightly run; you don't need to sync again.
 8. **After the issue goes out: `python scripts\archive_issue.py --week N`**, then `state.py push`. The hub's archive shows it from the next run.
+9. **A failed pre-tip run** (the issue opens, `Nightly run failed: pretip/...`): read the run's log in Actions. Each firing in the window retries on its own. If the failing step says `ActualsStale` (a player added that day is not in `data\player_actuals.json`): `python scripts\state.py pull`, `python scripts\fetch_player_actuals.py`, `python scripts\state.py push`, before the next firing. Since 11-10 the pre-tip run fetches actuals itself, so this should not recur; the note stays. If every firing fails, the closing line falls back to the 12:01 AM run's tag record; only if that is missing too does the week get `no closing line`.
 
-**What still happens here, by hand, each Monday:** Steps 0-10 below, the newsletter. The cloud already pulled Sunday's box scores at 1:01 AM; Step 1 pulling them again is harmless (rows are deduplicated).
+**What still happens here, by hand, each Monday:** Steps 0-10 below, the newsletter. The cloud already pulled Sunday's box scores just after midnight Pacific; Step 1 pulling them again is harmless (rows are deduplicated).
 
 **Two things that live in the public engine repo, not in state:** the NBA schedule file (Step 0) and the code. If Step 0's refetch changes the schedule, tell the reviewing session: it commits the file, then `git push` and `python scripts\state.py set-engine` so the cloud uses the new schedule.
 
@@ -43,7 +47,7 @@ The hub is **https://nickrolen.github.io/newsletter-hub/** (encrypted; the passp
 ```cmd
 python scripts\state.py pull
 :: Steps 0-9 below (the newsletter)
-python scripts\state.py push            :: before ~4:15 PM Phoenix
+python scripts\state.py push            :: before first tip - 45 min, league time (python scripts\run_guard.py pretip)
 :: send the issue, then:
 python scripts\archive_issue.py --week N
 :: Step 10 (recap), then:
@@ -126,11 +130,15 @@ get the number down.
 
 Exit code 0 with no failures is the bar. A failure is a stop, not a warning.
 
+**You may skip it when the engine has not changed since its last full run.** Every engine update is preceded by a full-suite run in the builder's result doc, so: if `git log -1 --oneline` shows the same commit as the last time you ran it (or the commit whose result doc reported the full suite) and `git status` shows no modified `.py` file, skip. After any engine update you have not run it on, run it once.
+
 ---
 
 ## Step 0: Update NBA Schedule
 
-The NBA schedule file can go stale due to postponements and rescheduling, which affects betting lines and title odds accuracy. **Run this first every week.**
+The NBA schedule file can go stale due to postponements and rescheduling, which affects betting lines and title odds accuracy.
+
+**Skip it when the cloud's nightly already refetched the schedule today.** The nightly run refetches it once a league day and every reader uses that copy (`modules\nba_schedule.schedule_path`). Look at last night's run: `newsletter-state` -> Actions -> Nightly -> the run step's `[schedule]` line. `refetch updated ...` or `refetch unchanged ...` means skip Step 0. `failed`, `refused`, or no nightly run since Sunday means run it.
 
 ```cmd
 python scripts\fetch_nba_schedule.py
@@ -216,7 +224,7 @@ python scripts\generate_rosters.py --week WEEK --show-diff
 
 Updates ROSTERS.json with waiver/trade moves and creates the waivers file for the newsletter.
 
-**Before it, on a Monday with chat claims:** apply the claims in Yahoo first, then have the reviewing session write their `claim_week` rulings (`config\TRANSACTION_RULINGS.json`), then sync. A claim synced without its ruling counts in the wrong week's budget. **Moves made in Yahoo after this sync** (until the window closes, ~7:55 PM Phoenix) are picked up by the cloud's next nightly run.
+**Before it, on a Monday with chat claims:** apply the claims in Yahoo first, then have the reviewing session write their `claim_week` rulings (`config\TRANSACTION_RULINGS.json`), then sync. A claim synced without its ruling counts in the wrong week's budget. **Moves made in Yahoo after this sync** (until the window closes, about 6:55 PM Pacific [7:55 PM Phoenix]) are picked up by the cloud's next nightly run; if they change the newsletter, see "A late Yahoo move after Step 6" below.
 
 ```cmd
 :: Dry run first -> see what it finds without changing anything
@@ -643,6 +651,8 @@ python scripts\generate_stats_report.py --week WEEK
 
 **Runtime:** ~30-60 seconds with sims, ~5-10 seconds with `--fast`
 
+**Rerunning it for the same week is safe by itself** (since 11-10). The week's first run saves `config\snapshots\RECENT_CONTENT_pre_weekN.json`; a rerun reads freshness from that snapshot and says so (`Rerun of week N: reading freshness from the pre-week snapshot ...`), so the week's own fun facts are not treated as repeats. Do not copy the snapshot over `config\RECENT_CONTENT.json` any more.
+
 **Useful flags:**
 | Flag | What it does |
 |------|-------------|
@@ -712,11 +722,32 @@ python scripts\format_stats_report.py --week WEEK
 
 ---
 
+## A late Yahoo move after Step 6
+
+A move made in Yahoo after your Step 6 (until the window closes, about 6:55 PM Pacific [7:55 PM Phoenix]) that changes the newsletter (a roster, a trade, an IL slot):
+
+```cmd
+python scripts\sync_transactions.py --week N --apply
+python scripts\check_rosters.py
+python scripts\generate_stats_report.py --week N
+python scripts\format_stats_report.py --week N
+python scripts\prepare_prompts.py --week N
+```
+
+That is Steps 4, 4.5, 6, 6.5 and Step 7's `prepare_prompts`. No snapshot copy (Step 6 handles a rerun itself).
+
+- **Re-open `output\prompts_weekN.md` after the rerun** and paste from the new file. On 11-09 Part 3 was pasted from the stale prompts file and listed the old rosters.
+- In the drafting chat, upload the new `stats_report_weekN.md` and **rewrite only the sections the report change touches** (usually Sections 3, 4 and 9's rosters); keep the rest.
+
+---
+
 ## Step 7: Draft the Newsletter (with Claude)
 
 ```cmd
 python scripts\prepare_prompts.py --week N
 ```
+
+**Each prompt's first line is: "Use only the files uploaded to this chat. Do not open any other file in my folder, and never `config/LEAGUE_LORE.json`."** A chat with folder access opened the lore file on 11-09; the line is in the template and `prepare_prompts` refuses without it. Never give a drafting chat your folder, and never upload `config\LEAGUE_LORE.json`.
 
 Then open `output\prompts_weekN.md` and follow it top to bottom: it lists the files to upload with Part 1, by path (each checked to exist), then Parts 1, 2 and 3, filled and ready to paste into a **separate Claude chat**. Run it after Step 6.5, between `state.py pull` and `push` like any manual run. It fills the week, dates and season (`config\SCHEDULE.json`, the config), the league line ("now in its twelfth season", from `league_season_number`), the manager table (the config's managers and team names; star players = each manager's top three in the report's keeper watch by keep chance), the KEY STORYLINES (the report's ANGLES block, verbatim), the trade block (week N's trades from the move ledger and Yahoo's transaction log, picks from `data\weeklycontextinput_weekN.json`; deleted when there are none), Section 9's search dates, and the rosters with IL-slot players marked. **It refuses rather than guess:** a missing or other week's report, a report not formatted from its JSON (rerun Step 6.5), an ANGLES block that did not run, last week's IL file (`state.py pull`), a ledger trade and a Yahoo trade that disagree, a midweek Yahoo trade, a missing upload. Fix what it names and rerun. `output\prompts_weekN.md` holds names: it is league state (`config\STATE_MANIFEST.json`), never committed.
 
@@ -811,8 +842,9 @@ recompute on every claim check, so an approved number never goes stale.
 Run this in a **fresh chat** -- not the drafting chat. A chat that just argued
 itself into a claim is the worst possible auditor of it.
 
-Upload `assets\WEEK{N}_DRAFT.md`, `output\stats_report_week{N}.md`, and
-`templates\VERIFICATION_TEMPLATE.md`, then paste the prompt from that file.
+Upload `assets\WEEK{N}_DRAFT.md`, `output\stats_report_week{N}.md`,
+`output\lore_for_drafting.json` and `templates\VERIFICATION_TEMPLATE.md`, then paste the prompt from that file.
+**Upload only those; never give this chat your folder.** The prompt's first line is the same rule as Step 7's: use only the uploaded files, never `config\LEAGUE_LORE.json` (on 11-09 the verification chat opened it).
 It sorts findings into P0 (factual errors), P1 (template rule violations) and
 P2 (format), and ends with a publish/fix verdict.
 
@@ -826,6 +858,8 @@ P2 (format), and ends with a publish/fix verdict.
 ---
 
 ## Step 9: Generate HTML Newsletter
+
+**After the pre-tip window has opened, run `python scripts\state.py pull` first.** Step 9 writes `data\calibration\published_lines.json`, which the pre-tip run writes too; pull first so your push merges.
 
 ```cmd
 python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
@@ -909,13 +943,9 @@ After the newsletter is finalized and distributed, update two files so the next 
 
 **Key rule:** Only the most recent week's recap is kept. The file replaces itself each week -> it's a rolling notebook, not an archive.
 
-### 10b: Update RECENT_CONTENT.json
+### 10b: RECENT_CONTENT.json -- nothing to do by hand (for now)
 
-> **Under review (STATUS task 24):** the engine also writes `RECENT_CONTENT.json` itself, and the file has two meanings that need reconciling. Until that's settled, keep doing the step below.
-
-Ask Claude: *"Now update RECENT_CONTENT.json -- append this week's headlines and section openers."*
-
-This prevents future newsletters from reusing the same phrasing or angles. The prompts template instructs the drafting Claude to check this file before writing.
+The engine reads and writes only three keys of `config\RECENT_CONTENT.json` -- `fun_facts`, `trade_ideas` and `free_agent_recs` (`modules\content_freshness.py`) -- and Step 6 keeps them up to date itself. Any other key (a drafting chat's `headlines` or `section_openers`, as on 11-09) is **silently dropped** on the next save. So until STATUS task 24 settles the file's two meanings: **don't hand-edit it and don't ask a chat to update it.** Step 10 is 10a only.
 
 ---
 
@@ -951,7 +981,8 @@ cd <project_root>
 :: First, always
 python scripts\state.py pull
 
-:: Step 0: Fresh NBA schedule (if it changed, the reviewing session commits it; then git push and state.py set-engine) (season and output both come from config)
+:: Step 0: Fresh NBA schedule -- skip it when last night's run says `refetch updated` or `refetch unchanged` (Actions -> Nightly -> [schedule])
+:: (if it changed, the reviewing session commits it; then git push and state.py set-engine) (season and output both come from config)
 python scripts\fetch_nba_schedule.py
 
 :: Step 1: Pull Yahoo data (replace dates for your week)
@@ -991,16 +1022,16 @@ python scripts\format_stats_report.py --week N
 python scripts\prepare_prompts.py --week N
 :: Step 8: Verify draft with VERIFICATION_TEMPLATE.md
 
-:: Step 9: Generate HTML -- this publishes the week's betting lines to data\calibration\published_lines.json and the keepability snapshot to data\keepability\ (--no-log for a preview)
+:: Step 9 (after the pre-tip window opened: python scripts\state.py pull first): Generate HTML -- this publishes the week's betting lines to data\calibration\published_lines.json and the keepability snapshot to data\keepability\ (--no-log for a preview)
 python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
 
-:: Push before ~4:15 PM Phoenix on a Monday (the pre-tip run)
+:: Push before first tip - 45 min, league time, on a Monday (the pre-tip run): python scripts\run_guard.py pretip shows the window
 python scripts\state.py push
 
 :: After sending: archive the issue for the hub
 python scripts\archive_issue.py --week N
 
-:: Step 10: Update config\LAST_WEEK_RECAP.md and config\RECENT_CONTENT.json
+:: Step 10: Update config\LAST_WEEK_RECAP.md (10a only: RECENT_CONTENT.json is the engine's)
 
 :: Last, always
 python scripts\state.py push

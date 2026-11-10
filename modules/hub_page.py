@@ -249,22 +249,8 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              f'<div class="lock{" on" if h["lock"]["locked"] else ""}">{clean(h["lock"]["text"])}</div>'
              '</header>')
 
-    # the Monday window's move checklist (step 2), under the header on the window day only
-    cl = payload.get("checklist")
-    if cl is not None:
-        o.append(f'<section><div class="row-b"><h2>{clean(cl["title"])}</h2><span class="aside">'
-                 f'{clean(cl["closes"])}</span></div><div class="card">')
-        if not cl["lines"] and not cl["stopped"]:
-            o.append(f'<div class="empty">{clean(cl["empty"])}</div>')
-        for x in cl["lines"]:
-            o.append(f'<div class="mv"><div class="when"><b>{clean(x["n"])}</b></div><div class="body">'
-                     f'<span>{clean(x["text"])}</span><span style="display:flex;gap:6px">'
-                     f'<span class="chip st">{clean(x["state"])}</span></span></div></div>')
-        for x in cl["stopped"]:
-            o.append(f'<div class="mv"><div class="when"><b>!</b></div><div class="body">'
-                     f'<span class="chip out">{clean(x["text"])}</span></div></div>')
-        o.append(f'<div class="empty" style="font-size:12px">{clean(cl["note"])}</div></div></section>')
-
+    # "This week's matchups" is always the first section (F6, 11-09: the Monday
+    # checklist is Nick's alone now -- python scripts\ledger.py checklist)
     mu = payload["matchups"]
     o.append("<section><h2>This week's matchups</h2>")
     for c in mu["cards"]:

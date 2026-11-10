@@ -350,6 +350,33 @@ def compute_potw_career_stats(all_data: dict) -> dict:
     return {"by_player": by_player, "by_manager": by_manager}
 
 
+def career_stats_before_week(all_data: dict, season: str, week: int, winner: Optional[dict]) -> dict:
+    """compute_potw_career_stats over the history WITHOUT this week, nor any
+    later week of this season (F3, 11-09). Section 4 adds this week's winner
+    once, so a rerun -- whose first run already saved the winner -- counts
+    the same as the first run.
+
+    RAISES if the history already holds this week under a different player:
+    the saved winner would be wrong, and save_potw_winner never rewrites it."""
+    season_key = _normalize_season_key(season) if season else None
+    kept = {}
+    for s_key, entries in (all_data or {}).get("seasons", {}).items():
+        out = []
+        for e in entries:
+            w = e.get("week", 0)
+            if s_key == season_key and w == week and winner and e.get("player") != winner.get("player_name"):
+                raise ValueError(
+                    f"config/POTW_HISTORY.json already holds week {week} of {season_key} as "
+                    f"{e.get('player')}, but this report's winner is {winner.get('player_name')}. "
+                    "Find out why the winner changed; if the report is right, correct that "
+                    "week's entry in the file (state: pull first, push after) and rerun.")
+            if s_key == season_key and w >= week:
+                continue
+            out.append(e)
+        kept[s_key] = out
+    return compute_potw_career_stats({"seasons": kept})
+
+
 def load_player_projections(base_path: Path) -> dict:
     """
     Load projected FPPG for all players from PLAYERLIST.xlsx.
@@ -1750,6 +1777,7 @@ def format_section_4_potw(data: dict, lookups: dict, potw_history: Optional[list
         lines.append("")
     
     # Context: season + career POTW stats
+    season_label = (data.get("metadata") or {}).get("season_year", "")
     if winner and (potw_history or career_stats):
         current_player = winner["player_name"]
         current_mgr = winner["manager"]
@@ -1763,22 +1791,21 @@ def format_section_4_potw(data: dict, lookups: dict, potw_history: Optional[list
         else:
             lines.append(f"**Season POTW context:** This is {current_player}'s first POTW award this season")
         
-        # Career context (from all-time data, only if multiple seasons exist)
+        # Career context. career_stats never holds this week (career_stats_before_week),
+        # so this week is added exactly once, here, and the season figure inside
+        # the breakdown equals the season line above (F3, 11-09).
         if career_stats:
             by_player = career_stats.get("by_player", {})
-            by_manager = career_stats.get("by_manager", {})
-            
-            # Player career total (previous wins + current = career total)
             player_career = by_player.get(current_player, {})
-            career_prev = player_career.get("total", 0)  # doesn't include current week yet
-            career_total = career_prev + 1
-            num_seasons = len(player_career.get("seasons", {}))
-            
-            if num_seasons > 1:
-                season_breakdown = ", ".join(
-                    f"{s}: {c}" for s, c in sorted(player_career.get("seasons", {}).items())
-                )
-                lines.append(f"**Career POTW:** {current_player} has {career_total} career POTW awards ({season_breakdown}, + 1 this week)")
+            seasons_won = dict(player_career.get("seasons", {}))
+            this_key = _normalize_season_key(season_label) if season_label else None
+            if this_key:
+                seasons_won[this_key] = seasons_won.get(this_key, 0) + 1
+            career_total = player_career.get("total", 0) + 1
+            if career_total > season_total and this_key:
+                season_breakdown = ", ".join(f"{s}: {c}" for s, c in sorted(seasons_won.items()))
+                lines.append(f"**Career POTW:** {current_player} has {career_total} career POTW awards "
+                             f"({season_breakdown}; this week included)")
         
         # Manager POTW leaderboard (season)
         mgr_wins = {}
@@ -1792,13 +1819,12 @@ def format_section_4_potw(data: dict, lookups: dict, potw_history: Optional[list
         # Manager career leaderboard (only if multiple seasons)
         if career_stats and len(career_stats.get("by_manager", {}).values()) > 0:
             by_manager = career_stats.get("by_manager", {})
-            # Check if any manager has wins across multiple seasons
-            any_multi_season = any(len(m.get("seasons", {})) > 1 for m in by_manager.values())
-            if any_multi_season:
-                career_mgr = {}
-                for m, stats in by_manager.items():
-                    career_mgr[m] = stats["total"]
-                career_mgr[current_mgr] = career_mgr.get(current_mgr, 0) + 1
+            career_mgr = {}
+            for m, stats in by_manager.items():
+                career_mgr[m] = stats["total"]
+            career_mgr[current_mgr] = career_mgr.get(current_mgr, 0) + 1
+            # shown once any manager's career differs from his season (this week counted once in both)
+            if any(c != mgr_wins.get(m, 0) for m, c in career_mgr.items()):
                 career_summary = ", ".join(f"{m} {c}" for m, c in sorted(career_mgr.items(), key=lambda x: -x[1]))
                 lines.append(f"**POTW by manager (career):** {career_summary}")
         
@@ -2027,7 +2053,10 @@ def format_section_6_what_if(data: dict, lookups: dict) -> str:
             any_blunders = True
             # Detail each blunder
             for b in analysis.get("blunder_details", []):
-                lines.append(f"  - BLUNDER: {b['bench_player']} ({b['bench_player_fp']:.1f} FP) left on bench -> {b['available_slot']} slot ({b['dnp_starter']} didn't play) on {b['date']}")
+                moves = b.get("moves") or []
+                via = ("; he starts if the lineup is reshuffled: "
+                       + ", ".join(f"{mv['player']} {mv['from']}->{mv['to']}" for mv in moves)) if moves else ""
+                lines.append(f"  - BLUNDER: {b['bench_player']} ({b['bench_player_fp']:.1f} FP) left on bench -> {b['available_slot']} slot ({b['dnp_starter']} didn't play) on {b['date']}{via}")
     
     lines.append("")
     
@@ -3373,7 +3402,9 @@ def main():
     # Load POTW history from config file + previous weeks' JSONs
     season = data.get("metadata", {}).get("season_year", "")
     potw_history, potw_all_data = load_potw_history(current_week, Path(args.base_path), season)
-    potw_career_stats = compute_potw_career_stats(potw_all_data) if potw_all_data else None
+    potw_winner = (data.get("player_of_week") or {}).get("winner") or {}
+    potw_career_stats = (career_stats_before_week(potw_all_data, season, current_week, potw_winner)
+                         if potw_all_data else None)
     if potw_history:
         print(f"Loaded POTW history: {len(potw_history)} previous winner(s) this season")
     

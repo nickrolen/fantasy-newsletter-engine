@@ -54,25 +54,6 @@ def _record_week_applied(ledger: dict, season: str, week: int) -> dict:
     season_entry["last_applied"] = datetime.now().isoformat()
     return ledger
 
-# Position eligibility for each starter slot (mirrors lineup_optimizer.py)
-SLOT_POSITIONS = {
-    "PG": ["PG"],
-    "SG": ["SG"],
-    "G": ["PG", "SG"],
-    "SF": ["SF"],
-    "PF": ["PF"],
-    "F": ["SF", "PF"],
-    "C": ["C"],
-    "UTIL": ["PG", "SG", "SF", "PF", "C"],
-}
-
-
-def _can_fill_slot(positions: list[str], slot: str) -> bool:
-    """Check if a player's positions allow them to fill a given starter slot."""
-    eligible = SLOT_POSITIONS.get(slot, [])
-    return any(pos in eligible for pos in positions)
-
-
 def _parse_positions(pos_str) -> list[str]:
     """Parse comma-separated position string into a list."""
     if not pos_str or pd.isna(pos_str):
@@ -236,91 +217,20 @@ def compute_weekly_bench_games_from_lineups(lineups: pd.DataFrame, season: str, 
 
 
 def compute_weekly_blunders_from_lineups(lineups: pd.DataFrame, playerlog: pd.DataFrame, season: str, week: int):
-    """Return per-manager weekly blunder count.
+    """Return per-manager weekly blunder count (managers with any).
 
-    A blunder is a bench player who played (FP > 0) when a starter slot was
-    available -- either empty or occupied by a player who didn't play that day.
-    This requires cross-referencing LINEUPS (for slot assignments) with
-    PLAYERLOG (for who actually played) on a per-day basis.
-
-    Uses greedy matching: highest-FP bench players are assigned to available
-    slots first to avoid double-counting when multiple bench players could
-    fill the same slot.
+    One definition, modules/blunders (F2, 11-09): on each day, the most
+    starters achievable from the players who played (the exact fill, so a
+    blunder that needs a reshuffle counts) minus the starters who played.
     """
+    from modules import blunders as bl
     lineups = lineups.copy()
     lineups.columns = [c.strip() for c in lineups.columns]
     playerlog = playerlog.copy()
     playerlog.columns = [c.strip() for c in playerlog.columns]
-
-    lineups = lineups[
-        (lineups["season_year"] == season) & (lineups["week"] == week)
-    ].copy()
-    playerlog = playerlog[
-        (playerlog["season_year"] == season) & (playerlog["week"] == week)
-    ].copy()
-
-    if lineups.empty:
-        return {}
-
-    lineups["manager"] = lineups["manager"].map(normalize_manager)
-    lineups["slot"] = lineups["slot"].astype(str).str.upper()
-    lineups["fantasy_points"] = pd.to_numeric(lineups["fantasy_points"], errors="coerce")
-
-    playerlog["manager"] = playerlog["manager"].map(normalize_manager)
-    playerlog["is_injured"] = playerlog["is_injured"].fillna(False).astype(bool)
-    playerlog["fantasy_points"] = pd.to_numeric(playerlog["fantasy_points"], errors="coerce")
-
-    managers = lineups["manager"].unique()
-    blunder_counts = {}
-
-    for manager in managers:
-        mgr_lineups = lineups[lineups["manager"] == manager]
-        mgr_plog = playerlog[playerlog["manager"] == manager]
-        mgr_blunders = 0
-
-        for day in mgr_lineups["date"].unique():
-            lu_day = mgr_lineups[mgr_lineups["date"] == day]
-            pl_day = mgr_plog[mgr_plog["date"] == day]
-
-            # Build FP lookup from playerlog (who actually played)
-            fp_lookup = {}
-            for _, row in pl_day.iterrows():
-                if not row.get("is_injured", False):
-                    fp_lookup[row["player_name"]] = float(row.get("fantasy_points", 0))
-
-            bench_played = []
-            dnp_starters = []
-
-            for _, row in lu_day.iterrows():
-                slot = row["slot"]
-                player = row["player_name"]
-                positions = _parse_positions(row.get("positions", ""))
-                fp = fp_lookup.get(player)
-
-                if slot in ("IL", "IL+"):
-                    continue
-
-                if slot == "BN":
-                    if fp is not None and fp > 0:
-                        bench_played.append({"positions": positions, "fp": fp})
-                else:
-                    if fp is None:
-                        # Starter slot with no game played -> available
-                        dnp_starters.append({"slot": slot, "positions": positions})
-
-            # Greedy match: highest FP bench player first
-            available = list(dnp_starters)
-            for bp in sorted(bench_played, key=lambda p: p["fp"], reverse=True):
-                for i, dnp in enumerate(available):
-                    if _can_fill_slot(bp["positions"], dnp["slot"]):
-                        mgr_blunders += 1
-                        available.pop(i)
-                        break
-
-        if mgr_blunders > 0:
-            blunder_counts[manager] = mgr_blunders
-
-    return blunder_counts
+    lineups = lineups[(lineups["season_year"] == season) & (lineups["week"] == week)]
+    playerlog = playerlog[(playerlog["season_year"] == season) & (playerlog["week"] == week)]
+    return bl.counts(bl.week_from_frames(lineups, playerlog))
 
 
 def main():

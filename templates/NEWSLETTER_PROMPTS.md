@@ -52,6 +52,8 @@ Before opening the drafting chat, pull these from the **stats report markdown** 
 **Prompt:**
 
 ```
+Use only the files uploaded to this chat. Do not open any other file in my folder, and never `config/LEAGUE_LORE.json`.
+
 You are writing the weekly newsletter for the **CHS Alumni Fantasy Basketball League**, a [FILL IN: number of teams]-team keeper league among CHS alumni, now in its [FILL IN: league season ordinal, e.g. twelfth] season. **Read `VOICE.md` first, then `newsletter_template.md`.** VOICE.md defines who is speaking; everything you write, in every section, is in that one voice.
 
 ### FILES
@@ -92,6 +94,8 @@ Stop after Section 4. Present it as a downloadable file.
 **Prompt:**
 
 ```
+Use only the files uploaded to this chat. Do not open any other file in my folder, and never `config/LEAGUE_LORE.json`.
+
 Continue the Week [FILL IN: N] Newsletter. Write **Sections 5-8** following the template's instructions for each section:
 
 5. **Fun Facts** -- Weave the fun_facts data into engaging prose bullets.
@@ -127,6 +131,8 @@ Same rules as Part 1: cleaned prose only, every number from the stats report. Pr
 **Prompt:**
 
 ```
+Use only the files uploaded to this chat. Do not open any other file in my folder, and never `config/LEAGUE_LORE.json`.
+
 Finish the Week [FILL IN: N] Newsletter. Write **Sections 9-10** and the closing line, following the template's instructions for each section.
 
 ### Section 9: Around the NBA
@@ -186,6 +192,8 @@ Upload the combined draft and ask LLM to check for these specific error patterns
 
 ### Prompt for Verification:
 ```
+Use only the files uploaded to this chat. Do not open any other file in my folder, and never `config/LEAGUE_LORE.json`.
+
 Review this newsletter draft for the following specific error patterns. For each category, quote any problematic sentences and provide the correction:
 
 ### 1. HEAD-TO-HEAD RECORD INTERPRETATION

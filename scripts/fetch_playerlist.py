@@ -90,7 +90,11 @@ AGES = PROJECT_ROOT / "config" / "PLAYER_AGES.json"
 ROSTERS = PROJECT_ROOT / "config" / "ROSTERS.json"
 
 COLUMNS = ["player_name", "player_nba_team", "player_position(s)",
-           "player_total_proj_FP", "player_proj_GP", "projectedFPPG", "age"]
+           "player_total_proj_FP", "player_proj_GP", "projectedFPPG", "age",
+           # Yahoo's player id (the number after "p." in a player key, and the
+           # /nba/players/<id>/ link): the checklist's add links (F8, 11-09).
+           # Never read by a simulator; not in the stamp's content hash.
+           "yahoo_id"]
 
 BASE = "https://basketball.fantasysports.yahoo.com/nba/{league_id}/players"
 STAT_VIEW = "S_PSR"      # "Remaining Games (proj)"
@@ -633,6 +637,7 @@ def main():
             "player_proj_GP": gp,
             "projectedFPPG": fppg,
             "age": age,
+            "yahoo_id": int(r["yahoo_id"]),
             "_yahoo_id": r["yahoo_id"],
             "_owner": r["owner"],
         })

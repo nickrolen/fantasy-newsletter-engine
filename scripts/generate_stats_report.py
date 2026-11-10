@@ -40,6 +40,46 @@ def run_seed(requested=None) -> tuple[int, str]:
     return secrets.randbits(62), "chosen for this run"
 
 
+def load_freshness(live_file: Path, pre_file: Path, week: int, *, repro: bool = False, echo=print):
+    """The freshness tracker for this run, and the file it was read from.
+
+    The pre-week snapshot (config/snapshots/RECENT_CONTENT_pre_weekN.json) is
+    made once, by the week's first run, from RECENT_CONTENT.json. That run
+    then saves the week's own fun facts into RECENT_CONTENT.json, so a rerun
+    reading it would treat them as repeats. So (F4, 11-09):
+      - first run of the week: reads RECENT_CONTENT.json, exactly as before
+        (the snapshot it just made is the same bytes);
+      - a rerun (the snapshot already existed): reads the snapshot, and says so;
+      - --repro: reads the snapshot, as before, and saves nothing.
+    Whatever it read, a save goes to RECENT_CONTENT.json, never the snapshot,
+    so two runs in a row leave the same RECENT_CONTENT and the same facts."""
+    from modules.content_freshness import FreshnessTracker
+    created = False
+    if not pre_file.exists():
+        if live_file.exists():
+            shutil.copy2(live_file, pre_file)
+            created = True
+            echo(f"  Saved pre-week freshness snapshot: {pre_file}")
+        else:
+            echo(f"  Warning: live freshness file not found at {live_file}")
+            echo("  Starting fresh (no RECENT_CONTENT.json found)")
+    if repro and pre_file.exists():
+        src = pre_file
+        echo(f"  Repro mode: using freshness snapshot: {src}")
+    elif pre_file.exists() and not created:
+        src = pre_file
+        echo(f"  Rerun of week {week}: reading freshness from the pre-week snapshot {src} "
+             f"(the state before this week's first run), not {live_file.name}, which that run "
+             f"already updated. This run still saves to {live_file.name}.")
+    else:
+        src = live_file
+        echo(f"  Using freshness file: {src}")
+    tracker = FreshnessTracker.load(src)
+    tracker.filepath = live_file            # a save never writes the snapshot
+    tracker.set_current_week(week)
+    return tracker, src
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate weekly stats report for fantasy basketball newsletter"
@@ -376,27 +416,8 @@ def main():
     if not args.no_freshness:
         print("Loading content freshness tracker...")
         try:
-            from modules.content_freshness import FreshnessTracker
-
-            # Ensure we have a pre-week snapshot saved (only create it if missing)
-            if not freshness_pre_file.exists():
-                if freshness_live_file.exists():
-                    shutil.copy2(freshness_live_file, freshness_pre_file)
-                    print(f"  Saved pre-week freshness snapshot: {freshness_pre_file}")
-                else:
-                    print(f"  Warning: live freshness file not found at {freshness_live_file}")
-                    print("  Starting fresh (no RECENT_CONTENT.json found)")
-
-            # Choose freshness input: repro uses the pre-week snapshot if available
-            if args.repro and freshness_pre_file.exists():
-                freshness_in = freshness_pre_file
-                print(f"  Repro mode: using freshness snapshot: {freshness_in}")
-            else:
-                freshness_in = freshness_live_file
-                print(f"  Using freshness file: {freshness_in}")
-
-            freshness_tracker = FreshnessTracker.load(freshness_in)
-            freshness_tracker.set_current_week(week)
+            freshness_tracker, _freshness_in = load_freshness(
+                freshness_live_file, freshness_pre_file, week, repro=args.repro)
 
             if freshness_tracker.fun_facts:
                 print(f"  Loaded {len(freshness_tracker.fun_facts)} tracked facts from previous weeks")

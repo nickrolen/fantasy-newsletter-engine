@@ -7,7 +7,8 @@ ledger.py -- the move ledger from Nick's desktop (step 2; phone entries are step
     python scripts\\ledger.py add "..." --dry-run      check only; writes nothing
     python scripts\\ledger.py list                      pending and recent entries, with states
     python scripts\\ledger.py check                     every pending entry, checked again now
-    python scripts\\ledger.py checklist [--week N]      the coming Monday's checklist (console)
+    python scripts\\ledger.py checklist [--week N]      the coming Monday's checklist, per team, with
+                                                    Yahoo add links (Nick's alone: not on the hub)
     python scripts\\ledger.py void N --reason "..."     an entry Nick typed by mistake does nothing
 
 Run it between `python scripts\\state.py pull` and `python scripts\\state.py push`,
@@ -109,8 +110,10 @@ def cmd_checklist(a) -> int:
     week = a.week or (world.current_week() + (0 if world.now.date() == world.window_day(
         world.current_week()) else 1))
     cl = ml.checklist(world, rows, states, week)
-    sts = {e["id"]: ml.state_of(e, states) for e in ml.entries(rows)}
-    print("\n".join(ml.format_checklist(cl, sts)))
+    from modules.data_loader import LEAGUE_KEY
+    ids = ml.yahoo_ids(base, world.transactions)
+    print("\n".join(ml.checklist_for_nick(cl, rows, states, ids=ids, league_key=LEAGUE_KEY,
+                                         managers=list(world.managers))))
     return 1 if cl["stopped"] else 0
 
 

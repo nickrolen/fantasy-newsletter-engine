@@ -53,7 +53,10 @@ s.2.4 and s.4 the design. The nightly run:
    7 title_odds    title_odds_run.price at the week's seed: the history row,
                    output/title_odds_latest.json, output/stakes.json. Skipped
                    (nothing priced) when the line step found prices locked
-   8 actuals       player_actuals.update
+   8 actuals       player_actuals.update (the pre-tip run too, before its hub
+                   step: a player added in the Monday window is backfilled here,
+                   or the hub refuses with ActualsStale -- 11-09's 3:15 and 3:30
+                   runs did). The closing run builds no hub and reads no actuals
    9 hub           hub_state.build, then build_hub (encrypted when
                    HUB_PASSPHRASE is set, --preview-only otherwise).
                    Publishing is step 1c-ii
@@ -106,7 +109,7 @@ STEPS = {
     "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "ledger", "line", "title_odds",
                 "actuals", "hub"),
     "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "ledger", "line", "title_odds",
-               "hub"),
+               "actuals", "hub"),
     "closing": ("engine", "window", "sync", "closing"),
 }
 
@@ -457,7 +460,7 @@ class Run:
     # -- 8
     def step_actuals(self):
         from . import player_actuals as pa
-        r = pa.update(self.base)
+        r = pa.update(self.base, today=self.today)
         return (f"through {r['through']}: {len(r['days_fetched'])} day(s), {r['calls']} call(s)"
                 + (f"; backfilled {', '.join(r['backfilled'])}" if r["backfilled"] else ""))
 

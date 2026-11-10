@@ -719,19 +719,18 @@ def test_the_hub_view_reserves_frees_and_feeds(tmp_path):
     assert v["claimed"] == {} and v["joins"] == {} and len(v["feed"]) == 2
 
 
-def test_the_hub_page_shows_the_checklist_and_pending_joins():
+def test_the_hub_page_shows_pending_joins_and_no_checklist():
+    """F6 (11-09): the Monday checklist is Nick's alone (ledger.py checklist),
+    never on the hub; a payload carrying one still renders none of it."""
     import test_hub as th
     from modules import hub_page
+    text = th.visible_text(hub_page.render(th.sample_payload(), now=th.GEN))
+    assert "+ Joe Claimed joins Mon 11-09 (claimed Thu 11-05)" in text
     cl = {"week": "4", "title": "Monday window \u00b7 week 4", "closes": "Closes 6:55 PM Pacific",
           "lines": [{"n": "1", "text": "Nick: move Anthony Edwards into an IL slot", "state": "Pending"}],
-          "stopped": [{"team": "Hayden", "text": "Hayden: stopped -- X is tagged Q"}],
-          "empty": "none", "note": "IL placements first."}
+          "stopped": [], "empty": "none", "note": "IL placements first."}
     page = hub_page.render(th.sample_payload(checklist=cl), now=th.GEN)
-    text = th.visible_text(page)
-    for s in ("Monday window \u00b7 week 4", "Nick: move Anthony Edwards into an IL slot",
-              "Hayden: stopped -- X is tagged Q", "+ Joe Claimed joins Mon 11-09 (claimed Thu 11-05)"):
-        assert s in text
-    assert "Monday window" not in th.visible_text(hub_page.render(th.sample_payload(), now=th.GEN))
+    assert "Monday window" not in th.visible_text(page) and "move Anthony Edwards" not in page
 
 
 def test_the_ledger_issue_is_built_from_the_run_records_flags(tmp_path):

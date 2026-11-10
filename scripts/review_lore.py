@@ -218,6 +218,23 @@ def sitting(lore, manager, base, save, ask=input, out=print) -> dict:
     return t
 
 
+def refresh_derived(lore: dict, base: Path) -> list:
+    """Recompute every derived entry from today's data and save, the way the
+    claim check does (check_draft.load_lore), before an export.
+
+    F11 (11-09): the export wrote each derived entry's STORED text. On 11-09
+    it ran before Step 7.5's check had recomputed anything, so the drafting
+    chat was handed `phase-benton-late` as "67-70 the rest" -- computed before
+    Benton's week-3 win (an early-season week) -- while the lore code on the
+    same day's data gives 68-70, the week-3 report's career 88-112. Raises if
+    the history can't be read: an export never hands the writer stale numbers."""
+    import propose_lore
+    cells, _ = propose_lore.build_cells(base)
+    changed = L.refresh(lore, cells)
+    L.save(base, lore)
+    return changed
+
+
 def export(lore: dict, base: Path, week: int = None,
            season: str = None) -> Path:
     """Approved, non-stale entries only, stripped to what the writer needs.
@@ -296,6 +313,12 @@ def main(argv=None) -> int:
             pass
         return 0
     if args.export:
+        try:
+            for i in refresh_derived(lore, base):
+                print(f"lore: {i} changed state on the refresh")
+        except Exception as err:  # noqa: BLE001 -- refuse, never export stale numbers
+            print(f"REFUSED: the derived entries could not be recomputed ({err}); nothing exported")
+            return 1
         out = export(lore, base, week=args.week,
                      season=(json.loads((base / "config" / "league_config.json")
                                         .read_text(encoding="utf-8"))

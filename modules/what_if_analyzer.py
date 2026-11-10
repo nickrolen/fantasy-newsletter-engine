@@ -47,29 +47,11 @@ class BenchSwap:
         }
 
 
-@dataclass
-class Blunder:
-    """A bench game left on bench when an open starter slot existed.
-    
-    A blunder is distinct from a swap: swaps involve two players who both played,
-    while blunders involve a bench player who played when a starter slot was
-    available (either empty or occupied by a DNP player). Blunders represent
-    pure manager negligence -- points left on the table for free.
-    """
-    date: str
-    bench_player: str
-    bench_player_fp: float
-    available_slot: str
-    dnp_starter: str  # Player in the slot who didn't play (or "EMPTY" if no one)
-    
-    def to_dict(self) -> dict:
-        return {
-            "date": self.date,
-            "bench_player": self.bench_player,
-            "bench_player_fp": self.bench_player_fp,
-            "available_slot": self.available_slot,
-            "dnp_starter": self.dnp_starter,
-        }
+# One definition of a blunder (F2, 11-09): modules/blunders. A blunder is
+# distinct from a swap: swaps involve two players who both played, blunders a
+# bench player who played when the lineup could have started him (an open
+# seat, reached directly or by a reshuffle of starters). Pure gain.
+from .blunders import Blunder  # noqa: E402  (re-exported: report_builder, tests)
 
 
 @dataclass
@@ -230,31 +212,10 @@ def analyze_daily_what_if(
                     gain=gain,
                 )
     
-    # --- BLUNDER DETECTION ---
-    # A blunder is a bench player who played but could have filled a starter
-    # slot occupied by a DNP player. These are free points left on the table
-    # due to the manager not setting their lineup.
-    #
-    # Greedy assignment: sort bench players by FP descending (biggest blunders
-    # first), assign each to an available DNP slot if position-eligible, then
-    # mark that slot as consumed so we don't double-count.
-    
-    blunders = []
-    available_slots = list(dnp_starters)  # Copy so we can remove as assigned
-    
-    for bench_player in sorted(bench, key=lambda p: p["fp"], reverse=True):
-        for i, dnp in enumerate(available_slots):
-            if can_player_fill_slot(bench_player["positions"], dnp["slot"]):
-                blunders.append(Blunder(
-                    date=date_str,
-                    bench_player=bench_player["name"],
-                    bench_player_fp=bench_player["fp"],
-                    available_slot=dnp["slot"],
-                    dnp_starter=dnp["name"],
-                ))
-                available_slots.pop(i)  # Consume this slot
-                break
-    
+    # --- BLUNDERS: the one definition (modules/blunders, the exact fill) ---
+    from . import blunders as bl
+    blunders = bl.day(date_str[:10], bl.rows_from_frames(lineups_day, playerlog_day)).blunders
+
     return DailyWhatIf(
         date=date_str,
         manager=manager,
@@ -493,6 +454,7 @@ def format_what_if_section(what_if: WeeklyWhatIf, include_all: bool = False) -> 
                     lines.append(
                         f"  BLUNDER: {b.bench_player} ({b.bench_player_fp:.1f} FP) "
                         f"left on bench -- {b.dnp_starter} ({b.available_slot}) didn't play"
+                        + (f"; reshuffle: {b.reshuffle_text()}" if b.moves else "")
                     )
     
     return "\n".join(lines)
@@ -553,4 +515,5 @@ if __name__ == "__main__":
         if analysis.blunders:
             print(f"  Blunder details:")
             for b in analysis.blunders:
-                print(f"    {b.bench_player} ({b.bench_player_fp:.1f} FP) -> {b.available_slot} slot ({b.dnp_starter} didn't play)")
+                print(f"    {b.bench_player} ({b.bench_player_fp:.1f} FP) -> {b.available_slot} slot ({b.dnp_starter} didn't play)"
+                      + (f"; reshuffle: {b.reshuffle_text()}" if b.moves else ""))

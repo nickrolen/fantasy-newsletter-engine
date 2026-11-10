@@ -7,10 +7,10 @@ catch silent file truncation, syntax breakage, broken imports, config drift,
 encoding corruption, and engine-output regressions.
 
 USAGE:
-    py scripts/verify_project_integrity.py                  # all checks except golden master
-    py scripts/verify_project_integrity.py --baseline       # update file-size baseline after success
-    py scripts/verify_project_integrity.py --compare-golden # also run golden master check
-    py scripts/verify_project_integrity.py --verbose        # show every file checked
+    python scripts/verify_project_integrity.py                  # all checks except golden master
+    python scripts/verify_project_integrity.py --baseline       # update file-size baseline after success
+    python scripts/verify_project_integrity.py --compare-golden # also run golden master check
+    python scripts/verify_project_integrity.py --verbose        # show every file checked
 
 EXIT CODES:
     0 = success (warnings are OK)
@@ -1239,7 +1239,7 @@ def _check_point_in_time_record(cfg, warnings, today=None):
     if newest is None:
         warnings.append(
             "[SNAPSHOT] no PLAYERLIST_<date>.xlsx in config/snapshots. Run "
-            "py scripts\\check_playerlist.py --snapshot (Step 4.75).")
+            "python scripts\\check_playerlist.py --snapshot (Step 4.75).")
     elif (today - newest).days > PLAYERLIST_SNAPSHOT_MAX_AGE_DAYS:
         warnings.append(
             f"[SNAPSHOT] newest PLAYERLIST snapshot is {newest}, "
@@ -1289,7 +1289,7 @@ def _check_durability_prior(cfg, warnings):
     path = PROJECT_ROOT / rel
     if not path.is_file():
         return [f"[DURABILITY] durability_prior.snapshot {rel} does not exist. Take a "
-                "PLAYERLIST before week 1 (py scripts/check_playerlist.py --snapshot) "
+                "PLAYERLIST before week 1 (python scripts/check_playerlist.py --snapshot) "
                 "and point the key at it"]
     try:
         frame = pd.read_excel(path)
@@ -1715,7 +1715,7 @@ def main():
                 print("after scripts/start_new_season.py, every deleted output file and")
                 print("every emptied config file reports here -- review the list above,")
                 print("confirm nothing unexpected is in it, then re-run with:")
-                print("    py scripts/verify_project_integrity.py --baseline --force")
+                print("    python scripts/verify_project_integrity.py --baseline --force")
             return 1
         if all_failures:
             print(f"\n--force: rewriting the baseline over {len(all_failures)} "

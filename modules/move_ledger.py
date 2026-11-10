@@ -1474,22 +1474,74 @@ def feed_item(e: dict, st: str, claimed: datetime, wday: date) -> dict:
             "state": FEED_STATE[st], "kind": "ledger"}
 
 
-def hub_checklist(base_path, week: int, rows: list = None, states: list = None) -> dict:
-    """The window's checklist for the hub, each line with its entry's state
-    now. None when it was never published (the caller decides if that is an
-    error)."""
-    p = checklist_path(base_path, week)
-    if not p.is_file():
-        return None
-    cl = json.loads(p.read_text(encoding="utf-8"))
-    rows = read_rows(base_path) if rows is None else rows
-    states = read_states(base_path) if states is None else states
+YAHOO_ADD_URL = "https://basketball.fantasysports.yahoo.com/nba/{league}/addplayer?apid={pid}"
+
+
+def yahoo_add_url(league_key: str, yahoo_id) -> str:
+    """Yahoo's add page for a player (Nick tested it 11-08: league 16778, Ty
+    Jerome 6212). The id is the number after "p." in a player key."""
+    m = re.search(r"\.l\.(\d+)", str(league_key or ""))
+    if not m:
+        raise ValueError(f"no league id in league key {league_key!r}")
+    return YAHOO_ADD_URL.format(league=m.group(1), pid=int(yahoo_id))
+
+
+def yahoo_ids(base_path, transactions: list = None):
+    """PlayerIndex {player name: Yahoo id} from PLAYERLIST's yahoo_id column
+    (written by every fetch since F8), then the transaction log's player
+    keys. A name in neither has no link; nothing is guessed."""
+    import pandas as pd
+    from .data_loader import PlayerIndex
+    out = {}
+    pl = Path(base_path) / "data" / "PLAYERLIST.xlsx"
+    if pl.is_file():
+        frame = pd.read_excel(pl)
+        if "yahoo_id" in frame.columns:
+            for n, y in zip(frame["player_name"], frame["yahoo_id"]):
+                if pd.notna(y):
+                    out[str(n)] = int(y)
+    for t in transactions or []:
+        for pp in t.get("players", []):
+            mm = re.search(r"\.p\.(\d+)$", str(pp.get("player_key") or ""))
+            if mm:
+                out.setdefault(str(pp["name"]), int(mm.group(1)))
+    return PlayerIndex(out)
+
+
+def checklist_for_nick(cl: dict, rows: list, states: list, *, ids=None,
+                       league_key: str = None, managers: list = None) -> list:
+    """The checklist as Nick reads it (F6, 11-09: off the hub, his alone):
+    per team, teams in the order their first step comes, each step keeping its
+    number in the one order across teams; a stopped team with the reason and
+    the entries it holds; each add with its Yahoo add link when the player's
+    id is known (F8). Lines of text."""
     sts = {e["id"]: state_of(e, states) for e in entries(rows)}
-    return {"week": str(cl["week"]), "title": f"Monday window \u00b7 week {cl['week']}",
-            "closes": f"Closes {datetime.fromisoformat(cl['closes']).strftime('%I:%M %p').lstrip('0')} Pacific",
-            "lines": [{"n": str(x["n"]), "text": x["text"], "state": FEED_STATE[sts.get(x["entry"], "pending")]}
-                      for x in cl["lines"]],
-            "stopped": [{"team": s["team"], "text": f"{s['team']}: stopped -- {s['reason']}"}
-                        for s in cl["stopped"]],
-            "empty": "No group-chat moves to apply in this window.",
-            "note": cl["order"]}
+    by_id = {e["id"]: e for e in entries(rows)}
+    close = datetime.fromisoformat(cl["closes"])
+    wday = date.fromisoformat(cl["window"])
+    out = [f"Week {cl['week']} window: {wday:%a %m-%d}, closes "
+           f"{close.strftime('%I:%M %p').lstrip('0')} Pacific.",
+           f"Do the numbered steps in this order, across teams: {cl['order']}", ""]
+    teams = []
+    for x in list(cl["lines"]) + list(cl["stopped"]):
+        if x["team"] not in teams:
+            teams.append(x["team"])
+    for t in teams:
+        out.append(t)
+        for x in [x for x in cl["lines"] if x["team"] == t]:
+            out.append(f"  {x['n']:2d}. {x['text']}  [{sts.get(x['entry'], 'pending')}; entry {x['entry']}]")
+            if x["phase"] == "add":
+                pid = ids.get(x["player"]) if ids is not None else None
+                out.append("      " + (yahoo_add_url(league_key, pid) if pid is not None and league_key
+                                       else f"no Yahoo add link: {x['player']} has no Yahoo id on file"))
+        for s_ in [s_ for s_ in cl["stopped"] if s_["team"] == t]:
+            out.append(f"  BLOCKED: {s_['reason']}")
+            for eid in s_["entries"]:
+                e = by_id.get(eid)
+                out.append(f"      entry {eid}: {e['text'] if e else '?'}")
+    idle = [m for m in (managers or []) if m not in teams]
+    if idle:
+        out.append(f"{', '.join(idle)}: nothing to do.")
+    if not cl["lines"] and not cl["stopped"]:
+        out.append("No group-chat moves to apply in this window.")
+    return out

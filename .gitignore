@@ -305,3 +305,6 @@ output/move_checklist_week*.json
 output/prompts_week*.md
 # the refetched NBA schedule: league state, in the private repo (task 33)
 data/nba_schedule_*.refetched.json
+
+# drafting-chat outputs saved into the repo folder (league data; never commit)
+Claude outputs/

@@ -324,6 +324,24 @@ def test_an_unrostered_override_is_inert_not_dead_and_a_typo_is_still_a_typo(tmp
 # 5 -- the shift check reads the NBA team, which the calendar does not move
 # (HANDOFF two small fixes, 2026-10-28). Both files are real Yahoo fetches two
 # days apart; the old in-season GP-share comparison failed this pair at 28%.
+class _Oct28(date):
+    """The real pair's day (task 16a): the 10-28 file was fetched that day, so
+    the check's 8-day freshness gate must read it on 10-28, not on the
+    calendar (these tests failed by the date from 11-05)."""
+    @classmethod
+    def today(cls):
+        return cls(2026, 10, 28)
+
+
+@pytest.fixture
+def on_1028(check, monkeypatch):
+    import modules.league_clock as lc
+    monkeypatch.setattr(playerlist_freshness, "date", _Oct28)
+    monkeypatch.setattr(check, "date", _Oct28)
+    monkeypatch.setattr(lc, "league_today", lambda *a, **k: _Oct28.today())
+    return _Oct28.today()
+
+
 def _live_pair(check, live=None):
     shutil.copy2(SNAP / "PLAYERLIST_2026-10-26.xlsx", check.SNAPSHOTS / "PLAYERLIST_2026-10-26.xlsx")
     frame = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx") if live is None else live
@@ -332,7 +350,7 @@ def _live_pair(check, live=None):
 
 
 @needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
-def test_an_ordinary_pair_of_fetches_days_apart_does_not_fail(check, capsys):
+def test_an_ordinary_pair_of_fetches_days_apart_does_not_fail(check, capsys, on_1028):
     _live_pair(check)
     assert _run(check, []) == 0
     out = capsys.readouterr().out
@@ -342,7 +360,7 @@ def test_an_ordinary_pair_of_fetches_days_apart_does_not_fail(check, capsys):
 
 
 @needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
-def test_a_shifted_live_file_fails_and_names_the_rows(check, capsys):
+def test_a_shifted_live_file_fails_and_names_the_rows(check, capsys, on_1028):
     _live_pair(check, _shift(_frame(SNAP / "PLAYERLIST_2026-10-28.xlsx")))
     assert _run(check, []) == 1
     out = capsys.readouterr().out
@@ -351,7 +369,7 @@ def test_a_shifted_live_file_fails_and_names_the_rows(check, capsys):
 
 
 @needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
-def test_a_shift_confined_to_a_few_rows_still_fails_on_its_neighbours(check, capsys):
+def test_a_shift_confined_to_a_few_rows_still_fails_on_its_neighbours(check, capsys, on_1028):
     live = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx")
     part = pd.concat([live.iloc[:-12], _shift(live.iloc[-13:])]).reset_index(drop=True)
     _live_pair(check, part)
@@ -360,7 +378,7 @@ def test_a_shift_confined_to_a_few_rows_still_fails_on_its_neighbours(check, cap
 
 
 @needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
-def test_a_real_trade_is_reported_not_failed(check, capsys):
+def test_a_real_trade_is_reported_not_failed(check, capsys, on_1028):
     live = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx").copy()
     i = live.index[live["player_name"].str.startswith("Luka")][0]
     j = live.index[live["player_name"] == "Jayson Tatum"][0]

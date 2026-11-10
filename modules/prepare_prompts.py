@@ -95,6 +95,22 @@ IF_WCTI = "[IF data\\weeklycontextinput_weekN.json EXISTS, KEEP THIS LINE; OTHER
 END_IF = "[END IF]"
 GRADE_LINE = "- Include a letter grade (A-F) for EACH manager analyzing fairness."
 
+# The first line of every prompt (F9, 11-09: the Step 8 chat had folder access
+# and opened config/LEAGUE_LORE.json, which holds proposals and rejections the
+# writer must not see). templates/VERIFICATION_TEMPLATE.md carries it too.
+ONLY_UPLOADED = ("Use only the files uploaded to this chat. Do not open any other file in my "
+                 "folder, and never `config/LEAGUE_LORE.json`.")
+
+
+def prompt_blocks(text: str) -> list:
+    """The fenced prompt of each part, in order (the block after "**Prompt:**")."""
+    out = []
+    for chunk in text.split("**Prompt:**")[1:]:
+        body = chunk.split("```", 2)
+        if len(body) >= 3:
+            out.append(body[1].lstrip("\n"))
+    return out
+
 PH_WEEK = "[FILL IN: N]"
 PH_SEASON = "[FILL IN: YYYY-YY]"
 PH_START = "[FILL IN: Start Date]"
@@ -771,6 +787,10 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
     text = header + filled
     if not text.endswith("\n"):
         text += "\n"
+    blocks = prompt_blocks(text)
+    if len(blocks) < 3 or any(not b.startswith(ONLY_UPLOADED + "\n") for b in blocks[:3]):
+        raise PromptsRefused("every part's prompt must open with the uploaded-files-only line "
+                             f"({ONLY_UPLOADED!r}): check templates\\NEWSLETTER_PROMPTS.md")
     left = leftovers(text)
     if left:
         raise PromptsRefused(f"the output still has {left}")

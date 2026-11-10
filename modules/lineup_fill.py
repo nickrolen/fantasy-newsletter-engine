@@ -54,12 +54,21 @@ NUM_SEATS = len(SEATS)  # 10
 def exact_fill(
     players: Sequence[tuple[Hashable, frozenset | set, float]],
     seats: Sequence[tuple[str, frozenset]] = SEATS,
+    start: dict[int, int] | None = None,
 ) -> tuple[list, list, dict[int, Hashable]]:
     """Optimal lineup for one day.
 
     Args:
         players: (key, positions, projection). Any order.
         seats: (slot name, eligible positions), one entry per seat.
+        start: {seat index: player index}, an initial seating to extend (a
+            real lineup: modules/blunders). Those players are seated first and
+            stay seated -- an augmenting path may move one to another seat he
+            is eligible for, never off -- and the rest are added by the same
+            greedy. That is the matroid greedy with the start set taken first,
+            so the result is the largest, then highest-projected, lineup that
+            keeps every start player. A seat or a player used twice, or a
+            player not eligible for his start seat, raises ValueError.
 
     Returns:
         (started keys, benched keys, {seat index: key}). Started and benched
@@ -67,6 +76,16 @@ def exact_fill(
     """
     order = sorted(range(len(players)), key=lambda i: -players[i][2])
     seat_of: dict[int, int] = {}   # seat index -> player index
+    for si, pi in (start or {}).items():
+        if not 0 <= si < len(seats) or not 0 <= pi < len(players):
+            raise ValueError(f"start seat {si} / player {pi} out of range")
+        if pi in seat_of.values():
+            raise ValueError(f"start seats {players[pi][0]!r} twice")
+        if not (players[pi][1] & seats[si][1]):
+            raise ValueError(f"{players[pi][0]!r} ({sorted(players[pi][1])}) is not eligible for "
+                             f"start seat {seats[si][0]}")
+        seat_of[si] = pi
+    seated_at_start = set(seat_of.values())
 
     def augment(pi: int, seen: set) -> bool:
         pos = players[pi][1]
@@ -81,6 +100,9 @@ def exact_fill(
 
     started, benched = [], []
     for pi in order:
+        if pi in seated_at_start:
+            started.append(players[pi][0])
+            continue
         (started if augment(pi, set()) else benched).append(players[pi][0])
     return started, benched, {si: players[pi][0] for si, pi in seat_of.items()}
 

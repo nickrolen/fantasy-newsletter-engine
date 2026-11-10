@@ -202,3 +202,16 @@ def test_the_hub_reads_the_latest_run_and_its_change_since_the_row_before(tmp_pa
     data = SimpleNamespace(get_manager_record=lambda m: {"A": Record(2, 1), "B": Record(1, 2)}[m])
     with pytest.raises(hs.HubInputError, match="records moved"):
         hs.title_odds_inputs(tmp_path, data, ["A", "B"])
+
+
+def test_the_hub_prints_the_runs_banked_records_f5(tmp_path):
+    """F5 (11-10): the hub's W-L is the latest run's records_after_banked, so a
+    Monday 12:01 AM run shows the finished week before RECORDS has it."""
+    import inspect
+    from modules import hub_state as hs
+    latest = {"run_id": "r2", "records": {"A": "2-0", "B": "0-2"},
+              "records_after_banked": {"A": "3-0", "B": "0-3"}}
+    assert hs.shown_record(latest, "A") == "3-0" and hs.shown_record(latest, "B") == "0-3"
+    with pytest.raises(hs.HubInputError, match="records_after_banked"):
+        hs.shown_record({"run_id": "r9", "records_after_banked": {}}, "A")
+    assert '"record": shown_record(latest, m)' in inspect.getsource(hs.build_power)
