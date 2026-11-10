@@ -611,14 +611,15 @@ def test_shadow_mode_counts_ignore_the_ledger_and_the_comparison_reports_it(tmp_
 # the mode, the files
 # =============================================================================
 
-def test_ledger_mode_is_required_and_ships_shadow():
+def test_ledger_mode_is_required_and_ships_on():
+    # Nick switched it on 2026-11-10, after the clean 11-09 window (shadow before).
     with pytest.raises(ml.LedgerError, match="ledger_mode is missing"):
         ml.mode({"roster_moves": {}})
     with pytest.raises(ml.LedgerError, match="must be"):
         ml.mode({"roster_moves": {"ledger_mode": "off"}})
     with pytest.raises(ml.LedgerError):
         ml.mode({})
-    assert ml.mode() == "shadow"
+    assert ml.mode() == "on"
     assert ml.mode({"roster_moves": {"ledger_mode": "on"}}) == "on"
     assert ml.verify_from() == date(2026, 11, 3)
 
