@@ -5,11 +5,11 @@
 # Edit it in the engine, never in the private repo.
 name: Pre-tip
 
+# FIRED BY cron-job.org ONLY (task 6f, Nick 11-11): the "Pre-tip" job, Mondays
+# every 15 minutes from 07:00 to 19:45 America/Los_Angeles (deploy/state-repo/
+# cron-job-org.json). GitHub's own crons were removed.
 on:
-  schedule:
-    # Every 15 minutes through Monday on the league clock, under both offsets:
-    #   15:00-23:45 UTC Monday + 00:00-03:45 UTC Tuesday
-    #   = 07:00-19:45 PST, 08:00-20:45 PDT.
+  workflow_dispatch:
     # The guard (scripts/run_guard.py pretip) admits a firing only in
     # [first tip - 45 min, first tip) on a window day (a fantasy week's first
     # day), so three firings run on a window Monday and the rest exit in
@@ -21,9 +21,6 @@ on:
     # open (12:01 AM to the last tip - 5 min), on the :00 or :30 slot, POLLS
     # Yahoo's transactions in the guard job instead (run.yml; scripts/
     # monday_poll.py): a new one runs the refresh, nothing new runs nothing.
-    - cron: '*/15 15-23 * * 1'
-    - cron: '*/15 0-3 * * 2'
-  workflow_dispatch:
 
 permissions:
   contents: write

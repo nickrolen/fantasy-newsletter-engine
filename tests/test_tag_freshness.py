@@ -816,7 +816,7 @@ def test_the_nba_note_is_payload_strings(tmp_path):
 # =============================================================================
 
 def test_the_firing_counts_are_recomputed_from_the_files():
-    assert am.github_crons(ROOT) == {"nightly.yml": 70, "pretip.yml": 52}
+    assert am.github_crons(ROOT) == {}            # task 6f (11-11): GitHub's own crons are gone
     assert am.cron_job_org(ROOT) == {"Nightly": 28, "Pre-tip": 52, "Afternoon tags": 18}
     assert am.cron_per_week("*/15 15-23 * * 1") == 36 and am.cron_per_week("*/15 0-3 * * 2") == 16
 

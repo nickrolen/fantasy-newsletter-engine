@@ -6,16 +6,14 @@
 # they are only referenced, in run.yml.
 name: Nightly
 
+# FIRED BY cron-job.org ONLY (task 6f, Nick 11-11): the "Nightly" job, daily at
+# 00:05, 00:35, 01:05 and 01:35 America/Los_Angeles (deploy/state-repo/
+# cron-job-org.json). GitHub's own cron was removed: it delayed and dropped
+# firings (11-05/06), and every firing billed a minute. The guard
+# (scripts/run_guard.py) admits the first firing after midnight on the league
+# clock that finds tonight's run hasn't happened (output/nightly_last.json);
+# the rest exit in seconds.
 on:
-  schedule:
-    # Every 30 minutes from 07:01 to 11:31 UTC: midnight to about 4:30 AM
-    # Pacific in daylight time, 11 PM to about 3:30 AM in standard time. The
-    # guard (scripts/run_guard.py) admits the first firing after midnight on
-    # the league clock that finds tonight's run hasn't happened
-    # (output/nightly_last.json); the rest exit in seconds. GitHub delays and
-    # drops scheduled firings under load (11-05: the first scheduled night
-    # never fired), so one late or lost firing only delays the night.
-    - cron: '1,31 7-11 * * *'
   workflow_dispatch:
     inputs:
       force:

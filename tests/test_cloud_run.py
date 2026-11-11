@@ -97,25 +97,60 @@ def firings(exprs, start_utc: datetime, end_utc: datetime) -> list:
     return out
 
 
-def test_the_nightly_cron_and_the_pretip_crons():
-    assert crons(WORKFLOWS["nightly.yml"]) == ["1,31 7-11 * * *"]   # 11-05: late/dropped firings
-    assert crons(WORKFLOWS["pretip.yml"]) == ["*/15 15-23 * * 1", "*/15 0-3 * * 2"]
-    assert crons(WORKFLOWS["run.yml"]) == []          # never scheduled on its own
+def _plan_job(name: str) -> dict:
+    import json
+    plan = json.loads((ROOT / "deploy" / "state-repo" / "cron-job-org.json").read_text(encoding="utf-8"))
+    assert plan["time_zone"] == "America/Los_Angeles"
+    return next(j for j in plan["jobs"] if j["name"] == name)
+
+
+def pretip_plan_firings(day: date) -> list:
+    """The cron-job.org "Pre-tip" job's firings on `day` (league clock), or []."""
+    j = _plan_job("Pre-tip")
+    if day.strftime("%a") not in j["days"]:
+        return []
+    h0, m0 = (int(x) for x in j["from"].split(":"))
+    h1, m1 = (int(x) for x in j["to"].split(":"))
+    t = datetime(day.year, day.month, day.day, h0, m0, tzinfo=LA)
+    end = datetime(day.year, day.month, day.day, h1, m1, tzinfo=LA)
+    out = []
+    while t <= end:
+        out.append(t)
+        t += timedelta(minutes=int(j["every_minutes"]))
+    return out
+
+
+def test_no_github_cron_anywhere_and_cron_job_org_fires_both():
+    # task 6f (Nick, 11-11): GitHub's own crons are gone; cron-job.org fires every
+    # scheduled workflow (deploy/state-repo/cron-job-org.json, the plan of record)
+    for name, text in WORKFLOWS.items():
+        assert crons(text) == [], name
+    assert _plan_job("Nightly")["workflow"] == "nightly.yml"
+    assert _plan_job("Nightly")["times"] == ["00:05", "00:35", "01:05", "01:35"]
+    assert _plan_job("Nightly")["days"] == ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    p = _plan_job("Pre-tip")
+    assert (p["workflow"], p["days"], p["every_minutes"], p["from"], p["to"]) == \
+        ("pretip.yml", ["Mon"], 15, "07:00", "19:45")
+
+
+def test_every_nightly_firing_is_inside_the_guard_window():
+    # each plan time is after midnight and well before the earliest night cutoff (06:00)
+    for t in _plan_job("Nightly")["times"]:
+        h, m = (int(x) for x in t.split(":"))
+        assert 0 <= h < 6 and (h, m) > (0, 1), t
 
 
 @pytest.mark.parametrize("monday", [date(2026, 11, 9), date(2027, 3, 22)])   # PST, PDT
-def test_the_monday_cron_covers_12_00_to_19_30_pacific_under_pst_and_pdt(monday):
-    exprs = crons(WORKFLOWS["pretip.yml"])
-    start = datetime.combine(monday, datetime.min.time(), LA).replace(hour=12)
-    end = start.replace(hour=19, minute=30)
-    t = start
+def test_the_monday_plan_covers_12_00_to_19_30_pacific_under_pst_and_pdt(monday):
+    got = pretip_plan_firings(monday)
+    t = datetime.combine(monday, datetime.min.time(), LA).replace(hour=12)
+    end = t.replace(hour=19, minute=30)
     while t <= end:
-        assert any(fires(e, t.astimezone(timezone.utc)) for e in exprs), t
+        assert t in got, t
         t += timedelta(minutes=15)
 
 
 def test_every_window_day_of_the_season_gets_three_pretip_firings_inside_its_window():
-    exprs = crons(WORKFLOWS["pretip.yml"])
     days = rg.window_days(ROOT)
     # Opening day (2026-10-20, a Tuesday) was before the cloud run; every other
     # window day is a Monday. Next season's schedule re-runs this check.
@@ -123,8 +158,8 @@ def test_every_window_day_of_the_season_gets_three_pretip_firings_inside_its_win
     for d in days[1:]:
         tip = rg.first_tip(ROOT, d)
         assert tip is not None, d
-        got = firings(exprs, (tip - rg.PRETIP_LEAD).astimezone(timezone.utc), tip.astimezone(timezone.utc))
-        admitted = [f for f in got if rg.admits_pretip(f, ROOT)[0]]
+        got = [f for f in pretip_plan_firings(d) if tip - rg.PRETIP_LEAD <= f < tip]
+        admitted = [f for f in got if rg.admits_pretip(f.astimezone(timezone.utc), ROOT)[0]]
         assert len(got) >= 3 and admitted == got, (d, tip, got)
 
 
