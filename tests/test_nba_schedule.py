@@ -288,10 +288,12 @@ def test_the_page_prints_the_notes_and_marks_cells_from_the_payload_only():
     p["grid"]["tabs"][1]["rows"][0]["cells"][0]["est"] = "1"       # a November day: the page doesn't check
     page = hub_page.render(p, now=GEN)
     text = visible_text(page)
-    assert text.count(note) == 1                  # the grid's tab only: none under the free agents (Nick, 11-10)
+    # Nick, 11-10/11-11: no Cup note anywhere -- not under the free agents, and
+    # no text under the grid but the Q-range and NBA-report lines; the cell's
+    # own estimated mark (and its tooltip) stays, from the payload
+    assert note not in text
     assert '<span class="c light est" title="estimated">3</span>' in page
-    assert "Estimated: games the NBA has not scheduled yet" in text
-    assert text.count("Estimated: games the NBA has not scheduled yet") == 1     # only the tab with the note
+    assert "Estimated: games the NBA has not scheduled yet" not in text
 
 
 def test_the_real_hub_payload_has_no_schedule_note_before_week_7_columns(tmp_path):

@@ -386,8 +386,10 @@ def season_points(data, latest: dict) -> dict:
     if done != list(range(first, n + 1)):
         raise HubInputError(f"RECORDS' weekly scores cover weeks {done}, not weeks {first}-{n} in a row: "
                             "the season points cannot be shown")
-    note = (f"PF: points over weeks {first}\u2013{n} completed, with each manager's Cup seed now; the Cup "
-            f"seeds on weeks {first}\u2013{last}." if n else
+    # the seed itself is no longer shown under PF (Nick, 11-11); the note still
+    # says what PF decides
+    note = (f"PF: points over weeks {first}\u2013{n} completed; the Cup seeds on weeks "
+            f"{first}\u2013{last}." if n else
             f"PF: no week completed yet; the Cup seeds on weeks {first}\u2013{last}.")
     if latest.get("records") != latest.get("records_after_banked"):
         note += (" The record column already counts the week banked overnight; its points join PF "
@@ -1062,8 +1064,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     ], "legend": {"light": f"Light night ({cfg['light_night_max']} or fewer)",
                   "over": "More than 10: some sit",
                   "est": "Estimated: games the NBA has not scheduled yet",
-                  "range": "3\u20134: a Q-tagged player's next game (the high end counts him, the low "
-                           "end doesn't)",
+                  "range": "A Q-tagged player's next game (the high end counts him, the low end doesn't)",
                   "nba": "\u2020 a player out tonight on the NBA's injury report"},
         "foot": "Starts: games that fit a starting lineup. Idle: games by players who sit."}
     starts_left = {r["manager"]: r["starts"] for r in this_tab["rows"]}

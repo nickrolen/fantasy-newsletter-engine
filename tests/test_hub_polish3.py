@@ -616,7 +616,8 @@ def test_the_main_page_gains_only_the_buttons_pf_and_the_columns():
     main = page[page.index('id="v-main"'):page.index('class="view" id="v-roster-')]
     assert main.count('class="mbtn"') == 3 * len(p["matchups"]["cards"])
     assert "<svg" not in main and 'class="para"' not in main and "Last week's matchups" in visible_text(main)
-    assert ">PF<" in main and "3,207" in main and "seed 1" in main and ">Wk 5<" in main
+    assert ">PF<" in main and "3,207" in main and ">Wk 5<" in main
+    assert "seed 1" not in main                     # the seed line under PF is gone (Nick, 11-11)
 
 
 def test_the_charts_and_paragraphs_are_printed_as_is_and_the_page_computes_nothing():
@@ -667,3 +668,60 @@ def test_real_views_for_every_card_this_week_and_last(real_payload):
     _all_strings(p["power"]["chart"])
     assert p["power"]["chart_title"] == "Title odds"
     assert len(json.dumps(p)) < 400_000
+
+
+# --- 11-11 (Nick, the 48-check): the paragraph states an absence only when
+# something firm backs it; a bare Yahoo O tag is "listed as out for his next
+# game"; Q and D are not mentioned (case: Herro, a late scratch then Q again)
+
+class _AbsAv:
+    def __init__(self, tags, over=None, nba=None, il=None):
+        from modules import absence
+        from datetime import date as _d
+        self.absence = absence
+        self.rosters = {"Nick": sorted(set(tags) | set(over or {}) | set(nba or {}))}
+        self.il = il or {}
+        self.tags = tags
+        self.over = over or {}
+        self.nba_outs = nba or {}
+        self.weeks = {4: (_d(2026, 11, 9), _d(2026, 11, 15)), 5: (_d(2026, 11, 16), _d(2026, 11, 22)),
+                      6: (_d(2026, 11, 23), _d(2026, 11, 29))}
+
+    def has_game(self, n, d):
+        return True
+
+    def week_of(self, d):
+        return next(w for w, (a, b) in self.weeks.items() if a <= d <= b)
+
+    def override_covers(self, n, days):
+        from modules.hub_state import override_out_on
+        e = self.over.get(n)
+        if e and any(override_out_on(e, d, self.week_of(d), self.weeks[self.week_of(d)][0]) for d in days):
+            return e
+        return None
+
+
+DAYS = [date(2026, 11, 12), date(2026, 11, 13), date(2026, 11, 14)]
+
+
+def test_a_bare_o_tag_is_listed_not_stated_and_q_d_are_silent():
+    t = hm.absence_text(_AbsAv({"Tyler Herro": "O", "Ja Morant": "Q", "Joel Embiid": "D"}), "Nick", DAYS)
+    assert t == "Nick's Tyler Herro is listed as out for his next game."
+    assert "without" not in t and "Morant" not in t and "Embiid" not in t
+    assert hm.absence_text(_AbsAv({"Ja Morant": "Q"}), "Nick", DAYS) == ""
+
+
+def test_an_entry_ofs_or_nba_out_is_stated_with_its_backing():
+    over = {"Tyler Herro": {"player_name": "Tyler Herro", "out_weeks": [4, 5], "return_week": 6,
+                            "return_date": "2026-11-23"}}
+    t = hm.absence_text(_AbsAv({"Tyler Herro": "O", "Kyrie Irving": "OFS", "Zion Williamson": "Q"}, over,
+                               {"Zion Williamson": date(2026, 11, 12)}), "Nick", DAYS)
+    assert t == ("Nick is without Kyrie Irving (out for the season), Tyler Herro (all 3 of his games, "
+                 "back 11-23) and Zion Williamson (out Thursday, per the NBA report).")
+
+
+def test_firm_and_listed_share_one_sentence_and_il_players_are_left_out():
+    over = {"A B": {"player_name": "A B", "out_weeks": [4], "return_week": 5, "return_date": "2026-11-16"}}
+    t = hm.absence_text(_AbsAv({"A B": "O", "C D": "O", "E F": "O"}, over, il={"Nick": {"E F": 1}}),
+                        "Nick", DAYS)
+    assert t == "Nick is without A B (all 3 of his games, back 11-16); C D is listed as out for his next game."

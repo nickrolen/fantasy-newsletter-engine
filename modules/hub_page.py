@@ -340,7 +340,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  f'<span class="tm"><span class="n">{clean(r["team"])}</span>'
                  f'<span class="small" style="font-size:12px">{clean(r["manager"])}</span></span>'
                  f'<span class="num">{clean(r["record"])}</span>'
-                 f'<span class="pfc"><span>{clean(r["pf"])}</span><span class="s">{clean(r["seed"])}</span></span>'
+                 f'<span class="pfc"><span>{clean(r["pf"])}</span></span>'
                  f'<span class="oddc"><span class="o">{clean(r["odds"])}</span>'
                  f'<span class="d {clean(r["delta_dir"])}">{clean(r["delta"])}</span></span>'
                  f'<span class="num{" adds-over" if r["adds_over"] else ""}">{clean(r["adds"])}</span></button>')
@@ -376,18 +376,13 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                      f'<span class="k i{kr}">{clean(r["idle"])}</span></div>')
         if not t["days"]:
             o.append('<div class="empty">No days left in this week.</div>')
-        o.append('<div class="legend">'
-                 f'<span><span class="sw" style="background:#FBE3CF"></span>{clean(gr["legend"]["light"])}</span>'
-                 f'<span><span class="sw" style="background:#E3ECFB"></span>{clean(gr["legend"]["over"])}</span>'
-                 + (f'<span><span class="sw est"></span>{clean(gr["legend"]["est"])}</span>'
-                    if t["schedule_note"] else "")
-                 + (f'<span>{clean(gr["legend"]["range"])}</span>' if t.get("has_range") else "")
-                 + (f'<span>{clean(gr["legend"]["nba"])}</span>' if t.get("has_nba") else "")
-                 + '</div>'
-                 + (f'<div class="empty snote" style="padding:0 10px 6px">{clean(t["schedule_note"])}</div>'
-                    if t["schedule_note"] else "")
-                 + f'<div class="empty" style="padding:0 10px 10px;font-size:12px">{clean(t["note"])} '
-                 f'{clean(gr["foot"])}</div></div>')
+        # under the grid, only the two marks that need explaining, and only on a
+        # tab that shows them (Nick, 11-11: "get rid of pretty much all the text
+        # we have under the chart"; the notes, the colour legend, the Cup note
+        # and the footer are gone)
+        keys = [k for k, on in (("range", t.get("has_range")), ("nba", t.get("has_nba"))) if on]
+        o.append(('<div class="legend">' + "".join(f'<span>{clean(gr["legend"][k])}</span>' for k in keys)
+                  + '</div>' if keys else "") + '</div>')
     o.append("</section>")
 
     fa = payload["free_agents"]

@@ -492,6 +492,63 @@ def outs_for(av, manager: str, days) -> list:
     return sorted(rows, key=lambda r: (-r[1], r[0]))
 
 
+def _join(parts: list) -> str:
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def absence_text(av, manager: str, days) -> str:
+    """The paragraph's sentence on who is missing (Nick, 11-11). It states an
+    absence as fact ONLY when something firm backs it:
+      - OFS                       "Kyrie Irving (out for the season)";
+      - an injury entry           "Tyler Herro (all 3 of his games, back 11-23)"
+                                  or "(2 of 3, back 11-14)";
+      - the NBA report, Out on one of his remaining games
+                                  "Zion Williamson (out Wednesday, per the NBA report)".
+    A bare Yahoo O tag is never stated as a certain absence over several games
+    (the grid's 3-game rule is a planning count, not a fact): it reads "listed
+    as out for his next game". Q and D are not mentioned. IL-slot players are
+    left out (they score nothing all week by rule). Case: Herro 11-11, a
+    late scratch then Q again, had read "without Tyler Herro (all 3 of his
+    games)"."""
+    from .hub_state import override_back, override_out_on
+    il = av.il.get(manager) or {}
+    firm, listed = [], []
+    for nme in av.rosters.get(manager, []):
+        if nme in il:
+            continue
+        g = [d for d in days if av.has_game(nme, d)]
+        if not g:
+            continue
+        tag = av.tags.get(nme)
+        if tag is not None and av.absence.season_out(tag):
+            firm.append((len(g), nme, f"{nme} (out for the season)"))
+            continue
+        e = av.override_covers(nme, g)
+        if e is not None:
+            miss = [d for d in g if override_out_on(e, d, av.week_of(d), av.weeks[av.week_of(d)][0])]
+            back = override_back(e, av.weeks)
+            bt = f", back {back.month:02d}-{back.day:02d}" if back else ""
+            n = f"all {len(g)} of his games" if len(miss) == len(g) else f"{len(miss)} of {len(g)}"
+            firm.append((len(miss), nme, f"{nme} ({n}{bt})"))
+            continue
+        nba_day = av.nba_outs.get(nme)
+        if nba_day is not None and nba_day in g:
+            firm.append((1, nme, f"{nme} (out {nba_day.strftime('%A')}, per the NBA report)"))
+            continue
+        if tag is not None and av.absence.normalised_tag(tag) == "O":
+            listed.append(nme)
+    out = []                     # one sentence per side, as before
+    if firm:
+        firm.sort(key=lambda r: (-r[0], r[1]))
+        out.append(f"{manager} is without {_join([r[2] for r in firm])}")
+    if listed:
+        names = sorted(listed)
+        verb = "is listed as out for his next game" if len(names) == 1 else \
+            "are listed as out for their next games"
+        out.append(f"{_join(names)} {verb}" if firm else f"{manager}'s {_join(names)} {verb}")
+    return ("; ".join(out) + ".") if out else ""
+
+
 def night_facts(a: str, b: str, ln: dict, prev: Optional[dict], close: Optional[dict], swing: Optional[dict],
                 out_a: str, out_b: str, last_day: bool, today_name: str, final: bool) -> dict:
     """The facts a paragraph may use (the brief's list), every one from the
@@ -683,8 +740,8 @@ def build_views(base, data, *, week: int, line: dict, av, now, archive_index: di
             dname = _date.fromisoformat(last).strftime("%A")
             swing = {"day_name": dname, "pts_a": banked[a][last], "pts_b": banked[b][last],
                      "top_a": tops[a], "top_b": tops[b]}
-            ot_a = out_text(a, outs_for(av, a, remaining))
-            ot_b = out_text(b, outs_for(av, b, remaining))
+            ot_a = absence_text(av, a, remaining)
+            ot_b = absence_text(av, b, remaining)
             f = night_facts(a, b, ln, prev, close, swing, ot_a, ot_b, len(remaining) == 1,
                             remaining[0].strftime("%A") if remaining else "", False)
             _add_riser(f, cfg)
