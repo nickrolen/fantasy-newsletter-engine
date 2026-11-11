@@ -62,6 +62,7 @@
     {"dir": "output", "name": "angles_*.md", "what": "the season's angles report"},
     {"dir": "output", "name": "live_lines_week*.json", "what": "live lines, including each week's .state.json (the week-opening tag baseline and seed)"},
     {"dir": "output", "name": "live_lines_week*.tag_log.jsonl", "what": "each week's tag log (refresh_lines)"},
+    {"dir": "output", "name": "live_lines_week*.winprob.jsonl", "what": "each week's win % over the week: one row per priced live line, append-only; the hub draws it, nothing scores it (modules/winprob_history; hub polish 3, task 48b, 11-10)"},
     {"dir": "output", "name": "live_lines_week*.html", "what": "each week's live-line page (week 1's two pages are public exceptions)"},
     {"dir": "output", "name": "refresh_service.*", "what": "the refresh service's run log and console"},
     {"dir": "output", "name": "closing_line_week*.json", "what": "each week's closing line, the official line, priced once after the Monday window closes (modules/closing_line.py; step 1c)"},

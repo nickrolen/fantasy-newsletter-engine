@@ -30,7 +30,7 @@ def week_days(a: date, n: int):
 
 # weeks 3-7 of the real calendar, week 7 a 14-day fantasy week (rule 9); 22-23 the season's end
 WK = {3: week_days(D(11, 2), 7), 4: week_days(D(11, 9), 7), 5: week_days(D(11, 16), 7),
-      6: week_days(D(11, 23), 7), 7: week_days(D(11, 30), 14),
+      6: week_days(D(11, 23), 7), 7: week_days(D(11, 30), 14), 8: week_days(D(12, 14), 7),
       22: week_days(date(2027, 3, 29), 7), 23: week_days(date(2027, 4, 5), 7)}
 
 
@@ -62,9 +62,9 @@ def test_before_mondays_window_close_the_columns_are_this_week_and_next():
     for now in (at(D(11, 2), 0, 1), at(D(11, 2), 16, 15), at(D(11, 2), 18, 54)):   # 12:01, pre-tip, 1 min before
         c = hs.free_agent_columns(now, 3, WK, NBA, ALWAYS)
         assert c["mode"] == "this"
-        assert [x["label"] for x in c["cols"]] == ["GL", "Next"]
-        assert c["cols"][0]["days"] == WK[3] and c["cols"][1]["days"] == WK[4]
-        assert [x["week"] for x in c["cols"]] == [3, 4]
+        assert [x["label"] for x in c["cols"]] == ["GL", "Next", "Wk 5"]        # three since 48g
+        assert c["cols"][0]["days"] == WK[3] and c["cols"][1]["days"] == WK[4] and c["cols"][2]["days"] == WK[5]
+        assert [x["week"] for x in c["cols"]] == [3, 4, 5]
 
 
 def test_from_the_close_the_columns_are_the_next_two_weeks_decided_by_the_clock():
@@ -72,8 +72,8 @@ def test_from_the_close_the_columns_are_the_next_two_weeks_decided_by_the_clock(
     for now in (at(D(11, 2), 18, 55), at(D(11, 2), 21), at(D(11, 3), 0, 1), at(D(11, 8), 23, 30)):
         c = hs.free_agent_columns(now, 3, WK, NBA, ALWAYS)
         assert c["mode"] == "ahead", now
-        assert [x["label"] for x in c["cols"]] == ["Wk 4", "Wk 5"]
-        assert c["cols"][0]["days"] == WK[4] and c["cols"][1]["days"] == WK[5]
+        assert [x["label"] for x in c["cols"]] == ["Wk 4", "Wk 5", "Wk 6"]      # three since 48g
+        assert c["cols"][0]["days"] == WK[4] and c["cols"][1]["days"] == WK[5] and c["cols"][2]["days"] == WK[6]
         assert c["join"] == D(11, 9)
 
 
@@ -87,7 +87,7 @@ def test_week_7s_fourteen_days_are_one_column():
     c = hs.free_agent_columns(at(D(11, 24), 12), 6, WK, NBA, ALWAYS)
     assert [x["label"] for x in c["cols"]] == ["Wk 7", hs.DASH] or [x["label"] for x in c["cols"]][0] == "Wk 7"
     c = hs.free_agent_columns(at(D(11, 17), 12), 5, WK, NBA, ALWAYS)
-    assert [x["label"] for x in c["cols"]] == ["Wk 6", "Wk 7"]
+    assert [x["label"] for x in c["cols"]] == ["Wk 6", "Wk 7", "Wk 8"]
     assert len(c["cols"][1]["days"]) == 14
     # a free agent whose team plays every day of week 7 counts 14 games in ONE column
     names = ["F0"]
@@ -101,29 +101,29 @@ def test_week_7s_fourteen_days_are_one_column():
 
 
 def test_a_week_with_no_nba_games_in_the_stored_schedule_raises():
-    no_wk5 = lambda d: 0 if d in WK[5] else 1                         # noqa: E731
-    with pytest.raises(hs.HubInputError, match="week 5 .*no NBA game"):
-        hs.free_agent_columns(at(D(11, 3), 12), 3, WK, NBA, no_wk5)
-    # before the close week 5 is not shown, so nothing raises
-    assert hs.free_agent_columns(at(D(11, 2), 12), 3, WK, NBA, no_wk5)["mode"] == "this"
+    no_wk6 = lambda d: 0 if d in WK[6] else 1                         # noqa: E731
+    with pytest.raises(hs.HubInputError, match="week 6 .*no NBA game"):
+        hs.free_agent_columns(at(D(11, 3), 12), 3, WK, NBA, no_wk6)
+    # before the close week 6 is not shown (GL, Next, Wk 5), so nothing raises
+    assert hs.free_agent_columns(at(D(11, 2), 12), 3, WK, NBA, no_wk6)["mode"] == "this"
 
 
 def test_past_the_seasons_last_week_there_is_no_column_and_after_the_last_window_no_pickup():
     c = hs.free_agent_columns(at(date(2027, 3, 30), 12), 22, WK, NBA, ALWAYS)
-    assert [x["label"] for x in c["cols"]] == ["Wk 23", hs.DASH]
+    assert [x["label"] for x in c["cols"]] == ["Wk 23", hs.DASH, hs.DASH]
     assert c["cols"][1] == {"label": hs.DASH, "days": [], "week": None}
     c = hs.free_agent_columns(at(date(2027, 4, 6), 12), 23, WK, NBA, ALWAYS)
-    assert [x["label"] for x in c["cols"]] == [hs.DASH, hs.DASH] and c["join"] is None
+    assert [x["label"] for x in c["cols"]] == [hs.DASH, hs.DASH, hs.DASH] and c["join"] is None
     with pytest.raises(hs.HubInputError, match="not in config/SCHEDULE.json"):
         hs.free_agent_columns(at(date(2027, 4, 20), 12), 24, WK, NBA, ALWAYS)
 
 
 def test_the_page_prints_the_column_labels_from_the_payload():
     p = sample_payload()
-    p["free_agents"].update(cols=["Wk 4", "Wk 5"], mode="ahead", weeks=[4, 5])
+    p["free_agents"].update(cols=["Wk 4", "Wk 5", "Wk 6"], mode="ahead", weeks=[4, 5, 6])    # three (48g)
     text = visible_text(hub_page.render(p, now=GEN))
     sec = text[text.index("Best free agents"):text.index("Stash candidates")]
-    assert "Wk 4" in sec and "Wk 5" in sec and " GL " not in sec and "Next" not in sec
+    assert "Wk 4" in sec and "Wk 5" in sec and "Wk 6" in sec and " GL " not in sec and "Next" not in sec
 
 
 def _real_data():
@@ -150,7 +150,7 @@ def test_kawhis_real_entry_is_still_zero_in_the_weeks_he_is_out_after_the_switch
     base = hs.Availability.from_data(data, {}, {}, {}, data.injury_overrides, 3, info, now.date())
     c = hs.free_agent_columns(now, 3, wk, data.nba_schedule,
                               lambda d: sum(1 for ds in base.team_dates.values() if d in ds) // 2)
-    assert c["mode"] == "ahead" and [x["week"] for x in c["cols"]] == [4, 5]
+    assert c["mode"] == "ahead" and [x["week"] for x in c["cols"]] == [4, 5, 6]     # three since 48g
     for tag in ("HEALTHY", "O", "Q"):
         av = base.for_free_agents(["Kawhi Leonard"], {"Kawhi Leonard": tag})
         assert sum(1 for d in c["cols"][0]["days"] + c["cols"][1]["days"] if av.has_game("Kawhi Leonard", d))
@@ -185,19 +185,20 @@ def test_the_stash_is_only_o_and_ofs_free_agents_by_projection_with_their_status
     recs = [rec("Out Back", 30.0), rec("Season Gone", 45.0), rec("O Only", 20.0), rec("Q Entry", 50.0),
             rec("Healthy", 60.0), rec("Day To Day", 55.0)]
     rows = hs.stash_rows(recs, av, WK[4] + WK[5], 10)
-    # a Q player with an injury entry and a healthy one cannot go straight into IL (rule 2)
-    assert [r["name"] for r in rows] == ["Season Gone", "Out Back", "O Only"]
+    # a Q player with an injury entry and a healthy one cannot go straight into IL (rule 2);
+    # an O tag with no injury entry is a short absence, not a stash (48f, 11-10)
+    assert [r["name"] for r in rows] == ["Season Gone", "Out Back"]
     chips = {r["name"]: [c["text"] for c in r["tags"]] for r in rows}
-    assert chips == {"Season Gone": ["OFS · season"], "Out Back": ["O · back 11-23"],
-                     "O Only": ["O · up to 3 games"]}
-    assert [r["season"] for r in rows] == [True, False, False]
+    assert chips == {"Season Gone": ["OFS · season"], "Out Back": ["O · back 11-23"]}
+    assert [r["season"] for r in rows] == [True, False]
     assert rows[0]["season_note"] == "an IL slot all season: keeper value only"
     assert hs.stash_rows(recs, av, WK[4] + WK[5], 2) == rows[:2]           # top N
     assert all(isinstance(v, str) for r in rows for k, v in r.items() if k not in ("tags", "season"))
 
 
 def test_the_stash_reads_the_il_eligible_tags_from_the_config(monkeypatch):
-    av = stash_world({"Out One": "O", "Season Gone": "OFS"})
+    av = stash_world({"Out One": "O", "Season Gone": "OFS"},
+                     [{"player_name": "Out One", "out_weeks": [4], "return_week": 5}])      # 48f: a live entry
     recs = [rec("Out One", 30.0), rec("Season Gone", 45.0)]
     assert [r["name"] for r in hs.stash_rows(recs, av, WK[4], 10)] == ["Season Gone", "Out One"]
     monkeypatch.setattr(ml, "il_eligible_tags", lambda cfg=None: ("O",))
@@ -415,6 +416,7 @@ def test_real_every_transaction_lands_in_one_week_by_add_budget_week(real_moves)
     first = min(date.fromisoformat(str(w["start_date"])[:10]) for w in sched["weeks"])
     n_items = {t["key"]: len([x for x in t["items"] if x.get("kind") != "ledger"]) for t in real_moves["feed"]["weeks"]}
     want, hidden = {}, 0
+    rt = hub_moves.round_trip_drops(txs, rulings)                       # task 48h
     for t in txs:
         pl = hub_moves.place(t, rulings, sched, ledger, first)
         for p in t["players"]:
@@ -423,7 +425,7 @@ def test_real_every_transaction_lands_in_one_week_by_add_budget_week(real_moves)
                                         rulings, sched, ledger)
                 if bw is not None:
                     assert pl["bucket"] == bw, (t["key"], p["name"])
-        shown = hub_moves.yahoo_item(t, pl, sched) is not None      # a lone voided add is hidden (45)
+        shown = hub_moves.yahoo_item(t, pl, sched, rt.get(t["key"], ())) is not None   # 45, 48h
         hidden += 0 if shown else 1
         want[str(pl["bucket"])] = want.get(str(pl["bucket"]), 0) + (1 if shown else 0)
     assert sum(n_items.values()) == len(txs) - hidden
@@ -449,15 +451,16 @@ def test_real_pre_season_and_voided_moves(real_moves):
     # task 45: the two voided adds are hidden, not struck
     texts = [(t["key"], x["who"], p["text"]) for t in real_moves["feed"]["weeks"] for x in t["items"]
              for p in x["parts"]]
-    assert not [x for x in texts if x[2] in ("added Franz Wagner",) or x[1:] == ("Garrett", "added Paul George")]
+    # Hayden's and Garrett's voided adds (Nick's own 11-09 Wagner add is a real one, hub polish 3)
+    assert not [x for x in texts if x[1:] in (("Hayden", "added Franz Wagner"), ("Garrett", "added Paul George"))]
     assert not any(p.get("void") for t in real_moves["feed"]["weeks"] for x in t["items"] for p in x["parts"])
     assert not any(x["state"] == "Voided" for t in real_moves["feed"]["weeks"] for x in t["items"])
     # Hayden's 10-25 22:35 +Wagner -Buzelis: the Buzelis drop stays, a plain week-1 drop
     buz = [x for x in tabs["1"]["items"] if x["what"] == "dropped Matas Buzelis"]
     assert len(buz) == 1 and (buz[0]["who"], buz[0]["kind"], buz[0]["state"]) == ("Hayden", "drop", "Applied")
-    # Garrett's Paul George drop (10-26 07:29), its own transaction, stays as it was
-    assert [x["what"] for x in tabs["2"]["items"] if x["who"] == "Garrett" and "Paul George" in x["what"]] \
-        == ["dropped Paul George"]
+    # Garrett's Paul George drop (10-26 07:29) stayed until 11-10; task 48h's rule (a)
+    # now hides it (he arrived through a voided add) -- flagged for Nick in the result
+    assert [x["what"] for x in tabs["2"]["items"] if x["who"] == "Garrett" and "Paul George" in x["what"]] == []
 
 
 # =============================================================================
@@ -635,6 +638,6 @@ def test_real_payload_mode_follows_the_clock_against_this_weeks_close(real_with_
     close = price_lock.window_close(schedule_week_dates(data)[p["week"]][0], data.nba_schedule)
     fa = p["free_agents"]
     if now < close:
-        assert fa["mode"] == "this" and fa["cols"] == ["GL", "Next"]
+        assert fa["mode"] == "this" and fa["cols"][:2] == ["GL", "Next"] and len(fa["cols"]) == 3
     else:
         assert fa["mode"] == "ahead" and fa["weeks"][0] == p["week"] + 1

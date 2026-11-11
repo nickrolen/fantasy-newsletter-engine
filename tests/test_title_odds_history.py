@@ -104,7 +104,9 @@ def test_nothing_that_scores_probabilities_reaches_the_history():
     # title_odds_run (step 1c) is the one path that writes a row, for the
     # weekly build and the nightly run alike.
     # The closing line (step 1c) writes its own row, marked kind "closing".
-    assert users == ["closing_line.py", "generate_stats_report.py", "hub_state.py",
+    # hub_charts (hub polish 3, 48d) draws the rows hub_state reads: the season's
+    # title-odds line chart, display only.
+    assert users == ["closing_line.py", "generate_stats_report.py", "hub_charts.py", "hub_state.py",
                      "title_odds_history.py", "title_odds_run.py"], users
     for scorer in ("calibration_log.py", "backtest_metrics.py"):
         src = (ROOT / "modules" / scorer).read_text(encoding="utf-8")

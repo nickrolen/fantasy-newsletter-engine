@@ -250,8 +250,10 @@ def compute(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, extra: dict = None) ->
             continue
         e["basis"] = basis.get(e["player"], "suppressed: an INJURY_OVERRIDES entry governs this week")
 
+    flow = daily_flow(res, state)
     lines = []
     for ln in res.lines:
+        fa, fb = flow[ln.manager_a], flow[ln.manager_b]
         lines.append({
             "matchup": f"{ln.manager_a} vs {ln.manager_b}",
             "manager_a": ln.manager_a, "manager_b": ln.manager_b,
@@ -267,6 +269,11 @@ def compute(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, extra: dict = None) ->
             "display_a": f"{ln.banked_a:.0f} \u2192 {ln.projected_final_a:.0f}",
             "display_b": f"{ln.banked_b:.0f} \u2192 {ln.projected_final_b:.0f}",
             "std_dev_a": round(ln.std_dev_a, 2), "std_dev_b": round(ln.std_dev_b, 2),
+            # hub polish 3 (48a/48c): the same run, by league day -- display only
+            "daily_banked_a": fa["banked"], "daily_banked_b": fb["banked"],
+            "daily_expected_a": fa["expected"], "daily_expected_b": fb["expected"],
+            "games_left_a": fa["games_left"], "games_left_b": fb["games_left"],
+            "top_day_a": fa["top_day"], "top_day_b": fb["top_day"],
         })
     # Which engine produced these numbers. ONE definition, shared with E1's
     # calibration log (modules/calibration_log.engine_version / engine_key):
@@ -288,6 +295,51 @@ def compute(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, extra: dict = None) ->
     }
     payload.update(extra or {})
     return res, payload
+
+
+def daily_flow(res, state) -> dict:
+    """Per manager, the line's own numbers by league day (hub polish 3,
+    48a/48c), from the run that priced it -- no new model, no new draw:
+
+      banked     {date: points} on the completed days (week_state's banked,
+                 split by day: they sum to banked_*)
+      expected   {date: points} on the remaining days: each day's mean
+                 started points in the simulation (simulate_week_matrix's
+                 day_means), scaled by remaining_mean / their sum so that
+                 the team-level noise term (mean about zero, then floored)
+                 is spread over the days in proportion and the days add up
+                 to remaining_mean exactly. Never a straight line from now
+                 to projected_final.
+      games_left the simulation's mean started games left, 1 decimal
+                 (the count the line priced with)
+      top_day    the last banked day's top started scorer:
+                 {"date", "player", "points"}, or None before any day banks
+    Rounded to 2 decimals like the payload's other points."""
+    out = {}
+    means = res.day_means or {}
+    for m, arr in res.remaining.items():
+        rem = float(arr["score"].mean())
+        dm = {d: float(v) for d, v in (means.get(m) or {}).items()}
+        tot = sum(dm.values())
+        days = [d for d in state.remaining]
+        if tot > 0:
+            exp = {d.isoformat(): round(dm.get(d, 0.0) * rem / tot, 2) for d in days}
+        else:                       # no started points anywhere: the (zero) mean spread evenly
+            exp = {d.isoformat(): round(rem / len(days), 2) for d in days} if days else {}
+        bb = (state.banked_by_day or {}).get(m) or {}
+        banked = {d.isoformat(): round(float(bb.get(d, 0.0)), 2) for d in state.completed}
+        top = None
+        if state.completed:
+            last = state.completed[-1]
+            per = ((state.by_day_player or {}).get(m) or {}).get(last) or {}
+            if per:
+                name = sorted(per, key=lambda n: (-per[n], n))[0]
+                top = {"date": last.isoformat(), "player": name, "points": round(float(per[name]), 2)}
+            else:
+                top = {"date": last.isoformat(), "player": None, "points": 0.0}
+        out[m] = {"banked": banked, "expected": exp, "games_left": round(float(arr["games"].mean()), 1),
+                  "top_day": top}
+    return out
 
 
 def calibration_records(p: Prepared, res, sims: int, key: dict, *, source: str, as_of: str) -> list:
@@ -319,6 +371,9 @@ def _write(p: Prepared, res, payload: dict, sims: int, key: dict, produced_by: s
                                             as_of=stamp), p.base)
     payload["calibration_logged"] = logged["added"]
     atomic_write_json(out_dir / f"live_lines_week{week}.json", payload)
+    # hub polish 3 (48b): one win-% row per priced line, append-only
+    from modules import winprob_history
+    winprob_history.append(p.base, winprob_history.row_from_line(payload))
     atomic_write_json(p.state_path, {"week": week, "seed": p.seed, "as_of": p.as_of.isoformat(),
                                      "tags": ws.tag_record(p.anchors, p.live)})
     # B3: the tag events accumulate; the line's own copy is overwritten

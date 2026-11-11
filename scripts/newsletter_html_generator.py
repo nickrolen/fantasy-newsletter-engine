@@ -396,15 +396,17 @@ def parse_all_betting_lines(lines_list: List[tuple]) -> dict:
             # Parse: "Luka my Balls 27.9% | Blink-183 72.1%"
             parts = value.split('|')
             if len(parts) == 2:
-                match1 = re.search(r'([\d.]+%)', parts[0])
-                match2 = re.search(r'([\d.]+%)', parts[1])
+                # The number is the LAST token: a team name can hold digits
+                # ("Blink-183"), so never take the first number in the part.
+                match1 = re.search(r'([\d.]+%)\s*$', parts[0].strip())
+                match2 = re.search(r'([\d.]+%)\s*$', parts[1].strip())
                 if match1:
                     data['win_prob_1'] = match1.group(1)
                 if match2:
                     data['win_prob_2'] = match2.group(1)
                 # Also capture team names for ordering
-                name1 = re.sub(r'[\d.]+%', '', parts[0]).strip()
-                name2 = re.sub(r'[\d.]+%', '', parts[1]).strip()
+                name1 = re.sub(r'[\d.]+%\s*$', '', parts[0].strip()).strip()
+                name2 = re.sub(r'[\d.]+%\s*$', '', parts[1].strip()).strip()
                 data['prob_team1'] = name1
                 data['prob_team2'] = name2
                     
@@ -412,14 +414,15 @@ def parse_all_betting_lines(lines_list: List[tuple]) -> dict:
             # Parse: "Luka my Balls +260 | Blink-183 -260"
             parts = value.split('|')
             if len(parts) == 2:
-                match1 = re.search(r'([+-][\d]+)', parts[0])
-                match2 = re.search(r'([+-][\d]+)', parts[1])
+                # The LAST token, not the first number: "Blink-183 -230" (11-10 fix)
+                match1 = re.search(r'([+-][\d]+)\s*$', parts[0].strip())
+                match2 = re.search(r'([+-][\d]+)\s*$', parts[1].strip())
                 if match1:
                     data['ml_1'] = match1.group(1)
                 if match2:
                     data['ml_2'] = match2.group(1)
-                name1 = re.sub(r'[+-][\d]+', '', parts[0]).strip()
-                name2 = re.sub(r'[+-][\d]+', '', parts[1]).strip()
+                name1 = re.sub(r'[+-][\d]+\s*$', '', parts[0].strip()).strip()
+                name2 = re.sub(r'[+-][\d]+\s*$', '', parts[1].strip()).strip()
                 data['ml_team1'] = name1
                 data['ml_team2'] = name2
                     
@@ -427,14 +430,15 @@ def parse_all_betting_lines(lines_list: List[tuple]) -> dict:
             # Parse: "Luka my Balls 1860.9 | Blink-183 2028.5"
             parts = value.split('|')
             if len(parts) == 2:
-                match1 = re.search(r'([\d.]+)', parts[0])
-                match2 = re.search(r'([\d.]+)', parts[1])
+                # The LAST token, not the first number (see Moneyline)
+                match1 = re.search(r'([\d.]+)\s*$', parts[0].strip())
+                match2 = re.search(r'([\d.]+)\s*$', parts[1].strip())
                 if match1:
                     data['avg_1'] = match1.group(1)
                 if match2:
                     data['avg_2'] = match2.group(1)
-                name1 = re.sub(r'[\d.]+', '', parts[0]).strip()
-                name2 = re.sub(r'[\d.]+', '', parts[1]).strip()
+                name1 = re.sub(r'[\d.]+\s*$', '', parts[0].strip()).strip()
+                name2 = re.sub(r'[\d.]+\s*$', '', parts[1].strip()).strip()
                 data['avg_team1'] = name1
                 data['avg_team2'] = name2
     

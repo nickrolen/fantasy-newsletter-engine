@@ -203,6 +203,8 @@ _audit_export/
 # (config/STATE_MANIFEST.json), not committed here.
 output/live_lines_week*.json
 output/live_lines_week*.tag_log.jsonl
+# hub polish 3 (11-10): each week's win-% history, one row per priced line (state)
+output/live_lines_week*.winprob.jsonl
 # B3: the midnight refresh service's run log and captured console.
 output/refresh_service.*
 

@@ -17,8 +17,20 @@ counts in (LEAGUE_RULES rules 6-7, 14; Nick, 11-05):
     struck). A real drop in the same Yahoo transaction is a real move: it is
     shown as an ordinary drop under the week it happened in (Hayden's
     Wagner add/drop: the Buzelis drop). A move that was only the voided add
-    is not shown at all. A later, separate drop of the same player is its own
-    transaction and stays (Garrett's Paul George drop, 10-26 07:29);
+    is not shown at all. (A later, separate drop of the same player stayed
+    until 11-10; task 48h's rule (a) below now hides it -- Garrett's Paul
+    George drop, 10-26 07:29, and Hayden's Wagner drop, 10-25 22:40 --
+    flagged for Nick in claude/HUB_POLISH3_RESULT_2026-11-10.md);
+  - a ROUND-TRIP DROP is hidden too (task 48h; Nick, 11-10), display only:
+    counts, logs and scoring are unchanged. A drop of player P by manager M
+    is hidden when (a) P joined M's roster through a voided add -- the
+    latest add of P by M before the drop is voided, so the drop removes a
+    player who never really arrived (Benton's 11-09 Ty Jerome drop); or
+    (b) M's next add of P after the drop is a voided add, so the drop was
+    undone (Benton's 11-09 Anthony Davis drop). NOT "the same transaction as
+    a voided add": that would hide Hayden's 10-25 Buzelis drop, a real drop
+    Nick kept on 11-05 (pinned by a test). A move that loses every part this
+    way is not shown at all (round_trip_drops);
   - a pre-season move (before the season's first fantasy day; rule 14:
     counted nowhere) is shown under "Pre-season";
   - a group-chat entry in the move ledger that is not applied yet (pending),
@@ -84,6 +96,39 @@ def _voided(rulings, day: str, manager: str, player: str) -> bool:
     return any(r.kind == "void" and r.matches(day, manager, "add", player) for r in rulings)
 
 
+def round_trip_drops(transactions: list, rulings) -> dict:
+    """Task 48h: {transaction key: [players whose drop is hidden]} -- every
+    drop of player P by manager M where (a) the latest add of P by M before
+    it is voided, or (b) M's next add of P after it is voided. Adds and
+    drops are ordered by Yahoo's timestamp; a player is matched as
+    transaction_rulings matches him (accents, suffixes)."""
+    from .transaction_rulings import _same_player
+    moves = []                              # (ts, key, action, manager, player, day)
+    for t in transactions:
+        if t["type"] == "trade":
+            continue
+        for p in t["players"]:
+            if p["action"] == "add" and (p.get("to") or {}).get("type") == "team":
+                moves.append((int(t["timestamp"]), t["key"], "add", p["to"]["manager"], p["name"],
+                              t["league_day"]))
+            elif p["action"] == "drop" and (p.get("from") or {}).get("type") == "team":
+                moves.append((int(t["timestamp"]), t["key"], "drop", p["from"]["manager"], p["name"],
+                              t["league_day"]))
+    moves.sort(key=lambda x: (x[0], x[1], x[2] != "add"))
+    hidden: dict = {}
+    for i, (ts, key, act, m, n, _day) in enumerate(moves):
+        if act != "drop":
+            continue
+        adds = [(j, x) for j, x in enumerate(moves) if x[2] == "add" and x[3] == m and _same_player(x[4], n)]
+        before = [x for j, x in adds if j < i]
+        after = [x for j, x in adds if j > i]
+        a = bool(before) and _voided(rulings, before[-1][5], m, before[-1][4])
+        b = bool(after) and _voided(rulings, after[0][5], m, after[0][4])
+        if a or b:
+            hidden.setdefault(key, []).append(n)
+    return hidden
+
+
 def place(t: dict, rulings, schedule: dict, ledger, first: date) -> dict:
     """Where one logged transaction is shown: {"bucket": week | PRE, "adds":
     [(manager, player)] that count there, "void": [players whose add is
@@ -117,9 +162,10 @@ def place(t: dict, rulings, schedule: dict, ledger, first: date) -> dict:
     return {"bucket": buckets.pop(), "adds": counted, "void": void}
 
 
-def yahoo_item(t: dict, pl: dict, schedule: dict):
+def yahoo_item(t: dict, pl: dict, schedule: dict, hide_drops=()):
     """transaction_log.feed_item with every voided add left out (task 45:
-    hidden, not struck), or None when nothing else was in the move. What is
+    hidden, not struck) and every round-trip drop in `hide_drops` left out
+    (task 48h), or None when nothing else was in the move. What is
     left of an add/drop is shown as what it now is (a drop). When the add
     counts in a week other than the one it happened in and no ruling says so:
     "week N claim"."""
@@ -131,7 +177,12 @@ def yahoo_item(t: dict, pl: dict, schedule: dict):
         if len(hit) != 1:
             raise MovesError(f"transaction {t['key']}: the voided add of {n} is not one part of its move")
         it["parts"].remove(hit[0])
-    if pl["void"]:
+    for n in hide_drops:
+        hit = [x for x in it["parts"] if x["kind"] == "drop" and x["text"] == f"dropped {n}"]
+        if len(hit) != 1:
+            raise MovesError(f"transaction {t['key']}: the round-trip drop of {n} is not one part of its move")
+        it["parts"].remove(hit[0])
+    if pl["void"] or hide_drops:
         if not it["parts"]:
             return None                                  # only the voided add: no move to show
         it["what"] = ", ".join(x["text"] for x in it["parts"])
@@ -159,9 +210,10 @@ def by_week(transactions: list, rulings, schedule: dict, ledger, counts: dict, *
         raise MovesError(f"ledger mode {mode!r}: one of {ml.MODES}")
     buckets: dict = {}
     placed: dict = {}
+    hidden = round_trip_drops(transactions, rulings)
     for t in transactions:
         pl = place(t, rulings, schedule, ledger, first)
-        it = yahoo_item(t, pl, schedule)
+        it = yahoo_item(t, pl, schedule, hidden.get(t["key"], ()))
         if it is not None:
             buckets.setdefault(pl["bucket"], []).append(it)
         for m, n in pl["adds"]:

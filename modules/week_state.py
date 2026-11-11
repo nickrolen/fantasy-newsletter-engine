@@ -65,6 +65,11 @@ class WeekState:
     observed: dict                   # player -> {date: played} for completed days
     assumptions: tuple = ()
     state_hash: str = ""
+    # hub polish 3 (48a/48c): the same banked points, by league day: manager ->
+    # {date: points}, and manager -> {date: {player: points}}. Display only:
+    # NOT in state_hash, so no line's key or price moves with them.
+    banked_by_day: dict = field(default_factory=dict)
+    by_day_player: dict = field(default_factory=dict)
 
 
 def week_entry(data: FantasyData, week: int) -> dict:
@@ -134,7 +139,16 @@ def week_state(
     assumptions = []
     banked = {m: 0.0 for m in managers}
     by_player = {m: {} for m in managers}
+    by_day = {m: {} for m in managers}
+    by_day_player = {m: {} for m in managers}
     observed: dict = {}
+
+    def bank(manager, name, d, fp):
+        banked[manager] += fp
+        by_player[manager][name] = by_player[manager].get(name, 0.0) + fp
+        by_day[manager][d] = by_day[manager].get(d, 0.0) + fp
+        dp = by_day_player[manager].setdefault(d, {})
+        dp[name] = dp.get(name, 0.0) + fp
 
     for d in completed:
         iso = d.isoformat()
@@ -167,9 +181,7 @@ def week_state(
                 name = canon(r.player_name)
                 observed.setdefault(name, {})[d] = not bool(r.is_injured)
                 if bool(r.started) and r.manager in banked:
-                    fp = float(r.fantasy_points)
-                    banked[r.manager] += fp
-                    by_player[r.manager][name] = by_player[r.manager].get(name, 0.0) + fp
+                    bank(r.manager, name, d, float(r.fantasy_points))
         elif len(want):
             assumptions.append(f"{iso}: PLAYERLOG has no rows; the day's points come "
                                "from LINEUPS slots.")
@@ -179,8 +191,7 @@ def week_state(
                 fp = 0.0 if pd.isna(fp) else float(fp)
                 observed.setdefault(name, {})[d] = fp != 0.0
                 if r.manager in banked:
-                    banked[r.manager] += fp
-                    by_player[r.manager][name] = by_player[r.manager].get(name, 0.0) + fp
+                    bank(r.manager, name, d, fp)
 
     games_remaining = {}
     for tp in team_projections.values():
@@ -202,7 +213,8 @@ def week_state(
     return WeekState(week=week, as_of=as_of, dates=tuple(dates), completed=completed,
                      remaining=remaining, banked=banked, banked_by_player=by_player,
                      games_remaining=games_remaining, observed=observed,
-                     assumptions=tuple(assumptions), state_hash=h)
+                     assumptions=tuple(assumptions), state_hash=h,
+                     banked_by_day=by_day, by_day_player=by_day_player)
 
 
 # =============================================================================

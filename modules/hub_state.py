@@ -112,6 +112,12 @@ def _md(d: date) -> str:
     return f"{d.month:02d}-{d.day:02d}"
 
 
+def _and_list(xs) -> str:
+    """"4", "4 and 5", "4, 5 and 6"."""
+    xs = list(xs)
+    return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
+
+
 def _mon_d(d: date) -> str:
     return f"{d.strftime('%a')} {d.strftime('%b')} {d.day}"
 
@@ -161,7 +167,9 @@ def lock_note(status: dict, base: Path, week: int) -> dict:
                                     "priced after tonight's games."}
 
 
-def build_matchups(line: dict) -> dict:
+def build_matchups(line: dict, mviews: dict = None) -> dict:
+    """The cards; with mviews (hub_matchups.build_views), each card's three
+    view ids and the last week's block (tasks 48a-48c)."""
     done = len(line.get("completed_dates") or [])
     left = len(line.get("remaining_dates") or [])
     cards = []
@@ -180,7 +188,13 @@ def build_matchups(line: dict) -> dict:
                       "moneyline": f"{_odds(ln['moneyline_a'])} / {_odds(ln['moneyline_b'])}"})
     total = done + left
     clock = (f"{done} of {total} game days played" if total else "no game days this week")
-    return {"clock": clock, "cards": cards}
+    if mviews is not None:
+        if len(mviews["cards_views"]) != len(cards):
+            raise HubInputError("the matchup views do not match the line's matchups")
+        for c, v in zip(cards, mviews["cards_views"]):
+            c["views"] = v
+    return {"clock": clock, "cards": cards, "buttons": {"sum": "Summary", "win": "Win %", "flow": "Game flow"},
+            "last": (mviews or {}).get("last")}
 
 
 # =============================================================================
@@ -279,6 +293,7 @@ def build_power(base: Path, data, managers, keeper_watch: dict, week: int, adds:
     from .report_builder import build_power_rankings
     from .data_loader import MANAGER_TO_TEAM
     tor, latest, prev = title_odds_inputs(base, data, managers)
+    pf = season_points(data, latest)
     ranked = build_power_rankings(tor, data.records, data.leaguehistory, keeper_watch=keeper_watch)
     kind = odds_kind(week, season_config, cup_weeks)
     key = ODDS_KEY[kind]
@@ -300,27 +315,87 @@ def build_power(base: Path, data, managers, keeper_watch: dict, week: int, adds:
         rows.append({"rank": str(pr["rank"]), "manager": m, "team": MANAGER_TO_TEAM.get(m, m),
                      "record": shown_record(latest, m), "odds": _pct(shown[m]), "delta": delta,
                      "delta_dir": ddir, "adds": f"{used} / {budget}",
-                     "adds_over": used > budget})
+                     "adds_over": used > budget,
+                     "pf": _int(pf["points"][m]), "seed": f"seed {pf['seeds'][m]}"})
     as_of = datetime.fromisoformat(latest["as_of"])
-    from . import title_odds_history as toh
-    chart = []
-    for r in reversed(toh.read(base)):
-        if not r.get(key):
-            continue
-        at = datetime.fromisoformat(r["as_of"])
-        chart.append({"label": f"Week {r.get('week', '?')} \u00b7 {_mon_d(at.date())}",
-                      "values": [{"manager": m, "text": _pct(r[key][m]), "width": _pct(r[key][m])}
-                                 for m in [x["manager"] for x in rows]]})
     note = (f"Change is since the run before ({_clock_text(datetime.fromisoformat(prev['as_of']))})."
             if prev else "Change appears from the second run in the history.")
     block = {"kind": kind, "label": ODDS_LABEL[kind], "rows": rows, "run_id": latest["run_id"],
              "as_of": f"{ODDS_LABEL[kind]} as of {_clock_text(as_of)}",
              "note": note + f" Adds are this week's, out of {budget}, and count chat claims in the "
-                           "week they were made.",
-             "chart": {"points": chart,
-                       "note": ("One run so far; the nightly runs add a point each night from step 1c."
-                                if len(chart) < 2 else "Newest first.")}}
+                           "week they were made. " + pf["note"],
+             "chart_title": TITLE_CHART_LABEL,
+             "chart": title_chart(base, data, season_config, cup_weeks)}
     return block, ranked
+
+
+TITLE_CHART_LABEL = "Title odds"
+
+
+def season_points(data, latest: dict) -> dict:
+    """Task 48e: each manager's points over the COMPLETED weeks and his Cup
+    seed now, through simulator_cup_odds.cup_seeding_points and get_cup_seeds
+    -- never a second sum. They read RECORDS' weekly scores (the weeks the
+    weekly build has recorded), the same completed weeks as the record
+    column; between a Monday 12:01 run that banks the week from the logs and
+    that week's weekly build, the record column already counts the week and
+    PF does not yet: the note says so. A tie on points would go to
+    get_cup_seeds' tiebreak (the standings so far, mid-season)."""
+    from .simulator_cup_odds import cup_seeding_points, get_cup_seeds, cup_seeding_weeks
+    points = cup_seeding_points(data)
+    seeds = get_cup_seeds(data)
+    first, last = cup_seeding_weeks()
+    have = {}
+    for m, entries in (data.records.get("weekly_scores") or {}).items():
+        for e in entries if isinstance(entries, list) else []:
+            w = e.get("week")
+            if w is not None and first <= int(w) <= last:
+                have.setdefault(int(w), set()).add(m)
+    done = sorted(w for w, ms in have.items() if set(points) <= ms)
+    n = done[-1] if done else 0
+    if done != list(range(first, n + 1)):
+        raise HubInputError(f"RECORDS' weekly scores cover weeks {done}, not weeks {first}-{n} in a row: "
+                            "the season points cannot be shown")
+    note = (f"PF: points over weeks {first}\u2013{n} completed, with each manager's Cup seed now; the Cup "
+            f"seeds on weeks {first}\u2013{last}." if n else
+            f"PF: no week completed yet; the Cup seeds on weeks {first}\u2013{last}.")
+    if latest.get("records") != latest.get("records_after_banked"):
+        note += (" The record column already counts the week banked overnight; its points join PF "
+                 "after the weekly build records the week.")
+    return {"points": points, "seeds": seeds, "weeks": n, "note": note}
+
+
+def title_chart(base: Path, data, season_config: dict, cup_weeks: list) -> dict:
+    """Task 48d (Nick, 11-10): one line chart of the REGULAR-SEASON title odds
+    (title_odds) for the whole season, through hub_charts. Points: each
+    league day's last title-odds history row; before the history began, the
+    published stats reports, each on the Monday its data describe."""
+    from . import title_odds_history as toh, hub_charts as hc
+    from .data_loader import MANAGERS
+    rows = toh.read(base)
+    sched = data.schedule
+    starts = {int(w["week"]): date.fromisoformat(str(w["start_date"])[:10]) for w in sched["weeks"]}
+    first_hist = min((datetime.fromisoformat(r["as_of"]).date() for r in rows if r.get("title_odds")),
+                     default=None)
+    reports = []
+    for p in sorted((base / "output").glob("stats_report_week*.json")):
+        try:
+            wk = int(p.stem.replace("stats_report_week", ""))
+        except ValueError:
+            continue
+        day = starts.get(wk + 1)
+        if first_hist is not None and day is not None and day >= first_hist:
+            continue                                            # the history covers that day
+        reports.append(json.loads(p.read_text(encoding="utf-8")))
+    try:
+        pts = hc.title_points(rows, reports, sched)
+        ch = hc.title_odds_chart(pts, sched, list(MANAGERS),
+                                 playoff_week=int(season_config["regular_season_weeks"]) + 1,
+                                 cup_week=int(cup_weeks()[0]) if callable(cup_weeks) else int(cup_weeks[0]),
+                                 label=TITLE_CHART_LABEL)
+    except hc.ChartError as e:
+        raise HubInputError(str(e)) from None
+    return ch
 
 
 # =============================================================================
@@ -459,7 +534,8 @@ class Availability:
 # free agents: status, playable games, the two-week ranking (task 39)
 # =============================================================================
 
-PTS_LABEL = "Pts (2 wks)"
+PTS_LABEL = "Pts (3 wks)"
+PTS_LABELS = {3: "Pts (3 wks)", 2: "Pts (2 wks)"}   # by the count of shown columns (48g)
 
 
 def free_agent_tags(tag_row: dict, names) -> dict:
@@ -515,6 +591,13 @@ def override_back(entry: dict, weeks: dict) -> Optional[date]:
     return None
 
 
+def override_chip(entry: dict, av: Availability) -> dict:
+    """An injury entry's chip: "O \u00b7 back MM-DD" (or "O \u00b7 no return date")."""
+    back = override_back(entry, av.weeks)
+    text = f"O \u00b7 back {_md(back)}" if back is not None else "O \u00b7 no return date"
+    return {"text": text, "kind": "out"}
+
+
 def free_agent_status(av: Availability, name: str, tag: str, window) -> dict:
     """A free agent's status chip(s) and source, from his tag and his injury
     entry, in the roster's precedence: OFS, then an injury entry keeping him
@@ -531,9 +614,7 @@ def free_agent_status(av: Availability, name: str, tag: str, window) -> dict:
         return {"source": "season_out", "chips": [{"text": "OFS \u00b7 season", "kind": "out"}]}
     e = av.override_covers(name, window)
     if e is not None:
-        back = override_back(e, av.weeks)
-        text = f"O \u00b7 back {_md(back)}" if back is not None else "O \u00b7 no return date"
-        return {"source": "override", "chips": [{"text": text, "kind": "out"}]}
+        return {"source": "override", "chips": [override_chip(e, av)]}
     if norm == "O":
         return {"source": "tag", "chips": [{"text": f"O \u00b7 up to {absence.MAX_TAG_GAMES} games",
                                             "kind": "out"}]}
@@ -544,31 +625,33 @@ def free_agent_status(av: Availability, name: str, tag: str, window) -> dict:
     return {"source": "healthy", "chips": []}
 
 
-def rank_free_agents(fa_records, av: Availability, days_a, days_b) -> List[dict]:
-    """Every free agent, ranked by projected points over the two columns'
-    days (free_agent_columns: the rest of this week and next, or the next two
-    weeks) counting only the games he will play (Yahoo's projected FPPG x
+def rank_free_agents(fa_records, av: Availability, *col_days) -> List[dict]:
+    """Every free agent, ranked by projected points over the columns' days
+    (free_agent_columns: three since task 48g -- the rest of this week, next
+    week and the week after, or the next three weeks; any count is accepted,
+    one list of days per column, g1, g2, g3 ...) counting only the games he will play (Yahoo's projected FPPG x
     av.playable games), then higher Proj, then name. Injured players stay on
     the list (an O/OFS player can go straight into an open IL slot, rule 2),
     with what they will actually score. `av` is Availability.for_free_agents.
-    Each row carries every value formatted: g1 and g2 are the two columns'
+    Each row carries every value formatted: g1, g2, g3 are the columns'
     games; the "_" keys are the sort's and are dropped by the caller."""
     import math
-    window = list(days_a) + list(days_b)
+    window = [d for days in col_days for d in days]
     rows = []
     for r in fa_records:
         n = r["player_name"]
         proj = float(r["projectedFPPG"])
         if math.isnan(proj):
             raise HubInputError(f"free agent {n} has no projectedFPPG in data/PLAYERLIST.xlsx")
-        g1 = len(av.playable(n, days_a))
-        g2 = len(av.playable(n, days_b))
-        pts = proj * (g1 + g2)
+        games = [len(av.playable(n, days)) for days in col_days]
+        pts = proj * sum(games)
         st = free_agent_status(av, n, av.tags.get(n) or "HEALTHY", window)
-        rows.append({"name": n, "pos": str(r.get("player_position(s)") or ""),
-                     "nba": av.info[n]["nba_team"], "proj": f"{proj:.1f}", "g1": str(g1),
-                     "g2": str(g2), "pts": f"{pts:.1f}", "tags": st["chips"],
-                     "status": st["source"], "_pts": pts, "_proj": proj})
+        row = {"name": n, "pos": str(r.get("player_position(s)") or ""),
+               "nba": av.info[n]["nba_team"], "proj": f"{proj:.1f}"}
+        row.update({f"g{i + 1}": str(g) for i, g in enumerate(games)})
+        row.update({"pts": f"{pts:.1f}", "tags": st["chips"], "status": st["source"], "_pts": pts,
+                    "_proj": proj})
+        rows.append(row)
     rows.sort(key=lambda x: (-x["_pts"], -x["_proj"], x["name"]))
     return rows
 
@@ -578,11 +661,15 @@ def free_agent_columns(now: datetime, week: int, wk_dates: dict, nba_schedule, g
     16q): decided by the BUILD'S CLOCK against this week's Monday window close
     (price_lock.window_close, rule 4), never by weekday name.
 
-      before the close  "this": the rest of this week (GL) and next week (Next):
-                        a pickup in the window joins this week.
-      from the close    "ahead": the next week and the week after ("Wk N+1",
-                        "Wk N+2"): a pickup now is a group-chat claim and
+      before the close  "this": the rest of this week (GL), next week (Next)
+                        and the week after ("Wk N+2"): a pickup in the
+                        window joins this week.
+      from the close    "ahead": the next three weeks ("Wk N+1", "Wk N+2",
+                        "Wk N+3"): a pickup now is a group-chat claim and
                         joins the following Monday (rule 7).
+    Three columns since task 48g (Nick, 11-10; two before). The Cup's
+    stand-in games carry no marker here (Nick, 11-10): they count as games,
+    as the schedule counts them.
 
     The 12:01 AM Monday build and Monday's pre-tip build show this week;
     Tuesday's 12:01 build switches. A 14-day fantasy week (weeks 7 and 17,
@@ -592,7 +679,7 @@ def free_agent_columns(now: datetime, week: int, wk_dates: dict, nba_schedule, g
     shown week whose days hold no NBA game RAISES: the schedule is missing,
     not empty. games_on(d) -> the NBA games on day d.
 
-    {"mode", "cols": [{"label", "days", "week"} x 2], "join": the Monday a
+    {"mode", "cols": [{"label", "days", "week"} x 3], "join": the Monday a
     pickup made now joins (None when none can), "closes": the close}."""
     from . import price_lock
     if week not in wk_dates:
@@ -614,10 +701,12 @@ def free_agent_columns(now: datetime, week: int, wk_dates: dict, nba_schedule, g
         return {"label": label, "days": list(wk_dates[w] if days is None else days), "week": w}
 
     if now < closes:
-        cols = [col("GL", week, [d for d in wk_dates[week] if d >= today]), col("Next", week + 1)]
+        cols = [col("GL", week, [d for d in wk_dates[week] if d >= today]), col("Next", week + 1),
+                col(f"Wk {week + 2}", week + 2)]
         mode, join = "this", first
     else:
-        cols = [col(f"Wk {week + 1}", week + 1), col(f"Wk {week + 2}", week + 2)]
+        cols = [col(f"Wk {week + 1}", week + 1), col(f"Wk {week + 2}", week + 2),
+                col(f"Wk {week + 3}", week + 3)]
         mode = "ahead"
         join = wk_dates[week + 1][0] if (week + 1) in wk_dates else None
     return {"mode": mode, "cols": cols, "join": join, "closes": closes}
@@ -627,11 +716,16 @@ def stash_rows(fa_records, av: Availability, window, top_n: int) -> List[dict]:
     """The stash candidates (task 42): free agents TAGGED O or OFS -- only
     they can go straight into an IL slot (rule 2); a Q or healthy player with
     an injury entry cannot -- by Yahoo's projected FPPG, then name, top N.
-    Each with his status chip (free_agent_status over `window`: "O \u00b7 back
-    11-23", "OFS \u00b7 season", "O \u00b7 up to 3 games"); OFS is marked
-    season-long. `av` is the free agents' Availability (their tags). The
-    eligible tags are the ledger's own (roster_moves.il_eligible_tags, the
-    rule's one home in the config). A display, not advice."""
+    LONG ABSENCES ONLY (task 48f; Nick, 11-10): an O-tagged player is listed
+    only when INJURY_OVERRIDES has a live entry for him -- one that keeps him
+    out on some day of `window` (Availability.override_covers, the grid's own
+    lookup); an O tag alone (at most 3 games) is not a stash. OFS stays as it
+    was. So the chips here are only "O \u00b7 back 11-23" (the entry's) and
+    "OFS \u00b7 season": the "O \u00b7 up to 3 games" status has no path into
+    this table (it stays in free_agent_status for the free agents). `av` is
+    the free agents' Availability (their tags). The eligible tags are the
+    ledger's own (roster_moves.il_eligible_tags, the rule's one home in the
+    config). A display, not advice."""
     from . import absence
     from .move_ledger import il_eligible_tags, tag_il_eligible
     eligible = il_eligible_tags()
@@ -642,8 +736,14 @@ def stash_rows(fa_records, av: Availability, window, top_n: int) -> List[dict]:
         if not tag_il_eligible(tag, eligible):           # the ledger's own rule (task 47)
             continue
         season = bool(absence.season_out(tag))
+        if season:
+            st = {"source": "season_out", "chips": [{"text": "OFS \u00b7 season", "kind": "out"}]}
+        else:
+            e = av.override_covers(n, window)
+            if e is None:                                # an O tag alone: a short absence (48f)
+                continue
+            st = {"source": "override", "chips": [override_chip(e, av)]}
         proj = float(r["projectedFPPG"])
-        st = free_agent_status(av, n, tag, window)
         rows.append({"name": n, "pos": str(r.get("player_position(s)") or ""), "nba": av.info[n]["nba_team"],
                      "proj": f"{proj:.1f}", "tags": st["chips"], "status": st["source"],
                      "season": season,
@@ -823,6 +923,18 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     av = Availability.from_data(data, rosters, il_slots, tags,
                                 data.injury_overrides or {"players": []}, week, info, today)
     il_cap = int(_LEAGUE_CONFIG["league_structure"]["il_slots"])
+    # --- the matchup views (tasks 48a-48c): Summary, Win %, Game flow per card,
+    # this week's and last week's
+    if archive_index is None:
+        from . import hub_archive
+        archive_index = hub_archive.load_index(base)
+    from . import hub_matchups, hub_charts, winprob_history
+    from .league_clock import league_tz
+    try:
+        mviews = hub_matchups.build_views(base, data, week=week, line=line, av=av, now=now,
+                                          archive_index=archive_index, tz=league_tz())
+    except (hub_matchups.SummaryError, hub_charts.ChartError, winprob_history.WinProbHistoryError) as e:
+        raise HubInputError(str(e)) from None
     nba_games_on = {}
     for d in this_days + next_days:
         nba_games_on[d] = sum(1 for dates in av.team_dates.values() if d in dates) // 2
@@ -942,7 +1054,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     from . import absence
     fcols = free_agent_columns(now, week, {w: list(v) for w, v in wk_dates.items()}, data.nba_schedule,
                                lambda d: sum(1 for ds in av.team_dates.values() if d in ds) // 2)
-    days_a, days_b = fcols["cols"][0]["days"], fcols["cols"][1]["days"]
+    col_days = [c["days"] for c in fcols["cols"]]
     claimed_idx = PlayerIndex(dict(lv["claimed"]))
     fa_records = [r for r in dl_free_agents(pl, rosters).to_dict("records")
                   if claimed_idx.get(r["player_name"]) is None]          # rule 10: reserved
@@ -958,11 +1070,12 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     if fcols["join"] is None:                       # the season's last window has closed
         ranked_fa = []
     else:
-        ranked_fa = rank_free_agents(fa_records, fa_av, days_a, days_b)
+        ranked_fa = rank_free_agents(fa_records, fa_av, *col_days)
     if dropped and fcols["join"] is not None:
         # a chat drop is free from the next window: no games in this week's column
         this_mode = fcols["mode"] == "this"
-        later = rank_free_agents([proj.get(n) for n in dropped], fa_av, [] if this_mode else days_a, days_b)
+        later = rank_free_agents([proj.get(n) for n in dropped], fa_av,
+                                 *([[]] + col_days[1:] if this_mode else col_days))
         for r in later:
             info = dropped[r["name"]]
             if this_mode:
@@ -983,31 +1096,31 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     shown = [c for c in fcols["cols"] if c["week"] is not None]
     long_weeks = [c["week"] for c in shown if len(c["days"]) > 7 and c["label"] != "GL"]
     if fcols["mode"] == "this":
-        aside = "by projected points, rest of this week + next"
+        aside = "by projected points, rest of this week + the next two"
         cols_note = (f"This week's window is open until {_clock_text(fcols['closes'])}: a pickup "
-                     "now plays from today, so GL counts the rest of this week and Next counts next "
-                     "week.")
+                     "now plays from today, so GL counts the rest of this week, Next counts next "
+                     "week, and the third column the week after.")
     elif fcols["join"] is None:
         aside = "the season's last window has closed"
         cols_note = "No pickup joins a roster again this season."
     else:
-        aside = (f"by projected points, weeks {' and '.join(str(c['week']) for c in shown)}: a pickup "
+        aside = (f"by projected points, weeks {_and_list([str(c['week']) for c in shown])}: a pickup "
                  f"now joins {_ml_mon(fcols['join'].isoformat())}")
         cols_note = (f"This week's window closed {_clock_text(fcols['closes'])}: a pickup now is a "
                      f"group-chat claim and joins the next Monday (rule 7), so the columns are the "
-                     f"next two weeks.")
-        if len(shown) < 2:
-            cols_note += f" Week {shown[0]['week']} is the season's last."
+                     f"next three weeks.")
+        if len(shown) < 3:
+            cols_note += f" Week {shown[-1]['week']} is the season's last."
     if long_weeks:
         cols_note += "".join(f" Week {w} is one fantasy week of {len(wk_dates[w])} days (rule 9): "
                              f"its games are one column." for w in long_weeks)
-    pts_label = PTS_LABEL if len(shown) == 2 else (f"Pts ({shown[0]['label']})" if shown else PTS_LABEL)
+    pts_label = PTS_LABELS.get(len(shown)) or (f"Pts ({shown[0]['label']})" if shown else PTS_LABEL)
     free = {"rows": fa_rows, "aside": aside, "pts_label": pts_label, "mode": fcols["mode"],
             "schedule_note": schedule_note([d for c in shown for d in c["days"]]),
             "cols": [c["label"] for c in fcols["cols"]],
             "weeks": [c["week"] for c in fcols["cols"]],
             "empty": "No pickup joins a roster again this season.",
-            "note": (f"{pts_label}: Yahoo's projected FPPG (Proj) times the games he will play in the two "
+            "note": (f"{pts_label}: Yahoo's projected FPPG (Proj) times the games he will play in the "
                      f"columns. {cols_note} The columns count only games he will play: an injury "
                      f"entry's dates, OFS, and an O tag's next {absence.MAX_TAG_GAMES} games (no injury "
                      "entry) are left out. Injured players stay listed: an O or OFS player can go "
@@ -1017,12 +1130,14 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     # --- stash candidates (task 42): free agents tagged O or OFS
     stash_recs = fa_records + [proj.get(n) for n in dropped]
     stash = {"rows": ([] if fcols["join"] is None else
-                      stash_rows(stash_recs, fa_av, days_a + days_b, cfg["stash_top_n"])),
-             "aside": "tagged O or OFS, by projection",
+                      stash_rows(stash_recs, fa_av, [d for ds in col_days for d in ds], cfg["stash_top_n"])),
+             "aside": "OFS, or O with an injury entry, by projection",
              "open_il": open_il_text(managers, il_slots, il_cap),
-             "empty": "No free agent is tagged O or OFS.",
-             "note": ("Only a player tagged O or OFS can go straight into an IL slot (rule 2); a Q or "
-                      "healthy player cannot, whatever his injury entry says. OFS is out for the "
+             "empty": "No free agent is OFS, or tagged O with an injury entry.",
+             "note": ("Long absences only: a player tagged O is listed when he has an injury entry "
+                      "keeping him out (an O tag alone is at most 3 games); OFS players are listed as "
+                      "before. Only a player tagged O or OFS can go straight into an IL slot (rule 2); a "
+                      "Q or healthy player cannot, whatever his injury entry says. OFS is out for the "
                       "season: an IL slot all year, for his keeper value only. A display, not advice: "
                       "IL slots change only in a Monday window.")}
 
@@ -1035,9 +1150,6 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         raise HubInputError(str(e)) from None
 
     # --- newsletter
-    if archive_index is None:
-        from . import hub_archive
-        archive_index = hub_archive.load_index(base)
     newsletter = newsletter_block(archive_index, sched)
 
     from . import calibration_log as cal
@@ -1055,7 +1167,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                    "lock": lock_note(status, base, week),
                    "line_text": f"Line priced {_clock_text(line_at)}",
                    "engine_mismatch": None if check["ok"] else check["why"]},
-        "matchups": build_matchups(line),
+        "matchups": build_matchups(line, mviews),
+        "matchup_views": mviews["views"],
         "power": power,
         "rosters": roster_blocks,
         "grid": grid,

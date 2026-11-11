@@ -348,9 +348,10 @@ def real_all_free_agents():
 
 
 def _games(r):
-    """Both columns' games; a chat-dropped player's first column is a dash
-    before the window closes (he plays from the next Monday)."""
-    return sum(int(r[k]) for k in ("g1", "g2") if r[k].isdigit())
+    """Every column's games (three since hub polish 3, 48g); a chat-dropped
+    player's first column is a dash before the window closes (he plays from
+    the next Monday)."""
+    return sum(int(r[k]) for k in ("g1", "g2", "g3") if r.get(k, "").isdigit())
 
 
 def test_real_kawhi_scores_nothing_and_ranks_below_every_healthy_free_agent_with_games(real_all_free_agents):

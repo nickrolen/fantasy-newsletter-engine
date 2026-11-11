@@ -811,9 +811,15 @@ def simulate_week_matrix(
     tag_week_info: tuple = None,
     observed: dict = None,
     il_mask: dict = None,
+    day_means: dict = None,
 ) -> dict[str, dict]:
     """
     Simulate one fantasy week, all `draws.n` simulations at once.
+
+    day_means (hub polish 3, 48c): when a dict is given, it is filled with
+    {manager: {date: mean over simulations of that day's started points}},
+    read off the same arrays before the team noise -- no draw is added or
+    moved, so every price is unchanged.
 
     il_mask: {manager: names in an IL slot this week} (roster_plan): they
     score nothing all week, healthy or not -- an IL slot is fixed for the
@@ -896,6 +902,8 @@ def simulate_week_matrix(
             col += width
             starters = legal_starters(avail, entries, fills)
             day_pts = starters * fp
+            if day_means is not None:
+                day_means.setdefault(manager, {})[game_date] = float(day_pts.sum(axis=1).mean())
             res["score"] += day_pts.sum(axis=1)
             res["games"] += starters.sum(axis=1)
             for g in ("G", "F", "C"):
@@ -1155,6 +1163,7 @@ class RemainderResult:
     lines: list                 # BettingLine per matchup, decomposition filled
     remaining: dict             # manager -> simulate_week_matrix arrays
     tag_blocks: dict            # player -> TagBlock (basis says how it was drawn)
+    day_means: dict = None      # manager -> {date: mean started points that day, before team noise}
 
 
 def simulate_week_remainder(
@@ -1190,9 +1199,10 @@ def simulate_week_remainder(
     dates = get_dates_in_week(week_data)
     draws = KeyedDraws(seed, num_simulations)
     tw = (week, dates)
+    day_means = {}
     rem = simulate_week_matrix(data, team_projections, week_data, injury_statuses, draws,
                                from_date=state.as_of, anchors=anchors, tag_week_info=tw,
-                               observed=state.observed, il_mask=il_mask)
+                               observed=state.observed, il_mask=il_mask, day_means=day_means)
     blocks = tag_blocks(data, team_projections, injury_statuses, draws, None, anchors, tw,
                         state.observed, state.as_of)
     lines = []
@@ -1206,7 +1216,7 @@ def simulate_week_remainder(
         lines.append(line_from_scores(a, b, ra, rb, draws, week, ba, bb))
     return RemainderResult(week=week, as_of=state.as_of, seed=seed,
                            num_simulations=num_simulations, lines=lines,
-                           remaining=rem, tag_blocks=blocks)
+                           remaining=rem, tag_blocks=blocks, day_means=day_means)
 
 
 # =============================================================================

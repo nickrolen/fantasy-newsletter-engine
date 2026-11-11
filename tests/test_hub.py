@@ -23,6 +23,18 @@ PASS = "fake test passphrase only, not real"
 # a synthetic payload, every number a string
 # =============================================================================
 
+# a hub_charts chart, every value a string (hub polish 3)
+SAMPLE_CHART = {"vb": "0 0 340 200", "aria": "a chart", "tip0": "Tap a point. Latest: Tue 11-03: Mgr One 70.0%",
+                "grid": [{"x1": "30", "y1": "170", "x2": "262", "y2": "170", "cls": "g-line"}],
+                "texts": [{"x": "26", "y": "173", "t": "0%", "anchor": "end", "cls": "ax", "fill": ""},
+                          {"x": "200", "y": "60", "t": "Mgr One 70.0%", "anchor": "start", "cls": "lab",
+                           "fill": "#1D5FD1"}],
+                "paths": [{"d": "M30 100 L194 60", "stroke": "#1D5FD1", "dash": "", "w": "2"}],
+                "dots": [{"cx": "194", "cy": "60", "r": "3", "fill": "#1D5FD1"}],
+                "hits": [{"x": "185", "y": "51", "w": "18", "h": "18", "tip": "Tue 11-03: Mgr One 70.0%"}],
+                "note": "One point per priced line."}
+
+
 def sample_payload(**over) -> dict:
     side = lambda t, m, now, proj, win: {"team": t, "manager": m, "now": now, "proj": proj, "win": win}
     players = [
@@ -44,18 +56,32 @@ def sample_payload(**over) -> dict:
         "matchups": {"clock": "0 of 7 game days played", "cards": [
             {"a": side("Team Uno", "Mgr One", "0", "1,702", "70.0%"),
              "b": side("Team Dos", "Mgr Two", "0", "1,595", "30.0%"),
-             "bar_a": "70.0%", "spread": "Mgr One \u2212107", "total": "3,300", "moneyline": "\u2212235 / +235"}]},
+             "bar_a": "70.0%", "spread": "Mgr One \u2212107", "total": "3,300", "moneyline": "\u2212235 / +235",
+             "views": {"sum": "v-mu3-0-sum", "win": "v-mu3-0-win", "flow": "v-mu3-0-flow"}}],
+            "buttons": {"sum": "Summary", "win": "Win %", "flow": "Game flow"},
+            "last": {"view": "v-last", "link": "Last week's matchups", "title": "Week 2 \u00b7 Oct 26\u2013Nov 1",
+                     "note": "How last week ended.",
+                     "cards": [{"a": {"team": "Team Uno", "manager": "Mgr One", "score": "1,567"},
+                                "b": {"team": "Team Dos", "manager": "Mgr Two", "score": "1,317"},
+                                "result": "Final: Mgr One by 250",
+                                "views": {"sum": "v-mu2-0-sum", "win": "v-mu2-0-win", "flow": "v-mu2-0-flow"}}]}},
+        "matchup_views": [
+            {"id": f"v-mu{w}-0-{k}", "back": "v-main" if w == 3 else "v-last",
+             "back_label": "Hub" if w == 3 else "Last week's matchups", "title": "Team Uno vs Team Dos",
+             "sub": f"Week {w} \u00b7 x", "kind": "summary" if k == "sum" else "chart",
+             **({"paras": [{"head": "Monday's preview (newsletter line: Team Uno -107.0 / -235, O/U 3300)",
+                            "text": "Mgr One leads Mgr Two by 11.5, 120.5 to 109.0."}]} if k == "sum" else
+                {"chart": SAMPLE_CHART})}
+            for w in (3, 2) for k in ("sum", "win", "flow")],
         "power": {"kind": "title", "label": "Title odds", "as_of": "Title odds as of Mon Nov 2",
                   "note": "Change appears from the second run.",
                   "rows": [{"rank": "1", "manager": "Mgr One", "team": "Team Uno", "record": "2-0",
                             "odds": "58.5%", "delta": "\u25b2 3.0", "delta_dir": "up", "adds": "1 / 3",
-                            "adds_over": False},
+                            "adds_over": False, "pf": "3,207", "seed": "seed 1"},
                            {"rank": "2", "manager": "Mgr Two", "team": "Team Dos", "record": "0-2",
                             "odds": "41.5%", "delta": "\u25bc 3.0", "delta_dir": "down", "adds": "0 / 3",
-                            "adds_over": False}],
-                  "chart": {"points": [{"label": "Week 2 \u00b7 Mon Nov 2", "values": [
-                      {"manager": "Mgr One", "text": "58.5%", "width": "58.5%"},
-                      {"manager": "Mgr Two", "text": "41.5%", "width": "41.5%"}]}], "note": "One run so far."}},
+                            "adds_over": False, "pf": "2,911", "seed": "seed 2"}],
+                  "chart_title": "Title odds", "chart": SAMPLE_CHART},
         "rosters": {"Mgr One": {"manager": "Mgr One", "team": "Team Uno", "subtitle": "Mgr One \u00b7 2-0 \u00b7 #1",
                                 "odds": "58.5%", "odds_label": "Title odds", "adds": "1 of 3",
                                 "starts": "48 starts", "size": "Active 15/15 \u00b7 IL 1/2",
@@ -85,12 +111,12 @@ def sample_payload(**over) -> dict:
                        "est": "Estimated: games the NBA has not scheduled yet"},
             "foot": "Starts: games that fit a starting lineup."},
         "free_agents": {"rows": [{"name": "Free Agent", "pos": "SF", "nba": "CCC", "proj": "39.0", "g1": "3",
-                                  "g2": "4", "pts": "273.0", "tags": [], "status": "healthy"},
+                                  "g2": "4", "g3": "0", "pts": "273.0", "tags": [], "status": "healthy"},
                                  {"name": "Hurt Agent", "pos": "PG", "nba": "DDD", "proj": "41.5", "g1": "0",
-                                  "g2": "0", "pts": "0.0", "status": "override",
+                                  "g2": "0", "g3": "0", "pts": "0.0", "status": "override",
                                   "tags": [{"text": "O \u00b7 back 11-23", "kind": "out"}]}],
                         "aside": "by projected points, rest of this week + next", "pts_label": "Pts (2 wks)",
-                        "mode": "this", "cols": ["GL", "Next"], "weeks": [3, 4],
+                        "mode": "this", "cols": ["GL", "Next", "Wk 5"], "weeks": [3, 4, 5],
                         "empty": "No pickup joins a roster again this season.", "schedule_note": "",
                         "note": "Chat claims arrive with the ledger."},
         "stash": {"rows": [{"name": "Hurt Agent", "pos": "PG", "nba": "DDD", "proj": "41.5", "status": "override",

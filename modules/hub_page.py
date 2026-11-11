@@ -83,15 +83,16 @@ h2{margin:0;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:u
 .lbl{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em}
 .bet .v{font-size:14px;font-weight:600}
 .clock{font-size:12px;color:#5B6270}
-.pr-h,.pr-row{display:grid;grid-template-columns:24px minmax(0,1fr) 40px 76px 42px;gap:6px;
-padding:10px 14px;align-items:center}
+.pr-h,.pr-row{display:grid;grid-template-columns:16px minmax(0,1fr) 34px 44px 56px 34px;gap:4px;
+padding:10px 10px;align-items:center}
 .pr-h{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;
 border-bottom:1px solid #E3E6EB}
 .pr-h .odds-h{all:unset;cursor:pointer;text-align:right;color:#1D5FD1;font-size:11px;font-weight:700;
 text-transform:uppercase;letter-spacing:.06em}
-.pr-row{all:unset;box-sizing:border-box;display:grid;grid-template-columns:24px minmax(0,1fr) 40px 76px 42px;
-gap:6px;align-items:center;padding:12px 14px;min-height:44px;border-bottom:1px solid #EEF0F3;cursor:pointer;width:100%%}
-.rank{font-size:16px;font-weight:800}
+.pr-row{all:unset;box-sizing:border-box;display:grid;grid-template-columns:16px minmax(0,1fr) 34px 44px 56px 34px;
+gap:4px;align-items:center;padding:12px 10px;min-height:44px;border-bottom:1px solid #EEF0F3;cursor:pointer;width:100%%}
+.pfc{text-align:right;display:flex;flex-direction:column;font-size:13px}.pfc .s{font-size:11px;color:#5B6270}
+.rank{font-size:15px;font-weight:800}
 .tm{display:flex;flex-direction:column;min-width:0}
 .tm .n{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .num{text-align:right;font-size:14px}
@@ -120,7 +121,8 @@ border-radius:8px;font-size:14px;font-weight:600;color:#5B6270}
 .k{text-align:right;font-size:14px;font-weight:700}.k.i{font-size:13px;color:#5B6270;font-weight:500}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px;font-size:11px;color:#5B6270;border-top:1px solid #EEF0F3}
 .legend .sw{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:6px}
-.fa-h,.fa-r{display:grid;grid-template-columns:minmax(0,1fr) 40px 38px 38px 50px;gap:4px;padding:10px 12px;align-items:center}
+.fa-h,.fa-r{display:grid;grid-template-columns:minmax(0,1fr) 32px 30px 30px 30px 44px;gap:3px;padding:10px 10px;align-items:center}
+.fa-h span{font-size:10px}
 .st-h,.st-r{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:4px;padding:10px 12px;align-items:center}
 .st-h{font-size:11px;font-weight:600;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #E3E6EB}
 .st-r{border-bottom:1px solid #EEF0F3}
@@ -173,10 +175,24 @@ font-weight:700;color:#5B6270;text-transform:uppercase}
 .rt-r .v{text-align:right;font-size:14px;color:#3A404A}
 .rt-r .v.f{font-weight:600;color:#121417}
 .rt-r .v.ks{color:#1D5FD1;font-weight:600}
-.ch-r{padding:10px 14px;border-bottom:1px solid #EEF0F3;display:flex;flex-direction:column;gap:6px}
-.ch-b{display:grid;grid-template-columns:64px minmax(0,1fr) 52px;gap:8px;align-items:center;font-size:12px}
-.ch-b .track{height:8px;background:#EEF0F3;border-radius:4px;overflow:hidden}
-.ch-b .fill{height:100%%;background:#1D5FD1}
+.mbtns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mbtn{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;min-height:36px;display:flex;align-items:center;
+justify-content:center;border-radius:8px;border:1px solid #C9CED6;font-size:13px;font-weight:600;color:#1D5FD1;background:#fff}
+.lastw{all:unset;cursor:pointer;display:block;padding:4px 2px;font-size:13px;font-weight:600;color:#1D5FD1}
+.res{font-size:13px;font-weight:700}
+.para{padding:14px;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid #EEF0F3}
+.para .ph{font-size:11px;font-weight:700;color:#5B6270;text-transform:uppercase;letter-spacing:.06em}
+.para .pt{font-size:15px;line-height:1.55}
+.chart{padding:10px 8px 12px}
+.chart svg{display:block;width:100%%;height:auto}
+.chart .tip{font-size:13px;line-height:1.45;padding:8px 6px 0;min-height:40px}
+.chart .g-line{stroke:#EEF0F3;stroke-width:1}.chart .g-mid{stroke:#9AA1AC;stroke-width:1;stroke-dasharray:3 3}
+.chart .g-tick{stroke:#C9CED6;stroke-width:.5}.chart .g-week{stroke:#8A919C;stroke-width:1}
+.chart .g-day{stroke:#EEF0F3;stroke-width:1}.chart .g-mark{stroke:#5B6270;stroke-width:1;stroke-dasharray:2 2}
+.chart .g-now{stroke:#5B6270;stroke-width:1}
+.chart .ax{font-size:9px;fill:#5B6270}.chart .ax-mark{font-size:9px;fill:#3A404A;font-weight:700}
+.chart .lab{font-size:10px;font-weight:700;fill:#121417}
+.chart rect.hit{fill:transparent;cursor:pointer}
 #issue-view{position:fixed;inset:0;background:#fff;z-index:10;display:flex;flex-direction:column}
 #issue-view[hidden]{display:none}
 #issue-view .bar2{background:#121417;padding:10px 16px}
@@ -212,6 +228,32 @@ def _move_parts(parts) -> str:
     hidden, not struck; modules/hub_moves.yahoo_item)."""
     return "".join(f'<span class="mvp {clean(x["kind"])}"><span class="mk">{clean(x["marker"])}</span>'
                    f'{clean(x["text"])}</span>' for x in parts)
+
+
+def _mbtns(ids: dict, labels: dict) -> str:
+    """The three buttons under a matchup card (tasks 48a-48c)."""
+    return ('<div class="mbtns">' + "".join(
+        f'<button class="mbtn" data-open="{clean(ids[k])}">{clean(labels[k])}</button>' for k in ("sum", "win", "flow"))
+        + "</div>")
+
+
+def _svg(ch: dict) -> str:
+    """A chart from hub_charts, printed as given: every coordinate, path and
+    label is a payload string. Tapping a target shows its text below."""
+    o = [f'<div class="chart"><svg viewBox="{clean(ch["vb"])}" role="img" aria-label="{clean(ch["aria"])}">']
+    o += [f'<line x1="{clean(g["x1"])}" y1="{clean(g["y1"])}" x2="{clean(g["x2"])}" y2="{clean(g["y2"])}" '
+          f'class="{clean(g["cls"])}"/>' for g in ch["grid"]]
+    o += [f'<path d="{clean(p["d"])}" fill="none" stroke="{clean(p["stroke"])}" stroke-width="{clean(p["w"])}"'
+          + (f' stroke-dasharray="{clean(p["dash"])}"' if p["dash"] else "") + ' stroke-linejoin="round"/>'
+          for p in ch["paths"]]
+    o += [f'<circle cx="{clean(d["cx"])}" cy="{clean(d["cy"])}" r="{clean(d["r"])}" fill="{clean(d["fill"])}"/>'
+          for d in ch["dots"]]
+    o += [f'<text x="{clean(t["x"])}" y="{clean(t["y"])}" text-anchor="{clean(t["anchor"])}" class="{clean(t["cls"])}"'
+          + (f' style="fill:{clean(t["fill"])}"' if t["fill"] else "") + f'>{clean(t["t"])}</text>' for t in ch["texts"]]
+    o += [f'<rect class="hit" x="{clean(r["x"])}" y="{clean(r["y"])}" width="{clean(r["w"])}" height="{clean(r["h"])}" '
+          f'data-tip="{clean(r["tip"])}"/>' for r in ch["hits"]]
+    o.append(f'</svg><div class="tip">{clean(ch["tip0"])}</div></div>')
+    return "".join(o)
 
 
 def _tags(chips) -> str:
@@ -267,13 +309,17 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  f'<div class="bet"><span class="lbl">Spread</span><span class="v">{clean(c["spread"])}</span></div>'
                  f'<div class="bet"><span class="lbl">O/U</span><span class="v">{clean(c["total"])}</span></div>'
                  f'<div class="bet"><span class="lbl">Moneyline</span><span class="v">{clean(c["moneyline"])}</span></div>'
-                 f'</div><div class="clock">{clean(mu["clock"])} &middot; {clean(h["line_text"])}</div></div>')
+                 f'</div><div class="clock">{clean(mu["clock"])} &middot; {clean(h["line_text"])}</div>'
+                 + _mbtns(c["views"], mu["buttons"]) + '</div>')
+    if mu.get("last"):
+        o.append(f'<button class="lastw" data-open="{clean(mu["last"]["view"])}">{clean(mu["last"]["link"])} &rarr;</button>')
     o.append("</section>")
 
     pw = payload["power"]
     o.append('<section><div class="row-b"><h2>Power rankings</h2>'
              '<span class="aside">Tap a team for its roster</span></div><div class="card">'
              '<div class="pr-h"><span>#</span><span>Team</span><span style="text-align:right">W-L</span>'
+             '<span style="text-align:right">PF</span>'
              f'<button class="odds-h" data-open="v-chart">{clean(pw["label"])} &rsaquo;</button>'
              '<span style="text-align:right">Adds</span></div>')
     for r in pw["rows"]:
@@ -282,12 +328,13 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  f'<span class="tm"><span class="n">{clean(r["team"])}</span>'
                  f'<span class="small" style="font-size:12px">{clean(r["manager"])}</span></span>'
                  f'<span class="num">{clean(r["record"])}</span>'
+                 f'<span class="pfc"><span>{clean(r["pf"])}</span><span class="s">{clean(r["seed"])}</span></span>'
                  f'<span class="oddc"><span class="o">{clean(r["odds"])}</span>'
                  f'<span class="d {clean(r["delta_dir"])}">{clean(r["delta"])}</span></span>'
                  f'<span class="num{" adds-over" if r["adds_over"] else ""}">{clean(r["adds"])}</span></button>')
     o.append(f'<button class="link" data-open="v-chart" style="all:unset;cursor:pointer;display:block;'
              f'padding:12px 14px;font-size:13px;font-weight:600;color:#1D5FD1">'
-             f'{clean(pw["label"])} over time &rarr;</button></div>'
+             f'{clean(pw["chart_title"])} over the season &rarr;</button></div>'
              f'<div class="note">{clean(pw["as_of"])}. {clean(pw["note"])}</div></section>')
 
     gr = payload["grid"]
@@ -329,6 +376,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              '</span></div><div class="card"><div class="fa-h"><span>Player</span><span style="text-align:right">'
              f'Proj</span><span style="text-align:right">{clean(fa["cols"][0])}</span>'
              f'<span style="text-align:right">{clean(fa["cols"][1])}</span>'
+             f'<span style="text-align:right">{clean(fa["cols"][2])}</span>'
              f'<span style="text-align:right">{clean(fa["pts_label"])}</span></div>')
     if not fa["rows"]:
         o.append(f'<div class="empty">{clean(fa["empty"])}</div>')
@@ -338,6 +386,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span>{_tags(r["tags"])}</span></span>'
                  f'<span class="num">{clean(r["proj"])}</span>'
                  f'<span class="num">{clean(r["g1"])}</span><span class="num">{clean(r["g2"])}</span>'
+                 f'<span class="num">{clean(r["g3"])}</span>'
                  f'<span class="num pts">{clean(r["pts"])}</span></div>')
     if fa["schedule_note"]:
         o.append(f'<div class="empty snote">{clean(fa["schedule_note"])}</div>')
@@ -459,16 +508,38 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
     ch = pw["chart"]
     o.append('<div class="view" id="v-chart" hidden><div class="rh">'
              '<a href="#" class="back" data-open="v-main">&larr; Power rankings</a>'
-             f'<div class="h-title">{clean(pw["label"])} over time</div></div>'
-             '<section><div class="card">')
-    for pt in ch["points"]:
-        o.append(f'<div class="ch-r"><span class="lbl">{clean(pt["label"])}</span>')
-        for v in pt["values"]:
-            o.append(f'<div class="ch-b"><span>{clean(v["manager"])}</span><span class="track">'
-                     f'<span class="fill" style="display:block;width:{clean(v["width"])}"></span></span>'
-                     f'<span style="text-align:right;font-weight:600">{clean(v["text"])}</span></div>')
-        o.append("</div>")
-    o.append(f'</div><div class="note">{clean(ch["note"])}</div></section></div>')
+             f'<div class="h-title">{clean(pw["chart_title"])}</div></div>'
+             f'<section><div class="card">{_svg(ch)}</div><div class="note">{clean(ch["note"])}</div></section></div>')
+
+    # ---------------------------------------------------------------- last week and the matchup views (48a-48c)
+    lw = mu.get("last")
+    if lw:
+        o.append(f'<div class="view" id="{clean(lw["view"])}" hidden><div class="rh">'
+                 '<a href="#" class="back" data-open="v-main">&larr; Hub</a>'
+                 f'<div class="h-title">{clean(lw["link"])}</div><div class="h-sub">{clean(lw["title"])}</div></div>'
+                 '<section>')
+        for c in lw["cards"]:
+            o.append('<div class="card m-card">')
+            for sd in ("a", "b"):
+                x = c[sd]
+                o.append(f'<div class="m-side"><div class="l"><span class="big">{clean(x["team"])}</span>'
+                         f'<span class="small">{clean(x["manager"])}</span></div>'
+                         f'<div class="r"><span class="big">{clean(x["score"])}</span></div></div>')
+            o.append(f'<div class="res">{clean(c["result"])}</div>' + _mbtns(c["views"], mu["buttons"]) + '</div>')
+        o.append(f'<div class="note">{clean(lw["note"])}</div></section></div>')
+    for v in payload["matchup_views"]:
+        o.append(f'<div class="view" id="{clean(v["id"])}" hidden><div class="rh">'
+                 f'<a href="#" class="back" data-open="{clean(v["back"])}">&larr; {clean(v["back_label"])}</a>'
+                 f'<div class="h-title">{clean(v["title"])}</div><div class="h-sub">{clean(v["sub"])}</div></div>'
+                 '<section><div class="card">')
+        if v["kind"] == "summary":
+            for para in v["paras"]:
+                o.append('<div class="para">' + (f'<span class="ph">{clean(para["head"])}</span>' if para["head"] else "")
+                         + f'<span class="pt">{clean(para["text"])}</span></div>')
+            o.append("</div>")
+        else:
+            o.append(f'{_svg(v["chart"])}</div><div class="note">{clean(v["chart"]["note"])}</div>')
+        o.append("</section></div>")
 
     o.append('<div id="issue-view" hidden><div class="bar2"><a href="#" class="back" id="issue-close">'
              '&larr; Back to the hub</a></div><iframe id="issue-frame" title="Newsletter"></iframe></div>')
@@ -522,6 +593,8 @@ document.addEventListener('click',function(e){
     var ts=document.querySelectorAll('[data-tab]');for(var i=0;i<ts.length;i++){ts[i].classList.toggle('on',ts[i]===t);}
     var ps=document.querySelectorAll('[data-tabp]');for(var j=0;j<ps.length;j++){ps[j].hidden=(ps[j].getAttribute('data-tabp')!==key);}
     return;}
+  t=e.target.closest('[data-tip]');
+  if(t){t.closest('.chart').querySelector('.tip').textContent=t.getAttribute('data-tip');return;}
   t=e.target.closest('[data-sort]');
   if(t){sortTable(t.closest('.rt'),t.getAttribute('data-sort'));return;}
   t=e.target.closest('[data-href]');
