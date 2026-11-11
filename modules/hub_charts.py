@@ -318,10 +318,11 @@ def winprob_points(a: str, b: str, rows: list, closing: Optional[dict], final: O
             if (ln["manager_a"], ln["manager_b"]) == (b, a):
                 return float(ln["win_prob_b"]), float(ln["win_prob_a"])
         raise ChartError(f"{where} has no line for {a} vs {b}")
+    from .winprob_history import label
     out = []
     for r in rows:
         pa, pb = pick(r["matchups"], f"win-% row {r['run_id']}")
-        out.append((datetime.fromisoformat(r["as_of"]), pa, pb, f"{r['trigger']} run"))
+        out.append((datetime.fromisoformat(r["as_of"]), pa, pb, label(r)))
     if closing is not None:
         pa, pb = pick(closing["lines"], f"closing_line_week{closing['week']}.json")
         out.append((datetime.fromisoformat(closing["closing"]["window_close"]), pa, pb, "the closing line"))

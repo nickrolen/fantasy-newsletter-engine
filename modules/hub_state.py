@@ -154,14 +154,15 @@ def lock_note(status: dict, base: Path, week: int) -> dict:
         return {"locked": False,
                 "text": f"Lines are live until today's first tip, {tip_text}. "
                         "Then they lock until the 12:01 AM update."}
-    runs = base / "output" / f"live_lines_week{week}.runs.json"
-    waiting = None
-    if runs.is_file():
-        blob = json.loads(runs.read_text(encoding="utf-8"))
-        last = (blob.get("runs") or [None])[-1] or {}
-        if last.get("outcome") == "locked" and str(last.get("league_day", ""))[:10] == status["league_day"]:
-            waiting = len(last.get("waiting") or [])
-    if waiting is not None:
+    # Step 3a: each refresh that found the lock on (an entry made while games
+    # are on) is one change waiting for the 12:01 AM run (nightly_runs.jsonl)
+    from .jsonl_log import read_rows
+    waiting = 0
+    for r in read_rows(base / "output" / "nightly_runs.jsonl"):
+        if r.get("mode") == "refresh" and r.get("outcome") == "locked" \
+                and datetime.fromisoformat(str(r.get("started_at"))) >= tip:
+            waiting += 1
+    if waiting:
         return {"locked": True, "text": price_lock.lock_message(waiting)}
     return {"locked": True, "text": f"Lines locked while games are on (first tip {tip_text}); "
                                     "priced after tonight's games."}
@@ -836,7 +837,11 @@ def roster_size_text(n_rostered: int, n_in_il: int, active_cap: int, il_cap: int
 # =============================================================================
 
 def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismatch: bool = False,
-          archive_index: dict = None, echo=print) -> dict:
+          archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None) -> dict:
+    """The hub's payload. night (Step 3a): "build" builds the matchup
+    paragraph (the nightly run, and a desk build); "reuse" shows the nightly
+    run's stored one (a refresh, a pre-tip run). night_out, when given, gets
+    {"night": the built paragraphs} for the nightly run to store."""
     base = Path(base_path)
     from .league_clock import league_now
     from .data_loader import (load_all_data, MANAGERS, MANAGER_TO_TEAM, PlayerIndex,
@@ -932,7 +937,9 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     from .league_clock import league_tz
     try:
         mviews = hub_matchups.build_views(base, data, week=week, line=line, av=av, now=now,
-                                          archive_index=archive_index, tz=league_tz())
+                                          archive_index=archive_index, tz=league_tz(), night=night)
+        if night_out is not None:
+            night_out["night"] = mviews.get("night")
     except (hub_matchups.SummaryError, hub_charts.ChartError, winprob_history.WinProbHistoryError) as e:
         raise HubInputError(str(e)) from None
     nba_games_on = {}

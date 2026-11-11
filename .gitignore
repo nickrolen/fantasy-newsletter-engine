@@ -310,3 +310,8 @@ data/nba_schedule_*.refetched.json
 
 # drafting-chat outputs saved into the repo folder (league data; never commit)
 Claude outputs/
+
+# Step 3a (11-10): league state. Every change to the injury entries, before and
+# after (scripts/overrides.py), and the nightly run's matchup paragraph.
+output/override_history.jsonl
+output/night_paragraph.json

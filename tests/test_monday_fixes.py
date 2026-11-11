@@ -36,8 +36,11 @@ LA = ZoneInfo("America/Los_Angeles")
 
 def test_the_step_order_of_every_mode_is_pinned():
     assert nightly.STEPS == {
-        "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "ledger", "line",
+        "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "returns", "ledger", "line",
                     "title_odds", "actuals", "hub"),
+        # step 3a: the refresh is the nightly path without the log pull
+        "refresh": ("engine", "banked", "sync", "settings", "tags", "ledger", "line", "title_odds",
+                    "actuals", "hub"),
         "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "ledger", "line",
                    "title_odds", "actuals", "hub"),
         "closing": ("engine", "window", "sync", "closing"),

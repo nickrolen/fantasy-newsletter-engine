@@ -35,7 +35,9 @@
     {"path": "output/tag_records.jsonl", "what": "every Yahoo injury-tag fetch, append-only: the hub's statuses and the closing line's pre-tip tags (modules/tag_records.py; step 1c)"},
     {"path": "config/.leaguehistory_applied_weeks.json", "what": "which weeks update_leaguehistory has applied, per season (changes weekly; moved private in step 1c)"},
     {"path": "config/MOVE_LEDGER.json", "what": "the move ledger: every group-chat claim, drop and trade Nick entered, append-only; written only by scripts/ledger.py (modules/move_ledger.py; step 2)"},
-    {"path": "data/move_ledger_states.jsonl", "what": "what verification found for each ledger entry (applied / missing / conflict) and every Yahoo move outside a Monday window, append-only; written by the nightly run (modules/move_ledger.verify; step 2)"}
+    {"path": "data/move_ledger_states.jsonl", "what": "what verification found for each ledger entry (applied / missing / conflict) and every Yahoo move outside a Monday window, append-only; written by the nightly run (modules/move_ledger.verify; step 2)"},
+    {"path": "output/override_history.jsonl", "what": "every change to config/INJURY_OVERRIDES.json, before and after, append-only; written with the file by scripts/overrides.py (desk, phone entries, the nightly's passed-return removal); the closing line rebuilds the overrides at Monday's first tip from it (modules/override_history; step 3a, task 26)"},
+    {"path": "output/night_paragraph.json", "what": "the matchup views' nightly paragraph, written only by the nightly run's hub step and shown byte for byte by every refresh and pre-tip build until the next night (modules/hub_matchups.write_night; step 3a, decisions 2-3)"}
   ],
   "dirs": [
     {"path": "data/lore_backups", "what": "lore backups (modules/lore.py)"},

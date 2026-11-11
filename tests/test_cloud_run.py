@@ -51,8 +51,10 @@ FORBIDDEN_FLAGS = ("--allow-dirty-engine", "--allow-engine-mismatch", "--no-leag
 # 1. the workflow files
 # =============================================================================
 
-def test_the_three_workflow_files_exist():
-    assert sorted(WORKFLOWS) == ["nightly.yml", "pretip.yml", "run.yml"]
+def test_the_workflow_files_exist():
+    # step 3a added entry.yml (phone entries) and overrides-push.yml (the desk's
+    # INJURY_OVERRIDES push); both call run.yml, the one definition of the steps
+    assert sorted(WORKFLOWS) == ["entry.yml", "nightly.yml", "overrides-push.yml", "pretip.yml", "run.yml"]
 
 
 def crons(text: str) -> list:
@@ -196,7 +198,11 @@ def test_force_exists_only_under_workflow_dispatch():
 def test_the_run_job_runs_only_what_the_guard_admits_and_copies_back_always():
     import yaml
     jobs = yaml.safe_load(WORKFLOWS["run.yml"])["jobs"]
-    assert jobs["run"]["needs"] == "guard" and jobs["run"]["if"] == "needs.guard.outputs.go == 'true'"
+    # step 3a: a refresh skips the guard job (no clock guard) and runs the same job
+    assert jobs["run"]["needs"] == "guard" and jobs["run"]["if"] == (
+        "${{ !cancelled() && (needs.guard.outputs.go == 'true' || (inputs.mode == 'refresh' && "
+        "needs.guard.result == 'skipped')) }}")
+    assert jobs["guard"]["if"] == "inputs.mode != 'refresh'"
     steps = {s.get("id"): s for s in jobs["run"]["steps"] if s.get("id")}
     assert steps["overlay-out"]["if"] == "always() && steps.overlay-in.outcome == 'success'"
     assert steps["commit-state"]["if"] == "always() && steps.overlay-out.outcome == 'success'"

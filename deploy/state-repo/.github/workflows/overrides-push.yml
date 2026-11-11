@@ -1,0 +1,35 @@
+# The desk changed the injury entries (step 3a, design s.5): Nick's
+# `python scripts\state.py push` after a desktop edit of config/INJURY_OVERRIDES.json
+# runs the refresh with cause "injury entries changed (desktop)".
+#
+# Lives in the ENGINE at deploy/state-repo/.github/workflows/overrides-push.yml and
+# is installed by `python scripts\state.py install-workflows`.
+#
+# NEVER ON THE WORKFLOWS' OWN COMMITS: every workflow commits as newsletter-bot
+# with the workflow token. GitHub does not start workflows for pushes made with
+# that token, and this job also refuses any push whose head commit is
+# newsletter-bot's or whose actor is the Actions bot -- so a refresh's commit
+# (or a phone entry's, which refreshes already) never triggers another refresh.
+name: Injury entries changed
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'config/INJURY_OVERRIDES.json'
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  refresh:
+    if: >-
+      github.event.head_commit.author.name != 'newsletter-bot' &&
+      github.event.head_commit.committer.name != 'newsletter-bot' &&
+      github.actor != 'github-actions[bot]'
+    uses: ./.github/workflows/run.yml
+    with:
+      mode: refresh
+      cause: injury entries changed (desktop)
+    secrets: inherit

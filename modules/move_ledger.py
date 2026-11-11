@@ -925,9 +925,10 @@ def resolve(world: World, parsed: dict, coming: dict) -> dict:
 
 
 def make_entry(world: World, text: str, rows: list, states: list, *, claimed_at: datetime = None,
-               entered_by: str = "Nick") -> dict:
+               entered_by: str = "Nick", issue: int = None) -> dict:
     """The entry row for `text`, every check passed, or EntryRefused. Writes
-    nothing (add() writes)."""
+    nothing (add() writes). issue: the phone entry's issue number (Step 3a,
+    design s.6.3), recorded on the row as "issue"."""
     from .data_loader import roster_index
     parsed = parse(text, world.managers)
     ents = entries(rows)
@@ -971,6 +972,11 @@ def make_entry(world: World, text: str, rows: list, states: list, *, claimed_at:
            "claimed_at": at.isoformat(timespec="seconds"), "claim_week": cw, "window_week": ww,
            "window": wday.isoformat(), "entered_at": now.isoformat(timespec="seconds"),
            "entered_by": entered_by, "checks": []}
+    if issue is not None:
+        if any(e.get("issue") == int(issue) for e in ents):
+            raise EntryRefused(f"issue #{issue} is already ledger entry "
+                               f"{next(e['id'] for e in ents if e.get('issue') == int(issue))}")
+        new["issue"] = int(issue)
     checks = []
     # adds: in the coming week's pool (rules 10-11), and the claim week's budget (rule 7)
     if full["kind"] == "move" and full["add"]:
@@ -1030,14 +1036,17 @@ def make_entry(world: World, text: str, rows: list, states: list, *, claimed_at:
 
 
 def add(base_path, text: str, *, now: datetime = None, claimed_at: datetime = None,
-        entered_by: str = "Nick", world: World = None) -> dict:
-    """Check `text` and append it to config/MOVE_LEDGER.json. Returns the row."""
+        entered_by: str = "Nick", world: World = None, issue: int = None) -> dict:
+    """Check `text` and append it to config/MOVE_LEDGER.json. Returns the row.
+    The desk (scripts/ledger.py) and Nick's phone (scripts/apply_entry.py,
+    with the issue number) both come through here: the same checks."""
     from .league_clock import league_now
     base = Path(base_path)
     rows = read_rows(base)
     states = read_states(base)
     world = world or World.from_base(base, now=now or league_now())
-    row = make_entry(world, text, rows, states, claimed_at=claimed_at, entered_by=entered_by)
+    row = make_entry(world, text, rows, states, claimed_at=claimed_at, entered_by=entered_by,
+                     issue=issue)
     write_entries(base, rows, [row])
     return row
 

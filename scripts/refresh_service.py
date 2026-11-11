@@ -187,10 +187,15 @@ def _record(base: Path, week: int, run: dict) -> dict:
 
 def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFAULT_NUM_SIMULATIONS,
         trigger: str = "manual", pull_logs: bool = True, load=None, statuses=None,
-        puller=None, now=None) -> dict:
+        puller=None, now=None, cause: str = None) -> dict:
     """One service run. Returns {"outcome": "priced"|"unchanged"|"locked"|"failed",
     "exit": 0|1, "run_id", "week", ...}. Never raises: a refusal is the
     "failed" outcome, logged and recorded.
+
+    cause (Step 3a, decision 1): what triggered the run, in one short line
+    from the caller's own inputs ("nightly", "Monday pre-tip", "injury
+    update: ..."); written into the line's produced_by, so the win-% row it
+    appends carries it, with "changed": the cache-key parts that moved.
 
     load/statuses/puller are for tests: the data loader, a tag dict in place
     of the Yahoo fetch, and the per-day log pull. now: the moment the price
@@ -203,6 +208,8 @@ def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFA
     puller = puller or (lambda day: pull_logs_subprocess(base, day))
     rec = {"run_id": run_id, "trigger": trigger, "started_at": started, "as_of": as_of.isoformat(),
            "logs_pulled": [], "outcome": None}
+    if cause is not None:
+        rec["cause"] = str(cause)
     try:
         data = load()
         week = week or ws.week_for_date(data, as_of)
@@ -234,16 +241,18 @@ def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFA
             msg = (f"week {week} as of {as_of}: {rec['message']} (first tip {lock['first_tip']}; "
                    f"waiting: {', '.join(waiting)}); nothing priced or written")
         else:
+            changed = rl.waiting_changes(p, key)
             rec["why_priced"] = ("no line on disk" if on_disk is None else
                                  key["why_not"] if not key["cacheable"] else
                                  "line on disk has no cache key (a manual refresh)" if on_disk_key is None
                                  else "inputs changed: " + ", ".join(
                                      k for k, v in key["parts"].items()
                                      if ((on_disk.get("cache") or {}).get("parts") or {}).get(k) != v))
-            rl.price(p, sims, produced_by=run_id, key=key,
-                     extra={"produced_by": {"run_id": run_id, "trigger": trigger,
-                                            "started_at": started},
-                            "cache": key})
+            pb = {"run_id": run_id, "trigger": trigger, "started_at": started}
+            if cause is not None:
+                pb["cause"] = str(cause)
+                pb["changed"] = changed
+            rl.price(p, sims, produced_by=run_id, key=key, extra={"produced_by": pb, "cache": key})
             rec["outcome"] = "priced"
             msg = f"week {week} as of {as_of}: priced ({rec['why_priced']}); key {key['key']}"
         rec["finished_at"] = _now()

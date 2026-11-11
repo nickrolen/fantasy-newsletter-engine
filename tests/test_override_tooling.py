@@ -185,6 +185,9 @@ def test_add_preserves_everything_else_byte_for_byte(tmp_path):
     after = json.loads(path.read_text())
     assert after["last_updated"] == "2026-10-28"
     new = after["players"].pop()
+    # task 26 (step 3a): every entry written carries updated_at, the league clock with its offset
+    from datetime import datetime as _dt
+    assert _dt.fromisoformat(new.pop("updated_at")).tzinfo is not None
     assert new == {"player_name": "Alpha Player", "nba_team": "AAA", "out_weeks": [3, 4],
                    "notes": "hamstring", "return_week": 5, "return_games": 2,
                    "total_week_games": 3, "return_date": "2026-11-17"}

@@ -358,6 +358,17 @@ def schedule_fingerprint(data: FantasyData, week_entry_: dict) -> str:
                  "nba_games": games})
 
 
+# Override fields that never change a price (11-10): a notes edit, and the
+# timestamp every edit stamps (task 26), must not re-price the line -- each
+# re-price adds a win-% point, and a notes-only one would add a flat point.
+# The closing line still sees them (it reads governing_overrides, not this).
+NON_PRICING_OVERRIDE_KEYS = ("notes", "updated_at")
+
+
+def _pricing_view(entry: dict) -> dict:
+    return {k: v for k, v in (entry or {}).items() if k not in NON_PRICING_OVERRIDE_KEYS}
+
+
 def line_cache_key(*, state_hash: str, tags: str, projections: str, overrides: list,
                    schedule: str, assumptions, seed: int, num_simulations: int,
                    engine: dict, il: dict = None) -> dict:
@@ -373,7 +384,7 @@ def line_cache_key(*, state_hash: str, tags: str, projections: str, overrides: l
     Such a run always recomputes; it never serves a cached line."""
     engine = dict(engine or {})
     parts = {"state_hash": state_hash, "tags": tags, "projections": projections,
-             "overrides": _sha(overrides or []), "schedule": schedule,
+             "overrides": _sha([_pricing_view(e) for e in overrides or []]), "schedule": schedule,
              "assumptions": _sha(sorted(str(a) for a in (assumptions or ()))),
              "il": _sha(il or {}),
              "seed": int(seed), "num_simulations": int(num_simulations),

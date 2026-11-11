@@ -2,6 +2,17 @@
 # it says go) the run itself. Called by nightly.yml and pretip.yml; never
 # scheduled on its own. Step 1c-ii (claude/HANDOFF_STEP1C2_CLOUD_RUN_2026-11-03.md s.4).
 #
+# Step 3a (claude/HANDOFF_STEP3A_PHONE_ENTRIES_2026-11-10.md): mode "refresh",
+# called by entry.yml (Nick's phone entries, entry: true) and overrides-push.yml
+# (the desk changed config/INJURY_OVERRIDES.json, with its cause). A refresh has
+# no clock guard (the guard job is skipped); it shares the run job, so its one
+# concurrency group queues it behind a nightly or pre-tip run and them behind it.
+# With entry: true the run job first applies the issue's title
+# (scripts/apply_entry.py), commits the state, answers the issue (comment;
+# closed when applied, left open labelled entry-refused when refused), then
+# refreshes with the entry as its cause, and comments the effect. A refusal
+# changes nothing and exits 0: no refresh, no failure issue.
+#
 # Lives in the ENGINE at deploy/state-repo/.github/workflows/run.yml and is
 # installed into the private repo by `python scripts\state.py install-workflows`.
 # Edit it in the engine, never in the private repo.
@@ -23,9 +34,17 @@ on:
   workflow_call:
     inputs:
       mode:
-        description: 'nightly or pretip'
+        description: 'nightly, pretip or refresh'
         type: string
         required: true
+      cause:
+        description: 'refresh only: what triggered it, one short line (the desk push passes its own)'
+        type: string
+        default: ''
+      entry:
+        description: 'refresh only: apply the triggering issue title (and any missed entry) first'
+        type: boolean
+        default: false
       force:
         description: 'nightly only, from workflow_dispatch only: skip the time guard'
         type: boolean
@@ -40,6 +59,8 @@ env:
   # workflow_dispatch, and it is checked against the event again here.
   FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force == true }}
   RUN_ID: ${{ github.run_id }}
+  CAUSE_INPUT: ${{ inputs.cause }}
+  ENTRY: ${{ inputs.entry }}
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -49,6 +70,8 @@ jobs:
   # firing never waits behind, or displaces, a run that writes state.
   # ---------------------------------------------------------------------------
   guard:
+    # a refresh has no clock guard: it runs whenever an entry lands (step 3a)
+    if: inputs.mode != 'refresh'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -140,7 +163,7 @@ jobs:
   # ---------------------------------------------------------------------------
   run:
     needs: guard
-    if: needs.guard.outputs.go == 'true'
+    if: ${{ !cancelled() && (needs.guard.outputs.go == 'true' || (inputs.mode == 'refresh' && needs.guard.result == 'skipped')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
@@ -233,14 +256,85 @@ jobs:
           if [ -f output/nightly_runs.jsonl ]; then n="$(wc -l < output/nightly_runs.jsonl)"; fi
           echo "rows=$n" >> "$GITHUB_OUTPUT"
 
+      # -- step 3a: Nick's phone entry (entry.yml). Never interpolate the title into
+      #    a command: apply_entry.py reads it from the event payload.
+      - name: Nick's open issues (missed entries are applied too)
+        id: entry-list
+        if: inputs.entry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue list --repo "$GITHUB_REPOSITORY" --state open --author nickrolen --limit 100 \
+            --json number,title,createdAt,author,labels > "$RUNNER_TEMP/open.json"
+
+      - name: Apply the entry
+        id: entry
+        if: inputs.entry
+        working-directory: engine
+        run: |
+          python scripts/apply_entry.py apply --event "$GITHUB_EVENT_PATH" \
+            --open-issues "$RUNNER_TEMP/open.json" --out-dir "$RUNNER_TEMP/entry" 2>&1 | tee "$RUNNER_TEMP/entry.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Commit the entry to the private repo
+        id: entry-commit
+        if: steps.entry.outputs.applied == 'true'
+        working-directory: engine
+        env:
+          CAUSE: ${{ steps.entry.outputs.cause }}
+        run: |
+          {
+            python scripts/state_overlay.py out --state-dir ../state || exit 1
+            cd ../state
+            git config user.name "newsletter-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            if git diff --cached --quiet; then echo "the entry changed no state file"; exit 1; fi
+            git commit -q -m "entry: $CAUSE" -m "$RUN_URL"
+            if git push -q origin HEAD; then echo "entry committed: $(git rev-parse --short HEAD)"; exit 0; fi
+            b="rescue/run-$RUN_ID"
+            git push -q origin "HEAD:refs/heads/$b"
+            echo "the private repo moved: the entry is on branch $b, not merged; ask before merging it"
+            exit 1
+          } 2>&1 | tee "$RUNNER_TEMP/entry-commit.log"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Answer the issues (comment; close when applied, label when refused)
+        id: entry-answer
+        if: always() && steps.entry.outcome == 'success' && steps.entry-commit.outcome != 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          d="$RUNNER_TEMP/entry"
+          gh label create entry-refused --repo "$GITHUB_REPOSITORY" --color D93F0B \
+            --description "A phone entry was refused: edit the title to fix it" --force
+          python3 -c 'import json,sys; [print(a["issue"], a.get("comment_file") or "-", int(a["close"]), a["label"] or "-", int(a["unlabel"])) for a in json.load(open(sys.argv[1]))]' "$d/actions.json" |
+          while read -r n file close label unlabel; do
+            if [ "$unlabel" = 1 ]; then gh issue edit "$n" --repo "$GITHUB_REPOSITORY" --remove-label entry-refused || true; fi
+            if [ "$file" != - ]; then gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body-file "$d/$file"; fi
+            if [ "$label" != - ]; then gh issue edit "$n" --repo "$GITHUB_REPOSITORY" --add-label "$label"; fi
+            if [ "$close" = 1 ]; then gh issue close "$n" --repo "$GITHUB_REPOSITORY"; fi
+          done
+
       - name: Run
         id: run
         working-directory: engine
         env:
           HUB_PASSPHRASE: ${{ secrets.HUB_PASSPHRASE }}
           ENGINE_COMMIT: ${{ steps.pin.outputs.commit }}
+          APPLIED: ${{ steps.entry.outputs.applied }}
+          ENTRY_CAUSE: ${{ steps.entry.outputs.cause }}
         run: |
-          if [ "$MODE" = pretip ]; then
+          if [ "$MODE" = refresh ]; then
+            if [ "$ENTRY" = true ] && [ "$APPLIED" != true ]; then
+              echo "no entry was applied: nothing to refresh"
+              echo "ran=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            c="${ENTRY_CAUSE:-$CAUSE_INPUT}"
+            if [ -z "$c" ]; then echo "a refresh needs its cause" | tee "$RUNNER_TEMP/run.log"; exit 1; fi
+            set -- --refresh --cause "$c"
+          elif [ "$MODE" = pretip ]; then
             set -- --pretip --scheduled
           elif [ "$MODE" = nightly ] && [ "$FORCE" = true ]; then
             set -- --scheduled --ignore-clock
@@ -339,8 +433,53 @@ jobs:
           exit "${PIPESTATUS[0]}"
 
       # -- the failure issue: one open at a time; the next good run closes it
+      # -- step 3a: the entry's effect, once the refresh has priced (or not)
+      - name: Comment the entry's effect
+        if: always() && steps.entry.outputs.applied == 'true' && steps.entry-answer.outcome == 'success'
+        working-directory: engine
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ steps.before.outputs.rows }}
+        run: |
+          d="$RUNNER_TEMP/entry"
+          python scripts/apply_entry.py effect --out-dir "$d" --runs-file output/nightly_runs.jsonl --skip "${ROWS:-0}"
+          for n in $(python3 -c 'import json,sys; print(" ".join(str(a["issue"]) for a in json.load(open(sys.argv[1])) if a["verdict"] == "applied"))' "$d/actions.json"); do
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body-file "$d/effect.md"
+          done
+
+      # -- step 3a, decision 13b: a passed return date still tagged O/OFS (or with
+      #    no Yahoo tag known): one issue per player while it is open (deduped by
+      #    title); an open one no longer listed tonight is closed
+      - name: Open or close the passed-return issues
+        if: always() && steps.run.outputs.returns == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ steps.before.outputs.rows }}
+        run: |
+          s=engine/scripts/returns_issue.py
+          args=(--runs-file engine/output/nightly_runs.jsonl --skip "${ROWS:-0}")
+          python3 "$s" titles "${args[@]}" > "$RUNNER_TEMP/returns.txt"
+          gh label create return-passed --repo "$GITHUB_REPOSITORY" --color 5319E7 \
+            --description "An injury entry's return date passed and he is still out: push or remove" --force
+          gh issue list --repo "$GITHUB_REPOSITORY" --label return-passed --state open --limit 100 \
+            --json number,title --jq '.[] | "\(.number)\t\(.title)"' > "$RUNNER_TEMP/returns_open.tsv"
+          while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            if cut -f2- "$RUNNER_TEMP/returns_open.tsv" | grep -qxF -- "$t"; then echo "open already: $t"; continue; fi
+            python3 "$s" body "${args[@]}" --title "$t" --run-url "$RUN_URL" > "$RUNNER_TEMP/returns_body.md"
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$t" --label return-passed --body-file "$RUNNER_TEMP/returns_body.md"
+          done < "$RUNNER_TEMP/returns.txt"
+          while IFS=$'\t' read -r n t; do
+            [ -z "$n" ] && continue
+            if ! grep -qxF -- "$t" "$RUNNER_TEMP/returns.txt"; then
+              gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Answered: no longer a passed return date ($RUN_URL)"
+            fi
+          done < "$RUNNER_TEMP/returns_open.tsv"
+
+      # a refresh never closes the failure issue: it skips the log pull, so a
+      # night that failed there is not repaired by it
       - name: Close the failure issue
-        if: success() && steps.run.outputs.ran == 'true'
+        if: success() && steps.run.outputs.ran == 'true' && inputs.mode != 'refresh'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -409,7 +548,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ROWS: ${{ steps.before.outputs.rows }}
           OUTCOMES: >-
-            state=${{ steps.state.outcome }},pin=${{ steps.pin.outcome }},engine=${{ steps.engine.outcome }},engine-check=${{ steps.engine-check.outcome }},python=${{ steps.python.outcome }},install=${{ steps.install.outcome }},overlay-in=${{ steps.overlay-in.outcome }},credentials=${{ steps.credentials.outcome }},run=${{ steps.run.outcome }},overlay-out=${{ steps.overlay-out.outcome }},commit-state=${{ steps.commit-state.outcome }},hub-token=${{ steps.hub-token.outcome }},hub-checkout=${{ steps.hub-checkout.outcome }},publish-scan=${{ steps.publish-scan.outcome }},publish=${{ steps.publish.outcome }}
+            state=${{ steps.state.outcome }},pin=${{ steps.pin.outcome }},engine=${{ steps.engine.outcome }},engine-check=${{ steps.engine-check.outcome }},python=${{ steps.python.outcome }},install=${{ steps.install.outcome }},overlay-in=${{ steps.overlay-in.outcome }},credentials=${{ steps.credentials.outcome }},entry=${{ steps.entry.outcome }},entry-commit=${{ steps.entry-commit.outcome }},run=${{ steps.run.outcome }},overlay-out=${{ steps.overlay-out.outcome }},commit-state=${{ steps.commit-state.outcome }},hub-token=${{ steps.hub-token.outcome }},hub-checkout=${{ steps.hub-checkout.outcome }},publish-scan=${{ steps.publish-scan.outcome }},publish=${{ steps.publish.outcome }}
         run: |
           s=engine/scripts/run_issue.py
           if [ -f "$s" ]; then

@@ -19,6 +19,14 @@ Row:
      "win_prob_a", "win_prob_b", "banked_a", "banked_b",
      "projected_final_a", "projected_final_b"}]}
 
+Step 3a (decision 1, Nick 11-10: "as granular as possible"): a row may
+also carry "cause" -- what triggered the run, named by the caller from its
+own inputs ("nightly", "Monday pre-tip", "injury update: Zion Williamson
+out, back 11-21") -- and "changed", the line's cache-key parts that moved
+since the line before it (["overrides", "tags"]). The Win % view's tap text
+shows the cause. Rows written before this have neither and show their
+trigger as before; nothing is back-filled.
+
 APPEND-ONLY (modules/jsonl_log), like the title-odds history: a row
 is never rewritten, a run id is written once. The HUB DRAWS FROM IT AND
 NOTHING SCORES IT: calibration is the closing line and the weekly build
@@ -52,13 +60,31 @@ def row_from_line(line: dict) -> dict:
     run_id = pb.get("run_id") or f"manual-{line['generated_at']}"
     trigger = pb.get("trigger") or "manual"
     try:
-        return {"schema": SCHEMA, "week": int(line["week"]), "run_id": str(run_id),
-                "trigger": str(trigger), "as_of": str(line["generated_at"]),
-                "league_day": str(line["as_of"])[:10],
-                "completed_dates": list(line["completed_dates"]),
-                "matchups": [{k: ln[k] for k in MATCHUP_KEYS} for ln in line["lines"]]}
+        row = {"schema": SCHEMA, "week": int(line["week"]), "run_id": str(run_id),
+               "trigger": str(trigger), "as_of": str(line["generated_at"]),
+               "league_day": str(line["as_of"])[:10],
+               "completed_dates": list(line["completed_dates"]),
+               "matchups": [{k: ln[k] for k in MATCHUP_KEYS} for ln in line["lines"]]}
     except KeyError as e:
         raise WinProbHistoryError(f"a week-{line.get('week')} line lacks {e}: no win-% row") from None
+    if pb.get("cause"):
+        row["cause"] = str(pb["cause"])
+        row["changed"] = [str(x) for x in pb.get("changed") or []]
+    return row
+
+
+def label(row: dict) -> str:
+    """The tap text's label for a row: its cause (Step 3a), with any line
+    input that moved besides the one the cause names; a row from before the
+    causes began shows its trigger, as it always did."""
+    cause = row.get("cause")
+    if not cause:
+        return f"{row['trigger']} run"
+    own = {"overrides"} if str(cause).startswith(("injury", "injuries")) else set()
+    if str(cause) in ("nightly", "Monday pre-tip"):
+        return cause
+    extra = [c for c in row.get("changed") or [] if c not in own]
+    return cause + (f"; also moved: {', '.join(extra)}" if extra else "")
 
 
 def check_row(row: dict, where: str) -> None:

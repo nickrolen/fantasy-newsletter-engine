@@ -37,6 +37,35 @@ refresh-reference
          fetches the NBA player-name reference (modules/nba_reference.py).
          add, check and integrity read it and never touch the network.
 
+STEP 3a (HANDOFF_STEP3A s.2.1) -- the edit forms, also behind Nick's phone
+entries (scripts/apply_entry.py calls these same functions, never a copy):
+
+    python scripts/overrides.py set-return "Coby White" --back 2026-11-05
+    python scripts/overrides.py set-notes "Paolo Banchero" --notes "ankle"
+    python scripts/overrides.py remove "Coby White"
+
+set-return  changes ONLY the return date and what is derived from it:
+            out_weeks (from the same first out week: the out date is
+            untouched), return_week, return_games, total_week_games, and the
+            date inside return_notes. Notes, nba_team and every other key are
+            untouched. The same date checks as add.
+set-notes   changes only notes.
+remove      deletes the entry; a name with no entry refuses.
+
+NAMES: a full name as PlayerIndex matches it (accents, suffixes, initials),
+else a UNIQUE last name ("Tatum"); two or more refuse listing the candidates,
+none refuses with the nearest names (modules/move_ledger.resolve_name, the
+ledger's resolver). add resolves among every NBA player (the reference) and
+stores the resolved full name; the edit forms resolve among the file's
+entries. An add for a player who already has an entry refuses, pointing to the
+edit forms.
+
+TIMESTAMPS (task 26): every entry written by add, set-return or set-notes gets
+updated_at (the league clock, with its offset); last_updated moves with every
+change; every change appends its before and after to output/override_history.jsonl
+(modules/override_history), which the closing line reads. Entries written
+before this have no updated_at, and none is invented for them.
+
 EXIT CODES: 0 ok; 1 check found something in 3 or 4; 2 refused / failed.
 """
 
@@ -46,7 +75,7 @@ import argparse
 import importlib
 import json
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -55,8 +84,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules import injury_entries as ie  # noqa: E402
 from modules import nba_reference as nr  # noqa: E402
+from modules import override_history as oh  # noqa: E402
 from modules.data_loader import PlayerIndex, atomic_write_json  # noqa: E402
-from modules.league_clock import league_today  # noqa: E402
+from modules.league_clock import league_now, league_today  # noqa: E402
 
 OVERRIDES = Path("config") / "INJURY_OVERRIDES.json"
 SCHEDULE = Path("config") / "SCHEDULE.json"
@@ -81,15 +111,80 @@ def _day(text: str, flag: str) -> date:
 # add
 # =============================================================================
 
+def _names_by_person(ref) -> list:
+    """Every name the reference knows, one spelling per person (a roster's,
+    else PLAYERLIST's, else basketball-reference's): so "Jokic" is one player,
+    not two spellings of him, when a last name is looked up."""
+    from modules.move_ledger import _fold
+    seen, out = set(), []
+    for src in (ref.rostered, list(ref.playerlist), list(ref.this_season), list(ref.last_season)):
+        for n in src:
+            k = _fold(n)
+            if k and k not in seen:
+                seen.add(k)
+                out.append(str(n))
+    return out
+
+
+def resolve_player(name: str, reference) -> str:
+    """The NBA player `name` means: a full name through the reference
+    (PlayerIndex: accents, suffixes, initials), else a unique last name.
+    Ambiguous refuses listing the candidates; unknown refuses with the nearest
+    names (move_ledger.resolve_name, the ledger's resolver)."""
+    from modules import move_ledger as ml
+    hit = reference.resolve(name)
+    if hit is not None:
+        return _names_by_person_pick(reference, hit)
+    try:
+        return ml.resolve_name(name, _names_by_person(reference), "(an NBA player)")
+    except ml.NameAmbiguous as e:
+        raise ie.EntryRefused(str(e)) from None
+    except ml.NameUnknown:
+        raise ie.EntryRefused(reference.unknown_message(name)) from None
+
+
+def _names_by_person_pick(reference, hit: str) -> str:
+    """The spelling resolve_player stores for a full-name hit: the roster's,
+    else the reference's own."""
+    for n in reference.rostered:
+        if PlayerIndex({hit: True}).get(n) is not None:
+            return str(n)
+    return str(hit)
+
+
+def resolve_entry(blob: dict, name: str) -> tuple:
+    """(index in players, the entry's own name) for the entry `name` means,
+    among the file's entries: a full name, else a unique last name. No entry
+    refuses; ambiguous refuses listing the entries."""
+    from modules import move_ledger as ml
+    players = list(blob.get("players") or [])
+    names = [str(e.get("player_name")) for e in players]
+    try:
+        hit = ml.resolve_name(name, names, "(among the injury entries)")
+    except ml.NameAmbiguous as e:
+        raise ie.EntryRefused(str(e)) from None
+    except ml.NameUnknown:
+        raise ie.EntryRefused(f"{name!r} has no injury entry (entries: "
+                              f"{', '.join(sorted(names)) or 'none'})") from None
+    return names.index(hit), hit
+
+
+def _stamp(entry: dict, now: datetime) -> dict:
+    out = dict(entry)
+    out["updated_at"] = now.isoformat(timespec="seconds")
+    return out
+
+
 def prepare_add(base: Path, name: str, out: str, back: str = None, season: bool = False,
                 team: str = None, notes: str = None, return_notes: str = None,
-                replace: bool = False, today: date = None, reference=None) -> tuple:
+                replace: bool = False, today: date = None, reference=None,
+                now: datetime = None) -> tuple:
     """(new file blob, the entry, lines to show). Raises EntryRefused with what
-    to do. Writes nothing."""
-    today = today or league_today()
+    to do. Writes nothing. The entry carries updated_at (now, the league clock)."""
+    now = now or league_now()
+    today = today or now.date()
     ref = reference or nr.Reference(base)
-    if ref.resolve(name) is None:
-        raise ie.EntryRefused(ref.unknown_message(name))
+    name = resolve_player(name, ref)
     schedule = _read(base, SCHEDULE)
     games = ie.team_games(_read(base, NBA_SCHEDULE))
     out_d = _day(out, "--out")
@@ -121,11 +216,14 @@ def prepare_add(base: Path, name: str, out: str, back: str = None, season: bool 
     names = PlayerIndex({str(e.get("player_name")): i for i, e in enumerate(players)})
     hit = names.canonical(name)
     if hit is not None and not replace:
-        raise ie.EntryRefused(f"INJURY_OVERRIDES.json already has an entry for {hit}: pass "
-                              "--replace to overwrite it")
+        raise ie.EntryRefused(
+            f"{hit} already has an injury entry: change it with "
+            f"'Injury: {hit} back MM/DD' or 'Injury: {hit} notes <text>' (overrides.py set-return / "
+            f"set-notes), or remove it first ('Injury remove: {hit}'); on the desk, --replace "
+            "overwrites it")
     entry, said = ie.compute(name, team, out_d, back_d, season, schedule, games, notes,
                              return_notes)
-    entry = ie.ordered(entry)
+    entry = _stamp(ie.ordered(entry), now)
     if hit is not None:
         players[dict.__getitem__(names, hit)] = entry
     else:
@@ -139,13 +237,148 @@ def prepare_add(base: Path, name: str, out: str, back: str = None, season: bool 
     return new, entry, shown
 
 
-def cmd_add(a, base: Path, today: date = None, ask=input) -> int:
+# =============================================================================
+# a change: the file and its history row, written together (task 26)
+# =============================================================================
+
+def change_row(blob: dict, new: dict, action: str, player: str, before, after, *, now: datetime,
+               by: str, issue=None) -> dict:
+    return oh.make_row(at=now, action=action, player=player, before=before, after=after,
+                       last_updated_before=blob.get("last_updated"),
+                       last_updated_after=new.get("last_updated"), by=by, issue=issue)
+
+
+def write_change(base: Path, new: dict, row: dict) -> None:
+    """Write the file, then append its history row. The ONLY writer of
+    config/INJURY_OVERRIDES.json (tests/test_phone_entries.py pins it)."""
+    atomic_write_json(base / OVERRIDES, new)
+    oh.append(base, row)
+
+
+def add_change(base: Path, name: str, *, back: date = None, season: bool = False, notes: str = None,
+               now: datetime = None, out_day: date = None, by: str, issue=None,
+               reference=None) -> dict:
+    """A new entry, out from the day it is made (decision 13a, the league
+    clock: out_day, default today). Returns {"action", "player", "before",
+    "after", "new", "row", "shown"}; writes nothing (apply() writes)."""
+    now = now or league_now()
+    blob = _read(base, OVERRIDES)
+    new, entry, shown = prepare_add(base, name, (out_day or now.date()).isoformat(),
+                                    back.isoformat() if back else None, season, None, notes, None,
+                                    False, now.date(), reference, now)
+    row = change_row(blob, new, "add", entry["player_name"], None, entry, now=now, by=by, issue=issue)
+    return {"action": "add", "player": entry["player_name"], "before": None, "after": entry,
+            "new": new, "row": row, "shown": shown}
+
+
+def _return_notes(text, old: date, new: date):
+    """return_notes with the old return date moved to the new one, in the
+    same style (MM/DD, M/D, YYYY-MM-DD or MM-DD). Text naming no date is kept
+    as it is: it says nothing the new date contradicts."""
+    if not text or old is None:
+        return text
+    styles = (lambda d: d.isoformat(), lambda d: f"{d.month:02d}/{d.day:02d}",
+              lambda d: f"{d.month}/{d.day}", lambda d: f"{d.month:02d}-{d.day:02d}")
+    import re
+    for st in styles:
+        pat = r"(?<![0-9/-])" + re.escape(st(old)) + r"(?![0-9/])"
+        if re.search(pat, text):
+            return re.sub(pat, st(new), text)
+    return text
+
+
+def set_return_change(base: Path, name: str, back: date, *, now: datetime = None, by: str,
+                      issue=None, reference=None) -> dict:
+    """Only the return date and its derived fields change (set-return)."""
+    from modules.absence import parse_return_date
+    now = now or league_now()
+    today = now.date()
+    blob = _read(base, OVERRIDES)
+    i, hit = resolve_entry(blob, name)
+    old = dict(blob["players"][i])
+    schedule = _read(base, SCHEDULE)
+    games = ie.team_games(_read(base, NBA_SCHEDULE))
+    weeks = [int(w) for w in old.get("out_weeks") or []]
+    first = min(weeks) if weeks else old.get("return_week")
+    if first is None:
+        raise ie.EntryRefused(f"{hit}'s entry has neither out_weeks nor a return_week: its out date "
+                              "cannot be kept. Remove it and add it again")
+    out_d, _ = ie.week_bounds(schedule, int(first))
+    ie.check_dates(out_d, back, schedule, today)
+    team = old.get("nba_team")
+    if not team:
+        ref = reference or nr.Reference(base)
+        team, _src = ref.team_for(hit)
+        if not team:
+            raise ie.EntryRefused(f"{hit}'s entry has no nba_team and the reference has none: "
+                                  "edit it on the desk (overrides.py add --replace --team)")
+    fresh, said = ie.compute(hit, team, out_d, back, False, schedule, games)
+    new_entry = dict(old)
+    for k in ("out_weeks", "return_week", "return_games", "total_week_games", "return_date"):
+        new_entry[k] = fresh[k]
+    if "return_notes" in old:
+        new_entry["return_notes"] = _return_notes(old.get("return_notes"),
+                                                  parse_return_date(old.get("return_date"), hit), back)
+    new_entry = _stamp(ie.ordered(new_entry), now)
+    players = list(blob["players"])
+    players[i] = new_entry
+    new = dict(blob, players=players, last_updated=today.isoformat())
+    row = change_row(blob, new, "set-return", hit, old, new_entry, now=now, by=by, issue=issue)
+    return {"action": "set-return", "player": hit, "before": old, "after": new_entry, "new": new,
+            "row": row, "shown": said}
+
+
+def set_notes_change(base: Path, name: str, notes: str, *, now: datetime = None, by: str,
+                     issue=None) -> dict:
+    """Only notes change (set-notes)."""
+    now = now or league_now()
+    if not str(notes or "").strip():
+        raise ie.EntryRefused("set-notes needs the notes text")
+    blob = _read(base, OVERRIDES)
+    i, hit = resolve_entry(blob, name)
+    old = dict(blob["players"][i])
+    new_entry = _stamp(ie.ordered(dict(old, notes=str(notes).strip())), now)
+    players = list(blob["players"])
+    players[i] = new_entry
+    new = dict(blob, players=players, last_updated=now.date().isoformat())
+    row = change_row(blob, new, "set-notes", hit, old, new_entry, now=now, by=by, issue=issue)
+    return {"action": "set-notes", "player": hit, "before": old, "after": new_entry, "new": new,
+            "row": row, "shown": []}
+
+
+def remove_change(base: Path, name: str, *, now: datetime = None, by: str, issue=None) -> dict:
+    """The entry goes (remove). A name with no entry refuses."""
+    now = now or league_now()
+    blob = _read(base, OVERRIDES)
+    i, hit = resolve_entry(blob, name)
+    old = dict(blob["players"][i])
+    players = [e for j, e in enumerate(blob["players"]) if j != i]
+    new = dict(blob, players=players, last_updated=now.date().isoformat())
+    row = change_row(blob, new, "remove", hit, old, None, now=now, by=by, issue=issue)
+    return {"action": "remove", "player": hit, "before": old, "after": None, "new": new, "row": row,
+            "shown": []}
+
+
+def apply(base: Path, change: dict) -> dict:
+    """Write a prepared change (the file, then its history row)."""
+    write_change(base, change["new"], change["row"])
+    return change
+
+
+def cmd_add(a, base: Path, today: date = None, ask=input, now: datetime = None) -> int:
+    now = now or league_now()
     try:
+        before_blob = _read(base, OVERRIDES)
         new, entry, shown = prepare_add(base, a.name, a.out, a.back, a.season, a.team, a.notes,
-                                        a.return_notes, a.replace, today)
+                                        a.return_notes, a.replace, today, now=now)
     except (ie.EntryRefused, nr.ReferenceMissing) as e:
         print(f"REFUSED: {e}")
         return 2
+    prior = next((e for e in before_blob.get("players") or []
+                  if PlayerIndex({str(e.get("player_name")): True}).get(entry["player_name"]) is not None),
+                 None)
+    row = change_row(before_blob, new, "add" if prior is None else "replace", entry["player_name"],
+                     prior, entry, now=now, by="overrides.py (desk)")
     print("The entry to write to config/INJURY_OVERRIDES.json:\n")
     print(json.dumps(entry, indent=2))
     for line in shown:
@@ -158,8 +391,39 @@ def cmd_add(a, base: Path, today: date = None, ask=input) -> int:
         if str(answer).strip().lower() not in ("y", "yes"):
             print("Not written.")
             return 2
-    atomic_write_json(base / OVERRIDES, new)
-    print(f"Written ({len(new['players'])} entries, last_updated {new['last_updated']}).")
+    write_change(base, new, row)
+    print(f"Written ({len(new['players'])} entries, last_updated {new['last_updated']}); "
+          f"history: {oh.HISTORY_FILE.as_posix()}.")
+    return 0
+
+
+def cmd_edit(a, base: Path, ask=input, now: datetime = None) -> int:
+    """set-return / set-notes / remove from the desk."""
+    now = now or league_now()
+    try:
+        if a.cmd == "set-return":
+            ch = set_return_change(base, a.name, _day(a.back, "--back"), now=now, by="overrides.py (desk)")
+        elif a.cmd == "set-notes":
+            ch = set_notes_change(base, a.name, a.notes, now=now, by="overrides.py (desk)")
+        else:
+            ch = remove_change(base, a.name, now=now, by="overrides.py (desk)")
+    except (ie.EntryRefused, nr.ReferenceMissing) as e:
+        print(f"REFUSED: {e}")
+        return 2
+    print(f"{ch['action']} {ch['player']}\n\nbefore:\n{json.dumps(ch['before'], indent=2)}\n\n"
+          f"after:\n{json.dumps(ch['after'], indent=2)}")
+    for line in ch["shown"]:
+        print(f"  {line}")
+    if not a.yes:
+        try:
+            answer = ask("\nWrite it? [y/N] ")
+        except EOFError:
+            answer = ""
+        if str(answer).strip().lower() not in ("y", "yes"):
+            print("Not written.")
+            return 2
+    apply(base, ch)
+    print(f"Written ({len(ch['new']['players'])} entries); history: {oh.HISTORY_FILE.as_posix()}.")
     return 0
 
 
@@ -290,10 +554,23 @@ def main(argv=None) -> int:
     chk.add_argument("--statuses", help="a tags file (fetch_injury_statuses --output) "
                                         "instead of fetching Yahoo")
     sub.add_parser("refresh-reference", help="fetch the NBA player-name reference")
+    sr = sub.add_parser("set-return", help="move one entry's return date (only it and its derived fields)")
+    sr.add_argument("name")
+    sr.add_argument("--back", required=True, help="the new return day, YYYY-MM-DD")
+    sr.add_argument("--yes", action="store_true")
+    sn = sub.add_parser("set-notes", help="change one entry's notes")
+    sn.add_argument("name")
+    sn.add_argument("--notes", required=True)
+    sn.add_argument("--yes", action="store_true")
+    rm = sub.add_parser("remove", help="remove one entry")
+    rm.add_argument("name")
+    rm.add_argument("--yes", action="store_true")
     a = ap.parse_args(argv)
     base = Path(a.base_path)
     if a.cmd == "add":
         return cmd_add(a, base)
+    if a.cmd in ("set-return", "set-notes", "remove"):
+        return cmd_edit(a, base)
     if a.cmd == "check":
         return cmd_check(a, base)
     return cmd_refresh(base)

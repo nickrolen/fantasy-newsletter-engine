@@ -77,6 +77,37 @@ With --pretip, --scheduled admits only [first tip - 45 min, first tip) on a
 window day instead. Both decisions are scripts/run_guard.py's (standard
 library only; the workflow's guard job runs the same functions).
 
+STEP 3a (HANDOFF_STEP3A s.1), the refresh run:
+
+    python scripts\\nightly.py --refresh --cause "injury update: Zion Williamson out, back 11-21"
+
+  The nightly run's path without the log pull (design s.5): engine, banked,
+  sync, settings, tags, ledger, line and title_odds (only when prices are not
+  locked), actuals, hub. No guard on the clock: it runs whenever an entry
+  lands; the workflow's concurrency group queues it behind a nightly or
+  pre-tip run. --cause is required: one short line naming the trigger, built by
+  the caller from its own inputs; it is recorded in the run's row (every mode's
+  row carries one: "nightly", "Monday pre-tip"), and a priced line's win-% row
+  carries it (decision 1).
+  - banked: the price lock runs "from the first tip until the next 12:01 run's
+    banking" (design s.4.1). price_lock.status covers the first tip to
+    midnight; between midnight and the nightly run's log pull, last night's
+    games are unbanked and nothing can be priced or built for the new day. So
+    a refresh that finds a finished league day missing from the logs is
+    DEFERRED: outcome "deferred", exit 0, nothing priced or built -- the
+    entry is already committed, and the nightly run prices it.
+  - line, title_odds: during the lock (price_lock.status) nothing is priced:
+    the run's outcome is "locked" and the hub's lock note counts it as a
+    change waiting (hub_state.lock_note).
+  - hub: a refresh (and a pre-tip run) shows last night's matchup paragraph
+    byte for byte (output/night_paragraph.json, written only by the nightly
+    run's hub step; decisions 2-3).
+  The nightly run gains step 5c, returns (decision 13b): an injury entry whose
+  return date has passed is removed when Yahoo shows him with no O/OFS tag
+  (recorded in output/override_history.jsonl and in the run's "returns"
+  block), and gets one issue (scripts/returns_issue.py, label return-passed)
+  when he is still tagged O/OFS or his tag is unknown.
+
 STEP 1c-ii (HANDOFF_STEP1C2):
   - a scheduled nightly run first prices the latest closed week's closing line
     when it is due (closing_line.due): a week with no pre-tip tag record is
@@ -102,11 +133,16 @@ from datetime import date, datetime
 from pathlib import Path
 
 RUNS_FILE = Path("output") / "nightly_runs.jsonl"
-MODES = ("nightly", "pretip", "closing")
+MODES = ("nightly", "pretip", "closing", "refresh")
+NIGHT_CAUSE = {"nightly": "nightly", "pretip": "Monday pre-tip"}
 STEP_TIMEOUT_S = 900
 
 STEPS = {
-    "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "ledger", "line", "title_odds",
+    "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "returns", "ledger", "line",
+                "title_odds", "actuals", "hub"),
+    # Step 3a: the nightly path without the log pull; actuals stays right
+    # before the hub, as in every mode that builds one (F1)
+    "refresh": ("engine", "banked", "sync", "settings", "tags", "ledger", "line", "title_odds",
                 "actuals", "hub"),
     "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "ledger", "line", "title_odds",
                "actuals", "hub"),
@@ -116,6 +152,11 @@ STEPS = {
 
 class StepRefused(RuntimeError):
     """A step refused; the run stops here."""
+
+
+class RunDeferred(RuntimeError):
+    """A refresh before the nightly run has banked last night's games: nothing
+    to price or build yet. Not a failure: the run stops, exit 0."""
 
 
 def run_guard():
@@ -210,10 +251,13 @@ class Run:
 
     def __init__(self, base_path=".", mode: str = "nightly", *, week: int = None, now: datetime = None,
                  allow_dirty_engine: bool = False, sims: int = None, title_sims: int = None,
-                 echo=print):
+                 echo=print, cause: str = None):
         from .league_clock import league_now
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}")
+        if mode == "refresh" and not str(cause or "").strip():
+            raise ValueError("a refresh run needs its cause (--cause): what triggered it, in one line")
+        self.cause = (str(cause).strip() if mode == "refresh" else NIGHT_CAUSE.get(mode))
         self.base = Path(base_path)
         self.mode = mode
         self.now = now or league_now()
@@ -278,6 +322,70 @@ class Run:
             raise StepRefused(f"week {self.week}'s window closes {close.isoformat(timespec='minutes')}; "
                               "the closing line is priced after the close")
         return f"week {self.week}'s window closed {close.isoformat(timespec='minutes')}"
+
+    # -- refresh: is last night banked?
+    def step_banked(self):
+        import refresh_service as rs
+        from .data_loader import load_all_data
+        data = load_all_data(self.base, current_week=None)
+        todo = rs.missing_days(data, self.today)
+        if todo:
+            raise RunDeferred(f"{', '.join(d.isoformat() for d in todo)} not banked yet: the 12:01 AM "
+                              "run pulls the logs and prices this change; nothing priced or built now")
+        return "every finished league day is banked"
+
+    # -- 5c (nightly): passed return dates (decision 13b)
+    def step_returns(self):
+        """Every injury entry whose return date has passed (before today, the
+        league clock): no O/OFS tag in Yahoo now -> removed (overrides.py's
+        remove, recorded in the history and in this run's "returns" block);
+        still tagged O/OFS, or not in Yahoo's lists at all (his tag unknown)
+        -> an issue for Nick, one per player while it is open
+        (scripts/returns_issue.py dedupes by title)."""
+        import overrides as ov
+        from . import move_ledger as ml
+        from .absence import parse_return_date
+        from .data_loader import PlayerIndex, load_all_data
+        tags = self.ctx["tags"]
+        blob = ov._read(self.base, ov.OVERRIDES)
+        data = load_all_data(self.base, current_week=None)
+        rostered = PlayerIndex({n: m for m, v in data.get_current_rosters().items() for n in v})
+        listed = PlayerIndex({str(n): True for n in data.playerlist["player_name"].dropna()})
+        fa = getattr(tags, "free_agents", None)
+        removed, issues = [], []
+        for e in list(blob.get("players") or []):
+            name = str(e.get("player_name"))
+            rd = parse_return_date(e.get("return_date"), name)
+            if rd is None or rd >= self.today:
+                continue
+            if rostered.canonical(name) is not None:
+                hit = tags.canonical(name)
+                tag = tags[hit] if hit is not None else ""
+            elif listed.canonical(name) is not None and fa is not None:
+                hit = fa.canonical(name)
+                tag = fa[hit] if hit is not None else ""
+            else:
+                tag = None                                   # not in Yahoo's lists: unknown
+            tag = None if tag is None else str(tag or "").upper()
+            md = f"{rd.month:02d}-{rd.day:02d}"
+            if tag is not None and not ml.tag_il_eligible(tag):
+                ch = ov.remove_change(self.base, name, now=self.now, by="nightly (13b)")
+                ov.apply(self.base, ch)
+                removed.append({"player": ch["player"], "return_date": rd.isoformat(),
+                                "tag": tag or "none"})
+                continue
+            if tag is None:
+                title = f"{name}'s return date {md} has passed; his Yahoo tag is unknown"
+            else:
+                title = f"{name}'s return date {md} has passed; he is still tagged {tag}"
+            issues.append({"player": name, "return_date": rd.isoformat(), "tag": tag, "title": title,
+                           "body": f"{title}. Push the date (`Injury: {name} back MM/DD`) or remove him "
+                                   f"(`Injury remove: {name}`). This issue closes by itself the night "
+                                   "after it is answered."})
+        self.ctx["returns"] = {"removed": removed, "issues": issues}
+        bits = [f"removed {r['player']} (back {r['return_date'][5:]}, tag {r['tag']})" for r in removed]
+        bits += [f"issue: {i['title']}" for i in issues]
+        return "; ".join(bits) or "no passed return dates"
 
     # -- 2
     def step_logs(self):
@@ -427,9 +535,20 @@ class Run:
     def step_line(self):
         import refresh_service as rs
         from .simulator_betting import DEFAULT_NUM_SIMULATIONS
+        if self.mode == "refresh":
+            # the lock is judged here, before anything prices: a refresh during
+            # the lock prices nothing, even when the line's inputs are unchanged
+            # (title odds would otherwise re-price mid-game)
+            from . import price_lock
+            from .data_loader import load_all_data
+            st = price_lock.status(self.now, load_all_data(self.base, current_week=None).nba_schedule)
+            if st["locked"]:
+                self.ctx["locked"] = True
+                return (f"locked: games are on (first tip {st['first_tip']}); nothing priced -- "
+                        f"{self.cause} is priced after tonight's games")
         out = rs.run(self.base, as_of=self.today, week=self.week,
                      sims=self.sims or DEFAULT_NUM_SIMULATIONS, trigger=self.mode,
-                     pull_logs=False, statuses=self.ctx["tags"], now=self.now)
+                     pull_logs=False, statuses=self.ctx["tags"], now=self.now, cause=self.cause)
         self.ctx["line"] = out
         if out["exit"] != 0:
             raise StepRefused(f"refresh_service: {out.get('error')}")
@@ -467,10 +586,17 @@ class Run:
     # -- 9
     def step_hub(self):
         import build_hub
-        from . import hub_state
+        from . import hub_matchups, hub_state
+        # decisions 2-3: only the nightly run builds the matchup paragraph; a
+        # refresh or a pre-tip run shows last night's, byte for byte
+        night_out = {}
         payload = hub_state.build(self.base, now=self.now, allow_engine_mismatch=self.allow_dirty,
-                                  echo=lambda *a: None)
+                                  echo=lambda *a: None,
+                                  night="build" if self.mode == "nightly" else "reuse",
+                                  night_out=night_out)
         hub_state.write(self.base, payload)
+        if self.mode == "nightly" and night_out.get("night") is not None:
+            hub_matchups.write_night(self.base, night_out["night"], run_id=self.run_id)
         enc = bool(os.environ.get("HUB_PASSPHRASE"))
         rc = build_hub.main(["--base-path", str(self.base)] + ([] if enc else ["--preview-only"]))
         if rc != 0:
@@ -511,6 +637,12 @@ class Run:
                 rows.append({"step": name, "outcome": "ok", "seconds": round(time.perf_counter() - t0, 2),
                              "detail": str(detail or "")})
                 self.echo(f"  [{name}] ok ({rows[-1]['seconds']} s): {detail}")
+            except RunDeferred as e:
+                rows.append({"step": name, "outcome": "deferred",
+                             "seconds": round(time.perf_counter() - t0, 2), "detail": str(e)})
+                self.echo(f"  [{name}] DEFERRED: {e}")
+                outcome = "deferred"
+                break
             except Exception as e:                          # noqa: BLE001 -- the policy
                 error = f"{type(e).__name__}: {e}"
                 self.exception = e
@@ -530,6 +662,10 @@ class Run:
                "engine": {"commit": eng.get("commit"), "dirty": eng.get("dirty")},
                "allow_dirty_engine": self.allow_dirty, "steps": rows, "outcome": outcome,
                "exit": 1 if outcome == "refused" else 0, "error": error}
+        if self.cause is not None:
+            row["cause"] = self.cause
+        if self.ctx.get("returns") is not None:
+            row["returns"] = self.ctx["returns"]
         if self.ctx.get("ledger") is not None:
             row["ledger"] = self.ctx["ledger"]
         if self.ctx.get("schedule") is not None:
@@ -580,6 +716,9 @@ def main(argv=None) -> int:
     g.add_argument("--closing", action="store_true", help="the closing line for --week N")
     g.add_argument("--no-closing-line", action="store_true",
                    help="record that --week N has no closing line (with --reason), once")
+    g.add_argument("--refresh", action="store_true",
+                   help="Step 3a: the nightly path without the log pull, after an entry (needs --cause)")
+    ap.add_argument("--cause", help="with --refresh: what triggered it, one short line")
     ap.add_argument("--week", type=int)
     ap.add_argument("--reason", help="with --no-closing-line: why (recorded)")
     ap.add_argument("--scheduled", action="store_true",
@@ -603,6 +742,12 @@ def main(argv=None) -> int:
         ap.error("--scheduled is for the nightly and pre-tip runs")
     if a.ignore_clock and a.pretip:
         ap.error("--ignore-clock is for the nightly run only: the pre-tip run has its window")
+    if a.refresh and not str(a.cause or "").strip():
+        ap.error("--refresh needs --cause: what triggered it, in one short line")
+    if a.cause is not None and not a.refresh:
+        ap.error("--cause goes with --refresh")
+    if a.refresh and a.scheduled:
+        ap.error("--refresh has no clock guard: it runs whenever an entry lands")
     from datetime import timezone
     if a.no_closing_line:
         return _no_closing_line(a)
@@ -620,7 +765,8 @@ def main(argv=None) -> int:
             if not ok:
                 print(f"--scheduled: {why}; nothing to do.")
                 return _ran(False)
-    mode = "pretip" if a.pretip else "closing" if a.closing else "nightly"
+    mode = ("pretip" if a.pretip else "closing" if a.closing else "refresh" if a.refresh
+            else "nightly")
     if a.scheduled and mode == "nightly":
         c = scheduled_closing(a.base_path, allow_dirty_engine=a.allow_dirty_engine, sims=a.sims,
                               title_sims=a.title_sims)
@@ -633,7 +779,7 @@ def main(argv=None) -> int:
         if c["outcome"] != "not due":
             print(f"closing line, week {c['week']}: {c['outcome']}")
     run = Run(a.base_path, mode, week=a.week, allow_dirty_engine=a.allow_dirty_engine,
-              sims=a.sims, title_sims=a.title_sims)
+              sims=a.sims, title_sims=a.title_sims, cause=a.cause)
     print(f"{mode} run {run.run_id}")
     row = run.execute()
     if mode == "nightly":
@@ -647,6 +793,19 @@ def main(argv=None) -> int:
         for f_ in flags:
             print(f"  {f_}")
         _ledger_flags(True)
+    if row.get("returns") is not None:
+        ret = row["returns"]
+        for r in ret["removed"]:
+            print(f"RETURN PASSED: removed {r['player']} (back {r['return_date']}, tag {r['tag']})")
+        for i in ret["issues"]:
+            print(f"RETURN PASSED: {i['title']}")
+        _gh_flag("returns")
+    if mode == "refresh":
+        out = os.environ.get("GITHUB_OUTPUT")
+        if out:
+            with open(out, "a", encoding="utf-8") as f:
+                f.write(f"ran={'false' if row['outcome'] == 'deferred' else 'true'}\n")
+        return row["exit"]
     sflags = (row.get("schedule") or {}).get("flags") or []
     if sflags:
         print(f"NBA SCHEDULE: {len(sflags)} flag(s):")
@@ -654,6 +813,14 @@ def main(argv=None) -> int:
             print(f"  {f_}")
         _schedule_flags(True)
     return _ran(True, row["exit"]) if a.scheduled else row["exit"]
+
+
+def _gh_flag(name: str) -> None:
+    """Under the workflow: <name>=true for a later step."""
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write(f"{name}=true\n")
 
 
 def _ledger_flags(on: bool) -> None:

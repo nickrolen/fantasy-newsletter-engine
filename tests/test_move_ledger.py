@@ -670,6 +670,12 @@ def test_only_ledger_py_writes_the_ledger_and_only_the_nightly_writes_its_states
     writers = sorted({c for p in files for c in _calls(p, "write_entries")})
     assert writers == ["ledger.py:cmd_add", "move_ledger.py:add", "move_ledger.py:void"]
     adders = sorted({c for p in files for c in _calls(p, "add") if p.name == "ledger.py"})
+    # step 3a: Nick's phone entries come through move_ledger.add too (the same
+    # checks); apply_entry.py is its only caller outside ledger.py
+    import re as _re
+    phone = [p.name for p in files if p.name not in ("ledger.py", "move_ledger.py")
+             and _re.search(r"\bml\.add\(|move_ledger\.add\(", p.read_text(encoding="utf-8"))]
+    assert phone == ["apply_entry.py"], phone
     voiders = sorted({c for p in files for c in _calls(p, "void")})
     assert voiders == ["ledger.py:cmd_void"]
     # move_ledger.add / void are called by nothing else in the engine

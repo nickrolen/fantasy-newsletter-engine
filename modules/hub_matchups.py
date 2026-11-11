@@ -529,10 +529,70 @@ def _add_riser(f: dict, cfg: dict) -> None:
             return
 
 
-def build_views(base, data, *, week: int, line: dict, av, now, archive_index: dict, tz) -> dict:
+NIGHT_FILE = Path("output") / "night_paragraph.json"
+
+
+def night_path(base) -> Path:
+    return Path(base) / NIGHT_FILE
+
+
+def read_night(base):
+    """The stored nightly paragraphs (output/night_paragraph.json), or None."""
+    p = night_path(base)
+    if not p.is_file():
+        return None
+    import json as _json
+    blob = _json.loads(p.read_text(encoding="utf-8"))
+    if blob.get("schema") != 1 or not isinstance(blob.get("paras"), dict):
+        raise SummaryError(f"{NIGHT_FILE.as_posix()} is not a schema-1 night-paragraph file")
+    return blob
+
+
+def write_night(base, night: dict, *, run_id: str) -> Path:
+    """Store the nightly run's paragraphs (decisions 2-3, Step 3a): written
+    ONLY by the nightly run's hub step (modules/nightly.step_hub; a test pins
+    it), read by every later build that day. League state (the manifest)."""
+    from .data_loader import atomic_write_json
+    blob = dict(night)
+    blob["schema"] = 1
+    blob["run_id"] = run_id
+    p = night_path(base)
+    atomic_write_json(p, blob, indent=1)
+    return p
+
+
+def prev_nightly_row(rows: list, line_at):
+    """The win-% row the nightly paragraph's "since the last update" compares
+    against (decision 2, Step 3a): the latest NIGHTLY run's row before the line
+    being described. A daytime refresh's or a pre-tip run's row never stands in
+    for last night, so a midday entry cannot hide the day's real move."""
+    from datetime import datetime as _dt
+    before = [r for r in rows if _dt.fromisoformat(r["as_of"]) < line_at and r.get("trigger") == "nightly"]
+    return before[-1] if before else None
+
+
+def stored_para(stored, week: int, a: str, b: str):
+    """The nightly run's stored paragraph for a vs b in `week`, as stored
+    (byte for byte), or None (another week's, or none stored)."""
+    if stored is None or int(stored.get("week", -1)) != int(week):
+        return None
+    kept = (stored.get("paras") or {}).get(f"{a}|{b}")
+    return dict(kept) if kept is not None else None
+
+
+def build_views(base, data, *, week: int, line: dict, av, now, archive_index: dict, tz,
+                night: str = "build") -> dict:
     """{"cards_views": [{"sum", "win", "flow"} per card of this week's line],
-    "last": the last week's block or None, "views": [view, ...]}.
-    Every string is final; hub_page prints them."""
+    "last": the last week's block or None, "views": [view, ...], "night": the
+    built paragraphs (night="build") or None}. Every string is final;
+    hub_page prints them.
+
+    night (Step 3a, decisions 2-3): "build" builds the Tuesday-to-Sunday
+    paragraph, comparing against the previous NIGHTLY win-% row (a daytime
+    refresh's row never hides the day's move); "reuse" shows the stored one
+    (output/night_paragraph.json) byte for byte when it is this week's, else
+    none. Only the nightly run builds AND stores it; a refresh or a pre-tip
+    run reuses it."""
     from . import hub_charts as hc, winprob_history as wh
     from .data_loader import MANAGER_TO_TEAM, CURRENT_SEASON
     from .week_state import week_entry
@@ -578,8 +638,13 @@ def build_views(base, data, *, week: int, line: dict, av, now, archive_index: di
     rows = wh.read(base, week)
     closing = closing_of(week)
     line_at = _dt.fromisoformat(line["generated_at"])
-    before = [r for r in rows if _dt.fromisoformat(r["as_of"]) < line_at]
-    prev_row = before[-1] if before else None
+    prev_row = prev_nightly_row(rows, line_at)
+    if night not in ("build", "reuse"):
+        raise ValueError(f"night must be 'build' or 'reuse', not {night!r}")
+    stored = read_night(base) if night == "reuse" else None
+    if stored is not None and int(stored.get("week", -1)) != int(week):
+        stored = None
+    built = {}
     completed = list(line.get("completed_dates") or [])
     remaining = [_date.fromisoformat(x) for x in line.get("remaining_dates") or []]
     has_daily = all("daily_banked_a" in ln and "daily_expected_a" in ln for ln in line["lines"])
@@ -607,7 +672,11 @@ def build_views(base, data, *, week: int, line: dict, av, now, archive_index: di
                 raise SummaryError(f"week {week} {m}: the expected days do not end at projected_final")
         win_points = hc.winprob_points(a, b, rows, closing, None)
         paras = []
-        if today != first and completed:
+        if night == "reuse":
+            kept = stored_para(stored, week, a, b)
+            if kept is not None:
+                paras.append(kept)
+        elif today != first and completed:
             prev = _find(prev_row["matchups"], a, b) if prev_row else None
             close = _find(closing["lines"], a, b) if closing else None
             last = completed[-1]
@@ -622,6 +691,7 @@ def build_views(base, data, *, week: int, line: dict, av, now, archive_index: di
             para = night_paragraph(f, cfg, season=CURRENT_SEASON, week=week, day=today.isoformat())
             paras.append({"head": f"Tonight's update \u00b7 {now.strftime('%a')} {now.month:02d}-{now.day:02d}",
                           "text": para["text"], "framing": para["framing"]})
+            built[f"{a}|{b}"] = dict(paras[-1])
         paras += preview_paras(prev_block, a, b)
         ids = add_views(week, i, a, b, entry, back="v-main", back_label="Hub", paras=paras,
                         win_points=win_points, flow_banked=banked, flow_exp=expected,
@@ -679,4 +749,6 @@ def build_views(base, data, *, week: int, line: dict, av, now, archive_index: di
                               "this week's final."}
     for v in views:
         v.pop("_gf", None)
-    return {"cards_views": cards, "last": last_block, "views": views}
+    out_night = ({"week": int(week), "league_day": today.isoformat(), "paras": built}
+                 if night == "build" else None)
+    return {"cards_views": cards, "last": last_block, "views": views, "night": out_night}

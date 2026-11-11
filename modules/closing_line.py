@@ -17,6 +17,14 @@ Week N's line is priced ONCE more after Monday's window closes
 No special case for a player added after his own game tipped: Yahoo locks a
 player once his game starts (Nick).
 
+INJURY ENTRIES AS AT MONDAY'S FIRST TIP (Step 3a, task 26): the overrides are
+rebuilt as they stood at the first tip from output/override_history.jsonl
+(modules/override_history.as_of: every change after the tip undone, newest
+first), and the line RAISES when an entry that governs the week was changed
+after the tip with no history record to undo (its updated_at says so), or when
+the file disagrees with the history. Entries written before the history began
+carry no updated_at and count as before the tip; no time is invented for them.
+
 It uses no information from after the close, so it can run any time after it
 (1c-ii: at the start of Tuesday's 12:01 AM run, before the log pull). It
 refuses before the close, and run twice it is byte-identical: the payload
@@ -164,6 +172,27 @@ def _aware(text: str, what: str) -> datetime:
     return t
 
 
+def overrides_at(base_path, data, moment: datetime) -> dict:
+    """INJURY_OVERRIDES as it stood at `moment` (Monday's first tip), resolved
+    the way the loader resolves it (data_loader.resolve_injury_overrides):
+    the file with every change after `moment` undone from the history
+    (override_history.as_of). Raises ClosingRefused when the file and the
+    history disagree."""
+    from . import override_history as oh
+    from .data_loader import (_read_rosters_file, load_injury_overrides,
+                              resolve_injury_overrides)
+    base = Path(base_path)
+    raw = load_injury_overrides(base / "config" / "INJURY_OVERRIDES.json")
+    try:
+        rebuilt, _undone = oh.as_of(raw, oh.read(base), moment)
+    except oh.OverrideHistoryError as e:
+        raise ClosingRefused(f"the injury entries at Monday's first tip cannot be rebuilt: {e}") from None
+    pl = data.playerlist
+    return resolve_injury_overrides(rebuilt, _read_rosters_file(base / "config" / "ROSTERS.json"),
+                                    pl["player_name"].dropna().tolist()
+                                    if "player_name" in pl.columns else [])
+
+
 def check_inputs(base_path, data, *, monday: date, first_tip: datetime, close: datetime) -> dict:
     """Every input the closing line takes from disk, checked against the
     close and the first tip. Raises ClosingRefused naming the input."""
@@ -233,6 +262,8 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
                              "the close.")
     row = tag_records.for_close(base, monday, first)          # NoPretipTags is a refusal too
     tags = tag_records.as_tags(row)
+    at_tip = overrides_at(base, full, first)
+    full.injury_overrides = at_tip
     info = check_inputs(base, full, monday=monday, first_tip=first, close=close)
     sp_ = base / "output" / f"live_lines_week{week}.state.json"
     if not sp_.is_file():
@@ -241,8 +272,21 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
     seed = int(json.loads(sp_.read_text(encoding="utf-8"))["seed"])
 
     data = pre_close_data(base, monday, load_all_data(base, current_week=None))
+    data.injury_overrides = at_tip
     p = rl.prepare(base, week, monday, seed=seed, statuses=tags, dry_run=True, data=data,
                    fresh_tags=True)
+    from . import override_history as oh, week_state as ws
+    from .simulator_betting import get_dates_in_week
+    late = oh.changed_after(ws.governing_overrides(p.data, week, get_dates_in_week(p.entry), p.teams),
+                            first)
+    if late:
+        raise ClosingRefused(
+            "injury entr" + ("ies" if len(late) > 1 else "y") + " governing week "
+            f"{week} changed after Monday's first tip ({first.isoformat(timespec='minutes')}) with no "
+            "history record to undo: " + ", ".join(f"{e.get('player_name')} (updated_at "
+                                                    f"{e.get('updated_at')})" for e in late)
+            + ". The closing line uses no information from after the close (design s.4.1): "
+              "ask Nick.")
     key = rl.cache_key(p, sims)
     stamp = close.isoformat(timespec="seconds")
     res, payload = rl.compute(p, sims, extra={
@@ -256,8 +300,9 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
         "cache": key})
     records = rl.calibration_records(p, res, sims, key, source=cal.CLOSING, as_of=stamp)
 
-    sp = tor.run_pass(pre_close_data(base, monday, load_all_data(base, current_week=None)),
-                      seed=seed, sims=title_sims, statuses=tags)
+    pass_data = pre_close_data(base, monday, load_all_data(base, current_week=None))
+    pass_data.injury_overrides = at_tip
+    sp = tor.run_pass(pass_data, seed=seed, sims=title_sims, statuses=tags)
     ro = tor.readouts(sp)
     hist = toh.make_row(base_path=base, run_id=run_id_for(week), produced_by="closing_line",
                         seed=seed, num_simulations=title_sims, title_odds=ro["title_odds"],

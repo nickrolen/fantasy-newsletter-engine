@@ -1,0 +1,59 @@
+# Nick's phone entries, in the private repo's Actions (step 3a,
+# claude/HANDOFF_STEP3A_PHONE_ENTRIES_2026-11-10.md s.2).
+#
+# Lives in the ENGINE at deploy/state-repo/.github/workflows/entry.yml and is
+# installed into the private repo by `python scripts\state.py install-workflows`.
+# Edit it in the engine, never in the private repo.
+#
+# Nick opens an issue whose TITLE is one entry (modules/phone_entries.py has the
+# grammar), e.g. "Injury: Tatum knee, back 12/09" or "Benton move: +Bane
+# -Alexander-Walker". run.yml (mode refresh, entry: true) applies it, commits the
+# state, comments, closes it (or labels it entry-refused and leaves it open with
+# the reason), refreshes the hub with the entry as the cause, and comments the
+# effect. Editing a refused issue's title re-parses it; an applied one gets
+# "already applied" and nothing else.
+#
+# ONLY NICK (invariant 12): the issue's author AND the event's sender must be
+# nickrolen (scripts/apply_entry.py NICK, which checks it again). Anyone else's
+# issue gets one comment and nothing else. The workflows' own issues (the
+# failure, ledger, schedule and passed-return issues, opened with the workflow
+# token) are never entries; GitHub does not even fire this for them.
+name: Entry
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  refuse:
+    if: >-
+      github.event.issue.user.login != 'github-actions[bot]' &&
+      (github.event.issue.user.login != 'nickrolen' || github.event.sender.login != 'nickrolen') &&
+      (github.event.action == 'opened' || github.event.changes.title)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Only Nick's entries are applied (one comment, nothing else)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          N: ${{ github.event.issue.number }}
+        run: |
+          msg="Only Nick's entries are applied."
+          if gh api "repos/$GITHUB_REPOSITORY/issues/$N/comments" --jq '.[].body' | grep -qxF "$msg"; then
+            echo "already said"; exit 0
+          fi
+          gh issue comment "$N" --repo "$GITHUB_REPOSITORY" --body "$msg"
+
+  entry:
+    if: >-
+      github.event.issue.user.login == 'nickrolen' && github.event.sender.login == 'nickrolen' &&
+      (github.event.action == 'opened' || github.event.changes.title)
+    uses: ./.github/workflows/run.yml
+    with:
+      mode: refresh
+      entry: true
+    secrets: inherit
