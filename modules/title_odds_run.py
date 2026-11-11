@@ -64,7 +64,10 @@ import numpy as np
 
 LATEST_FILE = Path("output") / "title_odds_latest.json"
 STAKES_FILE = Path("output") / "stakes.json"
-KINDS = ("nightly", "pretip", "closing", "weekly_build")
+# Every nightly.py mode that prices title odds is a kind (11-11: Step 3a/3b's
+# refresh, poll and afternoon runs were refused here, "kind must be one of";
+# tests/test_title_odds_kinds.py pins nightly.MODES against this tuple).
+KINDS = ("nightly", "pretip", "closing", "weekly_build", "refresh", "poll", "afternoon")
 SCHEMA = 1
 STAKES_SCHEMA = 2           # 2: margins, rs_title / champion, season (task 18b)
 
