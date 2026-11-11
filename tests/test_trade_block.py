@@ -826,3 +826,23 @@ def test_the_hub_page_prints_the_engine_note_calmly():
     page = hub_page.render(p, now=GEN)
     assert "previous engine version (abc1234)" in visible_text(page)
     assert "Do not price anything off this page" not in visible_text(page)
+
+
+def test_an_nba_report_out_counts_as_out_everywhere_the_hub_counts_games():
+    """Nick, 11-11: like D, a game the NBA's injury report has him Out for is
+    out in the rosters' games left and the free agents' counts too (plays()),
+    and the grid keeps its dagger mark for it."""
+    from modules.hub_state import Availability
+    from modules import absence
+    from datetime import date as _d
+    av = Availability.__new__(Availability)
+    tonight, later = _d(2026, 11, 11), _d(2026, 11, 13)
+    av.absence = absence
+    av.tags, av.over, av.today = {"Zion Williamson": "Q"}, {}, tonight
+    av.info = {"Zion Williamson": {"nba_team": "NOP"}}
+    av.team_dates = {"NOP": {tonight, later}}
+    av.nba_outs = {"Zion Williamson": tonight}
+    av.weeks = {4: (_d(2026, 11, 9), _d(2026, 11, 15))}
+    assert av.out("Zion Williamson", tonight) and not av.plays("Zion Williamson", tonight)
+    assert av.plays("Zion Williamson", later)                 # that game only
+    assert av.grid_status("Zion Williamson", tonight) == "nba"

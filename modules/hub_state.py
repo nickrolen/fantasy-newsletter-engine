@@ -566,9 +566,13 @@ class Availability:
         """Out on d: firmly (out_firm: OFS, an O tag's next 3 games, an injury
         entry's dates), or a D tag's next game (Nick, 11-11: "treat D as out
         for his next game everywhere the hub counts games" -- the rosters'
-        games left, the free agents' columns and points, the grid). The one
-        home of the D rule."""
+        games left, the free agents' columns and points, the grid), or a game
+        the NBA's injury report has him Out for (Nick, 11-11: the same, for the
+        report). The one home of both rules; display only -- the lines and
+        title odds read the report through the tags' chain, not this."""
         if self.out_firm(name, d):
+            return True
+        if self.nba_outs.get(name) == d:
             return True
         tag = self.tags.get(name)
         return (tag is not None and self.absence.normalised_tag(tag) == "D"
