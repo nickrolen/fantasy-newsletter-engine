@@ -17,6 +17,10 @@ on:
     # whose first tip is 9:00 AM Pacific (MLK Day 2027-01-18, Presidents' Day
     # 2027-02-15) and forward to 19:30 Pacific; tests/test_cloud_run.py checks
     # every window day of the season against it.
+    # Step 3b: a firing outside the pre-tip window, while Monday's window is
+    # open (12:01 AM to the last tip - 5 min), on the :00 or :30 slot, POLLS
+    # Yahoo's transactions in the guard job instead (run.yml; scripts/
+    # monday_poll.py): a new one runs the refresh, nothing new runs nothing.
     - cron: '*/15 15-23 * * 1'
     - cron: '*/15 0-3 * * 2'
   workflow_dispatch:

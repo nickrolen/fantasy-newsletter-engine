@@ -371,13 +371,17 @@ def _pricing_view(entry: dict) -> dict:
 
 def line_cache_key(*, state_hash: str, tags: str, projections: str, overrides: list,
                    schedule: str, assumptions, seed: int, num_simulations: int,
-                   engine: dict, il: dict = None) -> dict:
+                   engine: dict, il: dict = None, nba_outs: dict = None) -> dict:
     """{"key": str, "parts": {...}, "cacheable": bool, "why_not": str|None}.
 
     parts: state_hash (the played state), tags, projections, overrides (the
     governing INJURY_OVERRIDES entries), schedule, assumptions (every
     override flag a refresh records), seed, num_simulations, engine (E1's
     calibration_log.engine_version: commit + dirtiness over engine_paths).
+
+    nba_outs (step 3b): the NBA report's Outs the line applies ({player:
+    day}). A part only when there are any, so every key priced before 3b is
+    unchanged and no line re-prices for the new part alone.
 
     A dirty or unknown engine is NOT cacheable: the commit does not identify
     the code, so two different uncommitted simulators would share a key.
@@ -389,6 +393,8 @@ def line_cache_key(*, state_hash: str, tags: str, projections: str, overrides: l
              "il": _sha(il or {}),
              "seed": int(seed), "num_simulations": int(num_simulations),
              "engine_commit": engine.get("commit"), "engine_dirty": engine.get("dirty")}
+    if nba_outs:
+        parts["nba_outs"] = _sha(sorted((str(k), str(v)) for k, v in nba_outs.items()))
     why_not = None
     if not engine.get("commit"):
         why_not = "engine commit unknown (git could not say)"

@@ -7,7 +7,26 @@ run_guard.py -- does this scheduled firing run? (step 1c-ii)
                                             has happened (output/nightly_last.json)
     python scripts/run_guard.py pretip      Monday's pre-tip run: admitted only in
                                             [first tip - 45 min, first tip) on a
-                                            window day (a fantasy week's first day)
+                                            window day (a fantasy week's first day);
+                                            outside it, while the Monday window is
+                                            open, the :00 and :30 firings POLL
+                                            (step 3b, monday_decision)
+    python scripts/run_guard.py afternoon   the afternoon tag check (step 3b): the
+                                            fixed firing (config live_refresh) that
+                                            falls in [first tip - 90, first tip - 30],
+                                            on a game day that is not a window day
+
+STEP 3b. The pre-tip job fires every 15 minutes through Monday. A firing
+the pre-tip window does not admit becomes a POLL when (a) the day is a window
+day with games, (b) the window is open: 12:01 AM to the last tip - 5 minutes
+(rule 4; price_lock.window_close), and (c) its slot minute is in
+live_refresh.monday_poll_slots (:00 and :30), so at most one poll every 30
+minutes. The guard tells them apart by the clock alone: a firing in
+[first tip - 45, first tip) is the pre-tip run, whatever its minute. The CLI
+writes go=true for a pre-tip run and poll=true for a poll; the workflow's poll
+steps then read Yahoo's transactions (scripts/monday_poll.py) and run the
+refresh only when one is new. Outside the window nothing polls: moves cannot
+happen then.
 
 STANDARD LIBRARY ONLY, ON PURPOSE (HANDOFF_STEP1C2 s.2). Most firings do
 nothing: the nightly cron fires every 30 minutes through the early morning
@@ -69,7 +88,7 @@ NIGHTLY_LATEST_HOUR = 12       # ... and, for a late firing, at most to noon (11
 NIGHTLY_TIP_MARGIN = timedelta(minutes=60)   # ... and never past the day's first tip less this
 NIGHTLY_MAX_ATTEMPTS = 2       # a failed night is retried once, then waits for Nick
 MARKER_REL = "output/nightly_last.json"
-MODES = ("nightly", "pretip")
+MODES = ("nightly", "pretip", "afternoon")
 
 
 class GuardError(RuntimeError):
@@ -262,6 +281,147 @@ def admits_pretip(now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
     return False, f"outside the pre-tip window {start:%H:%M}-{end:%H:%M} {end:%Z}"
 
 
+# =============================================================================
+# step 3b: Monday polling and the afternoon tag check
+# =============================================================================
+
+WINDOW_CLOSE_BEFORE_LAST_TIP = timedelta(minutes=5)   # rule 4; modules/price_lock's (tests pin it)
+
+
+def live_cfg(base=ROOT) -> dict:
+    """config live_refresh's guard keys, checked. Raises GuardError on a
+    missing or malformed one: the guard never guesses a firing time."""
+    blob = _read(base, "config/league_config.json")
+    where = "config/league_config.json"
+    firings = _key(blob, "live_refresh", "afternoon_firings", where=where)
+    lead = _key(blob, "live_refresh", "afternoon_lead_minutes", where=where)
+    tol = _key(blob, "live_refresh", "firing_tolerance_minutes", where=where)
+    slots = _key(blob, "live_refresh", "monday_poll_slots", where=where)
+    days = _key(blob, "live_refresh", "afternoon_days", where=where)
+    try:
+        times = sorted(datetime.strptime(str(f), "%H:%M").time() for f in firings)
+        lo, hi = (int(x) for x in lead)
+        tol, slots = int(tol), sorted(int(x) for x in slots)
+        names = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        if any(d not in names for d in days):
+            raise ValueError(f"afternoon_days {days} are not day names {names}")
+        weekdays = {names.index(d) for d in days}
+    except (TypeError, ValueError) as e:
+        raise GuardError(f"{where} live_refresh is malformed ({e})") from None
+    if not times or len(times) > 3:
+        raise GuardError(f"{where} live_refresh.afternoon_firings must hold 1 to 3 times")
+    if not 0 < lo < hi or not 0 < tol < 15 or not slots or any(not 0 <= x < 60 for x in slots):
+        raise GuardError(f"{where} live_refresh: lead [{lo}, {hi}], tolerance {tol} or slots {slots} "
+                         "out of range")
+    return {"firings": times, "lead": (timedelta(minutes=lo), timedelta(minutes=hi)),
+            "tolerance": timedelta(minutes=tol), "slots": slots, "weekdays": weekdays}
+
+
+def tip_times(base, day: date, tz: ZoneInfo = None, state_dir=None) -> list:
+    """Every tip of the day on the league clock, ascending ([] with no games).
+    Raises GuardError when a game that day has no tip time (first_tip's rule)."""
+    tz = tz or league_zone(base)
+    games = _games_on(base, day, state_dir)
+    if not games:
+        return []
+    first_tip(base, day, tz, state_dir)                 # raises on a missing tip
+    return sorted(datetime.strptime(str(g["tip_utc"]), "%Y-%m-%dT%H:%M:%SZ")
+                  .replace(tzinfo=timezone.utc).astimezone(tz) for g in games)
+
+
+def window_open(base, day: date, tz: ZoneInfo = None, state_dir=None):
+    """(open from, closes at) for a window day with games: 12:01 AM to the
+    last tip - 5 minutes (rule 4). None on any other day."""
+    tz = tz or league_zone(base)
+    if day not in window_days(base):
+        return None
+    tips = tip_times(base, day, tz, state_dir)
+    if not tips:
+        return None
+    start = datetime.combine(day, datetime.min.time(), tzinfo=tz).replace(minute=1)
+    return start, tips[-1] - WINDOW_CLOSE_BEFORE_LAST_TIP
+
+
+def _slot(now: datetime, cfg: dict):
+    """The poll slot minute this firing stands for, or None."""
+    for s in cfg["slots"]:
+        if 0 <= (now.minute - s) % 60 < cfg["tolerance"].seconds // 60:
+            return s
+    return None
+
+
+def monday_decision(now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
+    """(kind, why): kind "pretip" (the pre-tip run), "poll" (read Yahoo's
+    transactions; refresh if one is new) or None (nothing to do)."""
+    tz = league_zone(base)
+    now = _aware(now_utc).astimezone(tz)
+    ok, why = admits_pretip(now_utc, base, state_dir)
+    if ok:
+        return "pretip", why
+    win = window_open(base, now.date(), tz, state_dir)
+    if win is None:
+        return None, why
+    start, close = win
+    if not start <= now < close:
+        return None, f"{why}; the Monday window is closed ({start:%H:%M}-{close:%H:%M} {close:%Z})"
+    cfg = live_cfg(base)
+    slot = _slot(now, cfg)
+    if slot is None:
+        return None, (f"{why}; the window is open but {now:%H:%M} is not a poll slot "
+                      f"(:{', :'.join(f'{s:02d}' for s in cfg['slots'])})")
+    return "poll", (f"poll: the Monday window is open ({start:%H:%M}-{close:%H:%M} {close:%Z}) and "
+                    f"{now:%H:%M} is the :{slot:02d} slot")
+
+
+def afternoon_plan(base, day: date, tz: ZoneInfo = None, state_dir=None) -> dict:
+    """Which afternoon firing runs on `day`: {"day", "first_tip" (HH:MM or
+    None), "firing" (HH:MM or None), "why"}. None on a window day (the pre-tip
+    runs instead), a day with no games, and a day no firing covers -- that
+    day is skipped, and the nightly run names it in its summary."""
+    tz = tz or league_zone(base)
+    cfg = live_cfg(base)
+    names = ", ".join(t.strftime("%H:%M") for t in cfg["firings"])
+    if day in window_days(base):
+        return {"day": day.isoformat(), "first_tip": None, "firing": None,
+                "why": f"{day:%a %m-%d} is a window day: Monday's pre-tip runs instead"}
+    tip = first_tip(base, day, tz, state_dir)
+    if tip is None:
+        return {"day": day.isoformat(), "first_tip": None, "firing": None,
+                "why": f"{day:%a %m-%d}: no games"}
+    if day.weekday() not in cfg["weekdays"]:
+        return {"day": day.isoformat(), "first_tip": tip.strftime("%H:%M"), "firing": None,
+                "why": (f"{day:%a %m-%d}: SKIPPED -- first tip {tip:%H:%M}, and the afternoon job does "
+                        f"not fire on {day:%A}s")}
+    lo, hi = tip - cfg["lead"][1], tip - cfg["lead"][0]
+    fits = [datetime.combine(day, t, tzinfo=tz) for t in cfg["firings"]]
+    fits = [f for f in fits if lo <= f <= hi]
+    if not fits:
+        return {"day": day.isoformat(), "first_tip": tip.strftime("%H:%M"), "firing": None,
+                "why": (f"{day:%a %m-%d}: SKIPPED -- first tip {tip:%H:%M}, and no firing ({names}) "
+                        f"falls in {lo:%H:%M}-{hi:%H:%M}")}
+    f = max(fits)
+    return {"day": day.isoformat(), "first_tip": tip.strftime("%H:%M"), "firing": f.strftime("%H:%M"),
+            "why": f"{day:%a %m-%d}: the {f:%H:%M} firing (first tip {tip:%H:%M})"}
+
+
+def admits_afternoon(now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
+    """(admitted, why): this firing is today's afternoon firing (afternoon_plan)."""
+    tz = league_zone(base)
+    now = _aware(now_utc).astimezone(tz)
+    cfg = live_cfg(base)
+    slot = None
+    for t in cfg["firings"]:
+        f = datetime.combine(now.date(), t, tzinfo=tz)
+        if timedelta(0) <= now - f < cfg["tolerance"]:
+            slot = f
+    if slot is None:
+        return False, f"{now:%H:%M} is not one of the afternoon firings ({', '.join(t.strftime('%H:%M') for t in cfg['firings'])})"
+    plan = afternoon_plan(base, now.date(), tz, state_dir)
+    if plan["firing"] != slot.strftime("%H:%M"):
+        return False, f"the {slot:%H:%M} firing does not run today -- {plan['why']}"
+    return True, plan["why"]
+
+
 def decide(mode: str, now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
     if mode == "nightly":
         tz = league_zone(base)
@@ -269,6 +429,8 @@ def decide(mode: str, now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
         return nightly_decision(now_utc, tz, read_marker(state_dir if state_dir else base), cut, why)
     if mode == "pretip":
         return admits_pretip(now_utc, base, state_dir)
+    if mode == "afternoon":
+        return admits_afternoon(now_utc, base, state_dir)
     raise ValueError(f"mode must be one of {MODES}")
 
 
@@ -281,16 +443,23 @@ def main(argv=None) -> int:
     ap.add_argument("--now", help="an ISO instant with its offset (tests); default: now")
     a = ap.parse_args(argv)
     now = datetime.fromisoformat(a.now.replace("Z", "+00:00")) if a.now else datetime.now(timezone.utc)
+    base, state = Path(a.base_path), Path(a.state_dir) if a.state_dir else None
+    poll = False
     try:
-        ok, why = decide(a.mode, now, Path(a.base_path), Path(a.state_dir) if a.state_dir else None)
+        if a.mode == "pretip":
+            kind, why = monday_decision(now, base, state)
+            ok, poll = kind == "pretip", kind == "poll"
+        else:
+            ok, why = decide(a.mode, now, base, state)
     except (GuardError, ValueError) as e:
         print(f"GUARD REFUSED ({a.mode}): {e}")
         return 1
-    print(f"{a.mode}: {'GO' if ok else 'nothing to do'} -- {why}")
+    print(f"{a.mode}: {'GO' if ok else 'POLL' if poll else 'nothing to do'} -- {why}")
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a", encoding="utf-8") as f:
             f.write(f"go={'true' if ok else 'false'}\n")
+            f.write(f"poll={'true' if poll else 'false'}\n")
     return 0
 
 

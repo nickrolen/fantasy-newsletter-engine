@@ -43,6 +43,13 @@ tzdata>=2024.1
 cryptography>=42.0
 
 # --------------------------------------------
+# The NBA's official injury report (modules/nba_injury_report.py, step 3b):
+# its PDF's text with positions. Pure Python; pinned (the handoff: a public
+# package is fine if small and pinned). No Java, no paid service.
+# --------------------------------------------
+pypdf==6.21.2
+
+# --------------------------------------------
 # HTTP Requests (dependency for APIs)
 # --------------------------------------------
 requests>=2.28.0

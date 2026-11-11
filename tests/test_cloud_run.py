@@ -54,7 +54,9 @@ FORBIDDEN_FLAGS = ("--allow-dirty-engine", "--allow-engine-mismatch", "--no-leag
 def test_the_workflow_files_exist():
     # step 3a added entry.yml (phone entries) and overrides-push.yml (the desk's
     # INJURY_OVERRIDES push); both call run.yml, the one definition of the steps
-    assert sorted(WORKFLOWS) == ["entry.yml", "nightly.yml", "overrides-push.yml", "pretip.yml", "run.yml"]
+    # step 3b added afternoon.yml (the afternoon tag check, fired by cron-job.org)
+    assert sorted(WORKFLOWS) == ["afternoon.yml", "entry.yml", "nightly.yml", "overrides-push.yml",
+                                 "pretip.yml", "run.yml"]
 
 
 def crons(text: str) -> list:
@@ -164,7 +166,8 @@ def test_secrets_are_only_referenced_never_echoed():
             assert not re.search(r"\bcat\b[^|]*oauth2", s), (name, i, s)
             assert "set -x" not in s, (name, i, s)
             assert not re.search(r"(echo|printf)[^|>]*\$(YAHOO_OAUTH_JSON|HUB_PASSPHRASE|HUB_DEPLOY_TOKEN)", s) \
-                or "printf '%s' \"$YAHOO_OAUTH_JSON\" > oauth2.json" in s, (name, i, s)
+                or "printf '%s' \"$YAHOO_OAUTH_JSON\" > oauth2.json" in s \
+                or "printf '%s' \"$YAHOO_OAUTH_JSON\" > \"$RUNNER_TEMP/oauth2.json\"" in s, (name, i, s)
             if "${{ secrets." in s:
                 # only as an env value or the checkout's token, never inline in a command
                 assert re.match(r"^[A-Z_]+:\s*\$\{\{\s*secrets\.[A-Z_]+\s*\}\}$", s) \
@@ -212,9 +215,17 @@ def test_the_run_job_runs_only_what_the_guard_admits_and_copies_back_always():
     assert "--state-dir ../state" in steps["overlay-in"]["run"]
     assert "hub_deploy.py --target ../hub" in steps["publish-scan"]["run"]
     assert "ENGINE_COMMIT: ${{ steps.pin.outputs.commit }}" in WORKFLOWS["run.yml"]
-    # the guard job installs nothing: the runner's own python3 and four files
+    # the guard job: the runner's own python3 and four files; step 3b's Monday poll
+    # alone installs something -- the two Yahoo client packages, pinned, and only
+    # on a firing the guard marked poll=true
     g = jobs["guard"]["steps"]
-    assert not any("setup-python" in str(s.get("uses", "")) or "pip" in str(s.get("run", "")) for s in g)
+    assert not any("setup-python" in str(s.get("uses", "")) for s in g)
+    pips = [s for s in g if "pip" in str(s.get("run", ""))]
+    assert len(pips) == 1 and pips[0]["if"] == "steps.guard.outputs.poll == 'true'"
+    assert "yahoo-oauth==2.1.1 yahoo-fantasy-api==2.12.3" in pips[0]["run"]
+    poll = next(s for s in g if s.get("id") == "poll")
+    assert poll["if"] == "steps.guard.outputs.poll == 'true'" and "monday_poll.py" in poll["run"]
+    assert 'rm -f "$RUNNER_TEMP/oauth2.json"' in poll["run"]
     assert "python3 engine/scripts/run_guard.py" in str(g)
 
 
@@ -310,7 +321,10 @@ def test_the_guard_cli_writes_go_for_the_workflow(tmp_path, monkeypatch):
     assert rg.main(["pretip", "--now", "2026-11-09T23:30:00Z"]) == 0
     assert rg.main(["pretip", "--now", "2026-11-10T00:00:00Z"]) == 0
     assert rg.main(["nightly", "--now", "2026-11-09T08:01:00Z", "--state-dir", str(tmp_path)]) == 0
-    assert out.read_text().splitlines() == ["go=true", "go=false", "go=true"]
+    # step 3b: the pre-tip guard also writes poll=; 16:00 on 11-09 is past the first
+    # tip with the window open (last tip 19:00), so that firing polls
+    assert out.read_text().splitlines() == ["go=true", "poll=false", "go=false", "poll=true", "go=true",
+                                            "poll=false"]
 
 
 GUARD_BLOCKER = r'''

@@ -159,13 +159,42 @@ def lock_note(status: dict, base: Path, week: int) -> dict:
     from .jsonl_log import read_rows
     waiting = 0
     for r in read_rows(base / "output" / "nightly_runs.jsonl"):
-        if r.get("mode") == "refresh" and r.get("outcome") == "locked" \
+        if r.get("mode") in ("refresh", "poll", "afternoon") and r.get("outcome") == "locked" \
                 and datetime.fromisoformat(str(r.get("started_at"))) >= tip:
             waiting += 1
     if waiting:
         return {"locked": True, "text": price_lock.lock_message(waiting)}
     return {"locked": True, "text": f"Lines locked while games are on (first tip {tip_text}); "
                                     "priced after tonight's games."}
+
+
+def nba_note(base: Path, block: dict = None) -> dict:
+    """The header's small NBA-report note (step 3b s.4): {"text", "flags":
+    [lines]}, both "" / [] when no run has read a report. block: this run's
+    "nba_report" block; else the latest run row's (nightly_runs.jsonl)."""
+    if block is None:
+        from .jsonl_log import read_rows
+        for r in reversed(read_rows(base / "output" / "nightly_runs.jsonl")):
+            if r.get("nba_report") is not None:
+                block = r["nba_report"]
+                break
+    if not block:
+        return {"text": "", "flags": []}
+    if block.get("outcome") != "ok" or not block.get("filed_at"):
+        why = str(block.get("summary") or "unavailable")
+        why = why[:160] + ("\u2026" if len(why) > 160 else "")
+        return {"text": why if why.startswith("NBA report") else f"NBA report unavailable ({why})",
+                "flags": []}
+    from .league_clock import league_tz
+    at = datetime.fromisoformat(block["filed_at"]).astimezone(league_tz())
+    text = (f"NBA injury report filed {at.strftime('%a')} {at.strftime('%I').lstrip('0')}:"
+            f"{at.strftime('%M')} {at.strftime('%p')} Pacific.")
+    if block.get("stale"):
+        text += " Too old to apply."
+    flags = [f["text"] for f in block.get("flags") or []]
+    flags += [f"NBA report lists {x['name']} ({x['team']}), not matched: is it {x['maybe']}?"
+              for x in block.get("loud") or []]
+    return {"text": text, "flags": flags}
 
 
 def build_matchups(line: dict, mviews: dict = None) -> dict:
@@ -425,10 +454,14 @@ class Availability:
     """Who of a roster has a game on a day and will play it."""
 
     def __init__(self, rosters: dict, il_slots: dict, tags: dict, overrides: dict,
-                 this_week: int, player_info: dict, team_dates: dict, weeks: dict, today: date):
+                 this_week: int, player_info: dict, team_dates: dict, weeks: dict, today: date,
+                 nba_outs: dict = None):
         """team_dates: {NBA team: its game dates}; weeks: {fantasy week:
         (first day, last day)}. from_data() reads both from the engine.
-        today: the league day; an O tag counts its games from here."""
+        today: the league day; an O tag counts its games from here.
+        nba_outs (step 3b): {player: "YYYY-MM-DD"}, the NBA report's Outs the
+        run applied (Tags.nba_outs, kept in the tag record): the grid shows
+        that game out, marked (grid_status). Nothing else here reads it."""
         from .data_loader import PlayerIndex
         from . import absence
         if not isinstance(today, date):
@@ -442,6 +475,7 @@ class Availability:
         self.info = player_info
         self.weeks = dict(weeks)
         self.absence = absence
+        self.nba_outs = PlayerIndex({k: date.fromisoformat(str(v)) for k, v in (nba_outs or {}).items()})
         for m, names in rosters.items():
             for n in names:
                 if (self.info.get(n) or {}).get("nba_team") is None:
@@ -449,13 +483,14 @@ class Availability:
                                         "games cannot be counted")
 
     @classmethod
-    def from_data(cls, data, rosters, il_slots, tags, overrides, this_week, player_info, today):
+    def from_data(cls, data, rosters, il_slots, tags, overrides, this_week, player_info, today,
+                  nba_outs: dict = None):
         from .simulator_betting import team_season_dates
         weeks = {int(w["week"]): (date.fromisoformat(str(w["start_date"])[:10]),
                                   date.fromisoformat(str(w["end_date"])[:10]))
                  for w in data.schedule.get("weeks", [])}
         return cls(rosters, il_slots, tags, overrides, this_week, player_info,
-                   team_season_dates(data), weeks, today)
+                   team_season_dates(data), weeks, today, nba_outs)
 
     def week_of(self, d: date) -> int:
         for w, (a, b) in self.weeks.items():
@@ -487,7 +522,7 @@ class Availability:
         ledger's pending moves applied): this instance's schedule, weeks,
         overrides, player info and today."""
         return Availability(rosters, il_slots, tags, self.overrides, self.this_week, self.info,
-                            self.team_dates, self.weeks, self.today)
+                            self.team_dates, self.weeks, self.today, dict(self.nba_outs))
 
     def plays(self, name: str, d: date) -> bool:
         """His team plays on d and he is not out (OFS, an O tag's next 3
@@ -529,6 +564,46 @@ class Availability:
     def players(self, manager: str, d: date) -> List[str]:
         il = self.il.get(manager) or {}
         return [n for n in self.rosters.get(manager, []) if n not in il and self.plays(n, d)]
+
+    # --- the games grid's own display (step 3b s.5; Nick 11-08/11-10). The GRID
+    # ONLY: the lines and title odds keep the chain, and the free agents' and
+    # rosters' game counts keep plays() above.
+    def next_game(self, name: str):
+        """His team's next game from today (today's included), or None."""
+        ds = sorted(x for x in self.team_dates.get(self.info[name]["nba_team"], ()) if x >= self.today)
+        return ds[0] if ds else None
+
+    def grid_status(self, name: str, d: date) -> str:
+        """"none" (no game), "out", "nba" (out: the NBA report has him Out that
+        game), "maybe" (a Q tag's next game: the range's high end counts him,
+        the low end doesn't) or "plays".
+          O       unchanged: out for his team's next 3 games (out());
+          D       out for his next game only; later games count as playing;
+          Q       his next game is a range (option C, on trial);
+          NBA Out that game is out, marked."""
+        if not self.has_game(name, d):
+            return "none"
+        if self.out(name, d):
+            return "out"
+        if self.nba_outs.get(name) == d:
+            return "nba"
+        tag = self.tags.get(name)
+        norm = self.absence.normalised_tag(tag) if tag is not None else None
+        if norm in ("D", "Q") and d == self.next_game(name):
+            return "out" if norm == "D" else "maybe"
+        return "plays"
+
+    def grid_players(self, manager: str, d: date) -> tuple:
+        """(sure, maybe, nba_out): who plays for certain, who is a Q's next
+        game, and who is out on the NBA report, IL slots excluded."""
+        il = self.il.get(manager) or {}
+        sure, maybe, nba = [], [], []
+        for n in self.rosters.get(manager, []):
+            if n in il:
+                continue
+            st = self.grid_status(n, d)
+            (sure if st == "plays" else maybe if st == "maybe" else nba if st == "nba" else []).append(n)
+        return sure, maybe, nba
 
 
 # =============================================================================
@@ -762,6 +837,12 @@ def open_il_text(managers, il_slots: dict, il_cap: int) -> str:
     return "Open IL slots now: " + ", ".join(f"{m} {k}" for m, k in open_) + "."
 
 
+def _rng(lo: int, hi: int) -> str:
+    """A count, or a range "3\u20134" when a Q's next game makes it uncertain
+    (step 3b s.5): a payload string, so the page computes nothing."""
+    return str(lo) if lo == hi else f"{lo}\u2013{hi}"
+
+
 def build_grid_tab(av: Availability, managers, days: List[date], light_max: int,
                    nba_games_on: Dict[date, int], standins: dict = None) -> dict:
     """One tab: per manager, per day, the count who will play; overflow over
@@ -773,31 +854,36 @@ def build_grid_tab(av: Availability, managers, days: List[date], light_max: int,
     from .schedule_strength import fill_daily_lineup_detail, MAX_STARTERS_PER_DAY
     standins = standins or {}
     rows = []
+
+    def fit(ps):
+        return len(fill_daily_lineup_detail(
+            [(p, set(av.info[p]["positions"]), float(av.info[p].get("proj_fppg", 0.0))) for p in ps])[0])
     for m in managers:
-        cells, starts, idle = [], 0, 0
+        cells, st_lo, st_hi, id_lo, id_hi = [], 0, 0, 0, 0
         for d in days:
-            ps = av.players(m, d)
-            n = len(ps)
-            started, _benched, _rem = fill_daily_lineup_detail(
-                [(p, set(av.info[p]["positions"]), float(av.info[p].get("proj_fppg", 0.0))) for p in ps])
-            s = len(started)
-            starts += s
-            idle += n - s
+            sure, maybe, nba = av.grid_players(m, d)
+            lo, hi = len(sure), len(sure) + len(maybe)
+            s_lo, s_hi = fit(sure), fit(sure + maybe)
+            st_lo, st_hi = st_lo + s_lo, st_hi + s_hi
+            id_lo, id_hi = id_lo + (lo - s_lo), id_hi + (hi - s_hi)
             if nba_games_on.get(d, 0) == 0:
                 kind = "off"
-            elif n > MAX_STARTERS_PER_DAY:
+            elif hi > MAX_STARTERS_PER_DAY:
                 kind = "over"
-            elif n <= light_max:
+            elif hi <= light_max:
                 kind = "light"
             else:
                 kind = "normal"
-            est = any(d in standins.get(av.info[p]["nba_team"], ()) for p in ps)
-            cells.append({"n": str(n), "kind": kind,
-                          "overflow": str(max(0, n - MAX_STARTERS_PER_DAY)),
-                          "starts": str(s), "est": "1" if est else ""})
-        rows.append({"manager": m, "cells": cells, "starts": str(starts), "idle": str(idle),
-                     "_starts": starts})
-    rows.sort(key=lambda r: (-r["_starts"], r["manager"]))
+            est = any(d in standins.get(av.info[p]["nba_team"], ()) for p in sure + maybe)
+            cells.append({"n": _rng(lo, hi), "kind": kind,
+                          "overflow": str(max(0, hi - MAX_STARTERS_PER_DAY)),
+                          "starts": _rng(s_lo, s_hi), "est": "1" if est else "",
+                          "rng": "1" if hi != lo else "", "nba": "1" if nba else "",
+                          "nba_names": ", ".join(nba)})
+        rows.append({"manager": m, "cells": cells, "starts": _rng(st_lo, st_hi),
+                     "idle": _rng(min(id_lo, id_hi), max(id_lo, id_hi)),
+                     "rng": "1" if (st_lo, id_lo) != (st_hi, id_hi) else "", "_starts": (st_lo, st_hi)})
+    rows.sort(key=lambda r: (-r["_starts"][0], -r["_starts"][1], r["manager"]))
     for r in rows:
         del r["_starts"]
     return {"days": [{"dow": WEEKDAY_LETTER[d.weekday()], "day": str(d.day), "date": d.isoformat()}
@@ -805,7 +891,9 @@ def build_grid_tab(av: Availability, managers, days: List[date], light_max: int,
             "range": (f"{days[0].strftime('%b')} {days[0].day}\u2013"
                       f"{days[-1].strftime('%b')+' ' if days[-1].month != days[0].month else ''}{days[-1].day}"
                       if days else ""),
-            "rows": rows}
+            "rows": rows,
+            "has_range": "1" if any(c["rng"] for r in rows for c in r["cells"]) else "",
+            "has_nba": "1" if any(c["nba"] for r in rows for c in r["cells"]) else ""}
 
 
 def unscheduled_note(nba_schedule: dict, days) -> str:
@@ -837,11 +925,14 @@ def roster_size_text(n_rostered: int, n_in_il: int, active_cap: int, il_cap: int
 # =============================================================================
 
 def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismatch: bool = False,
-          archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None) -> dict:
+          archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None,
+          nba_report: dict = None) -> dict:
     """The hub's payload. night (Step 3a): "build" builds the matchup
     paragraph (the nightly run, and a desk build); "reuse" shows the nightly
     run's stored one (a refresh, a pre-tip run). night_out, when given, gets
-    {"night": the built paragraphs} for the nightly run to store."""
+    {"night": the built paragraphs} for the nightly run to store.
+    nba_report (step 3b): the run's "nba_report" block (nightly.step_nba_report);
+    a desk build reads the latest run row that carries one."""
     base = Path(base_path)
     from .league_clock import league_now
     from .data_loader import (load_all_data, MANAGERS, MANAGER_TO_TEAM, PlayerIndex,
@@ -926,7 +1017,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     augment_player_info_from_lineups(info, rosters, data.lineups)
     proj = PlayerIndex({r["player_name"]: r for r in pl.to_dict("records")})
     av = Availability.from_data(data, rosters, il_slots, tags,
-                                data.injury_overrides or {"players": []}, week, info, today)
+                                data.injury_overrides or {"players": []}, week, info, today,
+                                nba_outs=(tag_row.get("tags") or {}).get("nba_outs") or {})
     il_cap = int(_LEAGUE_CONFIG["league_structure"]["il_slots"])
     # --- the matchup views (tasks 48a-48c): Summary, Win %, Game flow per card,
     # this week's and last week's
@@ -961,14 +1053,18 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     grid = {"tabs": [
         dict(this_tab, key="this", label="Rest of this week", schedule_note=schedule_note(this_days),
              note=f"From {_mon_d(today)}. Counts players who will play: not in an IL slot, not "
-                  "out under an O tag (at most his team's next 3 games), OFS, or an injury entry."),
+                  "out under an O tag (at most his team's next 3 games), a D tag (his next game), "
+                  "OFS, an injury entry, or the NBA's injury report (that game)."),
         dict(next_tab, key="next", label="Next week", schedule_note=schedule_note(next_days),
              note=pending_note + " IL slots as they will stand, injury entries by date, OFS out. "
                   "An O tag costs at most his team's next 3 games from today, which can reach into "
                   "next week."),
     ], "legend": {"light": f"Light night ({cfg['light_night_max']} or fewer)",
                   "over": "More than 10: some sit",
-                  "est": "Estimated: games the NBA has not scheduled yet"},
+                  "est": "Estimated: games the NBA has not scheduled yet",
+                  "range": "3\u20134: a Q-tagged player's next game (the high end counts him, the low "
+                           "end doesn't)",
+                  "nba": "\u2020 a player out tonight on the NBA's injury report"},
         "foot": "Starts: games that fit a starting lineup. Idle: games by players who sit."}
     starts_left = {r["manager"]: r["starts"] for r in this_tab["rows"]}
 
@@ -1173,6 +1269,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                    "key": cal.engine_key({"engine_commit": eng["commit"], "engine_dirty": eng["dirty"]})},
         "header": {"title": "League Hub", "week_label": f"Week {week} \u00b7 {_mon_d(today)}",
                    "lock": lock_note(status, base, week),
+                   "nba": nba_note(base, nba_report),
                    "line_text": f"Line priced {_clock_text(line_at)}",
                    "engine_mismatch": None if check["ok"] else check["why"]},
         "matchups": build_matchups(line, mviews),

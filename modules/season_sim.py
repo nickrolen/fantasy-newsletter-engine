@@ -363,8 +363,13 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         as_of = _as_of_for(data, w)
         tp_w, mask_w = week_rosters(plan, team_projections, w)
         state = week_state(data, w, as_of, tp_w)
+        # step 3b: the NBA report's Outs (Tags.nba_outs) price the week in progress
+        # exactly as the line does; passed only when there are any, so every
+        # other call is the one it always was
+        outs = getattr(injury_statuses, "nba_outs", None) or {}
         rem = simulate_week_remainder(data, tp_w, reg_entries[w], state, seed, n,
-                                      injury_statuses, il_mask=mask_w)
+                                      injury_statuses, il_mask=mask_w,
+                                      **({"nba_outs": outs} if outs else {}))
         mats[w] = {m: float(state.banked.get(m, 0.0)) + np.asarray(rem.remaining[m]["score"], float)
                    for m in managers}
         in_progress[w] = {"as_of": as_of.isoformat(), "banked": dict(state.banked),

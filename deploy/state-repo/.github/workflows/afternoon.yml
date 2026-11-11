@@ -1,0 +1,32 @@
+# The afternoon tag check, in the private repo's Actions (step 3b,
+# claude/HANDOFF_STEP3B_TAG_FRESHNESS_2026-11-10.md s.2).
+#
+# Lives in the ENGINE at deploy/state-repo/.github/workflows/afternoon.yml and is
+# installed into the private repo by `python scripts\state.py install-workflows`.
+# Edit it in the engine, never in the private repo.
+#
+# FIRED BY cron-job.org ONLY (the "Afternoon tags" job: Tuesday to Sunday at
+# 08:30, 11:30 and 15:30 America/Los_Angeles; deploy/state-repo/cron-job-org.json,
+# which must equal config live_refresh.afternoon_firings -- tests pin both).
+# No GitHub cron here: task 6f removes GitHub's own crons, and every firing
+# bills an Actions minute. The guard (scripts/run_guard.py afternoon) admits the
+# firing in [first tip - 90, first tip - 30], the latest if several, on a game
+# day that is not a window day; every other firing exits in seconds. The run:
+# Yahoo's tags (no PLAYERLIST fetch), the NBA's injury report, then a refresh
+# whose cause names what changed; nothing changed since the last line writes
+# no line, no title odds and no hub.
+name: Afternoon tags
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  afternoon:
+    uses: ./.github/workflows/run.yml
+    with:
+      mode: afternoon
+    secrets: inherit

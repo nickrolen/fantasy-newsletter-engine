@@ -472,9 +472,12 @@ def entry_available(n: int, entry: tuple, d: date, u_rate, tag_block, base_block
     a season-long out (OFS) first, then an override's pro-rate, else the
     tag's block on the games it covers, else the baseline -- never the tag
     and the baseline on the same game, and no baseline in a week an override
-    governs (entry[7] False)."""
+    governs (entry[7] False). A date the NBA's injury report has him Out
+    (TagBlock.forced, step 3b) is a certain miss, ahead of all but OFS."""
     if base_block is not None and base_block.season_out:
         return np.zeros(n, dtype=bool)      # OFS: every remaining game
+    if tag_block is not None and d in tag_block.forced:
+        return np.zeros(n, dtype=bool)      # step 3b: the NBA report has him Out tonight
     avail = np.ones(n, dtype=bool)
     rate = entry[4]
     if rate is not None:
@@ -530,13 +533,18 @@ class TagBlock(NamedTuple):
 
     games: his team's first MAX_TAG_GAMES games from the tag's anchor.
     start: how many of those were already resolved (observed) before the
-           simulated window -- B2's as-of truncation; 0 for a full week.
+           simulated window -- B2's as-of truncation; 0 for a full week. An
+           NBA-report Out on the chain's next open game counts as one more
+           observed miss (step 3b).
     k:     per simulation, how many MORE games he misses from games[start].
+    forced: the dates the NBA's injury report has him Out (step 3b): a
+           certain miss, before anything else (entry_available).
     """
     games: list
     k: np.ndarray
     start: int = 0
     basis: str = "full chain"
+    forced: frozenset = frozenset()   # step 3b: dates the NBA report has him Out -- certain misses
 
     def missed(self, d: date):
         """bool over simulations, or None if d is not an open chain game."""
@@ -558,6 +566,7 @@ def tag_blocks(
     tag_week_info: tuple = None,
     observed: dict = None,
     as_of: date = None,
+    nba_outs: dict = None,
 ) -> dict[str, TagBlock]:
     """player -> TagBlock.
 
@@ -587,13 +596,25 @@ def tag_blocks(
                      not observed: the unconditional block, of which only the
                      games still to come are simulated. TagBlock.basis says
                      which.
+    nba_outs (step 3b): {player: "YYYY-MM-DD"}, the NBA report's Outs that
+                     nothing else covers (nba_injury_report.assess; default:
+                     the tags' own, Tags.nba_outs). That game is a certain
+                     miss (TagBlock.forced). A Q/D chain whose next open game
+                     it is continues as if that game was missed: one more
+                     observed miss, so the chain's second and third games
+                     follow -- no double charge. A player with no chain tag
+                     misses that game only. An O or OFS tag already covers it:
+                     no change.
     """
-    if not injury_statuses:
+    outs = nba_outs if nba_outs is not None else getattr(injury_statuses, "nba_outs", None)
+    if not injury_statuses and not outs:
         return {}
+    out_idx = PlayerIndex({k: date.fromisoformat(str(v)) for k, v in (outs or {}).items()})
     obs_idx = PlayerIndex(observed or {})
     out = {}
-    for name, tag, (games, anchor) in _tagged_players(
-            data, team_projections, injury_statuses, tag_anchor, anchors, tag_week_info):
+    tagged = (_tagged_players(data, team_projections, injury_statuses, tag_anchor, anchors,
+                              tag_week_info) if injury_statuses else [])
+    for name, tag, (games, anchor) in tagged:
         resolved = [g for g in games if as_of is not None and g < as_of]
         log = obs_idx.get(name) or {}
         if not resolved:
@@ -604,8 +625,30 @@ def tag_blocks(
                 f"{g.isoformat()} {'played' if v else 'missed'}" for g, v in zip(resolved, obs))
         else:
             obs, basis = (), "not observed in the logs: unconditional block"
+        forced = out_idx.get(name) if tag != "O" else None      # an O tag already covers it
+        if forced is not None and len(obs) == len(resolved) and len(games) > len(obs) \
+                and games[len(obs)] == forced:
+            # the NBA report has him Out in the chain's next open game: that game
+            # is a miss, observed in advance; the chain goes on from the next one
+            obs = obs + (False,)
+            basis = f"{basis}; NBA report: out {forced.isoformat()}"
         k = absence.missed_from_uniform(draws.uniforms("absence", name, anchor), tag, obs)
-        out[name] = TagBlock(games, np.asarray(k), len(obs), basis)
+        out[name] = TagBlock(games, np.asarray(k), len(obs), basis,
+                             frozenset({forced}) if forced is not None else frozenset())
+    if out_idx:
+        st_idx = injury_statuses if isinstance(injury_statuses, PlayerIndex) else \
+            PlayerIndex(dict(injury_statuses or {}))
+        n = draws.n if draws is not None else 0
+        for tp in team_projections.values():
+            for name in tp.players:
+                d = out_idx.get(name)
+                if d is None or name in out:
+                    continue
+                tag = st_idx.get(name)
+                if tag is not None and absence.normalised_tag(tag) in ("O", "OFS"):
+                    continue                    # the tag covers it: no change
+                out[name] = TagBlock([d], np.zeros(n, dtype=int), 1, f"NBA report: out {d.isoformat()}",
+                                     frozenset({d}))
     return out
 
 
@@ -812,6 +855,7 @@ def simulate_week_matrix(
     observed: dict = None,
     il_mask: dict = None,
     day_means: dict = None,
+    nba_outs: dict = None,
 ) -> dict[str, dict]:
     """
     Simulate one fantasy week, all `draws.n` simulations at once.
@@ -858,7 +902,7 @@ def simulate_week_matrix(
     managers = list(managers or MANAGERS)
     n = draws.n
     blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor,
-                        anchors, tag_week_info, observed, from_date)
+                        anchors, tag_week_info, observed, from_date, nba_outs)
     plan = _week_plan(data, team_projections, week_data, managers)
     base = baseline_blocks(data, team_projections, draws,
                            hazard_anchor(data, tag_anchor, tag_week_info), managers,
@@ -1176,6 +1220,7 @@ def simulate_week_remainder(
     injury_statuses: dict = None,
     anchors: dict = None,
     il_mask: dict = None,
+    nba_outs: dict = None,
 ) -> RemainderResult:
     """B2: the as-of line. Banked from the logs, the rest simulated.
 
@@ -1186,6 +1231,8 @@ def simulate_week_remainder(
     week (so as_of = the first day reproduces the pre-week line exactly, and
     no completed day's result can move a remaining draw). Tags: `anchors`
     from week_state.reconcile_tags, chains conditioned on what the logs saw.
+    nba_outs (step 3b): the NBA report's Outs (tag_blocks; default: the
+    tags' own, Tags.nba_outs).
     seed is required: a live line that changes seed between refreshes moves
     for no reason.
 
@@ -1202,9 +1249,10 @@ def simulate_week_remainder(
     day_means = {}
     rem = simulate_week_matrix(data, team_projections, week_data, injury_statuses, draws,
                                from_date=state.as_of, anchors=anchors, tag_week_info=tw,
-                               observed=state.observed, il_mask=il_mask, day_means=day_means)
+                               observed=state.observed, il_mask=il_mask, day_means=day_means,
+                               nba_outs=nba_outs)
     blocks = tag_blocks(data, team_projections, injury_statuses, draws, None, anchors, tw,
-                        state.observed, state.as_of)
+                        state.observed, state.as_of, nba_outs)
     lines = []
     for m in week_data.get("matchups", []):
         a, b = m["manager_a"], m["manager_b"]

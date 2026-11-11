@@ -13,6 +13,23 @@
 # refreshes with the entry as its cause, and comments the effect. A refusal
 # changes nothing and exits 0: no refresh, no failure issue.
 #
+# Step 3b (claude/HANDOFF_STEP3B_TAG_FRESHNESS_2026-11-10.md):
+#   - Monday polling: a pre-tip firing the guard marks poll=true (a :00 or :30
+#     firing while Monday's window is open, outside the pre-tip window) reads
+#     Yahoo's latest transactions IN THE GUARD JOB (scripts/monday_poll.py, the
+#     two Yahoo client packages pinned below): that job bills its minute anyway,
+#     so a poll that finds nothing writes, commits and publishes nothing and
+#     costs nothing more. A new transaction starts the run job with kind poll:
+#     `nightly.py --poll` (sync, then a refresh named after the transactions).
+#   - mode "afternoon" (afternoon.yml, fired by cron-job.org at the times in
+#     config live_refresh.afternoon_firings): the guard admits today's firing;
+#     the run is `nightly.py --afternoon` (tags, the NBA report, a refresh).
+#   - the installed requirements are cached as a venv keyed on requirements.txt
+#     and the Python version: an install that took 40-60 s is a restore.
+#   - two issue kinds (scripts/flag_issues.py plans them): nba-report (an NBA
+#     report Out Yahoo does not show, one per player per game) and o-no-entry
+#     (the O-past-3-games nudge, nightly, one per player).
+#
 # Lives in the ENGINE at deploy/state-repo/.github/workflows/run.yml and is
 # installed into the private repo by `python scripts\state.py install-workflows`.
 # Edit it in the engine, never in the private repo.
@@ -34,7 +51,7 @@ on:
   workflow_call:
     inputs:
       mode:
-        description: 'nightly, pretip or refresh'
+        description: 'nightly, pretip, afternoon or refresh'
         type: string
         required: true
       cause:
@@ -75,8 +92,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      go: ${{ steps.guard.outputs.go }}
-      reason: ${{ steps.guard.outputs.reason }}
+      # step 3b: a poll that found a new transaction starts the run job too
+      go: ${{ steps.guard.outputs.go == 'true' || steps.poll.outputs.go == 'true' }}
+      kind: ${{ steps.poll.outputs.go == 'true' && 'poll' || inputs.mode }}
+      reason: ${{ steps.guard.outputs.reason || steps.poll.outputs.reason }}
     steps:
       - name: ENGINE_COMMIT, the night's marker and the refetched schedule (the private repo)
         uses: actions/checkout@v6
@@ -86,6 +105,7 @@ jobs:
             /ENGINE_COMMIT
             /output/nightly_last.json
             /data/nba_schedule_*.refetched.json
+            /data/transaction_log.jsonl
           sparse-checkout-cone-mode: false
           filter: blob:none
           persist-credentials: false
@@ -108,6 +128,7 @@ jobs:
           path: engine
           sparse-checkout: |
             /scripts/run_guard.py
+            /scripts/monday_poll.py
             /config/league_config.json
             /config/SCHEDULE.json
             /data/nba_schedule_*.json
@@ -129,6 +150,35 @@ jobs:
           cat guard.log
           if [ "$rc" -ne 0 ]; then
             echo "reason=$(tail -n 1 guard.log | cut -c1-160)" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      # -- step 3b: Monday polling, in this job (it bills a minute anyway)
+      - name: 'Poll: the Yahoo client (pinned)'
+        if: steps.guard.outputs.poll == 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pv"
+          "$RUNNER_TEMP/pv/bin/python" -m pip install -q yahoo-oauth==2.1.1 yahoo-fantasy-api==2.12.3
+
+      - name: "Poll: Yahoo's transactions since the last sync"
+        id: poll
+        if: steps.guard.outputs.poll == 'true'
+        env:
+          YAHOO_OAUTH_JSON: ${{ secrets.YAHOO_OAUTH_JSON }}
+        run: |
+          if [ -z "$YAHOO_OAUTH_JSON" ]; then
+            echo "reason=the secret YAHOO_OAUTH_JSON is not set" >> "$GITHUB_OUTPUT"; exit 1
+          fi
+          umask 077
+          printf '%s' "$YAHOO_OAUTH_JSON" > "$RUNNER_TEMP/oauth2.json"
+          set +e
+          "$RUNNER_TEMP/pv/bin/python" engine/scripts/monday_poll.py --base-path engine --state-dir state \
+            --oauth "$RUNNER_TEMP/oauth2.json" > poll.log 2>&1
+          rc=$?
+          cat poll.log
+          rm -f "$RUNNER_TEMP/oauth2.json"
+          if [ "$rc" -ne 0 ]; then
+            echo "reason=poll: $(tail -n 1 poll.log | cut -c1-150)" >> "$GITHUB_OUTPUT"
             exit 1
           fi
 
@@ -212,13 +262,24 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: engine/requirements.txt
+
+      # step 3b: the installed requirements, cached whole (a venv keyed on the
+      # exact Python and requirements.txt): a restore instead of a 40-60 s install
+      - name: The installed requirements (cache)
+        id: venv
+        uses: actions/cache@v4
+        with:
+          path: ~/venv
+          key: venv-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('engine/requirements.txt') }}
 
       - name: Requirements
         id: install
         run: |
-          python -m pip install -q -r engine/requirements.txt 2>&1 | tee "$RUNNER_TEMP/install.log"
+          {
+            if [ ! -x "$HOME/venv/bin/python" ]; then python -m venv "$HOME/venv" || exit 1; fi
+            "$HOME/venv/bin/python" -m pip install -q -r engine/requirements.txt || exit 1
+            echo "$HOME/venv/bin" >> "$GITHUB_PATH"
+          } 2>&1 | tee "$RUNNER_TEMP/install.log"
           exit "${PIPESTATUS[0]}"
 
       - name: Overlay the state onto the engine
@@ -324,6 +385,7 @@ jobs:
           ENGINE_COMMIT: ${{ steps.pin.outputs.commit }}
           APPLIED: ${{ steps.entry.outputs.applied }}
           ENTRY_CAUSE: ${{ steps.entry.outputs.cause }}
+          KIND: ${{ needs.guard.outputs.kind }}
         run: |
           if [ "$MODE" = refresh ]; then
             if [ "$ENTRY" = true ] && [ "$APPLIED" != true ]; then
@@ -334,8 +396,12 @@ jobs:
             c="${ENTRY_CAUSE:-$CAUSE_INPUT}"
             if [ -z "$c" ]; then echo "a refresh needs its cause" | tee "$RUNNER_TEMP/run.log"; exit 1; fi
             set -- --refresh --cause "$c"
+          elif [ "$MODE" = pretip ] && [ "$KIND" = poll ]; then
+            set -- --poll
           elif [ "$MODE" = pretip ]; then
             set -- --pretip --scheduled
+          elif [ "$MODE" = afternoon ]; then
+            set -- --afternoon
           elif [ "$MODE" = nightly ] && [ "$FORCE" = true ]; then
             set -- --scheduled --ignore-clock
           elif [ "$MODE" = nightly ]; then
@@ -477,9 +543,10 @@ jobs:
           done < "$RUNNER_TEMP/returns_open.tsv"
 
       # a refresh never closes the failure issue: it skips the log pull, so a
-      # night that failed there is not repaired by it
+      # night that failed there is not repaired by it (nor do a poll and the
+      # afternoon check, refreshes too: step 3b)
       - name: Close the failure issue
-        if: success() && steps.run.outputs.ran == 'true' && inputs.mode != 'refresh'
+        if: success() && steps.run.outputs.ran == 'true' && inputs.mode != 'refresh' && inputs.mode != 'afternoon' && needs.guard.outputs.kind != 'poll'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -490,6 +557,52 @@ jobs:
             gh issue close "$n" --repo "$GITHUB_REPOSITORY" \
               --comment "Closed by the good $MODE run $RUN_ID: $RUN_URL"
           done
+
+      # -- step 3b: the NBA report's flags (an Out Yahoo does not show; a name that
+      #    looks like a rostered player's and matches nobody): one issue per player
+      #    per game, deduped by title; the nightly closes those whose game is over
+      - name: Open or close the NBA-report issues
+        if: always() && steps.run.outcome == 'success' && (steps.run.outputs.nba_flags == 'true' || inputs.mode == 'nightly')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ steps.before.outputs.rows }}
+        run: |
+          d="$RUNNER_TEMP/nba_issues"
+          gh label create nba-report --repo "$GITHUB_REPOSITORY" --color C2410C \
+            --description "The NBA's injury report has a rostered player Out that Yahoo doesn't show" --force
+          gh issue list --repo "$GITHUB_REPOSITORY" --label nba-report --state open --limit 100 \
+            --json number,title --jq '.[] | "\(.number)\t\(.title)"' > "$RUNNER_TEMP/nba_open.tsv"
+          python3 engine/scripts/flag_issues.py plan --kind nba --runs-file engine/output/nightly_runs.jsonl \
+            --skip "${ROWS:-0}" --open "$RUNNER_TEMP/nba_open.tsv" --out-dir "$d"
+          while IFS=$'\t' read -r act n title f; do
+            case "$act" in
+              create) gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label nba-report --body-file "$d/$f" ;;
+              close)  gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "$(cat "$d/$f") ($RUN_URL)" ;;
+            esac
+          done < "$d/plan.tsv"
+
+      # -- step 3b: the O-past-3-games nudge (nightly): one issue per player,
+      #    matched by the player (its count grows nightly), closed once answered
+      - name: Open, update or close the O-past-3-games issues
+        if: always() && steps.run.outcome == 'success' && steps.run.outputs.nudges == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ steps.before.outputs.rows }}
+        run: |
+          d="$RUNNER_TEMP/nudge_issues"
+          gh label create o-no-entry --repo "$GITHUB_REPOSITORY" --color 1D76DB \
+            --description "Tagged O past 3 games with no injury entry: add one from the phone" --force
+          gh issue list --repo "$GITHUB_REPOSITORY" --label o-no-entry --state open --limit 100 \
+            --json number,title --jq '.[] | "\(.number)\t\(.title)"' > "$RUNNER_TEMP/nudge_open.tsv"
+          python3 engine/scripts/flag_issues.py plan --kind nudge --runs-file engine/output/nightly_runs.jsonl \
+            --skip "${ROWS:-0}" --open "$RUNNER_TEMP/nudge_open.tsv" --out-dir "$d"
+          while IFS=$'\t' read -r act n title f; do
+            case "$act" in
+              create) gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label o-no-entry --body-file "$d/$f" ;;
+              edit)   gh issue edit "$n" --repo "$GITHUB_REPOSITORY" --title "$title" ;;
+              close)  gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "$(cat "$d/$f") ($RUN_URL)" ;;
+            esac
+          done < "$d/plan.tsv"
 
       # -- the move ledger's flags (step 2): their own issue, never the failure
       #    issue -- a flag does not fail the run, and a good run does not close it
@@ -548,7 +661,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ROWS: ${{ steps.before.outputs.rows }}
           OUTCOMES: >-
-            state=${{ steps.state.outcome }},pin=${{ steps.pin.outcome }},engine=${{ steps.engine.outcome }},engine-check=${{ steps.engine-check.outcome }},python=${{ steps.python.outcome }},install=${{ steps.install.outcome }},overlay-in=${{ steps.overlay-in.outcome }},credentials=${{ steps.credentials.outcome }},entry=${{ steps.entry.outcome }},entry-commit=${{ steps.entry-commit.outcome }},run=${{ steps.run.outcome }},overlay-out=${{ steps.overlay-out.outcome }},commit-state=${{ steps.commit-state.outcome }},hub-token=${{ steps.hub-token.outcome }},hub-checkout=${{ steps.hub-checkout.outcome }},publish-scan=${{ steps.publish-scan.outcome }},publish=${{ steps.publish.outcome }}
+            state=${{ steps.state.outcome }},pin=${{ steps.pin.outcome }},engine=${{ steps.engine.outcome }},engine-check=${{ steps.engine-check.outcome }},python=${{ steps.python.outcome }},venv=${{ steps.venv.outcome }},install=${{ steps.install.outcome }},overlay-in=${{ steps.overlay-in.outcome }},credentials=${{ steps.credentials.outcome }},entry=${{ steps.entry.outcome }},entry-commit=${{ steps.entry-commit.outcome }},run=${{ steps.run.outcome }},overlay-out=${{ steps.overlay-out.outcome }},commit-state=${{ steps.commit-state.outcome }},hub-token=${{ steps.hub-token.outcome }},hub-checkout=${{ steps.hub-checkout.outcome }},publish-scan=${{ steps.publish-scan.outcome }},publish=${{ steps.publish.outcome }}
         run: |
           s=engine/scripts/run_issue.py
           if [ -f "$s" ]; then

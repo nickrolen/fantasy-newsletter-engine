@@ -56,6 +56,20 @@ class InjuryStatusesUnavailable(RuntimeError):
     """Tags are needed for this run and there are none: refuse."""
 
 
+def nba_outs_checked(outs) -> dict:
+    """{player: "YYYY-MM-DD"}, checked: a malformed date or a non-mapping raises."""
+    from datetime import date as _date
+    if outs in (None, {}):
+        return {}
+    if not isinstance(outs, dict):
+        raise ValueError(f"nba_outs must be {{player: YYYY-MM-DD}}, not {type(outs).__name__}")
+    out = {}
+    for k, v in outs.items():
+        _date.fromisoformat(str(v))                      # raises on a malformed date
+        out[str(k)] = str(v)
+    return out
+
+
 class Tags(PlayerIndex):
     """Yahoo tags for one run, in two populations kept apart.
 
@@ -71,12 +85,21 @@ class Tags(PlayerIndex):
 
     A dict(...) or PlayerIndex(...) copy keeps only the rostered tags; the
     roster plan then RAISES rather than treat every free agent as healthy.
+
+    nba_outs (step 3b): {rostered player: "YYYY-MM-DD"} -- the NBA's official
+    injury report has him Out in that day's game and nothing else covers it
+    (modules/nba_injury_report.assess): a certain miss of that one game. The
+    line, the title odds' week in progress and the closing line read it from
+    here (simulator_betting.tag_blocks); the tag record keeps it, so the closing
+    line prices what the pre-tip line priced. Empty: nothing applied.
     """
 
-    def __init__(self, rostered=None, free_agents=None, free_agents_assumed_healthy=False):
+    def __init__(self, rostered=None, free_agents=None, free_agents_assumed_healthy=False,
+                 nba_outs=None):
         super().__init__(rostered or {})
         self.free_agents = PlayerIndex(free_agents) if free_agents is not None else None
         self.free_agents_assumed_healthy = bool(free_agents_assumed_healthy)
+        self.nba_outs = nba_outs_checked(nba_outs)
 
     @classmethod
     def none(cls) -> "Tags":
@@ -84,17 +107,21 @@ class Tags(PlayerIndex):
         return cls({}, None, free_agents_assumed_healthy=True)
 
     def to_json(self) -> dict:
-        return {"rostered": dict(self),
-                "free_agents": None if self.free_agents is None else dict(self.free_agents),
-                "free_agents_assumed_healthy": self.free_agents_assumed_healthy}
+        out = {"rostered": dict(self),
+               "free_agents": None if self.free_agents is None else dict(self.free_agents),
+               "free_agents_assumed_healthy": self.free_agents_assumed_healthy}
+        if self.nba_outs:                    # absent when empty: older records read the same
+            out["nba_outs"] = dict(self.nba_outs)
+        return out
 
     @classmethod
     def from_json(cls, blob: dict) -> "Tags":
-        """{"rostered": ..., "free_agents": ...}; or a flat {player: tag} file
-        from before 10-28, which carries no free agents (free_agents None)."""
+        """{"rostered": ..., "free_agents": ..., "nba_outs": ...}; or a flat
+        {player: tag} file from before 10-28, which carries no free agents
+        (free_agents None)."""
         if isinstance(blob, dict) and "rostered" in blob:
             return cls(blob.get("rostered") or {}, blob.get("free_agents"),
-                       bool(blob.get("free_agents_assumed_healthy")))
+                       bool(blob.get("free_agents_assumed_healthy")), blob.get("nba_outs"))
         return cls(blob or {}, None)
 
 

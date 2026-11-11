@@ -481,5 +481,49 @@
             "paid_by": null,
             "note": "The week-23 game between the Cup semifinal losers. Played and recorded; no stake."
         }
+    },
+    "live_refresh": {
+        "_comment": "Step 3b, tag freshness (claude/HANDOFF_STEP3B_TAG_FRESHNESS_2026-11-10.md). Every key is required: a missing one raises (scripts/run_guard.py, modules/nba_injury_report.py, modules/o_nudge.py). Times are the league clock (America/Los_Angeles) unless named otherwise.",
+        "afternoon_firings": [
+            "08:30",
+            "11:30",
+            "15:30"
+        ],
+        "_afternoon_firings": "The afternoon tag check's fixed daily firings (cron-job.org cannot follow a varying tip time). They MUST equal the cron-job.org 'Afternoon tags' job's times (deploy/state-repo/cron-job-org.json; tests/test_tag_freshness.py pins it). Chosen 11-10 from the season's real first tips (data/nba_schedule_2026-27.refetched.json): the only 3-firing set that covers 103 of the 116 non-window game days left (88.8%). The guard admits the firing in [first tip - afternoon_lead_minutes[1], first tip - afternoon_lead_minutes[0]], the latest if several; a day no firing covers is skipped and named in that night's run summary, never forced.",
+        "afternoon_days": [
+            "Tue",
+            "Wed",
+            "Thu",
+            "Fri",
+            "Sat",
+            "Sun"
+        ],
+        "_afternoon_days": "The days the cron-job.org 'Afternoon tags' job fires (it must equal that job's days; tests pin it). Not Monday: a window Monday has the pre-tip runs, and a Monday that is not a window day (Mon 12-07, inside week 7's 14 days) is named SKIPPED in that night's summary.",
+        "afternoon_lead_minutes": [
+            30,
+            90
+        ],
+        "firing_tolerance_minutes": 14,
+        "_firing_tolerance_minutes": "How late a firing may land and still count as its scheduled slot (cron-job.org fires on time; GitHub's dispatch can lag a minute or two). Below the 15-minute spacing of the Monday firings, so one firing is never read as two slots.",
+        "monday_poll_slots": [
+            0,
+            30
+        ],
+        "_monday_poll_slots": "Monday window polling reuses the pre-tip job's every-15-minute firings: a firing whose slot minute is one of these, inside the window (12:01 AM to the last tip - 5 minutes) and outside the pre-tip window [first tip - 45 min, first tip), polls Yahoo's transactions. So at most one poll every 30 minutes.",
+        "nba_report": {
+            "_comment": "The NBA's official injury report (Nick, 11-10: 'Out' counts as out for that game at once, and is flagged). Read by the nightly run, the afternoon check and Monday's pre-tip runs; every read is stored in output/nba_injury_reports.jsonl. index_url is per season: update it at the season reset. The PDF names carry the filing time on the NBA's clock (time_zone), in cadence_minutes steps; when the index cannot be read, the latest report is found by trying the last probe_steps filing times. A report older than stale_hours is not applied (named in the run summary). A missing or unreadable report never stops a run.",
+            "index_url": "https://official.nba.com/nba-injury-report-2026-27-season/",
+            "pdf_url": "https://ak-static.cms.nba.com/referee/injury/Injury-Report_{date}_{hh}_{mm}{ampm}.pdf",
+            "time_zone": "America/New_York",
+            "cadence_minutes": 15,
+            "probe_steps": 8,
+            "timeout_seconds": 20,
+            "stale_hours": 30
+        },
+        "o_nudge": {
+            "_comment": "The O-past-3-games nudge (run by the nightly only): a player tagged O who has missed more than more_than_games of his team's games, with no injury entry, gets one issue. Rostered players, and free agents with projected FPPG at or above free_agent_min_projected_fppg (the stash's candidates: since 48f an O with no entry is hidden from the stash). 26.0 is the builder's proposal, 11-10: the lowest projected FPPG on any roster that day (26.06), i.e. a free agent who would be rostered. Nick to confirm.",
+            "more_than_games": 3,
+            "free_agent_min_projected_fppg": 26.0
+        }
     }
 }

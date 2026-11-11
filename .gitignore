@@ -315,3 +315,4 @@ Claude outputs/
 # after (scripts/overrides.py), and the nightly run's matchup paragraph.
 output/override_history.jsonl
 output/night_paragraph.json
+output/nba_injury_reports.jsonl

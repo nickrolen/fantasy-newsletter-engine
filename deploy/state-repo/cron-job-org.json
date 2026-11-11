@@ -1,0 +1,12 @@
+{
+  "_comment": "The cron-job.org jobs that fire the private repo's workflows (Nick's account; STATUS_2026-11-07; step 3b adds 'Afternoon tags'). The plan of record: scripts/actions_minutes.py counts the firings from it, and tests/test_tag_freshness.py pins the afternoon times to config live_refresh.afternoon_firings. Every job POSTs to https://api.github.com/repos/nickrolen/newsletter-state/actions/workflows/<workflow>/dispatches with four headers: Authorization: Bearer <the cron-job.org token>, Accept: application/vnd.github+json, X-GitHub-Api-Version: 2022-11-28, Content-Type: application/json. Time zone America/Los_Angeles.",
+  "time_zone": "America/Los_Angeles",
+  "jobs": [
+    {"name": "Nightly", "workflow": "nightly.yml", "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+     "times": ["00:05", "00:35", "01:05", "01:35"], "body": {"ref": "main", "inputs": {"force": "false"}}},
+    {"name": "Pre-tip", "workflow": "pretip.yml", "days": ["Mon"],
+     "every_minutes": 15, "from": "07:00", "to": "19:45", "body": {"ref": "main"}},
+    {"name": "Afternoon tags", "workflow": "afternoon.yml", "days": ["Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+     "times": ["08:30", "11:30", "15:30"], "body": {"ref": "main"}, "new_in": "step 3b"}
+  ]
+}

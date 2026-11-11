@@ -255,7 +255,9 @@ def sync(base_path, raw_transactions: list, *, manager_of, week_of, rulings=(),
     ones may be cut off. That is fine while the fetch overlaps the log (the
     newest page reaches back to something already kept); without an overlap
     there may be a gap, and it RAISES rather than log around it.
-    {"appended": n, "rulings_rows": m, "total": logged transactions}."""
+    {"appended": n, "rulings_rows": m, "total": logged transactions,
+     "new_keys": the appended transactions' keys, oldest first (step 3b: a
+     Monday poll's refresh names its cause from them)}."""
     from .league_clock import league_now
     stamp = (now or league_now()).isoformat(timespec="seconds")
     rows = read(base_path)
@@ -286,7 +288,8 @@ def sync(base_path, raw_transactions: list, *, manager_of, week_of, rulings=(),
                           "logged_at": stamp, "logged_by": run_id})
     new.sort(key=lambda r: (r["timestamp"], r["id"]))
     append_rows(Path(base_path) / LOG_FILE, new + amend)
-    return {"appended": len(new), "rulings_rows": len(amend), "total": len(have) + len(new)}
+    return {"appended": len(new), "rulings_rows": len(amend), "total": len(have) + len(new),
+            "new_keys": [r["key"] for r in new]}
 
 
 def after(base_path, moment: datetime, rows: list = None) -> list:

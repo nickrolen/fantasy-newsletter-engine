@@ -133,25 +133,43 @@ from datetime import date, datetime
 from pathlib import Path
 
 RUNS_FILE = Path("output") / "nightly_runs.jsonl"
-MODES = ("nightly", "pretip", "closing", "refresh")
+MODES = ("nightly", "pretip", "closing", "refresh", "poll", "afternoon")
 NIGHT_CAUSE = {"nightly": "nightly", "pretip": "Monday pre-tip"}
+# step 3b: the runs that are a refresh (no log pull, no clock guard of their
+# own here, the lock judged before pricing, last night's paragraph reused)
+REFRESH_MODES = ("refresh", "poll", "afternoon")
+# step 3b: the runs that READ the NBA's injury report (the runs before tip that
+# price); every other pricing run reuses the latest stored read
+REPORT_READERS = ("nightly", "pretip", "afternoon")
 STEP_TIMEOUT_S = 900
 
 STEPS = {
-    "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "returns", "ledger", "line",
-                "title_odds", "actuals", "hub"),
+    "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "nba_report", "returns",
+                "ledger", "line", "title_odds", "actuals", "hub", "nudges"),
     # Step 3a: the nightly path without the log pull; actuals stays right
     # before the hub, as in every mode that builds one (F1)
-    "refresh": ("engine", "banked", "sync", "settings", "tags", "ledger", "line", "title_odds",
-                "actuals", "hub"),
-    "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "ledger", "line", "title_odds",
-               "actuals", "hub"),
+    "refresh": ("engine", "banked", "sync", "settings", "tags", "nba_report", "ledger", "line",
+                "title_odds", "actuals", "hub"),
+    "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "nba_report", "ledger", "line",
+               "title_odds", "actuals", "hub"),
+    # Step 3b: a Monday poll that found a new Yahoo transaction (the guard job's
+    # scripts/monday_poll.py): the refresh, its cause named from what the sync logged
+    "poll": ("engine", "banked", "sync", "moves", "settings", "tags", "nba_report", "ledger", "line",
+             "title_odds", "actuals", "hub"),
+    # Step 3b: the afternoon tag check, about an hour before the day's first tip
+    "afternoon": ("engine", "banked", "sync", "settings", "tags", "nba_report", "changes", "ledger",
+                  "line", "title_odds", "actuals", "hub"),
     "closing": ("engine", "window", "sync", "closing"),
 }
 
 
 class StepRefused(RuntimeError):
     """A step refused; the run stops here."""
+
+
+class NothingNew(RuntimeError):
+    """A poll whose sync logged no new transaction (another run logged it
+    first): nothing to refresh. Not a failure: the run stops, exit 0."""
 
 
 class RunDeferred(RuntimeError):
@@ -257,6 +275,9 @@ class Run:
             raise ValueError(f"mode must be one of {MODES}")
         if mode == "refresh" and not str(cause or "").strip():
             raise ValueError("a refresh run needs its cause (--cause): what triggered it, in one line")
+        if mode in ("poll", "afternoon") and cause is not None:
+            raise ValueError(f"a {mode} run names its own cause from its inputs; none is passed in")
+        # poll and afternoon: set by their moves / changes step, from their own inputs
         self.cause = (str(cause).strip() if mode == "refresh" else NIGHT_CAUSE.get(mode))
         self.base = Path(base_path)
         self.mode = mode
@@ -478,12 +499,96 @@ class Run:
             _subprocess(self.base, ["scripts/check_playerlist.py"], "check_playerlist")
             done.append("PLAYERLIST fetched and checked")
         tags = fetch_injury_statuses(oauth_file=str(self.base / "oauth2.json"), verbose=False)
-        row = tag_records.append(self.base, tags, run_id=self.run_id, mode=self.mode,
-                                 week=self.week, now=self.now)
         self.ctx["tags"] = tags
         n = sum(1 for t in dict(tags).values() if str(t).upper() != "HEALTHY")
+        if "nba_report" in STEPS[self.mode]:
+            # step 3b: recorded by the nba_report step, with the report's Outs
+            # (Tags.nba_outs), so the closing line reads what the pre-tip line priced
+            done.append(f"{n} rostered tag(s) fetched")
+            return "; ".join(done)
+        row = tag_records.append(self.base, tags, run_id=self.run_id, mode=self.mode,
+                                 week=self.week, now=self.now)
         done.append(f"{n} rostered tag(s) recorded at {row['taken_at']}")
         return "; ".join(done)
+
+    # -- 5a (step 3b): the NBA's official injury report
+    def step_nba_report(self):
+        """Read the report (nightly, afternoon, pre-tip: REPORT_READERS) or
+        reuse the latest stored read (refresh, poll); apply tonight's Outs to
+        the tags (Tags.nba_outs, nba_injury_report.assess); record the tags.
+        The report itself never stops the run: unavailable, unreadable or a
+        failure here is named, nothing is applied, and Yahoo's tags stand. The
+        tag record is written either way (tags are facts)."""
+        from . import nba_injury_report as nr
+        from . import tag_records
+        tags = self.ctx["tags"]
+        info = {"read": None, "outcome": None, "filed_at": None, "applied": {}, "flags": [],
+                "loud": [], "unresolved": 0, "covered": [], "summary": None}
+        try:
+            row = None
+            if self.mode in REPORT_READERS:
+                row = nr.read_and_store(self.base, self.now, run_id=self.run_id, mode=self.mode)
+                info["read"] = "read"
+            else:
+                info["read"] = "reused"
+            lat = nr.latest(self.base)
+            attempt, report = lat["attempt"], lat["report"]
+            info["outcome"] = attempt.get("outcome") if attempt else "none"
+            if attempt is None or attempt.get("outcome") != "ok":
+                tags.nba_outs = {}
+                info["summary"] = (nr.summary(attempt, {}) if attempt else
+                                   "NBA report: none read yet; Yahoo's tags stand")
+            else:
+                assessed = self._assess_report(nr, report, tags)
+                tags.nba_outs = dict(assessed["applied"])
+                info.update(filed_at=report.get("filed_at"), applied=dict(assessed["applied"]),
+                            flags=assessed["flags"], loud=assessed["loud"],
+                            unresolved=len(assessed["unresolved"]), covered=assessed["covered"],
+                            stale=assessed["stale"], summary=nr.summary(attempt, assessed))
+        except Exception as e:                          # noqa: BLE001 -- never stops a run (s.4)
+            tags.nba_outs = {}
+            info.update(outcome="error", summary=f"NBA report unavailable ({type(e).__name__}: {e}); "
+                                                 "Yahoo's tags stand")
+        self.ctx["nba_report"] = info
+        rec = tag_records.append(self.base, tags, run_id=self.run_id, mode=self.mode,
+                                 week=self.week, now=self.now)
+        return f"{info['summary']}; tags recorded at {rec['taken_at']}"
+
+    def _assess_report(self, nr, report, tags) -> dict:
+        from .data_loader import PlayerIndex, load_all_data
+        from .hub_state import override_out_on
+        from .week_state import week_entry, week_for_date
+        data = load_all_data(self.base, current_week=None)
+        rosters = {m: list(v) for m, v in data.get_current_rosters().items()}
+        wk = week_for_date(data, self.today)
+        wstart = date.fromisoformat(str(week_entry(data, wk)["start_date"])[:10])
+        over = PlayerIndex({e["player_name"]: e for e in (data.injury_overrides or {}).get("players", [])})
+
+        def out_today(name):
+            e = over.get(name)
+            return e is not None and override_out_on(e, self.today, wk, wstart)
+        known = nr.known_players(self.base, rosters, data.playerlist)
+        return nr.assess(report, tags, rosters, out_today, self.today, known, now=self.now)
+
+    # -- poll (step 3b): the transactions the sync just logged name the cause
+    def step_moves(self):
+        from . import transaction_log as tlog
+        keys = list((self.ctx.get("sync") or {}).get("log", {}).get("new_keys") or [])
+        if not keys:
+            raise NothingNew("the sync logged no new transaction (another run logged it first): "
+                             "nothing to refresh")
+        rows = {t["key"]: t for t in tlog.transactions(self.base)}
+        missing = [k for k in keys if k not in rows]
+        if missing:
+            raise StepRefused(f"the transaction log lacks {missing}, which the sync reported appending")
+        self.cause = moves_cause([rows[k] for k in keys])
+        return self.cause
+
+    # -- afternoon (step 3b): what changed since the line, from the inputs
+    def step_changes(self):
+        self.cause = afternoon_cause(self.base, self.week, self.ctx["tags"],
+                                     (self.ctx.get("nba_report") or {}))
+        return self.cause
 
     # -- 5b
     def step_ledger(self):
@@ -535,7 +640,7 @@ class Run:
     def step_line(self):
         import refresh_service as rs
         from .simulator_betting import DEFAULT_NUM_SIMULATIONS
-        if self.mode == "refresh":
+        if self.mode in REFRESH_MODES:
             # the lock is judged here, before anything prices: a refresh during
             # the lock prices nothing, even when the line's inputs are unchanged
             # (title odds would otherwise re-price mid-game)
@@ -556,9 +661,17 @@ class Run:
         return out["outcome"] + (f" ({out.get('why_priced')})" if out.get("why_priced") else "")
 
     # -- 7
+    def _afternoon_unchanged(self) -> bool:
+        """Step 3b: an afternoon check whose line came back unchanged (nothing
+        moved since the last line) writes nothing more: no title odds, no hub."""
+        return self.mode == "afternoon" and (self.ctx.get("line") or {}).get("outcome") == "unchanged"
+
     def step_title_odds(self):
         from . import title_odds_run as tor
         from .data_loader import SEASON_SIMS, load_all_data
+        if self._afternoon_unchanged():
+            self.ctx["unchanged"] = True
+            return "skipped: nothing changed since the last line"
         if self.ctx.get("locked"):
             self.ctx["title_odds_outcome"] = "locked"
             return "locked: nothing priced"
@@ -579,6 +692,8 @@ class Run:
     # -- 8
     def step_actuals(self):
         from . import player_actuals as pa
+        if self._afternoon_unchanged():
+            return "skipped: nothing changed since the last line"
         r = pa.update(self.base, today=self.today)
         return (f"through {r['through']}: {len(r['days_fetched'])} day(s), {r['calls']} call(s)"
                 + (f"; backfilled {', '.join(r['backfilled'])}" if r["backfilled"] else ""))
@@ -587,13 +702,15 @@ class Run:
     def step_hub(self):
         import build_hub
         from . import hub_matchups, hub_state
+        if self._afternoon_unchanged():
+            return "skipped: nothing changed since the last line (nothing published)"
         # decisions 2-3: only the nightly run builds the matchup paragraph; a
         # refresh or a pre-tip run shows last night's, byte for byte
         night_out = {}
         payload = hub_state.build(self.base, now=self.now, allow_engine_mismatch=self.allow_dirty,
                                   echo=lambda *a: None,
                                   night="build" if self.mode == "nightly" else "reuse",
-                                  night_out=night_out)
+                                  night_out=night_out, nba_report=self.ctx.get("nba_report"))
         hub_state.write(self.base, payload)
         if self.mode == "nightly" and night_out.get("night") is not None:
             hub_matchups.write_night(self.base, night_out["night"], run_id=self.run_id)
@@ -603,6 +720,18 @@ class Run:
             raise StepRefused(f"build_hub exited {rc}")
         return ("encrypted publish directory" if enc else "preview only (no HUB_PASSPHRASE)") \
             + (" -- ENGINE MISMATCH banner (dirty engine)" if payload["header"]["engine_mismatch"] else "")
+
+    # -- (nightly, last; step 3b s.3): the O-past-3-games nudge
+    def step_nudges(self):
+        """Every player tagged O for more than live_refresh.o_nudge.more_than_games
+        of his team's games with no injury entry -- rostered, and the free agents
+        the stash could show -- gets one issue (scripts/nudge_issue.py, label
+        o-no-entry). Listed in the run's "nudges" block; never guessed."""
+        from . import o_nudge
+        out = o_nudge.find(self.base, self.ctx["tags"], self.today)
+        self.ctx["nudges"] = out
+        bits = [i["title"] for i in out]
+        return "; ".join(bits) or "no player O past the cap without an entry"
 
     # -- closing
     def step_closing(self):
@@ -637,6 +766,12 @@ class Run:
                 rows.append({"step": name, "outcome": "ok", "seconds": round(time.perf_counter() - t0, 2),
                              "detail": str(detail or "")})
                 self.echo(f"  [{name}] ok ({rows[-1]['seconds']} s): {detail}")
+            except NothingNew as e:
+                rows.append({"step": name, "outcome": "nothing new",
+                             "seconds": round(time.perf_counter() - t0, 2), "detail": str(e)})
+                self.echo(f"  [{name}] NOTHING NEW: {e}")
+                outcome = "nothing new"
+                break
             except RunDeferred as e:
                 rows.append({"step": name, "outcome": "deferred",
                              "seconds": round(time.perf_counter() - t0, 2), "detail": str(e)})
@@ -654,6 +789,8 @@ class Run:
                 break
         if outcome == "ok" and self.ctx.get("locked"):
             outcome = "locked"
+        if outcome == "ok" and self.ctx.get("unchanged"):
+            outcome = "unchanged"
         eng = self.ctx.get("engine") or {}
         row = {"run_id": self.run_id, "mode": self.mode, "week": self.week,
                "started_at": started.isoformat(timespec="seconds"),
@@ -670,9 +807,101 @@ class Run:
             row["ledger"] = self.ctx["ledger"]
         if self.ctx.get("schedule") is not None:
             row["schedule"] = self.ctx["schedule"]
+        if self.ctx.get("nba_report") is not None:
+            row["nba_report"] = self.ctx["nba_report"]
+        if self.ctx.get("nudges") is not None:
+            row["nudges"] = self.ctx["nudges"]
+        if self.mode == "nightly":
+            row["afternoon"] = afternoon_plan_today(self.base, self.today)
         from .jsonl_log import append_rows
         append_rows(self.base / RUNS_FILE, [row])
         return row
+
+
+def moves_cause(rows: list) -> str:
+    """A poll's cause, from the transactions themselves (transaction_log rows):
+    "Monday move: Benton added PJ Washington, dropped Paul George";
+    several: "Monday moves: ...; ..."."""
+    bits = []
+    for t in rows:
+        if t["type"] == "trade":
+            sides = {}
+            for p in t["players"]:
+                fm, to = (p.get("from") or {}).get("manager"), (p.get("to") or {}).get("manager")
+                sides.setdefault((fm, to), []).append(p["name"])
+            bits.append("trade: " + "; ".join(f"{fm} sends {', '.join(v)} to {to}"
+                                               for (fm, to), v in sorted(sides.items(), key=str)))
+            continue
+        by = {}
+        for p in t["players"]:
+            if p["action"] == "add":
+                m = (p.get("to") or {}).get("manager")
+                by.setdefault(m, []).append(f"added {p['name']}")
+            elif p["action"] == "drop":
+                m = (p.get("from") or {}).get("manager")
+                by.setdefault(m, []).append(f"dropped {p['name']}")
+        for m, acts in by.items():
+            if not m:
+                raise StepRefused(f"transaction {t['key']} names no manager for {acts}")
+            bits.append(f"{m} {', '.join(acts)}")
+    if not bits:
+        raise StepRefused("the new transactions name no player: no cause can be built")
+    return ("Monday move: " if len(bits) == 1 else "Monday moves: ") + "; ".join(bits)
+
+
+def _tag_word(tag) -> str:
+    """The chain tag (Q, D, O) or "healthy": the line's state file keeps chain
+    tags only, so only they are compared (an OFS, SUSP or NA change still moves
+    the line's cache key, and its win-% point says "also moved: tags")."""
+    from . import absence
+    t = absence.chain_tag(tag) if tag is not None else None
+    return t or "healthy"
+
+
+def afternoon_cause(base, week: int, tags, report: dict) -> str:
+    """The afternoon check's cause from its own inputs: each rostered tag that
+    differs from the tags the current line priced (its state file), and each
+    NBA-report Out it applies that the line did not (its "nba_outs"), and back.
+    "tag update: Jalen Johnson Q->O; NBA report: Zion Williamson out tonight".
+    Nothing changed: "afternoon check: no change" (the line's cache then
+    says unchanged, and nothing is written)."""
+    from .data_loader import PlayerIndex
+    base = Path(base)
+    sp = base / "output" / f"live_lines_week{week}.state.json"
+    lp = base / "output" / f"live_lines_week{week}.json"
+    if not sp.is_file() or not lp.is_file():
+        return f"afternoon check: no week {week} line yet"
+    priced = PlayerIndex({n: (v or {}).get("tag") for n, v in
+                          (json.loads(sp.read_text(encoding="utf-8")).get("tags") or {}).items()})
+    now = PlayerIndex({n: t for n, t in dict(tags).items()})
+    changed = []
+    for n in sorted(set(dict.keys(now)) | set(dict.keys(priced))):
+        a, b = _tag_word(priced.get(n)), _tag_word(now.get(n))
+        if a != b:
+            changed.append(f"{n} {a}\u2192{b}")
+    line_outs = json.loads(lp.read_text(encoding="utf-8")).get("nba_outs") or {}
+    applied = (report or {}).get("applied") or {}
+    bits = []
+    if changed:
+        bits.append("tag update: " + ", ".join(changed))
+    new = sorted(set(applied) - set(line_outs))
+    gone = sorted(set(line_outs) - set(applied))
+    if new:
+        bits.append("NBA report: " + ", ".join(f"{n} out tonight" for n in new))
+    if gone:
+        bits.append("NBA report: " + ", ".join(f"{n} no longer out" for n in gone))
+    return "; ".join(bits) or "afternoon check: no change"
+
+
+def afternoon_plan_today(base, today: date) -> dict:
+    """The nightly run's note on today's afternoon check (run_guard.afternoon_plan):
+    the firing that runs, or SKIPPED and why. Never stops the night."""
+    rg = run_guard()
+    try:
+        from .league_clock import league_tz
+        return rg.afternoon_plan(rg.ROOT, today, league_tz(), base)
+    except Exception as e:                              # noqa: BLE001 -- a note, not a gate
+        return {"day": today.isoformat(), "firing": None, "why": f"unknown ({type(e).__name__}: {e})"}
 
 
 def scheduled_closing(base_path=".", *, now: datetime = None, allow_dirty_engine: bool = False,
@@ -718,6 +947,11 @@ def main(argv=None) -> int:
                    help="record that --week N has no closing line (with --reason), once")
     g.add_argument("--refresh", action="store_true",
                    help="Step 3a: the nightly path without the log pull, after an entry (needs --cause)")
+    g.add_argument("--poll", action="store_true",
+                   help="Step 3b: a Monday poll found a new Yahoo transaction: sync, then refresh "
+                        "with the transactions as the cause")
+    g.add_argument("--afternoon", action="store_true",
+                   help="Step 3b: the afternoon tag check (tags, the NBA report, a refresh)")
     ap.add_argument("--cause", help="with --refresh: what triggered it, one short line")
     ap.add_argument("--week", type=int)
     ap.add_argument("--reason", help="with --no-closing-line: why (recorded)")
@@ -748,6 +982,8 @@ def main(argv=None) -> int:
         ap.error("--cause goes with --refresh")
     if a.refresh and a.scheduled:
         ap.error("--refresh has no clock guard: it runs whenever an entry lands")
+    if (a.poll or a.afternoon) and a.scheduled:
+        ap.error("--poll and --afternoon are admitted by the workflow's guard job, not here")
     from datetime import timezone
     if a.no_closing_line:
         return _no_closing_line(a)
@@ -766,7 +1002,7 @@ def main(argv=None) -> int:
                 print(f"--scheduled: {why}; nothing to do.")
                 return _ran(False)
     mode = ("pretip" if a.pretip else "closing" if a.closing else "refresh" if a.refresh
-            else "nightly")
+            else "poll" if a.poll else "afternoon" if a.afternoon else "nightly")
     if a.scheduled and mode == "nightly":
         c = scheduled_closing(a.base_path, allow_dirty_engine=a.allow_dirty_engine, sims=a.sims,
                               title_sims=a.title_sims)
@@ -800,11 +1036,22 @@ def main(argv=None) -> int:
         for i in ret["issues"]:
             print(f"RETURN PASSED: {i['title']}")
         _gh_flag("returns")
-    if mode == "refresh":
+    rep_ = row.get("nba_report") or {}
+    if rep_.get("summary"):
+        print(rep_["summary"])
+    if rep_.get("flags") or rep_.get("loud"):
+        _gh_flag("nba_flags")
+    for n_ in row.get("nudges") or []:
+        print(f"NUDGE: {n_['title']}")
+    if row.get("nudges") is not None:
+        _gh_flag("nudges")
+    if row.get("afternoon") is not None:
+        print(f"AFTERNOON CHECK TODAY: {row['afternoon']['why']}")
+    if mode in REFRESH_MODES:
         out = os.environ.get("GITHUB_OUTPUT")
         if out:
             with open(out, "a", encoding="utf-8") as f:
-                f.write(f"ran={'false' if row['outcome'] == 'deferred' else 'true'}\n")
+                f.write(f"ran={'false' if row['outcome'] in ('deferred', 'nothing new', 'unchanged') else 'true'}\n")
         return row["exit"]
     sflags = (row.get("schedule") or {}).get("flags") or []
     if sflags:

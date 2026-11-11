@@ -116,6 +116,9 @@ border-radius:8px;font-size:14px;font-weight:600;color:#5B6270}
 .c{text-align:center;font-size:13px;padding:6px 0;border-radius:6px;font-weight:500}
 .c.light{background:#FBE3CF}.c.over{background:#E3ECFB;font-weight:700}.c.off{color:#9AA1AC}
 .c.est{font-style:italic;outline:1px dashed #8A919C;outline-offset:-2px}
+.c.rng{font-size:11px;letter-spacing:-.3px}.k.rng{font-size:12px;letter-spacing:-.3px}
+.c sup{font-size:9px;color:#B42318;margin-left:1px}
+.nbanote{font-size:12px;line-height:1.4;color:#5B6270}.nbanote .fl{color:#B42318;font-weight:600}
 .legend .sw.est{outline:1px dashed #8A919C;outline-offset:-1px;background:#fff}
 .snote{font-size:12px;font-weight:600;color:#7A4A00}
 .k{text-align:right;font-size:14px;font-weight:700}.k.i{font-size:13px;color:#5B6270;font-weight:500}
@@ -230,6 +233,14 @@ def _move_parts(parts) -> str:
                    f'{clean(x["text"])}</span>' for x in parts)
 
 
+def _nba_note(nb) -> str:
+    """The header's NBA-report note (step 3b): payload strings only."""
+    if not nb or not (nb.get("text") or nb.get("flags")):
+        return ""
+    return ('<div class="nbanote">' + clean(nb.get("text") or "")
+            + "".join(f'<div class="fl">{clean(f)}</div>' for f in nb.get("flags") or []) + "</div>")
+
+
 def _mbtns(ids: dict, labels: dict) -> str:
     """The three buttons under a matchup card (tasks 48a-48c)."""
     return ('<div class="mbtns">' + "".join(
@@ -289,7 +300,8 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              f'<div class="fresh"><span class="dot"></span><span>Updated <span id="age">{clean(words)}</span>'
              f' ({clean(payload["generated_text"])})</span></div>'
              f'<div class="lock{" on" if h["lock"]["locked"] else ""}">{clean(h["lock"]["text"])}</div>'
-             '</header>')
+             + _nba_note(h.get("nba"))
+             + '</header>')
 
     # "This week's matchups" is always the first section (F6, 11-09: the Monday
     # checklist is Nick's alone now -- python scripts\ledger.py checklist)
@@ -352,11 +364,16 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
         for r in t["rows"]:
             o.append(f'<div class="g-r" style="{cols}"><span class="m">{clean(r["manager"])}</span>')
             for c in r["cells"]:
-                if c["est"]:
-                    o.append(f'<span class="c {clean(c["kind"])} est" title="estimated">{clean(c["n"])}</span>')
-                else:
-                    o.append(f'<span class="c {clean(c["kind"])}">{clean(c["n"])}</span>')
-            o.append(f'<span class="k">{clean(r["starts"])}</span><span class="k i">{clean(r["idle"])}</span></div>')
+                cls = f'c {clean(c["kind"])}' + (" est" if c["est"] else "") + (" rng" if c.get("rng") else "")
+                tip = "estimated" if c["est"] else ""
+                if c.get("nba"):
+                    tip = (tip + "; " if tip else "") + f'NBA report: {c.get("nba_names", "")} out'
+                mark = "<sup>&dagger;</sup>" if c.get("nba") else ""
+                o.append(f'<span class="{cls}"' + (f' title="{clean(tip)}"' if tip else "")
+                         + f'>{clean(c["n"])}{mark}</span>')
+            kr = " rng" if r.get("rng") else ""
+            o.append(f'<span class="k{kr}">{clean(r["starts"])}</span>'
+                     f'<span class="k i{kr}">{clean(r["idle"])}</span></div>')
         if not t["days"]:
             o.append('<div class="empty">No days left in this week.</div>')
         o.append('<div class="legend">'
@@ -364,6 +381,8 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  f'<span><span class="sw" style="background:#E3ECFB"></span>{clean(gr["legend"]["over"])}</span>'
                  + (f'<span><span class="sw est"></span>{clean(gr["legend"]["est"])}</span>'
                     if t["schedule_note"] else "")
+                 + (f'<span>{clean(gr["legend"]["range"])}</span>' if t.get("has_range") else "")
+                 + (f'<span>{clean(gr["legend"]["nba"])}</span>' if t.get("has_nba") else "")
                  + '</div>'
                  + (f'<div class="empty snote" style="padding:0 10px 6px">{clean(t["schedule_note"])}</div>'
                     if t["schedule_note"] else "")

@@ -35,6 +35,7 @@ def files_for(k: int, n: int) -> list:
 
 
 def run_chunk(k: int, n: int, out: Path, workers: int, timeout: int) -> int:
+    k = k % n                    # chunk N is chunk 0 (same files): one log name for both
     files = files_for(k, n)
     if not files:
         print(f"chunk {k} of {n}: no files")

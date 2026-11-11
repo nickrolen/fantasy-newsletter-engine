@@ -268,6 +268,9 @@ def test_grid_cells_on_stand_in_days_are_estimated_only_while_stand_ins_exist():
 
         def players(self, m, d):
             return ["P1", "P2"] if d == date(2026, 12, 4) else ["P1"]
+
+        def grid_players(self, m, d):              # step 3b: the grid's own rule (sure, maybe, nba)
+            return self.players(m, d), [], []
     tab = hs.build_grid_tab(Av(), ["M"], days, 4, {d: 1 for d in days}, {"BBB": {date(2026, 12, 4)}})
     assert [c["est"] for c in tab["rows"][0]["cells"]] == ["", "1"]
     tab = hs.build_grid_tab(Av(), ["M"], days, 4, {d: 1 for d in days}, {})

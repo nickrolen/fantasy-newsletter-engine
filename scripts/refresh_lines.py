@@ -77,7 +77,9 @@ def waiting_changes(p, key) -> list:
     parts = (on_disk.get("cache") or {}).get("parts")
     if not parts:
         return ["the line on disk has no cache key (a manual refresh)"]
-    return [k for k, v in key["parts"].items() if parts.get(k) != v]
+    # a part only some keys carry (nba_outs, step 3b) counts when it appears or goes
+    return ([k for k, v in key["parts"].items() if parts.get(k) != v]
+            + [k for k in parts if k not in key["parts"]])
 
 
 def lock_check(p, key, now=None) -> None:
@@ -161,6 +163,7 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
     # --- tags
     teams = load_all_team_projections(data)
     from modules.fetch_injury_statuses import Tags
+    nba_outs = {}
     if no_tags:
         live = {}
         plan_tags = Tags.none()
@@ -170,6 +173,9 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
         if not isinstance(live, Tags):
             live = Tags.from_json(live)
         free_agents = live.free_agents
+        # step 3b: the NBA report's Outs ride on the tags (Tags.nba_outs); the
+        # dict below keeps only the rostered tags, so they are kept apart here
+        nba_outs = dict(live.nba_outs)
         # every tag must land on a rostered player -- never silently dropped
         from modules import absence
         live, _unmatched, _missing = absence.resolve_tags(
@@ -202,7 +208,7 @@ def prepare(base_path=".", week=None, as_of=None, seed=None, statuses=None, no_t
     return Prepared(base=base, data=data, week=week, entry=entry, as_of=as_of, seed=int(seed),
                     out_dir=out_dir, state_path=state_path, live=live, anchors=anchors,
                     events=events, assumptions=assumptions, teams=teams, state=state,
-                    il_mask=il_mask or {})
+                    il_mask=il_mask or {}, nba_outs=nba_outs)
 
 
 def cache_key(p: Prepared, sims: int) -> dict:
@@ -218,7 +224,8 @@ def cache_key(p: Prepared, sims: int) -> dict:
         schedule=ws.schedule_fingerprint(p.data, p.entry),
         assumptions=p.assumptions, seed=p.seed, num_simulations=sims,
         engine=_cal.engine_version(p.base),
-        il={m: sorted(v) for m, v in sorted((p.il_mask or {}).items())})
+        il={m: sorted(v) for m, v in sorted((p.il_mask or {}).items())},
+        nba_outs=getattr(p, "nba_outs", None) or {})
 
 
 def price(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, dry_run=False,
@@ -242,8 +249,9 @@ def compute(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, extra: dict = None) ->
     data, week, entry, as_of, seed = p.data, p.week, p.entry, p.as_of, p.seed
     live, anchors, events, assumptions = p.live, p.anchors, p.events, list(p.assumptions)
     teams, state, base, out_dir = p.teams, p.state, p.base, p.out_dir
+    nba_outs = getattr(p, "nba_outs", None) or {}
     res = sb.simulate_week_remainder(data, teams, entry, state, seed, sims, live or None, anchors,
-                                     il_mask=p.il_mask or None)
+                                     il_mask=p.il_mask or None, nba_outs=nba_outs)
     basis = {n: b.basis for n, b in res.tag_blocks.items()}
     for e in events:
         if e["anchor"] is None:
@@ -293,6 +301,8 @@ def compute(p: Prepared, sims=sb.DEFAULT_NUM_SIMULATIONS, extra: dict = None) ->
         "assumptions": assumptions, "tag_events": events, "caveats": CAVEATS,
         "lines": lines,
     }
+    if nba_outs:                    # step 3b: the NBA report's Outs this line priced
+        payload["nba_outs"] = dict(sorted(nba_outs.items()))
     payload.update(extra or {})
     return res, payload
 

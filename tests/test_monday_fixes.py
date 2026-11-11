@@ -36,19 +36,27 @@ LA = ZoneInfo("America/Los_Angeles")
 
 def test_the_step_order_of_every_mode_is_pinned():
     assert nightly.STEPS == {
-        "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "returns", "ledger", "line",
-                    "title_odds", "actuals", "hub"),
+        # step 3b: the NBA report after the tags (it records them); the O-past-3
+        # nudge last (it reads the night's player actuals, and opens issues only)
+        "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "nba_report", "returns",
+                    "ledger", "line", "title_odds", "actuals", "hub", "nudges"),
         # step 3a: the refresh is the nightly path without the log pull
-        "refresh": ("engine", "banked", "sync", "settings", "tags", "ledger", "line", "title_odds",
-                    "actuals", "hub"),
-        "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "ledger", "line",
+        "refresh": ("engine", "banked", "sync", "settings", "tags", "nba_report", "ledger", "line",
+                    "title_odds", "actuals", "hub"),
+        "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "nba_report", "ledger", "line",
                    "title_odds", "actuals", "hub"),
         "closing": ("engine", "window", "sync", "closing"),
+        # step 3b: a Monday poll's refresh, its cause from the synced transactions
+        "poll": ("engine", "banked", "sync", "moves", "settings", "tags", "nba_report", "ledger", "line",
+                 "title_odds", "actuals", "hub"),
+        # step 3b: the afternoon tag check
+        "afternoon": ("engine", "banked", "sync", "settings", "tags", "nba_report", "changes", "ledger",
+                      "line", "title_odds", "actuals", "hub"),
     }
     # actuals sits right before the hub wherever a hub is built
     for mode, steps in nightly.STEPS.items():
         if "hub" in steps:
-            assert steps[-2:] == ("actuals", "hub"), mode
+            assert steps[steps.index("hub") - 1] == "actuals", mode
 
 
 class _FakeYahoo:
