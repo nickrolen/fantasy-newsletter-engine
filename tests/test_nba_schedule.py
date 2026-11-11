@@ -283,10 +283,9 @@ def test_the_page_prints_the_notes_and_marks_cells_from_the_payload_only():
     assert "not yet scheduled" not in visible_text(page0) and ' est"' not in page0
     p["grid"]["tabs"][1]["schedule_note"] = note
     p["grid"]["tabs"][1]["rows"][0]["cells"][0]["est"] = "1"       # a November day: the page doesn't check
-    p["free_agents"]["schedule_note"] = note
     page = hub_page.render(p, now=GEN)
     text = visible_text(page)
-    assert text.count(note) == 2
+    assert text.count(note) == 1                  # the grid's tab only: none under the free agents (Nick, 11-10)
     assert '<span class="c light est" title="estimated">3</span>' in page
     assert "Estimated: games the NBA has not scheduled yet" in text
     assert text.count("Estimated: games the NBA has not scheduled yet") == 1     # only the tab with the note

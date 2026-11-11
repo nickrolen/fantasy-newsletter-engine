@@ -330,7 +330,17 @@ def test_the_real_rulings_load_with_the_real_schedule():
         ("Benton", "Devin Booker", "2026-11-02", 2),
         ("Benton", "Caleb Wilson", "2026-11-02", 2),
         ("Nick", "Desmond Bane", "2026-11-02", 2),
-        ("Nick", "Miles Bridges", "2026-11-02", 2)])
+        ("Nick", "Miles Bridges", "2026-11-02", 2),
+        # the week-3 chat claims, applied 11-09 (written beside the shadow ledger)
+        ("Hayden", "Kyshawn George", "2026-11-09", 3),
+        ("Hayden", "Pascal Siakam", "2026-11-09", 3),
+        ("Nick", "Dejounte Murray", "2026-11-09", 3),
+        ("Nick", "Cedric Coward", "2026-11-09", 3),
+        ("Nick", "Immanuel Quickley", "2026-11-09", 3),
+        ("Benton", "Jabari Smith Jr.", "2026-11-09", 3)])
+    # Nick, 11-10: ledger_mode "on" -- from week 4 on, chat claims count from
+    # the move ledger and no claim_week ruling is written. A new one here is
+    # a mistake, so this list stays exact.
 
 
 # ========================================== listing vs counting (s.3c)
@@ -614,10 +624,14 @@ def test_the_real_add_table_weeks_1_to_3():
             "Hayden": ["Anthony Black", "Brandin Podziemski", "Yaxel Lendeborg"],
             "Benton": ["Caleb Wilson", "Devin Booker"],
             "Garrett": ["Aaron Wiggins", "Toumani Camara"]}}
-    # week 3 so far (updated 11-03, step 1c's builder: the pin said "nobody",
-    # true until Monday 11-02's two direct window adds, each 1 of 3; STATUS 11-03)
-    assert got.get(3) == {"Benton": ["Davion Mitchell"], "Garrett": ["De'Aaron Fox"]}
-    assert "Franz Wagner" not in str(got)
+    # week 3, final (11-10): Monday 11-02's two direct window adds, and the
+    # six week-3 chat claims applied in the 11-09 window (rule 7)
+    assert got.get(3) == {"Benton": ["Davion Mitchell", "Jabari Smith Jr."], "Garrett": ["De'Aaron Fox"],
+                          "Nick": ["Cedric Coward", "Dejounte Murray", "Immanuel Quickley"],
+                          "Hayden": ["Kyshawn George", "Pascal Siakam"]}
+    # Hayden's voided 10-25 Wagner add counts nowhere (Nick's own real Wagner
+    # add, 11-09, is week 4's: the check is Hayden's, 11-10)
+    assert all("Franz Wagner" not in by.get("Hayden", []) for by in got.values())
     assert "Paul George" not in got[1].get("Garrett", []) + got[2]["Garrett"]
     assert tr.over_budget(counts, 3) == []
 

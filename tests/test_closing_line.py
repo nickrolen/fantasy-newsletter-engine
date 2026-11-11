@@ -210,6 +210,12 @@ def test_title_odds_at_the_close_use_the_same_inputs(priced_twice):
     assert (row["kind"], row["run_id"], row["as_of"]) == \
         ("closing", "closing-week3", priced_twice["first"]["line"]["closing"]["window_close"])
     data = cl.pre_close_data(ROOT, MONDAY, load_all_data(ROOT, current_week=None))
+    # pre_close_data cuts the logs, not RECORDS: in production the close is
+    # priced on Tuesday of its own week, before the weekly build records it.
+    # Once the real RECORDS hold week 3 (the 11-09 weekly build), re-pricing
+    # week 3's close from disk can't be "as at the close" any more (11-10).
+    if int((data.records or {}).get("last_updated_week") or 0) >= 3:
+        pytest.skip("the real RECORDS already hold week 3's result: its close can't be re-priced from disk")
     sp = tor.run_pass(data, seed=priced_twice["first"]["line"]["seed"], sims=400,
                       statuses=priced_twice["tags"])
     assert 3 not in sp.in_progress and 3 in sp.simulated_weeks        # nothing of Monday banked

@@ -332,8 +332,11 @@ sys.exit(run_guard.main())
                                   ["nightly", "--now", "2026-11-09T08:01:00Z"],
                                   ["pretip", "--now", "2026-11-10T12:00:00Z"]])
 def test_the_guard_imports_nothing_outside_the_standard_library(args, tmp_path):
+    # --state-dir: an empty folder, so the real output/nightly_last.json (which
+    # moves every night) can't make a clock pinned to 11-09 read as the past (11-10)
     r = subprocess.run([sys.executable, "-c", GUARD_BLOCKER, str(ROOT / "scripts"), *args,
-                        "--base-path", str(ROOT)], capture_output=True, text=True, cwd=str(tmp_path))
+                        "--base-path", str(ROOT), "--state-dir", str(tmp_path)],
+                       capture_output=True, text=True, cwd=str(tmp_path))
     assert r.returncode == 0, r.stdout + r.stderr
     assert ("GO" in r.stdout) == (args[0] == "nightly" or args[2].startswith("2026-11-09T23"))
 

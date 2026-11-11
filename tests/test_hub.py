@@ -117,7 +117,7 @@ def sample_payload(**over) -> dict:
                                   "tags": [{"text": "O \u00b7 back 11-23", "kind": "out"}]}],
                         "aside": "by projected points, rest of this week + next", "pts_label": "Pts (2 wks)",
                         "mode": "this", "cols": ["GL", "Next", "Wk 5"], "weeks": [3, 4, 5],
-                        "empty": "No pickup joins a roster again this season.", "schedule_note": "",
+                        "empty": "No pickup joins a roster again this season.",
                         "note": "Chat claims arrive with the ledger."},
         "stash": {"rows": [{"name": "Hurt Agent", "pos": "PG", "nba": "DDD", "proj": "41.5", "status": "override",
                             "tags": [{"text": "O \u00b7 back 11-23", "kind": "out"}], "season": False,

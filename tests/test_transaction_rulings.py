@@ -100,10 +100,17 @@ def txn(kind, manager, player, d="2026-10-26"):
 @needs_state("config/TRANSACTION_RULINGS.json", why="checks the real rulings file")
 def test_the_real_file_holds_garretts_ruling_and_loads():
     rulings = tr.voids(tr.load_rulings(ROOT))
-    assert [(r.date, r.manager, r.type, r.player, r.ruling) for r in rulings] == [
+    # The file only grows: the voids through week 4 are pinned as its first
+    # rows, and a later void (appended) doesn't break this test (11-10).
+    assert [(r.date, r.manager, r.type, r.player, r.ruling) for r in rulings][:6] == [
         ("2026-10-26", "Garrett", "add", "Paul George", "void"),
         # Nick, 10-31: Hayden's Sunday-night Wagner add "never happened effectively"
-        ("2026-10-25", "Hayden", "add", "Franz Wagner", "void")]
+        ("2026-10-25", "Hayden", "add", "Franz Wagner", "void"),
+        # Benton's Saturday 11-07 add/re-add, and his 11-09 Ty Jerome/AD undo
+        ("2026-11-07", "Benton", "add", "Jabari Smith Jr.", "void"),
+        ("2026-11-07", "Benton", "add", "Davion Mitchell", "void"),
+        ("2026-11-09", "Benton", "add", "Ty Jerome", "void"),
+        ("2026-11-09", "Benton", "add", "Anthony Davis", "void")]
 
 
 def test_a_ruling_the_code_does_not_know_raises(tmp_path):

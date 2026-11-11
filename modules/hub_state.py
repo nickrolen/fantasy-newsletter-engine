@@ -1115,8 +1115,9 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         cols_note += "".join(f" Week {w} is one fantasy week of {len(wk_dates[w])} days (rule 9): "
                              f"its games are one column." for w in long_weeks)
     pts_label = PTS_LABELS.get(len(shown)) or (f"Pts ({shown[0]['label']})" if shown else PTS_LABEL)
+    # no note on the unscheduled Cup games here (Nick, 11-10: "remove it"); the
+    # grid's tabs keep theirs
     free = {"rows": fa_rows, "aside": aside, "pts_label": pts_label, "mode": fcols["mode"],
-            "schedule_note": schedule_note([d for c in shown for d in c["days"]]),
             "cols": [c["label"] for c in fcols["cols"]],
             "weeks": [c["week"] for c in fcols["cols"]],
             "empty": "No pickup joins a roster again this season.",

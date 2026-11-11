@@ -388,8 +388,6 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  f'<span class="num">{clean(r["g1"])}</span><span class="num">{clean(r["g2"])}</span>'
                  f'<span class="num">{clean(r["g3"])}</span>'
                  f'<span class="num pts">{clean(r["pts"])}</span></div>')
-    if fa["schedule_note"]:
-        o.append(f'<div class="empty snote">{clean(fa["schedule_note"])}</div>')
     o.append(f'<div class="empty" style="font-size:12px">{clean(fa["note"])}</div></div></section>')
 
     # the stash candidates (task 42), under the free agents
