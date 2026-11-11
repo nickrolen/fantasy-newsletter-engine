@@ -151,6 +151,15 @@ def sample_payload(**over) -> dict:
                              "kind": "drop", "parts": [{"kind": "drop", "marker": "\u2212",
                                                        "text": "dropped Kept Drop"}]}]}],
                   "default": "3", "empty": "No moves in this week.", "note": "by budget week."},
+        # task 49: the trade block's view, every value a string
+        "trade_block": {"title": "Trade block", "link": "Trade block", "cards": [
+            {"manager": "Mgr One", "team": "Team Uno", "mode": {"text": "Selling", "kind": "sell"},
+             "mode_since": "since 11-01", "empty": "",
+             "lists": [{"label": "Untouchable", "key": "untouchable",
+                        "rows": [{"name": "Zed Alpha", "pos": "PG", "nba": "AAA", "since": "since 11-01"}]}]},
+            {"manager": "Mgr Two", "team": "Team Dos", "mode": {"text": "Neutral", "kind": "neu"},
+             "mode_since": "", "lists": [], "empty": "Nothing listed."}],
+            "foot": "Text Nick to change your block. Clears at the trade deadline (03-04)."},
         "newsletter": {"current": {"week": "2", "label": "Week 2 \u00b7 Oct 26\u2013Nov 1",
                                    "file": "week02-aaaaaaaaaaaa.enc", "size": "2.4 MB"},
                        "archive": [], "empty": "No issue archived yet.", "note": "Past issues."},

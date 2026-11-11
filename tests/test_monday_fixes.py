@@ -38,11 +38,15 @@ def test_the_step_order_of_every_mode_is_pinned():
     assert nightly.STEPS == {
         # step 3b: the NBA report after the tags (it records them); the O-past-3
         # nudge last (it reads the night's player actuals, and opens issues only)
-        "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "nba_report", "returns",
-                    "ledger", "line", "title_odds", "actuals", "hub", "nudges"),
+        # task 49: the trade block's upkeep right after the sync (the rosters it checks)
+        "nightly": ("engine", "logs", "sync", "trade_block", "settings", "schedule", "tags", "nba_report",
+                    "returns", "ledger", "line", "title_odds", "actuals", "hub", "nudges"),
         # step 3a: the refresh is the nightly path without the log pull
         "refresh": ("engine", "banked", "sync", "settings", "tags", "nba_report", "ledger", "line",
                     "title_odds", "actuals", "hub"),
+        # task 49: the facts-only refresh (a trade-block entry): no line, no title odds
+        "refresh_facts": ("engine", "banked", "sync", "line_engine", "settings", "tags", "nba_report",
+                          "ledger", "actuals", "hub"),
         "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "nba_report", "ledger", "line",
                    "title_odds", "actuals", "hub"),
         "closing": ("engine", "window", "sync", "closing"),

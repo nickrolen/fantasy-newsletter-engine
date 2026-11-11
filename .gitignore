@@ -316,3 +316,8 @@ Claude outputs/
 output/override_history.jsonl
 output/night_paragraph.json
 output/nba_injury_reports.jsonl
+
+# Task 49 (11-11): league state. The trade block, and every change to it, before
+# and after (modules/trade_block).
+config/TRADE_BLOCK.json
+output/trade_block_history.jsonl

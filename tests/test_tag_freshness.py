@@ -743,7 +743,9 @@ def test_d_is_out_for_his_next_game_only_and_o_is_unchanged():
     av, _ = grid_world({"P1": "D", "P2": "O"})
     assert [av.grid_status("P1", d) for d in (MON, TUE, WED)] == ["out", "plays", "plays"]
     assert [av.grid_status("P2", d) for d in (MON, TUE, WED)] == ["out", "out", "out"]
-    assert av.plays("P1", MON)                             # the free agents' rule is unchanged
+    # task 49 (Nick, 11-11): D is out for his next game everywhere the hub counts
+    # games, not on the grid only; his later games count
+    assert not av.plays("P1", MON) and av.plays("P1", TUE) and av.plays("P1", WED)
 
 
 def test_q_is_a_range_on_his_next_game():

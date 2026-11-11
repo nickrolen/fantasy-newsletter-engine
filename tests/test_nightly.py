@@ -158,7 +158,8 @@ def test_a_refused_step_leaves_the_last_good_outputs_and_exits_1(tmp_path):
     steps["settings"] = refuse
     run = nightly.Run(tmp_path, "nightly", now=datetime(2026, 11, 4, 0, 1, tzinfo=LA), echo=lambda *a: None)
     row = run.execute(steps)
-    assert called == ["engine", "logs", "sync", "settings"]           # stopped at the refusal
+    # stopped at the refusal (task 49: the trade block's upkeep follows the sync)
+    assert called == ["engine", "logs", "sync", "trade_block", "settings"]
     assert (row["exit"], row["outcome"]) == (1, "refused")
     assert "max_weekly_adds" in row["error"]
     assert [s["step"] for s in row["steps"]] == called and row["steps"][-1]["outcome"] == "refused"

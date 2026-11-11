@@ -31,6 +31,12 @@ WHAT IT FILLS, AND FROM WHERE
                         included ("NO LEAD THIS WEEK" passes through). An
                         "unavailable" block refuses: rerun Step 6.5.
   the trade block       week N's trades (below); deleted when there are none.
+  THE TRADE BLOCK       (task 49) Part 3, Section 10: each team's mode,
+                        untouchables and players on the block, each with
+                        the day it was set: trade_block.current over
+                        config/ROSTERS.json (the hub's own read), one line
+                        per team in the config's order. Nothing entered this
+                        season: every team "neutral; nothing listed".
   Section 9's dates     week N's first and last day.
   the rosters           config/ROSTERS.json, every player, IL-slot players
                         marked "(IL)" from data/IL_SLOTS.json, which must be
@@ -123,6 +129,8 @@ PH_S9_START = "[FILL IN: Week N start date]"
 PH_S9_END = "[FILL IN: Week N end date]"
 PH_ROSTERS = ("[FILL IN: every manager's roster from config/ROSTERS.json, all players listed, "
               "IL-slot players marked (IL) from data/IL_SLOTS.json]")
+PH_BLOCK = ("[FILL IN: the trade block from config/TRADE_BLOCK.json, one line per team with its mode "
+            "and listed players and the day each was set]")
 # placeholders inside the trade block, which the script rewrites whole
 PH_TRADE_INNER = ("[FILL IN: Manager A]", "[FILL IN: Manager B]", "[FILL IN: players/picks sent]")
 
@@ -390,6 +398,25 @@ def roster_lines(base, cfg: dict, schedule: dict, today: date) -> tuple:
                      f"IL {len(on_il)}): {', '.join(shown)}")
     note = (f"config\\ROSTERS.json as synced {synced}; IL slots from data\\IL_SLOTS.json "
             f"(week {now_week}, fetched {il.get('fetched_at')})")
+    return lines, note
+
+
+def block_lines(base, cfg: dict) -> tuple:
+    """(lines, note): the trade block for Part 3's Rumor Mill (task 49),
+    through trade_block.current -- the hub's read, so a player no longer on
+    that manager's roster is left out -- one line per team, every item dated."""
+    from . import trade_block as tb
+    try:
+        rosters = tb.rosters_now(base, cfg["managers"])
+        cur = tb.current(base, rosters, cfg["managers"], cfg["season"]["current"])
+    except tb.TradeBlockError as e:
+        raise PromptsRefused(f"the trade block: {e}") from None
+    lines = tb.prompt_lines(cur, cfg["managers"], cfg["manager_to_team"])
+    n = sum(len(t[lst]) for t in cur["teams"].values() for lst in tb.LISTS)
+    set_ = sum(1 for t in cur["teams"].values() if t["mode"] != "neutral")
+    note = (f"config\\TRADE_BLOCK.json, {n} player(s) listed, {set_} team(s) buying or selling"
+            if (Path(base) / tb.PATH).is_file() else
+            "config\\TRADE_BLOCK.json does not exist yet: nothing entered this season")
     return lines, note
 
 
@@ -692,6 +719,7 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
     block = angles_block(md)
     rows = manager_rows(cfg, data, week)
     rlines, rnote = roster_lines(base, cfg, schedule, today)
+    blines, bnote = block_lines(base, cfg)
     wcti = find_wcti(base, week)
     trades = week_trades(base, cfg, schedule, week, wcti)
     try:
@@ -727,6 +755,7 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
         PH_TEAMS: str(len(cfg["managers"])), PH_ORDINAL: ordinal,
         PH_MANAGERS: "\n".join(f"| {m} | {team} | {', '.join(stars)} |" for m, team, stars in rows),
         PH_ANGLES: block, PH_S9_START: s1, PH_S9_END: s2, PH_ROSTERS: "\n".join(rlines),
+        PH_BLOCK: "\n".join(blines),
     }
     conditions = {
         IF_WCTI: True if wcti else None,
@@ -776,6 +805,7 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
         "- **Star players:** each manager's top three in the report's keeper watch, by keep chance.",
         f"- **Trades in week {week}:** {trade_note}.",
         f"- **Rosters:** {rnote}.",
+        f"- **Trade block:** {bnote} (Part 3, Section 10).",
         f"- **Magic numbers:** none before the week {mfrom} report "
         f"(presentation.magic_number_from_week); this is the week {week} report, so {shown}.",
         *magic_note,

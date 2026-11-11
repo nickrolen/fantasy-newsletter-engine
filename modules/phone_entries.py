@@ -15,6 +15,12 @@ THE GRAMMAR -- strict; anything else is refused with the reason and the forms:
   Trade: <Manager> gets <p1>[, <p2>...]; <Manager> gets <p3>[, ...]
                                              the move ledger (move_ledger's grammar)
 
+  Block: <Manager> untouchable <p1>[, <p2>...]   add to his untouchables    (the trade block,
+  Block: <Manager> on the block <p1>[, <p2>...]  add to his block            modules/trade_block;
+  Block: <Manager> remove <p1>[, <p2>...]        off either list             task 49, 11-11)
+  Block: <Manager> buying | selling | neutral    set his mode
+  Block: <Manager> clear                         empty both lists, mode neutral
+
 - Keywords ("Injury", "remove", "back", "notes", "out for season") are matched
   without regard to case; the canonical spelling is the one above, and
   format_title(parse_title(t)) == t for every canonical title (tested).
@@ -24,6 +30,11 @@ THE GRAMMAR -- strict; anything else is refused with the reason and the forms:
   one NBA player ("Coby White knee": Coby White, notes "knee"); a run that
   could be two players refuses listing them (overrides.resolve_player).
 - The edit forms name a player who has an entry (overrides.resolve_entry).
+- "Block:" names one of the league's managers (any case; the canonical
+  spelling is the config's), then one keyword (any case; canonical lower
+  case) and, for the list forms, players separated by commas. The players
+  are kept AS TYPED here; trade_block.apply resolves them on that manager's
+  roster (the ledger's resolver) and refuses one on any other roster.
 
 This module only reads the title. scripts/apply_entry.py applies it through
 scripts/overrides.py and modules/move_ledger, whose checks are the gate.
@@ -43,6 +54,11 @@ FORMS = (
     "Injury remove: <player>",
     "<Manager> move: +<add> -<drop> IL+<player> IL-<player>  (any of the four, at least one)",
     "Trade: <Manager> gets <player>[, ...]; <Manager> gets <player>[, ...]",
+    "Block: <Manager> untouchable <player>[, ...]",
+    "Block: <Manager> on the block <player>[, ...]",
+    "Block: <Manager> remove <player>[, ...]",
+    "Block: <Manager> buying | selling | neutral",
+    "Block: <Manager> clear",
 )
 
 _MD = r"(?P<m>\d{1,2})/(?P<d>\d{1,2})"
@@ -52,6 +68,14 @@ RE_ADD = re.compile(r"^\s*injury\s*:\s*(?P<subject>\S.*?)\s*,\s*back\s+" + _MD +
 RE_RETURN = re.compile(r"^\s*injury\s*:\s*(?P<name>[^,]*?\S)\s+back\s+" + _MD + r"\s*$", re.I)
 RE_NOTES = re.compile(r"^\s*injury\s*:\s*(?P<name>[^,]*?\S)\s+notes\s+(?P<notes>\S.*?)\s*$", re.I)
 RE_INJURY_ANY = re.compile(r"^\s*injury\b", re.I)
+RE_BLOCK = re.compile(r"^\s*block\s*:\s*(?P<rest>\S.*?)\s*$", re.I)
+RE_BLOCK_ANY = re.compile(r"^\s*block\b", re.I)
+# after "Block: <Manager> ": the list forms, the modes, clear
+RE_BLOCK_LIST = re.compile(r"^(?P<kw>untouchable|on\s+the\s+block|remove)(?:\s+(?P<players>\S.*))?$", re.I)
+RE_BLOCK_MODE = re.compile(r"^(?P<mode>buying|selling|neutral)$", re.I)
+RE_BLOCK_CLEAR = re.compile(r"^clear$", re.I)
+BLOCK_KW = {"untouchable": "untouchable", "on the block": "block", "remove": "remove"}
+BLOCK_TEXT = {"untouchable": "untouchable", "block": "on the block", "remove": "remove"}
 
 
 class TitleRefused(ValueError):
@@ -94,6 +118,11 @@ def parse_title(title: str, managers=None) -> dict:
         return {"kind": "injury", "form": "set-notes", "name": m["name"], "notes": m["notes"]}
     if RE_INJURY_ANY.match(t):
         raise _refuse(f"{t!r} starts like an injury entry but matches none of its forms.")
+    if RE_BLOCK_ANY.match(t):
+        if managers is None:
+            from .data_loader import MANAGERS
+            managers = list(MANAGERS)
+        return parse_block(t, managers)
     from . import move_ledger as ml
     if ml.MOVE_RE.match(t) or ml.TRADE_RE.match(t):
         if managers is None:
@@ -107,8 +136,51 @@ def parse_title(title: str, managers=None) -> dict:
     raise _refuse(f"{t!r} is not an entry.")
 
 
+def parse_block(t: str, managers) -> dict:
+    """A "Block:" title -> {"kind": "block", "manager": the config's spelling,
+    "action": "untouchable" | "block" | "remove" | "mode" | "clear",
+    "mode": buying|selling|neutral (mode only), "players": [as typed]}."""
+    m = RE_BLOCK.match(t)
+    if not m:
+        raise _refuse(f"{t!r} starts like a trade-block entry but names no manager.")
+    rest = m["rest"]
+    hits = [x for x in managers if rest.casefold() == x.casefold()
+            or rest.casefold().startswith(x.casefold() + " ")]
+    if not hits:
+        raise _refuse(f"{t!r}: a trade-block entry starts with a manager ({', '.join(managers)}).")
+    mgr = max(hits, key=len)
+    after = re.sub(r"\s+", " ", rest[len(mgr):].strip())
+    if not after:
+        raise _refuse(f"{t!r} says nothing to do for {mgr}.")
+    base = {"kind": "block", "manager": mgr, "mode": None, "players": []}
+    mm = RE_BLOCK_MODE.match(after)
+    if mm:
+        return dict(base, action="mode", mode=mm["mode"].lower())
+    if RE_BLOCK_CLEAR.match(after):
+        return dict(base, action="clear")
+    ml_ = RE_BLOCK_LIST.match(after)
+    if not ml_:
+        raise _refuse(f"{t!r} matches none of the trade-block forms.")
+    kw = BLOCK_KW[re.sub(r"\s+", " ", ml_["kw"].lower())]
+    if not ml_["players"]:
+        raise _refuse(f"{t!r} names no player.")
+    players = [x.strip() for x in ml_["players"].split(",")]
+    if any(not x for x in players):
+        raise _refuse(f"{t!r} has an empty name between commas.")
+    folded = [x.casefold() for x in players]
+    if len(set(folded)) != len(folded):
+        raise _refuse(f"{t!r} names a player twice.")
+    return dict(base, action=kw, players=players)
+
+
 def format_title(p: dict) -> str:
     """The canonical title of a parsed entry (the round trip)."""
+    if p["kind"] == "block":
+        if p["action"] == "mode":
+            return f"Block: {p['manager']} {p['mode']}"
+        if p["action"] == "clear":
+            return f"Block: {p['manager']} clear"
+        return f"Block: {p['manager']} {BLOCK_TEXT[p['action']]} {', '.join(p['players'])}"
     if p["kind"] == "ledger":
         q = p["parsed"]
         if q["kind"] == "trade":

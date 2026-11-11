@@ -13,6 +13,10 @@
 # refreshes with the entry as its cause, and comments the effect. A refusal
 # changes nothing and exits 0: no refresh, no failure issue.
 #
+# Task 49 (claude/HANDOFF_TRADE_BLOCK_2026-11-11.md): when every entry applied
+# is a trade-block entry (apply_entry.py's facts_only=true) it changes no price:
+# the refresh is `nightly.py --refresh --facts-only` (no line, no title odds).
+#
 # Step 3b (claude/HANDOFF_STEP3B_TAG_FRESHNESS_2026-11-10.md):
 #   - Monday polling: a pre-tip firing the guard marks poll=true (a :00 or :30
 #     firing while Monday's window is open, outside the pre-tip window) reads
@@ -385,6 +389,7 @@ jobs:
           ENGINE_COMMIT: ${{ steps.pin.outputs.commit }}
           APPLIED: ${{ steps.entry.outputs.applied }}
           ENTRY_CAUSE: ${{ steps.entry.outputs.cause }}
+          FACTS_ONLY: ${{ steps.entry.outputs.facts_only }}
           KIND: ${{ needs.guard.outputs.kind }}
         run: |
           if [ "$MODE" = refresh ]; then
@@ -395,7 +400,12 @@ jobs:
             fi
             c="${ENTRY_CAUSE:-$CAUSE_INPUT}"
             if [ -z "$c" ]; then echo "a refresh needs its cause" | tee "$RUNNER_TEMP/run.log"; exit 1; fi
-            set -- --refresh --cause "$c"
+            # task 49: only trade-block entries applied -> nothing to price
+            if [ "$ENTRY" = true ] && [ "$FACTS_ONLY" = true ]; then
+              set -- --refresh --facts-only --cause "$c"
+            else
+              set -- --refresh --cause "$c"
+            fi
           elif [ "$MODE" = pretip ] && [ "$KIND" = poll ]; then
             set -- --poll
           elif [ "$MODE" = pretip ]; then

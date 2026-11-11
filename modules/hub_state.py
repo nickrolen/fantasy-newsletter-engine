@@ -38,7 +38,17 @@ newsletter (design invariant 17):
   moves        every move of the season by budget week (modules/hub_moves,
                task 43): Yahoo's transactions placed by add_budget_week, the
                ledger's pending entries under their claim week
+  trade_block  (task 49) its own view, linked from the power rankings card:
+               trade_block.current (config/TRADE_BLOCK.json, less a player no
+               longer on that roster) in power-rankings order, the mode as a
+               chip, each player with the roster's position and NBA team and
+               "since MM-DD" (trade_block_view)
   newsletter   the archive index (modules/hub_archive)
+
+D (Nick, 11-11): a D-tagged player is out for his next game everywhere the
+hub counts games -- the rosters' GL, the free agents' columns and points,
+the grid -- through the one rule, Availability.out(). Display only: the
+lines and title odds keep the chain and never read Availability.
 
 RAISES (HubInputError, or the builder's own error) on a missing input, naming
 the file. The pieces that come later (the ledger, the Monday checklist,
@@ -528,9 +538,11 @@ class Availability:
 
     def plays(self, name: str, d: date) -> bool:
         """His team plays on d and he is not out (OFS, an O tag's next 3
-        games, an injury entry's dates). The one rule the grid and the free
-        agents' GL, Next and points all count with. IL slots are the
-        roster's, applied by players()."""
+        games, a D tag's next game, an injury entry's dates). The one rule the
+        grid and the free agents' GL, Next and points all count with. IL slots
+        are the roster's, applied by players(). DISPLAY ONLY: the lines and
+        title odds never read Availability (they keep the chain, CHAIN_PLAY;
+        tests/test_trade_block.py pins it)."""
         return self.has_game(name, d) and not self.out(name, d)
 
     def playable(self, name: str, days) -> List[date]:
@@ -551,6 +563,19 @@ class Availability:
         return None
 
     def out(self, name: str, d: date) -> bool:
+        """Out on d: firmly (out_firm: OFS, an O tag's next 3 games, an injury
+        entry's dates), or a D tag's next game (Nick, 11-11: "treat D as out
+        for his next game everywhere the hub counts games" -- the rosters'
+        games left, the free agents' columns and points, the grid). The one
+        home of the D rule."""
+        if self.out_firm(name, d):
+            return True
+        tag = self.tags.get(name)
+        return (tag is not None and self.absence.normalised_tag(tag) == "D"
+                and d == self.next_game(name))
+
+    def out_firm(self, name: str, d: date) -> bool:
+        """OFS, an O tag's next 3 games, an injury entry's dates."""
         tag = self.tags.get(name)
         if tag is not None and self.absence.season_out(tag):
             return True
@@ -567,9 +592,10 @@ class Availability:
         il = self.il.get(manager) or {}
         return [n for n in self.rosters.get(manager, []) if n not in il and self.plays(n, d)]
 
-    # --- the games grid's own display (step 3b s.5; Nick 11-08/11-10). The GRID
-    # ONLY: the lines and title odds keep the chain, and the free agents' and
-    # rosters' game counts keep plays() above.
+    # --- the games grid's own display (step 3b s.5; Nick 11-08/11-10): the Q
+    # range and the NBA report's mark are the GRID ONLY. D is out() itself
+    # (11-11), so every count agrees with the grid on D. The lines and title
+    # odds keep the chain.
     def next_game(self, name: str):
         """His team's next game from today (today's included), or None."""
         ds = sorted(x for x in self.team_dates.get(self.info[name]["nba_team"], ()) if x >= self.today)
@@ -579,20 +605,24 @@ class Availability:
         """"none" (no game), "out", "nba" (out: the NBA report has him Out that
         game), "maybe" (a Q tag's next game: the range's high end counts him,
         the low end doesn't) or "plays".
-          O       unchanged: out for his team's next 3 games (out());
-          D       out for his next game only; later games count as playing;
+          O       unchanged: out for his team's next 3 games (out_firm());
+          D       out for his next game only (out(), the one D rule); later
+                  games count as playing;
           Q       his next game is a range (option C, on trial);
-          NBA Out that game is out, marked."""
+          NBA Out that game is out, marked (before D, as since 3b: a D
+                  player Out on the report shows the mark)."""
         if not self.has_game(name, d):
             return "none"
-        if self.out(name, d):
+        if self.out_firm(name, d):
             return "out"
         if self.nba_outs.get(name) == d:
             return "nba"
+        if self.out(name, d):
+            return "out"
         tag = self.tags.get(name)
         norm = self.absence.normalised_tag(tag) if tag is not None else None
-        if norm in ("D", "Q") and d == self.next_game(name):
-            return "out" if norm == "D" else "maybe"
+        if norm == "Q" and d == self.next_game(name):
+            return "maybe"
         return "plays"
 
     def grid_players(self, manager: str, d: date) -> tuple:
@@ -898,6 +928,52 @@ def build_grid_tab(av: Availability, managers, days: List[date], light_max: int,
             "has_nba": "1" if any(c["nba"] for r in rows for c in r["cells"]) else ""}
 
 
+# =============================================================================
+# the trade block (task 49): its own view, linked from the power rankings card
+# =============================================================================
+
+MODE_CHIP_KIND = {"buying": "buy", "selling": "sell", "neutral": "neu"}
+TRADE_BLOCK_EMPTY = "Nothing listed."
+
+
+def trade_block_view(block: dict, power_rows: list, roster_blocks: dict, deadline: date,
+                     today: date) -> dict:
+    """The view's payload, every value a string: one card per team in power-
+    rankings order (power_rows), the mode as a chip with the day it was set,
+    the two lists (only those with a player) with each player's position, NBA
+    team and "since MM-DD" (the roster's own pos and NBA strings), "Nothing
+    listed." for a team with no player listed, and the foot. `block` is
+    trade_block.current (a player no longer on the roster is not in it)."""
+    from .trade_block import LISTS, LIST_LABEL, MODE_LABEL, md
+    cards = []
+    for r in power_rows:
+        m = r["manager"]
+        t = block["teams"].get(m)
+        if t is None:
+            raise HubInputError(f"the trade block has no team for {m}")
+        on = {p["name"]: p for p in roster_blocks[m]["players"]}
+        lists = []
+        for lst in LISTS:
+            rows = []
+            for e in t[lst]:
+                p = on.get(e["player"])
+                if p is None:
+                    raise HubInputError(f"{e['player']} is on {m}'s trade block but not in his roster block")
+                rows.append({"name": p["name"], "pos": p["pos"], "nba": p["nba"],
+                             "since": f"since {md(e['set'])}"})
+            if rows:
+                lists.append({"label": LIST_LABEL[lst], "key": lst, "rows": rows})
+        cards.append({"manager": m, "team": r["team"],
+                      "mode": {"text": MODE_LABEL[t["mode"]], "kind": MODE_CHIP_KIND[t["mode"]]},
+                      "mode_since": f"since {md(t['mode_set'])}" if t["mode_set"] else "",
+                      "lists": lists, "empty": "" if lists else TRADE_BLOCK_EMPTY})
+    dl = f"{deadline.month:02d}-{deadline.day:02d}"
+    foot = (f"Text Nick to change your block. Clears at the trade deadline ({dl})." if today <= deadline
+            else f"The trade deadline ({dl}) has passed: the block was cleared and stays closed until "
+                 "next season.")
+    return {"title": "Trade block", "link": "Trade block", "cards": cards, "foot": foot}
+
+
 def unscheduled_note(nba_schedule: dict, days) -> str:
     """Task 46: the one line ("2 games per team in Dec 4-11 not yet scheduled by
     the NBA; counted on estimated days") for a grid tab or the free-agent
@@ -927,6 +1003,7 @@ def roster_size_text(n_rostered: int, n_in_il: int, active_cap: int, il_cap: int
 # =============================================================================
 
 def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismatch: bool = False,
+          previous_engine_ok: bool = False,
           archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None,
           nba_report: dict = None) -> dict:
     """The hub's payload. night (Step 3a): "build" builds the matchup
@@ -965,6 +1042,18 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     # --- the line, and its engine
     line = load_line(base, week)
     check = llp.engine_check(line, base)
+    # previous_engine_ok (11-11): a run that cannot price this week's line (a
+    # refresh while prices are locked, a facts-only trade-block refresh) may
+    # show the line the PREVIOUS clean engine priced, right after set-engine,
+    # with a calm note -- never a dirty or unknown engine's line, and never on
+    # a run that prices (the nightly). It was failing every locked entry made
+    # between set-engine and the next priced run.
+    engine_note = None
+    if not check["ok"] and previous_engine_ok and check["payload"] \
+            and not str(check["payload"]).endswith(("-dirty", "-unknown")):
+        engine_note = (f"Lines priced by the previous engine version ({check['payload']}); they re-price "
+                       "at the next update that can price them.")
+        check = dict(check, ok=True)
     if not check["ok"] and not allow_engine_mismatch:
         raise llp.EngineMismatch(f"week {week} live line: {check['why']}")
     status = price_lock.status(now, data.nba_schedule)
@@ -1153,6 +1242,14 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                      "Yahoo's projection. GL is games left this week. Keep is the chance he is "
                      f"one of your {kv3.line_for(kw, m)} keepers.")}
 
+    # --- the trade block (task 49): read once, shown on its own view
+    from . import trade_block as tb
+    try:
+        tblock = trade_block_view(tb.current(base, rosters), power["rows"], roster_blocks,
+                                  ml.trade_deadline(), today)
+    except (tb.TradeBlockError, ml.LedgerError) as e:
+        raise HubInputError(str(e)) from None
+
     # --- free agents (tasks 39, 41): status, playable games in two columns
     # chosen by the clock against this week's window close, ranked by points
     from . import absence
@@ -1227,8 +1324,9 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
             "empty": "No pickup joins a roster again this season.",
             "note": (f"{pts_label}: Yahoo's projected FPPG (Proj) times the games he will play in the "
                      f"columns. {cols_note} The columns count only games he will play: an injury "
-                     f"entry's dates, OFS, and an O tag's next {absence.MAX_TAG_GAMES} games (no injury "
-                     "entry) are left out. Injured players stay listed: an O or OFS player can go "
+                     f"entry's dates, OFS, an O tag's next {absence.MAX_TAG_GAMES} games (no injury "
+                     "entry) and a D tag's next game are left out. Injured players stay listed: an O or "
+                     "OFS player can go "
                      "straight into an open IL slot. A player claimed in the group chat leaves this "
                      "list at once; one dropped in the chat joins it, available from the next Monday.")}
 
@@ -1272,7 +1370,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                    "lock": lock_note(status, base, week),
                    "nba": nba_note(base, nba_report),
                    "line_text": f"Line priced {_clock_text(line_at)}",
-                   "engine_mismatch": None if check["ok"] else check["why"]},
+                   "engine_mismatch": None if check["ok"] else check["why"],
+                   "engine_note": engine_note},
         "matchups": build_matchups(line, mviews),
         "matchup_views": mviews["views"],
         "power": power,
@@ -1283,6 +1382,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "advice": None,
         "advice_empty": "Advice is being rebuilt; it returns here once it is ready.",
         "moves": moves,
+        "trade_block": tblock,
         "newsletter": newsletter,
         "sources": {"line": (Path("output") / f"live_lines_week{week}.json").as_posix(),
                     "title_odds": f"the title-odds run {power['run_id']} (modules/title_odds_run)",

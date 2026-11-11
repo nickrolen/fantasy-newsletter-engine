@@ -342,7 +342,7 @@ def test_a_non_nick_author_or_sender_is_refused_with_one_comment_and_nothing_els
     before = _hash(base)
     acts, out = _apply(base, tmp_path, _event(9, "Injury remove: Coby White", author=author, sender=sender))
     assert acts == [{"issue": 9, "verdict": "unauthorized", "comment": ae.UNAUTHORIZED, "close": False,
-                     "label": None, "unlabel": False, "comment_file": "9.md"}]
+                     "label": None, "unlabel": False, "facts_only": False, "comment_file": "9.md"}]
     assert ae.UNAUTHORIZED == "Only Nick's entries are applied."
     assert _hash(base) == before
 

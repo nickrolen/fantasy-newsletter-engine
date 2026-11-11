@@ -31,6 +31,7 @@ Before opening the drafting chat, pull these from the **stats report markdown** 
    - **Trade:** "[Manager A]-[Manager B] trade: [key pieces]. **All-time trade history: [N] deals between them** (verify against `trade_partners` data). First-ever / Nth trade between them this season."
 5. **Fantasy trades this week?** -- Check the move ledger (`python scripts\ledger.py list`), the transaction log, and whether `data\weeklycontextinput_weekN.json` exists (it carries the picks).
 6. **Current rosters** -- Copy all managers' rosters from `config\ROSTERS.json` for Part 3, marking each player in an IL slot (`data\IL_SLOTS.json`) "(IL)".
+7. **The trade block** -- Copy each team's mode and listed players from `config\TRADE_BLOCK.json` for Part 3's Rumor Mill, each with the day it was set.
 
 ---
 <!-- END BY HAND ONLY -->
@@ -154,6 +155,11 @@ Finish the Week [FILL IN: N] Newsletter. Write **Sections 9-10** and the closing
 [FILL IN: every manager's roster from config/ROSTERS.json, all players listed, IL-slot players marked (IL) from data/IL_SLOTS.json]
 
 ### Section 10: Rumor Mill
+**The trade block** (what each manager told Nick and the hub shows: his mode, his untouchables and the players he has on the block, each with the day it was set):
+[FILL IN: the trade block from config/TRADE_BLOCK.json, one line per team with its mode and listed players and the day each was set]
+
+The Rumor Mill may cite the trade block as what that manager has said, with its date. It is the managers' own word, not a rumor and not advice.
+
 Use the rumor_mill data from the stats report. Cover trade ideas, free agent targets, hot streaks, and slump watch per the template's instructions. Cover only what the stats report has: an empty list gets no subsection.
 
 **The advice is off** until the new engine ships: the stats report's Section 10 says only "The advice returns with the new engine." The page prints that line itself; don't retype it and write no advice (trade finder, waiver plans) of your own. If you mention the advice, use that sentence word for word.

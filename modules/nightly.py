@@ -108,6 +108,23 @@ STEP 3a (HANDOFF_STEP3A s.1), the refresh run:
   block), and gets one issue (scripts/returns_issue.py, label return-passed)
   when he is still tagged O/OFS or his tag is unknown.
 
+TASK 49 (HANDOFF_TRADE_BLOCK_2026-11-11), the trade block:
+  - the nightly run's step 3a, trade_block, right after the sync: a listed
+    player no longer on that manager's roster (traded, dropped) is taken off,
+    and from the day after the trade deadline the whole block is cleared,
+    once (modules/trade_block.upkeep; history rows by "nightly"; the run
+    record's "trade_block" block). Nothing is re-priced.
+  - the FACTS-ONLY refresh, after a trade-block entry (it changes no price):
+
+        python scripts\\nightly.py --refresh --facts-only --cause "trade block: Garrett selling"
+
+    the refresh's steps without line and title_odds (STEPS["refresh_facts"]),
+    so no win-% point and no title-odds row; the run's row says
+    "facts_only": true. Its step line_engine defers the run (exit 0, nothing
+    built) when this week's line on disk was priced by another engine (just
+    after set-engine): the hub refuses a line priced by another engine, and a
+    facts-only run must not price one. The next run that prices rebuilds it.
+
 STEP 1c-ii (HANDOFF_STEP1C2):
   - a scheduled nightly run first prices the latest closed week's closing line
     when it is due (closing_line.due): a week with no pre-tip tag record is
@@ -144,12 +161,17 @@ REPORT_READERS = ("nightly", "pretip", "afternoon")
 STEP_TIMEOUT_S = 900
 
 STEPS = {
-    "nightly": ("engine", "logs", "sync", "settings", "schedule", "tags", "nba_report", "returns",
-                "ledger", "line", "title_odds", "actuals", "hub", "nudges"),
+    "nightly": ("engine", "logs", "sync", "trade_block", "settings", "schedule", "tags", "nba_report",
+                "returns", "ledger", "line", "title_odds", "actuals", "hub", "nudges"),
     # Step 3a: the nightly path without the log pull; actuals stays right
     # before the hub, as in every mode that builds one (F1)
     "refresh": ("engine", "banked", "sync", "settings", "tags", "nba_report", "ledger", "line",
                 "title_odds", "actuals", "hub"),
+    # task 49: a refresh after a trade-block entry, which changes no price: the
+    # refresh without line and title_odds (no win-% point, no title-odds row);
+    # mode "refresh" with facts_only (--refresh --facts-only)
+    "refresh_facts": ("engine", "banked", "sync", "line_engine", "settings", "tags", "nba_report",
+                      "ledger", "actuals", "hub"),
     "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "nba_report", "ledger", "line",
                "title_odds", "actuals", "hub"),
     # Step 3b: a Monday poll that found a new Yahoo transaction (the guard job's
@@ -269,10 +291,13 @@ class Run:
 
     def __init__(self, base_path=".", mode: str = "nightly", *, week: int = None, now: datetime = None,
                  allow_dirty_engine: bool = False, sims: int = None, title_sims: int = None,
-                 echo=print, cause: str = None):
+                 echo=print, cause: str = None, facts_only: bool = False):
         from .league_clock import league_now
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}")
+        if facts_only and mode != "refresh":
+            raise ValueError("facts_only is a refresh's switch (--refresh --facts-only)")
+        self.facts_only = bool(facts_only)
         if mode == "refresh" and not str(cause or "").strip():
             raise ValueError("a refresh run needs its cause (--cause): what triggered it, in one line")
         if mode in ("poll", "afternoon") and cause is not None:
@@ -354,6 +379,35 @@ class Run:
             raise RunDeferred(f"{', '.join(d.isoformat() for d in todo)} not banked yet: the 12:01 AM "
                               "run pulls the logs and prices this change; nothing priced or built now")
         return "every finished league day is banked"
+
+    def steps(self) -> tuple:
+        """This run's steps: STEPS[mode], or the facts-only refresh's."""
+        return STEPS["refresh_facts" if self.facts_only else self.mode]
+
+    # -- 3a (nightly; task 49): the trade block's upkeep
+    def step_trade_block(self):
+        from . import trade_block as tb
+        out = tb.upkeep(self.base, tb.rosters_now(self.base), self.today, self.now)
+        self.ctx["trade_block"] = {"cleared": out["cleared"], "removed": out["removed"]}
+        return tb.upkeep_text(out)
+
+    # -- facts-only refresh (task 49): the hub builds only on a line of this engine
+    def step_line_engine(self):
+        from . import live_lines_page as llp
+        from .hub_state import load_line
+        line = load_line(self.base, self.week)
+        chk = llp.engine_check(line, self.base)
+        if not chk["ok"] and not self.allow_dirty:
+            if chk["payload"] and not str(chk["payload"]).endswith(("-dirty", "-unknown")):
+                # 11-11: the hub shows the previous clean engine's line with a
+                # note (hub_state.build previous_engine_ok), so the entry still
+                # reaches the hub now
+                return (f"week {self.week}'s line is the previous engine's ({chk['payload']}); the hub "
+                        "shows it with a note until the next run that prices")
+            raise RunDeferred(f"week {self.week}'s line on disk was priced by engine {chk['payload']}, the "
+                              f"engine is {chk['current']}: a facts-only refresh prices nothing, so the "
+                              "hub is rebuilt (with this change) by the next run that prices")
+        return f"week {self.week}'s line is engine {chk['current']}'s"
 
     # -- 5c (nightly): passed return dates (decision 13b)
     def step_returns(self):
@@ -501,7 +555,7 @@ class Run:
         tags = fetch_injury_statuses(oauth_file=str(self.base / "oauth2.json"), verbose=False)
         self.ctx["tags"] = tags
         n = sum(1 for t in dict(tags).values() if str(t).upper() != "HEALTHY")
-        if "nba_report" in STEPS[self.mode]:
+        if "nba_report" in self.steps():
             # step 3b: recorded by the nba_report step, with the report's Outs
             # (Tags.nba_outs), so the closing line reads what the pre-tip line priced
             done.append(f"{n} rostered tag(s) fetched")
@@ -708,6 +762,7 @@ class Run:
         # refresh or a pre-tip run shows last night's, byte for byte
         night_out = {}
         payload = hub_state.build(self.base, now=self.now, allow_engine_mismatch=self.allow_dirty,
+                                  previous_engine_ok=self.mode in REFRESH_MODES,
                                   echo=lambda *a: None,
                                   night="build" if self.mode == "nightly" else "reuse",
                                   night_out=night_out, nba_report=self.ctx.get("nba_report"))
@@ -752,7 +807,7 @@ class Run:
         rows, error, outcome = [], None, "ok"
         from .roster_plan import take_notes
         take_notes()                                    # this run's notes only
-        for name in STEPS[self.mode]:
+        for name in self.steps():
             fn = (steps or {}).get(name) or getattr(self, f"step_{name}")
             t0 = time.perf_counter()
             try:
@@ -801,6 +856,10 @@ class Run:
                "exit": 1 if outcome == "refused" else 0, "error": error}
         if self.cause is not None:
             row["cause"] = self.cause
+        if self.facts_only:
+            row["facts_only"] = True
+        if self.ctx.get("trade_block") is not None:
+            row["trade_block"] = self.ctx["trade_block"]
         if self.ctx.get("returns") is not None:
             row["returns"] = self.ctx["returns"]
         if self.ctx.get("ledger") is not None:
@@ -953,6 +1012,9 @@ def main(argv=None) -> int:
     g.add_argument("--afternoon", action="store_true",
                    help="Step 3b: the afternoon tag check (tags, the NBA report, a refresh)")
     ap.add_argument("--cause", help="with --refresh: what triggered it, one short line")
+    ap.add_argument("--facts-only", action="store_true",
+                    help="with --refresh (task 49): rebuild the hub's facts and price nothing "
+                         "(a trade-block entry)")
     ap.add_argument("--week", type=int)
     ap.add_argument("--reason", help="with --no-closing-line: why (recorded)")
     ap.add_argument("--scheduled", action="store_true",
@@ -980,6 +1042,8 @@ def main(argv=None) -> int:
         ap.error("--refresh needs --cause: what triggered it, in one short line")
     if a.cause is not None and not a.refresh:
         ap.error("--cause goes with --refresh")
+    if a.facts_only and not a.refresh:
+        ap.error("--facts-only goes with --refresh")
     if a.refresh and a.scheduled:
         ap.error("--refresh has no clock guard: it runs whenever an entry lands")
     if (a.poll or a.afternoon) and a.scheduled:
@@ -1015,7 +1079,7 @@ def main(argv=None) -> int:
         if c["outcome"] != "not due":
             print(f"closing line, week {c['week']}: {c['outcome']}")
     run = Run(a.base_path, mode, week=a.week, allow_dirty_engine=a.allow_dirty_engine,
-              sims=a.sims, title_sims=a.title_sims, cause=a.cause)
+              sims=a.sims, title_sims=a.title_sims, cause=a.cause, facts_only=a.facts_only)
     print(f"{mode} run {run.run_id}")
     row = run.execute()
     if mode == "nightly":
@@ -1029,6 +1093,11 @@ def main(argv=None) -> int:
         for f_ in flags:
             print(f"  {f_}")
         _ledger_flags(True)
+    tb_ = row.get("trade_block") or {}
+    if tb_.get("cleared"):
+        print("TRADE BLOCK: the trade deadline has passed; every team's block cleared")
+    for r in tb_.get("removed") or []:
+        print(f"TRADE BLOCK: {r['player']} taken off {r['manager']}'s list (no longer on his roster)")
     if row.get("returns") is not None:
         ret = row["returns"]
         for r in ret["removed"]:

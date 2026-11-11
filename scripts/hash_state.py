@@ -57,7 +57,7 @@ def main(argv=None) -> int:
         print(f"{len(a)} before, {len(b)} after; {digest(a)} / {digest(b)}; "
               f"{'IDENTICAL' if not (added or removed or changed) else 'DIFFERENT'}")
         return 0 if not (added or removed or changed) else 1
-    if len(argv) != 1:
+    if len(argv) != 1 or argv[0].startswith("-"):     # "--help" is not an output path (11-11)
         print(__doc__)
         return 2
     rec = record()

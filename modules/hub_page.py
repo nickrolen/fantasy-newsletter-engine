@@ -48,6 +48,12 @@ FONT = ('-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ari
 # for body text: tests/test_hub.py pins it.
 MOVE_COLOURS = {"add": "#008033", "drop": "#D50000", "trade": "#8A2BE2"}
 
+# The trade block's mode chips (task 49): (background, text). Each text colour
+# is at least 4.5:1 on its own background (tests/test_trade_block.py), and
+# the word itself (Buying / Selling / Neutral) carries the meaning.
+MODE_CHIP_COLOURS = {"buy": ("#DDF3E4", "#11592A"), "sell": ("#FBE3CF", "#8A3F06"),
+                     "neu": ("#EEF0F3", "#3A404A")}
+
 CSS = """
 *{box-sizing:border-box}
 body{margin:0;background:#F4F5F7;color:#121417;font-family:%(font)s;
@@ -149,6 +155,21 @@ background:#fff;color:#121417}
 .chip{font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:#E3ECFB;color:#17489E;white-space:nowrap}
 .chip.il,.chip.out{background:#FBE3CF;color:#8A3F06}.chip.q{background:#FFF1C9;color:#6B4E00}
 .chip.st{background:#E3ECFB;color:#17489E}
+.chip.buy{background:%(buy_bg)s;color:%(buy_fg)s}.chip.sell{background:%(sell_bg)s;color:%(sell_fg)s}
+.chip.neu{background:%(neu_bg)s;color:%(neu_fg)s}
+.tb-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:12px 14px;
+border-bottom:1px solid #EEF0F3}
+.tb-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.tb-t .n{font-size:15px;font-weight:700;overflow-wrap:anywhere}
+.tb-t .s,.tb-m .s,.tb-r .s{font-size:11px;color:#5B6270}
+.tb-m{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none}
+.tb-m .chip{font-size:12px;padding:2px 7px}
+.tb-l{padding:8px 14px 10px}
+.tb-k{font-size:11px;font-weight:700;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;padding-bottom:2px}
+.tb-r{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #EEF0F3}
+.tb-r .pn{display:flex;flex-direction:column;min-width:0}
+.tb-r .pn .n{white-space:normal;overflow-wrap:anywhere}
+.tb-r .since{flex:none;white-space:nowrap}
 .issue{all:unset;box-sizing:border-box;cursor:pointer;background:#121417;color:#fff;border-radius:14px;padding:16px;
 display:flex;justify-content:space-between;align-items:center;min-height:44px;width:100%%}
 .issue .t{display:flex;flex-direction:column;gap:2px}
@@ -201,7 +222,8 @@ justify-content:center;border-radius:8px;border:1px solid #C9CED6;font-size:13px
 #issue-view .bar2{background:#121417;padding:10px 16px}
 #issue-view iframe{flex:1;border:0;width:100%%}
 """ % {"font": FONT, "add": MOVE_COLOURS["add"], "drop": MOVE_COLOURS["drop"],
-       "trade": MOVE_COLOURS["trade"]}
+       "trade": MOVE_COLOURS["trade"],
+       **{f"{k}_{w}": v[i] for k, v in MODE_CHIP_COLOURS.items() for i, w in ((0, "bg"), (1, "fg"))}}
 
 
 def age_words(generated_at: datetime, now: datetime) -> tuple:
@@ -300,6 +322,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              f'<div class="fresh"><span class="dot"></span><span>Updated <span id="age">{clean(words)}</span>'
              f' ({clean(payload["generated_text"])})</span></div>'
              f'<div class="lock{" on" if h["lock"]["locked"] else ""}">{clean(h["lock"]["text"])}</div>'
+             + (f'<div class="lock">{clean(h["engine_note"])}</div>' if h.get("engine_note") else "")
              + _nba_note(h.get("nba"))
              + '</header>')
 
@@ -346,7 +369,11 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  f'<span class="num{" adds-over" if r["adds_over"] else ""}">{clean(r["adds"])}</span></button>')
     o.append(f'<button class="link" data-open="v-chart" style="all:unset;cursor:pointer;display:block;'
              f'padding:12px 14px;font-size:13px;font-weight:600;color:#1D5FD1">'
-             f'{clean(pw["chart_title"])} over the season &rarr;</button></div>'
+             f'{clean(pw["chart_title"])} over the season &rarr;</button>'
+             # task 49: the trade block's own view, from the bottom of this card
+             f'<button class="link" data-open="v-block" style="all:unset;cursor:pointer;display:block;'
+             f'padding:12px 14px;font-size:13px;font-weight:600;color:#1D5FD1;border-top:1px solid #EEF0F3">'
+             f'{clean(payload["trade_block"]["link"])} &rarr;</button></div>'
              f'<div class="note">{clean(pw["as_of"])}. {clean(pw["note"])}</div></section>')
 
     gr = payload["grid"]
@@ -522,6 +549,30 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              '<a href="#" class="back" data-open="v-main">&larr; Power rankings</a>'
              f'<div class="h-title">{clean(pw["chart_title"])}</div></div>'
              f'<section><div class="card">{_svg(ch)}</div><div class="note">{clean(ch["note"])}</div></section></div>')
+
+    # ---------------------------------------------------------------- the trade block view (task 49)
+    tbv = payload["trade_block"]
+    o.append('<div class="view" id="v-block" hidden><div class="rh">'
+             '<a href="#" class="back" data-open="v-main">&larr; Power rankings</a>'
+             f'<div class="h-title">{clean(tbv["title"])}</div></div><section>')
+    for c in tbv["cards"]:
+        o.append(f'<div class="card tb" data-manager="{clean(c["manager"])}"><div class="tb-h">'
+                 f'<span class="tb-t"><span class="n">{clean(c["team"])}</span>'
+                 f'<span class="s">{clean(c["manager"])}</span></span>'
+                 f'<span class="tb-m"><span class="chip {clean(c["mode"]["kind"])}">{clean(c["mode"]["text"])}</span>'
+                 + (f'<span class="s">{clean(c["mode_since"])}</span>' if c["mode_since"] else "")
+                 + '</span></div>')
+        for lst in c["lists"]:
+            o.append(f'<div class="tb-l" data-list="{clean(lst["key"])}"><div class="tb-k">{clean(lst["label"])}</div>')
+            for r in lst["rows"]:
+                o.append(f'<div class="tb-r"><span class="pn"><span class="n">{clean(r["name"])}</span>'
+                         f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span></span>'
+                         f'<span class="s since">{clean(r["since"])}</span></div>')
+            o.append("</div>")
+        if c["empty"]:
+            o.append(f'<div class="empty">{clean(c["empty"])}</div>')
+        o.append("</div>")
+    o.append(f'<div class="note">{clean(tbv["foot"])}</div></section></div>')
 
     # ---------------------------------------------------------------- last week and the matchup views (48a-48c)
     lw = mu.get("last")

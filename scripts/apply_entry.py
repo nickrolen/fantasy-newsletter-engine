@@ -12,7 +12,8 @@ The grammar is modules/phone_entries.py. The checks are the desk's, called,
 never copied: injury entries through scripts/overrides.py (add / set-return /
 set-notes / remove), moves and trades through modules/move_ledger.add (the
 path `ledger.py add` takes: budget, roster legality, the reserved-player
-rules, the trade deadline).
+rules, the trade deadline), the trade block through modules/trade_block.apply
+(the roster check, the trade deadline; task 49).
 
 apply  reads the event (the issue that fired the workflow, its author, the
        sender, opened or edited) and the list of Nick's open issues, and
@@ -32,11 +33,16 @@ apply  reads the event (the issue that fired the workflow, its author, the
            the cause; closed.
        Writes DIR/actions.json, one DIR/<n>.md per comment, DIR/before.json
        (this week's win % and the title odds before anything was applied, for
-       the effect), and under the workflow applied=true|false and cause=...
-       to $GITHUB_OUTPUT. A refusal exits 0: it is not a failed run.
+       the effect), and under the workflow applied=true|false, cause=... and
+       facts_only=true|false to $GITHUB_OUTPUT. facts_only is true when every
+       entry applied is a trade-block entry: it changes no price, so the
+       refresh is `nightly.py --refresh --facts-only` (the hub's facts
+       rebuilt, the line and title odds not re-priced). A refusal exits 0: it
+       is not a failed run.
 effect after the refresh: DIR/effect.md -- each matchup's win % this week and
        the title odds, before and after; "priced after tonight's games" when
-       the refresh found prices locked; the failure when it failed.
+       the refresh found prices locked; the failure when it failed. After a
+       facts-only refresh: "No prices change; the hub's trade block is updated."
 
 NICK (the one login whose entries apply, invariant 12) is this file's
 constant; the workflow's job conditions use the same login (a test pins it).
@@ -72,10 +78,14 @@ def authorized(author: str, sender: str) -> bool:
 
 def applied_as(base: Path, issue: int):
     """A short description of how issue #issue was applied, or None."""
-    from modules import move_ledger as ml, override_history as oh
+    from modules import move_ledger as ml, override_history as oh, trade_block as tb
     r = oh.applied_issue(base, issue)
     if r is not None:
         return f"{r['action']} {r['player']} ({r['at'][:16].replace('T', ' ')} Pacific)"
+    r = tb.applied_issue(base, issue)
+    if r is not None:
+        return (f"trade block {r['action']} for {', '.join(sorted(r['after']))} "
+                f"({r['at'][:16].replace('T', ' ')} Pacific)")
     for e in ml.entries(ml.read_rows(base)):
         if e.get("issue") == int(issue):
             return f"ledger entry {e['id']}: {e['text']}"
@@ -101,10 +111,12 @@ def _json_block(obj) -> str:
 
 
 def apply_one(base: Path, title: str, issue: int, created_at: datetime, now: datetime) -> dict:
-    """{"verdict": "applied" | "refused", "comment": text, "cause": str or None}.
-    Writes state only when applied."""
+    """{"verdict": "applied" | "refused", "comment": text, "cause": str or None,
+    "facts_only": True for a trade-block entry (no price changes)}. Writes
+    state only when applied."""
     import overrides as ov
     from modules import injury_entries as ie, move_ledger as ml, phone_entries as pe
+    from modules import trade_block as tb
     from modules.data_loader import MANAGERS
     by = f"issue #{issue}"
     try:
@@ -112,7 +124,12 @@ def apply_one(base: Path, title: str, issue: int, created_at: datetime, now: dat
         if p["kind"] == "ledger":
             row = ml.add(base, p["text"], now=now, claimed_at=min(created_at, now),
                          entered_by=f"Nick (issue #{issue})", issue=issue)
-            return {"verdict": "applied", "cause": p["text"], "comment": ledger_comment(base, row, now)}
+            return {"verdict": "applied", "cause": p["text"], "comment": ledger_comment(base, row, now),
+                    "facts_only": False}
+        if p["kind"] == "block":
+            ch = tb.apply(base, p, issue=issue, created_at=created_at, now=now)
+            return {"verdict": "applied", "cause": ch["cause"], "comment": block_comment(ch),
+                    "facts_only": True}
         sched = json.loads((base / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
         f = p["form"]
         if f in ("add", "season"):
@@ -129,11 +146,11 @@ def apply_one(base: Path, title: str, issue: int, created_at: datetime, now: dat
         else:
             ch = ov.remove_change(base, p["name"], now=now, by=by, issue=issue)
         ov.apply(base, ch)
-    except (pe.TitleRefused, ie.EntryRefused, ml.EntryRefused) as e:
+    except (pe.TitleRefused, ie.EntryRefused, ml.EntryRefused, tb.BlockRefused) as e:
         text = str(e)
         if "Accepted forms:" not in text:
             text += "\n\n" + pe.forms_text()
-        return {"verdict": "refused", "cause": None,
+        return {"verdict": "refused", "cause": None, "facts_only": False,
                 "comment": f"**Refused** (nothing was changed): {text}\n\nEdit the title to fix it, "
                            "or close this issue."}
     cause = pe.cause_of(ch["action"], ch["player"], ch["after"])
@@ -141,7 +158,24 @@ def apply_one(base: Path, title: str, issue: int, created_at: datetime, now: dat
                f"Before:\n{_json_block(ch['before'])}\n\nAfter:\n{_json_block(ch['after'])}\n\n"
                + "".join(f"- {s}\n" for s in ch["shown"])
                + f"\nThe hub refreshes now ({cause}); its effect follows in a second comment.")
-    return {"verdict": "applied", "cause": cause, "comment": comment}
+    return {"verdict": "applied", "cause": cause, "comment": comment, "facts_only": False}
+
+
+def block_comment(ch: dict) -> str:
+    """The Applied comment for a trade-block entry: the team before and after
+    (equal to the file's diff: only his team changes), and any player moved
+    from one list to the other."""
+    from modules.trade_block import MODE_LABEL
+    m = ch["manager"]
+    what = {"untouchable": f"untouchable {', '.join(ch['players'])}",
+            "block": f"on the block {', '.join(ch['players'])}",
+            "remove": f"removed {', '.join(ch['players'])}",
+            "mode": MODE_LABEL.get(ch.get("mode") or "", "").lower(),
+            "clear": "cleared (both lists empty, neutral)"}[ch["action"]]
+    return (f"**Applied:** trade block, {m}: {what} (`config/TRADE_BLOCK.json`).\n\n"
+            f"Before:\n{_json_block(ch['before'])}\n\nAfter:\n{_json_block(ch['after'])}\n\n"
+            + "".join(f"- {n}\n" for n in ch["notes"])
+            + f"\nNo prices change. The hub refreshes now ({ch['cause']}); a second comment follows.")
 
 
 def ledger_comment(base: Path, row: dict, now: datetime) -> str:
@@ -194,10 +228,24 @@ def snapshot(base: Path, now: datetime) -> dict:
     return out
 
 
+FACTS_ONLY_OK = "No prices change; the hub's trade block is updated."
+
+
 def effect_text(before: dict, after: dict, run_row) -> str:
     if run_row is None:
         return "The refresh did not run; the 12:01 AM run prices the change."
     outcome = run_row.get("outcome")
+    if run_row.get("facts_only"):
+        # a trade-block entry (task 49): nothing to price, only the hub's facts
+        if outcome == "refused":
+            return (f"No prices change. The hub's refresh failed ({run_row.get('error')}); the entry "
+                    "stands, the failure issue has the details, and the 12:01 AM run rebuilds the hub.")
+        if outcome == "deferred":
+            why = next((s.get("detail") for s in run_row.get("steps") or []
+                        if s.get("outcome") == "deferred"), "")
+            return ("No prices change. The hub's trade block updates with the next run that rebuilds "
+                    f"the hub ({why}).")
+        return FACTS_ONLY_OK
     if outcome == "refused":
         return (f"The refresh failed ({run_row.get('error')}). The entry stands; the failure issue "
                 "has the details, and the 12:01 AM run prices it.")
@@ -271,7 +319,7 @@ def cmd_apply(a) -> int:
     for item, is_event in queue(event, open_issues):
         n = item["number"]
         act = {"issue": n, "verdict": None, "comment": None, "close": False, "label": None,
-               "unlabel": False}
+               "unlabel": False, "facts_only": False}
         if not authorized(item["author"], sender if is_event else item["author"]):
             act.update(verdict="unauthorized", comment=UNAUTHORIZED)
         elif (done := applied_as(base, n)) is not None:
@@ -285,6 +333,7 @@ def cmd_apply(a) -> int:
             if res["verdict"] == "applied":
                 act["close"] = True
                 act["unlabel"] = REFUSED_LABEL in item["labels"]
+                act["facts_only"] = bool(res["facts_only"])
                 causes.append(res["cause"])
             else:
                 act["label"] = REFUSED_LABEL
@@ -297,7 +346,11 @@ def cmd_apply(a) -> int:
     cause = causes[0] if len(causes) == 1 else (f"{len(causes)} entries: " + "; ".join(causes)
                                                  if causes else "")
     (out / "cause.txt").write_text(cause + "\n", encoding="utf-8")
-    _gh_output(applied="true" if causes else "false", cause=cause)
+    # every applied entry a trade-block one: nothing to price (task 49)
+    applied = [x for x in actions if x["verdict"] == "applied"]
+    facts_only = bool(applied) and all(x["facts_only"] for x in applied)
+    _gh_output(applied="true" if causes else "false", cause=cause,
+               facts_only="true" if facts_only else "false")
     return 0
 
 
