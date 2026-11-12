@@ -9,7 +9,11 @@ absences, so availability is deterministic except where a tag is set.
 Days are (week, weekday): weekday 0 = Monday. Week 1 starts Monday 2026-11-02.
 
 Every fixture's inputs go through advice_v2.assemble, the live path's own
-assembly. Fixture.inputs(now=..., close=...) also takes the live path's
+assembly, with the season pass's roster plan built from the fixture's own
+world (Fixture.plan_spec: roster_plan.build under the league's rules, 15
+active, 2 IL, 3 adds, replacement rank 4). Every team carries a full 15-man
+active roster, as the plan keeps them, so the plan adds no stand-in the
+fixture did not ask for. Fixture.inputs(now=..., close=...) also takes the live path's
 horizon: advice_v2.horizon_for decides the Monday move or the chat move from
 the clock against the window close, and the tags are anchored at `now`'s day
 (their fetch date) -- scenario 3 runs that way (V2 s.8).
@@ -21,7 +25,8 @@ from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from modules import advice_v2 as av
-from modules import injured_drop
+from modules import injured_drop, roster_plan
+from modules.data_loader import PlayerIndex
 from modules.projections import PlayerProjection
 
 MON = date(2026, 11, 2)
@@ -92,6 +97,28 @@ class Fixture:
         ws = {w: injured_drop.WeekStake(w, lev, None, 0.0, sd) for w in range(1, last + 1)}
         return injured_drop.TeamStakes(self.weeks[0], True, 0.4, 0.3, ws, last)
 
+    def plan_spec(self, sw, anchor, active_capacity, il_capacity):
+        """advice_v2.PlanSpec for this fixture: roster_plan.build's arguments,
+        the plan starting at the tags' week (locked), a window at every later
+        week's first day. An injured-drop decision RAISES (no fixture needs one;
+        a fixture that does must build its own DropContext)."""
+        def refuse(*a, **k):
+            raise AssertionError("a fixture's roster plan asked for an injured-drop decision")
+        weeks = sorted(sw, key=lambda w: w["week"])
+        start = next(w["week"] for w in weeks
+                     if date.fromisoformat(w["start_date"]) <= anchor <= date.fromisoformat(w["end_date"]))
+        drops = roster_plan.DropContext(config=None, note=refuse, stakes=refuse, keep=refuse,
+                                        games=refuse, availability=refuse)
+        return av.PlanSpec(dict(
+            start_week=start, il_slots={m: list(self.rosters[m]["il"]) for m in MANAGERS},
+            rosters={m: list(self.rosters[m]["active"]) + list(self.rosters[m]["il"]) for m in MANAGERS},
+            windows=[(w["week"], date.fromisoformat(w["start_date"])) for w in weeks if w["week"] > start],
+            players=PlayerIndex(dict(self.proj)),
+            statuses={n: self.statuses.get(n, "HEALTHY") for n in self.proj},
+            rules={"active_spots": active_capacity, "il_slots": il_capacity, "add_budget": 3,
+                   "il_eligible_tags": {"O", "OFS"}, "replacement_rank": 4},
+            standin_gp=82.0, drops=drops, known={}))
+
     def week_dates(self):
         out = {}
         for w in self.schedule_weeks():
@@ -147,7 +174,8 @@ class Fixture:
                           keep=self.keep, opponents={m: {w: opponents[m][w] for w in weeks} for m in MANAGERS},
                           pool=[n for n in self.pool if n not in set(reserved)], il_eligible=il_eligible,
                           reserved=frozenset(reserved), stakes=st,
-                          drop_config=injured_drop.Config(2.0, 1.0, 0.05, 0.05, 4, 6, 0.25, 0.04, 0.075))
+                          drop_config=injured_drop.Config(2.0, 1.0, 0.05, 0.05, 4, 6, 0.25, 0.04, 0.075),
+                          plan=self.plan_spec(sw, anchor, active_capacity, il_capacity))
         inp.banked = dict(banked or {})
         if balance:
             inp = self._balanced(inp, inp.horizon, opponents, edge or {}, now=now, close=close,
@@ -177,10 +205,11 @@ WEEK2 = [(2, d) for d in range(7)]
 
 
 def opponents_flat(fx: Fixture, fppg_by_manager: dict):
-    """Each opponent: 10 players with a game every day of weeks 1-3, all starting."""
+    """Each opponent: 15 players (a full active roster, as the roster plan
+    keeps it) with a game every day of weeks 1-3; ten start every day."""
     days = [(w, d) for w in (1, 2, 3) for d in range(7)]
     for m, f in fppg_by_manager.items():
-        fx.filler(m, 10, f, days)
+        fx.filler(m, 15, f, days)
 
 
 def nick_core(fx: Fixture, crowded=((1, 1), (2, 3)), keep=None):
@@ -270,8 +299,12 @@ def scenario_5(jalen_in_paolos_place=False):
     fx.player("Luka Doncic", [(1, 0), (1, 2), (1, 4), (2, 0), (2, 2), (2, 4)], 60.0,
               manager="Nick", keep=0.99, status="O", out_weeks=[1])
     if jalen_in_paolos_place:
-        fx.player("Jalen Johnson", [(1, 0), (1, 2), (2, 0), (2, 2)], 46.0, manager="Nick", il=True,
-                  keep=0.82, status="O", out_weeks=[1, 2, 3])
+        # four games a week, like the pickup: the later weeks repeat his week-1
+        # days, and with two he would be a 2-game player all season -- not one of
+        # "my top 3 guys". (V1's term hid it: it counted all 17 players, IL
+        # included, as active after the horizon; the plan keeps 15.)
+        fx.player("Jalen Johnson", [(1, 0), (1, 2), (1, 4), (1, 6), (2, 0), (2, 2), (2, 4), (2, 6)], 46.0,
+                  manager="Nick", il=True, keep=0.82, status="O", out_weeks=[1, 2, 3])
     else:
         fx.player("Paolo Banchero", [(1, 0), (1, 2), (2, 0), (2, 2)], 31.0, manager="Nick", il=True,
                   keep=0.20, status="O", out_weeks=[1, 2, 3, 4, 5, 6, 7, 8])

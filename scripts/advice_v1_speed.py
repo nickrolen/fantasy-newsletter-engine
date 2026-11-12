@@ -28,64 +28,17 @@ sys.path.insert(0, str(ROOT))
 
 
 def live_inputs(base: Path, settings):
-    from modules import advice_v2 as av, injured_drop, drop_inputs as di, tag_records, hub_state
-    from modules.data_loader import (load_all_data, free_agents, PlayerIndex, CURRENT_SEASON,
-                                     regular_season_weeks_for, league_rule)
-    from modules.projections import load_player_projections
-    from modules.roster_plan import load_il_slots
-    from modules.simulator_playoff_odds import bracket_weeks
+    """The live inputs, as every run builds them (modules/advice_live.build:
+    the ledger, the season pass's roster plan, the stakes). V1 built its own
+    here; since V2 the live path is the one way, and since the title-term job
+    the engine needs the roster plan it carries."""
+    from modules import advice_live as al
     from modules.league_clock import league_now
-    from modules import week_state as ws
-
-    data = load_all_data(base, current_week=None)
-    today = league_now().date()
-    week = ws.week_for_date(data, today) + 1                # next Monday's window
-    horizon = (week, week + 1)
-    proj_raw = load_player_projections(data)
-    pidx = PlayerIndex(proj_raw)
-    rosters = {m: list(v) for m, v in data.get_current_rosters().items()}
-    il_state = load_il_slots(base, data)
-    il = {m: list(v) for m, v in (il_state.get("slots") or {}).items()}
-    tag_row = tag_records.latest(base)
-    rostered = [n for v in rosters.values() for n in v]
-    tags = dict(tag_records.hub_tags(tag_row, rostered))
-    fa_df = free_agents(data.playerlist, rosters)
-    pool = [n for n in fa_df["player_name"] if pidx.get(n) is not None]
-    tags.update({n: t for n, t in hub_state.free_agent_tags(tag_row, pool).items()
-                 if t not in (None, "HEALTHY")})
-    proj = {}
-    for n in rostered + pool:
-        p = pidx.get(n)
-        if p is None:
-            raise KeyError(f"{n} has no projection in PLAYERLIST")
-        proj[n] = p
-    keep_all = di.keep_chances(data, base, week - 1)
-    blob, note = di.read_stakes(base)
-    stakes = {}
-    if blob is not None:
-        for m in rosters:
-            stakes[m] = di.team_stakes(blob, m, week, last_regular=regular_season_weeks_for(CURRENT_SEASON),
-                                       bracket=bracket_weeks())
-    opp = {}
-    for w in horizon:
-        wk = next(x for x in data.schedule["weeks"] if int(x["week"]) == w)
-        for mu in wk["matchups"]:
-            opp.setdefault(mu["manager_a"], {})[w] = mu["manager_b"]
-            opp.setdefault(mu["manager_b"], {})[w] = mu["manager_a"]
-    shape = (int(league_rule("league_structure", "roster_size")) - int(league_rule("league_structure", "il_slots")),
-             int(league_rule("league_structure", "il_slots")))
-    states = {}
-    for m, ro in rosters.items():
-        on_il = tuple(n for n in ro if n in set(il.get(m, [])))
-        act = tuple(n for n in ro if n not in set(on_il))
-        keep = {n: float(PlayerIndex(keep_all.get(m, {})).get(n, 0.0)) for n in ro}
-        states[m] = av.ManagerState(m, act, on_il, shape[0], shape[1], 3, keep, opp[m])
-    world = av.World(data.nba_schedule, data.schedule["weeks"], week - 1, data.durability_prior)
-    anchor = world.dates(week)[0]
-    inp = av.MondayInputs(CURRENT_SEASON, horizon, world, proj, tags, states, tuple(pool), anchor,
-                          stakes, injured_drop.from_rules())
-    inp.check()
-    return inp, {"week": week, "pool": len(pool), "stakes_note": note, "tags": len(tags)}
+    inp, hz, meta = al.build(base, league_now())
+    if inp is None:
+        raise RuntimeError(f"no window is left this season: {meta}")
+    return inp, {"week": hz.weeks[0], "horizon": list(hz.weeks), "kind": hz.kind,
+                 "pool": len(inp.pool), "tags": len(inp.statuses)}
 
 
 def main(argv=None):

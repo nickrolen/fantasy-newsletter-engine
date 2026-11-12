@@ -519,3 +519,148 @@ def test_title_odds_are_the_phases_top_prize():
                   dT_rs=0.04, dT_po=0.01)
     assert p.title_odds(c, True) == pytest.approx(0.02)        # P(regular-season title): stake units / 2
     assert p.title_odds(c, False) == pytest.approx(0.01)       # P(champion): stake units / 1
+
+
+# =============================================================================
+# D. The title term measures what the season pass measures
+#    (claude/HANDOFF_ADVICE_TITLE_TERM_2026-11-11.md s.2 and Tests)
+# =============================================================================
+
+WEEKS6 = (1, 2, 3, 4, 5, 6)
+
+
+def _every_week(*weekdays):
+    return [(w, d) for w in WEEKS6 for d in weekdays]
+
+
+def plan_fixture(nick_active=13, weak=False, worse=False):
+    """A chat move (Wednesday of week 1, after the close: horizon weeks 2-3,
+    later weeks 4-6). Nick: `nick_active` fillers (Tue/Thu every week, 20
+    FPPG, ten start) and, in an IL slot, Hurt -- O-tagged, no injury entry, so
+    the season pass's plan activates him at week 2's window. With 13 fillers
+    he comes back to 14 active and the plan fills the open spot with a
+    stand-in; with 14 fillers plus Weak (5 FPPG) he makes 16 and the plan drops
+    its lowest-projected player. Add: a 25-FPPG free agent on open days."""
+    fx = S.Fixture(weeks=WEEKS6)
+    for i in range(nick_active):
+        fx.player(f"Filler {i}", _every_week(1, 3), 20.0, manager="Nick", keep=0.9 - 0.01 * i)
+    if weak:
+        fx.player("Weak", _every_week(1), 5.0, manager="Nick", keep=0.0)
+    fx.player("Hurt", _every_week(5, 6), 35.0, manager="Nick", il=True, keep=0.05, status="O")
+    S.opponents_flat(fx, {"Hayden": 18.0, "Benton": 18.0, "Garrett": 18.0})
+    for i in range(6):
+        fx.player(f"Wire {i}", _every_week(0), 15.0 - i, fa=True)
+    fx.player("Add", _every_week(0, 2, 4), 25.0, fa=True)
+    if worse:
+        fx.player("Worse", _every_week(0), 1.0, fa=True)
+    return fx
+
+
+def chat_inputs(fx):
+    return fx.inputs(now=S.at(1, 2), close=S.close_of(1), balance=False)
+
+
+def test_a_move_that_changes_nothing_has_a_term_of_exactly_zero():
+    """Hurt returns at week 2 and the plan must cut one player: Weak (5) in
+    the base. "Add Worse (1), drop Weak" leaves the plan cutting Worse instead:
+    the season pass sees the same rosters every week, so every term is 0."""
+    fx = plan_fixture(nick_active=14, weak=True, worse=True)
+    inp = chat_inputs(fx)
+    assert inp.kind == av.CHAT and inp.horizon == (2, 3)
+    p = av.price(inp, "Nick", [av.Move("Nick", "add_drop", "Worse", drop="Weak")], FAST)[0]
+    P0 = av._plan(inp)
+    assert "Weak" in P0[2]["Nick"]["dropped"], "the fixture: the base plan cuts Weak at week 2"
+    assert p.dwp == (0.0, 0.0) and p.dpts == (0.0, 0.0) and p.dstarts == (0.0, 0.0)
+    assert p.dT_horizon == 0.0 and p.dT_later == 0.0 and p.dpts_later == 0.0
+    assert p.dT_rs == 0.0 and p.dT_po == 0.0
+    assert all(d == 0.0 for _w, d in p.dpts_later_by_week) and len(p.dpts_later_by_week) == 3
+
+
+def test_the_later_weeks_are_the_roster_plans_with_without_difference():
+    """Base plan: Hurt back at week 2, a stand-in in the open spot. With the
+    move (Add into the open spot): Hurt back, Add, no stand-in. Each later
+    week's dpts is marginal_value on the plan's week-w active roster with the
+    move minus without, computed here independently of price()."""
+    from modules import marginal_value as mv
+    fx = plan_fixture(nick_active=13)
+    inp = chat_inputs(fx)
+    mo = av.Move("Nick", "add_open", "Add")
+    p = av.price(inp, "Nick", [mo], FAST)[0]
+    P0 = av._plan(inp)
+    P1 = av._plan(inp, av.known_for(mo, 2))
+    assert "Hurt" in P0[2]["Nick"]["active"] and not P0[2]["Nick"]["il"], "the plan returns Hurt"
+    stand = [n for n in P0[2]["Nick"]["added"] if n.startswith("Replacement for open spot")]
+    assert stand, "the plan fills the open spot with a stand-in"
+    assert "Add" in P1[4]["Nick"]["active"] and not P1[2]["Nick"]["added"]
+    ctx = av._mv_ctx(inp, [4, 5, 6], FAST.long_sims, FAST.seed)
+    mv.add_players(ctx, {**av.PlanSpec.standins(P0), **av.PlanSpec.standins(P1)})
+    by = dict(p.dpts_later_by_week)
+    assert sorted(by) == [4, 5, 6]
+    for w in (4, 5, 6):
+        with_ = float(np.mean(mv.roster_totals(ctx, P1[w]["Nick"]["active"])[2][w]))
+        without = float(np.mean(mv.roster_totals(ctx, P0[w]["Nick"]["active"])[2][w]))
+        assert by[w] == pytest.approx(round(with_ - without, 3), abs=1e-9)
+    assert p.dpts_later == pytest.approx(sum(by.values()), abs=1e-2)
+    assert p.dT_later == pytest.approx(sum(
+        av.injured_drop.point_value(inp.stakes["Nick"].weeks[w], inp.drop_config) * by[w] for w in by), rel=1e-3)
+
+
+def test_no_replacement_cap_remains():
+    """C2's above-replacement cap is gone (the pass does not stream): no
+    replacement-level free agent in the engine, and a pickup far below
+    replacement for a good player costs his whole static difference."""
+    src = inspect.getsource(av)
+    assert not re.search(r"def replacement\(|replacement_rank|\bAr\b|ar_w", src)
+    assert "replacement_rank" not in av.Settings.__dataclass_fields__
+    fx = plan_fixture(nick_active=10, weak=True, worse=True)      # ten fillers: all start
+    inp = chat_inputs(fx)
+    # cut a 20-FPPG starter for a 1-FPPG pickup: every later week loses most of his points
+    p = av.price(inp, "Nick", [av.Move("Nick", "add_drop", "Worse", drop="Filler 0")], FAST)[0]
+    by = dict(p.dpts_later_by_week)
+    # above replacement (the wire's best is 15) the loss would be capped near (20 - 15) x 2 a
+    # week; the static roster charges his two starts, less Weak's (5) taking one seat
+    assert all(by[w] < -20.0 for w in (4, 5, 6)), by
+    assert p.dT_later < 0
+
+
+def test_the_horizon_baseline_returns_an_il_player_when_the_plan_does():
+    """V2 kept IL fixed through both horizon weeks; the season pass's plan
+    activates Hurt (O tag, no injury entry) at week 2's window. The engine's
+    "no move" baseline for week 2 is the plan's: Hurt plays."""
+    fx = plan_fixture(nick_active=13)
+    inp = chat_inputs(fx)
+    st = inp.managers["Nick"]
+    players, il = av.plan_roster(av._plan(inp), "Nick", 2)
+    assert "Hurt" in players and "Hurt" not in il
+    assert "Hurt" in av.week_roster(inp, st, None, 0, None)[1], "V2's convention kept him in IL"
+    with_him = av._scores(inp, "Nick", players, il, 2, FAST)[0].mean()
+    masked = av._scores(inp, "Nick", players, il | {"Hurt"}, 2, FAST)[0].mean()
+    assert with_him > masked + 50                      # two games at 35
+    mo = av.Move("Nick", "add_open", "Add")
+    p = av.price(inp, "Nick", [mo], FAST)[0]
+    P1 = av._plan(inp, av.known_for(mo, 2))
+    sc = av._scores(inp, "Nick", *av.plan_roster(P1, "Nick", 2), 2, FAST)[0]
+    base = av._scores(inp, "Nick", players, il, 2, FAST)[0]
+    assert p.dpts[0] == pytest.approx(float(np.mean(sc - base)))
+
+
+def test_the_plan_is_required():
+    fx = plan_fixture(nick_active=13)
+    inp = chat_inputs(fx)
+    from dataclasses import replace
+    with pytest.raises(ValueError, match="no roster plan"):
+        replace(inp, plan=None).check()
+
+
+def test_known_for_is_the_one_encoding():
+    mo = av.Move("Nick", "il_swap", "Add", drop="X", to_il="Y")
+    k = av.known_for(mo, 5, "Z", 6)
+    assert k == {5: {"Nick": {"il_place": ["Y"], "drop": ["X"], "add": ["Add"], "il_activate": []}},
+                 6: {"Nick": {"il_place": [], "drop": ["Z"], "add": [], "il_activate": []}}}
+    with pytest.raises(ValueError):
+        av.known_for(mo, 5, "Z")
+    assert av.merge_known({5: {"Nick": {"add": ["A"]}}}, k)[5]["Nick"]["add"] == ["A", "Add"]
+    # the check against season_sim encodes moves only through known_for
+    src = (S.ROOT if hasattr(S, "ROOT") else __import__("pathlib").Path(__file__).resolve().parent.parent
+           ).joinpath("scripts", "advice_title_check.py").read_text(encoding="utf-8")
+    assert "av.known_for(" in src and '"il_place"' not in src

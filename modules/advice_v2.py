@@ -68,10 +68,18 @@ HOW A MOVE IS PRICED (decision 7: screen, then price the finalists):
      - dT_later: the title-odds change from the weeks after the horizon,
        sum_w injured_drop.point_value(stake_w) x dpts_w -- the per-manager
        sensitivity of decision 7, read off the stakes the season pass
-       already writes; dpts_w from marginal_value over those weeks, ABOVE
-       REPLACEMENT (C2's lesson): with A = the roster after the move,
-       Ar = A with the add swapped for the replacement-level free agent r
-       and B = the roster as it is, dpts_w = max(A_w, Ar_w) - max(B_w, Ar_w).
+       already writes. dpts_w is what the season pass measures
+       (HANDOFF_ADVICE_TITLE_TERM s.2): the manager's expected startable
+       points that week (marginal_value) on the roster the pass's own roster
+       plan gives him WITH the move minus WITHOUT it -- a static roster, its
+       stand-ins, IL returns and 18b drops included, no replacement cap.
+   THE ROSTERS ARE THE SEASON PASS'S: MondayInputs.plan (PlanSpec) is the
+   roster plan the pass plays (roster_plan.build's own arguments); the "no
+   move" baseline of both horizon weeks is that plan (an IL occupant back at
+   the next window, a stand-in in an open spot), and a move is that plan
+   rebuilt with the move as known moves at its window (known_for) -- the
+   encoding the check against season_sim (scripts/advice_title_check.py)
+   runs the pass with.
      - dT_rs / dT_po: the same title change split by race, so the display
        can show the phase's top prize (Priced.title_odds).
   3. RANK by a Weighting; RECOMMENDED (decision 1, amended 11-05) is wins
@@ -104,6 +112,7 @@ active player worth least that week) leaves -- a two-step plan, shown.
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
@@ -111,7 +120,7 @@ from typing import Mapping, Optional, Sequence
 
 import numpy as np
 
-from . import absence, injured_drop
+from . import absence, injured_drop, roster_plan
 from . import marginal_value as mv
 from . import simulator_betting as sb
 from .data_loader import PlayerIndex
@@ -236,7 +245,6 @@ class Settings:
     drops_screen: int = 6       # cheapest drops kept by the drop screen
     finalists: int = 12         # moves priced in full, per manager
     protected: int = 4          # decision 3a
-    replacement_rank: int = 12  # r = the k-th best free agent, k = adds x managers (C2)
     # The insurance value of a last add, in score units (win chance summed over
     # the two weeks), from the 2025-26 replay (V1 result s.4): P(a roster player
     # is newly O by next Monday) 0.575 x the median one-week gain of a top pick
@@ -320,6 +328,36 @@ class ManagerState:
 
 
 @dataclass
+class PlanSpec:
+    """The roster plan the season pass plays: roster_plan.build's keyword
+    arguments (the live path takes them from roster_plan.for_run, Run.args;
+    a fixture or the replay builds its own). The horizon baseline and the
+    title term read every week's rosters off it (HANDOFF_ADVICE_TITLE_TERM
+    s.2): plan() is the plan as it stands (args["known"], the ledger's known
+    moves), plan(known_for(move, ...)) the plan with the move. One plan --
+    roster_plan.build itself -- never a second copy of its rules."""
+    args: dict
+    _plans: dict = field(default_factory=dict, repr=False)
+
+    def __post_init__(self):
+        if "known" not in self.args:
+            raise KeyError("PlanSpec.args needs 'known' (the ledger's known moves; {} for none)")
+
+    def plan(self, extra: Optional[dict] = None) -> dict:
+        known = merge_known(self.args.get("known") or {}, extra or {})
+        key = json.dumps({str(w): v for w, v in sorted(known.items())}, sort_keys=True)
+        hit = self._plans.get(key)
+        if hit is None:
+            hit = self._plans[key] = roster_plan.build(**{**self.args, "known": known})
+        return hit
+
+    @staticmethod
+    def standins(plan: dict) -> dict:
+        """{name: PlayerProjection} of every stand-in the plan made."""
+        return {n: p for w in plan.values() for v in w.values() for n, p in v["standins"].items()}
+
+
+@dataclass
 class MondayInputs:
     season: str
     horizon: tuple                     # (effective week, the week after or None)
@@ -342,11 +380,27 @@ class MondayInputs:
     tie_value: dict = field(default_factory=dict)
     nba_outs: dict = field(default_factory=dict)   # step 3b: {player: date} out tonight
     reserved: frozenset = frozenset()  # players claimed (pending) by anyone: never in the pool
+    # the season pass's roster plan (PlanSpec): REQUIRED -- the horizon's
+    # baseline and the later weeks are read off it (HANDOFF_ADVICE_TITLE_TERM)
+    plan: Optional[PlanSpec] = None
+    _standins: dict = field(default_factory=dict, repr=False)
     _sims: dict = field(default_factory=dict, repr=False)
     _ctx: dict = field(default_factory=dict, repr=False)
 
     def status(self, name: str) -> str:
         return absence.normalised_tag(self.statuses.get(name, "HEALTHY"))
+
+    def projection(self, name: str) -> PlayerProjection:
+        """A player's projection, or a plan stand-in's (made by _plan). RAISES
+        on a name it has neither for: never a silent zero."""
+        p = self.projections.get(name)
+        if p is None:
+            p = self._standins.get(name)
+        if p is None:
+            p = PlayerIndex(self.projections).get(name)
+        if p is None:
+            raise KeyError(f"no projection for {name}")
+        return p
 
     def weeks(self) -> list:
         """The horizon's weeks that exist (the second is None past the season)."""
@@ -369,6 +423,13 @@ class MondayInputs:
             raise ValueError(f"kind must be {MONDAY!r} or {CHAT!r}, not {self.kind!r}")
         if self.kind == CHAT and self.il_eligible is None:
             raise ValueError("a chat move's IL eligibility is next Monday's: pass il_eligible")
+        if self.plan is None:
+            raise ValueError("no roster plan (PlanSpec): the horizon's baseline and the title term "
+                             "are the season pass's plan's (HANDOFF_ADVICE_TITLE_TERM s.2)")
+        for w in self.weeks():
+            if int(w) < int(self.plan.args["start_week"]):
+                raise ValueError(f"horizon week {w} is before the plan's start week "
+                                 f"{self.plan.args['start_week']}")
         first = self.world.dates(self.horizon[0])[0]
         if self.anchor > first:
             raise ValueError(f"the tags' anchor {self.anchor} is after the horizon's first day {first}")
@@ -439,7 +500,7 @@ def assemble(*, horizon: "Horizon", season: str, nba_schedule: dict, schedule_we
              joining: Mapping[str, frozenset] = None, reserved: frozenset = frozenset(),
              stakes: Mapping = None, drop_config: Optional[injured_drop.Config] = None,
              tie_value: Mapping = None, nba_outs: Mapping = None,
-             weekly_sd: Mapping = None) -> MondayInputs:
+             weekly_sd: Mapping = None, plan: Optional[PlanSpec] = None) -> MondayInputs:
     """MondayInputs from explicit parts, checked. rosters: {manager:
     (active, il)} in the horizon's first week, the ledger's pending moves
     applied; later: the same for the second week where it differs. The World's
@@ -465,7 +526,7 @@ def assemble(*, horizon: "Horizon", season: str, nba_schedule: dict, schedule_we
                        pool=tuple(pool), anchor=anchor, stakes=dict(stakes or {}), drop_config=drop_config,
                        kind=horizon.kind, il_eligible=frozenset(il_eligible),
                        tie_value=dict(tie_value or {}), nba_outs=dict(nba_outs or {}),
-                       reserved=frozenset(reserved), weekly_sd=dict(weekly_sd or {}))
+                       reserved=frozenset(reserved), weekly_sd=dict(weekly_sd or {}), plan=plan)
     inp.check()
     return inp
 
@@ -493,6 +554,42 @@ class Move:
         return ", ".join(parts)
 
 
+def known_for(move: "Move", window: int, followup: Optional[str] = None,
+              next_window: Optional[int] = None) -> dict:
+    """The move as the roster plan's KNOWN moves (roster_plan.build's `known`):
+    {window week: {manager: {"il_place", "drop", "add", "il_activate"}}}.
+    THE ONE ENCODING: the title term prices a move by rebuilding the plan with
+    it, and the check against season_sim (scripts/advice_title_check.py) runs
+    the pass with the same dict, so the two price the same thing.
+    window: the horizon's first week (the move's window); the follow-up drop
+    of an IL move happens at next_window (the horizon's second week)."""
+    e = {"il_place": [], "drop": [], "add": [move.add], "il_activate": []}
+    if move.to_il:
+        e["il_place"].append(move.to_il)
+    if move.drop:
+        e["drop"].append(move.drop)
+    out = {int(window): {move.manager: e}}
+    if followup:
+        if next_window is None:
+            raise ValueError(f"{move.describe()}: a follow-up drop needs the next window")
+        out[int(next_window)] = {move.manager: {"il_place": [], "drop": [followup], "add": [],
+                                                "il_activate": []}}
+    return out
+
+
+def merge_known(*parts) -> dict:
+    """Known-move dicts merged per window and manager (lists concatenated)."""
+    out: dict = {}
+    for k in parts:
+        for w, by_m in (k or {}).items():
+            for m, e in by_m.items():
+                t = out.setdefault(int(w), {}).setdefault(m, {"il_place": [], "drop": [], "add": [],
+                                                              "il_activate": []})
+                for key in ("il_place", "drop", "add", "il_activate"):
+                    t[key] = list(t[key]) + list(e.get(key) or [])
+    return out
+
+
 @dataclass(frozen=True)
 class Priced:
     move: Move
@@ -502,10 +599,10 @@ class Priced:
     dstarts: tuple          # mean started-games change, horizon weeks
     dT_horizon: float       # stake units
     dT_later: float         # stake units
-    dpts_later: float       # points above replacement after the horizon
+    dpts_later: float       # his points after the horizon, the plan's rosters with - without
     lbar: float             # mean stake per win over the horizon (0: no stakes)
     followup_drop: Optional[str] = None
-    dpts_later_by_week: tuple = ()    # ((week, points above replacement), ...)
+    dpts_later_by_week: tuple = ()    # ((week, points with - without the move), ...)
     dT_rs: float = 0.0      # the title change from regular-season weeks (stake units)
     dT_po: float = 0.0      # ... from bracket weeks (stake units)
 
@@ -630,22 +727,6 @@ def _totals(ctx, roster) -> tuple:
     return float(pts.mean()), float(starts.mean()), {w: float(np.mean(v)) for w, v in by_week.items()}
 
 
-def replacement(inputs: MondayInputs, settings: Settings) -> Optional[str]:
-    """r: the replacement_rank-th best healthy free agent by expected points
-    per team game (effective FPPG x (1 - his durability miss rate))."""
-    params = absence.baseline_params()
-    def val(n):
-        p = inputs.projections[n]
-        rate = absence.durability_miss_rate(absence.effective_projected_gp(
-            inputs.status(n), p.projected_gp), params)
-        return p.effective_fppg * (1.0 - rate)
-    healthy = [n for n in inputs.pool if inputs.status(n) not in IL_TAGS]
-    if not healthy:
-        return None
-    ranked = sorted(healthy, key=lambda n: (-val(n), n))
-    return ranked[min(settings.replacement_rank, len(ranked)) - 1]
-
-
 # =============================================================================
 # 1. The screen
 # =============================================================================
@@ -754,7 +835,7 @@ def _scores(inputs: MondayInputs, manager: str, players: frozenset, il: frozense
     hit = inputs._sims.get(key)
     if hit is not None:
         return hit
-    tp = {manager: TeamProjections(manager, {n: inputs.projections[n] for n in sorted(players)},
+    tp = {manager: TeamProjections(manager, {n: inputs.projection(n) for n in sorted(players)},
                                    weekly_std_dev=float(inputs.weekly_sd.get(manager,
                                                                              DEFAULT_WEEKLY_STD_DEV)))}
     draws = sb.KeyedDraws(settings.seed, settings.price_sims)
@@ -790,32 +871,42 @@ def _leverage(inputs: MondayInputs, manager: str, week: Optional[int]) -> float:
     return sum(_leverage_parts(inputs, manager, week))
 
 
-def followup_drop(inputs: MondayInputs, manager: str, move: Move, settings: Settings) -> Optional[str]:
-    """Next week's drop when the IL'd player returns: the unprotected active
-    player (the add included) worth least from next week through the last
-    week the stakes cover (marginal_value; next week alone without stakes),
-    so the plan never cuts a long-term asset to save one week. None if he is
-    not back next week (or there is no next week)."""
-    if not move.to_il or not back_next_week(inputs, move.to_il, inputs.horizon[1]):
-        return None
-    st = inputs.managers[manager]
-    prot = protected(st, settings.protected)
-    players, il = week_roster(inputs, st, move, 1, None)
-    active_next = [n for n in players if n not in il] + [move.to_il]
-    active_next = list(dict.fromkeys(active_next))
-    weeks = [inputs.horizon[1]] + _later_weeks(inputs, manager)
-    sims = settings.long_sims if len(weeks) > 1 else settings.screen_sims
-    ctx = _mv_ctx(inputs, weeks, sims, settings.seed)
+def _plan(inputs: MondayInputs, extra: Optional[dict] = None) -> dict:
+    """The season pass's roster plan, with `extra` known moves (a move,
+    known_for) or as it stands; its stand-ins registered so their projections
+    resolve (MondayInputs.projection)."""
+    if inputs.plan is None:
+        raise ValueError("no roster plan (PlanSpec) on the inputs")
+    P = inputs.plan.plan(extra)
+    for n, p in PlanSpec.standins(P).items():
+        old = inputs._standins.get(n)
+        if old is not None and (old.nba_team, list(old.positions), old.projected_fppg, old.projected_gp) != \
+                (p.nba_team, list(p.positions), p.projected_fppg, p.projected_gp):
+            raise ValueError(f"two different stand-ins named {n!r}")
+        inputs._standins[n] = p
+    return P
 
-    def value(roster):
-        bw = _totals(ctx, roster)[2]
-        return sum(bw.get(w, 0.0) for w in weeks)
 
-    bp = value(active_next)
-    cands = [n for n in active_next if n not in prot and n != move.to_il]
-    if not cands:
-        return None
-    return min(cands, key=lambda n: (bp - value([x for x in active_next if x != n]), n))
+def plan_roster(P: dict, manager: str, week: int) -> tuple:
+    """(players on the roster, players in IL slots) in `week`, as plan P has them."""
+    wk = P.get(int(week))
+    if wk is None or manager not in wk:
+        raise KeyError(f"the roster plan has no week {week} for {manager}")
+    v = wk[manager]
+    return frozenset(v["active"]) | frozenset(v["il"]), frozenset(v["il"])
+
+
+def _week_points(ctx, roster: Sequence[str], week: int) -> float:
+    """Mean startable points of `roster` (active players) in `week`, by
+    marginal_value. Every name must be in the context: roster_totals would
+    skip a missing one silently."""
+    missing = [n for n in roster if ctx.players.canonical(n) is None]
+    if missing:
+        raise KeyError(f"not in the valuation context: {missing}")
+    bw = mv.roster_totals(ctx, list(roster))[2]
+    if int(week) not in bw:
+        raise KeyError(f"week {week} is not in the valuation context's span")
+    return float(np.mean(bw[int(week)]))
 
 
 def _later_weeks(inputs: MondayInputs, manager: str) -> list:
@@ -826,10 +917,76 @@ def _later_weeks(inputs: MondayInputs, manager: str) -> list:
     return [w for w in range(last_h + 1, int(ts.last_week) + 1) if w in ts.weeks]
 
 
-def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: Settings) -> list:
+def _later_ctx(inputs: MondayInputs, weeks: Sequence[int], sims: int, seed: int, plans: Sequence[dict]):
+    """The valuation context over the horizon and `weeks`, with every stand-in
+    of `plans` added (marginal_value.add_players)."""
+    ctx = _mv_ctx(inputs, weeks, sims, seed)
+    for P in plans:
+        mv.add_players(ctx, PlanSpec.standins(P))
+    return ctx
+
+
+def followup_drop(inputs: MondayInputs, manager: str, move: Move, settings: Settings) -> Optional[str]:
+    """Next week's drop when the IL'd player returns. He is in IL at the
+    move's window only if the season pass's plan keeps him there (an injury
+    entry out on the window day: roster_plan._available_from; otherwise the
+    plan activates him at once and drops its own lowest-projected player), and
+    he returns when the plan activates him at next week's window. The drop is the
+    unprotected real player (the add included, stand-ins never) worth least
+    from next week through the last week the stakes cover (marginal_value; next
+    week alone without stakes), so the plan never cuts a long-term asset to save
+    one week. None if he is not back next week (or there is no next week)."""
+    if not move.to_il or inputs.horizon[1] is None:
+        return None
+    w1, w2 = inputs.horizon
+    P = _plan(inputs, known_for(move, w1))
+    if move.to_il not in plan_roster(P, manager, w1)[1]:
+        return None                              # the plan never held him in IL (no injury entry
+                                                 # out on the window day): it activated him at once
+    if move.to_il in plan_roster(P, manager, w2)[1]:
+        return None                              # the plan keeps him in IL: not back
+    st = inputs.managers[manager]
+    prot = protected(st, settings.protected)
+    s1 = P[int(w1)][manager]
+    stand = PlanSpec.standins(P)
+    active_next = list(dict.fromkeys([n for n in s1["active"] if n not in stand] + [move.to_il]))
+    weeks = [w2] + _later_weeks(inputs, manager)
+    sims = settings.long_sims if len(weeks) > 1 else settings.screen_sims
+    ctx = _later_ctx(inputs, weeks, sims, settings.seed, [P])
+
+    def value(roster):
+        return sum(_week_points(ctx, roster, w) for w in weeks)
+
+    bp = value(active_next)
+    cands = [n for n in active_next if n not in prot and n != move.to_il]
+    if not cands:
+        return None
+    return min(cands, key=lambda n: (bp - value([x for x in active_next if x != n]), n))
+
+
+def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: Settings,
+          followups: Optional[Mapping] = None) -> list:
+    """Each move's two weekly win-chance changes and its title-odds change.
+
+    THE ROSTERS ARE THE SEASON PASS'S (HANDOFF_ADVICE_TITLE_TERM s.2): the
+    roster plan as it stands (PlanSpec.plan()) is the "no move" baseline, and
+    the plan rebuilt with the move as known moves at its window (known_for;
+    an IL move's follow-up drop at the next window) is the move. So the
+    horizon weeks see what the pass sees -- an IL occupant back at the next
+    window, a stand-in in an open spot, an 18b drop -- and the weeks after the
+    horizon are a STATIC roster: dpts_w = his expected startable points in
+    week w on the plan's roster with the move minus without it
+    (marginal_value), however far below replacement that is. No replacement
+    cap (C2's streaming assumption is gone: the pass does not stream).
+    dT_later = sum_w injured_drop.point_value(stake_w) x dpts_w. The opponent's
+    roster in the horizon is the baseline plan's.
+    followups: {move: follow-up drop} to price a given follow-up (the check
+    against season_sim prices the list's); else followup_drop chooses it."""
     st = inputs.managers[manager]
     hz = list(inputs.horizon)
-    base = [week_roster(inputs, st, None, k, None) for k in (0, 1)]
+    w1, w2 = hz
+    P0 = _plan(inputs)
+    base = [None if w is None else plan_roster(P0, manager, w) for w in hz]
     base_sc, opp_sc, ties = [None, None], [None, None], [0.5, 0.5]
     for k, w in enumerate(hz):
         if w is None:
@@ -837,28 +994,28 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
         base_sc[k] = _scores(inputs, manager, *base[k], w, settings)
         o = st.opponents[w]
         if o is not None:
-            ost = inputs.managers[o]
-            opp_sc[k] = _scores(inputs, o, *week_roster(inputs, ost, None, k, None), w, settings)[0]
+            opp_sc[k] = _scores(inputs, o, *plan_roster(P0, o, w), w, settings)[0]
             ties[k] = float(inputs.tie_value.get((manager, w), 0.5))
     wp_base = tuple(None if opp_sc[k] is None else _win(base_sc[k][0], opp_sc[k], ties[k])
                     for k in (0, 1))
     parts = [_leverage_parts(inputs, manager, w) for w in hz]
     levs = [a + b for a, b in parts]
     lbar = float(np.mean(levs)) if any(levs) else 0.0
-
     later = _later_weeks(inputs, manager)
-    r = replacement(inputs, settings) if later else None
-    lctx = _mv_ctx(inputs, later, settings.long_sims, settings.seed) if later else None
-    R_all = list(st.roster())
+    ts = inputs.stakes.get(manager)
 
     out = []
     for mo in moves:
-        fu = followup_drop(inputs, manager, mo, settings) if mo.to_il else None
+        if followups is not None and mo in followups:
+            fu = followups[mo]
+        else:
+            fu = followup_drop(inputs, manager, mo, settings) if mo.to_il else None
+        P = _plan(inputs, known_for(mo, w1, fu, w2))
         dwp, dpts, dst = [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]
         for k, w in enumerate(hz):
             if w is None:
                 continue
-            players, il = week_roster(inputs, st, mo, k, fu)
+            players, il = plan_roster(P, manager, w)
             sc, games = _scores(inputs, manager, players, il, w, settings)
             if opp_sc[k] is not None:
                 dwp[k] = _win(sc, opp_sc[k], ties[k]) - wp_base[k]
@@ -868,16 +1025,12 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
         dT_rs = sum(parts[k][0] * dwp[k] for k in (0, 1))
         dT_po = sum(parts[k][1] * dwp[k] for k in (0, 1))
         dT_l, dpl, by_w = 0.0, 0.0, []
-        if later and r is not None:
-            gone = {x for x in (mo.drop, fu) if x}
-            A = [n for n in R_all if n not in gone] + ([mo.add] if mo.add not in gone else [])
-            Ar = [n for n in R_all if n not in gone] + ([r] if r not in R_all else [])
-            _p, _s, a_w = _totals(lctx, A)
-            _p, _s, ar_w = _totals(lctx, Ar)
-            _p, _s, b_w = _totals(lctx, R_all)
-            ts = inputs.stakes[manager]
+        if later:
+            lctx = _later_ctx(inputs, later, settings.long_sims, settings.seed, [P0, P])
             for w in later:
-                d = max(a_w.get(w, 0.0), ar_w.get(w, 0.0)) - max(b_w.get(w, 0.0), ar_w.get(w, 0.0))
+                a = P[int(w)][manager]["active"]
+                b = P0[int(w)][manager]["active"]
+                d = 0.0 if sorted(a) == sorted(b) else _week_points(lctx, a, w) - _week_points(lctx, b, w)
                 dpl += d
                 by_w.append((w, round(d, 3)))
                 ws = ts.weeks[w]

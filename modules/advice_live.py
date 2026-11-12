@@ -35,7 +35,18 @@ THE INPUTS (V2 s.3), each from one place:
   - injury entries: through the projections (load_player_projections applies
     INJURY_OVERRIDES) and, for a chat move's IL eligibility, the entry's
     dates on next Monday (hub_state.override_out_on);
-  - projections: the live PLAYERLIST;
+  - projections: the season pass's own -- the roster plan's player index
+    (roster_plan.for_run: PLAYERLIST with INJURY_OVERRIDES, season-to-date
+    actuals blended in by populate_actual_stats, the rostered players' objects
+    from load_all_team_projections), so effective_fppg is the line's and the
+    pass's. (V2 read load_player_projections alone: projection only, no
+    actuals; HANDOFF_ADVICE_TITLE_TERM's check found it.)
+  - the roster plan: the season pass's (roster_plan.for_run on the same data,
+    team projections and tags, its known moves the ledger's), as
+    advice_v2.PlanSpec: the horizon's baseline and the title term's later
+    weeks are read off it, and a move is priced by rebuilding it with the move
+    as known moves. Its lazily read inputs (the stakes, the keeper watch) are
+    read here, so the engine reads no file;
   - keep chances: the keeper watch (drop_inputs.keep_chances, K = 5: the
     roster plan's and 18b's), for the top-4 protection (decision 3a);
   - stakes: the latest priced run's, through drop_inputs.read_stakes (their one
@@ -310,8 +321,9 @@ def build(base_path, now: datetime, data=None):
     from . import tag_records, week_state as ws
     from .data_loader import (CURRENT_SEASON, MANAGERS, PlayerIndex, load_all_data,
                               regular_season_weeks_for)
+    from . import roster_plan
     from .hub_state import free_agent_tags, override_out_on
-    from .projections import load_player_projections
+    from .projections import load_all_team_projections
     from .simulator_betting import schedule_week_dates
     from .simulator_playoff_odds import bracket_weeks
     base = Path(base_path)
@@ -337,8 +349,16 @@ def build(base_path, now: datetime, data=None):
     first, second = lv["rosters"]
     active_cap, il_cap, budget = ml.roster_shape()
     left = adds_left(world, rows, states, hz.budget_week, budget, managers)
-    # --- projections
-    pidx = PlayerIndex(load_player_projections(data))
+    # --- the season pass's roster plan, and its projections (actuals blended)
+    tag_row = tag_records.latest(base)
+    tags = tag_records.as_tags(tag_row)
+    tps = load_all_team_projections(data)
+    run = roster_plan.for_run(data, tps, tags, today=today)
+    drops = run.args["drops"]
+    if drops is not None and drops.note() is None:      # read now: the engine reads no file
+        for m in managers:
+            drops.keep(m)
+    pidx = run.args["players"]
     named = set()
     for ro in (first, second):
         for m, (a, i) in (ro or {}).items():
@@ -360,7 +380,6 @@ def build(base_path, now: datetime, data=None):
         proj[n] = p
         pool.append(n)
     # --- the tags, anchored at their fetch date
-    tag_row = tag_records.latest(base)
     anchor = date.fromisoformat(tag_row["league_day"])
     yahoo_rostered = [n for v in data.get_current_rosters().values() for n in v]
     statuses = dict(tag_records.hub_tags(tag_row, yahoo_rostered))
@@ -412,8 +431,6 @@ def build(base_path, now: datetime, data=None):
                                 path=str(di.stakes_path(base)))
               for m in managers}
     opponents, ties = opponents_for(data, hz.weeks, managers)
-    from .projections import load_all_team_projections
-    tps = load_all_team_projections(data)
     missing_sd = [m for m in managers if m not in tps]
     if missing_sd:
         raise AdviceInputError(f"no team projection (weekly std dev) for {', '.join(missing_sd)}")
@@ -430,13 +447,15 @@ def build(base_path, now: datetime, data=None):
                       pool=pool, il_eligible=il_ok, later=later, joining=joining,
                       reserved=frozenset(lv["reserved"]), stakes=stakes,
                       drop_config=injured_drop.from_rules(), tie_value=ties, nba_outs=nba_outs,
-                      weekly_sd=weekly_sd)
+                      weekly_sd=weekly_sd, plan=av.PlanSpec(dict(run.args)))
     meta.update({"anchor": anchor.isoformat(), "tags_taken_at": tag_row["taken_at"],
                  "tags_run": tag_row["run_id"], "pool": len(pool), "unprojected_free_agents": len(unprojected),
                  "reserved": sorted(lv["reserved"]), "ledger_notes": lv["notes"],
                  "stakes_as_of": blob.get("as_of"), "stakes_run": blob.get("run_id"),
                  "joining": {m: sorted(v) for m, v in joining.items() if v},
                  "later": sorted(later), "budget": budget,
+                 "plan": {"start_week": run.start_week, "known": run.args.get("known") or {},
+                          "notes": list(run.notes)},
                  "weekly_sd": {m: round(v, 1) for m, v in weekly_sd.items()}})
     return inp, hz, meta
 

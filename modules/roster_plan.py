@@ -678,6 +678,10 @@ class Run:
     standins: dict = field(default_factory=dict, repr=False)
     standin_gp: float = None
     notes: list = field(default_factory=list)
+    # build()'s keyword arguments, exactly as for_run passed them: advice v2's
+    # title term rebuilds THIS plan with a move added to `known`
+    # (advice_v2.PlanSpec), so the advice and the season pass play one plan
+    args: dict = field(default_factory=dict, repr=False)
 
     def projection(self, name):
         """The projection the plan uses for `name`: a stand-in by exact name,
@@ -759,11 +763,12 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     if drops is None:
         from .drop_inputs import context
         drops = context(data, getattr(data, "base_path", "."), keep_week=start - 1)
-    plan = build(start_week=start, il_slots=il.get("slots") or {}, rosters=rosters,
-                 windows=windows_for(data, start), players=players,
-                 statuses={**dict(fa or {}), **dict(statuses or {})}, assume_healthy=assume,
-                 rules=rules(), standin_gp=gp, order=[m for m in pick_order() if m in rosters],
-                 no_standins=frozenset(no_standins), drops=drops, known=known)
+    args = dict(start_week=start, il_slots=il.get("slots") or {}, rosters=rosters,
+                windows=windows_for(data, start), players=players,
+                statuses={**dict(fa or {}), **dict(statuses or {})}, assume_healthy=assume,
+                rules=rules(), standin_gp=gp, order=[m for m in pick_order() if m in rosters],
+                no_standins=frozenset(no_standins), drops=drops, known=known)
+    plan = build(**args)
     made = {n: p for w in plan.values() for v in w.values() for n, p in v["standins"].items()}
     notes = list(dict.fromkeys(d["bootstrap"] for w in plan.values() for v in w.values()
                                for d in v["decisions"] if "bootstrap" in d))
@@ -772,7 +777,7 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
             print(f"  roster plan: {n}")
         _NOTES.append(n)
     run = Run(start_week=start, plan=plan, players=players, standins=made, standin_gp=gp,
-              notes=notes)
+              notes=notes, args=args)
     cache[fp] = (team_projections, run)
     return run
 

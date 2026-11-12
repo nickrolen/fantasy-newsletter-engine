@@ -278,6 +278,46 @@ def _teams_by_date(nba_schedule: dict) -> dict:
     return out
 
 
+def mv_player(name: str, p, status: str = "HEALTHY") -> MVPlayer:
+    """The context's player for projections.PlayerProjection `p`: the one
+    constructor (build_context and add_players)."""
+    fppg = p.effective_fppg if (p.effective_fppg or 0) > 0 else p.projected_fppg
+    return MVPlayer(
+        name=name, team=str(p.nba_team).upper(),
+        positions=frozenset(p.positions or []), fppg=float(fppg or 0.0),
+        projected_gp=float(p.projected_gp or 0.0), out_weeks=frozenset(p.out_weeks or []),
+        return_week=p.return_week,
+        return_date=absence.parse_return_date(p.return_date, name),
+        status=str(status or "HEALTHY").upper(),
+        out_from=absence.parse_out_from(getattr(p, "out_from", None)),
+        return_games=getattr(p, "return_games", None),
+        total_week_games=getattr(p, "total_week_games", None),
+        projected_fppg=None if p.projected_fppg is None else float(p.projected_fppg))
+
+
+def add_players(ctx: "MVContext", projections: dict) -> list:
+    """Add players to a built context (advice v2's title term: the roster
+    plan's replacement-level stand-ins, made after the context was built).
+    roster_totals SKIPS a name the context lacks, so a stand-in must be added
+    before any roster holding him is totalled. A name already in the context
+    must be the same player (team, positions, FPPG, GP) or this RAISES. No
+    tags: a stand-in has none. Returns the names added."""
+    added = []
+    for name, p in projections.items():
+        new = mv_player(name, p)
+        old = dict.get(ctx.players, name)           # exact: a stand-in's level is in his name
+        if old is not None:
+            if (old.team, old.positions, old.fppg, old.projected_gp) != \
+                    (new.team, new.positions, new.fppg, new.projected_gp):
+                raise ValueError(f"{name} is already in the context as a different player")
+            continue
+        ctx.players[name] = new
+        if ctx._plain:
+            ctx._plain[name] = new
+        added.append(name)
+    return added
+
+
 def build_context(
     projections: dict,
     rosters: dict,
@@ -326,18 +366,7 @@ def build_context(
                                      None, projected=False)
             unprojected.append(name)
             continue
-        fppg = p.effective_fppg if (p.effective_fppg or 0) > 0 else p.projected_fppg
-        players[name] = MVPlayer(
-            name=name, team=str(p.nba_team).upper(),
-            positions=frozenset(p.positions or []), fppg=float(fppg or 0.0),
-            projected_gp=float(p.projected_gp or 0.0), out_weeks=frozenset(p.out_weeks or []),
-            return_week=p.return_week,
-            return_date=absence.parse_return_date(p.return_date, name),
-            status=str(statuses.get(name, "HEALTHY")).upper(),
-            out_from=absence.parse_out_from(getattr(p, "out_from", None)),
-            return_games=getattr(p, "return_games", None),
-            total_week_games=getattr(p, "total_week_games", None),
-            projected_fppg=None if p.projected_fppg is None else float(p.projected_fppg))
+        players[name] = mv_player(name, p, statuses.get(name, "HEALTHY"))
     # An unmodelled tag on anyone simulated raises here, once, naming them all.
     absence.check_tags({n: pl.status for n, pl in dict.items(players)}, dict.keys(players))
 

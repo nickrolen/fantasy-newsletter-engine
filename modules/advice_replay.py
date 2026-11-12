@@ -63,8 +63,10 @@ from typing import Mapping, Optional, Sequence
 
 import numpy as np
 
+from . import absence
 from . import advice_v2 as av
-from . import injured_drop
+from . import injured_drop, roster_plan
+from .data_loader import PlayerIndex
 from .lineup_fill import exact_fill
 from .projections import DEFAULT_WEEKLY_STD_DEV, PlayerProjection
 
@@ -426,8 +428,62 @@ def build_monday(season: Season, week: int, settings: av.Settings) -> Monday:
                                     keep, {w: opps[w][m] for w in horizon})
     inp = av.MondayInputs("2025-26", horizon, world, proj, statuses, states, pool, M,
                           drop_config=injured_drop.from_rules())
+    inp.plan = replay_plan(season, week, inp, ro, shape)
     inp.check()
     return Monday(week, inp, dday, {n: "O" for n in statuses}, sorted(long_out), len(candidates))
+
+
+def replay_plan(season: "Season", week: int, inp: av.MondayInputs, ro: Mapping, shape: tuple) -> av.PlanSpec:
+    """The roster plan for a replay Monday (advice v2's title term reads every
+    week's rosters off one: HANDOFF_ADVICE_TITLE_TERM s.2). roster_plan.build
+    on the Monday's own inputs only -- no lookahead:
+      - starts at the Monday's week (locked), a window every later Monday;
+      - rules: 3 adds, replacement rank 4, O/OFS to IL; the shape the
+        Monday's (13 + 4 before week 16, 15 + 2 from it), raised to the
+        largest roster the log shows that day (the replay's capacity rule);
+        one shape for the season's rest -- the week-16 change is not played
+        (stated limit);
+      - tags: the replay's O stand-ins; nobody else is tagged, so the pool is
+        priced healthy (assume_healthy: the replay has no Yahoo tags);
+      - injuries: the override-like outs (out_weeks over the horizon);
+      - an injured-drop decision reads the replay's own stakes once
+        run_week has priced them (inp.stakes), the keep stand-ins, the
+        schedule's games and the durability miss rate; before then the plan
+        takes roster_plan's bootstrap path and says so."""
+    cfg = injured_drop.from_rules()
+    params = absence.baseline_params()
+    tdates = team_dates(season.schedule)
+
+    def note():
+        return None if inp.stakes else "the replay's stakes are not priced yet"
+
+    def stakes(m, window):
+        ts = inp.stakes[m]
+        return injured_drop.TeamStakes(int(window), int(window) <= REGULAR_THROUGH, ts.rs_title, ts.champion,
+                                       {w: v for w, v in ts.weeks.items() if w >= int(window)}, ts.last_week)
+
+    def keep(m):
+        return dict(inp.managers[m].keep)
+
+    def games(team, w, from_day=None):
+        ds = set(season_dates(season, w))
+        return sum(1 for d in tdates.get(str(team).upper(), ()) if d in ds and (from_day is None or d >= from_day))
+
+    def share(p):
+        return 1.0 - absence.durability_miss_rate(float(p.projected_gp), params)
+
+    drops = roster_plan.DropContext(config=cfg, note=note, stakes=stakes, keep=keep, games=games,
+                                    availability=share)
+    active = max([shape[0]] + [len(a) for a, _i in ro.values()])
+    il = max([shape[1]] + [len(i) for _a, i in ro.values()])
+    return av.PlanSpec(dict(
+        start_week=int(week), il_slots={m: list(i) for m, (_a, i) in ro.items()},
+        rosters={m: list(a) + list(i) for m, (a, i) in ro.items()},
+        windows=[(w, season.monday(w)) for w in range(int(week) + 1, BRACKET[1] + 1)],
+        players=PlayerIndex(dict(inp.projections)), statuses=dict(inp.statuses), assume_healthy=True,
+        rules={"active_spots": active, "il_slots": il, "add_budget": 3, "il_eligible_tags": {"O", "OFS"},
+               "replacement_rank": 4},
+        standin_gp=float(season.gp_median), drops=drops, known={}))
 
 
 # =============================================================================
