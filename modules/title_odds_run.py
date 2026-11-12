@@ -50,6 +50,37 @@ nothing:
         s.3.3); champion is null when the pass stopped before the bracket;
     the season the file is for.
 
+SCHEMA 3 (HANDOFF_CAUSAL_LEVERAGE_2026-11-12 s.1): THE CAUSAL LEVERAGE. The
+leverage above is measured over ALL iterations, and a team that wins week w in
+an iteration is also, more often, the team whose players run hot all season in
+that iteration (each player's projection error persists through the pass). So
+it carries season-long luck as well as what the week itself causes: on the
+11-11 pass it ran 1.3-1.7x what a direct +40-point perturbation of one week
+(same draws) moves the title odds by. Schema 3 adds, per team and week, the
+leverage AMONG NEAR-TIE ITERATIONS (|margin| < band), where winning or losing
+the week is close to a coin flip and so carries little about the rest of that
+iteration's season -- a regression-discontinuity estimate, still read off the
+same iterations, still drawing nothing from the pass:
+    rs_leverage_causal / playoff_leverage_causal
+        P(title | wins w, |margin| < band) - P(title | loses w, |margin| < band);
+    causal_band       the band used (points);
+    causal_n_win / causal_n_loss   the iterations in the band on each side;
+    causal_se         a bootstrap SE (causal_bootstrap resamples of each side,
+                      seeded from the pass's seed, the team and the week:
+                      deterministic, and nothing drawn from the pass's streams);
+    causal_why        null, or why the band was widened, or why it is null.
+The band is league_config stakes.near_tie_band (25, chosen 11-12 on the
+development team-weeks of the perturbation check, from {25, 50, 75}). TOO FEW
+NEAR TIES: a side with fewer than stakes.near_tie_min iterations in the band
+widens the band to the next of stakes.near_tie_wider (50, then 75), saying so
+in causal_why; if even the widest band is short, the causal leverage is NULL
+with the counts in causal_why -- worth 0 per point, as every null leverage is
+(modules/injured_drop). It NEVER falls back to the all-iteration leverage.
+The all-iteration leverage is kept, renamed rs_leverage_all /
+playoff_leverage_all (with n_win, n_loss, n_tie, p_if_win, p_if_loss), for
+reference only: nothing prices with it. modules/injured_drop.point_value -- the
+one place a point is priced -- uses the causal one (drop_inputs maps it).
+
 Nothing that scores probabilities reads any of these files (invariant 13;
 tests/test_title_odds_history.py pins it for all three).
 """
@@ -69,7 +100,8 @@ STAKES_FILE = Path("output") / "stakes.json"
 # tests/test_title_odds_kinds.py pins nightly.MODES against this tuple).
 KINDS = ("nightly", "pretip", "closing", "weekly_build", "refresh", "poll", "afternoon")
 SCHEMA = 1
-STAKES_SCHEMA = 2           # 2: margins, rs_title / champion, season (task 18b)
+STAKES_SCHEMA = 3           # 2: margins, rs_title / champion, season (task 18b);
+                            # 3: the causal (near-tie) leverage; the old one kept as *_all
 
 
 class TitleOddsLocked(RuntimeError):
@@ -84,11 +116,33 @@ def through_for() -> str:
             else "playoffs" if bracket_rounds() else "regular")
 
 
-def run_pass(data, *, seed: int, sims: int, statuses, through: str = None):
-    """The season pass the weekly build and the nightly run both price from."""
+def line_anchors(base_path):
+    """week -> {player: (tag, anchor date)}: the live line's chain-tag anchors
+    for that week, from its state file (output/live_lines_week<N>.state.json,
+    "tags", written by refresh_lines with week_state.reconcile_tags). The
+    season pass reads it only mid-week with chain tags (season_sim._tag_chain,
+    HANDOFF_CAUSAL_LEVERAGE_2026-11-12 s.3); a missing file or record raises."""
+    from datetime import date as _date
+
+    def read(week: int) -> dict:
+        p = Path(base_path) / "output" / f"live_lines_week{int(week)}.state.json"
+        if not p.is_file():
+            raise FileNotFoundError(f"{p.as_posix()} is missing: a mid-week pass anchors its tags where "
+                                    "the week's live line did (price the line first)")
+        blob = json.loads(p.read_text(encoding="utf-8"))
+        rec = blob.get("tags")
+        if not isinstance(rec, dict):
+            raise ValueError(f"{p.as_posix()} has no tag record ('tags')")
+        return {n: (v["tag"], _date.fromisoformat(v["anchor"])) for n, v in rec.items()}
+    return read
+
+
+def run_pass(data, *, seed: int, sims: int, statuses, through: str = None, tag_anchors=None):
+    """The season pass the weekly build and the nightly run both price from.
+    tag_anchors: season_sim.run_season's (line_anchors(base) in production)."""
     from .season_sim import run_season
     return run_season(data, num_simulations=sims, seed=seed, injury_statuses=statuses,
-                      through=through or through_for())
+                      through=through or through_for(), tag_anchors=tag_anchors)
 
 
 # =============================================================================
@@ -125,6 +179,64 @@ def leverage(won: np.ndarray, outcome: np.ndarray) -> dict:
     return out
 
 
+def near_tie_rules() -> dict:
+    """league_config.json stakes: the near-tie band, the wider bands to try
+    when too few iterations fall in it, the minimum per side, and the number
+    of bootstrap resamples. Every key required (league_rule raises)."""
+    from .data_loader import league_rule
+    band = int(league_rule("stakes", "near_tie_band"))
+    wider = [int(x) for x in league_rule("stakes", "near_tie_wider")]
+    min_n = int(league_rule("stakes", "near_tie_min"))
+    boot = int(league_rule("stakes", "causal_bootstrap"))
+    if band <= 0 or any(w <= band for w in wider) or wider != sorted(wider):
+        raise ValueError(f"stakes: near_tie_wider {wider} must be increasing and wider than near_tie_band {band}")
+    if min_n < 1 or boot < 2:
+        raise ValueError("stakes: near_tie_min >= 1 and causal_bootstrap >= 2")
+    return {"band": band, "wider": wider, "min_n": min_n, "boot": boot}
+
+
+def causal_leverage(won: np.ndarray, outcome: np.ndarray, margin: np.ndarray, *, rules: dict,
+                    seed) -> dict:
+    """The near-tie leverage (module docstring, schema 3):
+    {leverage, band, n_win, n_loss, se, why}. won as in leverage(); margin
+    his score minus his opponent's (NaN without a game). seed: the bootstrap's
+    numpy SeedSequence entropy (deterministic; independent of the pass)."""
+    won = np.asarray(won, float)
+    outcome = np.asarray(outcome, bool)
+    margin = np.asarray(margin, float)
+    bands = [rules["band"]] + list(rules["wider"])
+    why = None
+    for h in bands:
+        near = np.abs(margin) < h                    # NaN (no game) is never near
+        wi = np.flatnonzero(near & (won == 1.0))
+        lo = np.flatnonzero(near & (won == 0.0))
+        if min(len(wi), len(lo)) >= rules["min_n"]:
+            break
+        why = (f"fewer than {rules['min_n']} wins or losses within {h} points "
+               f"({len(wi)} / {len(lo)})")
+    else:
+        return {"leverage": None, "band": None, "n_win": int(len(wi)), "n_loss": int(len(lo)),
+                "se": None, "why": why + ": no causal leverage (worth 0 per point)"}
+    if why is not None:
+        why = f"{why}; widened to {h}"
+    ow, ol = outcome[wi], outcome[lo]
+    lev = float(ow.mean() - ol.mean())
+    rng = np.random.default_rng(np.random.SeedSequence(seed))
+    bw = ow[rng.integers(0, len(ow), (rules["boot"], len(ow)))].mean(axis=1)
+    bl = ol[rng.integers(0, len(ol), (rules["boot"], len(ol)))].mean(axis=1)
+    return {"leverage": lev, "band": int(h), "n_win": int(len(wi)), "n_loss": int(len(lo)),
+            "se": float(np.std(bw - bl, ddof=1)), "why": why}
+
+
+def _causal_fields(prefix: str, c: dict) -> dict:
+    return {f"{prefix}_causal": c["leverage"], "causal_band": c["band"], "causal_n_win": c["n_win"],
+            "causal_n_loss": c["n_loss"], "causal_se": c["se"], "causal_why": c["why"]}
+
+
+def _boot_seed(sp, j: int, week: int, race: int) -> list:
+    return [int(sp.seed) & 0xFFFFFFFFFFFFFFFF, int(j), int(week), int(race)]
+
+
 def _decided_by_banking(sp, week: int) -> bool:
     """A regular-season week the pass took from the logs whole: every day of
     it banked (its as-of is past the week's last day)."""
@@ -136,10 +248,13 @@ def _decided_by_banking(sp, week: int) -> bool:
     return date.fromisoformat(ip["as_of"]) > end
 
 
-def stakes(sp) -> dict:
+def stakes(sp, rules: dict = None) -> dict:
     """{manager: {"regular_season": {week: ...}, "playoffs": {week: ...}}}
-    (weeks as strings), each entry leverage()'s dict renamed to its race."""
+    (weeks as strings): each entry leverage()'s dict with the leverage
+    renamed <race>_leverage_all, plus the causal leverage (schema 3) and the
+    margins. rules: near_tie_rules() (read from config when None)."""
     from .simulator_playoff_odds import bracket_weeks
+    rules = rules or near_tie_rules()
     last_reg = sp.regular_weeks[1]
     bracket = set(bracket_weeks()) if sp.through in ("playoffs", "cup") else set()
     title = {j: sp.reg_finish[:, 0] == j for j in range(len(sp.managers))}
@@ -159,7 +274,9 @@ def stakes(sp) -> dict:
                 continue
             for j, m in enumerate(sp.managers):
                 lv = leverage(arr[:, j], title[j])
-                lv["rs_leverage"] = lv.pop("leverage")
+                lv["rs_leverage_all"] = lv.pop("leverage")
+                lv.update(_causal_fields("rs_leverage", causal_leverage(
+                    arr[:, j], title[j], marg[:, j], rules=rules, seed=_boot_seed(sp, j, w, 0))))
                 lv.update(margin_stats(marg[:, j]))
                 out[m]["regular_season"][str(w)] = lv
         elif w in bracket:
@@ -167,7 +284,9 @@ def stakes(sp) -> dict:
                 if np.isnan(arr[:, j]).all():
                     continue
                 lv = leverage(arr[:, j], champ[j])
-                lv["playoff_leverage"] = lv.pop("leverage")
+                lv["playoff_leverage_all"] = lv.pop("leverage")
+                lv.update(_causal_fields("playoff_leverage", causal_leverage(
+                    arr[:, j], champ[j], marg[:, j], rules=rules, seed=_boot_seed(sp, j, w, 1))))
                 lv.update(margin_stats(marg[:, j]))
                 out[m]["playoffs"][str(w)] = lv
     return out
@@ -239,13 +358,23 @@ def stakes_payload(sp, *, run_id: str, kind: str, as_of: datetime, week: int) ->
         "week": int(week), "seed": int(sp.seed), "num_simulations": int(sp.num_simulations),
         "through": sp.through,
         "definition": {
-            "rs_leverage": "P(regular-season title | wins week w) - P(... | loses week w)",
-            "playoff_leverage": "P(champion | wins week w) - P(... | loses week w)",
+            "rs_leverage_causal": "P(regular-season title | wins week w) - P(... | loses week w), among the "
+                                  "iterations with |margin| < causal_band (near ties): what the week itself "
+                                  "causes. The one the price of a point uses (injured_drop.point_value)",
+            "playoff_leverage_causal": "the same with P(champion), in a bracket week",
+            "causal_band / causal_n_win / causal_n_loss": "the band used and the iterations in it on each side",
+            "causal_se": "a bootstrap SE of the causal leverage (resampling each side)",
+            "causal_why": "null; or why the band was widened (too few near ties); or why the causal leverage is "
+                          "null (worth 0 per point). Never the all-iteration leverage",
+            "rs_leverage_all": "P(regular-season title | wins week w) - P(... | loses week w) over ALL iterations "
+                               "(schema 2's rs_leverage): carries season-long luck; reference only, never priced",
+            "playoff_leverage_all": "the same with P(champion); reference only",
             "wins_week": "the team's own matchup that week; a regular-season T is in neither group",
             "null": "the team never wins (or never loses) that week in the simulation; the counts say which",
             "margin_mean / margin_sd": "his score minus his opponent's that week, over the iterations with a game",
             "rs_title / champion": "P(regular-season title) / P(champion) over the whole pass; champion null without a bracket",
             "source": "the iterations of this run's season pass; no extra simulation"},
+        "near_tie": near_tie_rules(),
         "teams": stakes(sp),
     }
 
@@ -288,7 +417,7 @@ def record(base_path, sp, *, run_id: str, produced_by: str, kind: str, week: int
 
 
 def price(base_path, data, *, seed: int, sims: int, statuses, run_id: str, produced_by: str,
-          kind: str, week: int, now: datetime = None) -> dict:
+          kind: str, week: int, now: datetime = None, tag_anchors=None) -> dict:
     """Price title odds now, unless games are on: then TitleOddsLocked is
     raised and nothing is computed or written (design s.4.1, as the line)."""
     from . import price_lock
@@ -298,7 +427,8 @@ def price(base_path, data, *, seed: int, sims: int, statuses, run_id: str, produ
     if st["locked"]:
         raise TitleOddsLocked(f"games are on (first tip {st['first_tip']}): title odds are "
                               "priced after tonight's games")
-    sp = run_pass(data, seed=seed, sims=sims, statuses=statuses)
+    sp = run_pass(data, seed=seed, sims=sims, statuses=statuses,
+                  tag_anchors=tag_anchors if tag_anchors is not None else line_anchors(base_path))
     out = record(base_path, sp, run_id=run_id, produced_by=produced_by, kind=kind, week=week,
                  as_of=now)
     out["pass"] = sp

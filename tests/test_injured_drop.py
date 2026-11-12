@@ -350,10 +350,14 @@ def _write(tmp_path, blob):
     p.write_text(blob if isinstance(blob, str) else json.dumps(blob), encoding="utf-8")
 
 
-def _blob(week=9, season=None, schema=2, first=10, lev=0.5, lev_after=0.0, back=16, managers=MANAGERS):
-    rows = lambda race: {str(w): {"rs_leverage" if race == "regular_season" else "playoff_leverage":
-                                  (lev if w < back else lev_after), "margin_mean": 0.0,
-                                  "margin_sd": 250.0, "n_win": 1, "n_loss": 1, "n_tie": 0}
+def _blob(week=9, season=None, schema=3, first=10, lev=0.5, lev_after=0.0, back=16, managers=MANAGERS):
+    """A schema-3 stakes file: the causal leverage is `lev`; the all-iteration
+    one (reference only, never priced) is deliberately different."""
+    pre = lambda race: "rs_leverage" if race == "regular_season" else "playoff_leverage"
+    rows = lambda race: {str(w): {pre(race) + "_causal": (lev if w < back else lev_after),
+                                  pre(race) + "_all": 0.9, "causal_band": 25, "causal_n_win": 400,
+                                  "causal_n_loss": 400, "causal_se": 0.02, "causal_why": None,
+                                  "margin_mean": 0.0, "margin_sd": 250.0, "n_win": 1, "n_loss": 1, "n_tie": 0}
                          for w in (range(first, 16) if race == "regular_season" else range(16, 22))}
     return {"schema": schema, "season": season or dl.CURRENT_SEASON, "week": week,
             "as_of": "2027-01-04T00:01:00-08:00", "run_id": "t", "kind": "nightly",
@@ -376,7 +380,22 @@ def test_another_seasons_file_is_the_bootstrap(tmp_path):
     assert "2025-26" in di.read_stakes(tmp_path)[1]
 
 
-@pytest.mark.parametrize("bad", ["{not json", json.dumps([1, 2]), json.dumps({**_blob(), "schema": 3}),
+def test_a_schema_2_file_is_the_bootstrap_and_says_why(tmp_path):
+    """Before the causal leverage (11-12): the plan bootstraps (a raise would
+    deadlock the deploy: the run that needs a decision is the run that writes
+    schema 3), and the note names the schema; advice raises with it."""
+    _write(tmp_path, {**_blob(), "schema": 2})
+    blob, note = di.read_stakes(tmp_path)
+    assert blob is None and note.startswith(di.BOOTSTRAP_NOTE)
+    assert "schema 2" in note and "causal" in note
+
+
+def test_prices_refuse_an_old_schema_blob_given_directly():
+    with pytest.raises(di.StakesFileError, match="schema 2"):
+        di.team_stakes({**_blob(), "schema": 2}, "Nick", 11, last_regular=15, bracket=list(range(16, 22)))
+
+
+@pytest.mark.parametrize("bad", ["{not json", json.dumps([1, 2]), json.dumps({**_blob(), "schema": 4}),
                                  json.dumps({k: v for k, v in _blob().items() if k != "teams"})])
 def test_a_file_that_exists_and_is_wrong_raises(tmp_path, bad):
     _write(tmp_path, bad)
@@ -503,3 +522,50 @@ def test_todays_real_plan_needs_no_decision_and_reads_no_input():
     data.drop_context = _raising()
     run = rp.for_run(data, teams, fis.Tags.none())
     assert all(not v["decisions"] for w in run.plan.values() for v in w.values())
+
+
+# =============================================================================
+# F. The scale (HANDOFF_CAUSAL_LEVERAGE_2026-11-12 s.2)
+# =============================================================================
+
+def test_the_scenarios_stakes_are_already_on_the_causal_scale(monkeypatch):
+    """The 11-12 price of a point is the near-tie (causal) leverage; the
+    11-04 fit of M, F and K was made on these hand-made stakes. Their toy
+    season draws every team-week independently (fixed means, iid noise), so
+    its all-iteration leverage carries no season-long luck: on its own
+    iterations the near-tie estimate must agree with it -- the fit was not on
+    the inflated scale (live: 1.3-1.7x), and M, F and K stand (re-fit 11-12:
+    the same region and deepest point on all six seeds)."""
+    import numpy as np
+    from modules import title_odds_run as tor
+    calls = []
+    real_lev, real_ms = tor.leverage, tor.margin_stats
+
+    def lev(won, outcome):
+        calls.append([np.asarray(won, float).copy(), np.asarray(outcome, bool).copy(), None])
+        return real_lev(won, outcome)
+
+    def ms(m):
+        calls[-1][2] = np.asarray(m, float).copy()
+        return real_ms(m)
+    monkeypatch.setattr(tor, "leverage", lev)
+    monkeypatch.setattr(tor, "margin_stats", ms)
+    rules = tor.near_tie_rules()
+    seen, a, c = set(), [], []
+    for s in sc.scenarios():
+        k = (s.window, tuple(sorted(s.wins.items())), s.weak, tuple(sorted((s.week16 or {}).items())))
+        if k in seen:
+            continue
+        seen.add(k)
+        calls.clear()
+        sc.season_stakes(s.window, s.wins, s.weak, s.week16, seed=sc.SEED)
+        for i, (won, out, mg) in enumerate(calls):
+            old = real_lev(won, out)["leverage"]
+            new = tor.causal_leverage(won, out, mg, rules=rules, seed=[1, len(a), i])["leverage"]
+            if old is not None and new is not None and abs(old) >= 0.02:
+                a.append(old)
+                c.append(new)
+    a, c = np.array(a), np.array(c)
+    assert len(a) > 300
+    assert 0.92 <= c.sum() / a.sum() <= 1.05          # 11-12: 0.966 (live passes: 0.6-0.75)
+    assert 0.92 <= np.polyfit(a, c, 1)[0] <= 1.08     # 11-12: 1.005

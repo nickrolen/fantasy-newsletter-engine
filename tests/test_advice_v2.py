@@ -664,3 +664,29 @@ def test_known_for_is_the_one_encoding():
     src = (S.ROOT if hasattr(S, "ROOT") else __import__("pathlib").Path(__file__).resolve().parent.parent
            ).joinpath("scripts", "advice_title_check.py").read_text(encoding="utf-8")
     assert "av.known_for(" in src and '"il_place"' not in src
+
+
+def test_two_plans_with_a_same_named_stand_in_at_another_level_are_kept_apart():
+    """A stand-in's name carries his level to 0.1, his projection the exact
+    level; a move changes the pool, so the move's plan can make a stand-in that
+    differs only past the first decimal (found on the 2025-26 replay, 11-12:
+    'two different stand-ins named ...' stopped the run). Advice renames the
+    newcomer in a COPY of that plan; the cached plan is untouched."""
+    from types import SimpleNamespace
+    from modules.projections import PlayerProjection
+    n = "Replacement for X (32.9)"
+    mk = lambda lv: PlayerProjection(player_name=n, nba_team="AAA", positions=["PG"], projected_fppg=lv,
+                                     projected_gp=70.0, standin=True)
+    wk = lambda lv: {5: {"Nick": {"active": ["A", n], "il": [], "added": [n], "dropped": [],
+                                  "standins": {n: mk(lv)}}}}
+    plans = {None: wk(32.94), "move": wk(32.86)}
+    inp = SimpleNamespace(plan=SimpleNamespace(plan=lambda extra=None: plans[extra]), _standins={})
+    a = av._plan(inp)
+    b = av._plan(inp, "move")
+    (nb, pb), = av.PlanSpec.standins(b).items()
+    assert nb != n and pb.player_name == nb and pb.projected_fppg == 32.86
+    assert nb in b[5]["Nick"]["active"] and nb in b[5]["Nick"]["added"]
+    assert av.PlanSpec.standins(a) == {n: plans[None][5]["Nick"]["standins"][n]}
+    assert list(plans["move"][5]["Nick"]["standins"]) == [n] and plans["move"][5]["Nick"]["active"] == ["A", n]
+    assert set(inp._standins) == {n, nb}
+    assert av._plan(inp, "move")[5]["Nick"]["active"] == ["A", nb]      # the same name every time

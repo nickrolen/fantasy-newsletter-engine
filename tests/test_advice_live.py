@@ -22,6 +22,9 @@ E. The hub: the switch (required, ships off); off shows no link and no view,
 from __future__ import annotations
 
 import ast
+import importlib
+import inspect
+import sys
 import json
 import re
 from datetime import date, datetime, timedelta
@@ -159,7 +162,7 @@ def test_one_writer_of_both_outputs():
     assert src.count("atomic_write_json(") == 1 and src.count("append_rows(") == 1
 
 
-def _fake_latest(err=None):
+def _fake_latest(err=None, show=True):
     mv = {"kind": "add_drop", "add": "Free Guy", "drop": "Yan Beta", "to_il": None, "followup_drop": None,
           "describe": "add Free Guy, drop Yan Beta", "score": 0.08, "flat": False, "dwp": [0.05, 0.03],
           "wp_base": [0.5, 0.6], "dpts": [40.0, 22.0], "dstarts": [1.0, 0.5], "dT_horizon": 0.02,
@@ -167,7 +170,8 @@ def _fake_latest(err=None):
           "title_label": "title odds", "reason": "+1.5 starts"}
     hz = {"kind": "monday", "label": "Monday move", "weeks": [3, 4], "effective": "2026-11-02",
           "budget_week": 3, "closes": "2026-11-02T18:55-08:00"}
-    mv["text"] = {"move": al.move_text(mv), "numbers": al.numbers_text(mv, hz, {"3": "Mgr Two", "4": "Mgr Two"}),
+    mv["text"] = {"move": al.move_text(mv), "numbers": al.numbers_text(mv, hz, {"3": "Mgr Two", "4": "Mgr Two"},
+                                                          show_title=show),
                   "reason": al.reason_text(mv, hz), "followup": ""}
     bk = dict(mv, add="Backup Guy", describe="add Backup Guy, drop Yan Beta")
     bk["text"] = dict(mv["text"], move=al.move_text(bk))
@@ -180,7 +184,7 @@ def _fake_latest(err=None):
             "cause_text": "Mgr Two added Free Guy", "as_of": "2026-11-02T00:14:00-08:00",
             "updated_text": "Updated 12:14 AM after Mgr Two added Free Guy.", "league_day": "2026-11-02",
             "horizon": hz, "weighting": "w", "settings": {}, "inputs": {"anchor": "2026-11-02"}, "seconds": {},
-            "managers": {} if err else mans, "error": err}
+            "show_title_odds": show, "managers": {} if err else mans, "error": err}
 
 
 def test_the_display_strings():
@@ -191,10 +195,11 @@ def test_the_display_strings():
                                      "\u00b7 title odds +1.5%")
     assert mv["text"]["reason"].startswith("+1.5 starts (this week +1.0, next week +0.5); +62 pts")
     chat = dict(p["horizon"], kind="chat", label="Chat move (effective Mon 11-09)")
-    assert "next week" in al.numbers_text(mv, chat, {"3": "X", "4": None}) and \
-        "no matchup set the week after (week 4)" in al.numbers_text(mv, chat, {"3": "X", "4": None})
+    assert "next week" in al.numbers_text(mv, chat, {"3": "X", "4": None}, show_title=True) and \
+        "no matchup set the week after (week 4)" in al.numbers_text(mv, chat, {"3": "X", "4": None}, show_title=True)
     cup = dict(mv, title_label=None, title_odds=None)
-    assert "no title odds at stake in the Cup" in al.numbers_text(cup, p["horizon"], {"3": "X", "4": "Y"})
+    assert "no title odds at stake in the Cup" in al.numbers_text(cup, p["horizon"], {"3": "X", "4": "Y"},
+                                                                  show_title=True)
     assert al.move_text(dict(mv, kind="il_swap", drop="P", to_il="L")) == \
         "Drop P from the IL slot, move L into it, add Free Guy"
     assert al.cause_text("poll", "Monday moves: A added X; B dropped Y") == "A added X; B dropped Y"
@@ -300,6 +305,12 @@ def test_a_nightly_runs_advice_step_on_the_real_state_writes_both_outputs(tmp_pa
     stubs = {s: (lambda: "stub") for s in nightly.STEPS["nightly"] if s != "advice"}
     row = run.execute(stubs)
     assert row["outcome"] == "ok"
+    if json.loads((ROOT / "output" / "stakes.json").read_text(encoding="utf-8")).get("schema") == 2:
+        # the real file predates the causal leverage (HANDOFF_CAUSAL_LEVERAGE s.1) until the first
+        # nightly on this engine rewrites it (title odds run before advice, so in the cloud that run's
+        # advice already reads schema 3): here the step fails LOUDLY, says why, and the run goes on
+        assert "schema 2, before the causal leverage" in (row["advice"]["error"] or ""), row["advice"]
+        return
     assert row["advice"]["error"] is None, row["advice"]["error"]
     latest = json.loads((tmp_path / "advice_latest.json").read_text(encoding="utf-8"))
     hist = [json.loads(x) for x in (tmp_path / "advice_history.jsonl").read_text(encoding="utf-8").splitlines()]
@@ -427,3 +438,42 @@ def test_the_state_manifest_declares_both_outputs_and_git_ignores_them():
     assert {"output/advice_latest.json", "output/advice_history.jsonl"} <= paths
     gi = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert "output/advice_latest.json" in gi and "output/advice_history.jsonl" in gi
+
+
+# =============================================================================
+# E. Nick's switch: advice.show_title_odds (HANDOFF_CAUSAL_LEVERAGE_2026-11-12 s.5)
+# =============================================================================
+
+def test_show_title_odds_is_required_a_boolean_and_ships_false(monkeypatch):
+    from modules import data_loader as dl
+    cfg = json.loads((ROOT / "config" / "league_config.json").read_text(encoding="utf-8"))
+    assert cfg["advice"]["show_title_odds"] is False and cfg["advice"]["_show_title_odds"]
+    assert al.show_title_odds() is False
+    with pytest.raises(dl.UnspecifiedRule):
+        al.show_title_odds({"advice": {"hub": "off"}})
+    for bad in ("false", 0, None, "on"):
+        with pytest.raises(al.AdviceInputError):
+            al.show_title_odds({"advice": {"show_title_odds": bad}})
+    assert al.show_title_odds({"advice": {"show_title_odds": True}}) is True
+
+
+@pytest.mark.parametrize("show", [False, True])
+def test_the_switch_hides_or_shows_the_number_on_the_hub_and_in_advice_show(show):
+    p = _fake_latest(show=show)
+    view = al.hub_view(p, [{"manager": "Mgr One", "team": "One"}, {"manager": "Mgr Two", "team": "Two"}])
+    card = next(c for c in view["cards"] if c["manager"] == "Mgr One")
+    assert ("title odds" in card["numbers"]) is show and ("title odds" in card["backup"]) is show
+    assert ("+1.5%" in card["numbers"]) is show
+    sys.path.insert(0, str(ROOT / "scripts"))
+    show_mod = importlib.import_module("advice_show")
+    lines = []
+    show_mod.show(p, out=lines.append)
+    text = "\n".join(lines)
+    assert ("title odds: hidden" in text) is (not show)
+    assert ("title odds +1.5%" in text) is show
+
+
+def test_the_payload_records_the_switch_and_writes_its_text_by_it(monkeypatch):
+    src = inspect.getsource(al.latest_payload)
+    assert "show = show_title_odds()" in src and '"show_title_odds": show' in src
+    assert "show_title=show" in src

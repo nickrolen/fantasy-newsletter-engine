@@ -18,9 +18,19 @@ every season pass; schema 2 carries the margins and title chances).
     The file's age is not limited: a file from an earlier week of this
     season still describes every week after it (the nightly run rewrites it
     each night). It must not be from a later week than the plan's start.
+  - THE LEVERAGE A WEEK IS PRICED WITH is the file's CAUSAL one
+    (rs_leverage_causal / playoff_leverage_causal, schema 3: title_odds_run's
+    near-tie estimate), mapped to WeekStake.rs_leverage / playoff_leverage.
+    The all-iteration *_all leverage in the file is never read here. A row
+    without the causal key RAISES; a null causal leverage (too few near ties,
+    recorded in causal_why) is a null leverage: worth 0 per point.
   - THE BOOTSTRAP (Nick, 11-04; HANDOFF_18B_REFIT_AND_WIRE s.2), the one
     exception to raise-don't-default: a file that is MISSING, from ANOTHER
-    SEASON, or SCHEMA 1 cannot be used yet. The run then plans with no
+    SEASON, or SCHEMA 1 OR 2 (before the causal leverage, 11-12) cannot be
+    used yet. Schema 2 joins schema 1 here rather than raising because a
+    raise would deadlock the deploy: the run whose roster plan needs a
+    decision is the run that writes the schema-3 file. The advice, which
+    cannot price without stakes, raises with this note (advice_live). The run then plans with no
     injured drops (the plan's behaviour before 18b), records the note "no
     stakes yet: planned without injured drops (...)", and goes on to write
     the file; the next run uses it. Anything else wrong with a file that
@@ -78,6 +88,9 @@ def read_stakes(base_path, season: str = None):
     schema = blob.get("schema")
     if schema == 1:
         return None, f"{BOOTSTRAP_NOTE} ({path.name} is schema 1, before the margins)"
+    if schema == 2:
+        return None, (f"{BOOTSTRAP_NOTE} ({path.name} is schema 2, before the causal leverage: "
+                      f"the next run rewrites it as schema {STAKES_SCHEMA})")
     if schema != STAKES_SCHEMA:
         raise StakesFileError(f"{path} has schema {schema!r}; this engine reads {STAKES_SCHEMA}")
     if blob.get("season") != season:
@@ -100,6 +113,13 @@ def _row(path, blob, manager, race, week):
     for k in ("margin_mean", "margin_sd"):
         if row.get(k) is None:
             raise StakesFileError(f"{path}: {manager} week {week} has no {k}")
+    key = ("rs" if race == "regular_season" else "playoff") + "_leverage_causal"
+    if key not in row:
+        raise StakesFileError(f"{path}: {manager} week {week} has no {key} (schema {blob.get('schema')}): "
+                              "a point is priced only with the causal leverage")
+    lev = row[key]
+    if lev is not None and not (-1.0 <= float(lev) <= 1.0):
+        raise StakesFileError(f"{path}: {manager} week {week}: {key} {lev!r} is not a difference of probabilities")
     return row
 
 
@@ -108,6 +128,10 @@ def team_stakes(blob: dict, manager: str, window: int, *, last_regular: int, bra
     """One team's TeamStakes at a future window, from the file (s.4's
     matching: by week number, every week from the window through the last
     bracket week)."""
+    from .title_odds_run import STAKES_SCHEMA
+    if blob.get("schema") != STAKES_SCHEMA:
+        raise StakesFileError(f"{path} is schema {blob.get('schema')!r}; prices need schema {STAKES_SCHEMA} "
+                              "(the causal leverage): read it through read_stakes")
     if int(blob["week"]) > int(window):
         raise StakesFileError(f"{path} is from week {blob['week']}, after the window {window}")
     if not bracket:
@@ -116,11 +140,11 @@ def team_stakes(blob: dict, manager: str, window: int, *, last_regular: int, bra
     for w in range(int(window), int(bracket[-1]) + 1):
         if w <= last_regular:
             r = _row(path, blob, manager, "regular_season", w)
-            weeks[w] = idr.WeekStake(w, r.get("rs_leverage"), None, float(r["margin_mean"]),
+            weeks[w] = idr.WeekStake(w, r["rs_leverage_causal"], None, float(r["margin_mean"]),
                                      float(r["margin_sd"]))
         elif w in bracket:
             r = _row(path, blob, manager, "playoffs", w)
-            weeks[w] = idr.WeekStake(w, None, r.get("playoff_leverage"), float(r["margin_mean"]),
+            weeks[w] = idr.WeekStake(w, None, r["playoff_leverage_causal"], float(r["margin_mean"]),
                                      float(r["margin_sd"]))
         else:
             raise StakesFileError(f"week {w} is in neither the regular season nor the bracket")

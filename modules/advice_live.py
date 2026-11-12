@@ -117,6 +117,22 @@ def hub_switch(cfg: dict = None) -> str:
     return v
 
 
+def show_title_odds(cfg: dict = None) -> bool:
+    """league_config.json advice.show_title_odds: true or false, required.
+    Missing raises UnspecifiedRule; anything but a JSON boolean raises."""
+    if cfg is None:
+        from .data_loader import league_rule
+        v = league_rule("advice", "show_title_odds")
+    else:
+        if "advice" not in cfg or "show_title_odds" not in (cfg["advice"] or {}):
+            from .data_loader import UnspecifiedRule
+            raise UnspecifiedRule("league_config.json has no advice.show_title_odds")
+        v = cfg["advice"]["show_title_odds"]
+    if not isinstance(v, bool):
+        raise AdviceInputError(f"league_config.json advice.show_title_odds is {v!r}; it must be true or false")
+    return v
+
+
 # =============================================================================
 # the ledger's part: rosters per horizon week, the pool, the adds left
 # =============================================================================
@@ -505,8 +521,10 @@ def move_text(m: dict) -> str:
     raise AdviceInputError(f"unknown move kind {k!r}")
 
 
-def numbers_text(m: dict, horizon: dict, opponents: dict) -> str:
-    """'+6.0% vs Hayden this week, +2.0% vs Benton next week \u00b7 title odds +0.4%'."""
+def numbers_text(m: dict, horizon: dict, opponents: dict, *, show_title: bool) -> str:
+    """'+6.0% vs Hayden this week, +2.0% vs Benton next week \u00b7 title odds +0.4%'.
+    show_title (advice.show_title_odds): False leaves the title-odds part out
+    entirely -- the hub shows no number; advice_show.py says "hidden"."""
     names = ("this week", "next week") if horizon["kind"] == "monday" else ("next week", "the week after")
     bits = []
     for k, w in enumerate(horizon["weeks"]):
@@ -519,6 +537,8 @@ def numbers_text(m: dict, horizon: dict, opponents: dict) -> str:
         else:
             bits.append(f"{_pct(m['dwp'][k])} vs {o} {names[k]}")
     s = ", ".join(bits)
+    if not show_title:
+        return s
     if m["title_label"] is None:
         s += " \u00b7 no title odds at stake in the Cup"
     else:
@@ -572,6 +592,7 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
     horizon = {"kind": hz.kind, "label": hz.label(), "weeks": list(hz.weeks),
                "effective": hz.effective.isoformat(), "budget_week": hz.budget_week,
                "closes": hz.closes.isoformat(timespec="minutes")}
+    show = show_title_odds()
     mans = {}
     for m, a in sorted(advice.items()):
         st = inputs.managers[m]
@@ -582,7 +603,7 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
             if p is None:
                 continue
             d = _move_dict(p, s, inputs, hz, cfg)
-            d["text"] = {"move": move_text(d), "numbers": numbers_text(d, horizon, opps),
+            d["text"] = {"move": move_text(d), "numbers": numbers_text(d, horizon, opps, show_title=show),
                          "reason": reason_text(d, horizon), "followup": followup_text(d, horizon)}
             e[key] = d
         if a.top is None:
@@ -596,7 +617,7 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
             "updated_text": f"Updated {_clock(now)} after {cause_text(mode, cause)}.",
             "league_day": now.date().isoformat(), "horizon": horizon, "weighting": weighting,
             "settings": dict(settings.__dict__), "inputs": meta, "seconds": seconds,
-            "managers": mans, "error": None}
+            "show_title_odds": show, "managers": mans, "error": None}
 
 
 def failure_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetime, error: str,

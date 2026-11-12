@@ -284,9 +284,68 @@ STAGES = ("regular", "playoffs", "cup")
 PAYING_PLACES = (3, 4)      # the league pot: 1st collects from 3rd and 4th; 2nd is square
 
 
+class TagAnchorsMissing(ValueError):
+    """A mid-week pass has chain tags and no anchors for them (s.3)."""
+
+
+def _tag_chain(states: dict, entries: dict, injury_statuses, team_projections, tag_anchors):
+    """(TagChain or None, {player: anchor} for the week in progress or None).
+
+    MID-WEEK (a regular-season week in progress with days still to play) with
+    chain tags on rostered players: every such tag is anchored where the live
+    line anchored it -- tag_anchors, {player: (tag, anchor date)} or a
+    callable week -> that (title_odds_run.line_anchors reads the line's state
+    file) -- and the week in progress and every later week share that one
+    chain (simulator_betting.TagChain). A tagged player the record does not
+    anchor, or anchors under another tag, RAISES: the line was priced on other
+    tags. Otherwise (no week in progress: a Monday window run) nothing changes."""
+    from . import absence
+    from .data_loader import PlayerIndex
+    from .simulator_betting import TagChain, get_dates_in_week
+    if not injury_statuses:
+        return None, None
+    live = [w for w, st in states.items() if st[3].remaining]
+    if not live:
+        return None, None
+    if len(live) > 1:
+        raise ValueError(f"weeks {live} are all in progress: one at a time")
+    w = live[0]
+    idx = injury_statuses if isinstance(injury_statuses, PlayerIndex) else PlayerIndex(dict(injury_statuses))
+    chained = {}
+    for tp in team_projections.values():
+        for n in tp.players:
+            raw = idx.get(n)
+            tag = absence.chain_tag(raw) if raw is not None else None
+            if tag is not None:
+                chained[n] = tag
+    if not chained:
+        return None, None
+    if tag_anchors is None:
+        raise TagAnchorsMissing(
+            f"week {w} is in progress and {len(chained)} rostered player(s) carry chain tags "
+            f"({', '.join(sorted(chained)[:4])}...): the pass anchors each where the live line did "
+            "(pass tag_anchors; title_odds_run.line_anchors reads the line's state file)")
+    rec = tag_anchors(w) if callable(tag_anchors) else tag_anchors
+    rec_idx = PlayerIndex(dict(rec))
+    anchors = {}
+    for n, tag in sorted(chained.items()):
+        r = rec_idx.get(n)
+        if r is None:
+            raise TagAnchorsMissing(f"{n} is tagged {tag} but the live line's week {w} tag record "
+                                    "has no anchor for him: the line was priced on other tags")
+        rtag, a = r
+        if absence.chain_tag(rtag) != tag:
+            raise TagAnchorsMissing(f"{n} is tagged {tag} here but {rtag} in the live line's week {w} "
+                                    "tag record: the line was priced on other tags")
+        anchors[n] = a
+    st = states[w][3]
+    return TagChain(anchors=anchors, week_info=(w, get_dates_in_week(entries[w])),
+                    observed=dict(st.observed or {}), as_of=st.as_of), anchors
+
+
 def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int = None,
                injury_statuses: dict = None, team_projections: dict = None,
-               through: str = "cup", no_standins=frozenset()) -> SeasonPass:
+               through: str = "cup", no_standins=frozenset(), tag_anchors=None) -> SeasonPass:
     """One pass over the season. seed is required: one seed per run, the same
     the betting lines get, so a week is one simulated truth.
 
@@ -295,7 +354,13 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
     depend on what comes after it, so a pass that stops early reads exactly
     the same regular season (same draws, same rules); the later stages' arrays
     are then left at -1 / 0. The title-odds readout stops after the regular
-    season so a world with no bracket weeks in its schedule can still be priced."""
+    season so a world with no bracket weeks in its schedule can still be priced.
+
+    tag_anchors (HANDOFF_CAUSAL_LEVERAGE_2026-11-12 s.3): a MID-WEEK pass
+    anchors each chain tag where the live line did and spends that one chain
+    across the week boundary (_tag_chain). {player: (tag, anchor)} or a
+    callable week -> that; needed only mid-week with chain tags (raises
+    without), never read otherwise."""
     from .projections import load_all_team_projections
     from .simulator_playoff_odds import (
         SEMIFINAL_ROUND, _decided_weeks, _seeded_pairs, bracket_rounds, bracket_weeks,
@@ -353,23 +418,35 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
     # no_standins: a counterfactual only (the money section's "without his
     # replacement-level pickups"); the build's pass leaves it empty
     plan = for_run(data, team_projections, injury_statuses, no_standins=frozenset(no_standins))
-    mats = (week_score_matrices(data, team_projections, to_sim, injury_statuses, seed, n, plan=plan)
-            if to_sim else {})
 
-    # --- in-progress regular weeks: B2, banked + the remainder ---------------
+    # --- in-progress regular weeks: their played state first, so a mid-week
+    # pass's tags are one chain across the week boundary (s.3, _tag_chain)
     from .week_state import week_state
-    in_progress = {}
+    states = {}
     for w in pending:
         as_of = _as_of_for(data, w)
         tp_w, mask_w = week_rosters(plan, team_projections, w)
-        state = week_state(data, w, as_of, tp_w)
+        states[w] = (as_of, tp_w, mask_w, week_state(data, w, as_of, tp_w))
+    chain, chain_anchors = _tag_chain(states, reg_entries, injury_statuses, team_projections,
+                                      tag_anchors)
+    mats = (week_score_matrices(data, team_projections, to_sim, injury_statuses, seed, n, plan=plan,
+                                **({"tag_chain": chain} if chain is not None else {}))
+            if to_sim else {})
+
+    # --- in-progress regular weeks: B2, banked + the remainder ---------------
+    in_progress = {}
+    for w in pending:
+        as_of, tp_w, mask_w, state = states[w]
         # step 3b: the NBA report's Outs (Tags.nba_outs) price the week in progress
         # exactly as the line does; passed only when there are any, so every
-        # other call is the one it always was
+        # other call is the one it always was. The chain's anchors (s.3) are
+        # the line's, passed only mid-week with chain tags.
         outs = getattr(injury_statuses, "nba_outs", None) or {}
+        extra = {"nba_outs": outs} if outs else {}
+        if chain is not None and w == chain.week_info[0]:
+            extra["anchors"] = chain_anchors
         rem = simulate_week_remainder(data, tp_w, reg_entries[w], state, seed, n,
-                                      injury_statuses, il_mask=mask_w,
-                                      **({"nba_outs": outs} if outs else {}))
+                                      injury_statuses, il_mask=mask_w, **extra)
         mats[w] = {m: float(state.banked.get(m, 0.0)) + np.asarray(rem.remaining[m]["score"], float)
                    for m in managers}
         in_progress[w] = {"as_of": as_of.isoformat(), "banked": dict(state.banked),

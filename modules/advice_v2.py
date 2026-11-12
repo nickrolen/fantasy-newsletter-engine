@@ -64,7 +64,9 @@ HOW A MOVE IS PRICED (decision 7: screen, then price the finalists):
        A week with no matchup (an opponent of None: a bracket pairing not
        set yet, or a team idle) has no win-chance term.
      - dT_horizon: sum_k leverage_k x dwp[k], in injured_drop's stake units
-       (rs_weight x P(regular-season title) + playoff_weight x P(champion)).
+       (rs_weight x P(regular-season title) + playoff_weight x P(champion));
+       leverage_k is injured_drop.win_value_parts -- the stakes file's CAUSAL
+       (near-tie) leverage, the same one point_value prices a point with.
      - dT_later: the title-odds change from the weeks after the horizon,
        sum_w injured_drop.point_value(stake_w) x dpts_w -- the per-manager
        sensitivity of decision 7, read off the stakes the season pass
@@ -862,9 +864,7 @@ def _leverage_parts(inputs: MondayInputs, manager: str, week: Optional[int]) -> 
     ws = ts.weeks.get(week)
     if ws is None:
         return 0.0, 0.0
-    c = inputs.drop_config
-    return (c.rs_weight * float(ws.rs_leverage or 0.0),
-            c.playoff_weight * float(ws.playoff_leverage or 0.0))
+    return injured_drop.win_value_parts(ws, inputs.drop_config)     # the one price (causal leverage)
 
 
 def _leverage(inputs: MondayInputs, manager: str, week: Optional[int]) -> float:
@@ -878,13 +878,45 @@ def _plan(inputs: MondayInputs, extra: Optional[dict] = None) -> dict:
     if inputs.plan is None:
         raise ValueError("no roster plan (PlanSpec) on the inputs")
     P = inputs.plan.plan(extra)
+    sig = lambda x: (x.nba_team, list(x.positions), x.projected_fppg, x.projected_gp)
+    clash = {n: p for n, p in PlanSpec.standins(P).items()
+             if n in inputs._standins and sig(inputs._standins[n]) != sig(p)}
+    if clash:
+        # A stand-in's name carries its level to 0.1 (roster_plan), his projection the exact
+        # level; a move changes the pool, so the move's plan can make a stand-in whose level
+        # differs only past the first decimal. In ONE plan the name is unique (the season pass
+        # is never confused); advice values two plans side by side, so the newcomer gets a
+        # name of his own here -- in a copy of the plan, never the cached one.
+        P = _renamed(P, {n: f"{n} [{p.projected_fppg:.6f}]" for n, p in clash.items()})
     for n, p in PlanSpec.standins(P).items():
         old = inputs._standins.get(n)
-        if old is not None and (old.nba_team, list(old.positions), old.projected_fppg, old.projected_gp) != \
-                (p.nba_team, list(p.positions), p.projected_fppg, p.projected_gp):
+        if old is not None and sig(old) != sig(p):
             raise ValueError(f"two different stand-ins named {n!r}")
         inputs._standins[n] = p
     return P
+
+
+def _renamed(P: dict, names: Mapping) -> dict:
+    """Plan P with stand-ins renamed (names: old -> new), every week and list."""
+    from copy import copy as _copy
+    f = lambda n: names.get(n, n)
+    out = {}
+    for w, wk in P.items():
+        out[w] = {}
+        for m, v in wk.items():
+            v2 = dict(v)
+            for k in ("active", "il", "added", "dropped"):
+                if k in v2 and isinstance(v2[k], list):
+                    v2[k] = [f(x) if isinstance(x, str) else x for x in v2[k]]
+            st = {}
+            for n, pr in v.get("standins", {}).items():
+                if n in names:
+                    pr = _copy(pr)
+                    pr.player_name = names[n]
+                st[f(n)] = pr
+            v2["standins"] = st
+            out[w][m] = v2
+    return out
 
 
 def plan_roster(P: dict, manager: str, week: int) -> tuple:
@@ -1033,13 +1065,10 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
                 d = 0.0 if sorted(a) == sorted(b) else _week_points(lctx, a, w) - _week_points(lctx, b, w)
                 dpl += d
                 by_w.append((w, round(d, 3)))
-                ws = ts.weeks[w]
-                pv = injured_drop.point_value(ws, inputs.drop_config) * d
-                dT_l += pv
-                if ws.rs_leverage is not None:
-                    dT_rs += pv
-                else:
-                    dT_po += pv
+                pv_rs, pv_po = injured_drop.point_value_parts(ts.weeks[w], inputs.drop_config)
+                dT_l += (pv_rs + pv_po) * d
+                dT_rs += pv_rs * d
+                dT_po += pv_po * d
         out.append(Priced(mo, tuple(dwp), wp_base, tuple(dpts), tuple(dst), dT_h, dT_l, dpl, lbar, fu,
                           tuple(by_w), dT_rs, dT_po))
     return out

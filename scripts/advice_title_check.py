@@ -14,7 +14,8 @@ developed against; "held_out": reported untouched), the clock the inputs were
 built at, the tag record and the stakes run.
 
 THE FULL SIDE ("pass"): season_sim.run_season with the move applied at its
-window as KNOWN moves (advice_v2.known_for -- the same encoding the engine's
+window as KNOWN moves (and, mid-week, its tags anchored where the week's live
+line anchored them: title_odds_run.line_anchors, HANDOFF_CAUSAL_LEVERAGE s.3) (advice_v2.known_for -- the same encoding the engine's
 title term prices), at the stakes file's seed and number of simulations
 (common random numbers), on the tag record the stakes were priced on, through
 the playoffs: the regular-season title and the champion do not depend on the
@@ -136,6 +137,7 @@ def cmd_pass(a) -> int:
     from modules import advice_v2 as av, move_ledger as ml, tag_records
     from modules.data_loader import load_all_data
     from modules.season_sim import run_season
+    from modules.title_odds_run import line_anchors
     import numpy as np
     t0 = time.time()
     out_dir = Path(a.dir)
@@ -175,11 +177,12 @@ def cmd_pass(a) -> int:
         base_file = out_dir / "passes" / "base.matrices.npz"
         reuse = key != "base" and base_file.is_file()
 
-        def compute(data_, tps, weeks, statuses, seed_, n_, tag_anchor=None, plan=None):
+        def compute(data_, tps, weeks, statuses, seed_, n_, tag_anchor=None, plan=None, tag_chain=None):
             from modules import roster_plan as rp
             from modules.data_loader import MANAGERS
+            chain_kw = {"tag_chain": tag_chain} if tag_chain is not None else {}
             if not reuse or a.verify_reuse:
-                full = real(data_, tps, weeks, statuses, seed_, n_, tag_anchor=tag_anchor, plan=plan)
+                full = real(data_, tps, weeks, statuses, seed_, n_, tag_anchor=tag_anchor, plan=plan, **chain_kw)
             if reuse:
                 base_m = np.load(base_file)
                 bplan = rp.build(**{**plan.args, "known": base_known})
@@ -199,7 +202,7 @@ def cmd_pass(a) -> int:
                     if changed:
                         tp, mask = rp.week_rosters(plan, tps, w)
                         res = sbm.simulate_week_matrix(data_, tp, sbm.schedule_week(data_, w), statuses, draws,
-                                                       tag_anchor, managers=changed, il_mask=mask)
+                                                       tag_anchor, managers=changed, il_mask=mask, **chain_kw)
                         for m in changed:
                             mats[w][m] = res[m]["score"]
                         simulated += len(changed)
@@ -221,7 +224,8 @@ def cmd_pass(a) -> int:
             raise _Saved()
         ssm.week_score_matrices = compute
         try:
-            run_season(data, num_simulations=n, seed=seed, injury_statuses=tags, through=through)
+            run_season(data, num_simulations=n, seed=seed, injury_statuses=tags, through=through,
+                       tag_anchors=line_anchors(str(ROOT)))
         except _Saved:
             print(f"{key}: week matrices saved ({time.time() - t:.0f} s)")
         else:
@@ -234,7 +238,7 @@ def cmd_pass(a) -> int:
         t = time.time()
     saved = np.load(mfile)
 
-    def answer(data_, tps, weeks, statuses, seed_, n_, tag_anchor=None, plan=None):
+    def answer(data_, tps, weeks, statuses, seed_, n_, tag_anchor=None, plan=None, tag_chain=None):
         if int(n_) != n or int(seed_) != seed:
             raise Refused("the saved matrices are for another seed or number of simulations")
         out = {}
@@ -253,7 +257,8 @@ def cmd_pass(a) -> int:
     from modules.data_loader import MANAGERS as sp_managers
     ssm.week_score_matrices = answer
     try:
-        sp = run_season(data, num_simulations=n, seed=seed, injury_statuses=tags, through=through)
+        sp = run_season(data, num_simulations=n, seed=seed, injury_statuses=tags, through=through,
+                        tag_anchors=line_anchors(str(ROOT)))
     finally:
         ssm.week_score_matrices = real
     secs = round(time.time() - t, 1)

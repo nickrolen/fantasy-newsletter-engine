@@ -3577,9 +3577,10 @@ def build_stats_report(
     if run_simulations:
         through = ("cup" if bracket_rounds() and cup_rounds()
                    else "playoffs" if bracket_rounds() else "regular")
-        from .title_odds_run import run_pass
+        from .title_odds_run import run_pass, line_anchors
         season_pass = run_pass(data, seed=seed, sims=num_title_sims,
-                               statuses=injury_statuses, through=through)
+                               statuses=injury_statuses, through=through,
+                               tag_anchors=line_anchors(getattr(data, "base_path", ".")))
         if season_pass_out is not None:
             season_pass_out.append(season_pass)
         title_odds = season_pass.playoff_result() if use_playoff_odds else season_pass.title_result()
@@ -3604,7 +3605,8 @@ def build_stats_report(
             if st:
                 cf = run_season(data, num_simulations=num_title_sims, seed=seed,
                                 injury_statuses=injury_statuses, through="regular",
-                                no_standins=frozenset({m}))
+                                no_standins=frozenset({m}),
+                                tag_anchors=line_anchors(getattr(data, "base_path", ".")))
                 without[m] = float(cf.title_result().title_odds[m])
         money_section = _money_section(season_pass, without)
 

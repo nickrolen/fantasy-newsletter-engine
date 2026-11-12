@@ -701,7 +701,10 @@ def test_the_line_and_the_season_pass_read_the_outs():
     assert "nba_outs=getattr(p, \"nba_outs\", None) or {})" in rl_src
     ss = (ROOT / "modules" / "season_sim.py").read_text()
     assert 'outs = getattr(injury_statuses, "nba_outs", None) or {}' in ss
-    assert '**({"nba_outs": outs} if outs else {}))' in ss
+    # passed to the remainder only when there are any (the chain's anchors ride beside them, s.3 of
+    # HANDOFF_CAUSAL_LEVERAGE_2026-11-12: modules/season_sim.run_season's `extra`)
+    assert 'extra = {"nba_outs": outs} if outs else {}' in ss
+    assert "injury_statuses, il_mask=mask_w, **extra)" in ss
 
 
 def test_the_report_is_read_by_the_runs_before_tip_and_reused_by_the_rest():

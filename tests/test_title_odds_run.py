@@ -54,7 +54,7 @@ def _fake_pass():
     # week 16's are +-5 by the result
     m3 = np.arange(10.0, 90.0, 10.0)
     m16 = np.where(w16[:, 0] == 1, 5.0, -5.0)
-    return SimpleNamespace(managers=["A", "B"], regular_weeks=(1, 15), through="playoffs",
+    return SimpleNamespace(managers=["A", "B"], regular_weeks=(1, 15), through="playoffs", seed=1,
                            week_results={3: w3, 16: w16}, reg_finish=reg_finish,
                            week_margins={3: np.stack([m3, -m3], axis=1),
                                          16: np.stack([m16, -m16], axis=1)},
@@ -66,14 +66,19 @@ def test_the_stakes_on_a_hand_built_pass():
     a3 = st["A"]["regular_season"]["3"]
     # A wins week 3 in 0,1,2,7 (title in 0,1,2: 3/4); loses in 3,4,5 (title 0/3); ties in 6
     assert (a3["n_win"], a3["n_loss"], a3["n_tie"]) == (4, 3, 1)
-    assert a3["rs_leverage"] == pytest.approx(0.75 - 0.0)
+    assert a3["rs_leverage_all"] == pytest.approx(0.75 - 0.0)
     b3 = st["B"]["regular_season"]["3"]
     # B wins in 3,4,5 (title 3/3); loses in 0,1,2,7 (title in 7: 1/4)
-    assert b3["rs_leverage"] == pytest.approx(1.0 - 0.25)
+    assert b3["rs_leverage_all"] == pytest.approx(1.0 - 0.25)
     a16 = st["A"]["playoffs"]["16"]
     # A wins week 16 in 0,2,4,6 (champion 0,2,4: 3/4); loses in 1,3,5,7 (0/4)
-    assert a16["playoff_leverage"] == pytest.approx(0.75)
-    assert st["B"]["playoffs"]["16"]["playoff_leverage"] == pytest.approx(1.0 - 0.25)
+    assert a16["playoff_leverage_all"] == pytest.approx(0.75)
+    assert st["B"]["playoffs"]["16"]["playoff_leverage_all"] == pytest.approx(1.0 - 0.25)
+    # schema 3: 8 iterations are far too few near ties for a causal leverage --
+    # null, with the counts, never the all-iteration number
+    for row, k in ((a3, "rs_leverage_causal"), (a16, "playoff_leverage_causal")):
+        assert row[k] is None and row["causal_band"] is None and "fewer than" in row["causal_why"]
+    assert "rs_leverage" not in a3 and "playoff_leverage" not in a16       # no unqualified name
     assert "16" not in st["A"]["regular_season"] and "3" not in st["A"]["playoffs"]
     # schema 2 (task 18b): margins over the iterations with a game; title and champion odds
     assert a3["margin_mean"] == pytest.approx(45.0)
@@ -159,7 +164,8 @@ def test_record_writes_the_row_the_latest_file_and_the_stakes(tmp_path, real_pas
     assert (latest["seed"], latest["num_simulations"], latest["as_of"]) == \
         (20262027, 600, "2026-11-04T00:01:00-08:00")
     assert stakes["run_id"] == latest["run_id"] == "r1"
-    assert stakes["schema"] == tor.STAKES_SCHEMA == 2 and stakes["season"] == "2026-27"
+    assert stakes["schema"] == tor.STAKES_SCHEMA == 3 and stakes["season"] == "2026-27"
+    assert stakes["near_tie"] == tor.near_tie_rules()
     assert set(stakes["teams"]) == set(latest["title_odds"])
     with pytest.raises(toh.HistoryCorrupt):          # a repeated run id: nothing more written
         tor.record(tmp_path, real_pass, run_id="r1", produced_by="test", kind="nightly", week=3)

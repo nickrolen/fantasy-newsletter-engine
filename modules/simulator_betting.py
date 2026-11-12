@@ -652,6 +652,31 @@ def tag_blocks(
     return out
 
 
+@dataclass(frozen=True)
+class TagChain:
+    """ONE ANCHOR PER TAG FOR A WHOLE SEASON PASS (HANDOFF_CAUSAL_LEVERAGE_2026-11-12
+    s.3). A mid-week pass prices the week in progress as the live line does --
+    each chain tag at the line's own anchor (week_state.reconcile_tags: a fresh
+    tag at the day it was first fetched, an unchanged one at the day it first
+    appeared), its games before as_of resolved from the logs -- and every LATER
+    week with the very same chain: the same anchors, the same keyed draw
+    ("absence", player, anchor), the same observed games, judged against the
+    same tag week. So a tag's block is one block of his team's games from its
+    anchor, charged once wherever its games fall, and a later week sees only
+    the games that spill into it. (Before: later weeks anchored every tag at
+    next week's first day -- a full new chain -- while the week in progress
+    anchored every tag at its own first day.) Only tag_blocks reads this; the
+    baseline hazard's anchor is untouched, so nobody else's draws move.
+      anchors:   {player: date} for every chain-tagged rostered player
+      week_info: (week, dates) the tags belong to: the week in progress
+      observed:  the week in progress's {player: {date: played}} (WeekState)
+      as_of:     the week in progress's first day not banked"""
+    anchors: dict
+    week_info: tuple
+    observed: dict
+    as_of: date
+
+
 def _tagged_players(data, team_projections, injury_statuses, tag_anchor,
                     anchors=None, tag_week_info=None):
     """[(name, chain tag, (his games from the anchor, anchor))] -- everything
@@ -856,9 +881,15 @@ def simulate_week_matrix(
     il_mask: dict = None,
     day_means: dict = None,
     nba_outs: dict = None,
+    tag_chain: TagChain = None,
 ) -> dict[str, dict]:
     """
     Simulate one fantasy week, all `draws.n` simulations at once.
+
+    tag_chain (s.3, TagChain): a later week of a mid-week season pass. The
+    tags' blocks are the week in progress's (its anchors, tag week, observed
+    games and as_of); exclusive with tag_anchor / anchors / tag_week_info /
+    observed, which it replaces. The baseline hazard keeps its own anchor.
 
     day_means (hub polish 3, 48c): when a dict is given, it is filled with
     {manager: {date: mean over simulations of that day's started points}},
@@ -901,8 +932,15 @@ def simulate_week_matrix(
     week_start_date = dates[0] if dates else None
     managers = list(managers or MANAGERS)
     n = draws.n
-    blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor,
-                        anchors, tag_week_info, observed, from_date, nba_outs)
+    if tag_chain is not None:
+        if tag_anchor is not None or anchors or tag_week_info is not None or observed:
+            raise ValueError("tag_chain replaces tag_anchor, anchors, tag_week_info and observed: "
+                             "pass one or the other")
+        blocks = tag_blocks(data, team_projections, injury_statuses, draws, None, tag_chain.anchors,
+                            tag_chain.week_info, tag_chain.observed, tag_chain.as_of, nba_outs)
+    else:
+        blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor,
+                            anchors, tag_week_info, observed, from_date, nba_outs)
     plan = _week_plan(data, team_projections, week_data, managers)
     base = baseline_blocks(data, team_projections, draws,
                            hazard_anchor(data, tag_anchor, tag_week_info), managers,
@@ -1016,8 +1054,13 @@ def week_score_matrices(
     num_simulations: int = DEFAULT_NUM_SIMULATIONS,
     tag_anchor: date = None,
     plan=None,
+    tag_chain: TagChain = None,
 ) -> dict[int, dict[str, np.ndarray]]:
     """{week: {manager: scores[n]}} -- one keyed simulation of each week.
+
+    tag_chain: a mid-week season pass's one chain per tag (TagChain), passed
+    to every week; None: tags anchored at tag_anchor (default: next week's
+    first day), as before.
 
     plan: a roster_plan.Run. Each week is then played with that week's
     rosters (IL moves, pickups, activations) and its IL slots masked; without
@@ -1045,7 +1088,8 @@ def week_score_matrices(
             from .roster_plan import week_rosters
             tp, mask = week_rosters(plan, team_projections, w)
         res = simulate_week_matrix(data, tp, wd, injury_statuses, draws,
-                                   tag_anchor, managers=MANAGERS, il_mask=mask)
+                                   tag_anchor, managers=MANAGERS, il_mask=mask,
+                                   **({"tag_chain": tag_chain} if tag_chain is not None else {}))
         out[int(w)] = {m: res[m]["score"] for m in MANAGERS}
     return out
 

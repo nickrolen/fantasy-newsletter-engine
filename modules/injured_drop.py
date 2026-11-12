@@ -20,13 +20,23 @@ is worth
         s_w = (rs_weight x RS leverage_w + playoff_weight x playoff leverage_w)
               x density_w
 
-where the leverages are P(title | wins week w) - P(title | loses week w) from
-the previous run's season pass (the stakes title_odds_run writes; a regular-season week
-has only RS leverage, a bracket week only playoff leverage) and density_w is
+where the leverages are the CAUSAL ones, P(title | wins week w) - P(title |
+loses week w) among the previous run's near-tie iterations (the stakes
+title_odds_run writes, schema 3; drop_inputs maps rs_leverage_causal to
+WeekStake.rs_leverage -- the all-iteration leverage carries season-long luck
+and overstated a point by ~1.4x, HANDOFF_CAUSAL_LEVERAGE_2026-11-12; a
+regular-season week has only RS leverage, a bracket week only playoff
+leverage) and density_w is
 HOW MUCH ONE POINT MOVES THAT WEEK'S WIN CHANCE: the density at zero of his
 margin that week, from a normal fit to the pass's own simulated margins,
 
         density_w = phi(margin_mean / margin_sd) / margin_sd.
+
+THIS IS THE ONE PLACE A POINT -- OR A WIN -- IS PRICED. win_value_parts()
+is a week's stake per win, by race; point_value_parts() is that x density_w,
+point_value() their sum. The roster plan's 18b costs and the advice's title
+term (horizon weeks: win_value_parts x the change in win chance; later weeks:
+point_value_parts x points) both go through them (tests pin it by source).
 
 (The builder's choice, task 18b item 4. A close matchup has a high density, a
 lopsided one a low density; the leverage says what the week is worth, the
@@ -184,13 +194,26 @@ class Decision:
 # the arithmetic
 # =============================================================================
 
+def win_value_parts(ws: WeekStake, config: Config) -> tuple:
+    """(rs part, playoff part) of the week's stake per WIN, stake units:
+    rs_weight x RS leverage, playoff_weight x playoff leverage (the causal
+    leverages; a null one is 0)."""
+    return (config.rs_weight * float(ws.rs_leverage or 0.0),
+            config.playoff_weight * float(ws.playoff_leverage or 0.0))
+
+
+def point_value_parts(ws: WeekStake, config: Config) -> tuple:
+    """(rs part, playoff part) of s_w: stake units per POINT scored this week."""
+    rs, po = win_value_parts(ws, config)
+    if rs == 0.0 and po == 0.0:
+        return 0.0, 0.0
+    d = ws.density()
+    return rs * d, po * d
+
+
 def point_value(ws: WeekStake, config: Config) -> float:
     """s_w: stake units per point scored in this week."""
-    lev = config.rs_weight * float(ws.rs_leverage or 0.0) + \
-        config.playoff_weight * float(ws.playoff_leverage or 0.0)
-    if lev == 0.0:
-        return 0.0
-    return lev * ws.density()
+    return sum(point_value_parts(ws, config))
 
 
 def keep_rank(name: str, keep: Mapping[str, float]) -> tuple:

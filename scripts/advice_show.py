@@ -62,6 +62,12 @@ def show(latest: dict, out=print) -> None:
             if t["followup"]:
                 out(f"    {t['followup']}")
             out(f"    {t['numbers']}")
+            if latest.get("show_title_odds") is False:
+                out(f"    title odds: hidden (advice.show_title_odds is false; the estimate "
+                    f"{mv['title_odds'] if mv['title_odds'] is None else format(100 * mv['title_odds'], '+.1f') + '%'} "
+                    "is kept in the file)")
+            elif "show_title_odds" not in latest:
+                out("    title odds: as written before advice.show_title_odds existed")
             out(f"    {t['reason']}")
             out(f"    engine: score {mv['score']:+.4f}; dwp {mv['dwp']}; dpts {mv['dpts']}; "
                 f"title term later {mv['dT_later']:+.4f} (stake units){'; ranked on points' if mv['flat'] else ''}")
