@@ -17,6 +17,15 @@ banner above everything else (design s.3 invariant).
 NO EXTERNAL ANYTHING: system fonts, inline styles and script, no images. The
 page works offline once decrypted.
 
+PLAYER CARDS (task 40): every player name in a table or list carries its card
+key (data-card, from the payload; hub_cards.annotate). A tap loads the card
+bundle once -- in preview, inline (render's `cards`); published, the shell's
+HUB.cards(), an encrypted file fetched on the first tap -- then the player's
+earlier seasons and headshot (HUB.part, HUB.photo), and opens the
+newsletter's own modal (player_card_modal, whose script and style come in the
+bundle, not in this page). The loader computes nothing: it joins the two
+lists of games the engine wrote and hands the card to the modal.
+
 LORE NEVER REACHES IT: every payload string passes live_lines_page.clean
 (VOICE rule 21's tag strip, then HTML escaping).
 
@@ -226,6 +235,7 @@ justify-content:center;border-radius:8px;border:1px solid #C9CED6;font-size:13px
 #issue-view[hidden]{display:none}
 #issue-view .bar2{background:#121417;padding:10px 16px}
 #issue-view iframe{flex:1;border:0;width:100%%}
+[data-card]{cursor:pointer;text-decoration:underline dotted #9AA1AC;text-underline-offset:3px}
 """ % {"font": FONT, "add": MOVE_COLOURS["add"], "drop": MOVE_COLOURS["drop"],
        "trade": MOVE_COLOURS["trade"],
        **{f"{k}_{w}": v[i] for k, v in MODE_CHIP_COLOURS.items() for i, w in ((0, "bg"), (1, "fg"))}}
@@ -257,7 +267,7 @@ def _move_parts(parts) -> str:
     """One line per part. A voided add is not in the payload at all (task 45:
     hidden, not struck; modules/hub_moves.yahoo_item)."""
     return "".join(f'<span class="mvp {clean(x["kind"])}"><span class="mk">{clean(x["marker"])}</span>'
-                   f'{clean(x["text"])}</span>' for x in parts)
+                   f'{_segs(x["segs"]) if x.get("segs") else clean(x["text"])}</span>' for x in parts)
 
 
 def _nba_note(nb) -> str:
@@ -298,11 +308,39 @@ def _tags(chips) -> str:
     return "".join(f'<span class="chip {clean(c["kind"])}">{clean(c["text"])}</span>' for c in chips)
 
 
+def _card_attr(row) -> str:
+    """ data-card="key" when the payload gives the name a card (task 40)."""
+    k = row.get("card") if isinstance(row, dict) else None
+    return f' data-card="{clean(k)}"' if k else ""
+
+
+def _spaced(t: str) -> str:
+    """clean(t) with t's own leading and trailing spaces kept (clean strips them)."""
+    lead, trail = t[:len(t) - len(t.lstrip())], t[len(t.rstrip()):]
+    return (lead + clean(t) + trail) if t.strip() else t.replace("<", "").replace(">", "")
+
+
+def _segs(segs) -> str:
+    """A text cut into plain pieces and tappable player names (hub_cards.segments)."""
+    return "".join(f'<span class="pl" data-card="{clean(x["card"])}">{clean(x["t"])}</span>' if x.get("card")
+                   else _spaced(x["t"]) for x in segs)
+
+
+def _text(row: dict, field: str) -> str:
+    """row[field], with its players tappable when the payload cut it (field_segs)."""
+    segs = row.get(f"{field}_segs")
+    return _segs(segs) if segs else clean(row[field])
+
+
 def render(payload: dict, *, now: datetime = None, mode: str = "preview",
-           archive_href: str = "hub_archive/") -> str:
-    """The page as one HTML string. mode "preview" or "publish"."""
+           archive_href: str = "hub_archive/", cards: dict = None) -> str:
+    """The page as one HTML string. mode "preview" or "publish". cards: the
+    preview's plaintext card bundle (hub_cards.preview_bundle), embedded;
+    never in publish mode, where the cards are their own encrypted files."""
     if mode not in ("preview", "publish"):
         raise ValueError(f"mode {mode!r}")
+    if cards is not None and mode != "preview":
+        raise ValueError("the cards are embedded only in the plaintext preview")
     gen = datetime.fromisoformat(payload["generated_at"])
     now = now or datetime.now(gen.tzinfo)
     words, stale = age_words(gen, now)
@@ -433,7 +471,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
         o.append(f'<div class="empty">{clean(fa["empty"])}</div>')
     for r in fa["rows"]:
         o.append(f'<div class="fa-r" data-status="{clean(r["status"])}"><span class="pn">'
-                 f'<span class="n">{clean(r["name"])}</span><span class="tags">'
+                 f'<span class="n"{_card_attr(r)}>{clean(r["name"])}</span><span class="tags">'
                  f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span>{_tags(r["tags"])}</span></span>'
                  f'<span class="num">{clean(r["proj"])}</span>'
                  f'<span class="num">{clean(r["g1"])}</span><span class="num">{clean(r["g2"])}</span>'
@@ -450,7 +488,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
         o.append(f'<div class="empty">{clean(st["empty"])}</div>')
     for r in st["rows"]:
         o.append(f'<div class="st-r" data-status="{clean(r["status"])}"><span class="pn">'
-                 f'<span class="n">{clean(r["name"])}</span><span class="tags">'
+                 f'<span class="n"{_card_attr(r)}>{clean(r["name"])}</span><span class="tags">'
                  f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span>{_tags(r["tags"])}</span>'
                  + (f'<span class="s">{clean(r["season_note"])}</span>' if r["season"] else "")
                  + f'</span><span class="num">{clean(r["proj"])}</span></div>')
@@ -542,7 +580,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
         for i in order:
             p = rb["players"][i]
             o.append(f'<div class="rt-r{" il" if p["in_il"] else ""}" data-i="{i}">'
-                     f'<div class="pn"><span class="n">{clean(p["name"])}</span><span class="tags">'
+                     f'<div class="pn"><span class="n"{_card_attr(p)}>{clean(p["name"])}</span><span class="tags">'
                      f'<span class="s">{clean(p["pos"])} &middot; {clean(p["nba"])}</span>{_tags(p["tags"])}</span></div>'
                      f'<span class="v f">{clean(p["fppg"])}</span><span class="v">{clean(p["proj"])}</span>'
                      f'<span class="v">{clean(p["l14"])}</span><span class="v" style="color:#121417">{clean(p["gl"])}</span>'
@@ -574,7 +612,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
         for lst in c["lists"]:
             o.append(f'<div class="tb-l" data-list="{clean(lst["key"])}"><div class="tb-k">{clean(lst["label"])}</div>')
             for r in lst["rows"]:
-                o.append(f'<div class="tb-r"><span class="pn"><span class="n">{clean(r["name"])}</span>'
+                o.append(f'<div class="tb-r"><span class="pn"><span class="n"{_card_attr(r)}>{clean(r["name"])}</span>'
                          f'<span class="s">{clean(r["pos"])} &middot; {clean(r["nba"])}</span></span>'
                          f'<span class="s since">{clean(r["since"])}</span></div>')
             o.append("</div>")
@@ -595,12 +633,12 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                      f'<span class="s">{clean(c["manager"])}</span></span></div><div class="ad-b">'
                      + (f'<div class="ad-k">{clean(c["heading"])}</div>' if c["heading"] else ""))
             if c["move"]:
-                o.append(f'<div class="ad-m">{clean(c["move"])}</div>'
-                         + (f'<div class="ad-s">{clean(c["followup"])}</div>' if c["followup"] else "")
+                o.append(f'<div class="ad-m">{_text(c, "move")}</div>'
+                         + (f'<div class="ad-s">{_text(c, "followup")}</div>' if c["followup"] else "")
                          + f'<div class="ad-n">{clean(c["numbers"])}</div>'
                          + f'<div class="ad-s">{clean(c["reason"])}</div>'
                          + (f'<div class="ad-s">{clean(c["also"])}</div>' if c["also"] else "")
-                         + (f'<div class="ad-s">{clean(c["backup"])}</div>' if c["backup"] else ""))
+                         + (f'<div class="ad-s">{_text(c, "backup")}</div>' if c["backup"] else ""))
             else:
                 o.append(f'<div class="empty">{clean(c["empty"])}</div>')
             o.append("</div></div>")
@@ -640,6 +678,9 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
     o.append('<div id="issue-view" hidden><div class="bar2"><a href="#" class="back" id="issue-close">'
              '&larr; Back to the hub</a></div><iframe id="issue-frame" title="Newsletter"></iframe></div>')
     o.append("</div>")
+    if cards is not None:                       # the preview's cards, plaintext (never published)
+        blob = json.dumps(cards, separators=(",", ":"), ensure_ascii=True).replace("</", "<\\/")
+        o.append(f'<script type="application/json" id="hub-cards">{blob}</script>')
     o.append(f"<script>{PAGE_JS}</script></body></html>")
     return "\n".join(o)
 
@@ -678,8 +719,38 @@ function sortTable(card,key){
   var view=card.closest('.view');
   view.querySelector('.sortlbl').textContent=card.querySelector('.sb[data-sort="'+key+'"]').textContent;
 }
+// player cards (task 40): the bundle once, then the player's earlier seasons
+// and headshot; the newsletter's modal draws the card. Nothing computed here.
+var cardsP=null;
+function cardsBundle(){
+  if(cardsP){return cardsP;}
+  var el=document.getElementById('hub-cards');
+  var p=el?Promise.resolve(JSON.parse(el.textContent)):
+    ((window.HUB&&window.HUB.cards)?window.HUB.cards():Promise.reject(new Error('no cards')));
+  cardsP=p.then(function(b){
+    return (b.code?window.HUB.part(b.code):Promise.resolve(b)).then(function(code){
+      var st=document.createElement('style');st.textContent=code.css;document.head.appendChild(st);
+      var sc=document.createElement('script');sc.textContent=code.js;document.body.appendChild(sc);
+      window.pcPhotoLoader=(window.HUB&&window.HUB.photo)?window.HUB.photo:null;
+      return b;});});
+  cardsP.catch(function(){cardsP=null;});
+  return cardsP;
+}
+function openCard(key){
+  cardsBundle().then(function(b){
+    var c=b.cards[key];
+    if(!c){throw new Error('no card');}
+    if(c.hist&&!c.histIn){return window.HUB.part(c.hist).then(function(prior){
+      c.sparkline=prior.concat(c.sparkline);c.histIn=true;return c;});}
+    return c;
+  }).then(function(c){window.pcShow(c);},function(err){
+    alertBox((err&&err.message==='old browser')?'This browser is too old to open player cards.':
+      'That player card could not be opened.');});
+}
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-open]');
+  var t=e.target.closest('[data-card]');
+  if(t){e.preventDefault();openCard(t.getAttribute('data-card'));return;}
+  t=e.target.closest('[data-open]');
   if(t){e.preventDefault();var id=t.getAttribute('data-open');
     if(id==='v-main'){history.pushState('',document.title,location.pathname+location.search);show('v-main');}
     else{location.hash=id;}
@@ -761,8 +832,24 @@ function openWith(raw){
   .then(function(k){return crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(B.iv)},k,unb64(B.ct));})
   .then(function(pt){return JSON.parse(new TextDecoder().decode(pt));});
 }
+function sealed(file,k){
+  return fetch(file).then(function(r){if(!r.ok){throw new Error('fetch');}return r.arrayBuffer();})
+  .then(function(buf){var u=new Uint8Array(buf);
+    return crypto.subtle.importKey('raw',unb64(k),'AES-GCM',false,['decrypt']).then(function(key){
+      return crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},key,u.slice(12));});});
+}
+function part(ref){
+  if(typeof DecompressionStream==='undefined'){return Promise.reject(new Error('old browser'));}
+  return sealed(ref.file,ref.key).then(function(pt){
+    return new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).text();})
+  .then(function(t){return JSON.parse(t);});
+}
 function mount(inner){
   window.HUB={
+    cards:function(){return inner.cards?part(inner.cards):Promise.reject(new Error('no cards'));},
+    part:part,
+    photo:function(ref){return sealed(ref.file,ref.key).then(function(pt){
+      return URL.createObjectURL(new Blob([pt],{type:'image/webp'}));});},
     openIssue:function(file){
       var k=inner.issues[file];
       if(!k){return Promise.reject(new Error('unknown issue'));}

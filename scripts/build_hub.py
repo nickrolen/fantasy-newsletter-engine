@@ -11,7 +11,14 @@ Writes:
   output/hub_preview.html   the plaintext page, for review on this machine
                             only (ignored; never published)
   output/hub_publish/       index.html (the decrypt shell with the encrypted
-                            page) and issues/*.enc (copied from the archive)
+                            page), issues/*.enc (copied from the archive), and
+                            the player cards: cards/*.enc and photos/*.enc
+                            (task 40; modules/hub_cards)
+
+THE CARDS: output/hub_cards.json when the nightly run built it for this
+payload (same generated_at and engine); otherwise built here from this
+folder's data (a desk build, a scratch build), which takes a few seconds more.
+The preview embeds them in plaintext, headshots included.
 
 The passphrase is read from HUB_PASSPHRASE and nowhere else; it is never
 printed or written. Missing or shorter than 20 characters: refused. After
@@ -46,7 +53,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out-dir", default=None,
                     help="write the preview and the publish directory under this folder (a scratch build)")
     a = ap.parse_args(argv)
-    from modules import hub_state, hub_page, hub_archive, hub_crypto, hub_publish
+    from modules import hub_state, hub_page, hub_archive, hub_crypto, hub_publish, hub_cards
     base = Path(a.base_path)
     if a.out_dir is not None:
         from modules.hub_publish import scratch_refusal
@@ -70,15 +77,29 @@ def main(argv=None) -> int:
         preview = base / "output" / "hub_preview.html"
         if out_dir is not None:                 # a scratch build: beside, never inside, its hub_publish/
             preview = out_dir / "hub_preview.html"
-        preview.write_text(hub_page.render(payload, mode="preview"), encoding="utf-8")
+        cards = None
+        if (payload.get("cards") or {}).get("players"):
+            cards = None if a.state is not None else hub_cards.load_for(base, payload)
+            if cards is None:
+                cards = hub_cards.build(base, payload)
+                print(f"Built {len(cards['cards'])} player card(s) from this folder's data "
+                      f"({cards['seconds']} s); {len(cards['photos'])} with a headshot.")
+            hub_cards.check_against(payload, cards)
+        preview.write_text(hub_page.render(payload, mode="preview",
+                                           cards=None if cards is None else hub_cards.preview_bundle(base, cards)),
+                           encoding="utf-8")
         print(f"Wrote {preview} (plaintext; local only).")
         if a.preview_only:
             return 0
         passphrase = hub_crypto.passphrase_from_env()
-        r = hub_publish.build(base, payload, passphrase,
+        pub = hub_publish.publish_dir(base) if out_dir is None else out_dir / "hub_publish"
+        gone = hub_publish.clear_superseded(pub)
+        if gone:
+            print(f"Removed {len(gone)} card/headshot file(s) an earlier build wrote.")
+        r = hub_publish.build(base, payload, passphrase, cards=cards,
                               out_dir=None if out_dir is None else out_dir / "hub_publish")
     except (hub_state.HubInputError, hub_archive.ArchiveError, hub_crypto.PassphraseError,
-            hub_publish.PublishError, hub_publish.PlaintextLeak) as e:
+            hub_publish.PublishError, hub_publish.PlaintextLeak, hub_cards.CardsError) as e:
         print(f"REFUSED: {e}")
         return 1
     print(f"Wrote {r['dir']}: {len(r['files'])} file(s), PBKDF2-SHA256 x {r['iterations']:,}.")

@@ -139,25 +139,27 @@ def build_preview_html(cards: list[dict]) -> str:
         chips_html += '<div class="preview-grid">\n'
         for c in team_cards:
             color = MANAGER_COLORS.get(c["manager"], "#666")
-            fppg = c.get("current_season", {}).get("fppg", 0)
-            gp = c.get("current_season", {}).get("gp", 0)
+            cs = c.get("current_season")            # None: no games this season (task 40)
             career = c.get("career", {})
             career_szns = career.get("seasons_played", 0)
-            career_fppg = career.get("career_fppg", 0)
+            career_fppg = career.get("career_fppg")
             name_js = c["player_name"].replace("\\", "\\\\").replace("'", "\\x27").replace('"', '\\"')
-            rank = c.get("overall_rank", "?")
-            rank_badge = f'<span class="chip-rank">Avg. Rank: #{rank}</span>'
+            rank = c.get("overall_rank")
+            rank_badge = f'<span class="chip-rank">Avg. Rank: #{rank}</span>' if rank else ""
+            season_stats = (f'<span class="chip-fppg">{cs["fppg"]:.1f} FPPG</span>\n    '
+                            f'<span class="chip-gp">{cs["gp"]} GP</span>' if cs else
+                            f'<span class="chip-gp">{c.get("season_note", "")}</span>')
+            career_text = f"{career_szns}yr / {career_fppg:.1f}" if career_fppg is not None else "no league history"
             keep = c.get("keep_text", "")
 
             chips_html += f"""<div class="preview-chip" style="border-left-color:{color}" onclick="pcOpen('{name_js}')">
   <div class="chip-row1"><span class="chip-name">{c['player_name']}</span>{rank_badge}</div>
   <div class="chip-sub">{c['nba_team']} &middot; {c['pos_group']} &middot; {c['age']}y &middot; {c['manager']}</div>
   <div class="chip-stats">
-    <span class="chip-fppg">{fppg:.1f} FPPG</span>
-    <span class="chip-gp">{gp} GP</span>
-    <span class="chip-career">{career_szns}yr / {career_fppg:.1f}</span>
+    {season_stats}
+    <span class="chip-career">{career_text}</span>
   </div>
-  <div class="chip-arch">{c['archetype']}</div>
+  <div class="chip-arch">{c['archetype'] or ''}</div>
   <div class="chip-sub">{keep}</div>
 </div>
 """

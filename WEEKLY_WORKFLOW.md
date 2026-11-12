@@ -865,7 +865,7 @@ P2 (format), and ends with a publish/fix verdict.
 python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --output output\WEEKN_NEWSLETTER.html --helmet assets\helmet.png --podium assets\podium.png --stats-report output\stats_report_weekN.json
 ```
 
-**Player of the Week photo:** the page uses `assets\potw\<winner-slug>.png` (or `.jpg`/`.jpeg`/`.webp`), the slug taken from the stats report's winner (Tyrese Maxey -> `tyrese-maxey`). No file for this week's winner: the podium alone, and the build prints one line saying so. `--potw <path>` still works, but only for a file named for the winner; anything else refuses.
+**Player of the Week photo:** the page uses the headshot library's `assets\headshots\<winner-slug>.webp`, the slug taken from the stats report's winner (Tyrese Maxey -> `tyrese-maxey`). The library is the one the hub's player cards and Keeper Watch use (task 40a, 11-12); `assets\potw\` is retired. To add this week's winner: `python scripts\headshots.py add <file> "<Winner Name>"`, then `python scripts\state.py push`. No photo for this week's winner: the podium alone, and the build prints one line saying so. `--potw <path>` still works, but only for a file named for the winner; anything else refuses.
 
 **What's new:** The `--stats-report` flag loads the JSON stats report and injects interactive Stats Corner visualizations (Positional Breakdown, Draft Value Tracker, Waiver ROI, Keeper Watch) into Section 8. If omitted, the newsletter renders normally without visualizations.
 
@@ -1087,7 +1087,7 @@ Make sure you're using the updated `sync_transactions.py` (Feb 2, 2026 fix) that
 | WEEKN_NEWSLETTER.html | `output\` | Final HTML newsletter |
 | WEEKN_DRAFT.md | `assets\` | Newsletter markdown draft |
 | helmet.png | `assets\` | Newsletter header image |
-| potw\<player-slug>.png | `assets\potw\` | Player of the Week photo, named for the week's winner (e.g. `tyrese-maxey.png`; accents stripped, lowercase, hyphens). You supply it. No file: the page shows the podium alone and Step 9 says so; it never shows another player's photo |
+| headshots\<player-slug>.webp | `assets\headshots\` | The headshot library (task 40a): one photo per player, used by the Player of the Week, Keeper Watch's cards and the hub's cards. You supply every photo, through `python scripts\headshots.py add` / `add-folder` (it crops, resizes to 320 px and saves WebP); `missing` lists who has none. No photo: no image and no frame; never another player's photo. Private state (`state.py push` after adding) |
 | podium.png | `assets\` | Podium/standings image |
 | newsletter_template.md | `templates\` | Newsletter content structure & formatting rules |
 | NEWSLETTER_PROMPTS.md | `templates\` | Reusable 3-part drafting prompts (fill in weekly) |

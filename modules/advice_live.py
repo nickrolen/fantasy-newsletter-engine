@@ -771,6 +771,11 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
 # the hub's view (strings only: the page computes nothing)
 # =============================================================================
 
+def _move_players(m: dict, fields) -> list:
+    """The players a move's text names, in field order (hub_cards, task 40)."""
+    return [m[f] for f in fields if m.get(f)]
+
+
 def hub_view(latest: dict, power_rows: list) -> dict:
     """One card per manager in power-rankings order: the heading (Monday move /
     chat move), the move and its follow-up, the numbers, the reason, "also
@@ -781,7 +786,8 @@ def hub_view(latest: dict, power_rows: list) -> dict:
     for r in power_rows:
         m = r["manager"]
         card = {"manager": m, "team": r["team"], "heading": hz.get("label") or "", "move": "", "followup": "",
-                "numbers": "", "reason": "", "also": "", "backup": "", "empty": ""}
+                "numbers": "", "reason": "", "also": "", "backup": "", "empty": "",
+                "players": {}}         # task 40: the players each text names (hub_cards makes them tappable)
         if latest.get("error"):
             card["empty"] = "Advice could not be updated."
         elif latest.get("season_over"):
@@ -795,11 +801,15 @@ def hub_view(latest: dict, power_rows: list) -> dict:
             else:
                 t = e["move"]["text"]
                 card.update(move=t["move"], followup=t["followup"], numbers=t["numbers"], reason=t["reason"])
+                card["players"]["move"] = _move_players(e["move"], ("add", "drop", "to_il"))
+                if t["followup"]:
+                    card["players"]["followup"] = _move_players(e["move"], ("followup_drop", "to_il"))
                 if e["also_wanted_by"]:
                     card["also"] = "Also wanted by " + " and ".join(e["also_wanted_by"])
                 if e["backup"] is not None:
                     b = e["backup"]["text"]
                     card["backup"] = f"If he's gone: {b['move']} ({b['numbers']})"
+                    card["players"]["backup"] = _move_players(e["backup"], ("add", "drop", "to_il"))
         cards.append(card)
     foot = latest["updated_text"]
     if latest.get("error"):

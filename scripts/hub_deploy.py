@@ -9,6 +9,9 @@ exactly what will be pushed (step 1c-ii, HANDOFF_STEP1C2 s.4 step 9).
 After it, the target's files are exactly:
     index.html           the decrypt shell (the page, encrypted)
     issues/*.enc         the encrypted issues
+    cards/*.enc          the player cards (task 40): the card bundle and each
+                         player's earlier seasons, encrypted
+    photos/*.enc         the headshots, encrypted
     .nojekyll            GitHub Pages: serve the files as they are
 and nothing else (the repo's first README included: it is removed). .git is
 never touched or scanned.
@@ -53,7 +56,9 @@ def stage(base, target, terms=None, out=print) -> dict:
     if not (target / ".git").exists():
         raise DeployRefused(f"--target {target} is not a git checkout of the hub repo")
     want = _files(src)
-    bad = [f for f in want if f != "index.html" and not (f.startswith("issues/") and f.endswith(".enc"))]
+    bad = [f for f in want if f != "index.html"
+           and not (f.split("/")[0] in ("issues", "cards", "photos") and f.count("/") == 1
+                    and f.endswith(".enc"))]
     if bad:
         raise DeployRefused(f"{hp.PUBLISH_RELDIR.as_posix()} holds files the hub never publishes: {bad}")
     terms = terms if terms is not None else hp.scan_terms(base)

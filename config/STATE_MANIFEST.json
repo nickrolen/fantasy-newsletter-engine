@@ -48,7 +48,8 @@
     {"path": "data/lore_backups", "what": "lore backups (modules/lore.py)"},
     {"path": "data/keepability", "what": "published keep chances, one file per week (newsletter_html_generator)"},
     {"path": "config/snapshots", "what": "weekly PLAYERLIST snapshots and Step 6's point-in-time captures (the pinned durability prior is a public exception)"},
-    {"path": "assets/potw", "what": "Player of the Week photos, supplied by Nick"},
+    {"path": "assets/headshots", "what": "the headshot library: one photo per player, <player-slug>.webp, supplied by Nick through scripts/headshots.py (never fetched from the web); used by the hub's player cards, the newsletter's Keeper Watch cards and the Player of the Week (modules/headshots; task 40a, 11-12)"},
+    {"path": "assets/potw", "what": "RETIRED 11-12 (task 40a): the Player of the Week reads assets/headshots. Still listed only so that state.py push removes the last photo's old copy from the private repo once Nick moves it; nothing reads it. Remove this entry after that push"},
     {"path": "archive", "what": "past seasons' state, archived by start_new_season at the reset"},
     {"path": "output/hub_archive", "what": "the newsletter archive the hub publishes: each issue's plaintext bytes, written once by content hash, and its index (modules/hub_archive.py; step 1b)"}
   ],
@@ -94,6 +95,7 @@
     {"path": "__pycache__/", "why": "Python caches (also .pytest_cache/, *.cache)"},
     {"path": "output/hub_preview.html", "why": "the hub's plaintext local preview: regenerable from output/hub_state.json (scripts/build_hub.py), never published"},
     {"path": "output/hub_publish/", "why": "the hub's publish directory: encrypted files only, regenerable (scripts/build_hub.py); step 1c publishes it"},
+    {"path": "output/hub_cards.json", "why": "the hub's player cards in plaintext for this run's payload (modules/hub_cards; task 40): rebuilt by every run that builds the hub, read by build_hub; several MB, so not committed nightly"},
     {"path": ".state_overlay.json", "why": "scripts/state_overlay.py's marker on a runner's engine checkout: overlay in completed, so overlay out may copy back. Per checkout, never copied"}
   ],
   "public_exceptions": [

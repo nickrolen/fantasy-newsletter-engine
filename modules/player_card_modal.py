@@ -7,6 +7,20 @@ that appears when clicking a player chip in the Keeper Watch section.
 Design: 2K MyNBA-inspired scouting cards with dark theme, mobile-first.
 Integrates with the existing Stats Corner visualization system (sc- prefix namespace).
 
+The hub (task 40) opens the same modal: pcShow(card) renders a card object
+it fetched (hub_page's loader); the newsletter's pcOpen(name) looks its card
+up in PC_DATA. A card's "photo" is a data URI (the newsletter) or an
+encrypted file's reference that window.pcPhotoLoader turns into a URL (the
+hub); a card with none draws no image and no frame. "status" (the hub's
+live owner and injury chips) is drawn when present.
+
+The script draws what the card holds; the one figure it used to compute,
+the season filter's boom/bust panel, is the engine's now
+(player_card_builder.boom_bust_by_season). What it still works out is
+display: bar heights and widths scaled from engine numbers (the sparkline,
+the trend, the injury chart, the milestone bar), which season to show by
+default (the last), which draft rows to show, and number formatting.
+
 Usage (from stats_corner_viz.py or newsletter_html_generator.py):
     from modules.player_card_modal import get_player_card_css, get_player_card_js, embed_player_card_data
 
@@ -113,7 +127,11 @@ function pcInit() {
   PC_DATA.forEach(function(card) {
     pcData[card.player_name] = card;
   });
-  
+  pcEnsureModal();
+}
+
+function pcEnsureModal() {
+  if (pcModal) return;
   // Create modal element
   var m = document.createElement('div');
   m.id = 'pc-modal';
@@ -126,7 +144,11 @@ function pcInit() {
 function pcOpen(playerName) {
   var card = pcData[playerName];
   if (!card || !pcModal) return;
-  
+  pcShow(card);
+}
+
+function pcShow(card) {
+  pcEnsureModal();
   pcCurrentCard = card;
   pcCurrentFilter = null;
   
@@ -144,6 +166,20 @@ function pcOpen(playerName) {
       if (season) pcFilterSeason(this, season);
     });
   });
+  // The hub's photo: an encrypted file, fetched now; shown only once it has
+  // loaded, so a missing or failed one leaves no image and no frame
+  if (card.photo && typeof card.photo === 'object' && window.pcPhotoLoader) {
+    window.pcPhotoLoader(card.photo).then(function(url) {
+      var slot = document.getElementById('pc-photo-slot');
+      if (!slot || pcCurrentCard !== card) return;
+      var img = document.createElement('img');
+      img.className = 'pc-photo';
+      img.alt = '';
+      img.onerror = function() { img.remove(); };
+      img.src = url;
+      slot.appendChild(img);
+    }, function() {});
+  }
 }
 
 function pcClose() {
@@ -172,30 +208,51 @@ function pcRenderCard(c) {
   // === HEADER ===
   html += '<div class="pc-header" style="border-bottom: 3px solid ' + mgrColor + ';">';
   html += '<div class="pc-header-top">';
+  if (typeof c.photo === 'string' && c.photo) {
+    html += '<div class="pc-photo-slot"><img class="pc-photo" alt="" src="' + esc(c.photo) + '" onerror="this.remove()"></div>';
+  } else if (c.photo) {
+    html += '<div class="pc-photo-slot" id="pc-photo-slot"></div>';
+  }
   html += '<div class="pc-name-row"><div class="pc-name">' + esc(c.player_name) + '</div>';
   if (c.overall_rank) {
     html += '<div class="pc-rank">Avg. Rank: #' + c.overall_rank + '</div>';
   }
   html += '</div>';
-  html += '<div class="pc-meta">' + esc(c.nba_team) + ' &middot; ' + esc(c.positions) + ' &middot; Age ' + c.age + '</div>';
+  var meta = [];
+  if (c.nba_team) meta.push(esc(c.nba_team));
+  if (c.positions) meta.push(esc(c.positions));
+  if (c.age !== null && c.age !== undefined) meta.push('Age ' + c.age);
+  if (meta.length) html += '<div class="pc-meta">' + meta.join(' &middot; ') + '</div>';
   html += '</div>';
   html += '<div class="pc-badges">';
-  html += '<span class="pc-arch-badge" style="background:' + archColor + ';color:#1a1a1a;">' + esc(c.archetype) + '</span>';
+  if (c.archetype) {
+    html += '<span class="pc-arch-badge" style="background:' + archColor + ';color:#1a1a1a;">' + esc(c.archetype) + '</span>';
+  }
   if (c.keep_text) {
     html += '<span class="pc-tier-badge" style="background:' + mgrColor + ';color:#fff;">' + esc(c.keep_text) + '</span>';
   }
+  (c.status || []).forEach(function(st) {
+    html += '<span class="pc-status-badge pc-st-' + esc(st.kind) + '">' + esc(st.text) + '</span>';
+  });
   html += '</div>';
   html += '</div>';
   
   // === STAT BAR ===
-  var cs = c.current_season || {};
+  // (no games this season: no bar of zeros -- the card's note says why)
+  var cs = c.current_season;
   var career = c.career || {};
-  html += '<div class="pc-stat-bar">';
-  html += '<div class="pc-stat-cell" id="pc-hdr-fppg"><div class="pc-stat-val">' + (cs.fppg || 0).toFixed(1) + '</div>' + (c.composite_rank_fppg ? '<div class="pc-stat-rank">#' + c.composite_rank_fppg + '</div>' : '') + '<div class="pc-stat-lbl">FPPG</div></div>';
-  html += '<div class="pc-stat-cell" id="pc-hdr-totalfp"><div class="pc-stat-val">' + Math.round(cs.total_fp || 0).toLocaleString() + '</div>' + (c.composite_rank_total ? '<div class="pc-stat-rank">#' + c.composite_rank_total + '</div>' : '') + '<div class="pc-stat-lbl">Tot FP</div></div>';
-  html += '<div class="pc-stat-cell" id="pc-hdr-gp"><div class="pc-stat-val">' + (cs.gp || 0) + '</div><div class="pc-stat-lbl">GP</div></div>';
-  html += pcStatCell('Career', (career.career_fppg || 0).toFixed(1));
-  html += '</div>';
+  var hasCareer = (career.career_fppg !== null && career.career_fppg !== undefined);
+  if (cs) {
+    html += '<div class="pc-stat-bar">';
+    html += '<div class="pc-stat-cell" id="pc-hdr-fppg"><div class="pc-stat-val">' + (cs.fppg || 0).toFixed(1) + '</div>' + (c.composite_rank_fppg ? '<div class="pc-stat-rank">#' + c.composite_rank_fppg + '</div>' : '') + '<div class="pc-stat-lbl">FPPG</div></div>';
+    html += '<div class="pc-stat-cell" id="pc-hdr-totalfp"><div class="pc-stat-val">' + Math.round(cs.total_fp || 0).toLocaleString() + '</div>' + (c.composite_rank_total ? '<div class="pc-stat-rank">#' + c.composite_rank_total + '</div>' : '') + '<div class="pc-stat-lbl">Tot FP</div></div>';
+    html += '<div class="pc-stat-cell" id="pc-hdr-gp"><div class="pc-stat-val">' + (cs.gp || 0) + '</div><div class="pc-stat-lbl">GP</div></div>';
+    if (hasCareer) html += pcStatCell('Career', career.career_fppg.toFixed(1));
+    html += '</div>';
+  } else {
+    if (c.season_note) html += '<div class="pc-no-data">' + esc(c.season_note) + '</div>';
+    if (hasCareer) html += '<div class="pc-stat-bar">' + pcStatCell('Career', career.career_fppg.toFixed(1)) + '</div>';
+  }
   
   // === KEEPABILITY BREAKDOWN ===
   html += pcRenderKeepability(c);
@@ -439,26 +496,15 @@ function pcRenderBoomBustInner(c, filterSeason) {
   var boomRate, bustRate, bestGame, worstGame, consistency, totalGames;
   
   if (filterSeason) {
-    // Compute boom/bust from filtered sparkline data
-    var filtered = (c.sparkline || []).filter(function(g) {
-      return g.season === filterSeason && !g.injured;
-    });
-    var fps = filtered.map(function(g) { return g.fp; }).filter(function(fp) { return fp > 0; });
-    totalGames = fps.length;
-    
-    if (totalGames === 0) return '<div class="pc-no-data">No game data for this season</div>';
-    
-    var boomCount = fps.filter(function(fp) { return fp >= 40; }).length;
-    var bustCount = fps.filter(function(fp) { return fp < 20; }).length;
-    boomRate = (100 * boomCount / totalGames).toFixed(1);
-    bustRate = (100 * bustCount / totalGames).toFixed(1);
-    bestGame = Math.max.apply(null, fps).toFixed(1);
-    worstGame = Math.min.apply(null, fps).toFixed(1);
-    
-    // Std dev
-    var mean = fps.reduce(function(a,b) { return a+b; }, 0) / fps.length;
-    var variance = fps.reduce(function(a,b) { return a + (b-mean)*(b-mean); }, 0) / fps.length;
-    consistency = Math.sqrt(variance).toFixed(1);
+    // The season's figures, as the engine computed them (boom_bust_by_season)
+    var bs = (c.boom_bust_by_season || {})[filterSeason];
+    if (!bs) return '<div class="pc-no-data">No game data for this season</div>';
+    boomRate = bs.boom_rate;
+    bustRate = bs.bust_rate;
+    bestGame = bs.best_game;
+    worstGame = bs.worst_game;
+    consistency = bs.consistency_std;
+    totalGames = bs.total_games;
   } else {
     var bbd = c.boom_bust || {};
     boomRate = bbd.boom_rate;
@@ -811,7 +857,7 @@ function pcFilterSeason(el, season) {
         var ranks = [hdrFppg.querySelector('.pc-stat-rank'), hdrTfp.querySelector('.pc-stat-rank')];
         ranks.forEach(function(r) { if (r) r.style.display = 'none'; });
       }
-    } else {
+    } else if (pcCurrentCard.current_season) {
       // Reset to current season (default)
       hdrFppg.querySelector('.pc-stat-val').textContent = (cs.fppg || 0).toFixed(1);
       hdrTfp.querySelector('.pc-stat-val').textContent = Math.round(cs.total_fp || 0).toLocaleString();
@@ -929,6 +975,29 @@ def get_player_card_css() -> str:
   padding-bottom: 12px;
   margin-bottom: 14px;
 }
+/* the headshot (task 40a): only when the card has one; nothing otherwise */
+.pc-photo-slot {
+  float: right;
+  margin: 0 28px 4px 10px;
+}
+.pc-photo {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.pc-status-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #3a3f47;
+  color: #e8e8e8;
+}
+.pc-status-badge.pc-st-out { background: #5c1f1f; color: #ffd7d2; }
+.pc-status-badge.pc-st-il { background: #3d2f5c; color: #e4d9ff; }
+.pc-status-badge.pc-st-q { background: #5c4a1f; color: #ffeec2; }
 .pc-header-top {
   margin-bottom: 8px;
 }

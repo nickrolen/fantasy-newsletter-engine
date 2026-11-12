@@ -787,20 +787,32 @@ class Run:
             return "skipped: nothing changed since the last line (nothing published)"
         # decisions 2-3: only the nightly run builds the matchup paragraph; a
         # refresh or a pre-tip run shows last night's, byte for byte
-        night_out = {}
+        night_out, cards_out = {}, {}
         payload = hub_state.build(self.base, now=self.now, allow_engine_mismatch=self.allow_dirty,
                                   previous_engine_ok=self.mode in REFRESH_MODES,
                                   echo=lambda *a: None,
                                   night="build" if self.mode == "nightly" else "reuse",
-                                  night_out=night_out, nba_report=self.ctx.get("nba_report"))
+                                  night_out=night_out, nba_report=self.ctx.get("nba_report"),
+                                  cards_out=cards_out)
         hub_state.write(self.base, payload)
         if self.mode == "nightly" and night_out.get("night") is not None:
             hub_matchups.write_night(self.base, night_out["night"], run_id=self.run_id)
+        # task 40: the player cards, on every run that builds the hub, from this
+        # build's own keepability; build_hub publishes them (output/hub_cards.json,
+        # regenerable, not state)
+        from . import hub_cards
+        cards = hub_cards.build(self.base, payload, data=cards_out.get("data"),
+                                keeper_watch=cards_out.get("keeper_watch"), echo=lambda *a: None)
+        hub_cards.write(self.base, cards)
+        self.ctx["headshots"] = hub_cards.coverage(self.base, payload)
         enc = bool(os.environ.get("HUB_PASSPHRASE"))
         rc = build_hub.main(["--base-path", str(self.base)] + ([] if enc else ["--preview-only"]))
         if rc != 0:
             raise StepRefused(f"build_hub exited {rc}")
+        hs = self.ctx["headshots"]
         return ("encrypted publish directory" if enc else "preview only (no HUB_PASSPHRASE)") \
+            + f"; {len(cards['cards'])} player cards ({cards['seconds']} s), headshots: {hs['with']} of " \
+              f"{hs['rostered']} rostered" \
             + (" -- ENGINE MISMATCH banner (dirty engine)" if payload["header"]["engine_mismatch"] else "")
 
     # -- (nightly, last; step 3b s.3): the O-past-3-games nudge
@@ -899,6 +911,8 @@ class Run:
             row["nudges"] = self.ctx["nudges"]
         if self.ctx.get("advice") is not None:
             row["advice"] = self.ctx["advice"]
+        if self.ctx.get("headshots") is not None:
+            row["headshots"] = self.ctx["headshots"]
         if self.mode == "nightly":
             row["afternoon"] = afternoon_plan_today(self.base, self.today)
         from .jsonl_log import append_rows
@@ -1147,6 +1161,9 @@ def main(argv=None) -> int:
         print(f"AFTERNOON CHECK TODAY: {row['afternoon']['why']}")
     for line in run.ctx.get("advice_lines") or []:                # advice v2: one line per manager
         print(line)
+    if row.get("headshots") is not None:                          # task 40a: the library's reach
+        hs_ = row["headshots"]
+        print(f"headshots: {hs_['with']} of {hs_['rostered']} rostered")
     if mode in REFRESH_MODES:
         out = os.environ.get("GITHUB_OUTPUT")
         if out:

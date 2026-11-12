@@ -5,10 +5,18 @@ hub_publish.py -- the hub's publish directory and the plaintext scan
     output/hub_publish/                 (ignored; excluded from the manifest:
       index.html                         regenerable)
       issues/weekNN-<sha12>.enc         copied byte for byte from the archive
+      cards/<sha16>.enc                 the player cards (task 40, modules/hub_cards):
+                                        the card bundle, and each player's earlier
+                                        seasons; encrypted by content
+      photos/<sha16>.enc                each headshot, encrypted by content
 
 index.html is the decrypt shell (hub_page.shell_html) carrying the page
-bundle: {"page": the rendered hub, "issues": {file: its key}}, encrypted with
-the passphrase's key (hub_crypto). Nothing else may be in the directory.
+bundle: {"page": the rendered hub, "issues": {file: its key}, "cards": the
+card bundle's {file, key}}, encrypted with the passphrase's key (hub_crypto).
+Nothing else may be in the directory: a card or headshot file this build does
+not list is a stray like any other (PublishError). Card and headshot files are
+named by a hash of their bytes and are the same bytes for the same content,
+so the publish directory changes only where a card or photo did.
 
 THE SCAN (scan_dir): every file in the directory, as bytes, for every manager
 name, team name, rostered player name (config/ROSTERS.json) and PLAYERLIST
@@ -157,13 +165,23 @@ def hub_salt(base_path, create: bool = True) -> bytes:
 
 
 def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
-          iterations: int = None, now=None, out_dir=None) -> dict:
+          iterations: int = None, now=None, out_dir=None, cards: dict = None) -> dict:
     """Write the publish directory and scan it. Returns a report; raises
     PlaintextLeak on any hit, PublishError on a stray file. out_dir: write
     there instead of output/hub_publish/ (a scratch build: scripts/build_hub.py
-    --out-dir)."""
-    from . import hub_archive, hub_page, hub_crypto
+    --out-dir). cards (task 40): hub_cards.build's result for this payload;
+    required when the payload lists cards."""
+    from . import hub_archive, hub_page, hub_crypto, hub_cards
     base = Path(base_path)
+    listed = (payload.get("cards") or {}).get("players") or {}
+    if listed and cards is None:
+        raise PublishError("the payload lists player cards and none were given: build them "
+                           "(modules/hub_cards.build)")
+    if cards is not None:
+        try:
+            hub_cards.check_against(payload, cards)
+        except hub_cards.CardsError as e:
+            raise PublishError(str(e)) from None
     idx = hub_archive.verify(base)
     by_file = {e["enc"]: e for e in idx["issues"]}
     nl = payload["newsletter"]
@@ -173,10 +191,16 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
                                "rebuild the payload (python scripts/build_hub_state.py)")
     terms = terms if terms is not None else scan_terms(base)
     page = hub_page.render(payload, now=now, mode="publish")
-    inner = json.dumps({"page": page, "issues": {f: e["key_b64"] for f, e in by_file.items()}},
-                       separators=(",", ":")).encode("utf-8")
     kw = {} if iterations is None else {"iterations": iterations}
     kw["salt"] = hub_salt(base)
+    card_files, card_ref = {}, None
+    if cards is not None:
+        root = hub_crypto.derive_key(passphrase, kw["salt"], kw.get("iterations", hub_crypto.ITERATIONS))
+        card_files, card_ref = hub_cards.publish_files(base, cards, root, terms)
+    inner_obj = {"page": page, "issues": {f: e["key_b64"] for f, e in by_file.items()}}
+    if card_ref is not None:
+        inner_obj["cards"] = card_ref
+    inner = json.dumps(inner_obj, separators=(",", ":")).encode("utf-8")
     for attempt in range(1, MAX_RESEAL + 1):
         bundle = hub_crypto.make_bundle(passphrase, inner, **kw)
         shell = hub_page.shell_html(hub_crypto.bundle_json(bundle)).encode("utf-8")
@@ -186,7 +210,7 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
         raise PlaintextLeak(f"the decrypt shell still matched a scan term after {MAX_RESEAL} fresh "
                             "encryptions: that is not chance; the shell itself carries plaintext")
     out = Path(out_dir) if out_dir is not None else publish_dir(base)
-    expected = {"index.html"} | {f"issues/{f}" for f in by_file}
+    expected = {"index.html"} | {f"issues/{f}" for f in by_file} | set(card_files)
     if out.exists():
         stray = sorted(str(p.relative_to(out)).replace("\\", "/") for p in out.rglob("*")
                        if p.is_file() and str(p.relative_to(out)).replace("\\", "/") not in expected)
@@ -196,10 +220,31 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
     _write_if_changed(out / "index.html", shell)
     for f, e in by_file.items():
         _write_if_changed(out / "issues" / f, (hub_archive.archive_dir(base) / f).read_bytes())
+    for f, b in card_files.items():
+        _write_if_changed(out / f, b)
     scan = scan_dir(out, terms)
     if scan["hits"]:
         raise PlaintextLeak(f"plaintext in {out}: {scan['hits']}")
     sizes = {f: (out / f).stat().st_size for f in scan["files"]}
     return {"dir": str(PUBLISH_RELDIR) if out_dir is None else str(out), "files": scan["files"], "sizes": sizes,
             "reseals": attempt - 1, "terms": len(terms), "bundle_salt": bundle["salt"],
-            "iterations": bundle["iter"]}
+            "iterations": bundle["iter"], "cards": card_ref, "card_files": sorted(card_files)}
+
+
+CONTENT_DIRS = ("cards", "photos")
+
+
+def clear_superseded(out: Path) -> List[str]:
+    """Before a build into a publish directory that persists (Nick's desk):
+    remove the card and headshot files an EARLIER build wrote -- each named by
+    the hash of its own bytes. Anything else there (a name that is not its
+    bytes' hash, a file in another folder) stays, and the build refuses it as
+    a stray. The cloud's directory starts empty every run."""
+    import hashlib
+    removed = []
+    for d in CONTENT_DIRS:
+        for p in sorted((Path(out) / d).glob("*.enc")) if (Path(out) / d).is_dir() else []:
+            if p.is_file() and p.name == hashlib.sha256(p.read_bytes()).hexdigest()[:16] + ".enc":
+                p.unlink()
+                removed.append(f"{d}/{p.name}")
+    return removed

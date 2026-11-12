@@ -36,6 +36,7 @@ PROTECTED_PATHS = {
 }
 PROTECTED_DIRS = {
     "data/historical",                   # append-only historical archive
+    "assets/headshots",                  # the headshot library (task 40a): players outlive seasons
 }
 
 def is_protected(rel_path_str: str) -> bool:

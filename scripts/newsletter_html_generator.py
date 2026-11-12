@@ -180,20 +180,18 @@ def image_to_base64(path: str) -> Optional[str]:
         return None
 
 
-POTW_DIR = Path(__file__).resolve().parent.parent / "assets" / "potw"
-POTW_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+# The Player of the Week photo comes from the league's one headshot library
+# (modules/headshots, task 40a): assets/headshots/<winner-slug>.webp. The old
+# weekly folder assets/potw/ is retired.
+POTW_DIR = Path(__file__).resolve().parent.parent / "assets" / "headshots"
+POTW_EXTS = (".webp", ".png", ".jpg", ".jpeg")      # the library is .webp; an explicit --potw may be any
 
 
 class PotwImageMismatch(SystemExit):
     """--potw names a file for a different player than this week's winner."""
 
 
-def player_slug(name: str) -> str:
-    """"Luka Don\u010di\u0107" -> "luka-doncic": accents stripped, lowercase,
-    every run of other characters one hyphen."""
-    import unicodedata
-    text = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+from modules.headshots import player_slug  # noqa: E402 -- the one slug rule (task 40a)
 
 
 def potw_winner(markdown_text: str, stats_report: Optional[dict]) -> Optional[str]:
@@ -212,8 +210,8 @@ def resolve_potw_image(winner: Optional[str], explicit: Optional[str] = None,
 
     The page used to take --potw assets/potw.png every week: a fixed file
     from 2025-12-01, so week 1 showed Luka Don\u010di\u0107 beside Tyrese Maxey.
-    Now the photo is assets/potw/<player-slug>.png (or .jpg/.jpeg/.webp),
-    supplied by Nick. No file: the podium alone, and one line saying so.
+    Now the photo is the headshot library's assets/headshots/<player-slug>.webp
+    (task 40a), supplied by Nick through scripts/headshots.py. No file: the podium alone, and one line saying so.
     An explicit --potw must be named for the winner, or this REFUSES."""
     if explicit:
         if not winner:
@@ -233,7 +231,8 @@ def resolve_potw_image(winner: Optional[str], explicit: Optional[str] = None,
         if f.is_file():
             return str(f)
     echo(f"  Player of the Week photo: none for {winner} "
-         f"({Path(potw_dir).name}/{player_slug(winner)}.png) -- the podium alone")
+         f"({Path(potw_dir).name}/{player_slug(winner)}.webp) -- the podium alone; add one with "
+         f"python scripts\\headshots.py add <file> \"{winner}\"")
     return None
 
 
@@ -1129,6 +1128,13 @@ def generate_html(
                 print(f"  WARNING: Player card build failed: {e}")
                 _player_card_embed = ""
                 _player_cards = None
+            if _player_cards is not None:
+                # the headshot library's photo on each card that has one (task 40a);
+                # none: no image and no frame. Outside the try: a bad library
+                # stops the build loudly, never every card quietly.
+                from modules import headshots as _hs
+                _hs.attach_data_uris(_player_cards, data_dir.parent)
+                _player_card_embed = embed_player_card_data(_player_cards)
     
     # Build sections HTML
     sections_html = []
@@ -2441,7 +2447,8 @@ def main():
     ap.add_argument("--helmet", default=None, help="Optional helmet/logo image.")
     ap.add_argument("--potw", default=None,
                     help="Player of the Week photo. Normally omitted: the page uses "
-                         "assets/potw/<winner-slug>.png when it exists and the podium alone "
+                         "the headshot library's assets/headshots/<winner-slug>.webp when it "
+                         "exists and the podium alone "
                          "otherwise. A path given here must be named for this week's winner, "
                          "or the build refuses.")
     ap.add_argument("--podium", default=None, help="Optional podium image for POTW section.")

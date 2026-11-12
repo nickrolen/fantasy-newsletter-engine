@@ -18,7 +18,22 @@ Data sources:
 
 Output:
   A list of player card dicts, one per keeper watch player, ready to be
-  embedded as JSON in the newsletter HTML for the modal UI.
+  embedded as JSON in the newsletter HTML for the modal UI -- and, for the
+  hub (task 40, modules/hub_cards), one per player outside Keeper Watch too
+  (extra_players: a free agent, a player in the moves feed). One builder, so
+  the hub and the newsletter never show a player differently.
+
+NO MADE-UP VALUES (task 40): a field that does not apply is left out, never a
+0 that looks like data. A player with no games this season has
+current_season None and season_note saying why (the stat bar is not drawn);
+no rank among players with no games; no career FPPG or milestones with no
+league history; no archetype without an age. A player outside Keeper Watch
+has no keep chance. The keeper-watch players with games are unchanged.
+
+THE PAGE DISPLAYS (hub_page's rule, kept here for both pages): the season
+filter's boom/bust figures are computed here, per season
+(boom_bust_by_season), with the modal's old formula and its rounding
+(js_fixed), so the modal only prints them.
 
 Usage (standalone test):
     cd <project_root>
@@ -321,6 +336,63 @@ def _to_season_key(season_year: str) -> str:
 # CORE BUILDER
 # =============================================================================
 
+def js_fixed(x: float, digits: int = 1) -> str:
+    """JavaScript's Number.prototype.toFixed for a non-negative number: the
+    exact binary value rounded half up (Python's format rounds half to even).
+    The modal printed (x).toFixed(1); the engine now writes the same string."""
+    from decimal import Decimal, ROUND_HALF_UP
+    q = Decimal(1).scaleb(-digits)
+    return str(Decimal(float(x)).quantize(q, rounding=ROUND_HALF_UP))
+
+
+def boom_bust_by_season(sparkline: list) -> dict:
+    """{season: the boom/bust panel's strings} for the season filter, exactly
+    as the modal computed them before (task 40: the page displays): that
+    season's sparkline games, not injured, fp > 0; boom >= 40, bust < 20;
+    rates and best/worst to one decimal; sigma the POPULATION standard
+    deviation (the modal's formula, unlike the card's default panel, which is
+    the sample one). A season with no such game is absent."""
+    out = {}
+    seasons = []
+    for g in sparkline:
+        if g["season"] not in seasons:
+            seasons.append(g["season"])
+    for sk in seasons:
+        fps = [g["fp"] for g in sparkline if g["season"] == sk and not g["injured"] and g["fp"] > 0]
+        n = len(fps)
+        if n == 0:
+            continue
+        total = 0.0
+        for fp in fps:
+            total = total + fp
+        mean = total / n
+        var = 0.0
+        for fp in fps:
+            var = var + (fp - mean) * (fp - mean)
+        var = var / n
+        out[sk] = {"boom_rate": js_fixed(100 * sum(1 for f in fps if f >= 40) / n),
+                   "bust_rate": js_fixed(100 * sum(1 for f in fps if f < 20) / n),
+                   "best_game": js_fixed(max(fps)), "worst_game": js_fixed(min(fps)),
+                   "consistency_std": js_fixed(math.sqrt(var)), "total_games": n}
+    return out
+
+
+def _num(v):
+    """A spreadsheet value as a number, or None (NaN and blanks are None)."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(f) else f
+
+
+SEASON_NOTE_NONE = "No games this season in the league's logs"
+SEASON_NOTE_OUTSIDE = ("No games this season in the league's logs, which count a player's games only "
+                       "while he is on a league roster")
+
+
 def _ordinal(n: int) -> str:
     return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
 
@@ -358,9 +430,11 @@ def build_player_cards(
     historical_dir: Path,
     current_season_key: str = CURRENT_SEASON,
     season_performers: dict | None = None,
+    extra_players: list[dict] | None = None,
 ) -> list[dict]:
     """
-    Build comprehensive player card data for each keeper watch player.
+    Build comprehensive player card data for each keeper watch player, and
+    for each of extra_players (the hub, task 40).
 
     Args:
         keeper_watch_players: List of player dicts from stats_report["keeper_watch"]["players"].
@@ -372,6 +446,10 @@ def build_player_cards(
         current_season_key: e.g., "2025-26".
         season_performers: Optional dict from stats_report["season_performers"].
             If provided, uses NBA-level stats (all games) instead of fantasy-lineup-only stats.
+        extra_players: players outside Keeper Watch, each {"player_name",
+            "manager"} ("" for none). No keep chance; this season's numbers from
+            the league's log (the games he played on a league roster); team,
+            positions and age from PLAYERLIST when it has him. Not ranked.
 
     Returns:
         List of player card dicts ready for JSON serialization.
@@ -478,7 +556,10 @@ def build_player_cards(
         cards.append(card)
 
     # --- Compute composite rankings (avg of FPPG rank + Total FP rank) ---
-    rankable = [c for c in cards if c.get("current_season", {}).get("gp", 0) > 0]
+    # Among the keeper-watch players WITH games this season only: a player with
+    # none has no rank (it used to get the last place, a made-up number), and
+    # an extra player (the hub's free agents) is not in this population.
+    rankable = [c for c in cards if (c.get("current_season") or {}).get("gp", 0) > 0]
     by_fppg = sorted(rankable, key=lambda c: -c["current_season"]["fppg"])
     by_total = sorted(rankable, key=lambda c: -c["current_season"]["total_fp"])
 
@@ -487,15 +568,54 @@ def build_player_cards(
 
     for c in cards:
         name = c["player_name"]
-        fr = fppg_ranks.get(name, len(rankable))
-        tr = total_ranks.get(name, len(rankable))
+        if name not in fppg_ranks:
+            c["composite_rank_fppg"] = c["composite_rank_total"] = c["composite_rank"] = None
+            c["overall_rank"] = None
+            continue
+        fr = fppg_ranks[name]
+        tr = total_ranks[name]
         c["composite_rank_fppg"] = fr
         c["composite_rank_total"] = tr
         c["composite_rank"] = (fr + tr) / 2.0
 
-    by_composite = sorted(cards, key=lambda c: c.get("composite_rank", 999))
+    by_composite = sorted(rankable, key=lambda c: c["composite_rank"])
     for i, c in enumerate(by_composite):
         c["overall_rank"] = i + 1
+
+    # --- players outside Keeper Watch (the hub, task 40): no keep chance, no rank
+    if extra_players:
+        from .keepability_v3 import _pos_group
+        # the logs spell a name as the rosters do (no accents); an extra
+        # player may come in Yahoo's spelling (PLAYERLIST): matched by the
+        # PlayerIndex rules, as everywhere else
+        idx = {k: PlayerIndex({n: n for n in d}) for k, d in
+               (("hist", hist_by_player), ("cur", current_by_player), ("draft", drafts_by_player),
+                ("trade", trades_by_player))}
+
+        def _rows(kind, d, name):
+            key = idx[kind].get(name)
+            return d.get(key, []) if key is not None else []
+        have = {c["player_name"] for c in cards}
+        for x in extra_players:
+            name = x["player_name"]
+            if name in have:
+                raise ValueError(f"{name} is a keeper-watch player and an extra player: one card each")
+            have.add(name)
+            plist = playerlist.get(name) or {}
+            positions = plist.get("player_position(s)")
+            kw_like = {"player_name": name, "manager": x.get("manager") or "",
+                       "age": _num(plist.get("age")), "pos_group": _pos_group(str(positions)) if positions else "",
+                       "nba_team": "", "out_for_season": None, "injured": None, "_extra": True}
+            card = _build_single_card(
+                name=name, kw_data=kw_like,
+                hist_games=_rows("hist", hist_by_player, name),
+                current_games=_rows("cur", current_by_player, name),
+                playerlist=playerlist, all_time=all_time,
+                drafts=_rows("draft", drafts_by_player, name), trades=_rows("trade", trades_by_player, name),
+                pick_values=pick_values, current_season_key=current_season_key, sp_data=None)
+            card["composite_rank_fppg"] = card["composite_rank_total"] = card["composite_rank"] = None
+            card["overall_rank"] = None
+            cards.append(card)
 
     print(f"  Built {len(cards)} player cards")
     return cards
@@ -635,6 +755,10 @@ def _build_single_card(
     """Build a complete player card for one player."""
 
     plist = playerlist.get(name) or {}
+    extra = bool(kw_data.get("_extra"))
+    age = _num(kw_data.get("age", plist.get("age")))          # NaN or missing: None, never a guess
+    if age is not None and age.is_integer():
+        age = int(age)
 
     # =========================================================================
     # 1. HEADER / BASIC INFO
@@ -644,7 +768,7 @@ def _build_single_card(
         "nba_team": plist.get("player_nba_team", kw_data.get("nba_team", "")),
         "positions": plist.get("player_position(s)", kw_data.get("pos_group", "")),
         "pos_group": kw_data.get("pos_group", ""),
-        "age": kw_data.get("age", plist.get("age")),
+        "age": age,
         "manager": kw_data.get("manager", ""),
         **_keep_fields(kw_data),     # keep chance (K = 5) and rank on his team, v3
         "out_for_season": kw_data.get("out_for_season", False),
@@ -662,22 +786,32 @@ def _build_single_card(
     current_played = [g for g in current_games if not g.get("is_injured") and float(g.get("fantasy_points", 0) or 0) != 0]
     current_fps = [float(g["fantasy_points"]) for g in current_played if g.get("fantasy_points")]
 
-    # Always use keeper_watch / PLAYERLOG data for season stats
-    season_fppg = kw_data.get("season_fppg", 0)
-    season_gp = kw_data.get("season_gp", len(current_fps))
-    season_total_fp = kw_data.get("season_total_fp", sum(current_fps))
+    # Always use keeper_watch / PLAYERLOG data for season stats. A player
+    # outside Keeper Watch (the hub's free agents): the same log's games.
+    if extra:
+        season_gp = len(current_fps)
+        season_total_fp = sum(current_fps)
+        season_fppg = season_total_fp / season_gp if season_gp else 0
+        proj_fppg = _num(plist.get("projectedFPPG"))
+    else:
+        season_fppg = kw_data.get("season_fppg", 0)
+        season_gp = kw_data.get("season_gp", len(current_fps))
+        season_total_fp = kw_data.get("season_total_fp", sum(current_fps))
+        proj_fppg = kw_data.get("proj_fppg", plist.get("projectedFPPG", 0))
 
-    proj_fppg = kw_data.get("proj_fppg", plist.get("projectedFPPG", 0))
-
-    efficiency_pct = round(100 * season_fppg / proj_fppg, 1) if proj_fppg > 0 else None
-
-    card["current_season"] = {
-        "fppg": round(season_fppg, 1),
-        "gp": season_gp,
-        "total_fp": round(season_total_fp, 1),
-        "proj_fppg": round(proj_fppg, 1) if proj_fppg else None,
-        "efficiency_pct": efficiency_pct,
-    }
+    if season_gp:
+        efficiency_pct = round(100 * season_fppg / proj_fppg, 1) if proj_fppg and proj_fppg > 0 else None
+        card["current_season"] = {
+            "fppg": round(season_fppg, 1),
+            "gp": season_gp,
+            "total_fp": round(season_total_fp, 1),
+            "proj_fppg": round(proj_fppg, 1) if proj_fppg else None,
+            "efficiency_pct": efficiency_pct,
+        }
+    else:
+        # no games: no stat bar of zeros (task 40) -- the card says why
+        card["current_season"] = None
+        card["season_note"] = SEASON_NOTE_OUTSIDE if extra else SEASON_NOTE_NONE
 
     # =========================================================================
     # 3. LAST 10 GAMES (Scoring Sparkline data)
@@ -730,6 +864,7 @@ def _build_single_card(
         })
 
     card["sparkline"] = sparkline
+    card["boom_bust_by_season"] = boom_bust_by_season(sparkline)
 
     # =========================================================================
     # 4. BOOM / BUST RATES
@@ -813,19 +948,21 @@ def _build_single_card(
     # =========================================================================
     # 12. MILESTONE TRACKER
     # =========================================================================
-    card["milestones"] = _compute_milestones(career, card["current_season"])
+    card["milestones"] = (_compute_milestones(career, card["current_season"] or {})
+                          if career.get("career_gp") else [])     # no league history: none
 
     # =========================================================================
     # 13. ARCHETYPE
     # =========================================================================
-    card["archetype"] = classify_archetype({
+    # (no age, no archetype: it would be guessed from a made-up 25)
+    card["archetype"] = None if card["age"] is None else classify_archetype({
         "pos_group": card["pos_group"],
         "season_fppg": season_fppg,
-        "career_fppg": career.get("career_fppg", 0),
+        "career_fppg": career.get("career_fppg") or 0,
         "boom_rate": boom_rate,
         "bust_rate": bust_rate,
         "consistency_std": consistency_std,
-        "age": card["age"] or 25,
+        "age": card["age"],
         "injury_rate": card["injury_profile"].get("career_injury_rate", 0),
         "seasons_in_league": career.get("seasons_played", 1),
         "gp_this_season": season_gp,
@@ -926,7 +1063,7 @@ def _compute_career_stats(
             "games_missed": s["games_missed"],
         })
 
-    career_fppg = round(career_fp / career_gp, 1) if career_gp > 0 else 0
+    career_fppg = round(career_fp / career_gp, 1) if career_gp > 0 else None   # none: no history
 
     return {
         "seasons_played": seasons_played,
@@ -1204,12 +1341,13 @@ def _find_record_book_appearances(name: str, all_time: dict) -> list[dict]:
     """Find all top-10 leaderboard appearances for a player."""
     appearances = []
     top10_keys = [k for k in all_time if k.endswith("_top10")]
+    him = PlayerIndex({name: name})             # an accent is the same player (task 40)
 
     for key in sorted(top10_keys):
         entries = all_time[key]
         for i, entry in enumerate(entries):
             entry_name = entry.get("player_name", "")
-            if entry_name == name:
+            if entry_name == name or (entry_name and him.canonical(entry_name) is not None):
                 label_key = key.replace("_top10", "")
                 label = RECORD_BOOK_LABELS.get(label_key, label_key.replace("_", " ").title())
 

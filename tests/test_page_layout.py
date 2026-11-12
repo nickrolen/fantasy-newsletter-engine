@@ -58,7 +58,7 @@ def test_a_line_naming_no_league_team_is_not_a_scoreboard(teams):
 def test_a_winner_with_no_file_gets_no_photo(tmp_path):
     said = []
     assert gen.resolve_potw_image("Tyrese Maxey", None, tmp_path, echo=said.append) is None
-    assert "none for Tyrese Maxey" in said[0] and "tyrese-maxey.png" in said[0]
+    assert "none for Tyrese Maxey" in said[0] and "tyrese-maxey.webp" in said[0]   # the library (task 40a)
 
 
 def test_another_players_file_refuses(tmp_path):
@@ -92,7 +92,8 @@ def test_a_matching_file_is_embedded_and_none_is_never_a_fallback(tmp_path):
 
 def test_the_step_9_command_no_longer_passes_a_fixed_photo():
     wf = (ROOT / "WEEKLY_WORKFLOW.md").read_text(encoding="utf-8")
-    assert "--potw assets\\potw.png" not in wf and "assets\\potw\\<winner-slug>.png" in wf
+    assert "--potw assets\\potw.png" not in wf
+    assert "assets\\headshots\\<winner-slug>.webp" in wf          # the headshot library (task 40a)
 
 
 # ----------------------------------------------------- 3. Money and Exposure

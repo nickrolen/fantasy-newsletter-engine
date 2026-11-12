@@ -124,3 +124,47 @@ def open_bundle(passphrase: str, bundle: dict) -> bytes:
 
 def bundle_json(bundle: dict) -> str:
     return json.dumps(bundle, separators=(",", ":"))
+
+
+# =============================================================================
+# the player cards' files (task 40): encrypted by content, so an unchanged
+# card bundle or headshot publishes byte-identical every run
+# =============================================================================
+#
+# The page key (derive_key of the passphrase and the hub's salt) is the root.
+# From it, HKDF-SHA256 derives a key for the cards (info CARDS_INFO). Each file
+# is AES-GCM under its own key and IV, both HMAC-SHA256 of the cards key and
+# the plaintext's SHA-256 (and a reseal counter): the same bytes give the same
+# file, run after run, with nothing stored; different bytes never share a key.
+# The per-file key travels only inside an encrypted parent (the page bundle
+# lists the card bundle's; the card bundle lists each headshot's), as an
+# issue's key does. What leaks is only whether a file changed between builds,
+# which its name (a hash of its bytes) shows anyway. A new passphrase
+# re-encrypts every file once.
+
+CARDS_INFO = b"hub-cards-v1"
+
+
+def subkey(root_key: bytes, info: bytes) -> bytes:
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    return HKDF(algorithm=hashes.SHA256(), length=KEY_BYTES, salt=None, info=info).derive(root_key)
+
+
+def seal_by_content(key: bytes, plaintext: bytes, avoid=(), tries: int = 20) -> tuple:
+    """(key for this file, iv || ciphertext+tag), the same for the same
+    plaintext. `avoid`: the plaintext scan's terms -- a counter in the
+    derivation moves to the next sealing when one turns up in the random
+    bytes by chance (hub_publish's reseal, made deterministic)."""
+    import hashlib
+    import hmac
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    digest = hashlib.sha256(plaintext).digest()
+    for n in range(tries):
+        ctr = n.to_bytes(2, "big")
+        k = hmac.new(key, b"key|" + digest + ctr, hashlib.sha256).digest()
+        iv = hmac.new(key, b"iv|" + digest + ctr, hashlib.sha256).digest()[:IV_BYTES]
+        blob = iv + AESGCM(k).encrypt(iv, plaintext, None)
+        if not any(t.encode("utf-8") in blob for t in avoid):
+            return k, blob
+    raise ValueError(f"a card file matched a scan term {tries} times running: that is not chance")

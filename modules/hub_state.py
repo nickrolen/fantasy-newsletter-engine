@@ -47,6 +47,11 @@ newsletter (design invariant 17):
                chip, each player with the roster's position and NBA team and
                "since MM-DD" (trade_block_view)
   newsletter   the archive index (modules/hub_archive)
+  cards        (task 40) every player name above gets a card key beside it
+               and is listed here with his live status (modules/hub_cards.
+               annotate); the cards themselves are built from the same run's
+               data and published as their own encrypted files, never in
+               this payload or the page bundle
 
 D (Nick, 11-11): a D-tagged player is out for his next game everywhere the
 hub counts games -- the rosters' GL, the free agents' columns and points,
@@ -1012,13 +1017,15 @@ def roster_size_text(n_rostered: int, n_in_il: int, active_cap: int, il_cap: int
 def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismatch: bool = False,
           previous_engine_ok: bool = False,
           archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None,
-          nba_report: dict = None) -> dict:
+          nba_report: dict = None, cards_out: dict = None) -> dict:
     """The hub's payload. night (Step 3a): "build" builds the matchup
     paragraph (the nightly run, and a desk build); "reuse" shows the nightly
     run's stored one (a refresh, a pre-tip run). night_out, when given, gets
     {"night": the built paragraphs} for the nightly run to store.
     nba_report (step 3b): the run's "nba_report" block (nightly.step_nba_report);
-    a desk build reads the latest run row that carries one."""
+    a desk build reads the latest run row that carries one.
+    cards_out (task 40), when given, gets {"keeper_watch", "data"} so the
+    run's player cards are built from this build's own keepability."""
     base = Path(base_path)
     from .league_clock import league_now
     from .data_loader import (load_all_data, MANAGERS, MANAGER_TO_TEAM, PlayerIndex,
@@ -1398,6 +1405,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "moves": moves,
         "trade_block": tblock,
         "newsletter": newsletter,
+        "cards": None,
         "sources": {"line": (Path("output") / f"live_lines_week{week}.json").as_posix(),
                     "title_odds": f"the title-odds run {power['run_id']} (modules/title_odds_run)",
                     "actuals_through": yesterday.isoformat(),
@@ -1406,6 +1414,14 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                     "il_slots": "data/IL_SLOTS.json",
                     "ledger": f"config/MOVE_LEDGER.json ({ledger_mode} mode)"},
     }
+    # task 40: a card key beside every player name shown, and the list of cards
+    from . import hub_cards
+    try:
+        hub_cards.annotate(payload)
+    except hub_cards.CardsError as e:
+        raise HubInputError(str(e)) from None
+    if cards_out is not None:
+        cards_out.update(keeper_watch=kw, data=data)
     return payload
 
 

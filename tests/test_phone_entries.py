@@ -622,9 +622,14 @@ def test_only_the_nightly_run_builds_and_stores_the_paragraph(tmp_path, monkeypa
     monkeypatch.setattr(build_hub, "main", lambda argv: 0)
     wrote = []
     monkeypatch.setattr(hm, "write_night", lambda base, n, run_id: wrote.append(run_id))
+    from modules import hub_cards                     # task 40: the cards step, stubbed here
+    monkeypatch.setattr(hub_cards, "build", lambda base, payload, **k: {"cards": {}, "seconds": 0.0})
+    monkeypatch.setattr(hub_cards, "write", lambda base, obj: None)
+    monkeypatch.setattr(hub_cards, "coverage", lambda base, payload: {"with": 0, "rostered": 0, "library": 0})
     run = nightly.Run(tmp_path, mode, now=NOW, cause="x" if mode == "refresh" else None)
     run.step_hub()
     assert got["night"] == night and bool(wrote) == writes
+    assert "cards_out" in got                         # the run's keepability goes to the cards
 
 
 def test_only_the_nightly_hub_step_writes_the_paragraph_file():

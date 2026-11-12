@@ -86,6 +86,8 @@ assets/WEEK*_DRAFT.md
 # Player of the Week photos (assets/potw/<player-slug>.png), supplied by Nick each
 # week. Public repo: the photos are not ours to publish.
 assets/potw/
+# The headshot library (task 40a): league state, photos of real people, never public.
+assets/headshots
 
 # --------------------------------------------
 # Data Files - Weekly Inputs
@@ -267,6 +269,7 @@ output/hub_archive/
 # Regenerable, never state: the plaintext preview (never published) and the
 # publish directory (encrypted files only; step 1c publishes it).
 output/hub_preview.html
+output/hub_cards.json
 output/hub_publish/
 # Step 1c, the nightly run (2026-11-03). League state (config/STATE_MANIFEST.json):
 # the run record, the transaction log, the latest title-odds run, the stakes,
