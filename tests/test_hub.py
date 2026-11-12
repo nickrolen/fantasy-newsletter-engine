@@ -245,14 +245,16 @@ def test_the_page_script_refreshes_the_age_on_the_readers_clock():
 
 
 # =============================================================================
-# 11. no Section 10 output: advice is null and the slot is its empty state
+# 11. no Section 10 output: advice is null (advice.hub "off") and the slot is
+# its empty state; when on, the view's own tests are in test_advice_live
 # =============================================================================
 
-def test_advice_slot_is_empty_and_a_non_null_advice_refuses():
+def test_advice_slot_is_empty_and_a_malformed_advice_refuses():
     p = sample_payload()
     assert p["advice"] is None
-    assert "Advice is being rebuilt; it returns here once it is ready." in hub_page.render(p, now=GEN)
-    with pytest.raises(ValueError):
+    page = hub_page.render(p, now=GEN)
+    assert "Advice is being rebuilt; it returns here once it is ready." in page and "v-advice" not in page
+    with pytest.raises(KeyError):
         hub_page.render(sample_payload(advice={"trades": []}), now=GEN)
 
 

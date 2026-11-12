@@ -34,7 +34,10 @@ newsletter (design invariant 17):
                joins next Monday (rule 7; task 41: free_agent_columns)
   stash        the free agents tagged O or OFS (rule 2: only they can go
                straight into an IL slot), by projection, top N (task 42)
-  advice       null: the slot only (advice v2)
+  advice       advice v2 (V2 s.7), behind league_config advice.hub: null while
+               it is "off" (the page shows the empty slot); when "on", the
+               view's strings, advice_live.hub_view of output/advice_latest.json
+               (written by the run's advice step) in power-rankings order
   moves        every move of the season by budget week (modules/hub_moves,
                task 43): Yahoo's transactions placed by add_budget_week, the
                ledger's pending entries under their claim week
@@ -1356,6 +1359,13 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     except hub_moves.MovesError as e:
         raise HubInputError(str(e)) from None
 
+    # --- advice v2 (V2 s.7): behind the switch; the advice step wrote it
+    from . import advice_live as al
+    try:
+        advice = al.hub_view(al.read_latest(base), power["rows"]) if al.hub_switch() == "on" else None
+    except al.AdviceInputError as e:
+        raise HubInputError(str(e)) from None
+
     # --- newsletter
     newsletter = newsletter_block(archive_index, sched)
 
@@ -1383,7 +1393,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "grid": grid,
         "free_agents": free,
         "stash": stash,
-        "advice": None,
+        "advice": advice,
         "advice_empty": "Advice is being rebuilt; it returns here once it is ready.",
         "moves": moves,
         "trade_block": tblock,

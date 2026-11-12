@@ -1,5 +1,5 @@
 """
-tests/test_advice_v2.py -- advice v2's engine (modules/advice_v2), V1.
+tests/test_advice_v2.py -- advice v2's engine (modules/advice_v2), V1 and V2.
 
 A. Invariants: no file read; common random numbers (same seed and inputs, the
    same ranking); a top-4 keeper is never a suggested drop; an open IL slot is
@@ -8,14 +8,20 @@ A. Invariants: no file read; common random numbers (same seed and inputs, the
 B. Nick's scenarios 1-7 (claude/ADVICE_V2_DESIGN.md s.3a; fixtures in
    tests/advice_v2_scenarios.py) under the recommended weighting. Scenario 5
    runs three ways: Paolo in the IL slot, Jalen Johnson in it protected, and
-   Jalen Johnson unprotected (the pricing alone must keep him).
+   Jalen Johnson unprotected (the pricing alone must keep him). Scenario 3
+   runs through the live chat-move path (V2 s.8).
+C. V2 (claude/HANDOFF_ADVICE_V2_2026-11-11.md): scenarios 8-12 (contested,
+   pending claim, budget, the switch at the window close, tags anchored for a
+   horizon starting next week), the points tie-break, bracket ties.
 """
 
 from __future__ import annotations
 
 import inspect
+from datetime import timedelta
 import re
 
+import numpy as np
 import pytest
 
 import advice_v2_scenarios as S
@@ -134,12 +140,25 @@ def test_no_adds_left_means_no_recommendation():
     assert r.top is None and r.ranked == ()
 
 
-def test_a_horizon_that_does_not_start_at_the_anchor_raises():
+def test_an_anchor_after_the_horizon_starts_raises():
+    """Tags cannot be dated after the games they price (V2: a later horizon
+    is anchored at the fetch date; an anchor AFTER the horizon's first day
+    is an error, never a re-anchoring)."""
     inp = S.scenario_1().inputs()
     inp.anchor = inp.anchor.replace(day=inp.anchor.day + 1)
     inp._ctx.clear()
     with pytest.raises(ValueError, match="anchor"):
         av.candidate_moves(inp, "Nick", FAST)
+    with pytest.raises(ValueError, match="anchor"):
+        inp.check()
+
+
+def test_tags_more_than_a_week_before_the_horizon_raise():
+    """Tags fetched in week 1 cannot price a horizon starting in week 3."""
+    inp = S.scenario_3().inputs(horizon=(3, None), balance=False)
+    inp.anchor = S.day(1, 2)
+    with pytest.raises(ValueError, match="too old"):
+        inp.check()
 
 
 def test_inputs_check_raises_on_a_doubly_rostered_player():
@@ -166,9 +185,14 @@ def test_scenario_2_the_overflow_trap():
     assert score["FA Clean"] > score["FA Overflow"]
 
 
-def test_scenario_3_lillard_for_jerome_as_a_chat_move():
-    """Valued from next Monday (horizon = weeks 2 and 3): +1 startable game."""
-    _inp, r = rec(S.scenario_3(), horizon=(2, 3))
+def test_scenario_3_lillard_for_jerome_as_a_chat_move_through_the_live_path():
+    """Wednesday of week 1, after Monday's close: the live path's horizon
+    (horizon_for) is the chat move, weeks 2 and 3, the tags anchored at
+    Wednesday; +1 startable game next week."""
+    fx = S.scenario_3()
+    inp = fx.inputs(now=S.at(1, 2, 15))
+    assert (inp.kind, inp.horizon, inp.anchor) == (av.CHAT, (2, 3), S.day(1, 2))
+    r = av.recommend(inp, "Nick", FAST)
     assert (r.top.move.add, r.top.move.drop) == ("Damian Lillard", "Ty Jerome")
     assert r.top.dstarts[0] == pytest.approx(1.0, abs=0.05)
 
@@ -228,3 +252,270 @@ def test_scenario_7_a_short_term_o_player_is_stashed_only_for_a_pickup_worth_it(
         assert il.dpts[0] < 0                  # his lost games outweigh the pickup
     else:
         assert il.followup_drop is not None    # back next week: the plan's second step
+
+
+# =============================================================================
+# C. V2: the live horizons, the ledger's inputs, contested players, ties
+# =============================================================================
+
+NO_FILLERS = {"Benton": 0, "Garrett": 0}        # the filler teams make no move (they would want the same star)
+
+def test_scenario_8_contested_both_see_also_wanted_by_and_each_gets_an_uncontested_backup():
+    inp = S.scenario_8().inputs(opponents=S.CONTEST_OPPONENTS, balance=False, adds=NO_FILLERS)
+    adv = av.advise_all(inp, FAST)
+    nick, hayden = adv["Nick"], adv["Hayden"]
+    assert nick.top.move.add == hayden.top.move.add == "FA Star"
+    assert nick.also_wanted_by == ("Hayden",) and hayden.also_wanted_by == ("Nick",)
+    tops = {a.top.move.add for a in adv.values() if a.top is not None}
+    for a in (nick, hayden):
+        assert a.backup is not None, a.manager
+        assert a.backup.move.add not in tops                      # nobody's top: uncontested
+        assert a.backup_score > 0
+    # a free agent is never split: the advice names him for both, it does not allocate him
+    assert not [a for a in adv.values() if a.top is not None and a.top.move.add == "FA Star"
+                and a.manager not in ("Nick", "Hayden")]
+
+
+def test_an_uncontested_top_has_no_also_wanted_by():
+    inp = S.scenario_1().inputs(adds=dict(NO_FILLERS, Hayden=0))
+    adv = av.advise_all(inp, FAST)
+    assert adv["Nick"].top.move.add == "Cedric Coward" and adv["Nick"].also_wanted_by == ()
+    # the fillers want him too once they may add: then he is contested
+    adv = av.advise_all(S.scenario_1().inputs(), FAST)
+    assert adv["Nick"].also_wanted_by == tuple(sorted(m for m, a in adv.items() if m != "Nick"
+                                                      and a.top is not None and a.top.move.add == "Cedric Coward"))
+
+
+def test_scenario_9_a_claimed_player_is_never_suggested_to_anyone():
+    """Engine side: a reserved player in the pool raises, and the pool the
+    live path passes leaves him out (the ledger side: test_advice_live)."""
+    fx = S.scenario_8()
+    inp = fx.inputs(opponents=S.CONTEST_OPPONENTS, balance=False, reserved=("FA Star",))
+    adv = av.advise_all(inp, FAST)
+    for a in adv.values():
+        for _s, p in a.rec.ranked:
+            assert p.move.add != "FA Star"
+    bad = fx.inputs(opponents=S.CONTEST_OPPONENTS, balance=False)
+    bad.reserved = frozenset({"FA Star"})
+    with pytest.raises(ValueError, match="claimed"):
+        bad.check()
+
+
+def test_scenario_10_the_budget_binds_chat_moves():
+    """A chat claim counts against this week's budget (rule 7): at 3 adds used
+    no chat move; with 1 left only a move above the last add's bar."""
+    now = S.at(1, 2, 15)
+    _i, none_left = rec(S.scenario_3(), now=now, adds={"Nick": 0})
+    assert none_left.top is None and none_left.note == "no adds left"
+    _i, big = rec(S.scenario_3(), now=now, adds={"Nick": 1})
+    assert big.top is not None and big.ranked[0][0] > FAST.last_add_bar
+    _i, small = rec(_marginal_chat(), now=now, adds={"Nick": 1})
+    _i, small3 = rec(_marginal_chat(), now=now, adds={"Nick": 3})
+    assert small3.top is not None and small3.top.move.add == "FA Marginal"
+    assert small3.ranked[0][0] < FAST.last_add_bar                    # a marginal gain ...
+    assert small.top is None and small.bar == FAST.last_add_bar        # ... does not spend the last add
+
+
+def _marginal_chat():
+    """Scenario 6 one week later: the marginal free agent's two games and the
+    spare's one are in week 2, the chat move's first week."""
+    fx = S.Fixture()
+    S.nick_core(fx, crowded=((2, 1), (3, 3)))
+    for i in range(4):
+        fx.player(f"Bench {i}", [(2, 0), (2, 2), (2, 5), (3, 0), (3, 2), (3, 5)], 33.0, manager="Nick", keep=0.3)
+    S.opponents_flat(fx, {"Hayden": 18.0, "Benton": 18.0, "Garrett": 18.0})
+    fx.player("Spare", [(2, 6)], 20.0, manager="Nick", keep=0.0)
+    fx.player("FA Marginal", [(2, 4), (2, 6)], 11.0, fa=True)
+    return fx
+
+
+def test_scenario_11_the_switch_at_the_window_close():
+    """The same inputs: a Monday move (this week and next) a minute before the
+    close, a chat move (next week and the week after) a minute after."""
+    fx = S.scenario_4()
+    close = S.close_of(1)
+    before = fx.inputs(now=close - timedelta(minutes=1))
+    after = S.scenario_4().inputs(now=close + timedelta(minutes=1))
+    assert (before.kind, before.horizon) == (av.MONDAY, (1, 2))
+    assert (after.kind, after.horizon) == (av.CHAT, (2, 3))
+    assert before.anchor == after.anchor == S.day(1, 0)
+    rb = av.recommend(before, "Nick", FAST)
+    ra = av.recommend(after, "Nick", FAST)
+    assert rb.top.move.add == "FA This Week"
+    assert ra.top.move.add == "FA Next Week"          # FA This Week has no game after this week
+    assert all(p.move.add != "FA This Week" or s <= 0 for s, p in ra.ranked)
+
+
+def test_horizon_for_is_the_clock_not_the_weekday():
+    wd = S.scenario_1().week_dates()
+    close = S.close_of(1)
+    assert av.horizon_for(close - timedelta(seconds=1), 1, wd, close).kind == av.MONDAY
+    h = av.horizon_for(close, 1, wd, close)
+    assert (h.kind, h.weeks, h.budget_week, h.effective) == (av.CHAT, (2, 3), 1, S.day(2, 0))
+    assert h.label() == "Chat move (effective Mon 11-09)"
+    assert av.horizon_for(S.at(3, 2), 3, wd, S.close_of(3)) is None          # no week 4: none left
+    last = av.horizon_for(S.at(2, 2), 2, wd, S.close_of(2))
+    assert last.weeks == (3, None)                                          # past the season: absent
+    with pytest.raises(ValueError):
+        av.horizon_for(S.at(1, 2).replace(tzinfo=None), 1, wd, close)
+
+
+def test_scenario_12_tags_are_anchored_at_their_fetch_date_for_a_horizon_starting_next_week():
+    """Tuesday of week 1, after the close: horizon weeks 2-3, anchor Tuesday.
+    No raise; the O chain spends Wed and Fri of week 1 and at most Monday of
+    week 2 -- in marginal_value and in the week engine alike, on the same
+    draws -- and his Wed and Fri of week 2 are never charged."""
+    from modules import marginal_value as mv, simulator_betting as sb
+    from modules.projections import TeamProjections
+    fx = S.scenario_12()
+    inp = fx.inputs(now=S.at(1, 1, 15), balance=False)
+    assert (inp.kind, inp.horizon, inp.anchor) == (av.CHAT, (2, 3), S.day(1, 1))
+    want = [S.day(1, 2), S.day(1, 4), S.day(2, 0)]
+    ctx = av._mv_ctx(inp, inp.weeks(), 64, 7)
+    p = ctx.player("Tagged O")
+    chain = mv.tag_missed(ctx, p)
+    assert sorted(chain) == want
+    tp = {"Nick": TeamProjections("Nick", {"Tagged O": inp.projections["Tagged O"]})}
+    blocks = sb.tag_blocks(inp.world, tp, inp.statuses, sb.KeyedDraws(7, 64), tag_anchor=inp.anchor)
+    assert blocks["Tagged O"].games == want
+    assert (chain[S.day(2, 0)] == blocks["Tagged O"].missed(S.day(2, 0))).all()
+    assert chain[S.day(2, 0)].any() and not chain[S.day(2, 0)].all()   # some draws miss Monday
+    for d in (S.day(2, 2), S.day(2, 4)):
+        assert mv._draws(ctx, p, d, 2).all()
+    # mis-anchored at next Monday, the same tag would charge Mon, Wed and Fri of week 2
+    wrong = mv.build_context({"Tagged O": inp.projections["Tagged O"]}, {"Nick": ["Tagged O"]},
+                             inp.world.nba_schedule, inp.world.schedule["weeks"], "this_week", 1,
+                             injury_statuses=inp.statuses, sims=64, seed=7)
+    assert sorted(mv.tag_missed(wrong, wrong.player("Tagged O"))) == [S.day(2, 0), S.day(2, 2), S.day(2, 4)]
+    r = av.recommend(inp, "Nick", FAST)                  # the whole path prices without a raise
+    assert r.ranked
+
+
+def test_a_chat_move_puts_in_il_only_a_player_still_out_next_monday():
+    """Rule 2 at next Monday's window: an O tag alone (back within 3 games) is
+    not IL-eligible for a chat move; OFS or an injury entry covering the
+    window day is. A Monday move takes the tag now."""
+    names = ["A", "B", "C", "D"]
+    tags = {"A": "O", "B": "OFS", "C": "O", "D": "Q"}
+    assert av.chat_il_eligible(names, tags, {"C"}) == {"B", "C"}
+    assert av.monday_il_eligible(names, tags) == {"A", "B", "C"}
+    fx = S.scenario_7(45)                 # Short O: tagged O, no injury entry
+    inp = fx.inputs(now=S.at(1, 2, 15), balance=False)
+    assert "Short O" not in inp.il_eligible
+    assert not [mo for mo in av.candidate_moves(inp, "Nick", FAST) if mo.to_il]
+    inp.il_eligible = None
+    with pytest.raises(ValueError, match="chat"):
+        inp.il_ok("Short O")
+
+
+def test_same_inputs_same_advice():
+    a = av.advise_all(S.scenario_8().inputs(opponents=S.CONTEST_OPPONENTS, balance=False), FAST)
+    b = av.advise_all(S.scenario_8().inputs(opponents=S.CONTEST_OPPONENTS, balance=False), FAST)
+    for m in a:
+        assert [(round(s, 12), p.move) for s, p in a[m].rec.ranked] == \
+               [(round(s, 12), p.move) for s, p in b[m].rec.ranked]
+        assert (a[m].top and a[m].top.move) == (b[m].top and b[m].top.move)
+        assert (a[m].backup and a[m].backup.move) == (b[m].backup and b[m].backup.move)
+        assert a[m].also_wanted_by == b[m].also_wanted_by
+
+
+@pytest.mark.parametrize("mk,kw", [(S.scenario_3, {"now": S.at(1, 2, 15)}),
+                                   (lambda: S.scenario_5(False), {"now": S.at(1, 2, 15)}),
+                                   (S.scenario_8, {"opponents": S.CONTEST_OPPONENTS, "balance": False})])
+def test_a_top_four_keeper_is_never_a_suggested_drop_or_backup_drop(mk, kw):
+    inp = mk().inputs(**kw)
+    adv = av.advise_all(inp, FAST)
+    for m, a in adv.items():
+        prot = av.protected(inp.managers[m], FAST.protected)
+        for p in [a.top, a.backup] + [p for _s, p in a.rec.ranked]:
+            if p is not None:
+                assert p.move.drop not in prot and p.followup_drop not in prot
+
+
+def test_a_joining_player_has_no_keep_chance_and_is_not_protected_others_raise():
+    inp = S.scenario_1().inputs()
+    st = inp.managers["Nick"]
+    keep = dict(st.keep)
+    keep.pop("Julius Randle")
+    joined = av.ManagerState(st.manager, st.active, st.il, st.active_capacity, st.il_capacity, st.adds_left,
+                             keep, st.opponents, joining=frozenset({"Julius Randle"}))
+    assert "Julius Randle" not in av.protected(joined, 4)
+    bare = av.ManagerState(st.manager, st.active, st.il, st.active_capacity, st.il_capacity, st.adds_left,
+                           keep, st.opponents)
+    with pytest.raises(KeyError):
+        av.protected(bare, 4)
+
+
+def test_the_second_week_roster_carries_the_ledgers_pending_moves():
+    """ManagerState.later: next week's roster (a claim joining, a chat drop
+    leaving) is priced in horizon week 2 only."""
+    inp = S.scenario_1().inputs()
+    st = inp.managers["Nick"]
+    act2 = tuple(n for n in st.active if n != "Bench 0")
+    inp.managers["Nick"] = av.ManagerState(st.manager, st.active, st.il, st.active_capacity, st.il_capacity,
+                                           st.adds_left, st.keep, st.opponents, later=(act2, st.il))
+    mo = av.Move("Nick", "add_drop", "Cedric Coward", drop="Julius Randle")
+    p1, _ = av.week_roster(inp, inp.managers["Nick"], mo, 0, None)
+    p2, _ = av.week_roster(inp, inp.managers["Nick"], mo, 1, None)
+    assert "Bench 0" in p1 and "Bench 0" not in p2
+    assert "Cedric Coward" in p1 and "Cedric Coward" in p2 and "Julius Randle" not in p2
+
+
+# --- the points tie-break (V2 s.6.2) and bracket ties ---------------------------------
+
+def _p(dwp, dpts, dT_later=0.0, lbar=0.2):
+    return av.Priced(av.Move("Nick", "add_drop", "A", drop="B"), tuple(dwp), (0.9, 0.9), tuple(dpts), (0, 0),
+                     0.0, dT_later, 0.0, lbar)
+
+
+def test_the_points_tie_break_ranks_flat_moves_by_expected_startable_points():
+    w = av.RECOMMENDED
+    flat_hi, flat_lo = _p((0.001, 0.002), (40, 10)), _p((0.003, 0.0), (5, 5))
+    assert flat_hi.flat() and flat_lo.flat()
+    assert av.rank_key(w, flat_hi) > av.rank_key(w, flat_lo)
+    assert av.qualifies(av.rank_key(w, flat_hi), 0.0)                 # beats standing pat on points
+    assert not av.qualifies(av.rank_key(w, _p((0.001, 0.0), (-5, 0))), 0.0)
+    assert not av.qualifies(av.rank_key(w, flat_hi), 0.01)            # never clears the last add's bar
+    real = _p((0.004, 0.003), (1, 1))                                  # 0.7%: not flat
+    assert not real.flat() and av.rank_key(w, real) > av.rank_key(w, flat_hi)
+    vetoed = _p((0.001, 0.0), (80, 0), dT_later=-0.05)                 # the veto still applies
+    assert av.rank_key(w, vetoed)[0] < 0 and not av.qualifies(av.rank_key(w, vetoed), 0.0)
+
+
+def test_a_decided_horizon_is_ranked_on_points_end_to_end():
+    """Up 3000 in both weeks: every win-chance change is flat; the engine still
+    names the move with the most startable points rather than noise."""
+    fx = S.scenario_4()
+    inp = fx.inputs(banked={("Nick", 1): 3000.0, ("Nick", 2): 3000.0})
+    r = av.recommend(inp, "Nick", FAST)
+    assert all(p.flat() for _s, p in r.ranked)
+    pts = [p.dpts[0] + p.dpts[1] for _s, p in r.ranked]
+    assert pts == sorted(pts, reverse=True)
+    assert r.top is not None and r.top.dpts[0] + r.top.dpts[1] == max(pts)
+
+
+def test_a_tied_week_counts_by_the_competitions_rule():
+    a, b = np.array([1.0, 2.0, 3.0, 3.0]), np.array([1.0, 1.0, 4.0, 3.0])
+    assert av._win(a, b) == pytest.approx(0.25 + 0.5 * 0.5)            # regular season: a T is half
+    assert av._win(a, b, 1.0) == pytest.approx(0.75)                   # bracket: the higher seed takes it
+    assert av._win(a, b, 0.0) == pytest.approx(0.25)
+
+
+def test_a_week_with_no_matchup_has_no_win_chance_term():
+    inp = S.scenario_1().inputs()
+    st = inp.managers["Nick"]
+    inp.managers["Nick"] = av.ManagerState(st.manager, st.active, st.il, st.active_capacity, st.il_capacity,
+                                           st.adds_left, st.keep, {1: st.opponents[1], 2: None})
+    r = av.recommend(inp, "Nick", FAST)
+    for _s, p in r.ranked:
+        assert p.dwp[1] == 0.0 and p.wp_base[1] is None
+    assert r.top.move.add == "Cedric Coward"
+
+
+def test_title_odds_are_the_phases_top_prize():
+    from modules import injured_drop
+    c = injured_drop.Config(2.0, 1.0, 0.05, 0.05, 4, 6, 0.25, 0.04, 0.075)
+    p = av.Priced(av.Move("Nick", "add_drop", "A"), (0.1, 0.1), (0.5, 0.5), (1, 1), (0, 0), 0.03, 0.02, 0, 0.2,
+                  dT_rs=0.04, dT_po=0.01)
+    assert p.title_odds(c, True) == pytest.approx(0.02)        # P(regular-season title): stake units / 2
+    assert p.title_odds(c, False) == pytest.approx(0.01)       # P(champion): stake units / 1

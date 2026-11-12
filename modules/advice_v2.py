@@ -1,26 +1,48 @@
 """
-advice_v2.py -- advice v2's engine: Monday-window adds and drops (V1 prototype).
+advice_v2.py -- advice v2's engine: adds and drops, as Monday moves and chat moves.
 
-claude/ADVICE_V2_DESIGN.md decisions 1-3 and 7; the calibration job is
-claude/HANDOFF_ADVICE_V1_WORTH_CHECK_2026-11-05.md. Not wired into the nightly
-run, the hub or the newsletter.
+claude/ADVICE_V2_DESIGN.md decisions 1-4 and 7; V1 (the calibration) is
+claude/ADVICE_V1_RESULT_2026-11-05.md, V2 (live, on the ledger) is
+claude/HANDOFF_ADVICE_V2_2026-11-11.md. The live inputs are built by
+modules/advice_live.py, which is the only caller that reads files.
 
+    horizon_for(now, week, week_dates, close) -> Horizon (Monday move | chat move)
     recommend(inputs, manager, settings, weighting) -> Recommendation
+    advise_all(inputs, settings, weighting) -> {manager: Advice}  (contested, backups)
 
 PURE. Nothing here opens a file (RETRO_SIM_REQUIREMENTS R2; a source test pins
 it): the caller passes the world, the rosters, the projections, the tags and
 the stakes. The 2025-26 replay (modules/advice_replay.py) and the live
 2026-27 path build the same MondayInputs from different sources.
 
-THE MOVES (decision 2, Monday window only in V1):
+THE TWO HORIZONS (V2 s.2), decided by the build's clock against this week's
+Monday window close (price_lock.window_close), never by weekday name -- the
+same switch as hub_state.free_agent_columns:
+    before the close   the MONDAY MOVE: a Yahoo move in today's window, valued
+                       this week and next;
+    from the close     the CHAT MOVE: a group-chat claim, effective next Monday
+                       (rule 7), counted against THIS week's add budget,
+                       valued next week and the week after.
+Week 7 (14 days) is one matchup. A horizon week past the season's last week
+is absent (None): it adds nothing.
+
+THE MOVES (decision 2):
     add_drop   add a free agent, drop an unprotected active player
     add_open   add into an open ACTIVE spot (an open IL slot is never one)
-    il_add     an O/OFS active player into an open IL slot, then add
-    il_swap    drop an unprotected IL occupant, an O/OFS active player into
-               his slot, then add
-A move is valued from its effective week over two matchups (decision 1), so a
-midweek chat move (V2) is the same code with horizon = (next week, the week
-after) -- MondayInputs.horizon, not a different engine.
+    il_add     an IL-eligible active player into an open IL slot, then add
+    il_swap    drop an unprotected IL occupant, an IL-eligible active player
+               into his slot, then add
+IL eligibility (rule 2) is the caller's: MondayInputs.il_eligible. For a
+Monday move it is the tag now (O or OFS); for a chat move the IL change
+happens in next Monday's window, so the live path admits only a player who
+will still be O or OFS then (advice_live says how).
+
+THE TAGS' ANCHOR (V2 s.2): the tags are anchored at their fetch date,
+MondayInputs.anchor. A chat move's horizon starts later; marginal_value
+(MVContext.tag_anchor) and the week engine (tag_anchor) both count a tag's
+games from the anchor over the NBA schedule, so the games before next Monday
+spend the chain and the horizon sees only what is left. An anchor AFTER the
+horizon starts raises; so does one more than a week before it.
 
 THE UNIT (decision 2.4): startable games under the exact daily fill
 (lineup_fill via marginal_value and simulator_betting), O days removed by the
@@ -36,7 +58,11 @@ HOW A MOVE IS PRICED (decision 7: screen, then price the finalists):
        against his ACTUAL opponent, simulator_betting.simulate_week_matrix
        with keyed common random numbers (one KeyedDraws per call: the same
        seed and inputs give the same numbers, and an unchanged player's
-       draws never move). A 14-day week is one matchup.
+       draws never move). A 14-day week is one matchup. A tied week is worth
+       MondayInputs.tie_value (0.5 in the regular season, where a T is half
+       a win; 1 or 0 in a bracket week, where the higher seed takes it).
+       A week with no matchup (an opponent of None: a bracket pairing not
+       set yet, or a team idle) has no win-chance term.
      - dT_horizon: sum_k leverage_k x dwp[k], in injured_drop's stake units
        (rs_weight x P(regular-season title) + playoff_weight x P(champion)).
      - dT_later: the title-odds change from the weeks after the horizon,
@@ -46,16 +72,28 @@ HOW A MOVE IS PRICED (decision 7: screen, then price the finalists):
        REPLACEMENT (C2's lesson): with A = the roster after the move,
        Ar = A with the add swapped for the replacement-level free agent r
        and B = the roster as it is, dpts_w = max(A_w, Ar_w) - max(B_w, Ar_w).
-       A streamer is worth 0 beyond the horizon; a dropped player above
-       replacement costs his margin over r; a gem is worth his margin over r.
-  3. RANK by a Weighting (decision 1 leaves the combination open; the
-     replay calibrates it).
+     - dT_rs / dT_po: the same title change split by race, so the display
+       can show the phase's top prize (Priced.title_odds).
+  3. RANK by a Weighting; RECOMMENDED (decision 1, amended 11-05) is wins
+     this week + next + 0.5 x the title term only when it is NEGATIVE: a veto.
+     THE POINTS TIE-BREAK (V2 s.6.2, V1 s.7.6): a move whose |dwp| summed
+     over the two weeks is under FLAT_WIN (0.5%) cannot be told apart by win
+     chance -- the matchups are decided, or have no opponent -- so its win
+     part is treated as zero and moves are ordered by expected startable
+     points (dpts summed). It beats standing pat only on points.
   4. THE LAST ADD: with one add left, a move must clear settings.last_add_bar
-     (its insurance value) as well as zero.
+     (its insurance value); a flat move never does.
+
+CONTESTED PLAYERS (decision 4): advise_all prices every manager, then marks
+"also wanted by" (another manager whose top move adds the same player) and
+picks each manager's BACKUP: his best qualifying move whose add is neither his
+top add nor anybody else's. Free agents are never split between managers.
 
 PROTECTION (decision 3a): the manager's top `protected` by keep chance are
 never a suggested drop (injured_drop.keep_rank orders them, ties by name).
-Everyone else is priced, IL occupants included.
+Everyone else is priced, IL occupants included. A player joining by a
+pending claim has no keep chance yet (ManagerState.joining): he is not
+protected, and every OTHER player without a keep chance raises.
 
 IL PLACEMENT IS NOT FREE (decision 2): a player put into an IL slot scores
 nothing for the rest of that week (simulator_betting's il_mask). If he is
@@ -67,8 +105,8 @@ active player worth least that week) leaves -- a two-step plan, shown.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from datetime import date, timedelta
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime, timedelta
 from typing import Mapping, Optional, Sequence
 
 import numpy as np
@@ -81,6 +119,48 @@ from .projections import DEFAULT_WEEKLY_STD_DEV, PlayerProjection, TeamProjectio
 
 IL_TAGS = frozenset({"O", "OFS"})          # LEAGUE_RULES 2026-27 IL rule 2
 KINDS = ("add_drop", "add_open", "il_add", "il_swap")
+MONDAY, CHAT = "monday", "chat"
+# The points tie-break (V2 s.6.2): |dwp| summed over the two weeks under this
+# is a decided (or unmatched) horizon, ranked by expected startable points.
+FLAT_WIN = 0.005
+
+
+# =============================================================================
+# The horizon: a Monday move or a chat move, by the clock
+# =============================================================================
+
+@dataclass(frozen=True)
+class Horizon:
+    kind: str                  # MONDAY | CHAT
+    weeks: tuple               # (first, second); second None past the season's last week
+    budget_week: int           # the week whose adds the move uses (rule 7: the week it is made in)
+    effective: date            # the Monday the move takes effect
+    closes: datetime           # this week's Monday window close
+
+    def label(self) -> str:
+        if self.kind == MONDAY:
+            return "Monday move"
+        return f"Chat move (effective {self.effective:%a} {self.effective:%m-%d})"
+
+
+def horizon_for(now: datetime, week: int, week_dates: Mapping[int, Sequence[date]],
+                close: datetime) -> Optional[Horizon]:
+    """The move a manager can make now (V2 s.2). `week` is the fantasy week
+    holding `now` (the league clock), `close` its Monday window close
+    (price_lock.window_close). Before the close: the Monday move, this week
+    and next. From the close: the chat move, next week and the week after
+    (rule 7), still on this week's add budget. None when no window is left
+    this season (the effective week is past the last week)."""
+    if now.tzinfo is None or close.tzinfo is None:
+        raise ValueError("the horizon is decided on the league clock (aware datetimes)")
+    week = int(week)
+    if week not in week_dates:
+        raise KeyError(f"week {week} is not in the schedule")
+    kind, first = (MONDAY, week) if now < close else (CHAT, week + 1)
+    if first not in week_dates:
+        return None
+    second = first + 1 if (first + 1) in week_dates else None
+    return Horizon(kind, (first, second), week, list(week_dates[first])[0], close)
 
 
 # =============================================================================
@@ -93,7 +173,10 @@ class World:
     simulator_betting reads exactly these off `data`: nba_schedule ({"games":
     [{date, home, away}]}), schedule ({"weeks": [{week, start_date,
     end_date}]}), get_nba_games_for_date, current_week, durability_prior,
-    and it caches on __dict__. Nothing else."""
+    and it caches on __dict__. Nothing else.
+
+    current_week: the week BEFORE the one holding the tags' anchor, so
+    simulator_betting.tag_week (current_week + 1) is the tags' own week."""
 
     def __init__(self, nba_schedule: dict, schedule_weeks: Sequence[dict], current_week: int,
                  durability_prior=None):
@@ -127,6 +210,13 @@ class World:
         d1 = date.fromisoformat(str(wd["end_date"])[:10])
         return [d0 + timedelta(days=k) for k in range((d1 - d0).days + 1)]
 
+    def week_of(self, d: date) -> Optional[int]:
+        for w in self._weeks:
+            ds = self.dates(w)
+            if ds and ds[0] <= d <= ds[-1]:
+                return w
+        return None
+
     def teams_on(self, d: date) -> frozenset:
         return frozenset(t for g in self._by_date.get(d.isoformat(), [])
                          for t in (g["home"], g["away"]))
@@ -152,7 +242,7 @@ class Settings:
     # is newly O by next Monday) 0.575 x the median one-week gain of a top pick
     # 0.056 x a 1-in-4 chance that claiming his replacement early in the chat
     # beats Monday's race (four managers, a deep pool) = 0.008, rounded up.
-    # It withheld no Monday pick in the replay; it is for V2's smaller chat moves.
+    # It withheld no Monday pick in the replay; it binds on chat moves (V2 s.6.3).
     last_add_bar: float = 0.01
 
 
@@ -211,38 +301,81 @@ class ManagerState:
     il: tuple                     # in IL slots, fixed for the week
     active_capacity: int
     il_capacity: int
-    adds_left: int
+    adds_left: int                # in the move's budget week (V2 s.3: the one counter)
     keep: Mapping[str, float]     # keep chance for every real player on the roster
-    opponents: Mapping[int, str]  # horizon week -> opponent
+    opponents: Mapping[int, Optional[str]]  # horizon week -> opponent; None: no matchup
+    # V2 s.3: the roster in the SECOND horizon week before any move, when the
+    # ledger's pending moves for that window change it ((active, il)); None:
+    # the same as the first week's
+    later: Optional[tuple] = None
+    # players joining by a pending claim: no keep chance yet, never protected
+    joining: frozenset = frozenset()
 
     def roster(self) -> tuple:
         return tuple(self.active) + tuple(self.il)
+
+    def all_names(self) -> tuple:
+        extra = () if self.later is None else tuple(self.later[0]) + tuple(self.later[1])
+        return tuple(dict.fromkeys(self.roster() + extra))
 
 
 @dataclass
 class MondayInputs:
     season: str
-    horizon: tuple                     # (effective week, the week after)
+    horizon: tuple                     # (effective week, the week after or None)
     world: World
     projections: dict                  # name -> PlayerProjection: rostered and pool
     statuses: dict                     # name -> tag (O, OFS, Q, D, ...); absent = HEALTHY
     managers: dict                     # manager -> ManagerState
     pool: tuple                        # free agents, in a stable order
-    anchor: date                       # the tags' anchor: the window's first day
+    anchor: date                       # the tags' anchor: their fetch date (V2 s.2)
     stakes: dict = field(default_factory=dict)   # manager -> injured_drop.TeamStakes
     drop_config: Optional[injured_drop.Config] = None
     banked: dict = field(default_factory=dict)   # (manager, week) -> points already scored
     weekly_sd: dict = field(default_factory=dict)  # manager -> weekly std dev
+    kind: str = MONDAY                 # MONDAY | CHAT
+    # names that may go into an IL slot at the horizon's window (rule 2).
+    # None: the tag now (a Monday move only; a chat move must pass it)
+    il_eligible: Optional[frozenset] = None
+    # (manager, week) -> what a tied week is worth to him; absent: 0.5 (a
+    # regular-season T, tie_win_value). The live path fills every bracket week
+    tie_value: dict = field(default_factory=dict)
+    nba_outs: dict = field(default_factory=dict)   # step 3b: {player: date} out tonight
+    reserved: frozenset = frozenset()  # players claimed (pending) by anyone: never in the pool
     _sims: dict = field(default_factory=dict, repr=False)
     _ctx: dict = field(default_factory=dict, repr=False)
 
     def status(self, name: str) -> str:
         return absence.normalised_tag(self.statuses.get(name, "HEALTHY"))
 
+    def weeks(self) -> list:
+        """The horizon's weeks that exist (the second is None past the season)."""
+        return [w for w in self.horizon if w is not None]
+
+    def il_ok(self, name: str) -> bool:
+        if self.il_eligible is not None:
+            return name in self.il_eligible
+        if self.kind != MONDAY:
+            raise ValueError("a chat move's IL eligibility is next Monday's: pass il_eligible")
+        return self.status(name) in IL_TAGS
+
     def check(self) -> None:
         """Raise on inputs that would make a silent wrong answer."""
-        if len(self.horizon) != 2:
-            raise ValueError("the horizon is two matchups")
+        if len(self.horizon) != 2 or self.horizon[0] is None:
+            raise ValueError("the horizon is two matchups (the second None past the season)")
+        if self.horizon[1] is not None and int(self.horizon[1]) != int(self.horizon[0]) + 1:
+            raise ValueError(f"the horizon {self.horizon} is not two consecutive weeks")
+        if self.kind not in (MONDAY, CHAT):
+            raise ValueError(f"kind must be {MONDAY!r} or {CHAT!r}, not {self.kind!r}")
+        if self.kind == CHAT and self.il_eligible is None:
+            raise ValueError("a chat move's IL eligibility is next Monday's: pass il_eligible")
+        first = self.world.dates(self.horizon[0])[0]
+        if self.anchor > first:
+            raise ValueError(f"the tags' anchor {self.anchor} is after the horizon's first day {first}")
+        aw = self.world.week_of(self.anchor)
+        if aw is None or aw < int(self.horizon[0]) - 1:
+            raise ValueError(f"the tags' anchor {self.anchor} is more than a week before the horizon "
+                             f"(week {self.horizon[0]}): the tags are too old to price it")
         seen = {}
         for m, st in self.managers.items():
             if len(st.active) > st.active_capacity:
@@ -253,16 +386,88 @@ class MondayInputs:
                 if n in seen:
                     raise ValueError(f"{n} is on {seen[n]}'s and {m}'s rosters")
                 seen[n] = m
+            for n in st.all_names():
                 if n not in self.projections:
                     raise KeyError(f"{m}'s {n} has no projection")
-            for w in self.horizon:
+            for w in self.weeks():
                 if w not in st.opponents:
-                    raise KeyError(f"{m} has no opponent in week {w}")
+                    raise KeyError(f"{m} has no opponent entry in week {w} (None: no matchup)")
         for n in self.pool:
             if n in seen:
                 raise ValueError(f"free agent {n} is on {seen[n]}'s roster")
             if n not in self.projections:
                 raise KeyError(f"free agent {n} has no projection")
+            if n in self.reserved:
+                raise ValueError(f"free agent {n} is claimed in the chat (rule 10): not in the pool")
+
+
+# =============================================================================
+# Assembly: the one way MondayInputs are built (live path and fixtures)
+# =============================================================================
+
+def monday_il_eligible(names, statuses: Mapping[str, str]) -> frozenset:
+    """A Monday move's IL eligibility (rule 2): tagged O or OFS now."""
+    return frozenset(n for n in names
+                     if absence.normalised_tag(statuses.get(n, "HEALTHY")) in IL_TAGS)
+
+
+def chat_il_eligible(names, statuses: Mapping[str, str], out_on_window) -> frozenset:
+    """A chat move's IL eligibility (rules 2, 4-5): the IL change happens in
+    next Monday's window, where the tag must be O or OFS. A player tagged O or
+    OFS now is eligible only when he will still be out that Monday: OFS (the
+    season), or an injury entry keeping him out on the window day
+    (`out_on_window`, the caller's reading of INJURY_OVERRIDES). An O tag
+    alone is at most 3 games (absence.MAX_TAG_GAMES): he is expected back,
+    and the checklist would stop the team (move_ledger, rule 2). The hub's
+    stash table reads injury entries the same way."""
+    out = set()
+    for n in names:
+        t = absence.normalised_tag(statuses.get(n, "HEALTHY"))
+        if t not in IL_TAGS:
+            continue
+        if absence.season_out(t) or n in out_on_window:
+            out.add(n)
+    return frozenset(out)
+
+
+def assemble(*, horizon: "Horizon", season: str, nba_schedule: dict, schedule_weeks: Sequence[dict],
+             durability_prior, anchor: date, projections: Mapping[str, PlayerProjection],
+             statuses: Mapping[str, str], rosters: Mapping[str, tuple], shape: tuple,
+             adds_left: Mapping[str, int], keep: Mapping[str, Mapping[str, float]],
+             opponents: Mapping[str, Mapping[int, Optional[str]]], pool: Sequence[str],
+             il_eligible: frozenset, later: Mapping[str, tuple] = None,
+             joining: Mapping[str, frozenset] = None, reserved: frozenset = frozenset(),
+             stakes: Mapping = None, drop_config: Optional[injured_drop.Config] = None,
+             tie_value: Mapping = None, nba_outs: Mapping = None,
+             weekly_sd: Mapping = None) -> MondayInputs:
+    """MondayInputs from explicit parts, checked. rosters: {manager:
+    (active, il)} in the horizon's first week, the ledger's pending moves
+    applied; later: the same for the second week where it differs. The World's
+    current week is the one before the anchor's, so the week engine reads the
+    tags as the anchor's week's (simulator_betting.tag_week)."""
+    probe = World(nba_schedule, schedule_weeks, 0, durability_prior)
+    aw = probe.week_of(anchor)
+    if aw is None:
+        raise ValueError(f"the tags' anchor {anchor} is in no fantasy week")
+    world = World(nba_schedule, schedule_weeks, aw - 1, durability_prior)
+    later = dict(later or {})
+    joining = dict(joining or {})
+    weeks = [w for w in horizon.weeks if w is not None]
+    states = {}
+    for m, (act, il) in rosters.items():
+        if m not in adds_left or m not in keep or m not in opponents:
+            raise KeyError(f"{m}: adds left, keep chances and opponents are all required")
+        states[m] = ManagerState(m, tuple(act), tuple(il), int(shape[0]), int(shape[1]), int(adds_left[m]),
+                                 dict(keep[m]), {w: opponents[m][w] for w in weeks},
+                                 later.get(m), frozenset(joining.get(m, ())))
+    inp = MondayInputs(season=season, horizon=tuple(horizon.weeks), world=world,
+                       projections=dict(projections), statuses=dict(statuses), managers=states,
+                       pool=tuple(pool), anchor=anchor, stakes=dict(stakes or {}), drop_config=drop_config,
+                       kind=horizon.kind, il_eligible=frozenset(il_eligible),
+                       tie_value=dict(tie_value or {}), nba_outs=dict(nba_outs or {}),
+                       reserved=frozenset(reserved), weekly_sd=dict(weekly_sd or {}))
+    inp.check()
+    return inp
 
 
 # =============================================================================
@@ -291,8 +496,8 @@ class Move:
 @dataclass(frozen=True)
 class Priced:
     move: Move
-    dwp: tuple              # win-chance change, horizon week 1 and 2
-    wp_base: tuple          # the manager's win chance with no move
+    dwp: tuple              # win-chance change, horizon week 1 and 2 (0.0 with no matchup)
+    wp_base: tuple          # the manager's win chance with no move (None with no matchup)
     dpts: tuple             # mean points change, horizon weeks
     dstarts: tuple          # mean started-games change, horizon weeks
     dT_horizon: float       # stake units
@@ -301,12 +506,30 @@ class Priced:
     lbar: float             # mean stake per win over the horizon (0: no stakes)
     followup_drop: Optional[str] = None
     dpts_later_by_week: tuple = ()    # ((week, points above replacement), ...)
+    dT_rs: float = 0.0      # the title change from regular-season weeks (stake units)
+    dT_po: float = 0.0      # ... from bracket weeks (stake units)
+
+    def flat(self) -> bool:
+        """The points tie-break applies: the win chances cannot tell it apart."""
+        return abs(self.dwp[0]) + abs(self.dwp[1]) < FLAT_WIN
+
+    def title_odds(self, config: Optional[injured_drop.Config], regular_season: bool) -> Optional[float]:
+        """The change in the phase's top prize as a probability (V2 s.6.1): the
+        regular-season title through the regular season, the playoff title
+        (champion) from the playoffs on. None without stakes."""
+        if config is None or not self.lbar and not (self.dT_rs or self.dT_po):
+            return None
+        if regular_season:
+            return self.dT_rs / config.rs_weight if config.rs_weight else None
+        return self.dT_po / config.playoff_weight if config.playoff_weight else None
 
     def reason(self) -> str:
         s = f"{self.dstarts[0] + self.dstarts[1]:+.1f} starts"
         s += f"; win chance {100 * self.dwp[0]:+.1f}% this week, {100 * self.dwp[1]:+.1f}% next"
         if self.lbar:
             s += f"; title {self.dT_horizon + self.dT_later:+.4f}"
+        if self.flat():
+            s += f"; matchups decided: ranked on points ({self.dpts[0] + self.dpts[1]:+.1f})"
         if self.followup_drop:
             s += f"; next week drop {self.followup_drop} when {self.move.to_il} returns"
         return s
@@ -316,10 +539,27 @@ class Priced:
 class Recommendation:
     manager: str
     top: Optional[Priced]          # None: no move clears the bar
-    ranked: tuple                  # (score, Priced), best first
+    ranked: tuple                  # (score, Priced), best first (by key)
     weighting: str
     bar: float
     note: str = ""
+    keys: tuple = ()               # the ranking keys, aligned with ranked
+
+    def qualifying(self) -> list:
+        """(score, Priced) of every move that beats standing pat (and the bar)."""
+        return [sp for sp, k in zip(self.ranked, self.keys) if qualifies(k, self.bar)]
+
+
+@dataclass(frozen=True)
+class Advice:
+    """One manager's advice after the contest is read (decision 4)."""
+    manager: str
+    rec: Recommendation
+    top: Optional[Priced]
+    top_score: Optional[float]
+    also_wanted_by: tuple          # managers whose top move adds the same player
+    backup: Optional[Priced]       # his best qualifying move whose add is nobody else's top
+    backup_score: Optional[float]
 
 
 # =============================================================================
@@ -328,18 +568,23 @@ class Recommendation:
 
 def protected(state: ManagerState, n: int) -> frozenset:
     """The top n by keep chance (decision 3a), via injured_drop.keep_rank.
-    A roster player with no keep chance RAISES (keep_rank)."""
+    A roster player with no keep chance RAISES (keep_rank), unless he joins
+    by a pending claim (state.joining: no keep chance yet, never protected)."""
     keep = dict(state.keep)
     out = set()
-    for name in state.roster():
+    for name in state.all_names():
+        if name in state.joining and name not in keep:
+            continue
         rank, _c = injured_drop.keep_rank(name, keep)
         if rank <= n:
             out.add(name)
     return frozenset(out)
 
 
-def back_next_week(inputs: MondayInputs, name: str, week: int) -> bool:
+def back_next_week(inputs: MondayInputs, name: str, week: Optional[int]) -> bool:
     """Expected available from `week`'s window: no OFS, no override covering it."""
+    if week is None:
+        return False
     p = inputs.projections[name]
     if absence.season_out(inputs.status(name)):
         return False
@@ -352,29 +597,30 @@ def back_next_week(inputs: MondayInputs, name: str, week: int) -> bool:
 
 def _mv_ctx(inputs: MondayInputs, weeks: Sequence[int], sims: int, seed: int):
     """A marginal_value context from the horizon's first week through the last
-    of `weeks`, every relevant player in it. It always STARTS at the horizon:
-    marginal_value anchors the tag chains and the baseline hazard at a
-    context's first day, so a context of later weeks alone would charge a
-    Monday O tag's games in a later week. Callers read the weeks they want
-    off roster_totals' by_week."""
-    span = list(range(int(inputs.horizon[0]), max(int(max(weeks)), int(inputs.horizon[1])) + 1))
+    of `weeks`, every relevant player in it. It always STARTS at the horizon;
+    the tags are anchored at inputs.anchor (their fetch date, on or before the
+    horizon's first day: MVContext.tag_anchor), so a chat move's horizon sees
+    only what is left of a tag's games. Callers read the weeks they want off
+    roster_totals' by_week."""
+    last = max([int(w) for w in weeks] + [int(w) for w in inputs.weeks()])
+    span = list(range(int(inputs.horizon[0]), last + 1))
     ck = (tuple(span), sims, seed)
     hit = inputs._ctx.get(ck)
     if hit is not None:
         return hit
-    names = list(dict.fromkeys([n for st in inputs.managers.values() for n in st.roster()]
+    names = list(dict.fromkeys([n for st in inputs.managers.values() for n in st.all_names()]
                                + list(inputs.pool)))
     rosters = {m: list(st.active) for m, st in inputs.managers.items()}
+    first = inputs.world.dates(span[0])[0]
+    if inputs.anchor > first:
+        raise ValueError(f"the tags' anchor {inputs.anchor} is after the horizon's first day {first}")
     ctx = mv.build_context({n: inputs.projections[n] for n in names}, rosters,
                            inputs.world.nba_schedule, inputs.world.schedule["weeks"],
                            "this_week", span[0] - 1, injury_statuses=inputs.statuses,
                            extra_players=names, durability_prior=inputs.world.durability_prior,
-                           sims=sims, seed=seed, season=inputs.season)
+                           sims=sims, seed=seed, season=inputs.season, tag_anchor=inputs.anchor)
     ctx.weeks = span
     ctx.days = [(d, w, inputs.world.teams_on(d)) for w in span for d in inputs.world.dates(w)]
-    if ctx.days and ctx.days[0][0] != inputs.anchor:
-        raise ValueError(f"the horizon starts {ctx.days[0][0]}, not at the tags' anchor "
-                         f"{inputs.anchor}: a chat move (V2) must pass its own anchor")
     inputs._ctx[ck] = ctx
     return ctx
 
@@ -405,10 +651,10 @@ def replacement(inputs: MondayInputs, settings: Settings) -> Optional[str]:
 # =============================================================================
 
 def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> list:
-    """Every Monday-window move worth pricing, best screen value first."""
+    """Every move worth pricing, best screen value first."""
     st = inputs.managers[manager]
     prot = protected(st, settings.protected)
-    ctx = _mv_ctx(inputs, inputs.horizon, settings.screen_sims, settings.seed)
+    ctx = _mv_ctx(inputs, inputs.weeks(), settings.screen_sims, settings.seed)
     R = tuple(st.active)
     base_p, base_s, _ = _totals(ctx, R)
 
@@ -442,7 +688,7 @@ def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> l
         for f in best_adds(list(R)):
             p, s = gain(list(R) + [f])
             moves.append(Move(manager, "add_open", f, screen_points=p, screen_starts=s))
-    newly_out = [n for n in R if inputs.status(n) in IL_TAGS]
+    newly_out = [n for n in R if inputs.il_ok(n)]
     if newly_out and len(R) >= st.active_capacity:
         for pl in newly_out:
             rest = [n for n in R if n != pl]
@@ -480,15 +726,21 @@ def finalists(moves: Sequence[Move], settings: Settings) -> list:
 
 def week_roster(inputs: MondayInputs, st: ManagerState, move: Optional[Move], k: int,
                 followup: Optional[str]) -> tuple:
-    """(players on the roster, players in IL slots) in horizon week k."""
-    players = set(st.roster())
-    il = set(st.il)
+    """(players on the roster, players in IL slots) in horizon week k: the
+    first week's roster, or the second week's when the ledger's pending moves
+    for that window change it (ManagerState.later), with the move applied."""
+    if k == 1 and st.later is not None:
+        players = set(st.later[0]) | set(st.later[1])
+        il = set(st.later[1])
+    else:
+        players = set(st.roster())
+        il = set(st.il)
     if move is not None:
         players.add(move.add)
         if move.drop:
             players.discard(move.drop)
             il.discard(move.drop)
-        if move.to_il:
+        if move.to_il and move.to_il in players:
             il.add(move.to_il)
         if k == 1 and move.to_il and followup is not None:
             il.discard(move.to_il)
@@ -506,27 +758,36 @@ def _scores(inputs: MondayInputs, manager: str, players: frozenset, il: frozense
                                    weekly_std_dev=float(inputs.weekly_sd.get(manager,
                                                                              DEFAULT_WEEKLY_STD_DEV)))}
     draws = sb.KeyedDraws(settings.seed, settings.price_sims)
+    extra = {"nba_outs": dict(inputs.nba_outs)} if inputs.nba_outs else {}
     res = sb.simulate_week_matrix(inputs.world, tp, inputs.world.week(week), inputs.statuses, draws,
                                   tag_anchor=inputs.anchor, managers=[manager],
-                                  il_mask={manager: set(il)})[manager]
+                                  il_mask={manager: set(il)}, **extra)[manager]
     out = (res["score"] + float(inputs.banked.get((manager, week), 0.0)), res["games"])
     inputs._sims[key] = out
     return out
 
 
-def _win(mine: np.ndarray, theirs: np.ndarray) -> float:
-    return float(np.mean(mine > theirs) + 0.5 * np.mean(mine == theirs))
+def _win(mine: np.ndarray, theirs: np.ndarray, tie: float = 0.5) -> float:
+    """P(mine wins): a tied week counts `tie` (0.5 a regular-season T; 1 or 0
+    in a bracket week, where the higher seed takes it)."""
+    return float(np.mean(mine > theirs) + float(tie) * np.mean(mine == theirs))
 
 
-def _leverage(inputs: MondayInputs, manager: str, week: int) -> float:
+def _leverage_parts(inputs: MondayInputs, manager: str, week: Optional[int]) -> tuple:
+    """(rs part, playoff part) of the stake per win in `week`, stake units."""
     ts = inputs.stakes.get(manager)
-    if ts is None or inputs.drop_config is None:
-        return 0.0
+    if week is None or ts is None or inputs.drop_config is None:
+        return 0.0, 0.0
     ws = ts.weeks.get(week)
     if ws is None:
-        return 0.0
+        return 0.0, 0.0
     c = inputs.drop_config
-    return c.rs_weight * float(ws.rs_leverage or 0.0) + c.playoff_weight * float(ws.playoff_leverage or 0.0)
+    return (c.rs_weight * float(ws.rs_leverage or 0.0),
+            c.playoff_weight * float(ws.playoff_leverage or 0.0))
+
+
+def _leverage(inputs: MondayInputs, manager: str, week: Optional[int]) -> float:
+    return sum(_leverage_parts(inputs, manager, week))
 
 
 def followup_drop(inputs: MondayInputs, manager: str, move: Move, settings: Settings) -> Optional[str]:
@@ -534,13 +795,14 @@ def followup_drop(inputs: MondayInputs, manager: str, move: Move, settings: Sett
     player (the add included) worth least from next week through the last
     week the stakes cover (marginal_value; next week alone without stakes),
     so the plan never cuts a long-term asset to save one week. None if he is
-    not back next week."""
+    not back next week (or there is no next week)."""
     if not move.to_il or not back_next_week(inputs, move.to_il, inputs.horizon[1]):
         return None
     st = inputs.managers[manager]
     prot = protected(st, settings.protected)
-    players, il = week_roster(inputs, st, move, 0, None)
+    players, il = week_roster(inputs, st, move, 1, None)
     active_next = [n for n in players if n not in il] + [move.to_il]
+    active_next = list(dict.fromkeys(active_next))
     weeks = [inputs.horizon[1]] + _later_weeks(inputs, manager)
     sims = settings.long_sims if len(weeks) > 1 else settings.screen_sims
     ctx = _mv_ctx(inputs, weeks, sims, settings.seed)
@@ -560,19 +822,28 @@ def _later_weeks(inputs: MondayInputs, manager: str) -> list:
     ts = inputs.stakes.get(manager)
     if ts is None:
         return []
-    return [w for w in range(inputs.horizon[1] + 1, int(ts.last_week) + 1) if w in ts.weeks]
+    last_h = max(inputs.weeks())
+    return [w for w in range(last_h + 1, int(ts.last_week) + 1) if w in ts.weeks]
 
 
 def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: Settings) -> list:
     st = inputs.managers[manager]
+    hz = list(inputs.horizon)
     base = [week_roster(inputs, st, None, k, None) for k in (0, 1)]
-    opp = [week_roster(inputs, inputs.managers[st.opponents[w]], None, k, None)
-           for k, w in enumerate(inputs.horizon)]
-    base_sc = [_scores(inputs, manager, *base[k], w, settings) for k, w in enumerate(inputs.horizon)]
-    opp_sc = [_scores(inputs, st.opponents[w], *opp[k], w, settings)[0]
-              for k, w in enumerate(inputs.horizon)]
-    wp_base = tuple(_win(base_sc[k][0], opp_sc[k]) for k in (0, 1))
-    levs = [_leverage(inputs, manager, w) for w in inputs.horizon]
+    base_sc, opp_sc, ties = [None, None], [None, None], [0.5, 0.5]
+    for k, w in enumerate(hz):
+        if w is None:
+            continue
+        base_sc[k] = _scores(inputs, manager, *base[k], w, settings)
+        o = st.opponents[w]
+        if o is not None:
+            ost = inputs.managers[o]
+            opp_sc[k] = _scores(inputs, o, *week_roster(inputs, ost, None, k, None), w, settings)[0]
+            ties[k] = float(inputs.tie_value.get((manager, w), 0.5))
+    wp_base = tuple(None if opp_sc[k] is None else _win(base_sc[k][0], opp_sc[k], ties[k])
+                    for k in (0, 1))
+    parts = [_leverage_parts(inputs, manager, w) for w in hz]
+    levs = [a + b for a, b in parts]
     lbar = float(np.mean(levs)) if any(levs) else 0.0
 
     later = _later_weeks(inputs, manager)
@@ -583,14 +854,19 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
     out = []
     for mo in moves:
         fu = followup_drop(inputs, manager, mo, settings) if mo.to_il else None
-        dwp, dpts, dst = [], [], []
-        for k, w in enumerate(inputs.horizon):
+        dwp, dpts, dst = [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]
+        for k, w in enumerate(hz):
+            if w is None:
+                continue
             players, il = week_roster(inputs, st, mo, k, fu)
             sc, games = _scores(inputs, manager, players, il, w, settings)
-            dwp.append(_win(sc, opp_sc[k]) - wp_base[k])
-            dpts.append(float(np.mean(sc - base_sc[k][0])))
-            dst.append(float(np.mean(games - base_sc[k][1])))
+            if opp_sc[k] is not None:
+                dwp[k] = _win(sc, opp_sc[k], ties[k]) - wp_base[k]
+            dpts[k] = float(np.mean(sc - base_sc[k][0]))
+            dst[k] = float(np.mean(games - base_sc[k][1]))
         dT_h = sum(levs[k] * dwp[k] for k in (0, 1))
+        dT_rs = sum(parts[k][0] * dwp[k] for k in (0, 1))
+        dT_po = sum(parts[k][1] * dwp[k] for k in (0, 1))
         dT_l, dpl, by_w = 0.0, 0.0, []
         if later and r is not None:
             gone = {x for x in (mo.drop, fu) if x}
@@ -604,9 +880,15 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
                 d = max(a_w.get(w, 0.0), ar_w.get(w, 0.0)) - max(b_w.get(w, 0.0), ar_w.get(w, 0.0))
                 dpl += d
                 by_w.append((w, round(d, 3)))
-                dT_l += injured_drop.point_value(ts.weeks[w], inputs.drop_config) * d
+                ws = ts.weeks[w]
+                pv = injured_drop.point_value(ws, inputs.drop_config) * d
+                dT_l += pv
+                if ws.rs_leverage is not None:
+                    dT_rs += pv
+                else:
+                    dT_po += pv
         out.append(Priced(mo, tuple(dwp), wp_base, tuple(dpts), tuple(dst), dT_h, dT_l, dpl, lbar, fu,
-                          tuple(by_w)))
+                          tuple(by_w), dT_rs, dT_po))
     return out
 
 
@@ -614,14 +896,34 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
 # 3. Ranking
 # =============================================================================
 
+def rank_key(weighting: Weighting, p: Priced) -> tuple:
+    """(effective score, expected startable points). A flat move's win part is
+    noise (V2 s.6.2): it is scored without it (only a title penalty is left)
+    and ordered by points; standing pat is (0, 0)."""
+    pts = p.dpts[0] + p.dpts[1]
+    if p.flat():
+        return (weighting.score(replace(p, dwp=(0.0, 0.0), dT_horizon=0.0)), pts)
+    return (weighting.score(p), pts)
+
+
+def qualifies(key: tuple, bar: float) -> bool:
+    """Beats standing pat, and the last add's bar when it binds: above the
+    bar, or (no bar) level with standing pat and ahead of it on points."""
+    s, pts = key
+    if s > bar:
+        return True
+    return bar <= 0.0 and s == 0.0 and pts > 0.0
+
+
 def recommend(inputs: MondayInputs, manager: str, settings: Settings = Settings(),
               weighting: Weighting = RECOMMENDED, priced: Optional[Sequence[Priced]] = None
               ) -> Recommendation:
-    """The manager's best Monday move under `weighting`, or none.
+    """The manager's best move under `weighting`, or none.
 
-    A move must score above 0 (better than standing pat); with one add left
-    it must also clear settings.last_add_bar (decision 2: the last add's
-    insurance value). Pass `priced` to re-rank without re-pricing."""
+    A move must beat standing pat; with one add left it must also clear
+    settings.last_add_bar (decision 2: the last add's insurance value), which
+    a flat move (the points tie-break) never does. Pass `priced` to re-rank
+    without re-pricing."""
     st = inputs.managers[manager]
     if st.adds_left <= 0:
         return Recommendation(manager, None, (), weighting.name, math.inf, "no adds left")
@@ -632,13 +934,42 @@ def recommend(inputs: MondayInputs, manager: str, settings: Settings = Settings(
     for p in priced:
         if p.move.drop in prot or p.followup_drop in prot:
             raise AssertionError(f"{p.move.describe()}: drops a protected keeper")
-    ranked = tuple(sorted(((weighting.score(p), p) for p in priced),
-                          key=lambda t: (-t[0], t[1].move.kind, t[1].move.add, t[1].move.drop or "")))
+        if p.move.add in inputs.reserved:
+            raise AssertionError(f"{p.move.describe()}: adds a player claimed in the chat (rule 10)")
+    keyed = sorted(((rank_key(weighting, p), weighting.score(p), p) for p in priced),
+                   key=lambda t: (-t[0][0], -t[0][1], t[2].move.kind, t[2].move.add, t[2].move.drop or ""))
+    ranked = tuple((s, p) for _k, s, p in keyed)
+    keys = tuple(k for k, _s, _p in keyed)
     bar = max(0.0, settings.last_add_bar) if st.adds_left == 1 else 0.0
-    top = ranked[0][1] if ranked and ranked[0][0] > bar else None
+    top = ranked[0][1] if ranked and qualifies(keys[0], bar) else None
     note = "" if top is not None else ("nothing clears the last add's bar" if st.adds_left == 1
                                        else "standing pat beats every move")
-    return Recommendation(manager, top, ranked, weighting.name, bar, note)
+    return Recommendation(manager, top, ranked, weighting.name, bar, note, keys)
+
+
+def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
+               weighting: Weighting = RECOMMENDED, recs: Optional[dict] = None) -> dict:
+    """{manager: Advice}: every manager's recommendation, then the contest
+    (decision 4). "Also wanted by": another manager whose top move adds the
+    same player. The backup: his best qualifying move whose add is neither
+    his own top add nor anybody else's. Free agents are never split."""
+    recs = recs or {m: recommend(inputs, m, settings, weighting) for m in sorted(inputs.managers)}
+    tops = {m: r.top.move.add for m, r in recs.items() if r.top is not None}
+    out = {}
+    for m in sorted(recs):
+        r = recs[m]
+        if r.top is None:
+            out[m] = Advice(m, r, None, None, (), None, None)
+            continue
+        mine = tops[m]
+        wanted = tuple(sorted(o for o, a in tops.items() if o != m and a == mine))
+        others = {a for o, a in tops.items() if o != m}
+        top_score = next(s for s, p in r.ranked if p is r.top)
+        backup = next(((s, p) for s, p in r.qualifying()
+                       if p.move.add != mine and p.move.add not in others), None)
+        out[m] = Advice(m, r, r.top, top_score, wanted,
+                        backup[1] if backup else None, backup[0] if backup else None)
+    return out
 
 
 # =============================================================================
@@ -657,7 +988,7 @@ def most_games(inputs: MondayInputs, manager: str, settings: Settings,
     given. No move unless it gains startable games."""
     st = inputs.managers[manager]
     prot = protected(st, settings.protected)
-    ctx = _mv_ctx(inputs, inputs.horizon, settings.screen_sims, settings.seed)
+    ctx = _mv_ctx(inputs, inputs.weeks(), settings.screen_sims, settings.seed)
     R = list(st.active)
     _bp, bs, _ = _totals(ctx, R)
     open_spot = len(R) < st.active_capacity
@@ -705,7 +1036,7 @@ def highest_projection(inputs: MondayInputs, manager: str, settings: Settings,
     add = max(pool, key=lambda f: (proj(f), [-ord(c) for c in f]))
     if drop and proj(add) <= proj(drop):
         return None
-    ctx = _mv_ctx(inputs, inputs.horizon, settings.screen_sims, settings.seed)
+    ctx = _mv_ctx(inputs, inputs.weeks(), settings.screen_sims, settings.seed)
     bp, bs, _ = _totals(ctx, R)
     rest = [n for n in R if n != drop] if drop else R
     p, s, _ = _totals(ctx, rest + [add])

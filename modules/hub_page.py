@@ -168,6 +168,11 @@ border-bottom:1px solid #EEF0F3}
 .tb-k{font-size:11px;font-weight:700;color:#5B6270;text-transform:uppercase;letter-spacing:.06em;padding-bottom:2px}
 .tb-r{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #EEF0F3}
 .tb-r .pn{display:flex;flex-direction:column;min-width:0}
+.ad-b{padding:8px 14px 12px;border-top:1px solid #EEF0F3}
+.ad-k{font-size:11px;font-weight:700;color:#5B6270;text-transform:uppercase;letter-spacing:.06em}
+.ad-m{font-size:15px;font-weight:700;padding-top:4px;overflow-wrap:anywhere}
+.ad-n{font-size:13px;font-weight:600;padding-top:4px;overflow-wrap:anywhere}
+.ad-s{font-size:12px;color:#5B6270;padding-top:3px;overflow-wrap:anywhere}
 .tb-r .pn .n{white-space:normal;overflow-wrap:anywhere}
 .tb-r .since{flex:none;white-space:nowrap}
 .issue{all:unset;box-sizing:border-box;cursor:pointer;background:#121417;color:#fff;border-radius:14px;padding:16px;
@@ -373,7 +378,12 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              # task 49: the trade block's own view, from the bottom of this card
              f'<button class="link" data-open="v-block" style="all:unset;cursor:pointer;display:block;'
              f'padding:12px 14px;font-size:13px;font-weight:600;color:#1D5FD1;border-top:1px solid #EEF0F3">'
-             f'{clean(payload["trade_block"]["link"])} &rarr;</button></div>'
+             f'{clean(payload["trade_block"]["link"])} &rarr;</button>'
+             # advice v2 (V2 s.7): beside the trade block's link, only when the switch is on
+             + (f'<button class="link" data-open="v-advice" style="all:unset;cursor:pointer;display:block;'
+                f'padding:12px 14px;font-size:13px;font-weight:600;color:#1D5FD1;border-top:1px solid #EEF0F3">'
+                f'{clean(payload["advice"]["link"])} &rarr;</button>' if payload.get("advice") is not None else "")
+             + '</div>'
              f'<div class="note">{clean(pw["as_of"])}. {clean(pw["note"])}</div></section>')
 
     gr = payload["grid"]
@@ -446,10 +456,9 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                  + f'</span><span class="num">{clean(r["proj"])}</span></div>')
     o.append(f'<div class="empty" style="font-size:12px">{clean(st["note"])}</div></div></section>')
 
-    if payload.get("advice") is not None:
-        raise ValueError("the hub's advice slot renders only its empty state until advice v2 exists")
-    o.append(f'<section><h2>Advice</h2><div class="card"><div class="empty" id="advice-empty">'
-             f'{clean(payload["advice_empty"])}</div></div></section>')
+    if payload.get("advice") is None:             # advice.hub "off": the empty slot, as before
+        o.append(f'<section><h2>Advice</h2><div class="card"><div class="empty" id="advice-empty">'
+                 f'{clean(payload["advice_empty"])}</div></div></section>')
 
     mv = payload["moves"]
     o.append('<section><div class="row-b"><h2>Moves</h2><select class="wk" id="mv-week" aria-label="Budget week">')
@@ -573,6 +582,30 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
             o.append(f'<div class="empty">{clean(c["empty"])}</div>')
         o.append("</div>")
     o.append(f'<div class="note">{clean(tbv["foot"])}</div></section></div>')
+
+    # ---------------------------------------------------------------- the advice view (advice v2, V2 s.7)
+    adv = payload.get("advice")
+    if adv is not None:
+        o.append('<div class="view" id="v-advice" hidden><div class="rh">'
+                 '<a href="#" class="back" data-open="v-main">&larr; Power rankings</a>'
+                 f'<div class="h-title">{clean(adv["title"])}</div></div><section>')
+        for c in adv["cards"]:
+            o.append(f'<div class="card ad" data-manager="{clean(c["manager"])}"><div class="tb-h">'
+                     f'<span class="tb-t"><span class="n">{clean(c["team"])}</span>'
+                     f'<span class="s">{clean(c["manager"])}</span></span></div><div class="ad-b">'
+                     + (f'<div class="ad-k">{clean(c["heading"])}</div>' if c["heading"] else ""))
+            if c["move"]:
+                o.append(f'<div class="ad-m">{clean(c["move"])}</div>'
+                         + (f'<div class="ad-s">{clean(c["followup"])}</div>' if c["followup"] else "")
+                         + f'<div class="ad-n">{clean(c["numbers"])}</div>'
+                         + f'<div class="ad-s">{clean(c["reason"])}</div>'
+                         + (f'<div class="ad-s">{clean(c["also"])}</div>' if c["also"] else "")
+                         + (f'<div class="ad-s">{clean(c["backup"])}</div>' if c["backup"] else ""))
+            else:
+                o.append(f'<div class="empty">{clean(c["empty"])}</div>')
+            o.append("</div></div>")
+        o.append(f'<div class="note">{clean(adv["foot"])}</div><div class="note">{clean(adv["note"])}</div>'
+                 '</section></div>')
 
     # ---------------------------------------------------------------- last week and the matchup views (48a-48c)
     lw = mu.get("last")

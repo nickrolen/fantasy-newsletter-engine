@@ -53,6 +53,16 @@ s.2.4 and s.4 the design. The nightly run:
    7 title_odds    title_odds_run.price at the week's seed: the history row,
                    output/title_odds_latest.json, output/stakes.json. Skipped
                    (nothing priced) when the line step found prices locked
+  7b advice       advice v2 (modules/advice_live): every manager's best move --
+                   the Monday move before this week's window close, the chat
+                   move after it -- with its backup, on the live rosters, the
+                   ledger's pending moves, the tags and the stakes; written to
+                   output/advice_latest.json and output/advice_history.jsonl.
+                   Every run that prices runs it (nightly, pre-tip, refresh,
+                   poll, afternoon), during the lock too: advice is not a price,
+                   it plans future days. Not the facts-only refresh. A failure
+                   is recorded (both outputs, the run's "advice" block, ADVICE
+                   FAILED in the summary) and never stops the run
    8 actuals       player_actuals.update (the pre-tip run too, before its hub
                    step: a player added in the Monday window is backfilled here,
                    or the hub refuses with ActualsStale -- 11-09's 3:15 and 3:30
@@ -160,27 +170,30 @@ REFRESH_MODES = ("refresh", "poll", "afternoon")
 REPORT_READERS = ("nightly", "pretip", "afternoon")
 STEP_TIMEOUT_S = 900
 
+# Advice v2 (V2 s.5): every mode that prices runs "advice", right after
+# title_odds (the stakes it reads) and before actuals and the hub (which shows
+# it when advice.hub is on); not refresh_facts, not closing.
 STEPS = {
     "nightly": ("engine", "logs", "sync", "trade_block", "settings", "schedule", "tags", "nba_report",
-                "returns", "ledger", "line", "title_odds", "actuals", "hub", "nudges"),
+                "returns", "ledger", "line", "title_odds", "advice", "actuals", "hub", "nudges"),
     # Step 3a: the nightly path without the log pull; actuals stays right
     # before the hub, as in every mode that builds one (F1)
     "refresh": ("engine", "banked", "sync", "settings", "tags", "nba_report", "ledger", "line",
-                "title_odds", "actuals", "hub"),
+                "title_odds", "advice", "actuals", "hub"),
     # task 49: a refresh after a trade-block entry, which changes no price: the
     # refresh without line and title_odds (no win-% point, no title-odds row);
     # mode "refresh" with facts_only (--refresh --facts-only)
     "refresh_facts": ("engine", "banked", "sync", "line_engine", "settings", "tags", "nba_report",
                       "ledger", "actuals", "hub"),
     "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "nba_report", "ledger", "line",
-               "title_odds", "actuals", "hub"),
+               "title_odds", "advice", "actuals", "hub"),
     # Step 3b: a Monday poll that found a new Yahoo transaction (the guard job's
     # scripts/monday_poll.py): the refresh, its cause named from what the sync logged
     "poll": ("engine", "banked", "sync", "moves", "settings", "tags", "nba_report", "ledger", "line",
-             "title_odds", "actuals", "hub"),
+             "title_odds", "advice", "actuals", "hub"),
     # Step 3b: the afternoon tag check, about an hour before the day's first tip
     "afternoon": ("engine", "banked", "sync", "settings", "tags", "nba_report", "changes", "ledger",
-                  "line", "title_odds", "actuals", "hub"),
+                  "line", "title_odds", "advice", "actuals", "hub"),
     "closing": ("engine", "window", "sync", "closing"),
 }
 
@@ -743,6 +756,20 @@ class Run:
         return (f"seed {seed}, {sims:,} sims: "
                 + ", ".join(f"{m} {v:.1f}" for m, v in sorted(odds.items(), key=lambda kv: -kv[1])))
 
+    # -- 7b (advice v2)
+    def step_advice(self):
+        """Advice for every manager (modules/advice_live.run_step): built,
+        advised and written; an error is recorded there and the run goes on.
+        An afternoon check that changed nothing writes nothing more."""
+        from . import advice_live as al
+        if self._afternoon_unchanged():
+            return "skipped: nothing changed since the last line"
+        out = al.run_step(self.base, self.now, run_id=self.run_id, mode=self.mode, cause=self.cause,
+                          echo=self.echo)
+        self.ctx["advice"] = out["block"]
+        self.ctx["advice_lines"] = out["lines"]
+        return out["detail"]
+
     # -- 8
     def step_actuals(self):
         from . import player_actuals as pa
@@ -870,6 +897,8 @@ class Run:
             row["nba_report"] = self.ctx["nba_report"]
         if self.ctx.get("nudges") is not None:
             row["nudges"] = self.ctx["nudges"]
+        if self.ctx.get("advice") is not None:
+            row["advice"] = self.ctx["advice"]
         if self.mode == "nightly":
             row["afternoon"] = afternoon_plan_today(self.base, self.today)
         from .jsonl_log import append_rows
@@ -1116,6 +1145,8 @@ def main(argv=None) -> int:
         _gh_flag("nudges")
     if row.get("afternoon") is not None:
         print(f"AFTERNOON CHECK TODAY: {row['afternoon']['why']}")
+    for line in run.ctx.get("advice_lines") or []:                # advice v2: one line per manager
+        print(line)
     if mode in REFRESH_MODES:
         out = os.environ.get("GITHUB_OUTPUT")
         if out:

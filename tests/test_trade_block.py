@@ -454,7 +454,9 @@ def test_the_upkeep_runs_in_the_nightly_after_the_sync_and_never_prices(tmp_path
 def test_the_facts_only_steps_are_the_refreshs_without_the_pricers():
     full, facts = nightly.STEPS["refresh"], nightly.STEPS["refresh_facts"]
     assert "line" not in facts and "title_odds" not in facts
-    assert [s for s in facts if s != "line_engine"] == [s for s in full if s not in ("line", "title_odds")]
+    # advice v2 (11-11): the facts-only refresh leaves out the advice step too (V2 s.5)
+    assert [s for s in facts if s != "line_engine"] == [s for s in full if s not in ("line", "title_odds",
+                                                                                      "advice")]
     assert facts.index("sync") < facts.index("line_engine") < facts.index("hub")
 
 

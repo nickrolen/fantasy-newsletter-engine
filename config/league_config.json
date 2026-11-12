@@ -449,6 +449,11 @@
         "matchup_framing": {"blowout_win_pct": 95, "comeback_close_below": 40, "comeback_now_at": 50, "comeback_rise_points": 20, "comeback_rise_was_below": 50, "close_low": 35, "close_high": 65},
         "_matchup_framing": "Task 48a (Nick, 11-10; starting values for Nick to tune): how the hub's nightly matchup paragraph picks its framing, first match wins: Final (every day banked); Blowout (the leader's win % >= blowout_win_pct); Comeback (the team below comeback_close_below % at the closing line is now at comeback_now_at % or more, or a team that was below comeback_rise_was_below % at the previous priced run rose comeback_rise_points points or more since it -- Nick, 11-10: a favourite growing its lead is no comeback, and the team that trailed at the close and leads now stays a comeback all week); Lead change (the banked leader differs from the previous priced run's); Close (both teams between close_low and close_high %); Steady otherwise. Percent points. Required: missing or malformed raises (modules/hub_matchups.framing_config)."
     },
+    "advice": {
+        "_comment": "Advice v2 (claude/HANDOFF_ADVICE_V2_2026-11-11.md; modules/advice_live.py). Every key required: missing or anything else raises (advice_live.hub_switch).",
+        "hub": "off",
+        "_hub": "\"off\" or \"on\". Whether the hub shows the advice view (an \"Advice\" link beside \"Trade block\" and one card per manager). The engine computes and stores the advice either way (output/advice_latest.json, output/advice_history.jsonl) on every run that prices. Ships off (V2 s.7): Nick reads the picks for a week first, from Monday 11-16's window (python scripts\\advice_show.py, the run summary), then turns it on -- an engine change: commit, push, set-engine."
+    },
     "payouts": {
         "_comment": "Manager-to-manager payments; the league keeps no pot. USD.",
         "currency": "USD",

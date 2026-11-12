@@ -40,22 +40,23 @@ def test_the_step_order_of_every_mode_is_pinned():
         # nudge last (it reads the night's player actuals, and opens issues only)
         # task 49: the trade block's upkeep right after the sync (the rosters it checks)
         "nightly": ("engine", "logs", "sync", "trade_block", "settings", "schedule", "tags", "nba_report",
-                    "returns", "ledger", "line", "title_odds", "actuals", "hub", "nudges"),
+                    "returns", "ledger", "line", "title_odds", "advice", "actuals", "hub", "nudges"),
         # step 3a: the refresh is the nightly path without the log pull
+        # advice v2 (11-11): every mode that prices runs advice after title_odds
         "refresh": ("engine", "banked", "sync", "settings", "tags", "nba_report", "ledger", "line",
-                    "title_odds", "actuals", "hub"),
-        # task 49: the facts-only refresh (a trade-block entry): no line, no title odds
+                    "title_odds", "advice", "actuals", "hub"),
+        # task 49: the facts-only refresh (a trade-block entry): no line, no title odds, no advice
         "refresh_facts": ("engine", "banked", "sync", "line_engine", "settings", "tags", "nba_report",
                           "ledger", "actuals", "hub"),
         "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "nba_report", "ledger", "line",
-                   "title_odds", "actuals", "hub"),
+                   "title_odds", "advice", "actuals", "hub"),
         "closing": ("engine", "window", "sync", "closing"),
         # step 3b: a Monday poll's refresh, its cause from the synced transactions
         "poll": ("engine", "banked", "sync", "moves", "settings", "tags", "nba_report", "ledger", "line",
-                 "title_odds", "actuals", "hub"),
+                 "title_odds", "advice", "actuals", "hub"),
         # step 3b: the afternoon tag check
         "afternoon": ("engine", "banked", "sync", "settings", "tags", "nba_report", "changes", "ledger",
-                      "line", "title_odds", "actuals", "hub"),
+                      "line", "title_odds", "advice", "actuals", "hub"),
     }
     # actuals sits right before the hub wherever a hub is built
     for mode, steps in nightly.STEPS.items():

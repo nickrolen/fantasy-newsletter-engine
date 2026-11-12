@@ -226,6 +226,15 @@ class MVContext:
     durability_prior: object = None                  # data_loader.DurabilityPrior
     team_dates: dict = field(default_factory=dict)   # team -> season game dates
     week_dates: dict = field(default_factory=dict)   # every schedule week -> its dates
+    # The date the tags were fetched (advice v2's chat moves). None: the
+    # window's first day, the default for every caller before V2. When it is
+    # earlier than the window, a tag's games are his team's first games from
+    # THIS date (the full NBA schedule, not the window), exactly as
+    # simulator_betting.tag_blocks counts them with tag_anchor -- so a Tuesday
+    # O tag spends its games this week and a window starting next Monday sees
+    # only what is left. The baseline's rate is taken from it too
+    # (simulator_betting.hazard_anchor).
+    tag_anchor: Optional[date] = None
     _baseline: dict = field(default_factory=dict, repr=False)
     _avail: dict = field(default_factory=dict, repr=False)
     _fill: dict = field(default_factory=dict, repr=False)
@@ -283,6 +292,7 @@ def build_context(
     sims: int = DEFAULT_SIMS,
     seed: int = 20261006,
     season: str = None,
+    tag_anchor: Optional[date] = None,
 ) -> MVContext:
     """Everything marginal_value needs, passed in -- no files are read.
 
@@ -343,7 +353,7 @@ def build_context(
                      window=window, weeks=weeks, days=days, sims=sims, seed=seed,
                      unprojected=unprojected, season=season or CURRENT_SEASON,
                      durability_prior=durability_prior,
-                     team_dates=team_dates, week_dates=by_week)
+                     team_dates=team_dates, week_dates=by_week, tag_anchor=tag_anchor)
 
 
 # =============================================================================
@@ -352,6 +362,34 @@ def build_context(
 
 def _dates_of_week(ctx: MVContext, week: int) -> list:
     return [dd for dd, w, _t in ctx.days if w == week]
+
+
+def anchor_of(ctx: MVContext) -> Optional[date]:
+    """The tags' anchor: ctx.tag_anchor, else the window's first day.
+    A tag anchor AFTER the window's first day raises: tags cannot be dated
+    after the games they are applied to."""
+    if not ctx.days:
+        return ctx.tag_anchor
+    first = ctx.days[0][0]
+    if ctx.tag_anchor is None:
+        return first
+    if ctx.tag_anchor > first:
+        raise ValueError(f"the tags' anchor {ctx.tag_anchor} is after the window's first day {first}")
+    return ctx.tag_anchor
+
+
+def _tag_week(ctx: MVContext) -> tuple:
+    """(week, its dates) the tags belong to: the window's first week when the
+    anchor is its first day (unchanged), else the schedule week holding the
+    anchor (None, [anchor] when no week holds it), as simulator_betting's
+    _tagged_players resolves it."""
+    if ctx.tag_anchor is None or ctx.tag_anchor == ctx.days[0][0]:
+        first = ctx.weeks[0]
+        return first, _dates_of_week(ctx, first)
+    for w, ds in ctx.week_dates.items():
+        if ctx.tag_anchor in ds:
+            return w, list(ds)
+    return None, [ctx.tag_anchor]
 
 
 def availability(ctx: MVContext, p: MVPlayer, d: date, week: int) -> float:
@@ -379,7 +417,7 @@ def baseline(ctx: MVContext, p: MVPlayer):
         return None
     hit = ctx._baseline.get(p.name)
     if hit is None:
-        anchor = ctx.days[0][0]
+        anchor = anchor_of(ctx)
         team_dates = ctx.team_dates.get(p.team, [])
         absence.check_season_out_override(p.name, p.status, p.return_week, p.return_date,
                                           p.return_games)
@@ -416,13 +454,18 @@ def tag_missed(ctx: MVContext, p: MVPlayer) -> dict:
     out: dict = {}
     tag = absence.chain_tag(p.status)
     if tag is not None and ctx.days and ctx.weeks:
-        first = ctx.weeks[0]
-        if not absence.tag_suppressed(first, _dates_of_week(ctx, first), p.out_weeks,
+        t_week, t_dates = _tag_week(ctx)
+        if not absence.tag_suppressed(t_week, t_dates, p.out_weeks,
                                       p.return_week, p.out_from):
-            anchor = ctx.days[0][0]
+            anchor = anchor_of(ctx)
             k = absence.missed_from_uniform(
                 absence.keyed_uniforms(ctx.seed, p.name, anchor, ctx.sims), tag)
-            games = [dd for dd, _w, teams in ctx.days if p.team in teams and dd >= anchor]
+            if anchor == ctx.days[0][0]:
+                games = [dd for dd, _w, teams in ctx.days if p.team in teams and dd >= anchor]
+            else:
+                # the chain runs from the fetch date over his team's real
+                # schedule; games before the window are spent there
+                games = absence.team_games_from(anchor, ctx.team_dates.get(p.team, []))
             for i, dd in enumerate(games[:absence.MAX_TAG_GAMES]):
                 out[dd] = k > i
     ctx._missed[p.name] = out

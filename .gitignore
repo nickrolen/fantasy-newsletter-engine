@@ -321,3 +321,8 @@ output/nba_injury_reports.jsonl
 # and after (modules/trade_block).
 config/TRADE_BLOCK.json
 output/trade_block_history.jsonl
+
+# Advice v2 (11-11): league state. The latest advice and every run's advice
+# (modules/advice_live).
+output/advice_latest.json
+output/advice_history.jsonl

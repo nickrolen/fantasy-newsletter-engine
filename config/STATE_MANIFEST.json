@@ -40,7 +40,9 @@
     {"path": "output/night_paragraph.json", "what": "the matchup views' nightly paragraph, written only by the nightly run's hub step and shown byte for byte by every refresh and pre-tip build until the next night (modules/hub_matchups.write_night; step 3a, decisions 2-3)"},
     {"path": "output/nba_injury_reports.jsonl", "what": "every read of the NBA's official injury report (nightly, afternoon check, Monday pre-tip), with its filing time and entries, or why it was unavailable; append-only (modules/nba_injury_report; step 3b)"},
     {"path": "config/TRADE_BLOCK.json", "what": "the trade block: each team's untouchables, players on the block and mode (buying, selling, neutral), each with the day it was set; written only by modules/trade_block.write_change (phone entries, the nightly upkeep); task 49"},
-    {"path": "output/trade_block_history.jsonl", "what": "every change to config/TRADE_BLOCK.json, the changed teams before and after, append-only; written with the file by modules/trade_block.write_change (phone issue number, or the nightly run's upkeep); task 49"}
+    {"path": "output/trade_block_history.jsonl", "what": "every change to config/TRADE_BLOCK.json, the changed teams before and after, append-only; written with the file by modules/trade_block.write_change (phone issue number, or the nightly run's upkeep); task 49"},
+    {"path": "output/advice_latest.json", "what": "the latest run's advice (advice v2): each manager's move and backup with every number, the horizon, also-wanted-by, the title-odds change, the run id and its cause; written only by modules/advice_live.write (the advice step of every run that prices)"},
+    {"path": "output/advice_history.jsonl", "what": "every run's advice, one row per run, append-only: each manager's top move and backup with its predicted gains, horizon and as-of; Monday's 12:01 row published; read by the scorecard (V4); written only by modules/advice_live.write"}
   ],
   "dirs": [
     {"path": "data/lore_backups", "what": "lore backups (modules/lore.py)"},
