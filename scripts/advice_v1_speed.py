@@ -76,7 +76,7 @@ def main(argv=None):
     av.price(inp3, m0, fin, st)
     with_title = time.time() - t3
     saved = inp3.stakes
-    inp3.stakes = {}
+    inp3.stakes = {m: None for m in saved}          # stated: no stakes (44c: a missing one raises)
     inp3._sims.clear()
     t4 = time.time()
     av.price(inp3, m0, fin, st)

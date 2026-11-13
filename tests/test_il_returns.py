@@ -39,13 +39,14 @@ ROOT = Path(__file__).parent.parent
 # =============================================================================
 
 def returner_fixture(*, weak=True, weak_keep=0.0, nick_active=14, hurt=True, hurt_out=(),
-                     hurt_return=None, il_candidate=False, hurt_days=(5, 6)):
+                     hurt_return=None, il_candidate=False, hurt_days=(5, 6), hurt_tag="O"):
     """test_advice_v2.plan_fixture's world (Wednesday of week 1, after the
     close: a chat move into weeks 2-3, later weeks 4-6): Nick has
     `nick_active` fillers (Tue/Thu, 20 FPPG, keep 0.9 down by 0.01), Weak
-    (Tue, 5 FPPG, keep `weak_keep`) and, in an IL slot, Hurt (O-tagged; an
-    injury entry only if hurt_out is given; hurt_return: a midweek return
-    date). With 14 fillers and Weak, Hurt's return makes 16 active.
+    (Tue, 5 FPPG, keep `weak_keep`) and, in an IL slot, Hurt (tagged
+    `hurt_tag`, O by default; an injury entry only if hurt_out is given;
+    hurt_return: a midweek return date). With 14 fillers and Weak, Hurt's
+    return makes 16 active.
     il_candidate: Achy, an active player O-tagged now and out (entry) for
     week 2 only -- a legal chat IL placement who returns at week 3."""
     fx = S.Fixture(weeks=WEEKS6)
@@ -56,7 +57,7 @@ def returner_fixture(*, weak=True, weak_keep=0.0, nick_active=14, hurt=True, hur
     if il_candidate:
         fx.player("Achy", _every_week(0, 2, 4), 30.0, manager="Nick", keep=0.02, status="O", out_weeks=[2])
     if hurt:
-        fx.player("Hurt", _every_week(*hurt_days), 35.0, manager="Nick", il=True, keep=0.05, status="O",
+        fx.player("Hurt", _every_week(*hurt_days), 35.0, manager="Nick", il=True, keep=0.05, status=hurt_tag,
                   out_weeks=list(hurt_out))
         if hurt_return is not None:
             p = fx.proj["Hurt"]
@@ -259,7 +260,7 @@ def test_a_return_at_the_chat_moves_window_is_shown_before_the_pick_everywhere()
     pl = payload(fx, inp)
     act = pl["managers"]["Nick"]["activation"]
     want = f"Hurt is back for week 2: activate him and drop {step['drops'][0]}. It costs no add."
-    assert act == {"week": 2, "back": ["Hurt"], "drops": step["drops"], "text": want}
+    assert act == {"week": 2, "back": ["Hurt"], "drops": step["drops"], "returns": {}, "text": want}
     assert all(pl["managers"][m]["activation"] is None for m in MANAGERS if m != "Nick")
     assert al.history_row(pl, published=False)["managers"]["Nick"]["activation"] == act
     line = next(l for l in al.summary_lines(pl) if l.startswith("ADVICE Nick"))
@@ -328,8 +329,10 @@ def test_a_monday_move_before_the_close_shows_the_step():
     """Case 10 (44b s.2): a Monday move is before the window's close, when the
     plan's start week is an OPEN window: the plan activates Hurt there (with
     the one rule's drop), so the Monday move shows the step, and the pick is
-    priced after it. (44a showed none: the start week was locked.)"""
-    fx = returner_fixture()
+    priced after it. (44a showed none: the start week was locked.) Hurt is
+    tagged Q today, as Benton's Reaves is: 44c holds an O/OFS-tagged
+    occupant with no entry in IL at the open window (tests/test_44c_il_fixes)."""
+    fx = returner_fixture(hurt_tag="Q")
     inp = fx.inputs(horizon=(2, 3), balance=False)
     assert inp.kind == av.MONDAY and inp.plan.args["start_week"] == 2
     assert inp.plan.args["open_day"] == S.day(2, 0)

@@ -448,7 +448,9 @@ def replay_plan(season: "Season", week: int, inp: av.MondayInputs, ro: Mapping, 
       - injuries: the override-like outs (out_weeks over the horizon);
       - an IL return over its active spots takes the one activation rule
         (roster_plan.activation_drops, 44a) with the keep stand-ins and the
-        long-run value (roster_plan.LongRun) on the Monday's own world;
+        long-run value (roster_plan.LongRun) on the Monday's own world, its
+        protection count from the replay's stakes once priced (the top 4
+        before: stated, 44c);
       - an injured-drop decision reads the replay's own stakes once
         run_week has priced them (inp.stakes), the keep stand-ins, the
         schedule's games and the durability miss rate; before then the plan
@@ -481,8 +483,13 @@ def replay_plan(season: "Season", week: int, inp: av.MondayInputs, ro: Mapping, 
                              durability_prior=inp.world.durability_prior, season=inp.season,
                              statuses=dict(inp.statuses), anchor=inp.anchor, first_week=int(week) + 1,
                              last_week=BRACKET[1])
+    def little(m, window):
+        # 44b s.6's little-left check, stated (44c: an unstated one raises): on the replay's own
+        # stakes once priced; before, none -- the top 4, as its decisions take the bootstrap
+        return injured_drop.little_left(stakes(m, window), cfg) if inp.stakes else None
+
     drops = roster_plan.DropContext(config=cfg, note=note, stakes=stakes, keep=keep, games=games,
-                                    availability=share, longrun=lr.points)
+                                    availability=share, longrun=lr.points, little_left=little)
     active = max([shape[0]] + [len(a) for a, _i in ro.values()])
     il = max([shape[1]] + [len(i) for _a, i in ro.values()])
     return av.PlanSpec(dict(

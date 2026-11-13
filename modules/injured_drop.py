@@ -256,6 +256,15 @@ def _weeks(stakes: TeamStakes, player: Candidate) -> list:
 def costs(player: Candidate, stakes: TeamStakes, keep: Mapping[str, float],
           config: Config) -> dict:
     """{cost_hold, cost_drop, keeper_term, keep_rank, keep_chance, by_week}."""
+    if keep is None:
+        raise KeyError(f"no keep chances for {player.name}: the decision needs his team's "
+                       "(decide_without_keepers is the keeper-watch failure's rule)")
+    return _costs(player, stakes, keep, config)
+
+
+def _costs(player: Candidate, stakes: TeamStakes, keep, config: Config) -> dict:
+    """costs(); keep None (the keeper watch failed, 44c): no keeper term, no
+    rank, no chance."""
     hold = back = 0.0
     by_week = {}
     back_week = player.back_week
@@ -271,8 +280,11 @@ def costs(player: Candidate, stakes: TeamStakes, keep: Mapping[str, float],
         else:
             back += s * diff
         by_week[w] = (s, diff)
-    rank, chance = keep_rank(player.name, keep)
-    kterm = chance * config.keeper_weight if rank <= config.keeper_candidates else 0.0
+    if keep is None:
+        rank, chance, kterm = None, None, 0.0
+    else:
+        rank, chance = keep_rank(player.name, keep)
+        kterm = chance * config.keeper_weight if rank <= config.keeper_candidates else 0.0
     return {"cost_hold": hold, "cost_drop": back + kterm, "keeper_term": kterm,
             "keep_rank": rank, "keep_chance": chance, "by_week": by_week}
 
@@ -281,6 +293,33 @@ def value_after_return(player: Candidate, stakes: TeamStakes, keep: Mapping[str,
                        config: Config) -> float:
     """What an IL slot is ranked by (s.3.5): the cost of dropping him."""
     return costs(player, stakes, keep, config)["cost_drop"]
+
+
+def value_after_return_without_keepers(player: Candidate, stakes: TeamStakes, config: Config) -> float:
+    """value_after_return with no keep chances (the keeper watch failed, 44c): K = 0."""
+    return _costs(player, stakes, None, config)["cost_drop"]
+
+
+def decide_without_keepers(team: str, player: Candidate, stakes: TeamStakes,
+                           config: Config) -> Decision:
+    """decide() for a run whose keeper watch failed (44c, Nick 11-13, 44b Q4):
+    no keep chances, so no keeper term (K = 0) and no keeper protection --
+    the top protected_keepers and a little-left team's keeper candidates are
+    ranked by keep chance, and there is none (as the activation rule's
+    fallback, roster_plan.FALLBACK_NOTE). The hold-or-drop comparison
+    itself, with M and F, is decide()'s. The caller records it loudly."""
+    c = _costs(player, stakes, None, config)
+    ll = little_left(stakes, config)
+    args = dict(cost_hold=c["cost_hold"], cost_drop=c["cost_drop"], keeper_term=0.0,
+                keep_rank=None, keep_chance=None, little_left=ll,
+                detail={"by_week": c["by_week"], "keepers": "none: the keeper watch failed"})
+    edge = c["cost_hold"] - c["cost_drop"]
+    tail = " (keeper watch failed: K = 0, no keeper protection)"
+    if c["cost_hold"] < (1.0 + config.margin) * c["cost_drop"]:
+        return Decision(HOLD, f"holding costs less than {1.0 + config.margin:g} x dropping" + tail, **args)
+    if edge < config.floor:
+        return Decision(HOLD, f"the edge {edge:.4f} is under the floor {config.floor:g}" + tail, **args)
+    return Decision(DROP, f"holding costs {edge:.4f} more than dropping" + tail, **args)
 
 
 def decide(team: str, player: Candidate, stakes: TeamStakes, keep: Mapping[str, float],

@@ -591,20 +591,27 @@ def test_another_managers_roster_change_moves_nothing(live):
     data, teams = live
     from modules.projections import load_player_projections
     from modules.data_loader import free_agents
+    from modules.roster_plan import _available_from
     allp = load_player_projections(data)
+    wd = sb.schedule_week(data, 6)
+    first = min(sb.schedule_week_dates(data)[6])
     # chosen at runtime from whoever is rostered and available today -- a
-    # named player goes red the day he is dropped (Hartenstein, 10-26)
-    drop = sorted(n for n, pp in teams["Nick"].players.items() if (pp.projected_fppg or 0) > 0)[0]
+    # named player goes red the day he is dropped (Hartenstein, 10-26). Both
+    # must be AVAILABLE all of week 6 by their injury entries (44c): on 11-13
+    # the old choice was Edwards (out to week 13) for Kawhi (out to 11-30),
+    # two zeros, so Nick's score could not move and the sanity check failed.
+    ok = lambda p: _available_from(p, 6, first)          # noqa: E731
+    drop = sorted(n for n, pp in teams["Nick"].players.items()
+                  if (pp.projected_fppg or 0) > 0 and ok(pp))[0]
     rosters = {m: list(teams[m].players) for m in MANAGERS}
     pool = [n for n in free_agents(data.playerlist, rosters)["player_name"]
-            if n in allp and (allp[n].projected_fppg or 0) > 0]
+            if n in allp and (allp[n].projected_fppg or 0) > 0 and ok(allp[n])]
     add = max(pool, key=lambda n: (allp[n].projected_fppg, n))
     changed = dict(teams)
     import copy
     t = copy.copy(teams["Nick"]); t.players = dict(t.players)
     del t.players[drop]; t.players[add] = allp[add]
     changed["Nick"] = t
-    wd = sb.schedule_week(data, 6)
     r0 = sb.simulate_week_matrix(data, teams, wd, {}, sb.KeyedDraws(SEED, 500))
     r1 = sb.simulate_week_matrix(data, changed, wd, {}, sb.KeyedDraws(SEED, 500))
     for m in ("Hayden", "Benton", "Garrett"):

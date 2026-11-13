@@ -92,7 +92,9 @@ def activation_ctx(players, base=None, note="no stakes yet: planned without inju
     DropContext (else the bootstrap with `note`), its keep chances over a
     floor of 0.0 for every player (all zero: the top 4 by name are
     protected), the injured_drop config, and proj_value. An input `base`
-    refuses still refuses."""
+    refuses still refuses. The little-left check (44b s.6) is `base`'s, else
+    STATED as none (these worlds have no stakes team chances: the top 4) --
+    44c: an unstated one raises."""
     from modules import injured_drop as idr
     base = base or rp.DropContext.unavailable(note)
     zero = {n: 0.0 for n in players}
@@ -102,7 +104,8 @@ def activation_ctx(players, base=None, note="no stakes yet: planned without inju
         keep = lambda m, k=base.keep: {**zero, **dict(k(m))}
     from dataclasses import replace
     return replace(base, config=base.config or idr.from_rules(), keep=keep,
-                   longrun=base.longrun or proj_value)
+                   longrun=base.longrun or proj_value,
+                   little_left=base.little_left or (lambda m, w: None))
 
 
 def _build(players, rosters, il=None, statuses=None, order=None, rules=None, drops=_ACT):

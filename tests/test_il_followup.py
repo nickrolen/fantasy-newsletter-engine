@@ -90,6 +90,47 @@ def test_the_paired_se_is_the_difference_of_the_draws():
     assert rp.paired_se(5.0) == 0.0 and rp.within_band(np.zeros(3), 2.0)
 
 
+def test_the_band_margin_is_the_distance_from_the_bands_edge_in_ses():
+    """44c: |mean / SE - band|, the SEs a mean would have to move to change
+    "tied"; None with no spread (nothing can move it)."""
+    rng = np.random.default_rng(11)
+    d = 3.0 + 10 * rng.standard_normal(200)
+    se = np.std(d, ddof=1) / np.sqrt(200)
+    assert rp.band_margin(d, 2.0) == pytest.approx(abs(d.mean() / se - 2.0))
+    assert rp.band_margin(5.0, 2.0) is None and rp.band_margin(np.full(4, 5.0), 2.0) is None
+
+
+def test_a_picks_margin_is_its_closest_deciding_comparison():
+    """The planted near-tie: B (not the cheapest) is the pick, so B's own place
+    in the band decides it. The clear gap: A is the cheapest and the pick, so
+    the lower-projection B's place outside the band decides it. The protected
+    K and the returner R are no candidates and decide nothing."""
+    rng = np.random.default_rng(7)
+    t = {"A": 10 + 30 * rng.standard_normal(200), "B": 11 + 30 * rng.standard_normal(200),
+         "K": np.full(200, 99.0), "R": np.full(200, 50.0)}
+    proj = {"A": 30.0, "B": 20.0, "K": 40.0, "R": 35.0}
+    kw = dict(manager="Nick", week=5, il=[], back=["R"], n=1, chance=lambda x: {"K": 0.9}.get(x, 0.0),
+              protected_n=1, proj=lambda x: proj[x], band=2.0)
+    _d, det = rp.activation_drops(active=list(t), value=_draws_of(t), **kw)
+    assert det[0]["player"] == "B" and det[0]["cheapest"] == "A"
+    assert det[0]["margin"] == round(rp.band_margin(t["B"] - t["A"], 2.0), 2)
+    g = {"A": 10 + rng.standard_normal(200), "B": 100 + rng.standard_normal(200),
+         "K": np.full(200, 99.0), "R": np.full(200, 50.0)}
+    _d, det = rp.activation_drops(active=list(g), value=_draws_of(g), **kw)
+    assert det[0]["player"] == "A" and det[0]["margin"] == round(rp.band_margin(g["B"] - g["A"], 2.0), 2)
+    assert det[0]["margin"] > 100
+    e = {"A": np.zeros(200), "B": np.zeros(200), "K": np.full(200, 99.0), "R": np.full(200, 50.0)}
+    _d, det = rp.activation_drops(active=list(e), value=_draws_of(e), **kw)
+    assert det[0]["player"] == "B" and det[0]["margin"] is None      # an exact tie: nothing moves it
+
+
+def test_a_midweek_record_carries_its_gain_se_and_margin():
+    """The plan's midweek row states the paired difference it decided on."""
+    v = _midweek("2026-11-17")[5]["Nick"]["midweek"][0]
+    assert {"gain", "se", "margin"} <= set(v)
+    assert v["margin"] is None or v["margin"] == pytest.approx(abs(v["gain"] / v["se"] - 2.0), abs=0.02)
+
+
 def _real():
     from modules import data_loader as dl, tag_records
     from modules.projections import load_all_team_projections
@@ -101,29 +142,87 @@ def _real():
     return data, load_all_team_projections(data), tag_records.as_tags(tag_records.latest(ROOT))
 
 
-def _events(plan):
-    return [(w, m, v.get("activated"), v.get("activation_drops"),
-             [(x["player"], x["activate"]) for x in v.get("midweek") or []])
-            for w in sorted(plan) for m, v in plan[w].items() if v.get("activated") or v.get("midweek")]
+# A decision is CLEAR when every comparison deciding it sits more than CLEAR
+# SEs from the tie band's edge (roster_plan.band_margin; the band is 2 SEs, so
+# on the activate side this is |mean| > 6 SE). Another seed moves a mean by
+# about sqrt(2) SE, so a decision m SEs past the edge flips with probability
+# about Phi(-m / sqrt 2): 7.9% at m = 2 (|mean| > 4 SE), 1.7% at 3, 0.23% at 4.
+# At 2, a state with ten decisions near it fails about half the time (44c).
+CLEAR = 4.0
 
 
-def test_the_seed_does_not_change_a_decision_on_the_real_state():
-    """The whole real plan rebuilt with the long-run measure at two seeds
-    (200 sims, the band): every activation, drop and mid-week decision is the
-    same. (Five seeds in 44B_RESULT s.1.)"""
-    from modules import tag_records
-    from modules.data_loader import CURRENT_SEASON
+def _capture(monkeypatch):
+    """Every step-1 activation and mid-week decision a plan build makes, with a
+    copy of the roster state it was made on and its answer (44c): each can be
+    re-decided on its OWN inputs at another seed, so a flip upstream cannot
+    change what a later decision is asked."""
+    import copy
+    calls, depth = [], [0]
+    o_act, o_mid = rp._activation, rp._midweek
+
+    def act(m, week, s, back, over, P, drops, managers):
+        snap = copy.deepcopy(s)
+        r = o_act(m, week, s, back, over, P, drops, managers)
+        ms = [row["margin"] for row in r[1] if row.get("margin") is not None]
+        calls.append(dict(kind="activation" + (" (mid-week probe)" if depth[0] else ""), m=m, week=week,
+                          who=list(back), answer=list(r[0]), rule=r[2], margin=min(ms) if ms else None,
+                          redo=lambda d, a=(m, week, snap, list(back), over, P, managers):
+                          list(o_act(a[0], a[1], copy.deepcopy(a[2]), a[3], a[4], a[5], d, a[6])[0])))
+        return r
+
+    def mid(m, week, s, n, P, drops, managers, day_of, rules):
+        snap = copy.deepcopy(s)
+        depth[0] += 1
+        try:
+            r = o_mid(m, week, s, n, P, drops, managers, day_of, rules)
+        finally:
+            depth[0] -= 1
+        calls.append(dict(kind="mid-week", m=m, week=week, who=[n], answer=bool(r[0]), rule=None,
+                          margin=r[4].get("margin"),
+                          redo=lambda d, a=(m, week, snap, n, P, managers, day_of, rules):
+                          bool(o_mid(a[0], a[1], copy.deepcopy(a[2]), a[3], a[4], d, a[5], a[6], a[7])[0])))
+        return r
+    monkeypatch.setattr(rp, "_activation", act)
+    monkeypatch.setattr(rp, "_midweek", mid)
+    return calls
+
+
+def test_the_seed_does_not_change_a_clear_decision_on_the_real_state(monkeypatch):
+    """Every activation and mid-week decision of the real plan that is CLEAR
+    of the tie band (above) gives the same answer at another seed of the
+    long-run measure, re-decided on its own inputs.
+
+    44c: this test used to rebuild the whole plan at two seeds and demand
+    every decision match. A deterministic rule on noisy draws always has
+    boundary cases: the 2-SE band makes them rare, it cannot remove them. On
+    11-13's state Nick's week-7 Banchero call sits 0.73 SE from the edge
+    (gain +4.3 pts, SE 3.4): kept at the production seed, activated at four
+    others -- and the rebuilt plans then differed downstream too. Production
+    prices with one fixed seed, so its decisions move only when the inputs
+    do. Near-boundary decisions are printed with their margins, not asserted."""
     data, tps, tags = _real()
+    calls = _capture(monkeypatch)
     run = rp.for_run(data, tps, tags)
-    ev = []
-    for seed in (20261105, 3):
-        lr = rp.LongRun(nba_schedule=data.nba_schedule, schedule_weeks=data.schedule["weeks"],
-                        durability_prior=data.durability_prior, season=CURRENT_SEASON,
-                        statuses=dict(run.args["statuses"]),
-                        anchor=date.fromisoformat(tag_records.latest(ROOT)["league_day"]),
-                        first_week=run.start_week + 1, last_week=23, seed=seed)
-        ev.append(_events(rp.build(**{**run.args, "drops": replace(run.args["drops"], longrun=lr.draws)})))
-    assert ev[0] == ev[1] and ev[0]
+    monkeypatch.undo()
+    lr = run.args["drops"].longrun.__self__
+    other = rp.LongRun(nba_schedule=lr.nba_schedule, schedule_weeks=lr.schedule_weeks,
+                       durability_prior=lr.durability_prior, season=lr.season,
+                       statuses=dict(lr.statuses), anchor=lr.anchor, first_week=lr.first_week,
+                       last_week=lr.last_week, sims=lr.sims, seed=3)
+    assert lr.seed != other.seed
+    real = [c for c in calls if c["rule"] is None]
+    if not real:
+        pytest.skip("today's real plan makes no activation or mid-week decision: nothing to check")
+    clear = [c for c in real if c["margin"] is None or c["margin"] > CLEAR]
+    near = [c for c in real if c not in clear]
+    print(f"\n  {len(real)} decisions, {len(clear)} clear (> {CLEAR:g} SE from the band's edge), "
+          f"{len(near)} near:")
+    for c in near:
+        print(f"    week {c['week']} {c['m']} {c['kind']} {', '.join(c['who'])} -> {c['answer']} "
+              f"(margin {c['margin']} SE)")
+    for c in clear:
+        assert c["redo"](replace(run.args["drops"], longrun=other.draws)) == c["answer"], \
+            (c["kind"], c["week"], c["m"], c["who"], c["margin"])
 
 
 # =============================================================================
@@ -260,19 +359,28 @@ def test_monday_open_on_the_real_state_activates_bentons_returners():
     """Real, unstubbed (the changed run path): today's state with the IL file
     moved to week 5 (as the 12:01 AM sync of 11-16 will write it, the same
     slots), the plan built at Monday 11-16 00:05 (open) and at the close
-    (locked). Open: Reaves and Murphy play week 5 with the one rule's drops;
-    locked: they sit week 5."""
+    (locked). Open: each of Reaves and Murphy (no injury entries) plays week 5
+    with the one rule's drop unless today's tag is O/OFS, which holds him in
+    IL at the open window (44c; on 11-13 Murphy is O, Reaves Q); locked:
+    both sit week 5. The case is picked from today's tags, not typed."""
     from modules import price_lock
     data, tps, tags = _real()
     il = json.loads((ROOT / "data" / "IL_SLOTS.json").read_text(encoding="utf-8"))
-    if sorted(il["slots"].get("Benton", [])) != ["Austin Reaves", "Trey Murphy III"]:
+    occ = ["Austin Reaves", "Trey Murphy III"]
+    if sorted(il["slots"].get("Benton", [])) != occ:
         pytest.skip("the 11-12 state (Reaves and Murphy in Benton's IL slots) has moved on")
+    entries = {e["player_name"] for e in (data.injury_overrides or {}).get("players", [])}
+    if entries & set(occ):
+        pytest.skip("Reaves or Murphy has an injury entry now: the no-entry case has moved on")
+    held = sorted(n for n in occ if str(tags.get(n) or "").upper() in ("O", "OFS"))
     data.il_slots = {**il, "fantasy_week": 5}
     data.start_adds_used = {}
     op = rp.for_run(data, tps, tags, now=datetime(2026, 11, 16, 0, 5, tzinfo=LA))
     assert op.open_day == MON5
     v = op.plan[5]["Benton"]
-    assert v["activated"] == ["Austin Reaves", "Trey Murphy III"] and len(v["activation_drops"]) == 2
+    print(f"\n  today's tags: {[(n, tags.get(n)) for n in occ]}; held in IL at the open window: {held}")
+    assert v["activated"] == [n for n in occ if n not in held]
+    assert len(v["activation_drops"]) == len(v["activated"]) and sorted(v["il"]) == held
     close = price_lock.window_close(MON5, data.nba_schedule)
     lk = rp.for_run(data, tps, tags, now=close)
     assert lk.open_day is None and set(lk.plan[5]["Benton"]["il"]) == {"Austin Reaves", "Trey Murphy III"}

@@ -424,10 +424,17 @@ def test_the_real_actuals_step_covers_every_carded_free_agent(tmp_path, monkeypa
     assert not any(set(ids) & rost_ids for _d, ids in lg.stat_calls)
     for pid in rost_ids:
         assert blob["players"][str(pid)]["days"] == blob0["players"][str(pid)]["days"]
-    # Yahoo's two requests per batch, at most 25 players each; a new name asked from the season's first day
+    # Yahoo's two requests per batch, at most 25 players each; a name NEW to the cache is asked
+    # from the season's first day. 44c: picked from the state -- before 40b's backfill every
+    # carded free agent was new; after it (Nick, 11-13) none is, and nothing is asked at all
     assert len(lg.stat_calls) == len(lg.game_calls) and all(len(i) <= 25 for _d, i in lg.stat_calls)
     first = date.fromisoformat(blob["first_day"])
-    assert min(d for d, _i in lg.stat_calls) == first
+    known = {int(v) for v in (blob0.get("extra_names") or {}).values()} | set(roster.values())
+    new = {int(v) for v in (blob.get("extra_names") or {}).values()} - known
+    for pid in new:
+        assert min(d for d, ids in lg.stat_calls if pid in {int(i) for i in ids}) == first, pid
+    if not lg.stat_calls:
+        print(f"\n  nothing to fetch on this state: every carded name is cached through {through}")
     assert run.ctx["actuals"]["calls"] == 2 * len(lg.stat_calls)
 
 

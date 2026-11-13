@@ -581,7 +581,7 @@ def test_a_move_that_changes_nothing_has_a_term_of_exactly_zero():
     inp = chat_inputs(fx)
     assert inp.kind == av.CHAT and inp.horizon == (2, 3)
     step = av.activation_step(inp, "Nick")
-    assert step == {"week": 2, "back": ["Hurt"], "drops": ["Weak"], "standins": []}
+    assert step == {"week": 2, "back": ["Hurt"], "drops": ["Weak"], "standins": [], "returns": {}}
     P0 = av._plan(inp)
     assert P0[2]["Nick"]["activation_drops"] == ["Weak"] and P0[2]["Nick"]["activated"] == ["Hurt"]
     only = av._plan(inp, {2: {"Nick": {"il_place": [], "drop": ["Weak"], "add": [], "il_activate": ["Hurt"]}}})

@@ -260,7 +260,11 @@ def context(data, base_path, keep_week: int, keep=None):
 
     def little(manager, window):
         """44b s.6: injured_drop.little_left at `window` from the stakes file's
-        team chances (rs_title, champion); None without usable stakes."""
+        team chances (rs_title, champion). None only for THE BOOTSTRAP (no
+        usable stakes file: missing, another season, schema 1 or 2), the one
+        stated exception above: a raise there would stop the run that writes
+        the file, as it would for the decisions (44c kept it; the top 4 are
+        protected, as before 44b). A file without this manager RAISES."""
         blob, n = load()
         if blob is None:
             return None

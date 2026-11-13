@@ -449,11 +449,15 @@ def test_the_real_hub_cards_carry_the_roster_rows_numbers(tmp_path, monkeypatch)
         if v["kind"] == "rostered":
             continue
         c = live[k]
-        if c["current_season"] is None:
-            assert c["season_note"].startswith("No NBA numbers")
+        lines = pa.card_lines(blob, [v["name"]], through)["lines"][v["name"]]
+        if lines is None:                                                     # not covered: the note says why
+            assert c["current_season"] is None and c["season_note"].startswith("No NBA numbers")
+        elif c["current_season"] is None:
+            # covered, no NBA game yet (44c: after 40b's backfill, 11-13, a free agent out
+            # since opening night -- before it, every one of them was uncovered)
+            assert pcb.nba_season(lines)["gp"] == 0 and c["season_note"] == pcb.SEASON_NOTE_NBA_NONE
         else:                                                                 # covered: the NBA source
-            lines = pa.card_lines(blob, [v["name"]], through)["lines"][v["name"]]
-            assert lines is not None and c["current_season"]["gp"] == pcb.nba_season(lines)["gp"]
+            assert c["current_season"]["gp"] == pcb.nba_season(lines)["gp"]
 
 
 @needs_state("output/title_odds_latest.json", "output/tag_records.jsonl", "data/transaction_log.jsonl",

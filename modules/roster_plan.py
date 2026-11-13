@@ -249,7 +249,8 @@ class DropContext:
     longrun: object = None
     longrun_last: object = None
     # little_left(manager, window) -> True/False, or None without usable stakes
-    # (44b s.6: protection widens to the keeper candidates); None: never asked
+    # (44b s.6: protection widens to the keeper candidates). Left None, the one
+    # activation rule RAISES (44c): a world states it, even as "no stakes"
     little_left: object = None
 
     @classmethod
@@ -305,13 +306,25 @@ def _candidate(name, p, stakes, day_of, level, gp, drops):
 # =============================================================================
 
 class KeeperWatchFailed(RuntimeError):
-    """The keeper watch could not give keep chances (drop_inputs). The plan's
-    activation rule then falls back to HEAD's lowest-projection rule for that
-    run, LOUDLY (44b s.3, Nick 11-12); nothing else falls back."""
+    """The keeper watch could not give keep chances (drop_inputs). The plan
+    then falls back for that run, LOUDLY: the activation rule to HEAD's
+    lowest-projection rule (44b s.3, Nick 11-12), and 18b's hold-or-drop
+    decisions to decide() without the keeper term (44c, Nick 11-13:
+    injured_drop.decide_without_keepers). Both say FALLBACK_NOTE. Advice
+    does not fall back."""
 
 
-FALLBACK_NOTE = ("KEEPER WATCH FAILED: {err} -- the plan fell back to the lowest-projection rule "
-                 "for its activation drops this run (no keeper protection)")
+FALLBACK_NOTE = ("KEEPER WATCH FAILED: {err} -- the plan fell back this run, with no keeper "
+                 "protection: the lowest-projection rule for its activation drops, and 18b's "
+                 "hold-or-drop decisions without the keeper term (K = 0)")
+
+
+def _fallback_note(err) -> str:
+    note = FALLBACK_NOTE.format(err=err)
+    if note not in _NOTES:
+        print(f"  roster plan: {note}")
+    _NOTES.append(note)
+    return note
 
 
 class ActivationError(RuntimeError):
@@ -373,6 +386,26 @@ def within_band(diff, band: float) -> bool:
     return float(np.mean(d)) <= float(band) * paired_se(d) + 1e-12
 
 
+def band_margin(diff, band: float):
+    """How far a paired difference sits from the tie band's edge, in its own
+    standard errors: |mean / SE - band| (44c). The band decides "tied" at
+    mean <= band x SE, so this is how many SEs the mean would have to move
+    (another seed, more sims) to change that answer. None when there is no
+    spread (one draw, or every draw equal): nothing can move it."""
+    import numpy as np
+    d = _draws(diff)
+    se = paired_se(d)
+    if se <= 0:
+        return None
+    return abs(float(np.mean(d)) / se - float(band))
+
+
+def _closest(margins):
+    """The smallest margin of a decision's comparisons; None if none can move."""
+    vals = [m for m in margins if m is not None]
+    return min(vals) if vals else None
+
+
 def out_all_week(p, week) -> bool:
     """THE ENTRY RULE (44b s.5): his injury entry has him out for the whole of
     `week`. The plan places such a player on IL (entry-as-O, checked 11/11 in
@@ -417,7 +450,12 @@ def activation_drops(*, manager: str, week: int, active, il, back, n: int, chanc
     who never start, overflow on crowded days) is the band's zero case.
     value(roster): the long-run value, per-simulation draws (LongRun.draws
     over longrun_weeks); a float is one draw (no spread: only exact ties).
-    Fewer candidates than n RAISES ActivationError."""
+    Fewer candidates than n RAISES ActivationError. Each detail row's margin
+    (44c): the closest to the band's edge, in SEs (band_margin), of the
+    comparisons that decide the pick -- the pick's own (unless he is the
+    cheapest) and each lower-projection candidate's; None when none can
+    move. A deterministic rule on noisy draws always has boundary cases: the
+    margin says which picks another seed could change."""
     if n <= 0:
         return [], []
     roster = list(dict.fromkeys(list(active) + list(il)))
@@ -437,10 +475,19 @@ def activation_drops(*, manager: str, week: int, active, il, back, n: int, chanc
         best = min(loss, key=lambda x: (mean[x], x))
         tied = sorted(x for x in loss if within_band(loss[x] - loss[best], band))
         pick = min(tied, key=lambda x: (float(proj(x)), x))
+        # 44c: the comparisons that decide the pick -- the pick's own place in
+        # the band (unless he is the cheapest, always in it), and every
+        # lower-projection candidate's place outside it (he would be the pick
+        # if he were tied) -- and the closest of them to the band's edge
+        rank = (float(proj(pick)), pick)
+        deciding = ([pick] if pick != best else []) + \
+            [x for x in loss if x not in (pick, best) and (float(proj(x)), x) < rank]
+        margin = _closest(band_margin(loss[x] - loss[best], band) for x in deciding)
         drops.append(pick)
         cur.remove(pick)
         detail.append({"player": pick, "loss": round(mean[pick], 3), "cheapest": best,
                        "tied": tied, "band": band,
+                       "margin": None if margin is None else round(margin, 2),
                        "next": sorted(((round(v, 3), k) for k, v in mean.items() if k != pick))[:2]})
     return drops, detail
 
@@ -669,9 +716,16 @@ def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rul
     cfg = drops.config
     level, _rank_name = level_now()
     stakes = drops.stakes(m, week)
-    known = PlayerIndex(dict(drops.keep(m)))
+    try:
+        known = PlayerIndex(dict(drops.keep(m)))
+    except KeeperWatchFailed as e:
+        # 44c: decide without the keeper term (K = 0, no keeper protection), loudly; the run goes on
+        _fallback_note(e)
+        known, failed = None, f"fallback: {e}"
+    else:
+        failed = None
     keep = {}
-    for n in s["active"] + s["il"]:
+    for n in (s["active"] + s["il"]) if known is not None else ():
         if n in s["standins"] or (n in s.get("joined", ()) and known.get(n) is None):
             continue                     # a stand-in, or a known pickup joining: no keep chance yet
         c = known.get(n)
@@ -681,7 +735,10 @@ def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rul
         keep[n] = float(c)
     contested = list(s["il"]) + list(out)
     cand = {n: _candidate(n, P(n), stakes, day_of, level, standin_gp, drops) for n in contested}
-    value = {n: idr.value_after_return(cand[n], stakes, keep, cfg) for n in contested}
+    if failed is None:
+        value = {n: idr.value_after_return(cand[n], stakes, keep, cfg) for n in contested}
+    else:
+        value = {n: idr.value_after_return_without_keepers(cand[n], stakes, cfg) for n in contested}
     order = sorted(sorted(contested), key=lambda n: _return_order(P(n)), reverse=True)
     order = sorted(order, key=lambda n: -value[n])          # stable: ties by the longer absence
     slots = order[:rules["il_slots"]]
@@ -690,12 +747,14 @@ def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rul
     displaced = [n for n in s["il"] if n not in slots]
     decisions, wants = [], []
     for n in excess:
-        d = idr.decide(m, cand[n], stakes, keep, cfg)
+        d = (idr.decide(m, cand[n], stakes, keep, cfg) if failed is None
+             else idr.decide_without_keepers(m, cand[n], stakes, cfg))
         decisions.append({"player": n, "action": d.action, "reason": d.reason,
                           "cost_hold": round(d.cost_hold, 6), "cost_drop": round(d.cost_drop, 6),
                           "keeper_term": round(d.keeper_term, 6), "keep_rank": d.keep_rank,
                           "keep_chance": d.keep_chance, "little_left": d.little_left,
-                          "carried_out": d.action == idr.HOLD})
+                          "carried_out": d.action == idr.HOLD,
+                          **({"rule": failed} if failed is not None else {})})
         if d.action == idr.DROP:
             wants.append((-(d.cost_hold - d.cost_drop), n))
     # a drop needs an add for his stand-in, after the placements and open spots
@@ -760,7 +819,9 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                 stand-ins within the week's remaining adds (budget minus
                 start_adds_used[manager]: the adds already counted in the start week).
                 IL placement there needs the tag now (rule 2: Yahoo enforces
-                today's tag, which is known), not entry-as-O. None: the start
+                today's tag, which is known), not entry-as-O; and an IL
+                occupant with no injury entry tagged O/OFS today stays in IL
+                there (44c), where a later window would bring him back. None: the start
                 week is locked as the IL file says (every run after the close).
     "added" is the stand-ins added that week, "standins" their projections,
     "waiting" the open spots the add budget left for the next window,
@@ -851,7 +912,12 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
             # never undo a known move: a player the ledger (or advice's move) puts in IL at
             # this window stays there this week (rule 5), whatever the plan's availability says
             just_placed = {d[3:] for d in (known_here or []) if d.startswith("IL+")}
-            back = [n for n in s["il"] if n not in just_placed and _available_from(P(n), week, day)]
+            # 44c: at the OPEN window today's tag is known, so an occupant tagged O/OFS today
+            # with no injury entry stays in IL (Yahoo allows it); the no-entry rule ("back at
+            # the next window") is for later windows, whose tags are not known yet
+            held = {n for n in s["il"] if tag_now and _held_by_tag(P(n), tag_idx.get(n), rules)}
+            back = [n for n in s["il"] if n not in just_placed and n not in held
+                    and _available_from(P(n), week, day)]
             for n in back:
                 s["il"].remove(n)
                 s["active"].append(n)
@@ -866,8 +932,9 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
             for n in sorted((x for x in s["il"] if x not in just_placed
                              and _back_midweek(P(x), week, day, week_end(week))),
                             key=lambda x: (_return_date(P(x)), x)):
-                go, why, d_drops, d_detail = _midweek(m, week, s, n, P, drops, managers, day_of, rules)
-                early.append({"player": n, "activate": go, "why": why})
+                go, why, d_drops, d_detail, stats = _midweek(m, week, s, n, P, drops, managers, day_of,
+                                                             rules)
+                early.append({"player": n, "activate": go, "why": why, **stats})
                 if go:
                     s["il"].remove(n)
                     s["active"].append(n)
@@ -986,10 +1053,7 @@ def _activation(m, week, s, back, over, P, drops, managers) -> tuple:
     try:
         mine = PlayerIndex(dict(drops.keep(m)))
     except KeeperWatchFailed as e:
-        note = FALLBACK_NOTE.format(err=e)
-        if note not in _NOTES:
-            print(f"  roster plan: {note}")
-        _NOTES.append(note)
+        _fallback_note(e)
         return _lowest_projected(s["active"], over, P), [], f"fallback: {e}"
     weeks = _longrun_weeks_for(m, week, drops)
     cache = {}
@@ -1016,7 +1080,15 @@ def _activation(m, week, s, back, over, P, drops, managers) -> tuple:
                            "protects by keep chance and needs every real player's")
         return float(c)
 
-    little = drops.little_left(m, week) if drops.little_left is not None else None
+    if drops.little_left is None:
+        # 44c (Nick, 11-13, 44b Q8): raise, don't default to the top 4. Production's
+        # DropContext (drop_inputs.context) always has the check; a world built by hand
+        # states it (its stakes, or lambda m, w: None for a world that has none)
+        raise ActivationError(
+            f"week {week}: {m} activates {', '.join(back) or 'nobody'} and the one activation rule "
+            "needs the little-left check (DropContext.little_left, 44b s.6: how many keepers are "
+            "protected), and the plan was given none")
+    little = drops.little_left(m, week)
     n_prot = protected_count(little, drops.config)
     d, det = activation_drops(manager=m, week=week, active=list(s["active"]), il=list(s["il"]),
                               back=list(back), n=over, chance=chance, protected_n=n_prot,
@@ -1050,6 +1122,22 @@ def _tag_ok(tag, rules) -> bool:
     return tag is not None and tag_il_eligible(tag, rules["il_eligible_tags"])
 
 
+def _has_entry(p) -> bool:
+    """He has an injury entry (INJURY_OVERRIDES) the plan reads: out weeks, a
+    return date or week, or an out-from day on his projection."""
+    return bool(getattr(p, "out_weeks", None)) or any(
+        getattr(p, k, None) is not None for k in ("return_date", "return_week", "out_from"))
+
+
+def _held_by_tag(p, tag, rules) -> bool:
+    """44c (Nick, 11-13, 44b Q3): at the OPEN start window an IL occupant with
+    no injury entry, tagged IL-eligible (O/OFS) today, stays in IL there:
+    today's tag is known and Yahoo keeps him. With an entry, the entry
+    decides, as at every window; Q/D/healthy (or untagged) is activated as
+    before."""
+    return p is not None and not _has_entry(p) and _tag_ok(tag, rules)
+
+
 def _back_midweek(p, week, day, end) -> bool:
     """An IL occupant whose return date falls inside this week, after its
     window day (44b s.4): out at the window, back before the next one."""
@@ -1071,7 +1159,9 @@ def _midweek(m, week, s, n, P, drops, managers, day_of, rules) -> tuple:
     the tie band (paired draws); a tie keeps him in IL. A is chosen on the
     active roster's value: what his freed slot is worth to step 2 is not in
     it (step 2 then uses whatever slots are free). With no next window, A is
-    valued against B's this week alone."""
+    valued against B's this week alone. stats (44c): the paired difference's
+    gain and SE and its band_margin (how many SEs from the band's edge), for
+    the plan's midweek record."""
     import numpy as np
     if drops is None or drops.longrun is None or drops.config is None:
         raise ActivationError(f"week {week}: {m}'s {n} is back mid-week and the plan has no "
@@ -1083,7 +1173,7 @@ def _midweek(m, week, s, n, P, drops, managers, day_of, rules) -> tuple:
              "joined": s["joined"]}
     d_a, det_a, rule = _activation(m, week, probe, [n], over, P, drops, managers) if over else ([], [], None)
     if rule is not None:                                  # the keeper watch failed: HEAD kept him in IL
-        return False, "kept in IL (keeper watch failed: no valuation)", [], []
+        return False, "kept in IL (keeper watch failed: no valuation)", [], [], {}
     roster_a = [x for x in act_a if x not in d_a]
     va = _draws(drops.longrun(roster_a, weeks, P))
     vb = _draws(drops.longrun(list(s["active"]), [week], P))
@@ -1098,7 +1188,10 @@ def _midweek(m, week, s, n, P, drops, managers, day_of, rules) -> tuple:
     go = gain > 0 and not within_band(diff, band)
     why = (f"{'activated now' if go else 'kept in IL'}: now minus wait {gain:+.1f} pts "
            f"(SE {paired_se(diff):.1f}, band {band:g})")
-    return go, why, (d_a if go else []), (det_a if go else [])
+    margin = band_margin(diff, band)
+    stats = {"gain": round(gain, 3), "se": round(paired_se(diff), 3),
+             "margin": None if margin is None else round(margin, 2)}
+    return go, why, (d_a if go else []), (det_a if go else []), stats
 
 
 def _apply_known(state: dict, m: str, mv: dict, week: int, players, rules: dict) -> list:

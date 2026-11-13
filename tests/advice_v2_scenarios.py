@@ -141,7 +141,7 @@ class Fixture:
             stakes=stakes_for, keep=lambda m: dict(self.keep[m]), games=games, availability=share,
             longrun=lr.draws,
             little_left=(lambda m, w: injured_drop.little_left(stakes_for(m, w), injured_drop.from_rules()))
-            if stakes else None)
+            if stakes else (lambda m, w: None))                 # 44c: stated, no stakes -> the top 4
         return av.PlanSpec(dict(
             start_week=start, il_slots={m: list(self.rosters[m]["il"]) for m in MANAGERS},
             rosters={m: list(self.rosters[m]["active"]) + list(self.rosters[m]["il"]) for m in MANAGERS},
@@ -208,7 +208,7 @@ class Fixture:
                           adds_left={m: (adds or {}).get(m, adds_left) for m in MANAGERS},
                           keep=self.keep, opponents={m: {w: opponents[m][w] for w in weeks} for m in MANAGERS},
                           pool=[n for n in self.pool if n not in set(reserved)], il_eligible=il_eligible,
-                          reserved=frozenset(reserved), stakes=st,
+                          reserved=frozenset(reserved), stakes=st or {m: None for m in MANAGERS},
                           drop_config=injured_drop.Config(2.0, 1.0, 0.05, 0.05, 4, 6, 0.25, 0.04, 0.075),
                           plan=self.plan_spec(sw, anchor, active_capacity, il_capacity, st,
                                               open_window=hz.kind == av.MONDAY))

@@ -700,11 +700,19 @@ def protected_for(inputs: "MondayInputs", manager: str, settings: "Settings") ->
     """The manager's protected players (44b s.6): the top settings.protected;
     his keeper candidates (injured_drop keeper_candidates) when his team has
     little left to play for (injured_drop.little_left on his stakes at the
-    horizon). The count is injured_drop.protected_count, the plan's own."""
+    horizon). The count is injured_drop.protected_count, the plan's own. A
+    manager missing from inputs.stakes RAISES (44c); a world with no stakes
+    states him as None (the top settings.protected)."""
     st = inputs.managers[manager]
-    cfg, ts = inputs.drop_config, inputs.stakes.get(manager)
+    cfg = inputs.drop_config
     if cfg is None:
         return protected(st, settings.protected)
+    if manager not in inputs.stakes:
+        # 44c: raise, don't default to the top 4 (the live path always has every manager's
+        # stakes; a world without them states {manager: None})
+        raise KeyError(f"no stakes for {manager}: the little-left check (44b s.6) needs his "
+                       "team's TeamStakes to know how many keepers are protected")
+    ts = inputs.stakes[manager]
     little = injured_drop.little_left(ts, cfg) if ts is not None else None
     return protected(st, injured_drop.protected_count(little, replace(cfg, protected_keepers=settings.protected)))
 
@@ -726,7 +734,9 @@ def back_next_week(inputs: MondayInputs, name: str, week: Optional[int]) -> bool
 def activation_step(inputs: MondayInputs, manager: str) -> Optional[dict]:
     """The plan's activation at the window advice is advising on (44a s.3):
     {"week", "back": [returners], "drops": [who the one rule drops],
-    "standins": [drops that are plan stand-ins]} -- or None when the plan
+    "standins": [drops that are plan stand-ins], "returns": {returner: his
+    return date (ISO), for each activated before it, i.e. a mid-week returner
+    the plan activates early (44c: the step text names the day)}} -- or None when the plan
     activates nobody of his there. The window is the horizon's first week:
     a chat move's next Monday, or a Monday move's own window, open until its
     close (44b s.2). A return needs no injury entry: the plan's own
@@ -744,7 +754,27 @@ def activation_step(inputs: MondayInputs, manager: str) -> Optional[dict]:
         raise ValueError(f"{manager}: the plan's week-{w1} activation ({back}, dropping {drops}) is not on "
                          f"the roster advice reads (active {sorted(st.active)}, IL {sorted(st.il)}): the "
                          "plan and the ledger's view disagree")
-    return {"week": w1, "back": back, "drops": drops, "standins": [n for n in drops if n in stand]}
+    day = window_day(inputs.plan, w1)
+    returns = {}
+    for n in back:
+        rd = roster_plan._return_date(inputs.plan.args["players"].get(n))
+        if rd is not None and rd > day:
+            returns[n] = rd.isoformat()                  # 44c: activated before his return
+    return {"week": w1, "back": back, "drops": drops, "standins": [n for n in drops if n in stand],
+            "returns": returns}
+
+
+def window_day(plan: "PlanSpec", week: int) -> date:
+    """The plan's window day for `week`: the open start window's day (44b
+    s.2, build's open_day), else that week's in its windows. Raises if the
+    plan has no window for it."""
+    a = plan.args
+    if a.get("open_day") is not None and int(week) == int(a["start_week"]):
+        return a["open_day"]
+    for w, d in a.get("windows") or []:
+        if int(w) == int(week):
+            return d
+    raise KeyError(f"the roster plan has no window for week {week}")
 
 
 def after_step(st: ManagerState, step: Optional[dict]) -> tuple:

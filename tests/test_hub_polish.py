@@ -305,11 +305,16 @@ def _kawhi_entry(data):
 
 def test_kawhis_real_entry_plays_nothing_in_weeks_3_and_4():
     """On 11-04 (week 3): GL 0 and Next 0, whatever his tag, from his real
-    entry (out weeks 2-5, back 11-23) on the real schedule."""
+    entry on the real schedule, and the chip shows the entry's own return
+    date (44c: the date is Nick's to move -- 11-23 when written, 11-30 on
+    11-13 -- so it is read from the entry, not typed here)."""
     from modules.schedule_strength import build_player_info_map
     from modules.simulator_betting import schedule_week_dates
     data = _real_data()
-    _kawhi_entry(data)
+    entry = _kawhi_entry(data)
+    rd = entry.get("return_date")
+    chip = (f"O \u00b7 back {date.fromisoformat(str(rd)[:10]).strftime('%m-%d')}" if rd
+            else "O \u00b7 no return date")
     info = build_player_info_map(data.playerlist)
     if "Kawhi Leonard" not in info:
         pytest.skip("Kawhi Leonard is not in PLAYERLIST")
@@ -322,7 +327,7 @@ def test_kawhis_real_entry_plays_nothing_in_weeks_3_and_4():
         assert sum(1 for d in this + nxt if av.has_game("Kawhi Leonard", d)) > 0     # his team plays
         assert (len(av.playable("Kawhi Leonard", this)), len(av.playable("Kawhi Leonard", nxt))) == (0, 0)
         st = hs.free_agent_status(av, "Kawhi Leonard", tag, this + nxt)
-        assert [c["text"] for c in st["chips"]] == ["O \u00b7 back 11-23"]
+        assert [c["text"] for c in st["chips"]] == [chip]
 
 
 @pytest.fixture(scope="module")
@@ -360,11 +365,15 @@ def test_real_kawhi_scores_nothing_and_ranks_below_every_healthy_free_agent_with
     names = [r["name"] for r in rows]
     if "Kawhi Leonard" not in names:
         pytest.skip("Kawhi Leonard is not a free agent today")
-    if max(w for w in p["free_agents"]["weeks"] if w is not None) > 5:
-        pytest.skip("the columns reach past week 5: no longer inside Kawhi's out weeks (back 11-23)")
+    # 44c: his entry is read, not typed (11-23 when written, 11-30 on 11-13)
+    entry = _kawhi_entry(_real_data())
+    weeks = [w for w in p["free_agents"]["weeks"] if w is not None]
+    if not set(weeks) <= {int(w) for w in entry.get("out_weeks", [])}:
+        pytest.skip(f"the columns (weeks {weeks}) reach past Kawhi's out weeks {entry.get('out_weeks')}")
+    rd = date.fromisoformat(str(entry["return_date"])[:10])
     k = rows[names.index("Kawhi Leonard")]
     assert (k["g1"], k["g2"], k["pts"]) == ("0", "0", "0.0")
-    assert [c["text"] for c in k["tags"]] == ["O \u00b7 back 11-23"]
+    assert [c["text"] for c in k["tags"]] == [f"O \u00b7 back {rd.strftime('%m-%d')}"]
     healthy_with_games = [i for i, r in enumerate(rows)
                           if r["status"] == "healthy" and _games(r) > 0]
     assert healthy_with_games and max(healthy_with_games) < names.index("Kawhi Leonard")

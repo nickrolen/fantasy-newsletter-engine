@@ -509,28 +509,57 @@ def test_a_third_long_injury_dropped_moves_that_teams_title_odds_up(monkeypatch,
     rp.take_notes()
 
 
-def test_todays_real_plan_needs_no_decision_and_reads_no_input():
-    """No team has an injured player beyond its IL slots at any window on
-    today's inputs (11-04), so the plan never touches the stakes or the keep
-    chances -- and today's odds and lines are unchanged (by hash, in
-    INJURED_DROP_RESULT_2). Disk-state dependent: skips when the IL file is
-    not this week's."""
+def test_todays_real_plan_reads_decision_inputs_only_where_it_decides():
+    """The real plan reads an 18b decision's own inputs -- the stakes, the
+    games, the availability -- only at a window where a team has more injured
+    than IL slots, and only for that team: no decision anywhere, nothing
+    read (INJURED_DROP_RESULT_2: then today's odds and lines are 18b-free).
+
+    44c: this test used to assert that today's plan needs NO decision. That
+    was a fact about 11-04's state, not the engine: on 11-13's entries Hayden
+    has more injured than IL slots, so the plan decides. It now picks its
+    case from the state: every stakes read must be a window the plan records
+    a decision for, every games/availability read must follow that window's
+    stakes read, and every decision must have read them. It prints which case
+    the day had. Disk-state dependent: skips when the IL file is not this
+    week's."""
+    from modules import tag_records
     from modules.projections import load_all_team_projections
-    fis = importlib.import_module("modules.fetch_injury_statuses")
     data = dl.load_all_data(ROOT)
     try:
-        rp.load_il_slots(ROOT, data)
+        il = rp.load_il_slots(ROOT, data)
     except rp.ILSlotsError as e:
         pytest.skip(f"needs this week's IL file: {e}")
+    try:
+        tags = tag_records.as_tags(tag_records.latest(ROOT))
+    except tag_records.TagRecordError as e:
+        pytest.skip(f"no tag record in this checkout: {e}")
     teams = load_all_team_projections(data)
-    # 44a: an IL return over 15 reads the activation rule's inputs (keep chances, the stakes'
-    # last week, the long-run value); the decision's own inputs are never asked for
     from dataclasses import replace
-    il = rp.load_il_slots(ROOT, data)
-    data.drop_context = replace(di.context(data, ROOT, keep_week=int(il["fantasy_week"]) - 1),
-                                games=_raising().games, availability=_raising().availability)
-    run = rp.for_run(data, teams, fis.Tags.none())
-    assert all(not v["decisions"] for w in run.plan.values() for v in w.values())
+    real = di.context(data, ROOT, keep_week=int(il["fantasy_week"]) - 1)
+    seen = {"at": None, "stakes": [], "reads": []}
+
+    def stakes(m, w):
+        seen["at"] = (int(w), m)
+        seen["stakes"].append((int(w), m))
+        return real.stakes(m, w)
+
+    def games(*a, **k):
+        seen["reads"].append(("games", seen["at"]))
+        return real.games(*a, **k)
+
+    def share(p):
+        seen["reads"].append(("availability", seen["at"]))
+        return real.availability(p)
+    data.drop_context = replace(real, stakes=stakes, games=games, availability=share)
+    run = rp.for_run(data, teams, tags)
+    decided = {(int(w), m) for w, wk in run.plan.items() for m, v in wk.items()
+               if any("bootstrap" not in d for d in v["decisions"])}
+    print(f"\n  today's plan decides at: {sorted(decided) or 'nowhere'}"
+          + (f" (stakes unusable: {real.note()})" if real.note() is not None else ""))
+    assert set(seen["stakes"]) == decided
+    assert all(at in decided for _kind, at in seen["reads"]), seen["reads"][:5]
+    assert bool(seen["reads"]) == bool(decided)
 
 
 # =============================================================================

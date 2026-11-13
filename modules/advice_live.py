@@ -591,12 +591,28 @@ def _and(names) -> str:
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
+def _day(iso: str) -> str:
+    d = date.fromisoformat(str(iso))
+    return f"{d.strftime('%A')} {d.strftime('%m-%d')}"
+
+
 def step_text(step: dict) -> str:
     """The activation step in words (44a): "Haliburton is back for week 6:
-    activate him and drop X. It costs no add." """
+    activate him and drop X. It costs no add." A returner activated before
+    his return date (a mid-week returner the plan activates early, 44b s.4)
+    is named with the day (44c): "Haliburton is back Saturday 11-21, for
+    week 5: activate him and drop X." """
     back, drops = list(step["back"]), list(step["drops"])
+    early = {n: step["returns"][n] for n in back if n in step["returns"]}
     one = len(back) == 1
-    s = f"{_and(back)} {'is' if one else 'are'} back for week {step['week']}: activate {'him' if one else 'them'}"
+    s = f"{_and(back)} {'is' if one else 'are'} back"
+    if early and len(set(early.values())) == 1 and len(early) == len(back):
+        s += f" {_day(next(iter(early.values())))}, for week {step['week']}"
+    else:
+        s += f" for week {step['week']}"
+        if early:
+            s += " (" + ", ".join(f"{n} from {_day(d)}" for n, d in early.items()) + ")"
+    s += f": activate {'him' if one else 'them'}"
     s += f" and drop {_and(drops)}" if drops else " (there is room: nobody goes)"
     return s + ("" if s.endswith(".") else ".") + " It costs no add."
 
@@ -610,7 +626,7 @@ def step_dict(step) -> Optional[dict]:
         raise AdviceInputError(f"the activation step drops a plan stand-in {step['standins']}: the advised "
                                "window must be the plan's first")
     return {"week": int(step["week"]), "back": list(step["back"]), "drops": list(step["drops"]),
-            "text": step_text(step)}
+            "returns": dict(step["returns"]), "text": step_text(step)}
 
 
 def cause_text(mode: str, cause: Optional[str]) -> str:

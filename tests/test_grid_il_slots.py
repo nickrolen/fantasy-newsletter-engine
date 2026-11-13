@@ -54,15 +54,30 @@ def test_the_mask_holds_even_with_an_override_saying_he_returns():
 
 @pytest.fixture(scope="module")
 def real():
-    """The project's own inputs, report week 1, the IL slots the last sync wrote."""
+    """The project's own inputs, report week 1, the IL slots the last sync
+    wrote, and the last run's tags (rostered and free agents), as a run
+    prices with them: both sides get the same Tags.
+
+    44c: with no tags (a plain {}), the plan raises UntaggedPoolPlayer as
+    soon as any window reads the free-agent pool (a stand-in, or an 18b
+    decision's stand-in level). 11-13's entries give Hayden an 18b decision
+    at week 4's window of this week-2 plan, so the fixture errored. A real
+    run never passes a plain dict: the line, the season pass and the weekly
+    build all price with fetch_injury_statuses' Tags (free agents
+    included), or Tags.none() when priced without tags."""
+    from modules import tag_records
     from modules.data_loader import load_all_data
     from modules.projections import load_all_team_projections
     from modules.roster_plan import for_run, week_rosters
+    try:
+        tags = tag_records.as_tags(tag_records.latest(ROOT))
+    except tag_records.TagRecordError as e:
+        pytest.skip(f"no tag record in this checkout: {e}")
     data = load_all_data(ROOT, current_week=1)
     data.il_slots = il_state.as_last_synced(2)
-    up = ss.build_schedule_strength(data, 1)["upcoming_week"]
+    up = ss.build_schedule_strength(data, 1, injury_statuses=tags)["upcoming_week"]
     teams = load_all_team_projections(data)
-    week_teams, mask = week_rosters(for_run(data, teams, {}), teams, 2)
+    week_teams, mask = week_rosters(for_run(data, teams, tags), teams, 2)
     return data, up, week_teams, mask or {}
 
 
