@@ -632,6 +632,8 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                      f'<span class="tb-t"><span class="n">{clean(c["team"])}</span>'
                      f'<span class="s">{clean(c["manager"])}</span></span></div><div class="ad-b">'
                      + (f'<div class="ad-k">{clean(c["heading"])}</div>' if c["heading"] else ""))
+            if c.get("step"):             # 44a: the plan's activation, before the pick
+                o.append(f'<div class="ad-s">{_text(c, "step")}</div>')
             if c["move"]:
                 o.append(f'<div class="ad-m">{_text(c, "move")}</div>'
                          + (f'<div class="ad-s">{_text(c, "followup")}</div>' if c["followup"] else "")

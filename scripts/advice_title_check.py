@@ -162,7 +162,8 @@ def cmd_pass(a) -> int:
     if key != "base":
         x = lst["moves"][int(key)]
         hz = lst["horizon"]
-        known = av.merge_known(known, av.known_for(_move(x), hz[0], x.get("followup"), hz[1]))
+        known = av.merge_known(known, av.known_for(_move(x), hz[0], x.get("followup"), hz[1],
+                                                        step=x.get("step")))
     data.known_moves = {int(w): v for w, v in known.items()}
     through = "playoffs" if stakes["through"] == "cup" else stakes["through"]
     n, seed = int(stakes["num_simulations"]), int(stakes["seed"])

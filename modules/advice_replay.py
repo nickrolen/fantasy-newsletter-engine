@@ -446,6 +446,9 @@ def replay_plan(season: "Season", week: int, inp: av.MondayInputs, ro: Mapping, 
       - tags: the replay's O stand-ins; nobody else is tagged, so the pool is
         priced healthy (assume_healthy: the replay has no Yahoo tags);
       - injuries: the override-like outs (out_weeks over the horizon);
+      - an IL return over its active spots takes the one activation rule
+        (roster_plan.activation_drops, 44a) with the keep stand-ins and the
+        long-run value (roster_plan.LongRun) on the Monday's own world;
       - an injured-drop decision reads the replay's own stakes once
         run_week has priced them (inp.stakes), the keep stand-ins, the
         schedule's games and the durability miss rate; before then the plan
@@ -472,8 +475,14 @@ def replay_plan(season: "Season", week: int, inp: av.MondayInputs, ro: Mapping, 
     def share(p):
         return 1.0 - absence.durability_miss_rate(float(p.projected_gp), params)
 
+    # the one activation rule (44a): the long-run value on the Monday's own world, its tags
+    # anchored at the Monday -- the measure advice's IL follow-up always used
+    lr = roster_plan.LongRun(nba_schedule=inp.world.nba_schedule, schedule_weeks=inp.world.schedule["weeks"],
+                             durability_prior=inp.world.durability_prior, season=inp.season,
+                             statuses=dict(inp.statuses), anchor=inp.anchor, first_week=int(week) + 1,
+                             last_week=BRACKET[1])
     drops = roster_plan.DropContext(config=cfg, note=note, stakes=stakes, keep=keep, games=games,
-                                    availability=share)
+                                    availability=share, longrun=lr.points)
     active = max([shape[0]] + [len(a) for a, _i in ro.values()])
     il = max([shape[1]] + [len(i) for _a, i in ro.values()])
     return av.PlanSpec(dict(

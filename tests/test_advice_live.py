@@ -301,6 +301,10 @@ def test_a_nightly_runs_advice_step_on_the_real_state_writes_both_outputs(tmp_pa
     monkeypatch.setattr(al, "HISTORY_FILE", tmp_path / "advice_history.jsonl")
     monkeypatch.setattr(nightly, "RUNS_FILE", tmp_path / "runs.jsonl")
     now = datetime.fromisoformat(tag_records.latest(ROOT)["taken_at"]) + timedelta(minutes=1)
+    real_latest = ROOT / "output" / "advice_latest.json"
+    # the real file as it stood before the run (it may have been pulled after the tag fetch,
+    # so its mtime says nothing about this test: compare it with itself, 44a)
+    before = (real_latest.stat().st_mtime_ns, real_latest.stat().st_size) if real_latest.exists() else None
     run = nightly.Run(ROOT, "nightly", now=now, echo=lambda *a: None)
     stubs = {s: (lambda: "stub") for s in nightly.STEPS["nightly"] if s != "advice"}
     row = run.execute(stubs)
@@ -325,8 +329,8 @@ def test_a_nightly_runs_advice_step_on_the_real_state_writes_both_outputs(tmp_pa
         if e["move"] is None:
             assert e["empty"]
     assert run.ctx["advice_lines"] and all(l.startswith("ADVICE ") for l in run.ctx["advice_lines"])
-    assert not (ROOT / "output" / "advice_latest.json").exists() or \
-        (ROOT / "output" / "advice_latest.json").stat().st_mtime < now.timestamp()
+    after = (real_latest.stat().st_mtime_ns, real_latest.stat().st_size) if real_latest.exists() else None
+    assert after == before, "the real step wrote the real advice_latest.json"
 
 
 # =============================================================================

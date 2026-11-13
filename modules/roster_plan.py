@@ -21,16 +21,38 @@ The rules are LEAGUE_RULES.md "The 2026-27 IL and transaction rules" (Nick,
     next window.
   - IL-eligible: roster_moves.il_eligible_tags (O and OFS; rule 2). A player
     with a live INJURY_OVERRIDES entry is treated as O -- any future tag is
-    unknowable.
+    unknowable. CHECKED against the season's record (44a s.4.1, 11-12): every
+    player whose entry, at any time in the week before a window, had him out
+    for that whole week, against his tag at the window -- the week's line tag
+    log (its opening tags, rostered players) for Mon 11-02 and Mon 11-09, and
+    the 11-09 tag record (free agents too). 27 player-windows: 11 had a tag at
+    the window and all 11 were O (Edwards, Banchero, Haliburton both windows;
+    Holmgren; and free agents Ingram, Duren, Jackson Jr., Leonard on 11-09);
+    none was tagged anything else; the other 16 had no tag to check (free
+    agents before the 11-03 tag records, and entries for players in no
+    PLAYERLIST). It held every time, so it stands. Two windows is a small
+    record: re-check when more exist (_to_delete/44a/bin/entry_as_o.py).
   - Every pickup costs one of weekly_add_budget adds (rule 6); no waivers
     (rule 8).
 
 THE PLAN, at each window after the current week, for every manager alike
 (the order they are taken in cannot matter):
   1. ACTIVATE every IL occupant available from the window day (no override,
-     or its return_date on or before the day). Over 15 active: drop the
-     lowest-projected active players (effective_fppg, stand-ins included)
-     until 15.
+     or its return_date on or before the day). Over 15 active, THE ONE
+     ACTIVATION RULE (44a, activation_drops -- advice's step and its IL
+     follow-up drop are read off it, so the plan and the advice answer "who
+     goes" one way): drop the player whose loss costs the least LONG-RUN
+     VALUE (LongRun: his team's expected startable points, marginal_value,
+     from this window through the last week the stakes cover -- the window
+     alone without usable stakes; advice's IL follow-up measure since V2),
+     never a protected player (the top injured_drop protected_keepers by keep
+     chance, injured_drop.keep_rank, as advice protects) and never a returner
+     himself; an exact tie (players who never start cost nothing) goes to the
+     lower projection, then the name. A stand-in is valued at his replacement level like anyone else
+     and has no keep chance, so he is never protected: he is usually the
+     cheapest loss, which is why the old rule ("the lowest-projected, usually
+     the replacement who covered him") mostly agreed. Every candidate
+     protected RAISES (ActivationError; 15 active and 4 protected cannot).
   2. PLACE ON IL every active player whose override has him out for the whole
      week, into the open slots. When the injured outnumber the IL slots --
      the IL occupants still out plus the active players out all week -- the
@@ -208,6 +230,15 @@ class DropContext:
         keep(manager)           {name: keep chance} for his real players
         games(team, week, from_day=None)  his NBA team's games that week
         availability(projection)          the share of games he plays
+        longrun(roster, weeks, resolve)   the roster's LONG-RUN VALUE over
+                                          `weeks` (LongRun.points): the one
+                                          activation rule's measure (44a)
+        longrun_last                      the last week it sums (an int: the
+                                          season's last bracket week), or None:
+                                          the stakes' last week when usable,
+                                          else the window alone
+    keep and longrun are also what an IL return over 15 active needs
+    (activation_drops), with or without usable stakes.
     modules/drop_inputs.context builds the real one; a test builds its own."""
     config: object
     note: object
@@ -215,6 +246,8 @@ class DropContext:
     keep: object
     games: object
     availability: object
+    longrun: object = None
+    longrun_last: object = None
 
     @classmethod
     def unavailable(cls, note: str):
@@ -262,6 +295,179 @@ def _candidate(name, p, stakes, day_of, level, gp, drops):
         if back is None and _available_from(p, w, day):
             back = w
     return Candidate(name, back, pts, spts)
+
+
+# =============================================================================
+# THE ONE ACTIVATION RULE (44a): who goes when an IL return takes a team over 15
+# =============================================================================
+
+class ActivationError(RuntimeError):
+    """An IL return takes a team over its active spots and the one rule
+    cannot choose who goes: no inputs for it, or every candidate protected."""
+
+
+def longrun_weeks(window: int, stakes=None, last_week: int = None) -> list:
+    """The weeks a roster's long-run value sums (44a): the window through the
+    last week the stakes cover (injured_drop.TeamStakes) -- advice's IL
+    follow-up measure (V2), the one measure. last_week: that week stated
+    directly (the production plan: the season's last bracket week, which is
+    what every stakes file's last_week is, drop_inputs.team_stakes), so an
+    activation reads no stakes file. Neither: the window alone (advice's
+    measure without stakes)."""
+    w = int(window)
+    if last_week is not None:
+        return [w] + list(range(w + 1, int(last_week) + 1))
+    if stakes is None:
+        return [w]
+    return [w] + [x for x in range(w + 1, int(stakes.last_week) + 1) if x in stakes.weeks]
+
+
+def protected_players(roster, chance, n: int) -> frozenset:
+    """The top `n` of `roster` by keep chance (injured_drop.keep_rank, ties by
+    name): advice_v2.protected's rule. chance(name) -> his keep chance, or
+    None for a player with none (a stand-in, a known pickup joining): never
+    protected and not ranked."""
+    from .injured_drop import keep_rank
+    keep = {}
+    for x in roster:
+        c = chance(x)
+        if c is not None:
+            keep[x] = float(c)
+    return frozenset(x for x in keep if keep_rank(x, keep)[0] <= int(n))
+
+
+def activation_drops(*, manager: str, week: int, active, il, back, n: int, chance,
+                     protected_n: int, value, proj) -> tuple:
+    """(drops, detail): the `n` players to drop when the IL returns `back`
+    take `manager`'s active roster `active` (returners included) over its
+    active spots at `week`'s window. THE ONE RULE -- the roster plan's step 1
+    calls it and advice reads the plan, so they cannot answer differently.
+
+    Candidates: the active players who are neither protected (the top
+    protected_n by keep chance among the real players on the roster, active
+    and IL: protected_players) nor a returner (he is why the team activates).
+    Each drop is the candidate whose loss costs the least long-run value,
+    value(roster) - value(roster without him), on the roster as it stands
+    after the drops before it (greedy). An exact tie -- players who never
+    start in any simulation, overflow on crowded days, cost exactly nothing
+    -- goes to the lower projection, proj(name) (effective FPPG: the old
+    rule's answer, where the measure cannot tell them apart), then the name.
+    value(roster): the long-run value (LongRun.points over longrun_weeks).
+    Fewer candidates than n RAISES ActivationError."""
+    if n <= 0:
+        return [], []
+    roster = list(dict.fromkeys(list(active) + list(il)))
+    prot = protected_players(roster, chance, protected_n)
+    cands = sorted(x for x in active if x not in prot and x not in set(back))
+    if len(cands) < n:
+        raise ActivationError(
+            f"week {week}: {manager} activates {', '.join(back)} and must drop {n} of {len(active)} "
+            f"active, but only {len(cands)} are neither protected ({', '.join(sorted(prot))}) nor "
+            "returning: the one activation rule cannot choose")
+    cur, drops, detail = list(active), [], []
+    for _ in range(int(n)):
+        base = float(value(cur))
+        loss = {x: base - float(value([y for y in cur if y != x])) for x in cands if x not in drops}
+        pick = min(loss, key=lambda x: (loss[x], float(proj(x)), x))
+        drops.append(pick)
+        cur.remove(pick)
+        detail.append({"player": pick, "loss": round(loss[pick], 3),
+                       "next": sorted(((round(v, 3), k) for k, v in loss.items() if k != pick))[:2]})
+    return drops, detail
+
+
+class LongRun:
+    """THE LONG-RUN VALUE of a roster (44a): its expected startable points
+    (marginal_value.roster_totals: the exact daily fill, absences drawn by
+    the absence model, keyed so a player's draws never depend on who else is
+    valued) summed over `weeks` -- advice's IL follow-up measure since V2, at
+    advice's long_sims and seed. The roster plan's activation rule values
+    with it (DropContext.longrun); advice reads the plan, so there is no
+    second measure.
+
+    One context per run, built on first use and spanning first_week ..
+    last_week; players join it as they are first valued (resolve(name) ->
+    PlayerProjection, a stand-in's included), tagged from `statuses` (a
+    stand-in has no tag). Tags are anchored at `anchor` (the run's league day:
+    MVContext.tag_anchor; never after the span's first day). Values are
+    cached by roster and weeks."""
+
+    def __init__(self, *, nba_schedule: dict, schedule_weeks, durability_prior, season: str,
+                 statuses: dict, anchor, first_week: int, last_week: int, sims: int = None,
+                 seed: int = None):
+        if sims is None or seed is None:
+            from .advice_v2 import Settings
+            sims = Settings.long_sims if sims is None else sims
+            seed = Settings.seed if seed is None else seed
+        self.nba_schedule, self.schedule_weeks = nba_schedule, list(schedule_weeks)
+        self.durability_prior, self.season = durability_prior, season
+        from .data_loader import PlayerIndex
+        self.statuses = PlayerIndex({str(k): str(v).upper() for k, v in (statuses or {}).items()})
+        self.anchor, self.first_week, self.last_week = anchor, int(first_week), int(last_week)
+        self.sims, self.seed = int(sims), int(seed)
+        self._ctx = None
+        self._cache = {}
+
+    def context(self):
+        if self._ctx is None:
+            from . import marginal_value as mv
+            if not (self.nba_schedule or {}).get("games") or not self.schedule_weeks:
+                raise ActivationError("the long-run value needs the NBA schedule and the fantasy weeks, "
+                                      "and this world has none: it cannot value a roster")
+            ctx = mv.build_context({}, {}, self.nba_schedule, self.schedule_weeks, "this_week",
+                                   self.first_week - 1, injury_statuses={},
+                                   durability_prior=self.durability_prior, sims=self.sims,
+                                   seed=self.seed, season=self.season)
+            span = [w for w in range(self.first_week, self.last_week + 1) if w in ctx.week_dates]
+            teams = {}                    # advice_v2.World's keying: the date's first ten characters
+            for g in (self.nba_schedule or {}).get("games", []):
+                if g.get("home") and g.get("away"):
+                    teams.setdefault(date.fromisoformat(str(g["date"])[:10]), set()).update(
+                        (g["home"], g["away"]))
+            ctx.weeks = span
+            ctx.days = [(d, w, frozenset(teams.get(d, ()))) for w in span for d in ctx.week_dates[w]]
+            if ctx.days and self.anchor is not None:
+                ctx.tag_anchor = min(self.anchor, ctx.days[0][0])
+            self._ctx = ctx
+        return self._ctx
+
+    def _join(self, names, resolve) -> None:
+        from . import absence
+        from . import marginal_value as mv
+        ctx = self.context()
+        new = {}
+        for n in names:
+            if dict.get(ctx.players, n) is not None:
+                continue
+            p = resolve(n)
+            if p is None:
+                raise KeyError(f"no projection for {n}: the long-run value cannot price him")
+            st = "HEALTHY" if getattr(p, "standin", False) else self.statuses.get(n, "HEALTHY")
+            new[n] = mv.mv_player(n, p, st)
+        if new:
+            absence.check_tags({n: x.status for n, x in new.items()}, list(new))
+            for n, x in new.items():
+                ctx.players[n] = x
+                if ctx._plain:
+                    ctx._plain[n] = x
+
+    def points(self, roster, weeks, resolve) -> float:
+        from . import marginal_value as mv
+        import numpy as np
+        key = (frozenset(roster), tuple(int(w) for w in weeks))
+        hit = self._cache.get(key)
+        if hit is not None:
+            return hit
+        self._join(list(roster), resolve)
+        ctx = self.context()
+        bw = mv.roster_totals(ctx, list(roster))[2]
+        out = 0.0
+        for w in key[1]:
+            if w not in bw:
+                raise KeyError(f"week {w} is not in the long-run context ({self.first_week}-{self.last_week})")
+            out += float(np.mean(bw[w]))
+        self._cache[key] = out
+        return out
 
 
 # =============================================================================
@@ -339,7 +545,7 @@ def _pool_at_open(rostered, players, week, day, start_week, tag_idx, assume_heal
     because that makes the managers' order irrelevant: every manager in a
     window sees the same pool and nobody's drop reaches anybody else's
     pickup. What it costs is negligible: a window's drops are each roster's
-    lowest-projected players, which almost never rank inside the top few
+    cheapest players long-run (44a; before, its lowest-projected), which almost never rank inside the top few
     free agents (10-28: the best of them, Randle at 33.2, against a 35.2
     stand-in level)."""
     pool, untagged = [], []
@@ -490,7 +696,7 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                              f"more than {rules['active_spots']}: ROSTERS.json and the IL file disagree")
         if len(il) > rules["il_slots"]:
             raise ValueError(f"{m} has {len(il)} players in IL slots, more than {rules['il_slots']}")
-        state[m] = {"active": active, "il": il, "standins": set(), "open_count": 0}
+        state[m] = {"active": active, "il": il, "standins": set(), "open_count": 0, "joined": set()}
     known = {int(w): v for w, v in (known or {}).items()}
     start_known = {}
     for w in sorted(w for w in known if w <= int(start_week)):
@@ -528,15 +734,19 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
             # 0. the ledger's known moves for this window (on mode only)
             known_here = (_apply_known(state, m, known[week][m], week, players, rules)
                           if m in known.get(week, {}) else None)
-            # 1. activate; over 15, drop the lowest-projected (stand-ins too)
+            # 1. activate; over 15, THE ONE ACTIVATION RULE (44a): least
+            # long-run value, never a protected player, never a returner
             back = [n for n in s["il"] if _available_from(P(n), week, day)]
             for n in back:
                 s["il"].remove(n)
                 s["active"].append(n)
-            while len(s["active"]) > rules["active_spots"]:
-                low = min(s["active"], key=lambda n: (_proj(P(n)), n))
-                s["active"].remove(low)
-                dropped.append(low)
+            act_drops, act_detail = [], []
+            over = len(s["active"]) - rules["active_spots"]
+            if over > 0:
+                act_drops, act_detail = _activation(m, week, s, back, over, P, drops, managers)
+                for n in act_drops:
+                    s["active"].remove(n)
+                    dropped.append(n)
             # 2. place on IL: an override that has him out all week makes him O
             displaced, decisions, to_drop = [], [], []
             if "O" not in rules["il_eligible_tags"]:
@@ -606,11 +816,62 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
             assert len(s["active"]) <= rules["active_spots"] and len(s["il"]) <= rules["il_slots"]
             out_week[m] = {"active": sorted(s["active"]), "il": sorted(s["il"]), "added": added,
                            "dropped": dropped, "waiting": len(names) - len(take), "standins": made,
-                           "decisions": decisions}
+                           "decisions": decisions, "activated": sorted(back),
+                           "activation_drops": act_drops, "activation_detail": act_detail}
             if known_here is not None:
                 out_week[m]["known"] = known_here
         plan[week] = out_week
     return plan
+
+
+def _activation(m, week, s, back, over, P, drops, managers) -> tuple:
+    """Step 1's drops through the one rule (activation_drops), its inputs
+    from the DropContext: the keep chances (protection), the long-run value
+    over longrun_weeks (the stakes' last week when usable), the protected
+    count (injured_drop.protected_keepers). A player's keep chance is his
+    manager's, else another manager's (a player traded in carries his, as
+    advice reads them); a player joining by a known move has none (never
+    protected, as advice's `joining`); any other real player without one
+    RAISES, as advice does. A stand-in has none."""
+    from .data_loader import PlayerIndex
+    if drops is None or drops.longrun is None or drops.config is None:
+        raise ActivationError(
+            f"week {week}: {m} activates {', '.join(back) or 'nobody'} and is {over} over the active "
+            "spots; the one activation rule needs a DropContext with config, keep chances and the "
+            "long-run value, and the plan was given none")
+    if drops.longrun_last is not None:
+        weeks = longrun_weeks(week, last_week=int(drops.longrun_last))
+    else:
+        weeks = longrun_weeks(week, drops.stakes(m, week) if drops.note() is None else None)
+    mine = PlayerIndex(dict(drops.keep(m)))
+    cache = {}
+
+    def anyone():
+        if "all" not in cache:
+            allk = {}
+            for o in managers:
+                if o != m:
+                    allk.update(dict(drops.keep(o)))
+            cache["all"] = PlayerIndex(allk)
+        return cache["all"]
+
+    def chance(x):
+        if x in s["standins"]:
+            return None
+        c = mine.get(x)
+        if c is None:
+            c = anyone().get(x)
+        if c is None:
+            if x in s["joined"]:
+                return None
+            raise KeyError(f"week {week}: no keep chance for {x} ({m}); the one activation rule "
+                           "protects by keep chance and needs every real player's")
+        return float(c)
+
+    return activation_drops(manager=m, week=week, active=list(s["active"]), il=list(s["il"]),
+                            back=list(back), n=over, chance=chance,
+                            protected_n=int(drops.config.protected_keepers),
+                            value=lambda r: drops.longrun(r, weeks, P), proj=lambda x: _proj(P(x)))
 
 
 def _apply_known(state: dict, m: str, mv: dict, week: int, players, rules: dict) -> list:
@@ -651,7 +912,7 @@ def _apply_known(state: dict, m: str, mv: dict, week: int, players, rules: dict)
         key = PlayerIndex({k: k for k in dict.keys(players)}).canonical(n) or n
         if where(key)[0] is not None:
             raise ValueError(f"week {week}: ledger +{n} for {m}, who already has him")
-        s["active"].append(key); done.append(f"+{key}")
+        s["active"].append(key); s.setdefault("joined", set()).add(key); done.append(f"+{key}")
     for n in later:
         lst, hit = where(n)
         s[lst].remove(hit); done.append(f"-{hit} (joined and dropped, rule 12)")
@@ -763,9 +1024,24 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
     if drops is None:
         from .drop_inputs import context
         drops = context(data, getattr(data, "base_path", "."), keep_week=start - 1)
+    wins = windows_for(data, start)
+    tags = {**dict(fa or {}), **dict(statuses or {})}
+    if drops.longrun is None:
+        # the one activation rule's measure (44a), one context for the run: the season pass
+        # and every advice rebuild of this plan (advice_v2.PlanSpec shares these args) value
+        # rosters with it, and share its cache
+        from dataclasses import replace
+        from .data_loader import CURRENT_SEASON
+        lr = LongRun(nba_schedule=getattr(data, "nba_schedule", None),
+                     schedule_weeks=(getattr(data, "schedule", None) or {}).get("weeks", []),
+                     durability_prior=getattr(data, "durability_prior", None),
+                     season=getattr(data, "season", None) or CURRENT_SEASON, statuses=tags,
+                     anchor=today or _league_today(), first_week=start + 1,
+                     last_week=max([w for w, _d in wins] or [start + 1]))
+        drops = replace(drops, longrun=lr.points)
     args = dict(start_week=start, il_slots=il.get("slots") or {}, rosters=rosters,
-                windows=windows_for(data, start), players=players,
-                statuses={**dict(fa or {}), **dict(statuses or {})}, assume_healthy=assume,
+                windows=wins, players=players,
+                statuses=tags, assume_healthy=assume,
                 rules=rules(), standin_gp=gp, order=[m for m in pick_order() if m in rosters],
                 no_standins=frozenset(no_standins), drops=drops, known=known)
     plan = build(**args)
@@ -822,8 +1098,13 @@ def format_plan(plan: dict) -> list:
             bits = ["IL " + (", ".join(v["il"]) if v["il"] else "empty")]
             if v["added"]:
                 bits.append("adds " + ", ".join(v["added"]))
-            if v["dropped"]:
-                bits.append("drops " + ", ".join(v["dropped"]))
+            if v.get("activated"):
+                bits.append("activates " + ", ".join(v["activated"])
+                            + ("" if not v.get("activation_drops") else
+                               " (drops " + ", ".join(v["activation_drops"]) + ")"))
+            other = [n for n in v["dropped"] if n not in (v.get("activation_drops") or [])]
+            if other:
+                bits.append("drops " + ", ".join(other))
             if v.get("waiting"):
                 bits.append(f"{v['waiting']} open spot(s) wait for the next window (add budget)")
             for d in v.get("decisions") or []:
@@ -834,6 +1115,7 @@ def format_plan(plan: dict) -> list:
                                 + ("" if d["carried_out"] else " (held)") + f" -- {d['reason']}")
             prev = plan.get(week - 1, {}).get(m)
             changed = (v["added"] or v["dropped"] or v.get("waiting") or v.get("decisions")
+                       or v.get("activated")
                        or (prev is not None and prev["il"] != v["il"]))
             if week == min(plan) or changed:
                 lines.append(f"week {week:2d}  {m:8s} " + "; ".join(bits))

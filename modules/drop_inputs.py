@@ -37,6 +37,10 @@ every season pass; schema 2 carries the margins and title chances).
     exists -- unreadable JSON, an unknown schema, a missing field or row --
     RAISES.
 
+THE ONE ACTIVATION RULE (44a, roster_plan.activation_drops) reads the keep
+chances below and the long-run value; its weeks end at the season's last
+bracket week (longrun_last), never at a stakes file.
+
 KEEP CHANCES: keepability v3's live keeper watch (keepability_v3.keeper_watch,
 about 8 s on the real data), once per run and only when a decision is needed.
 K = 5 chances, the same order as the top-4 protection everywhere else.
@@ -159,15 +163,22 @@ def team_stakes(blob: dict, manager: str, window: int, *, last_regular: int, bra
 
 
 def keep_chances(data, base_path, week: int) -> dict:
-    """{manager: {name: keep chance (K = 5)}} from the live keeper watch."""
+    """{manager: {name: keep chance (K = 5)}} from the live keeper watch.
+    Cached on `data` by (base path, week): one run's plans (the line's, the
+    season pass's, advice's) read it once (44a: every IL return over 15 reads
+    it). A copy is returned, so no caller can change another's."""
     from . import keepability_v3 as kv3
-    kw = kv3.keeper_watch(data, max(1, int(week)), root=base_path)
-    out = {}
-    for p in kw["players"]:
-        if p.get("keep_k5") is None:
-            raise ValueError(f"the keeper watch has no keep chance for {p.get('player_name')}")
-        out.setdefault(p["manager"], {})[p["player_name"]] = float(p["keep_k5"])
-    return out
+    cache = data.__dict__.setdefault("_keep_chances", {}) if hasattr(data, "__dict__") else {}
+    key = (str(Path(base_path).resolve()), max(1, int(week)))
+    if key not in cache:
+        kw = kv3.keeper_watch(data, max(1, int(week)), root=base_path)
+        out = {}
+        for p in kw["players"]:
+            if p.get("keep_k5") is None:
+                raise ValueError(f"the keeper watch has no keep chance for {p.get('player_name')}")
+            out.setdefault(p["manager"], {})[p["player_name"]] = float(p["keep_k5"])
+        cache[key] = out
+    return {m: dict(v) for m, v in cache[key].items()}
 
 
 def team_games(data):
@@ -248,6 +259,9 @@ def context(data, base_path, keep_week: int, keep=None):
             state["share"] = availability(data)
         return state["share"](p)
 
-    # nothing above is read or computed until a decision asks for it
+    # nothing above is read or computed until a decision asks for it. longrun_last: the
+    # one activation rule's long-run value runs through the season's last bracket week --
+    # every stakes file's last_week (team_stakes) -- so an IL return reads no stakes file
+    # (44a); the long-run value itself (roster_plan.LongRun) is attached by roster_plan.for_run
     return DropContext(config=idr.from_rules(), note=note, stakes=stakes, keep=keep_for,
-                       games=games, availability=share)
+                       games=games, availability=share, longrun_last=int(bracket_weeks()[-1]))

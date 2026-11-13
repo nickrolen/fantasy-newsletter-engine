@@ -234,7 +234,11 @@ def test_no_team_beyond_its_il_slots_changes_and_no_input_is_read():
     players["Nick_0"] = _p("Nick_0", 40.0, out=[3, 4], ret="2026-11-16")
     players["Nick_1"] = _p("Nick_1", 39.0, out=[3, 4, 5], ret="2026-11-23")
     players["Hayden_0"] = _p("Hayden_0", 40.0, out=[3], ret="2026-11-09")
-    a = _build(players, rosters, drops=_raising())
+    # 44a: the returns at week 5 take Nick over 15, so the one activation rule reads its own
+    # inputs (keep chances, the long-run value); no decision input (stakes, games, availability)
+    from dataclasses import replace
+    a = _build(players, rosters, drops=replace(_raising(), note=lambda: "no stakes (test)",
+                                               keep=lambda m: {}))
     assert a == _build(players, rosters, drops=NO_STAKES) == _build(players, rosters)
     assert all(not v["decisions"] for w in a.values() for v in w.values())
 
@@ -519,7 +523,12 @@ def test_todays_real_plan_needs_no_decision_and_reads_no_input():
     except rp.ILSlotsError as e:
         pytest.skip(f"needs this week's IL file: {e}")
     teams = load_all_team_projections(data)
-    data.drop_context = _raising()
+    # 44a: an IL return over 15 reads the activation rule's inputs (keep chances, the stakes'
+    # last week, the long-run value); the decision's own inputs are never asked for
+    from dataclasses import replace
+    il = rp.load_il_slots(ROOT, data)
+    data.drop_context = replace(di.context(data, ROOT, keep_week=int(il["fantasy_week"]) - 1),
+                                games=_raising().games, availability=_raising().availability)
     run = rp.for_run(data, teams, fis.Tags.none())
     assert all(not v["decisions"] for w in run.plan.values() for v in w.values())
 

@@ -48,7 +48,10 @@ THE INPUTS (V2 s.3), each from one place:
     as known moves. Its lazily read inputs (the stakes, the keeper watch) are
     read here, so the engine reads no file;
   - keep chances: the keeper watch (drop_inputs.keep_chances, K = 5: the
-    roster plan's and 18b's), for the top-4 protection (decision 3a);
+    roster plan's and 18b's), for the top-4 protection (decision 3a) -- read
+    through the plan's own DropContext when the plan starts this week (44a:
+    one read, and the plan's activation rule and advice protect from the
+    same numbers);
   - stakes: the latest priced run's, through drop_inputs.read_stakes (their one
     reader), in 18b's units;
   - opponents: SCHEDULE.json for regular-season weeks; for bracket and Cup
@@ -59,6 +62,15 @@ THE INPUTS (V2 s.3), each from one place:
     engine's win chances carry the same team noise as the line's;
   - banked points: none. No horizon starts mid-week: a Monday move starts
     today, the window's first day, and a chat move next Monday.
+
+THE ACTIVATION STEP (44a): when the plan activates an IL occupant at the
+advised window (advice_v2.activation_step: a chat move's next Monday), each
+output carries it per manager -- "activation" in advice_latest.json and the
+history row, a "Step:" line in advice_show.py, the hub card's first line, and
+the summary's ADVICE line -- before the pick: "Haliburton is back for week 6:
+activate him and drop X. It costs no add." Nobody returning: no field, no
+line (null). The drop is the plan's one activation rule's
+(roster_plan.activation_drops); the pick is priced on the roster after it.
 
 THE OUTPUTS (state, config/STATE_MANIFEST.json):
   output/advice_latest.json     the latest run's advice: per manager his move
@@ -404,8 +416,13 @@ def build(base_path, now: datetime, data=None):
                      if t not in (None, "HEALTHY")})
     nba_outs = dict((tag_row.get("tags") or {}).get("nba_outs") or {})
     # --- keep chances (decision 3a): the keeper watch; a player joining by a
-    # pending claim has none yet, a player traded in carries his
-    keep_all = di.keep_chances(data, base, week - 1)
+    # pending claim has none yet, a player traded in carries his. Through the
+    # plan's DropContext when the plan starts this week (the same call, week - 1):
+    # one read, and the activation rule and advice protect from the same numbers
+    if drops is not None and int(run.start_week) == int(week):
+        keep_all = {m: dict(drops.keep(m)) for m in managers}
+    else:
+        keep_all = di.keep_chances(data, base, week - 1)
     by_player = {}
     for m, d in keep_all.items():
         for n, c in d.items():
@@ -486,7 +503,8 @@ def _move_dict(p, score, inputs, hz, cfg) -> dict:
     t = None if no_stakes else p.title_odds(cfg, regular)
     mo = p.move
     return {"kind": mo.kind, "add": mo.add, "drop": mo.drop, "to_il": mo.to_il,
-            "followup_drop": p.followup_drop, "describe": mo.describe(),
+            "followup_drop": p.followup_drop, "followup_standin": bool(p.followup_standin),
+            "describe": mo.describe(),
             "score": round(float(score), 6), "flat": bool(p.flat()),
             "dwp": [round(x, 6) for x in p.dwp],
             "wp_base": [None if x is None else round(x, 6) for x in p.wp_base],
@@ -565,7 +583,37 @@ def followup_text(m: dict, horizon: dict) -> str:
     if not m.get("followup_drop"):
         return ""
     w2 = horizon["weeks"][1]
+    if m.get("followup_standin"):
+        return (f"Then, in week {w2}'s window: when {m['to_il']} returns, drop the replacement-level "
+                f"pickup the plan assumes by then ({m['followup_drop']}).")
     return f"Then, in week {w2}'s window: drop {m['followup_drop']} when {m['to_il']} returns."
+
+
+def _and(names) -> str:
+    names = list(names)
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def step_text(step: dict) -> str:
+    """The activation step in words (44a): "Haliburton is back for week 6:
+    activate him and drop X. It costs no add." """
+    back, drops = list(step["back"]), list(step["drops"])
+    one = len(back) == 1
+    s = f"{_and(back)} {'is' if one else 'are'} back for week {step['week']}: activate {'him' if one else 'them'}"
+    s += f" and drop {_and(drops)}" if drops else " (there is room: nobody goes)"
+    return s + ("" if s.endswith(".") else ".") + " It costs no add."
+
+
+def step_dict(step) -> Optional[dict]:
+    """advice_latest.json's "activation" for one manager, or None."""
+    if not step:
+        return None
+    if step.get("standins"):
+        # the advised window is the plan's first: no stand-in exists before it
+        raise AdviceInputError(f"the activation step drops a plan stand-in {step['standins']}: the advised "
+                               "window must be the plan's first")
+    return {"week": int(step["week"]), "back": list(step["back"]), "drops": list(step["drops"]),
+            "text": step_text(step)}
 
 
 def cause_text(mode: str, cause: Optional[str]) -> str:
@@ -598,6 +646,7 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
         st = inputs.managers[m]
         opps = {str(w): st.opponents.get(w) for w in hz.weeks if w is not None}
         e = {"adds_left": st.adds_left, "opponents": opps, "also_wanted_by": list(a.also_wanted_by),
+             "activation": step_dict(a.step),
              "move": None, "backup": None, "note": a.rec.note, "bar": a.rec.bar if a.rec.bar != float("inf") else None}
         for key, p, s in (("move", a.top, a.top_score), ("backup", a.backup, a.backup_score)):
             if p is None:
@@ -641,7 +690,7 @@ def _hist_move(d: Optional[dict]) -> Optional[dict]:
         return None
     keep = ("kind", "add", "drop", "to_il", "followup_drop", "score", "flat", "dwp", "wp_base", "dpts",
             "dstarts", "dT_horizon", "dT_later", "dT_rs", "dT_po", "dpts_later", "title_odds")
-    return {k: d[k] for k in keep}
+    return {**{k: d[k] for k in keep}, "followup_standin": bool(d.get("followup_standin"))}
 
 
 def history_row(payload: dict, *, published: bool) -> dict:
@@ -653,6 +702,7 @@ def history_row(payload: dict, *, published: bool) -> dict:
             "anchor": (payload.get("inputs") or {}).get("anchor"),
             "managers": {m: {"adds_left": e["adds_left"], "opponents": e["opponents"],
                              "also_wanted_by": e["also_wanted_by"], "note": e["note"],
+                             "activation": e.get("activation"),
                              "top": _hist_move(e["move"]), "backup": _hist_move(e["backup"])}
                          for m, e in payload["managers"].items()},
             "error": payload["error"]}
@@ -705,11 +755,13 @@ def summary_lines(payload: dict) -> list:
     hz = payload["horizon"]
     out = []
     for m, e in payload["managers"].items():
+        st = e.get("activation")
+        head = f"ADVICE {m} ({hz['label']}): " + (f"Step: {st['text']} Then: " if st else "")
         if e["move"] is None:
-            out.append(f"ADVICE {m} ({hz['label']}): {e.get('empty', 'no move')}")
+            out.append(head + f"{e.get('empty', 'no move')}")
             continue
         mv = e["move"]
-        line = f"ADVICE {m} ({hz['label']}): {mv['text']['move']} -- {mv['text']['numbers']}"
+        line = head + f"{mv['text']['move']} -- {mv['text']['numbers']}"
         if e["also_wanted_by"]:
             line += f" [also wanted by {', '.join(e['also_wanted_by'])}]"
         out.append(line)
@@ -785,7 +837,8 @@ def hub_view(latest: dict, power_rows: list) -> dict:
     hz = latest.get("horizon") or {}
     for r in power_rows:
         m = r["manager"]
-        card = {"manager": m, "team": r["team"], "heading": hz.get("label") or "", "move": "", "followup": "",
+        card = {"manager": m, "team": r["team"], "heading": hz.get("label") or "", "step": "", "move": "",
+                "followup": "",
                 "numbers": "", "reason": "", "also": "", "backup": "", "empty": "",
                 "players": {}}         # task 40: the players each text names (hub_cards makes them tappable)
         if latest.get("error"):
@@ -796,6 +849,10 @@ def hub_view(latest: dict, power_rows: list) -> dict:
             e = latest["managers"].get(m)
             if e is None:
                 raise AdviceInputError(f"{LATEST_FILE.as_posix()} has no advice for {m}")
+            st = e.get("activation")
+            if st:
+                card["step"] = st["text"]
+                card["players"]["step"] = list(st["back"]) + list(st["drops"])
             if e["move"] is None:
                 card["empty"] = e.get("empty") or "No move beats standing pat"
             else:
@@ -803,7 +860,8 @@ def hub_view(latest: dict, power_rows: list) -> dict:
                 card.update(move=t["move"], followup=t["followup"], numbers=t["numbers"], reason=t["reason"])
                 card["players"]["move"] = _move_players(e["move"], ("add", "drop", "to_il"))
                 if t["followup"]:
-                    card["players"]["followup"] = _move_players(e["move"], ("followup_drop", "to_il"))
+                    card["players"]["followup"] = _move_players(
+                        e["move"], ("to_il",) if e["move"].get("followup_standin") else ("followup_drop", "to_il"))
                 if e["also_wanted_by"]:
                     card["also"] = "Also wanted by " + " and ".join(e["also_wanted_by"])
                 if e["backup"] is not None:

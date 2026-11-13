@@ -48,6 +48,8 @@ def show(latest: dict, out=print) -> None:
         out("")
         out(f"{m} -- {e['adds_left']} add(s) left; opponents "
             + ", ".join(f"week {w}: {o or 'not set'}" for w, o in e["opponents"].items()))
+        if e.get("activation"):
+            out(f"  Step: {e['activation']['text']}")
         if e["move"] is None:
             out(f"  {e.get('empty') or 'No move beats standing pat'}")
             continue

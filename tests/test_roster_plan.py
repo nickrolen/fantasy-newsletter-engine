@@ -59,12 +59,47 @@ def _league(extra=None, fa=12, size=15, top=40.0):
     return players, rosters
 
 
-def _build(players, rosters, il=None, statuses=None, order=None, rules=None, drops=None):
+_ACT = object()          # _build's default: the activation inputs only (activation_ctx)
+
+
+def proj_value(roster, weeks, resolve):
+    """A synthetic world's long-run value (44a): projected points, effective
+    FPPG x the weeks. On these worlds the one activation rule then drops the
+    lowest-projected player who is neither protected nor returning -- the
+    old rule's answer wherever protection and returners do not intervene."""
+    return sum(float(resolve(n).effective_fppg) for n in roster) * len(list(weeks))
+
+
+def activation_ctx(players, base=None, note="no stakes yet: planned without injured drops (test)"):
+    """The one activation rule's inputs for a synthetic world: `base`'s
+    DropContext (else the bootstrap with `note`), its keep chances over a
+    floor of 0.0 for every player (all zero: the top 4 by name are
+    protected), the injured_drop config, and proj_value. An input `base`
+    refuses still refuses."""
+    from modules import injured_drop as idr
+    base = base or rp.DropContext.unavailable(note)
+    zero = {n: 0.0 for n in players}
+    if base.config is None:
+        keep = lambda m: zero
+    else:
+        keep = lambda m, k=base.keep: {**zero, **dict(k(m))}
+    from dataclasses import replace
+    return replace(base, config=base.config or idr.from_rules(), keep=keep,
+                   longrun=base.longrun or proj_value)
+
+
+def _build(players, rosters, il=None, statuses=None, order=None, rules=None, drops=_ACT):
     """Every player stated HEALTHY unless `statuses` says otherwise: the pool
     must be tagged (an untagged free agent raises). drops: the injured-drop
-    inputs (task 18b); none given, a team with more injured than IL slots raises."""
+    inputs (task 18b) and the activation rule's (44a), filled out by
+    activation_ctx; drops=None: none at all, so a team with more injured than
+    IL slots, or an IL return over 15 active, raises."""
     tags = {n: "HEALTHY" for n in players}
     tags.update(statuses or {})
+    if drops is _ACT:
+        drops = activation_ctx(players)
+    elif drops is not None:
+        drops = activation_ctx(players, base=drops)
     return rp.build(start_week=2, il_slots=il or {}, rosters=rosters, windows=WINDOWS,
                     players=PlayerIndex(players), statuses=tags,
                     rules=rules or RULES, standin_gp=GP, order=order or list(MANAGERS), drops=drops)
@@ -135,7 +170,7 @@ def test_three_placements_in_one_week_fill_two_slots_and_the_third_stays_active(
     for j in range(3):
         players[f"Nick_{j}"] = _p(f"Nick_{j}", 40.0 - j, out=[3, 4], ret="2026-11-16")
     with pytest.raises(ValueError, match="no DropContext"):
-        _build(players, rosters)                    # 18b: three injured, two slots -- a decision
+        _build(players, rosters, drops=None)        # 18b: three injured, two slots -- a decision
     plan = _build(players, rosters, drops=NO_STAKES)
     assert plan[3]["Nick"]["decisions"] == [{"bootstrap": NO_STAKES.note(),
                                              "players": ["Nick_0", "Nick_1", "Nick_2"]}]
@@ -350,6 +385,8 @@ def _moving_world(monkeypatch):
                                     for j in range(8)])
     tags = fis.Tags({n: "HEALTHY" for tp in teams.values() for n in tp.players},
                     {f"Free{j}": "HEALTHY" for j in range(8)})
+    # the returns at week 12 take both teams over 15: the one activation rule's inputs (44a)
+    data.drop_context = activation_ctx({n: p for tp in teams.values() for n, p in tp.players.items()})
     return data, teams, tags
 
 
@@ -413,8 +450,9 @@ def test_edwards_end_to_end_on_the_real_inputs(monkeypatch):
     for w in range(4, 14):
         assert "Anthony Edwards" in plan[w]["Nick"]["il"], w
     assert "Anthony Edwards" in plan[14]["Nick"]["active"]
-    low = min(plan[13]["Nick"]["active"], key=lambda n: (run.projection(n).effective_fppg, n))
-    assert plan[14]["Nick"]["dropped"] == [low]
+    # 44a: the one activation rule -- least long-run value, never protected, never Edwards himself
+    assert plan[14]["Nick"]["activated"] == ["Anthony Edwards"]
+    assert plan[14]["Nick"]["dropped"] == plan[14]["Nick"]["activation_drops"] != ["Anthony Edwards"]
     for w in range(3, max(plan) + 1):
         for m, v in plan[w].items():
             assert len(v["active"]) == 15 or v["waiting"], (w, m)

@@ -561,19 +561,28 @@ def chat_inputs(fx):
 
 
 def test_a_move_that_changes_nothing_has_a_term_of_exactly_zero():
-    """Hurt returns at week 2 and the plan must cut one player: Weak (5) in
-    the base. "Add Worse (1), drop Weak" leaves the plan cutting Worse instead:
-    the season pass sees the same rosters every week, so every term is 0."""
+    """Hurt returns at week 2 and the plan must cut one player (44a: THE ONE
+    ACTIVATION RULE). Weak (5) and every filler beyond the ten who start are
+    worth exactly nothing long-run (overflow on the crowded days); the tie goes
+    to the lower projection: Weak. That is the activation step advice shows,
+    and the pick is a move AFTER it: the step alone, encoded as known moves
+    (known_for's step), is the base plan exactly -- every week, so a bare
+    step changes nothing. A pick that drops the step's own drop cannot be
+    priced (the plan refuses it: he is gone)."""
     fx = plan_fixture(nick_active=14, weak=True, worse=True)
     inp = chat_inputs(fx)
     assert inp.kind == av.CHAT and inp.horizon == (2, 3)
-    p = av.price(inp, "Nick", [av.Move("Nick", "add_drop", "Worse", drop="Weak")], FAST)[0]
+    step = av.activation_step(inp, "Nick")
+    assert step == {"week": 2, "back": ["Hurt"], "drops": ["Weak"], "standins": []}
     P0 = av._plan(inp)
-    assert "Weak" in P0[2]["Nick"]["dropped"], "the fixture: the base plan cuts Weak at week 2"
-    assert p.dwp == (0.0, 0.0) and p.dpts == (0.0, 0.0) and p.dstarts == (0.0, 0.0)
-    assert p.dT_horizon == 0.0 and p.dT_later == 0.0 and p.dpts_later == 0.0
-    assert p.dT_rs == 0.0 and p.dT_po == 0.0
-    assert all(d == 0.0 for _w, d in p.dpts_later_by_week) and len(p.dpts_later_by_week) == 3
+    assert P0[2]["Nick"]["activation_drops"] == ["Weak"] and P0[2]["Nick"]["activated"] == ["Hurt"]
+    only = av._plan(inp, {2: {"Nick": {"il_place": [], "drop": ["Weak"], "add": [], "il_activate": ["Hurt"]}}})
+    for w in P0:
+        for m in P0[w]:
+            assert sorted(only[w][m]["active"]) == sorted(P0[w][m]["active"]), (w, m)
+            assert only[w][m]["il"] == P0[w][m]["il"], (w, m)
+    with pytest.raises(ValueError, match="not on his roster"):
+        av.price(inp, "Nick", [av.Move("Nick", "add_drop", "Worse", drop="Weak")], FAST)
 
 
 def test_the_later_weeks_are_the_roster_plans_with_without_difference():

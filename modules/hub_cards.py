@@ -225,7 +225,7 @@ def annotate(payload: dict) -> dict:
     if adv is not None:
         for c in adv["cards"]:
             pl = c.get("players") or {}
-            for fld in ("move", "followup", "backup"):
+            for fld in ("step", "move", "followup", "backup"):
                 named = [(n, keys.key(n)) for n in pl.get(fld) or [] if n in (c.get(fld) or "")]
                 if (pl.get(fld) or []) and len(named) != len(pl[fld]):
                     missing = [n for n in pl[fld] if n not in (c.get(fld) or "")]
@@ -269,7 +269,7 @@ def strip(payload: dict) -> dict:
     adv = payload.get("advice")
     if adv is not None:
         for c in adv["cards"]:
-            for fld in ("move", "followup", "backup"):
+            for fld in ("step", "move", "followup", "backup"):
                 c.pop(f"{fld}_segs", None)
     payload["cards"] = None
     return payload

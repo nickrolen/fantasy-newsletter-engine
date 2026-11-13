@@ -442,12 +442,14 @@ def _pool_world():
 
 
 def _plan(players, rosters, statuses, assume=False):
+    from test_roster_plan import activation_ctx
     windows = [(3, date(2026, 11, 2)), (4, date(2026, 11, 9))]
     return rp.build(start_week=2, il_slots={}, rosters=rosters, windows=windows,
                     players=PlayerIndex(players), statuses=statuses,
                     rules={"active_spots": 15, "il_slots": 2, "add_budget": 3,
                            "il_eligible_tags": {"O", "OFS"}, "replacement_rank": 4},
-                    standin_gp=69.0, assume_healthy=assume)
+                    standin_gp=69.0, assume_healthy=assume,
+                    drops=activation_ctx(players))       # Nick_0's return at week 4 (44a's rule)
 
 
 def test_the_plan_raises_on_an_untagged_pool_player_and_ofs_never_sets_the_level():

@@ -106,10 +106,23 @@ pending claim has no keep chance yet (ManagerState.joining): he is not
 protected, and every OTHER player without a keep chance raises.
 
 IL PLACEMENT IS NOT FREE (decision 2): a player put into an IL slot scores
-nothing for the rest of that week (simulator_betting's il_mask). If he is
-expected back the week after (no OFS, no override covering it), the next
-week's roster has him back and the plan's follow-up drop (the unprotected
-active player worth least that week) leaves -- a two-step plan, shown.
+nothing for the rest of that week (simulator_betting's il_mask). If the plan
+activates him at the next window, the follow-up drop is THE PLAN'S
+(roster_plan.activation_drops, the one activation rule, 44a: the least
+long-run value, never a protected player) -- a two-step plan, shown.
+
+THE ACTIVATION STEP (44a): when the plan activates an IL occupant at the
+window advice is advising on (activation_step: the horizon's first week, when
+it is one of the plan's windows -- a chat move's next Monday), the manager
+must decide who goes whether or not he adds anyone. That step is the plan's
+own (who comes back, who the one rule drops; it costs no add) and is shown
+BEFORE the pick. The pick is a move from the roster AFTER the step: the
+returners are active and never a pick's drop, the step's drops are gone, and
+the step is encoded with the move (known_for(step=...)) so the plan prices
+the pick on exactly that roster. So the pick cannot drop the player just
+activated, and the step cannot drop the player the pick adds. A Monday
+move's window is the plan's locked start week, where the plan activates
+nobody (44a s.1 case 10, raised): no step is shown there.
 """
 
 from __future__ import annotations
@@ -557,15 +570,22 @@ class Move:
 
 
 def known_for(move: "Move", window: int, followup: Optional[str] = None,
-              next_window: Optional[int] = None) -> dict:
+              next_window: Optional[int] = None, step: Optional[dict] = None) -> dict:
     """The move as the roster plan's KNOWN moves (roster_plan.build's `known`):
     {window week: {manager: {"il_place", "drop", "add", "il_activate"}}}.
     THE ONE ENCODING: the title term prices a move by rebuilding the plan with
     it, and the check against season_sim (scripts/advice_title_check.py) runs
     the pass with the same dict, so the two price the same thing.
     window: the horizon's first week (the move's window); the follow-up drop
-    of an IL move happens at next_window (the horizon's second week)."""
+    of an IL move happens at next_window (the horizon's second week).
+    step: the plan's activation at the window (activation_step), applied
+    with the move so the move is priced on the roster after it (44a)."""
     e = {"il_place": [], "drop": [], "add": [move.add], "il_activate": []}
+    if step:
+        if int(step["week"]) != int(window):
+            raise ValueError(f"the activation step is week {step['week']}'s, the move's window {window}")
+        e["drop"].extend(step["drops"])
+        e["il_activate"].extend(step["back"])
     if move.to_il:
         e["il_place"].append(move.to_il)
     if move.drop:
@@ -607,6 +627,7 @@ class Priced:
     dpts_later_by_week: tuple = ()    # ((week, points with - without the move), ...)
     dT_rs: float = 0.0      # the title change from regular-season weeks (stake units)
     dT_po: float = 0.0      # ... from bracket weeks (stake units)
+    followup_standin: bool = False    # the follow-up drop is a plan stand-in (a placeholder pickup)
 
     def flat(self) -> bool:
         """The points tie-break applies: the win chances cannot tell it apart."""
@@ -659,6 +680,7 @@ class Advice:
     also_wanted_by: tuple          # managers whose top move adds the same player
     backup: Optional[Priced]       # his best qualifying move whose add is nobody else's top
     backup_score: Optional[float]
+    step: Optional[dict] = None    # the plan's activation at the advised window (activation_step)
 
 
 # =============================================================================
@@ -692,6 +714,41 @@ def back_next_week(inputs: MondayInputs, name: str, week: Optional[int]) -> bool
     if p.return_week is not None and p.return_week > week:
         return False
     return True
+
+
+def activation_step(inputs: MondayInputs, manager: str) -> Optional[dict]:
+    """The plan's activation at the window advice is advising on (44a s.3):
+    {"week", "back": [returners], "drops": [who the one rule drops],
+    "standins": [drops that are plan stand-ins]} -- or None when the plan
+    activates nobody of his there. The window is the horizon's first week
+    when it is one of the plan's windows (a chat move's next Monday); a
+    Monday move's week is the plan's locked start week, where it activates
+    nobody. A return needs no injury entry: the plan's own availability
+    (roster_plan._available_from) decides, as it decides everything here."""
+    w1 = int(inputs.horizon[0])
+    P0 = _plan(inputs)
+    v = (P0.get(w1) or {}).get(manager)
+    if v is None or not v.get("activated"):
+        return None
+    st = inputs.managers[manager]
+    back, drops = list(v["activated"]), list(v.get("activation_drops") or [])
+    stand = PlanSpec.standins(P0)
+    if any(n not in st.il for n in back) or any(n not in st.active and n not in stand for n in drops):
+        raise ValueError(f"{manager}: the plan's week-{w1} activation ({back}, dropping {drops}) is not on "
+                         f"the roster advice reads (active {sorted(st.active)}, IL {sorted(st.il)}): the "
+                         "plan and the ledger's view disagree")
+    return {"week": w1, "back": back, "drops": drops, "standins": [n for n in drops if n in stand]}
+
+
+def after_step(st: ManagerState, step: Optional[dict]) -> tuple:
+    """(active, IL, returners): the manager's roster after the activation
+    step -- what the pick is a move from."""
+    if not step:
+        return tuple(st.active), tuple(st.il), ()
+    back = tuple(step["back"])
+    active = tuple(n for n in st.active if n not in step["drops"]) + tuple(n for n in back
+                                                                          if n not in st.active)
+    return active, tuple(n for n in st.il if n not in back), back
 
 
 def _mv_ctx(inputs: MondayInputs, weeks: Sequence[int], sims: int, seed: int):
@@ -738,7 +795,7 @@ def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> l
     st = inputs.managers[manager]
     prot = protected(st, settings.protected)
     ctx = _mv_ctx(inputs, inputs.weeks(), settings.screen_sims, settings.seed)
-    R = tuple(st.active)
+    R, IL, back = after_step(st, activation_step(inputs, manager))     # 44a: a move after the step
     base_p, base_s, _ = _totals(ctx, R)
 
     def gain(roster):
@@ -746,7 +803,7 @@ def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> l
         return p - base_p, s - base_s
 
     moves: list = []
-    droppable = [n for n in R if n not in prot]
+    droppable = [n for n in R if n not in prot and n not in back]
     dcost = {d: -gain([n for n in R if n != d])[0] for d in droppable}
     drops = sorted(droppable, key=lambda d: (dcost[d], d))[:settings.drops_screen]
     pool = [n for n in inputs.pool]
@@ -771,17 +828,17 @@ def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> l
         for f in best_adds(list(R)):
             p, s = gain(list(R) + [f])
             moves.append(Move(manager, "add_open", f, screen_points=p, screen_starts=s))
-    newly_out = [n for n in R if inputs.il_ok(n)]
+    newly_out = [n for n in R if n not in back and inputs.il_ok(n)]
     if newly_out and len(R) >= st.active_capacity:
         for pl in newly_out:
             rest = [n for n in R if n != pl]
             adds = best_adds(rest)
-            if len(st.il) < st.il_capacity:
+            if len(IL) < st.il_capacity:
                 for f in adds:
                     p, s = gain(rest + [f])
                     moves.append(Move(manager, "il_add", f, to_il=pl, screen_points=p, screen_starts=s))
             else:
-                for x in st.il:
+                for x in IL:
                     if x in prot:
                         continue
                     for f in adds:
@@ -959,41 +1016,33 @@ def _later_ctx(inputs: MondayInputs, weeks: Sequence[int], sims: int, seed: int,
 
 
 def followup_drop(inputs: MondayInputs, manager: str, move: Move, settings: Settings) -> Optional[str]:
-    """Next week's drop when the IL'd player returns. He is in IL at the
-    move's window only if the season pass's plan keeps him there (an injury
-    entry out on the window day: roster_plan._available_from; otherwise the
-    plan activates him at once and drops its own lowest-projected player), and
-    he returns when the plan activates him at next week's window. The drop is the
-    unprotected real player (the add included, stand-ins never) worth least
-    from next week through the last week the stakes cover (marginal_value; next
-    week alone without stakes), so the plan never cuts a long-term asset to save
-    one week. None if he is not back next week (or there is no next week)."""
+    """Next week's drop when the IL'd player returns: THE PLAN'S (44a). The
+    plan is rebuilt with the move (and the activation step) at its window; he
+    is in IL there only if the plan keeps him (an injury entry out on the
+    window day: roster_plan._available_from; otherwise the plan activates him
+    at once), and if the plan activates him at next week's window, the
+    follow-up is the player the one activation rule drops there
+    (roster_plan.activation_drops: the least long-run value, never protected,
+    never the returner; a stand-in valued at his level). None if he is not
+    back next week, there is no next week, or the team has room for him."""
+    return _followup(inputs, manager, move)[0]
+
+
+def _followup(inputs: MondayInputs, manager: str, move: Move) -> tuple:
+    """(the follow-up drop or None, whether he is a plan stand-in)."""
     if not move.to_il or inputs.horizon[1] is None:
-        return None
+        return None, False
     w1, w2 = inputs.horizon
-    P = _plan(inputs, known_for(move, w1))
+    P = _plan(inputs, known_for(move, w1, step=activation_step(inputs, manager)))
     if move.to_il not in plan_roster(P, manager, w1)[1]:
-        return None                              # the plan never held him in IL (no injury entry
-                                                 # out on the window day): it activated him at once
-    if move.to_il in plan_roster(P, manager, w2)[1]:
-        return None                              # the plan keeps him in IL: not back
-    st = inputs.managers[manager]
-    prot = protected(st, settings.protected)
-    s1 = P[int(w1)][manager]
-    stand = PlanSpec.standins(P)
-    active_next = list(dict.fromkeys([n for n in s1["active"] if n not in stand] + [move.to_il]))
-    weeks = [w2] + _later_weeks(inputs, manager)
-    sims = settings.long_sims if len(weeks) > 1 else settings.screen_sims
-    ctx = _later_ctx(inputs, weeks, sims, settings.seed, [P])
-
-    def value(roster):
-        return sum(_week_points(ctx, roster, w) for w in weeks)
-
-    bp = value(active_next)
-    cands = [n for n in active_next if n not in prot and n != move.to_il]
-    if not cands:
-        return None
-    return min(cands, key=lambda n: (bp - value([x for x in active_next if x != n]), n))
+        return None, False                       # the plan never held him in IL: activated at once
+    v = P[int(w2)][manager]
+    if move.to_il not in (v.get("activated") or []):
+        return None, False                       # the plan keeps him in IL: not back
+    drops = list(v.get("activation_drops") or [])
+    if not drops:
+        return None, False                       # room for him: nobody goes
+    return drops[0], drops[0] in PlanSpec.standins(P)
 
 
 def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: Settings,
@@ -1035,14 +1084,16 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
     lbar = float(np.mean(levs)) if any(levs) else 0.0
     later = _later_weeks(inputs, manager)
     ts = inputs.stakes.get(manager)
+    step = activation_step(inputs, manager)
 
     out = []
     for mo in moves:
+        fs = False
         if followups is not None and mo in followups:
             fu = followups[mo]
         else:
-            fu = followup_drop(inputs, manager, mo, settings) if mo.to_il else None
-        P = _plan(inputs, known_for(mo, w1, fu, w2))
+            fu, fs = _followup(inputs, manager, mo) if mo.to_il else (None, False)
+        P = _plan(inputs, known_for(mo, w1, fu, w2, step=step))
         dwp, dpts, dst = [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]
         for k, w in enumerate(hz):
             if w is None:
@@ -1070,7 +1121,7 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
                 dT_rs += pv_rs * d
                 dT_po += pv_po * d
         out.append(Priced(mo, tuple(dwp), wp_base, tuple(dpts), tuple(dst), dT_h, dT_l, dpl, lbar, fu,
-                          tuple(by_w), dT_rs, dT_po))
+                          tuple(by_w), dT_rs, dT_po, fs))
     return out
 
 
@@ -1113,9 +1164,16 @@ def recommend(inputs: MondayInputs, manager: str, settings: Settings = Settings(
         priced = price(inputs, manager, finalists(candidate_moves(inputs, manager, settings), settings),
                        settings)
     prot = protected(st, settings.protected)
+    step = activation_step(inputs, manager)
+    if step and set(step["drops"]) & prot:
+        raise AssertionError(f"{manager}: the activation step drops a protected keeper "
+                             f"({sorted(set(step['drops']) & prot)}): the plan and advice protect differently")
     for p in priced:
         if p.move.drop in prot or p.followup_drop in prot:
             raise AssertionError(f"{p.move.describe()}: drops a protected keeper")
+        if step and (p.move.drop in step["back"] or p.move.drop in step["drops"]
+                     or p.move.add in step["drops"] or p.move.to_il in step["back"]):
+            raise AssertionError(f"{p.move.describe()}: conflicts with the activation step {step}")
         if p.move.add in inputs.reserved:
             raise AssertionError(f"{p.move.describe()}: adds a player claimed in the chat (rule 10)")
     keyed = sorted(((rank_key(weighting, p), weighting.score(p), p) for p in priced),
@@ -1140,8 +1198,9 @@ def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
     out = {}
     for m in sorted(recs):
         r = recs[m]
+        step = activation_step(inputs, m)
         if r.top is None:
-            out[m] = Advice(m, r, None, None, (), None, None)
+            out[m] = Advice(m, r, None, None, (), None, None, step)
             continue
         mine = tops[m]
         wanted = tuple(sorted(o for o, a in tops.items() if o != m and a == mine))
@@ -1150,7 +1209,7 @@ def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
         backup = next(((s, p) for s, p in r.qualifying()
                        if p.move.add != mine and p.move.add not in others), None)
         out[m] = Advice(m, r, r.top, top_score, wanted,
-                        backup[1] if backup else None, backup[0] if backup else None)
+                        backup[1] if backup else None, backup[0] if backup else None, step)
     return out
 
 

@@ -97,18 +97,33 @@ class Fixture:
         ws = {w: injured_drop.WeekStake(w, lev, None, 0.0, sd) for w in range(1, last + 1)}
         return injured_drop.TeamStakes(self.weeks[0], True, 0.4, 0.3, ws, last)
 
-    def plan_spec(self, sw, anchor, active_capacity, il_capacity):
+    def plan_spec(self, sw, anchor, active_capacity, il_capacity, stakes=None):
         """advice_v2.PlanSpec for this fixture: roster_plan.build's arguments,
         the plan starting at the tags' week (locked), a window at every later
         week's first day. An injured-drop decision RAISES (no fixture needs one;
-        a fixture that does must build its own DropContext)."""
+        a fixture that does must build its own DropContext). An IL return over
+        15 active takes the one activation rule (44a) with the fixture's keep
+        chances, its stakes (the long-run weeks' end) and the long-run value
+        (roster_plan.LongRun) on the fixture's own world, at advice's sims and
+        seed: the measure advice's IL follow-up always used."""
         def refuse(*a, **k):
             raise AssertionError("a fixture's roster plan asked for an injured-drop decision")
         weeks = sorted(sw, key=lambda w: w["week"])
         start = next(w["week"] for w in weeks
                      if date.fromisoformat(w["start_date"]) <= anchor <= date.fromisoformat(w["end_date"]))
-        drops = roster_plan.DropContext(config=None, note=refuse, stakes=refuse, keep=refuse,
-                                        games=refuse, availability=refuse)
+        lr = roster_plan.LongRun(nba_schedule={"games": self.games}, schedule_weeks=weeks,
+                                 durability_prior=None, season="2026-27", statuses=dict(self.statuses),
+                                 anchor=anchor, first_week=start + 1, last_week=weeks[-1]["week"])
+
+        def stakes_for(m, window):
+            ts = stakes[m]
+            return injured_drop.TeamStakes(int(window), ts.regular_season, ts.rs_title, ts.champion,
+                                           {w: v for w, v in ts.weeks.items() if w >= int(window)},
+                                           ts.last_week)
+        drops = roster_plan.DropContext(
+            config=injured_drop.from_rules(), note=(lambda: None) if stakes else (lambda: "fixture: no stakes"),
+            stakes=stakes_for, keep=lambda m: dict(self.keep[m]), games=refuse, availability=refuse,
+            longrun=lr.points)
         return av.PlanSpec(dict(
             start_week=start, il_slots={m: list(self.rosters[m]["il"]) for m in MANAGERS},
             rosters={m: list(self.rosters[m]["active"]) + list(self.rosters[m]["il"]) for m in MANAGERS},
@@ -175,7 +190,7 @@ class Fixture:
                           pool=[n for n in self.pool if n not in set(reserved)], il_eligible=il_eligible,
                           reserved=frozenset(reserved), stakes=st,
                           drop_config=injured_drop.Config(2.0, 1.0, 0.05, 0.05, 4, 6, 0.25, 0.04, 0.075),
-                          plan=self.plan_spec(sw, anchor, active_capacity, il_capacity))
+                          plan=self.plan_spec(sw, anchor, active_capacity, il_capacity, st))
         inp.banked = dict(banked or {})
         if balance:
             inp = self._balanced(inp, inp.horizon, opponents, edge or {}, now=now, close=close,
