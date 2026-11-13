@@ -62,12 +62,29 @@ def _league(extra=None, fa=12, size=15, top=40.0):
 _ACT = object()          # _build's default: the activation inputs only (activation_ctx)
 
 
+def _avail(p, w) -> float:
+    """The share of week `w` a player is available (44b): 0 in an out week,
+    the days from his return date in his return week, else all of it."""
+    if int(w) in [int(x) for x in (p.out_weeks or [])]:
+        return 0.0
+    rd = getattr(p, "return_date", None)
+    if rd and str(w) and int(w) in {int(k) for k in STARTS}:
+        start = date.fromisoformat(STARTS[int(w)])
+        r = date.fromisoformat(str(rd)[:10])
+        length = 14 if int(w) == 7 else 7
+        if start < r < start + timedelta(days=length):
+            return (length - (r - start).days) / length
+    return 1.0
+
+
 def proj_value(roster, weeks, resolve):
-    """A synthetic world's long-run value (44a): projected points, effective
-    FPPG x the weeks. On these worlds the one activation rule then drops the
+    """A synthetic world's long-run value (44a; 44b: entries honoured):
+    projected points, effective FPPG x the share of each week he is
+    available. On these worlds the one activation rule then drops the
     lowest-projected player who is neither protected nor returning -- the
-    old rule's answer wherever protection and returners do not intervene."""
-    return sum(float(resolve(n).effective_fppg) for n in roster) * len(list(weeks))
+    old rule's answer wherever protection and returners do not intervene --
+    and a mid-week returner is worth his share of the week (44b s.4)."""
+    return sum(float(resolve(n).effective_fppg) * _avail(resolve(n), w) for n in roster for w in weeks)
 
 
 def activation_ctx(players, base=None, note="no stakes yet: planned without injured drops (test)"):
@@ -127,12 +144,17 @@ def test_the_plan_is_a_pure_function_and_order_free():
 
 # 3 -- a midweek return from IL sits out the rest of the week
 def test_a_midweek_return_from_il_sits_out_that_week_and_plays_from_the_next_window():
+    """44b s.4: a mid-week returner sits out his return week when activating
+    him at its window is not worth it -- back Saturday 11-21, 2/7 of 40 FPPG
+    against the 26 of the player the rule would drop -- and plays from the
+    next window. (Back Wednesday, 5/7 of 40 beats 26: tests/test_il_followup.)"""
     players, rosters = _league()
-    players["Nick_0"] = _p("Nick_0", 40.0, out=[3, 4], ret="2026-11-18")     # a Wednesday, week 5
+    players["Nick_0"] = _p("Nick_0", 40.0, out=[3, 4], ret="2026-11-21")     # a Saturday, week 5
     plan = _build(players, rosters)
     assert "Nick_0" in plan[3]["Nick"]["il"]
     assert plan[3]["Nick"]["added"] == ["Replacement for Nick_0 (27.0)"]       # FA_3, the 4th
-    assert "Nick_0" in plan[5]["Nick"]["il"], "back on 11-18, a Wednesday: still in the IL slot"
+    assert "Nick_0" in plan[5]["Nick"]["il"], "back on 11-21, a Saturday: still in the IL slot"
+    assert plan[5]["Nick"]["midweek"][0]["activate"] is False
     assert "Nick_0" in plan[6]["Nick"]["active"] and plan[6]["Nick"]["dropped"] == ["Nick_14"]
 
 

@@ -33,8 +33,8 @@ THE INPUTS (V2 s.3), each from one place:
   - tags: the latest tag record (output/tag_records.jsonl) with step 3b's
     nba_outs, anchored at its fetch date (its league day);
   - injury entries: through the projections (load_player_projections applies
-    INJURY_OVERRIDES) and, for a chat move's IL eligibility, the entry's
-    dates on next Monday (hub_state.override_out_on);
+    INJURY_OVERRIDES); a chat move's IL eligibility is the plan's own rule on
+    them (roster_plan.out_all_week, 44b s.5);
   - projections: the season pass's own -- the roster plan's player index
     (roster_plan.for_run: PLAYERLIST with INJURY_OVERRIDES, season-to-date
     actuals blended in by populate_actual_stats, the rostered players' objects
@@ -350,7 +350,7 @@ def build(base_path, now: datetime, data=None):
     from .data_loader import (CURRENT_SEASON, MANAGERS, PlayerIndex, load_all_data,
                               regular_season_weeks_for)
     from . import roster_plan
-    from .hub_state import free_agent_tags, override_out_on
+    from .hub_state import free_agent_tags
     from .projections import load_all_team_projections
     from .simulator_betting import schedule_week_dates
     from .simulator_playoff_odds import bracket_weeks
@@ -381,7 +381,7 @@ def build(base_path, now: datetime, data=None):
     tag_row = tag_records.latest(base)
     tags = tag_records.as_tags(tag_row)
     tps = load_all_team_projections(data)
-    run = roster_plan.for_run(data, tps, tags, today=today)
+    run = roster_plan.for_run(data, tps, tags, today=today, now=now)   # 44b s.2: the run's clock
     drops = run.args["drops"]
     if drops is not None and drops.note() is None:      # read now: the engine reads no file
         for m in managers:
@@ -450,11 +450,8 @@ def build(base_path, now: datetime, data=None):
     if hz.kind == av.MONDAY:
         il_ok = av.monday_il_eligible(actives, statuses)
     else:
-        over = PlayerIndex({e["player_name"]: e for e in (data.injury_overrides or {}).get("players", [])})
-        wk1 = hz.weeks[0]
-        out_on = {n for n in actives if over.get(n) is not None
-                  and override_out_on(over.get(n), hz.effective, wk1, wk_dates[wk1][0])}
-        il_ok = av.chat_il_eligible(actives, statuses, out_on)
+        # 44b s.5: the plan's rule (roster_plan.out_all_week) on the plan's own projections
+        il_ok = av.chat_il_eligible(actives, proj, hz.weeks[0])
     # --- stakes and opponents
     blob, note = di.read_stakes(base)
     if blob is None:

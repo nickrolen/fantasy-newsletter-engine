@@ -235,6 +235,16 @@ def little_left(stakes: TeamStakes, config: Config) -> bool:
     return float(stakes.champion) < config.playoff_little_left
 
 
+def protected_count(little: Optional[bool], config: Config) -> int:
+    """How many of a team's players are never dropped (44b s.6, the ONE
+    protection count -- roster_plan.protected_players ranks them, for the
+    plan's activation rule and advice alike): the top protected_keepers (4);
+    when the team has LITTLE LEFT TO PLAY FOR (little_left above, 18b's
+    definition), its keeper_candidates (6). little None (no usable stakes):
+    the top protected_keepers."""
+    return int(config.keeper_candidates) if little else int(config.protected_keepers)
+
+
 def _weeks(stakes: TeamStakes, player: Candidate) -> list:
     weeks = list(range(int(stakes.window_week), int(stakes.last_week) + 1))
     for w in weeks:

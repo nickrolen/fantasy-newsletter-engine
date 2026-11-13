@@ -427,6 +427,7 @@ def price(base_path, data, *, seed: int, sims: int, statuses, run_id: str, produ
     if st["locked"]:
         raise TitleOddsLocked(f"games are on (first tip {st['first_tip']}): title odds are "
                               "priced after tonight's games")
+    data.plan_now = now                      # 44b s.2: the plan's open window is judged at the run's clock
     sp = run_pass(data, seed=seed, sims=sims, statuses=statuses,
                   tag_anchors=tag_anchors if tag_anchors is not None else line_anchors(base_path))
     out = record(base_path, sp, run_id=run_id, produced_by=produced_by, kind=kind, week=week,

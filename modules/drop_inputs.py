@@ -243,11 +243,36 @@ def context(data, base_path, keep_week: int, keep=None):
                            bracket=bracket_weeks(), path=stakes_path(base_path))
 
     def keep_for(manager):
+        # 44b s.3: a keeper-watch failure is KeeperWatchFailed (once per run: the
+        # failure is kept), and the plan's activation rule falls back on it, loudly
+        from .roster_plan import KeeperWatchFailed
+        if "keep_error" in state:
+            raise KeeperWatchFailed(state["keep_error"])
         if "keep" not in state:
-            state["keep"] = keep if keep is not None else keep_chances(data, base_path, keep_week)
+            try:
+                state["keep"] = keep if keep is not None else keep_chances(data, base_path, keep_week)
+            except Exception as e:                       # noqa: BLE001 -- recorded, raised as one type
+                state["keep_error"] = f"{type(e).__name__}: {e}".splitlines()[0][:300]
+                raise KeeperWatchFailed(state["keep_error"]) from e
         if manager not in state["keep"]:
             raise KeyError(f"the keeper watch has no keep chances for {manager}")
         return state["keep"][manager]
+
+    def little(manager, window):
+        """44b s.6: injured_drop.little_left at `window` from the stakes file's
+        team chances (rs_title, champion); None without usable stakes."""
+        blob, n = load()
+        if blob is None:
+            return None
+        team = (blob.get("teams") or {}).get(manager)
+        if team is None:
+            raise StakesFileError(f"{stakes_path(base_path)}: no stakes for {manager}")
+        last_reg = regular_season_weeks_for(CURRENT_SEASON)
+        ts = idr.TeamStakes(window_week=int(window), regular_season=int(window) <= last_reg,
+                            rs_title=float(team["rs_title"]),
+                            champion=None if team.get("champion") is None else float(team["champion"]),
+                            weeks={}, last_week=int(bracket_weeks()[-1]))
+        return idr.little_left(ts, idr.from_rules())
 
     def games(team, week, from_day=None):
         if "games" not in state:
@@ -264,4 +289,5 @@ def context(data, base_path, keep_week: int, keep=None):
     # every stakes file's last_week (team_stakes) -- so an IL return reads no stakes file
     # (44a); the long-run value itself (roster_plan.LongRun) is attached by roster_plan.for_run
     return DropContext(config=idr.from_rules(), note=note, stakes=stakes, keep=keep_for,
-                       games=games, availability=share, longrun_last=int(bracket_weeks()[-1]))
+                       games=games, availability=share, longrun_last=int(bracket_weeks()[-1]),
+                       little_left=little)

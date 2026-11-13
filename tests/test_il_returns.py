@@ -39,7 +39,7 @@ ROOT = Path(__file__).parent.parent
 # =============================================================================
 
 def returner_fixture(*, weak=True, weak_keep=0.0, nick_active=14, hurt=True, hurt_out=(),
-                     hurt_return=None, il_candidate=False):
+                     hurt_return=None, il_candidate=False, hurt_days=(5, 6)):
     """test_advice_v2.plan_fixture's world (Wednesday of week 1, after the
     close: a chat move into weeks 2-3, later weeks 4-6): Nick has
     `nick_active` fillers (Tue/Thu, 20 FPPG, keep 0.9 down by 0.01), Weak
@@ -56,7 +56,7 @@ def returner_fixture(*, weak=True, weak_keep=0.0, nick_active=14, hurt=True, hur
     if il_candidate:
         fx.player("Achy", _every_week(0, 2, 4), 30.0, manager="Nick", keep=0.02, status="O", out_weeks=[2])
     if hurt:
-        fx.player("Hurt", _every_week(5, 6), 35.0, manager="Nick", il=True, keep=0.05, status="O",
+        fx.player("Hurt", _every_week(*hurt_days), 35.0, manager="Nick", il=True, keep=0.05, status="O",
                   out_weeks=list(hurt_out))
         if hurt_return is not None:
             p = fx.proj["Hurt"]
@@ -113,7 +113,7 @@ def test_every_candidate_protected_raises():
     keep = {"A": 0.9, "B": 0.8, "C": 0.7, "D": 0.6}
     with pytest.raises(rp.ActivationError, match="neither protected"):
         rp.activation_drops(manager="Nick", week=5, active=["A", "B", "C", "D", "R"], il=[], back=["R"],
-                            n=1, chance=_chance(keep), protected_n=4, value=lambda r: len(r), proj=lambda x: 1.0)
+                            n=1, chance=_chance(keep), protected_n=4, value=lambda r: len(r), proj=lambda x: 1.0, band=2.0)
 
 
 def test_a_returner_is_never_dropped_and_a_stand_in_is_valued_at_his_level():
@@ -124,7 +124,7 @@ def test_a_returner_is_never_dropped_and_a_stand_in_is_valued_at_his_level():
     keep = {"X": 0.1, "K": 0.9, "R": 0.0}            # the stand-in: None
     drops, detail = rp.activation_drops(
         manager="Nick", week=5, active=list(pts), il=[], back=["R"], n=1, chance=_chance(keep),
-        protected_n=1, value=lambda r: sum(pts[n] for n in r), proj=lambda x: pts[x])
+        protected_n=1, value=lambda r: sum(pts[n] for n in r), proj=lambda x: pts[x], band=2.0)
     assert drops == ["Stand-in (30.0)"] and detail[0]["loss"] == 30.0
     assert detail[0]["next"] == [(31.0, "X")]          # K is protected (top 1), R a returner
 
@@ -135,7 +135,7 @@ def test_ties_go_to_the_lower_projection_then_the_name():
     proj = {"Zed": 5.0, "Abe": 20.0, "Bob": 20.0, "R": 30.0}
     drops, _ = rp.activation_drops(manager="Nick", week=5, active=list(proj), il=[], back=["R"], n=2,
                                    chance=lambda x: 0.0, protected_n=0, value=lambda r: 0.0,
-                                   proj=lambda x: proj[x])
+                                   proj=lambda x: proj[x], band=2.0)
     assert drops == ["Zed", "Abe"]
 
 
@@ -178,18 +178,26 @@ def test_the_plan_and_advice_choose_the_same_player_on_the_same_roster():
     assert step["back"] == v["activated"] == ["Hurt"] and step["drops"] == v["activation_drops"]
     weeks = rp.longrun_weeks(2, inp.stakes["Nick"])
     assert weeks == [2, 3, 4, 5, 6]
+    import numpy as np
+    from modules import marginal_value as mv
     ctx = av._later_ctx(inp, weeks, av.Settings().long_sims, av.Settings().seed, [P0])
-    advice_value = lambda r: sum(av._week_points(ctx, r, w) for w in weeks)
+
+    def advice_value(r):                        # advice's own valuation, per simulation (44b s.1)
+        assert all(ctx.players.canonical(n) is not None for n in r)
+        bw = mv.roster_totals(ctx, list(r))[2]
+        return sum(np.asarray(bw[w], dtype=float) for w in weeks)
     active = P0[1]["Nick"]["active"] + ["Hurt"]
     keep = dict(inp.managers["Nick"].keep)
     picked, detail = rp.activation_drops(manager="Nick", week=2, active=active, il=[], back=["Hurt"], n=1,
                                          chance=_chance(keep), protected_n=4, value=advice_value,
-                                         proj=lambda x: inp.projection(x).effective_fppg)
+                                         proj=lambda x: inp.projection(x).effective_fppg,
+                                         band=rp.longrun_rules()["band"])
     assert picked == step["drops"]
     lr = inp.plan.args["drops"].longrun
+    assert av.Settings().long_sims == rp.longrun_rules()["sims"] == 200
     for x in [n for n in active if n != "Hurt"]:
         r = [n for n in active if n != x]
-        assert lr(r, weeks, inp.projection) == pytest.approx(advice_value(r), abs=1e-9), x
+        assert np.allclose(lr(r, weeks, inp.projection), advice_value(r), atol=1e-9), x
 
 
 def test_a_protected_low_projection_keeper_is_never_the_activation_drop_in_advice():
@@ -316,17 +324,21 @@ def test_no_return_changes_nothing_in_the_output():
     assert all(c["step"] == "" for c in al.hub_view(pl, [{"manager": m, "team": m} for m in MANAGERS])["cards"])
 
 
-def test_a_monday_moves_window_is_the_plans_locked_week_so_no_step_is_shown():
-    """Case 10, raised for Nick: on a Monday before the close the plan's start
-    week is locked as the IL file says -- it activates nobody there, so a
-    Monday move shows no step even for a returner, and the plan brings him
-    back at the next window (the horizon's second week)."""
+def test_a_monday_move_before_the_close_shows_the_step():
+    """Case 10 (44b s.2): a Monday move is before the window's close, when the
+    plan's start week is an OPEN window: the plan activates Hurt there (with
+    the one rule's drop), so the Monday move shows the step, and the pick is
+    priced after it. (44a showed none: the start week was locked.)"""
     fx = returner_fixture()
     inp = fx.inputs(horizon=(2, 3), balance=False)
     assert inp.kind == av.MONDAY and inp.plan.args["start_week"] == 2
-    assert av.activation_step(inp, "Nick") is None
+    assert inp.plan.args["open_day"] == S.day(2, 0)
+    step = av.activation_step(inp, "Nick")
+    assert step["week"] == 2 and step["back"] == ["Hurt"] and step["drops"] == ["Weak"]
     P0 = av._plan(inp)
-    assert "Hurt" in P0[2]["Nick"]["il"] and P0[3]["Nick"]["activated"] == ["Hurt"]
+    assert "Hurt" in P0[2]["Nick"]["active"] and not P0[2]["Nick"]["il"]
+    for mo in av.candidate_moves(inp, "Nick", FAST):
+        assert mo.drop not in ("Hurt", "Weak") and mo.to_il != "Hurt"
 
 
 def test_an_il_occupant_with_no_entry_is_back_at_the_next_window():
@@ -341,14 +353,24 @@ def test_an_il_occupant_with_no_entry_is_back_at_the_next_window():
 
 def test_an_entry_return_before_the_window_is_shown_and_a_midweek_one_waits():
     """Case 1: an entry out for week 1 only: back for week 2's window, shown.
-    Case 2: an entry returning on week 2's Wednesday: still in the IL slot all
-    of week 2 (rule 5), so no step at week 2; the plan activates him at 3."""
+    Case 2 (44b s.4): an entry returning on week 2's Wednesday. His games are
+    Saturday and Sunday, so activating him at week 2's window loses him
+    nothing and costs nothing (Weak's long-run value is 0): the plan activates
+    him early, and advice shows it as the step. With Monday and Tuesday games
+    he would miss all of week 2: activating early gains exactly nothing, a
+    tie, which keeps him in IL until week 3."""
     fx = returner_fixture(hurt_out=[1])
     assert av.activation_step(chat_inputs(fx), "Nick")["back"] == ["Hurt"]
     fx = returner_fixture(hurt_out=[1], hurt_return=S.day(2, 2))
     inp = chat_inputs(fx)
+    step = av.activation_step(inp, "Nick")
+    assert step["back"] == ["Hurt"] and step["drops"] == ["Weak"]
+    assert av._plan(inp)[2]["Nick"]["midweek"][0]["activate"] is True
+    fx = returner_fixture(hurt_out=[1], hurt_return=S.day(2, 2), hurt_days=(0, 1))
+    inp = chat_inputs(fx)
     assert av.activation_step(inp, "Nick") is None
     P0 = av._plan(inp)
+    assert P0[2]["Nick"]["midweek"][0]["activate"] is False
     assert "Hurt" in P0[2]["Nick"]["il"] and P0[3]["Nick"]["activated"] == ["Hurt"]
 
 

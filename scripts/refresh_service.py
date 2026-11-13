@@ -212,6 +212,8 @@ def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFA
         rec["cause"] = str(cause)
     try:
         data = load()
+        if now is not None:
+            data.plan_now = now          # 44b s.2: the roster plan's open-window clock is the run's
         week = week or ws.week_for_date(data, as_of)
         rec["week"] = week
         if pull_logs:
@@ -223,6 +225,8 @@ def run(base_path=".", as_of: date = None, week: int = None, sims: int = sb.DEFA
                 rec["logs_pulled"].append(d.isoformat())
             if todo:
                 data = load()
+                if now is not None:
+                    data.plan_now = now
         p = rl.prepare(base, week, as_of, statuses=statuses, data=data)
         key = rl.cache_key(p, sims)
         rec["cache_key"] = key["key"]

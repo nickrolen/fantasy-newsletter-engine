@@ -273,6 +273,7 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
 
     data = pre_close_data(base, monday, load_all_data(base, current_week=None))
     data.injury_overrides = at_tip
+    data.plan_now = now                      # 44b s.2: after the close, so the week is locked
     p = rl.prepare(base, week, monday, seed=seed, statuses=tags, dry_run=True, data=data,
                    fresh_tags=True)
     from . import override_history as oh, week_state as ws
@@ -302,6 +303,7 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
 
     pass_data = pre_close_data(base, monday, load_all_data(base, current_week=None))
     pass_data.injury_overrides = at_tip
+    pass_data.plan_now = now
     sp = tor.run_pass(pass_data, seed=seed, sims=title_sims, statuses=tags)
     ro = tor.readouts(sp)
     hist = toh.make_row(base_path=base, run_id=run_id_for(week), produced_by="closing_line",

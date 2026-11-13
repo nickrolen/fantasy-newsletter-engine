@@ -1045,6 +1045,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         raise HubInputError("the hub's clock must be timezone-aware (the league clock)")
     today = now.date()
     data = data or load_all_data(base, current_week=None)
+    data.plan_now = now                      # 44b s.2: the roster plan's open window, at the hub's clock
     week = ws.week_for_date(data, today)
     report_week = week - 1
     managers = list(MANAGERS)

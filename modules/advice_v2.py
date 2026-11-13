@@ -121,8 +121,8 @@ returners are active and never a pick's drop, the step's drops are gone, and
 the step is encoded with the move (known_for(step=...)) so the plan prices
 the pick on exactly that roster. So the pick cannot drop the player just
 activated, and the step cannot drop the player the pick adds. A Monday
-move's window is the plan's locked start week, where the plan activates
-nobody (44a s.1 case 10, raised): no step is shown there.
+move is before the window's close, where the plan's start week is an OPEN
+window (44b s.2, roster_plan.window_open): its activation is shown there too.
 """
 
 from __future__ import annotations
@@ -255,7 +255,9 @@ class Settings:
     seed: int = 20261105
     screen_sims: int = 48       # marginal_value, the screen
     price_sims: int = 1000      # simulate_week_matrix, the finalists
-    long_sims: int = 16         # marginal_value over the weeks after the horizon
+    # marginal_value over the weeks after the horizon: roster_moves.longrun_sims (44b s.1,
+    # 200), the roster plan's LongRun's own -- one long-run measure (44a's parity)
+    long_sims: int = field(default_factory=lambda: roster_plan.longrun_rules()["sims"])
     adds_screen: int = 25       # free agents kept by the add screen
     drops_screen: int = 6       # cheapest drops kept by the drop screen
     finalists: int = 12         # moves priced in full, per manager
@@ -487,23 +489,14 @@ def monday_il_eligible(names, statuses: Mapping[str, str]) -> frozenset:
                      if absence.normalised_tag(statuses.get(n, "HEALTHY")) in IL_TAGS)
 
 
-def chat_il_eligible(names, statuses: Mapping[str, str], out_on_window) -> frozenset:
-    """A chat move's IL eligibility (rules 2, 4-5): the IL change happens in
-    next Monday's window, where the tag must be O or OFS. A player tagged O or
-    OFS now is eligible only when he will still be out that Monday: OFS (the
-    season), or an injury entry keeping him out on the window day
-    (`out_on_window`, the caller's reading of INJURY_OVERRIDES). An O tag
-    alone is at most 3 games (absence.MAX_TAG_GAMES): he is expected back,
-    and the checklist would stop the team (move_ledger, rule 2). The hub's
-    stash table reads injury entries the same way."""
-    out = set()
-    for n in names:
-        t = absence.normalised_tag(statuses.get(n, "HEALTHY"))
-        if t not in IL_TAGS:
-            continue
-        if absence.season_out(t) or n in out_on_window:
-            out.add(n)
-    return frozenset(out)
+def chat_il_eligible(names, projections: Mapping[str, PlayerProjection], week: int) -> frozenset:
+    """A chat move's IL eligibility (44b s.5): THE PLAN'S RULE,
+    roster_plan.out_all_week -- an active player whose injury entry has him
+    out for the whole of the chat move's week is IL-eligible at its window
+    (entry-as-O, held 11 of 11 in 44a s.4.1), with or without an O/OFS tag
+    today. The same function the plan's step 2 places by, so the two cannot
+    differ. (An OFS tag with no entry is eligible for neither: 44a case 4.)"""
+    return frozenset(n for n in names if roster_plan.out_all_week(projections[n], week))
 
 
 def assemble(*, horizon: "Horizon", season: str, nba_schedule: dict, schedule_weeks: Sequence[dict],
@@ -688,18 +681,32 @@ class Advice:
 # =============================================================================
 
 def protected(state: ManagerState, n: int) -> frozenset:
-    """The top n by keep chance (decision 3a), via injured_drop.keep_rank.
-    A roster player with no keep chance RAISES (keep_rank), unless he joins
-    by a pending claim (state.joining: no keep chance yet, never protected)."""
+    """The top n by keep chance (decision 3a): roster_plan.protected_players,
+    THE ONE PROTECTION FUNCTION (the plan's activation rule ranks with it too).
+    A roster player with no keep chance RAISES, unless he joins by a pending
+    claim (state.joining: no keep chance yet, never protected)."""
     keep = dict(state.keep)
-    out = set()
-    for name in state.all_names():
-        if name in state.joining and name not in keep:
-            continue
-        rank, _c = injured_drop.keep_rank(name, keep)
-        if rank <= n:
-            out.add(name)
-    return frozenset(out)
+
+    def chance(name):
+        if name in keep:
+            return keep[name]
+        if name in state.joining:
+            return None
+        raise KeyError(f"no keep chance for {name}: the decision needs his team's keep chances")
+    return roster_plan.protected_players(state.all_names(), chance, n)
+
+
+def protected_for(inputs: "MondayInputs", manager: str, settings: "Settings") -> frozenset:
+    """The manager's protected players (44b s.6): the top settings.protected;
+    his keeper candidates (injured_drop keeper_candidates) when his team has
+    little left to play for (injured_drop.little_left on his stakes at the
+    horizon). The count is injured_drop.protected_count, the plan's own."""
+    st = inputs.managers[manager]
+    cfg, ts = inputs.drop_config, inputs.stakes.get(manager)
+    if cfg is None:
+        return protected(st, settings.protected)
+    little = injured_drop.little_left(ts, cfg) if ts is not None else None
+    return protected(st, injured_drop.protected_count(little, replace(cfg, protected_keepers=settings.protected)))
 
 
 def back_next_week(inputs: MondayInputs, name: str, week: Optional[int]) -> bool:
@@ -720,11 +727,11 @@ def activation_step(inputs: MondayInputs, manager: str) -> Optional[dict]:
     """The plan's activation at the window advice is advising on (44a s.3):
     {"week", "back": [returners], "drops": [who the one rule drops],
     "standins": [drops that are plan stand-ins]} -- or None when the plan
-    activates nobody of his there. The window is the horizon's first week
-    when it is one of the plan's windows (a chat move's next Monday); a
-    Monday move's week is the plan's locked start week, where it activates
-    nobody. A return needs no injury entry: the plan's own availability
-    (roster_plan._available_from) decides, as it decides everything here."""
+    activates nobody of his there. The window is the horizon's first week:
+    a chat move's next Monday, or a Monday move's own window, open until its
+    close (44b s.2). A return needs no injury entry: the plan's own
+    availability (roster_plan._available_from) decides, and a mid-week
+    returner it chooses to activate early (44b s.4) is shown the same way."""
     w1 = int(inputs.horizon[0])
     P0 = _plan(inputs)
     v = (P0.get(w1) or {}).get(manager)
@@ -793,7 +800,7 @@ def _totals(ctx, roster) -> tuple:
 def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> list:
     """Every move worth pricing, best screen value first."""
     st = inputs.managers[manager]
-    prot = protected(st, settings.protected)
+    prot = protected_for(inputs, manager, settings)
     ctx = _mv_ctx(inputs, inputs.weeks(), settings.screen_sims, settings.seed)
     R, IL, back = after_step(st, activation_step(inputs, manager))     # 44a: a move after the step
     base_p, base_s, _ = _totals(ctx, R)
@@ -1163,7 +1170,7 @@ def recommend(inputs: MondayInputs, manager: str, settings: Settings = Settings(
     if priced is None:
         priced = price(inputs, manager, finalists(candidate_moves(inputs, manager, settings), settings),
                        settings)
-    prot = protected(st, settings.protected)
+    prot = protected_for(inputs, manager, settings)
     step = activation_step(inputs, manager)
     if step and set(step["drops"]) & prot:
         raise AssertionError(f"{manager}: the activation step drops a protected keeper "
@@ -1228,7 +1235,7 @@ def most_games(inputs: MondayInputs, manager: str, settings: Settings,
     active player with the fewest (ties: lower projection) unless `drop` is
     given. No move unless it gains startable games."""
     st = inputs.managers[manager]
-    prot = protected(st, settings.protected)
+    prot = protected_for(inputs, manager, settings)
     ctx = _mv_ctx(inputs, inputs.weeks(), settings.screen_sims, settings.seed)
     R = list(st.active)
     _bp, bs, _ = _totals(ctx, R)
@@ -1262,7 +1269,7 @@ def highest_projection(inputs: MondayInputs, manager: str, settings: Settings,
     point-in-time projection; the drop is the unprotected active player with
     the lowest, unless `drop` is given. No move unless the add projects higher."""
     st = inputs.managers[manager]
-    prot = protected(st, settings.protected)
+    prot = protected_for(inputs, manager, settings)
     R = list(st.active)
     open_spot = len(R) < st.active_capacity
     proj = lambda n: inputs.projections[n].effective_fppg

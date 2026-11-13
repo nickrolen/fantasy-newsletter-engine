@@ -392,12 +392,20 @@ def test_scenario_12_tags_are_anchored_at_their_fetch_date_for_a_horizon_startin
 
 
 def test_a_chat_move_puts_in_il_only_a_player_still_out_next_monday():
-    """Rule 2 at next Monday's window: an O tag alone (back within 3 games) is
-    not IL-eligible for a chat move; OFS or an injury entry covering the
-    window day is. A Monday move takes the tag now."""
+    """44b s.5: a chat move's IL eligibility is the plan's rule
+    (roster_plan.out_all_week): an injury entry out for the whole of the chat
+    move's week, whatever the tag today. An O tag alone (back within 3 games)
+    is not; neither is OFS without an entry (the plan never places him: 44a
+    case 4). A Monday move takes the tag now."""
+    from modules.projections import PlayerProjection
+    from modules import roster_plan as rp
     names = ["A", "B", "C", "D"]
     tags = {"A": "O", "B": "OFS", "C": "O", "D": "Q"}
-    assert av.chat_il_eligible(names, tags, {"C"}) == {"B", "C"}
+    proj = {n: PlayerProjection(n, "BOS", ["PG"], 30.0, out_weeks=[2] if n in ("C", "D") else [])
+            for n in names}
+    assert av.chat_il_eligible(names, proj, 2) == {"C", "D"} == {n for n in names
+                                                               if rp.out_all_week(proj[n], 2)}
+    assert av.chat_il_eligible(names, proj, 3) == set()
     assert av.monday_il_eligible(names, tags) == {"A", "B", "C"}
     fx = S.scenario_7(45)                 # Short O: tagged O, no injury entry
     inp = fx.inputs(now=S.at(1, 2, 15), balance=False)

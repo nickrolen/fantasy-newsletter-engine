@@ -92,12 +92,15 @@ class Fixture:
         return [self.player(f"{prefix or manager} {i}", days, fppg, manager=manager, keep=keep)
                 for i in range(n)]
 
-    def stakes(self, lev=0.15, sd=200.0, last=None):
+    def stakes(self, lev=0.15, sd=200.0, last=None, manager=None):
+        """Hand-made stakes; rs_title from self.rs_title[manager] when set (44b
+        s.6: a team with little left to play for), else 0.4."""
         last = max(self.weeks) if last is None else last
         ws = {w: injured_drop.WeekStake(w, lev, None, 0.0, sd) for w in range(1, last + 1)}
-        return injured_drop.TeamStakes(self.weeks[0], True, 0.4, 0.3, ws, last)
+        rs = (getattr(self, "rs_title", None) or {}).get(manager, 0.4)
+        return injured_drop.TeamStakes(self.weeks[0], True, rs, 0.3, ws, last)
 
-    def plan_spec(self, sw, anchor, active_capacity, il_capacity, stakes=None):
+    def plan_spec(self, sw, anchor, active_capacity, il_capacity, stakes=None, open_window=False):
         """advice_v2.PlanSpec for this fixture: roster_plan.build's arguments,
         the plan starting at the tags' week (locked), a window at every later
         week's first day. An injured-drop decision RAISES (no fixture needs one;
@@ -113,17 +116,32 @@ class Fixture:
                      if date.fromisoformat(w["start_date"]) <= anchor <= date.fromisoformat(w["end_date"]))
         lr = roster_plan.LongRun(nba_schedule={"games": self.games}, schedule_weeks=weeks,
                                  durability_prior=None, season="2026-27", statuses=dict(self.statuses),
-                                 anchor=anchor, first_week=start + 1, last_week=weeks[-1]["week"])
+                                 anchor=anchor, first_week=start if open_window else start + 1,
+                                 last_week=weeks[-1]["week"])
 
         def stakes_for(m, window):
             ts = stakes[m]
             return injured_drop.TeamStakes(int(window), ts.regular_season, ts.rs_title, ts.champion,
                                            {w: v for w, v in ts.weeks.items() if w >= int(window)},
                                            ts.last_week)
+        def games(team, w, from_day=None):
+            """His NBA team's games in fantasy week w (from from_day): the fixture's own schedule."""
+            wk = next(x for x in weeks if int(x["week"]) == int(w))
+            lo, hi = date.fromisoformat(wk["start_date"]), date.fromisoformat(wk["end_date"])
+            ds = {date.fromisoformat(g["date"][:10]) for g in self.games if team in (g["home"], g["away"])}
+            return sum(1 for d in ds if lo <= d <= hi and (from_day is None or d >= from_day))
+
+        def share(proj):
+            from modules import absence
+            return 1.0 - absence.durability_miss_rate(float(proj.projected_gp), absence.baseline_params())
+        # 44b s.2: a Monday move's open window can need an 18b decision (more injured
+        # than IL slots at week 1): it runs on the fixture's stakes, games and durability
         drops = roster_plan.DropContext(
             config=injured_drop.from_rules(), note=(lambda: None) if stakes else (lambda: "fixture: no stakes"),
-            stakes=stakes_for, keep=lambda m: dict(self.keep[m]), games=refuse, availability=refuse,
-            longrun=lr.points)
+            stakes=stakes_for, keep=lambda m: dict(self.keep[m]), games=games, availability=share,
+            longrun=lr.draws,
+            little_left=(lambda m, w: injured_drop.little_left(stakes_for(m, w), injured_drop.from_rules()))
+            if stakes else None)
         return av.PlanSpec(dict(
             start_week=start, il_slots={m: list(self.rosters[m]["il"]) for m in MANAGERS},
             rosters={m: list(self.rosters[m]["active"]) + list(self.rosters[m]["il"]) for m in MANAGERS},
@@ -132,7 +150,10 @@ class Fixture:
             statuses={n: self.statuses.get(n, "HEALTHY") for n in self.proj},
             rules={"active_spots": active_capacity, "il_slots": il_capacity, "add_budget": 3,
                    "il_eligible_tags": {"O", "OFS"}, "replacement_rank": 4},
-            standin_gp=82.0, drops=drops, known={}))
+            standin_gp=82.0, drops=drops, known={},
+            # 44b s.2: a Monday move is before the close, so the start week's window is open
+            open_day=(date.fromisoformat(weeks[[w["week"] for w in weeks].index(start)]["start_date"])
+                      if open_window else None), start_adds_used={}))
 
     def week_dates(self):
         out = {}
@@ -177,9 +198,8 @@ class Fixture:
             if hz.kind == av.MONDAY:
                 il_eligible = av.monday_il_eligible(names, self.statuses)
             else:
-                out_on = {n for n in names if hz.weeks[0] in (self.proj[n].out_weeks or [])}
-                il_eligible = av.chat_il_eligible(names, self.statuses, out_on)
-        st = {m: self.stakes() for m in MANAGERS} if stakes else {}
+                il_eligible = av.chat_il_eligible(names, self.proj, hz.weeks[0])   # 44b s.5
+        st = {m: self.stakes(manager=m) for m in MANAGERS} if stakes else {}
         inp = av.assemble(horizon=hz, season="2026-27", nba_schedule={"games": self.games}, schedule_weeks=sw,
                           durability_prior=None, anchor=anchor, projections=self.proj, statuses=self.statuses,
                           rosters={m: (tuple(self.rosters[m]["active"]), tuple(self.rosters[m]["il"]))
@@ -190,7 +210,8 @@ class Fixture:
                           pool=[n for n in self.pool if n not in set(reserved)], il_eligible=il_eligible,
                           reserved=frozenset(reserved), stakes=st,
                           drop_config=injured_drop.Config(2.0, 1.0, 0.05, 0.05, 4, 6, 0.25, 0.04, 0.075),
-                          plan=self.plan_spec(sw, anchor, active_capacity, il_capacity, st))
+                          plan=self.plan_spec(sw, anchor, active_capacity, il_capacity, st,
+                                              open_window=hz.kind == av.MONDAY))
         inp.banked = dict(banked or {})
         if balance:
             inp = self._balanced(inp, inp.horizon, opponents, edge or {}, now=now, close=close,

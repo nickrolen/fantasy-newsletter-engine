@@ -108,5 +108,5 @@ def test_the_live_path_prices_with_the_season_pass_projections():
     src = inspect.getsource(advice_live.build)
     assert 'pidx = run.args["players"]' in src
     assert "load_player_projections(" not in src
-    assert "roster_plan.for_run(data, tps, tags, today=today)" in src
+    assert "roster_plan.for_run(data, tps, tags, today=today, now=now)" in src     # 44b: the run's clock
     assert "plan=av.PlanSpec(dict(run.args))" in src

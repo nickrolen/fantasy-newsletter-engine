@@ -893,6 +893,12 @@ class Run:
                 # the step that built the plan, in the run record and on screen
                 from .roster_plan import take_notes
                 notes = take_notes()
+                # 44b s.3: a keeper-watch failure falls back loudly -- the run row and the summary
+                kw = [n_ for n_ in notes if n_.startswith("KEEPER WATCH FAILED")]
+                if kw:
+                    blk = self.ctx.setdefault("keeper_watch", {"failed": True, "notes": [], "steps": []})
+                    blk["notes"] = list(dict.fromkeys(blk["notes"] + kw))
+                    blk["steps"].append(name)
                 if notes:
                     detail = "; ".join([str(detail or "")] + notes) if detail else "; ".join(notes)
                 rows.append({"step": name, "outcome": "ok", "seconds": round(time.perf_counter() - t0, 2),
@@ -953,6 +959,8 @@ class Run:
             row["headshots"] = self.ctx["headshots"]
         if self.ctx.get("cards") is not None:
             row["cards"] = self.ctx["cards"]
+        if self.ctx.get("keeper_watch") is not None:
+            row["keeper_watch"] = self.ctx["keeper_watch"]
         if self.mode == "nightly":
             row["afternoon"] = afternoon_plan_today(self.base, self.today)
         from .jsonl_log import append_rows
@@ -1202,6 +1210,8 @@ def main(argv=None) -> int:
     for line in run.ctx.get("advice_lines") or []:                # advice v2: one line per manager
         print(line)
     for line in run.ctx.get("cards_lines") or []:                 # the cards fail softly, loudly
+        print(line)
+    for line in (row.get("keeper_watch") or {}).get("notes") or []:   # 44b s.3: the plan fell back
         print(line)
     if row.get("headshots") is not None:                          # task 40a: the library's reach
         hs_ = row["headshots"]

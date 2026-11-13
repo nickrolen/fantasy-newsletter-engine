@@ -82,6 +82,13 @@ def _data(through=MON, current_week=1, **kw):
     # This world's IL state, stated: nobody in an IL slot (roster_plan reads
     # data/IL_SLOTS.json otherwise, and refuses when it is missing).
     data.il_slots = roster_plan.no_il(2)
+    # ... and its adds, stated: these four short rosters (3-4 players against
+    # the league's active spots) are a pricing world, not a roster world. A
+    # run before Monday's close plays the start week as an open window (44b
+    # s.2), whose stand-ins come out of the adds left; this world has used
+    # them, so no open spot is filled (roster_plan reads the move ledger
+    # otherwise).
+    data.start_adds_used = {m: roster_plan.rules()["add_budget"] for m in ROSTERS}
     return data, week
 
 
