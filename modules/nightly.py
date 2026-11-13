@@ -66,7 +66,11 @@ s.2.4 and s.4 the design. The nightly run:
    8 actuals       player_actuals.update (the pre-tip run too, before its hub
                    step: a player added in the Monday window is backfilled here,
                    or the hub refuses with ActualsStale -- 11-09's 3:15 and 3:30
-                   runs did). The closing run builds no hub and reads no actuals
+                   runs did). The closing run builds no hub and reads no actuals.
+                   Then (40b) player_actuals.update_extras: every non-rostered
+                   player the previous hub named, for the cards; its failure is
+                   recorded (the run's "actuals" block, FREE-AGENT ACTUALS
+                   FAILED in the summary) and never stops the run
    9 hub           hub_state.build, then build_hub (encrypted when
                    HUB_PASSPHRASE is set, --preview-only otherwise).
                    Publishing is step 1c-ii. The player cards fail softly
@@ -780,8 +784,28 @@ class Run:
         if self._afternoon_unchanged():
             return "skipped: nothing changed since the last line"
         r = pa.update(self.base, today=self.today)
-        return (f"through {r['through']}: {len(r['days_fetched'])} day(s), {r['calls']} call(s)"
-                + (f"; backfilled {', '.join(r['backfilled'])}" if r["backfilled"] else ""))
+        detail = (f"through {r['through']}: {len(r['days_fetched'])} day(s), {r['calls']} call(s)"
+                  + (f"; backfilled {', '.join(r['backfilled'])}" if r["backfilled"] else ""))
+        # 40b: then every non-rostered player the previous hub named, in their
+        # own batches. It feeds only the player cards, which fail softly, so a
+        # failure here (Yahoo, the cap, the names) is recorded loudly -- the
+        # run's "actuals" block, FREE-AGENT ACTUALS FAILED in the summary --
+        # and the run goes on; the rostered days above are already written.
+        t0 = time.perf_counter()
+        try:
+            x = pa.update_extras(self.base, source=r.get("source"), rostered=r["ids"], today=self.today)
+        except Exception as e:                       # noqa: BLE001 -- recorded loudly, never stops the run
+            err = f"{type(e).__name__}: {e}".splitlines()[0][:500]
+            self.ctx["actuals"] = {"extras": None, "error": err, "seconds": round(time.perf_counter() - t0, 2)}
+            self.ctx["actuals_lines"] = [f"FREE-AGENT ACTUALS FAILED: {err} -- their cards keep the note; "
+                                         "the rostered players' numbers are fetched"]
+            return detail + f"; free agents FAILED (recorded, the run goes on): {err}"
+        self.ctx["actuals"] = {"extras": x["players"], "no_id": x["no_id"], "days": len(x["days_fetched"]),
+                               "calls": x["calls"], "backfilled": x["backfilled"], "error": None,
+                               "seconds": round(time.perf_counter() - t0, 2)}
+        return (detail + f"; free agents {x['players']} (cap {x['cap']}), {len(x['days_fetched'])} day(s), "
+                f"{x['calls']} call(s)" + (f", backfilled {', '.join(x['backfilled'])}" if x["backfilled"] else "")
+                + (f"; no Yahoo id: {', '.join(x['no_id'])}" if x["no_id"] else ""))
 
     # -- 9
     def step_hub(self):
@@ -959,6 +983,8 @@ class Run:
             row["headshots"] = self.ctx["headshots"]
         if self.ctx.get("cards") is not None:
             row["cards"] = self.ctx["cards"]
+        if self.ctx.get("actuals") is not None:
+            row["actuals"] = self.ctx["actuals"]
         if self.ctx.get("keeper_watch") is not None:
             row["keeper_watch"] = self.ctx["keeper_watch"]
         if self.mode == "nightly":
@@ -1210,6 +1236,8 @@ def main(argv=None) -> int:
     for line in run.ctx.get("advice_lines") or []:                # advice v2: one line per manager
         print(line)
     for line in run.ctx.get("cards_lines") or []:                 # the cards fail softly, loudly
+        print(line)
+    for line in run.ctx.get("actuals_lines") or []:               # 40b: so do their free agents' numbers
         print(line)
     for line in (row.get("keeper_watch") or {}).get("notes") or []:   # 44b s.3: the plan fell back
         print(line)

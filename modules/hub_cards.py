@@ -9,8 +9,9 @@ named only in the moves feed) gets the same card without what does not apply
 to him: no keep chance, no rank. A card's season numbers are his NBA numbers
 (Nick, 11-12): data/player_actuals.json through the roster table's own day
 (nba_lines), so a rostered card equals his row; a player that cache does not
-cover (a free agent) gets a note instead, and the league-roster figure is a
-secondary line (player_card_builder, ONE FPPG EVERYWHERE).
+cover gets a note instead (a free agent new to the hub's lists: the next
+run fetches him, 40b; or one with no Yahoo id), and the league-roster figure
+is a secondary line (player_card_builder, ONE FPPG EVERYWHERE).
 
 WHICH NAMES (annotate, called by hub_state.build on every payload): every
 player name the hub shows in a table or list --
@@ -391,7 +392,9 @@ def nba_lines(base_path, payload: dict, kw_rows, extras) -> dict:
     (payload sources.actuals_through), from the same cache
     (player_actuals.card_lines). A rostered player must be covered (his row
     already is); anyone else is covered when the cache has his every day, and
-    otherwise gets the note."""
+    otherwise gets the note: "fetched from tonight" (40b: the actuals step
+    fetches every name the previous hub showed), or, for a player with no
+    Yahoo id by the engine's one rule (player_actuals.extra_ids), why."""
     from datetime import date
     from . import player_actuals as pa
     through = (payload.get("sources") or {}).get("actuals_through")
@@ -399,8 +402,10 @@ def nba_lines(base_path, payload: dict, kw_rows, extras) -> dict:
         raise CardsError("the payload names no actuals_through date: the cards' NBA numbers run to it")
     try:
         blob = pa.load(base_path)
+        _ids, no_id = pa.extra_ids(base_path, [x["player_name"] for x in extras]) if extras else ({}, [])
         return pa.card_lines(blob, [r["player_name"] for r in kw_rows] + [x["player_name"] for x in extras],
-                             date.fromisoformat(through), required=[r["player_name"] for r in kw_rows])
+                             date.fromisoformat(through), required=[r["player_name"] for r in kw_rows],
+                             no_id=no_id)
     except pa.ActualsError as e:
         raise CardsError(str(e)) from None
 

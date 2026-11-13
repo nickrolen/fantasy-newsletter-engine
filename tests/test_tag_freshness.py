@@ -827,9 +827,11 @@ def test_the_firing_counts_are_recomputed_from_the_files():
 
 
 def test_the_worst_case_stays_under_the_cap_once_github_crons_go():
+    # 40b: the estimate counts only the private state repo's workflows (public
+    # repos are free), per job rounded up; tests/test_40b_fa_actuals.py pins the pieces
     e = am.estimate(date(2026, 11, 16), ROOT)
     worst = next(r for r in e["estimates"] if r["case"] == "worst")
-    assert worst["total_after_6f"] <= 1700, worst
+    assert worst["total"] <= 1700, worst
     c = e["counts"]
     assert c["pretip_runs"] == 3 * c["window_mondays"]
     assert 20 <= c["polls_per_monday"] <= 26

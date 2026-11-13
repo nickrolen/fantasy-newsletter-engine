@@ -464,6 +464,11 @@
         "matchup_framing": {"blowout_win_pct": 95, "comeback_close_below": 40, "comeback_now_at": 50, "comeback_rise_points": 20, "comeback_rise_was_below": 50, "close_low": 35, "close_high": 65},
         "_matchup_framing": "Task 48a (Nick, 11-10; starting values for Nick to tune): how the hub's nightly matchup paragraph picks its framing, first match wins: Final (every day banked); Blowout (the leader's win % >= blowout_win_pct); Comeback (the team below comeback_close_below % at the closing line is now at comeback_now_at % or more, or a team that was below comeback_rise_was_below % at the previous priced run rose comeback_rise_points points or more since it -- Nick, 11-10: a favourite growing its lead is no comeback, and the team that trailed at the close and leads now stays a comeback all week); Lead change (the banked leader differs from the previous priced run's); Close (both teams between close_low and close_high %); Steady otherwise. Percent points. Required: missing or malformed raises (modules/hub_matchups.framing_config)."
     },
+    "actuals": {
+        "_comment": "40b (claude/HANDOFF_40B_FA_ACTUALS_2026-11-13.md; modules/player_actuals.update_extras): the nightly's actuals step also fetches Yahoo's daily lines for every NON-ROSTERED player the previous hub named (the free agents, the stash, the trade block, the moves feed, advice), for the player cards. Required: missing or below 1 raises (player_actuals.extras_cap).",
+        "extra_players_max": 150,
+        "_extra_players_max": "At most this many such players with a Yahoo id; more RAISES naming the count (no name is dropped quietly; the nightly records it loudly and goes on, the cards keep their note). 150, not the handoff's 40: the moves feed lists every move of the season, so its non-rostered names grow about 4 a week (23 after week 4) to roughly 100 by April, plus about 15 free agents and stash players. Each 25 players cost 2 Yahoo calls a night (150 = 12 calls); a new name's backfill is 2 calls a day of the season so far."
+    },
     "advice": {
         "_comment": "Advice v2 (claude/HANDOFF_ADVICE_V2_2026-11-11.md; modules/advice_live.py). Every key required: missing or anything else raises (advice_live.hub_switch).",
         "hub": "off",

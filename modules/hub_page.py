@@ -25,6 +25,12 @@ earlier seasons and headshot (HUB.part, HUB.photo), and opens the
 newsletter's own modal (player_card_modal, whose script and style come in the
 bundle, not in this page). The loader computes nothing: it joins the two
 lists of games the engine wrote and hands the card to the modal.
+A card, history or photo file that is gone (HTTP 404: a publish replaced
+the files an open page names, hub_deploy.stage) shows "The hub has been
+updated: reload the page to open player cards." with a Reload button
+(HUB.reload: the unlocked key rides one reload in sessionStorage, so no
+passphrase again); any other failure keeps "That player card could not be
+opened." (40b s.2, 11-13).
 
 LORE NEVER REACHES IT: every payload string passes live_lines_page.clean
 (VOICE rule 21's tag strip, then HTML escaping).
@@ -71,6 +77,7 @@ a{color:#1D5FD1;text-decoration:none}
 button{font:inherit;color:inherit}
 .wrap{max-width:560px;margin:0 auto;padding-bottom:28px}
 .stale{background:#7A1E14;color:#fff;padding:14px 18px;font-size:15px;font-weight:700;line-height:1.4}
+.stale .reload{margin-left:8px;min-height:36px;padding:6px 14px;border-radius:8px;border:0;background:#fff;color:#7A1E14;font-size:14px;font-weight:700;font-family:inherit}
 .mismatch{background:#4a1714;color:#ffd9d6;padding:12px 18px;font-size:13px;line-height:1.4}
 header.top{background:#121417;color:#fff;padding:20px 20px 18px;display:flex;flex-direction:column;gap:10px}
 .row-b{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
@@ -733,7 +740,8 @@ function cardsBundle(){
     return (b.code?window.HUB.part(b.code):Promise.resolve(b)).then(function(code){
       var st=document.createElement('style');st.textContent=code.css;document.head.appendChild(st);
       var sc=document.createElement('script');sc.textContent=code.js;document.body.appendChild(sc);
-      window.pcPhotoLoader=(window.HUB&&window.HUB.photo)?window.HUB.photo:null;
+      window.pcPhotoLoader=(window.HUB&&window.HUB.photo)?function(ref){
+        return window.HUB.photo(ref).catch(function(err){if(err&&err.message==='gone'){movedBox();}throw err;});}:null;
       return b;});});
   cardsP.catch(function(){cardsP=null;});
   return cardsP;
@@ -746,6 +754,7 @@ function openCard(key){
       c.sparkline=prior.concat(c.sparkline);c.histIn=true;return c;});}
     return c;
   }).then(function(c){window.pcShow(c);},function(err){
+    if(err&&err.message==='gone'){movedBox();return;}
     alertBox((err&&err.message==='old browser')?'This browser is too old to open player cards.':
       'That player card could not be opened.');});
 }
@@ -787,6 +796,17 @@ if(wk){wk.addEventListener('change',function(){
 function openFrame(url){var v=document.getElementById('issue-view');document.getElementById('issue-frame').src=url;v.hidden=false;}
 function alertBox(msg){var d=document.createElement('div');
   d.className='stale';d.textContent=msg;document.body.insertBefore(d,document.body.firstChild);}
+// 40b s.2: a card, history or photo file that is gone (HTTP 404) means a
+// publish replaced the files this page names: say so once, with a reload
+// that keeps the unlocked key (HUB.reload; no passphrase again)
+function movedBox(){
+  if(document.getElementById('hub-moved')){return;}
+  var d=document.createElement('div');d.className='stale';d.id='hub-moved';
+  d.appendChild(document.createTextNode('The hub has been updated: reload the page to open player cards. '));
+  var b=document.createElement('button');b.type='button';b.className='reload';b.textContent='Reload';
+  b.addEventListener('click',function(){if(window.HUB&&window.HUB.reload){window.HUB.reload();}else{location.reload();}});
+  d.appendChild(b);document.body.insertBefore(d,document.body.firstChild);
+}
 route();
 })();
 """
@@ -834,8 +854,11 @@ function openWith(raw){
   .then(function(k){return crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(B.iv)},k,unb64(B.ct));})
   .then(function(pt){return JSON.parse(new TextDecoder().decode(pt));});
 }
+var RELOAD='hub-key-reload',cur=null;
 function sealed(file,k){
-  return fetch(file).then(function(r){if(!r.ok){throw new Error('fetch');}return r.arrayBuffer();})
+  return fetch(file).then(function(r){
+    if(r.status===404){throw new Error('gone');}
+    if(!r.ok){throw new Error('fetch');}return r.arrayBuffer();})
   .then(function(buf){var u=new Uint8Array(buf);
     return crypto.subtle.importKey('raw',unb64(k),'AES-GCM',false,['decrypt']).then(function(key){
       return crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},key,u.slice(12));});});
@@ -861,7 +884,10 @@ function mount(inner){
           return crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},key,u.slice(12));});})
       .then(function(pt){return URL.createObjectURL(new Blob([pt],{type:'text/html'}));});
     },
-    forget:function(){clearStored();location.reload();}
+    forget:function(){clearStored();location.reload();},
+    reload:function(){
+      try{if(cur){sessionStorage.setItem(RELOAD,JSON.stringify({salt:B.salt,key:b64(cur)}));}}catch(e){}
+      location.reload();}
   };
   var doc=new DOMParser().parseFromString(inner.page,'text/html');
   document.title=doc.title;
@@ -873,11 +899,22 @@ function mount(inner){
   for(var j=0;j<ss.length;j++){var n=document.createElement('script');n.textContent=ss[j].textContent;ss[j].replaceWith(n);}
 }
 var form=document.getElementById('unlock'),msg=document.getElementById('msg'),btn=document.getElementById('go');
+function takeReload(){
+  var v=null;try{v=JSON.parse(sessionStorage.getItem(RELOAD)||'null');sessionStorage.removeItem(RELOAD);}catch(e){v=null;}
+  return(v&&v.salt===B.salt)?v:null;
+}
 function tryStored(){
+  var r=takeReload();
+  if(r){return openWith(unb64(r.key)).then(function(inner){cur=unb64(r.key);mount(inner);return true;},
+    function(){return tryRemembered();});}
+  return tryRemembered();
+}
+function tryRemembered(){
   var s=getStored();
   if(!s){return Promise.resolve(false);}
   if(s.salt!==B.salt){clearStored();return Promise.resolve(false);}
-  return openWith(unb64(s.key)).then(function(inner){mount(inner);return true;},function(){clearStored();return false;});
+  return openWith(unb64(s.key)).then(function(inner){cur=unb64(s.key);mount(inner);return true;},
+    function(){clearStored();return false;});
 }
 tryStored().then(function(ok){if(!ok){form.hidden=false;document.getElementById('pass').focus();}});
 form.addEventListener('submit',function(e){
@@ -886,7 +923,7 @@ form.addEventListener('submit',function(e){
   derive(pass).then(function(raw){
     return openWith(raw).then(function(inner){
       if(document.getElementById('remember').checked){setStored({salt:B.salt,key:b64(raw)});}else{clearStored();}
-      mount(inner);
+      cur=raw;mount(inner);
     });
   }).catch(function(){msg.textContent='Wrong passphrase.';btn.disabled=false;btn.textContent='Open the hub';});
 });
