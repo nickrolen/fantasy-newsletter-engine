@@ -619,7 +619,7 @@ def test_only_the_nightly_run_builds_and_stores_the_paragraph(tmp_path, monkeypa
         return {"header": {"engine_mismatch": False}}
     monkeypatch.setattr(hub_state, "build", fake_build)
     monkeypatch.setattr(hub_state, "write", lambda base, payload: None)
-    monkeypatch.setattr(build_hub, "main", lambda argv: 0)
+    monkeypatch.setattr(build_hub, "run", lambda base, **k: {"rc": 0, "cards_error": None, "payload": None})
     wrote = []
     monkeypatch.setattr(hm, "write_night", lambda base, n, run_id: wrote.append(run_id))
     from modules import hub_cards                     # task 40: the cards step, stubbed here

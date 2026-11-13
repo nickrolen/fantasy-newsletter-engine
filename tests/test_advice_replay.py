@@ -15,7 +15,13 @@ from __future__ import annotations
 
 import inspect
 import json
+import math
+import os
+import subprocess
+import sys
+import zlib
 from datetime import date, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -32,6 +38,15 @@ def _box(name, pid, d, team, pts):
     return {"date": d.isoformat(), "player": name, "bbref_id": pid, "team": team, "opp": "X",
             "mp": 30.0, "fg": 5, "fga": 10, "fg3": 1, "fg3a": 3, "ft": 2, "fta": 2, "orb": 1, "drb": 4,
             "trb": 5, "ast": 3, "stl": 1, "blk": 0, "tov": 2, "pf": 2, "pts": pts}
+
+
+def _points(name: str) -> int:
+    """A player's fixed points bump, 0-14, the same in every process. It was
+    hash(name) % 15: Python salts str hashes per process (PYTHONHASHSEED), so
+    every run of this file built a different world, and the season pass's
+    week-5 leverage for a long shot (title chance ~0.3%) came out -0.0043 in
+    one of them (11-12) -- the world, not the engine, was what changed."""
+    return zlib.crc32(name.encode("utf-8")) % 15
 
 
 def world(weeks=23):
@@ -64,7 +79,7 @@ def world(weeks=23):
                     continue
                 if name == "Late FA" and w < 3:
                     continue
-                box.append(_box(name, name.lower().replace(" ", ""), d, team, 10 + (hash(name) % 15)))
+                box.append(_box(name, name.lower().replace(" ", ""), d, team, 10 + _points(name)))
     matchups = []
     for w in range(1, weeks + 1):
         a, b, c, e = (("Nick", "Hayden", "Benton", "Garrett") if w % 3 == 1 else
@@ -187,15 +202,47 @@ def test_the_cup_final_scores_nothing_and_is_not_scheduled():
                 and {g["home"], g["away"]} == {"NYK", "SAS"}]
 
 
+def _pass_digest(sims: int = 400) -> str:
+    s = season()
+    mon = ar.build_monday(s, 5, FAST)
+    a = ar.season_stakes(s, mon, FAST, sims=sims)
+    return json.dumps({m: [a["_title"][m], {w: [ws.rs_leverage, ws.playoff_leverage, ws.margin_mean]
+                                            for w, ws in sorted(a[m].weeks.items())}]
+                       for m in MANAGERS}, sort_keys=True)
+
+
 def test_the_season_pass_is_deterministic_and_leverage_points_the_right_way():
+    """Deterministic in-process and ACROSS processes (another PYTHONHASHSEED:
+    11-12's flake was a world built from hash(), see _points). The leverage's
+    sign is checked only where it is clearly non-zero: the all-iteration
+    leverage P(title | win) - P(title | loss) is a difference of two sample
+    means, SE about sqrt(p(1 - p) * 4 / sims); a long shot's true leverage is
+    a few thousandths (0.0034 at 20,000 sims), so at 400 sims one iteration
+    flips its sign. Checked at 4,000 sims, where |leverage| > 3 SE."""
     s = season()
     mon = ar.build_monday(s, 5, FAST)
     a = ar.season_stakes(s, mon, FAST, sims=400)
     b = ar.season_stakes(s, mon, FAST, sims=400)
     assert a["_title"] == b["_title"]
+    root = Path(__file__).resolve().parent.parent
+    env = dict(os.environ, PYTHONHASHSEED="12345")
+    code = ("import sys; sys.path[:0] = [%r, %r]; import test_advice_replay as t; "
+            "print(t._pass_digest())" % (str(root), str(root / "tests")))
+    other = subprocess.run([sys.executable, "-c", code], env=env, cwd=str(root), capture_output=True,
+                           text=True, timeout=120)
+    assert other.returncode == 0, other.stderr[-2000:]
+    assert other.stdout.strip() == _pass_digest()
+    big = ar.season_stakes(s, mon, FAST, sims=4000)
+    clear = 0
     for m in MANAGERS:
-        ws = a[m].weeks[5]
-        assert ws.rs_leverage is None or ws.rs_leverage >= 0
+        lev, p = big[m].weeks[5].rs_leverage, big["_title"][m][0]
+        if lev is None:
+            continue
+        se = math.sqrt(p * (1 - p) * 4 / 4000)
+        if abs(lev) > 3 * se:
+            clear += 1
+            assert lev > 0, (m, lev, se)
+    assert clear >= 2                     # not vacuous: the race's live teams are clear
 
 
 def test_realised_scoring_counts_only_players_who_played_and_no_move_is_zero():

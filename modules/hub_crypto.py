@@ -151,6 +151,11 @@ def subkey(root_key: bytes, info: bytes) -> bytes:
     return HKDF(algorithm=hashes.SHA256(), length=KEY_BYTES, salt=None, info=info).derive(root_key)
 
 
+class SealExhausted(ValueError):
+    """seal_by_content found no sealing free of the scan's terms: plaintext,
+    not chance (hub_publish turns it into PlaintextLeak)."""
+
+
 def seal_by_content(key: bytes, plaintext: bytes, avoid=(), tries: int = 20) -> tuple:
     """(key for this file, iv || ciphertext+tag), the same for the same
     plaintext. `avoid`: the plaintext scan's terms -- a counter in the
@@ -167,4 +172,4 @@ def seal_by_content(key: bytes, plaintext: bytes, avoid=(), tries: int = 20) -> 
         blob = iv + AESGCM(k).encrypt(iv, plaintext, None)
         if not any(t.encode("utf-8") in blob for t in avoid):
             return k, blob
-    raise ValueError(f"a card file matched a scan term {tries} times running: that is not chance")
+    raise SealExhausted(f"a card file matched a scan term {tries} times running: that is not chance")

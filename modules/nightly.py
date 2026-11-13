@@ -69,7 +69,11 @@ s.2.4 and s.4 the design. The nightly run:
                    runs did). The closing run builds no hub and reads no actuals
    9 hub           hub_state.build, then build_hub (encrypted when
                    HUB_PASSPHRASE is set, --preview-only otherwise).
-                   Publishing is step 1c-ii
+                   Publishing is step 1c-ii. The player cards fail softly
+                   (11-12, like advice): a card failure publishes the hub
+                   with plain names and no card files, and is recorded (the
+                   run's "cards" block, CARDS FAILED in the summary); the
+                   page, the encryption and the plaintext scan still refuse
   10 the record    output/nightly_runs.jsonl: one row per run
 
 FAILURE POLICY (refresh_service's): any step that refuses stops the run; the
@@ -794,25 +798,59 @@ class Run:
                                   night="build" if self.mode == "nightly" else "reuse",
                                   night_out=night_out, nba_report=self.ctx.get("nba_report"),
                                   cards_out=cards_out)
+        # task 40: the player cards, on every run that builds the hub, from this
+        # build's own keepability; build_hub publishes them (output/hub_cards.json,
+        # regenerable, not state). THEY FAIL SOFTLY (Nick, 11-12, like advice):
+        # any card failure -- annotate (in hub_state.build), building them here,
+        # or their publish files (build_hub.run) -- leaves the hub with plain
+        # names and no card files, and is recorded loudly: the run's "cards"
+        # block, CARDS FAILED in the summary, this step's line. The run goes on.
+        from . import hub_cards
+        err = cards_out.get("error")
+        cards = None
+        t0 = time.perf_counter()
+        if err is None:
+            try:
+                cards = hub_cards.build(self.base, payload, data=cards_out.get("data"),
+                                        keeper_watch=cards_out.get("keeper_watch"), echo=lambda *a: None)
+                hub_cards.write(self.base, cards)
+            except Exception as e:                   # noqa: BLE001 -- recorded loudly, never stops the run
+                err = hub_cards.failure("build", e)
+                cards = None
+                hub_cards.strip(payload)
+        if cards is None:
+            hub_cards.discard(self.base)             # an earlier run's cards are never reused
         hub_state.write(self.base, payload)
         if self.mode == "nightly" and night_out.get("night") is not None:
             hub_matchups.write_night(self.base, night_out["night"], run_id=self.run_id)
-        # task 40: the player cards, on every run that builds the hub, from this
-        # build's own keepability; build_hub publishes them (output/hub_cards.json,
-        # regenerable, not state)
-        from . import hub_cards
-        cards = hub_cards.build(self.base, payload, data=cards_out.get("data"),
-                                keeper_watch=cards_out.get("keeper_watch"), echo=lambda *a: None)
-        hub_cards.write(self.base, cards)
-        self.ctx["headshots"] = hub_cards.coverage(self.base, payload)
+        self.ctx["headshots"] = hub_cards.coverage(self.base, payload) if cards is not None else None
         enc = bool(os.environ.get("HUB_PASSPHRASE"))
-        rc = build_hub.main(["--base-path", str(self.base)] + ([] if enc else ["--preview-only"]))
-        if rc != 0:
-            raise StepRefused(f"build_hub exited {rc}")
-        hs = self.ctx["headshots"]
+        res = build_hub.run(self.base, preview_only=not enc, echo=lambda *a: None)
+        if res["rc"] != 0:
+            raise StepRefused(f"build_hub exited {res['rc']}")
+        if res["cards_error"] is not None and err is None:
+            # the card files failed at publish: the hub went out with plain names;
+            # the state's payload says so too
+            err = res["cards_error"]
+            cards = None
+            hub_state.write(self.base, res["payload"])
+            hub_cards.discard(self.base)
+            self.ctx["headshots"] = None
+        self.ctx["cards"] = {"error": None if err is None else err["error"],
+                             "stage": None if err is None else err["stage"],
+                             "cards": None if cards is None else len(cards["cards"]),
+                             "seconds": round(time.perf_counter() - t0, 2)}
+        if err is not None:
+            self.ctx["cards_lines"] = [f"CARDS FAILED ({err['stage']}): {err['error']} -- the hub published "
+                                       "with plain names and no card files"]
+            bits = (f"player cards FAILED at {err['stage']} (recorded; the hub published with plain names, "
+                    f"the run goes on): {err['error']}")
+        else:
+            hs = self.ctx["headshots"]
+            bits = (f"{len(cards['cards'])} player cards ({cards['seconds']} s), headshots: {hs['with']} of "
+                    f"{hs['rostered']} rostered")
         return ("encrypted publish directory" if enc else "preview only (no HUB_PASSPHRASE)") \
-            + f"; {len(cards['cards'])} player cards ({cards['seconds']} s), headshots: {hs['with']} of " \
-              f"{hs['rostered']} rostered" \
+            + f"; {bits}" \
             + (" -- ENGINE MISMATCH banner (dirty engine)" if payload["header"]["engine_mismatch"] else "")
 
     # -- (nightly, last; step 3b s.3): the O-past-3-games nudge
@@ -913,6 +951,8 @@ class Run:
             row["advice"] = self.ctx["advice"]
         if self.ctx.get("headshots") is not None:
             row["headshots"] = self.ctx["headshots"]
+        if self.ctx.get("cards") is not None:
+            row["cards"] = self.ctx["cards"]
         if self.mode == "nightly":
             row["afternoon"] = afternoon_plan_today(self.base, self.today)
         from .jsonl_log import append_rows
@@ -1160,6 +1200,8 @@ def main(argv=None) -> int:
     if row.get("afternoon") is not None:
         print(f"AFTERNOON CHECK TODAY: {row['afternoon']['why']}")
     for line in run.ctx.get("advice_lines") or []:                # advice v2: one line per manager
+        print(line)
+    for line in run.ctx.get("cards_lines") or []:                 # the cards fail softly, loudly
         print(line)
     if row.get("headshots") is not None:                          # task 40a: the library's reach
         hs_ = row["headshots"]

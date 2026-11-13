@@ -280,6 +280,10 @@ def test_the_manifest_lists_the_library_and_excludes_the_cards_file():
     assert any(e["path"] == "output/hub_cards.json" for e in blob["excluded"])
     gi = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert "assets/headshots" in gi and "output/hub_cards.json" in gi
+    # assets/potw is gone (11-12 follow-up): Nick's push removed the last
+    # photo's copy from the private repo, so the RETIRED entry has no job left
+    assert not any(e["path"].startswith("assets/potw") for e in blob["dirs"])
+    assert not man.contains("assets/potw/victor-wembanyama.png")
 
 
 # =============================================================================
@@ -342,12 +346,16 @@ def test_the_newsletter_card_gets_the_library_photo_or_no_key(tmp_path):
 @needs_state("data/historical/HISTORICAL_PLAYERLOG.json", "data/PLAYERLOG.xlsx", "data/PLAYERLIST.xlsx",
              why="a rookie's and a free agent's card are built from the real logs")
 def test_a_rookie_with_no_history_and_a_player_outside_keeper_watch():
-    from modules.player_card_builder import build_player_cards, SEASON_NOTE_OUTSIDE
+    from modules.player_card_builder import build_player_cards
+    from modules.player_actuals import NOTE_NEVER
     cards = build_player_cards([], ROOT / "data", ROOT / "config", ROOT / "data" / "historical",
-                               extra_players=[{"player_name": "Zed Newcomer-Rookie", "manager": ""}])
+                               extra_players=[{"player_name": "Zed Newcomer-Rookie", "manager": ""}],
+                               nba={"lines": {"Zed Newcomer-Rookie": None},
+                                    "notes": {"Zed Newcomer-Rookie": NOTE_NEVER}})
     c = cards[0]
     assert c["player_name"] == "Zed Newcomer-Rookie"
-    assert c["current_season"] is None and c["season_note"] == SEASON_NOTE_OUTSIDE
+    assert c["current_season"] is None and c["season_note"] == NOTE_NEVER
+    assert "league_season" not in c
     assert c["career"]["career_fppg"] is None and c["career"]["career_gp"] == 0
     assert c["milestones"] == [] and c["sparkline"] == [] and c["last_10"] == []
     assert c["archetype"] is None and c["age"] is None                       # nothing guessed

@@ -1095,6 +1095,22 @@ def mark_season_joins(content: str, season_performers: Optional[dict]) -> str:
     return "\n".join(out)
 
 
+def keeper_watch_nba_lines(stats_report: dict, kw_players: list, base: Path) -> dict:
+    """The Keeper Watch cards' season numbers: every player's NBA season,
+    the season's first day through the report week's last day (the stats
+    report's metadata.date_range.end), from data/player_actuals.json
+    (player_actuals.card_lines; Nick, 11-12). Every Keeper Watch player is
+    rostered, so each must be covered: a missing day RAISES, naming him."""
+    from datetime import date as _date
+    from modules import player_actuals as _pa
+    end = ((stats_report.get("metadata") or {}).get("date_range") or {}).get("end")
+    if not end:
+        raise ValueError("the stats report has no metadata.date_range.end: the Keeper Watch cards' "
+                         "NBA numbers run through the report week's last day")
+    names = [p["player_name"] for p in kw_players]
+    return _pa.card_lines(_pa.load(base), names, _date.fromisoformat(str(end)[:10]), required=names)
+
+
 def generate_html(
     title: str,
     subtitle: str,
@@ -1115,6 +1131,11 @@ def generate_html(
     if stats_report:
         kw_players = stats_report.get("keeper_watch", {}).get("players", [])
         if kw_players and data_dir and config_dir and historical_dir:
+            # the cards' season numbers are each player's NBA numbers through
+            # the report week's last day (Nick, 11-12: one FPPG everywhere).
+            # Outside the try: a missing or short data/player_actuals.json
+            # stops the build loudly, never every card quietly.
+            _nba = keeper_watch_nba_lines(stats_report, kw_players, data_dir.parent)
             try:
                 _player_cards = build_player_cards(
                     keeper_watch_players=kw_players,
@@ -1122,6 +1143,7 @@ def generate_html(
                     config_dir=config_dir,
                     historical_dir=historical_dir,
                     season_performers=stats_report.get("season_performers"),
+                    nba=_nba,
                 )
                 _player_card_embed = embed_player_card_data(_player_cards)
             except Exception as e:

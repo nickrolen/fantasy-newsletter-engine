@@ -117,3 +117,38 @@ def test_integrity_warns_on_a_stale_schedule(tmp_path, monkeypatch):
     warnings = []
     assert vpi._check_nba_schedule_fresh(cfg, warnings, today=date(2026, 11, 2)) == []
     assert len(warnings) == 1 and "Step 6 will refuse" in warnings[0]
+
+
+def test_integrity_reads_the_file_step_6_reads(tmp_path, monkeypatch):
+    """11-12: the warning read season.nba_schedule_file (the weeks-old base
+    file) while Step 6 reads nba_schedule.schedule_path (the refetched copy,
+    fresh every night), so it warned "Step 6 will refuse" when Step 6 would
+    not. Now both read the same file."""
+    spec = importlib.util.spec_from_file_location(
+        "vpi", ROOT / "scripts" / "verify_project_integrity.py")
+    vpi = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vpi)
+    monkeypatch.setattr(vpi, "PROJECT_ROOT", tmp_path)
+    (tmp_path / "config").mkdir()
+    (tmp_path / "data").mkdir()
+    (tmp_path / "config/SCHEDULE.json").write_text(json.dumps({
+        "season_year": "2026-2027",
+        "weeks": [{"week": 1, "start_date": "2026-10-20", "end_date": "2026-10-25"},
+                  {"week": 23, "start_date": "2027-03-29", "end_date": "2027-04-04"}]}))
+    (tmp_path / "data/nba.json").write_text(json.dumps(
+        {"games": [], "fetched_at": "2026-10-01T09:00:00"}))                 # the stale base file
+    cfg = {"season": {"current_long": "2026-2027", "nba_schedule_file": "data/nba.json"}}
+    from modules.nba_schedule import schedule_path
+    refetched = tmp_path / "data/nba.refetched.json"
+    assert schedule_path(tmp_path, cfg) == tmp_path / "data/nba.json"
+    refetched.write_text(json.dumps({"games": [], "fetched_at": "2026-11-11T00:06:00"}))
+    assert schedule_path(tmp_path, cfg) == refetched                         # what Step 6 reads
+    warnings = []
+    assert vpi._check_nba_schedule_fresh(cfg, warnings, today=date(2026, 11, 12)) == []
+    assert warnings == []                                                    # the fresh copy: no warning
+    refetched.write_text(json.dumps({"games": [], "fetched_at": "2026-10-02T00:06:00"}))
+    assert vpi._check_nba_schedule_fresh(cfg, warnings, today=date(2026, 11, 12)) == []
+    assert len(warnings) == 1 and "Step 6 will refuse" in warnings[0] and "2026-10-02" in warnings[0]
+    src = (ROOT / "scripts" / "verify_project_integrity.py").read_text(encoding="utf-8")
+    body = src[src.index("def _check_nba_schedule_fresh"):src.index("def _check_durability_prior")]
+    assert "schedule_path(PROJECT_ROOT, cfg)" in body and "PROJECT_ROOT / nba_file" not in body

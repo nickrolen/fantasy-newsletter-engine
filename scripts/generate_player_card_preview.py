@@ -69,13 +69,16 @@ def main():
     print(f"Found {len(kw_players)} keeper watch players")
     print()
 
-    # Build cards with full historical data
+    # Build cards with full historical data; season numbers are the NBA's
+    # through the report week (the newsletter's own rule, 11-12)
+    from newsletter_html_generator import keeper_watch_nba_lines
     cards = build_player_cards(
         keeper_watch_players=kw_players,
         data_dir=DATA_DIR,
         config_dir=CONFIG_DIR,
         historical_dir=HISTORICAL_DIR,
         season_performers=sr.get("season_performers"),
+        nba=keeper_watch_nba_lines(sr, kw_players, DATA_DIR.parent),
     )
 
     print()

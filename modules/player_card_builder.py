@@ -23,6 +23,25 @@ Output:
   (extra_players: a free agent, a player in the moves feed). One builder, so
   the hub and the newsletter never show a player differently.
 
+ONE FPPG EVERYWHERE (Nick, 11-12, option c): a card's season numbers are the
+player's NBA numbers -- every game he played this season, on a league roster
+or not -- from data/player_actuals.json (Yahoo's daily lines;
+player_actuals.card_lines), the source the hub's roster table reads, so a
+rostered card equals its row. The caller passes them (nba=): the hub through
+yesterday, the newsletter through its report week's last day. What reads them:
+the stat bar (FPPG, Tot FP, GP, efficiency), its ranks ("Avg. Rank"), this
+season's row in the career table (and so the career totals, the season trend,
+the milestones and the draft ROI), this season's sparkline and last 10 games,
+the boom/bust panel and the season filter's figures, the archetype. The
+league-roster figure (keepability v3's season_* for a Keeper Watch player, the
+league log for anyone else) stays as ONE secondary line, league_season["text"]
+("On a league roster: 15.5 FPPG in 2 games"), only where it differs. A player
+the source does not cover (a free agent: the cache holds only rostered
+players' days) gets no season numbers, no current-season row, bars or panel,
+and a note saying why -- never the league figure in disguise. Unchanged: the
+keep chance (keepability v3's own inputs), the ownership timeline and the
+injury profile (league history), past seasons (the league's logs).
+
 NO MADE-UP VALUES (task 40): a field that does not apply is left out, never a
 0 that looks like data. A player with no games this season has
 current_season None and season_note saying why (the stat bar is not drawn);
@@ -388,9 +407,39 @@ def _num(v):
     return None if math.isnan(f) else f
 
 
-SEASON_NOTE_NONE = "No games this season in the league's logs"
-SEASON_NOTE_OUTSIDE = ("No games this season in the league's logs, which count a player's games only "
-                       "while he is on a league roster")
+SEASON_NOTE_NBA_NONE = "No NBA games this season"
+SEASON_NOTE_UNCOVERED = "No NBA numbers for him in the engine's daily lines"   # the caller's note, normally
+
+
+def nba_season(lines) -> dict | None:
+    """{"pts", "gp", "games": [(iso, points) for each day he played]} from
+    player_actuals.card_lines' days, or None (not covered). Summed day by day
+    in date order and rounded to 2 places -- player_actuals.window's sums, so a
+    rostered card equals his roster row."""
+    if lines is None:
+        return None
+    pts, gp, games = 0.0, 0, []
+    for d, p, g in lines:
+        pts += p
+        gp += g
+        if g >= 1:
+            games.append((d, float(p)))
+    return {"pts": round(pts, 2), "gp": gp, "games": games}
+
+
+def league_season_line(league_gp, league_fppg, league_total_fp, current_season) -> dict | None:
+    """The secondary line: this season's games on a league roster, only where
+    they differ from the headline (his NBA numbers) -- a different GP or a
+    different FPPG to one decimal -- or where there is no headline."""
+    if not league_gp:
+        return None
+    text = f"{float(league_fppg):.1f}"
+    cs = current_season or {}
+    if cs and cs.get("gp") == league_gp and f"{cs['fppg']:.1f}" == text:
+        return None
+    return {"fppg": round(float(league_fppg), 1), "gp": int(league_gp),
+            "total_fp": round(float(league_total_fp), 1),
+            "text": f"On a league roster: {text} FPPG in {int(league_gp)} game{'' if league_gp == 1 else 's'}"}
 
 
 def _ordinal(n: int) -> str:
@@ -431,6 +480,8 @@ def build_player_cards(
     current_season_key: str = CURRENT_SEASON,
     season_performers: dict | None = None,
     extra_players: list[dict] | None = None,
+    *,
+    nba: dict,
 ) -> list[dict]:
     """
     Build comprehensive player card data for each keeper watch player, and
@@ -450,6 +501,10 @@ def build_player_cards(
             "manager"} ("" for none). No keep chance; this season's numbers from
             the league's log (the games he played on a league roster); team,
             positions and age from PLAYERLIST when it has him. Not ranked.
+        nba: player_actuals.card_lines' result, with a line (or None and a
+            note) for EVERY player above, keyed by the name as given: the
+            season numbers (module docstring, ONE FPPG EVERYWHERE). Required:
+            a card never falls back to the league-roster figure.
 
     Returns:
         List of player card dicts ready for JSON serialization.
@@ -536,10 +591,21 @@ def build_player_cards(
                 if pname and pname not in sp_lookup:
                     sp_lookup[pname] = p
 
+    want = [p["player_name"] for p in keeper_watch_players] + \
+        [x["player_name"] for x in (extra_players or [])]
+    lacking = [n for n in want if n not in (nba.get("lines") or {})]
+    if lacking:
+        raise ValueError(f"no NBA line (or note) for {', '.join(lacking[:5])}: player_actuals.card_lines "
+                         "decides every card player")
+
+    def _nba_of(n):
+        return nba["lines"][n], (nba.get("notes") or {}).get(n)
+
     # --- Build each card ---
     cards = []
     for kw_player in keeper_watch_players:
         name = kw_player["player_name"]
+        lines, note = _nba_of(name)
         card = _build_single_card(
             name=name,
             kw_data=kw_player,
@@ -552,6 +618,7 @@ def build_player_cards(
             pick_values=pick_values,
             current_season_key=current_season_key,
             sp_data=sp_lookup.get(name),
+            nba_lines=lines, nba_note=note,
         )
         cards.append(card)
 
@@ -606,8 +673,9 @@ def build_player_cards(
             kw_like = {"player_name": name, "manager": x.get("manager") or "",
                        "age": _num(plist.get("age")), "pos_group": _pos_group(str(positions)) if positions else "",
                        "nba_team": "", "out_for_season": None, "injured": None, "_extra": True}
+            lines, note = _nba_of(name)
             card = _build_single_card(
-                name=name, kw_data=kw_like,
+                name=name, kw_data=kw_like, nba_lines=lines, nba_note=note,
                 hist_games=_rows("hist", hist_by_player, name),
                 current_games=_rows("cur", current_by_player, name),
                 playerlist=playerlist, all_time=all_time,
@@ -751,8 +819,13 @@ def _build_single_card(
     pick_values: dict,
     current_season_key: str,
     sp_data: dict | None = None,
+    *,
+    nba_lines: list | None,
+    nba_note: str | None,
 ) -> dict:
-    """Build a complete player card for one player."""
+    """Build a complete player card for one player. nba_lines: his NBA
+    season, every day [[iso, points, games], ...] (player_actuals.card_lines),
+    or None with nba_note saying why."""
 
     plist = playerlist.get(name) or {}
     extra = bool(kw_data.get("_extra"))
@@ -776,57 +849,80 @@ def _build_single_card(
     }
 
     # =========================================================================
-    # 2. CURRENT SEASON STATS
-    # Use keeper_watch data (PLAYERLOG-based, includes bench games) as the
-    # single source of truth for player-level season stats.
-    # season_performers (Yahoo API) is ONLY for the Stats Corner tables.
+    # 2. CURRENT SEASON STATS -- his NBA numbers (ONE FPPG EVERYWHERE, 11-12):
+    # every game he played, from player_actuals' daily lines, summed exactly
+    # as the hub's roster table sums them. The league-roster figure is the
+    # secondary line (league_season), only where it differs.
     # =========================================================================
-    # Player-level FP list: all games where the player actually played
-    # (not injured, had fantasy points). Includes bench/IL+ slot games.
-    current_played = [g for g in current_games if not g.get("is_injured") and float(g.get("fantasy_points", 0) or 0) != 0]
-    current_fps = [float(g["fantasy_points"]) for g in current_played if g.get("fantasy_points")]
-
-    # Always use keeper_watch / PLAYERLOG data for season stats. A player
-    # outside Keeper Watch (the hub's free agents): the same log's games.
+    # the league's figure: games while on a league roster (not injured, had
+    # fantasy points; bench and IL+ slot games included)
+    league_played = [g for g in current_games if not g.get("is_injured") and float(g.get("fantasy_points", 0) or 0) != 0]
+    league_fps = [float(g["fantasy_points"]) for g in league_played if g.get("fantasy_points")]
     if extra:
-        season_gp = len(current_fps)
-        season_total_fp = sum(current_fps)
-        season_fppg = season_total_fp / season_gp if season_gp else 0
+        league_gp = len(league_fps)
+        league_total_fp = sum(league_fps)
+        league_fppg = league_total_fp / league_gp if league_gp else 0
         proj_fppg = _num(plist.get("projectedFPPG"))
     else:
-        season_fppg = kw_data.get("season_fppg", 0)
-        season_gp = kw_data.get("season_gp", len(current_fps))
-        season_total_fp = kw_data.get("season_total_fp", sum(current_fps))
+        league_fppg = kw_data.get("season_fppg", 0)
+        league_gp = kw_data.get("season_gp", len(league_fps))
+        league_total_fp = kw_data.get("season_total_fp", sum(league_fps))
         proj_fppg = kw_data.get("proj_fppg", plist.get("projectedFPPG", 0))
 
-    if season_gp:
+    nba = nba_season(nba_lines)
+    if nba is not None and nba["gp"]:
+        from .player_actuals import fppg_text
+        season_gp = nba["gp"]
+        season_total_fp = nba["pts"]
+        season_fppg = float(fppg_text(nba["pts"], nba["gp"]))      # the roster row's text, exactly
         efficiency_pct = round(100 * season_fppg / proj_fppg, 1) if proj_fppg and proj_fppg > 0 else None
         card["current_season"] = {
-            "fppg": round(season_fppg, 1),
+            "fppg": season_fppg,
             "gp": season_gp,
             "total_fp": round(season_total_fp, 1),
             "proj_fppg": round(proj_fppg, 1) if proj_fppg else None,
             "efficiency_pct": efficiency_pct,
+            "source": "nba",
         }
     else:
-        # no games: no stat bar of zeros (task 40) -- the card says why
+        # no NBA numbers, or no NBA game: no stat bar (task 40) -- the card says why
+        season_gp, season_total_fp, season_fppg = 0, 0.0, None
         card["current_season"] = None
-        card["season_note"] = SEASON_NOTE_OUTSIDE if extra else SEASON_NOTE_NONE
+        card["season_note"] = (nba_note or SEASON_NOTE_UNCOVERED) if nba is None else SEASON_NOTE_NBA_NONE
+    league_line = league_season_line(league_gp, league_fppg, league_total_fp,
+                                     card["current_season"])
+    if league_line is not None:
+        card["league_season"] = league_line
+
+    # his NBA games this season, for the bars and panels below (none: not covered)
+    nba_games = nba["games"] if nba is not None else []
+    current_fps = [p for _d, p in nba_games if p != 0]          # boom/bust: played, scored
+    league_by_date = {}
+    for g in current_games:
+        league_by_date.setdefault(str(g.get("date", ""))[:10], g)
+    # league-log injured days on which he played no NBA game, within the NBA
+    # window (the newsletter's ends with its report week): the INJ bars
+    played_days = {d for d, _p in nba_games}
+    last_day = nba_lines[-1][0] if nba_lines else ""
+    inj_rows = [] if nba is None else \
+        [g for g in current_games if g.get("is_injured") and str(g.get("date", ""))[:10] not in played_days
+         and str(g.get("date", ""))[:10] <= last_day]
 
     # =========================================================================
-    # 3. LAST 10 GAMES (Scoring Sparkline data)
+    # 3. LAST 10 GAMES (Scoring Sparkline data): his NBA games, newest first,
+    # with the league log's injured days; the opponent where the league log
+    # has that day (the daily lines carry none)
     # =========================================================================
-    all_current_sorted = sorted(current_games, key=lambda g: str(g.get("date", "")), reverse=True)
-    # Include started games AND injured games (IL rows have started=False but is_injured=True)
-    # Skip bench rows (started=False, is_injured=False)
-    relevant_sorted = [g for g in all_current_sorted if g.get("started") or g.get("is_injured")]
+    this_season = sorted([{"date": d, "fp": round(float(p), 1), "injured": False} for d, p in nba_games] +
+                         [{"date": str(g.get("date", ""))[:10], "fp": round(float(g.get("fantasy_points", 0) or 0), 1),
+                           "injured": True} for g in inj_rows], key=lambda x: x["date"])
     last_10 = []
-    for g in relevant_sorted[:10]:
+    for x in list(reversed(this_season))[:10]:
         last_10.append({
-            "date": str(g.get("date", ""))[:10],
-            "opponent": g.get("nba_opponent", ""),
-            "fp": round(float(g.get("fantasy_points", 0)), 1),
-            "injured": bool(g.get("is_injured", False)),
+            "date": x["date"],
+            "opponent": (league_by_date.get(x["date"]) or {}).get("nba_opponent", "") or "",
+            "fp": x["fp"],
+            "injured": x["injured"],
         })
 
     card["last_10"] = last_10
@@ -850,18 +946,9 @@ def _build_single_card(
             "season": _to_season_key(g.get("season_year", "")),
         })
 
-    # Current season
-    for g in sorted(current_games, key=lambda x: str(x.get("date", ""))):
-        started = g.get("started", False)
-        injured = g.get("is_injured", False)
-        if not started and not injured:
-            continue  # bench row
-        sparkline.append({
-            "date": str(g.get("date", ""))[:10],
-            "fp": round(float(g.get("fantasy_points", 0)), 1),
-            "injured": bool(injured),
-            "season": current_season_key,
-        })
+    # Current season: his NBA games (and the league log's injured days)
+    for x in this_season:
+        sparkline.append(dict(x, season=current_season_key))
 
     card["sparkline"] = sparkline
     card["boom_bust_by_season"] = boom_bust_by_season(sparkline)
@@ -897,7 +984,8 @@ def _build_single_card(
     # =========================================================================
     # 5. CAREER IN CHS LEAGUE (from historical + current)
     # =========================================================================
-    career = _compute_career_stats(name, hist_games, current_games, current_season_key)
+    career = _compute_career_stats(name, hist_games, current_games, current_season_key,
+                                   nba_current=nba if nba is not None and nba["gp"] else None)
     card["career"] = career
 
     # =========================================================================
@@ -954,8 +1042,9 @@ def _build_single_card(
     # =========================================================================
     # 13. ARCHETYPE
     # =========================================================================
-    # (no age, no archetype: it would be guessed from a made-up 25)
-    card["archetype"] = None if card["age"] is None else classify_archetype({
+    # (no age, no archetype: it would be guessed from a made-up 25; no season
+    # numbers, none either: it would be read off a made-up 0 FPPG)
+    card["archetype"] = None if card["age"] is None or card["current_season"] is None else classify_archetype({
         "pos_group": card["pos_group"],
         "season_fppg": season_fppg,
         "career_fppg": career.get("career_fppg") or 0,
@@ -982,8 +1071,14 @@ def _compute_career_stats(
     hist_games: list[dict],
     current_games: list[dict],
     current_season_key: str,
+    *,
+    nba_current: dict | None,
 ) -> dict:
-    """Compute career-level stats across all seasons."""
+    """Compute career-level stats across all seasons. This season's row is
+    his NBA numbers (nba_current: nba_season's dict; GP and points, the
+    league log's managers kept), and without them there is no row for this
+    season -- the league-roster figure never stands in (ONE FPPG EVERYWHERE).
+    Past seasons are the league's logs, as before."""
     # Combine historical + current into season buckets
     season_stats = defaultdict(lambda: {
         "gp": 0, "total_fp": 0.0, "managers": set(), "games_scheduled": 0,
@@ -1036,6 +1131,16 @@ def _compute_career_stats(
         if mgr:
             season_stats[sk]["managers"].add(mgr)
 
+    # this season: his NBA numbers, or no row
+    if nba_current is None:
+        season_stats.pop(current_season_key, None)
+    else:
+        s = season_stats[current_season_key]
+        s["gp"] = nba_current["gp"]
+        s["total_fp"] = nba_current["pts"]
+        s["game_fps"] = [p for _d, p in nba_current["games"] if p != 0]
+        s["nba"] = True
+
     # Aggregate career totals
     career_gp = 0
     career_fp = 0.0
@@ -1053,6 +1158,9 @@ def _compute_career_stats(
         all_fps.extend(s["game_fps"])
 
         fppg = round(s["total_fp"] / s["gp"], 1) if s["gp"] > 0 else 0
+        if s.get("nba"):                       # this season's row: the roster row's text, exactly
+            from .player_actuals import fppg_text
+            fppg = float(fppg_text(s["total_fp"], s["gp"]))
         season_breakdown.append({
             "season": sk,
             "gp": s["gp"],

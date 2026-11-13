@@ -132,3 +132,41 @@ def test_the_workflow_no_longer_hardcodes_a_schedule_filename():
     doc = (PROJECT_ROOT / "WEEKLY_WORKFLOW.md").read_text(encoding="utf-8")
     assert "--output data\\nba_schedule_2025-26.json" not in doc
     assert "fetch_nba_schedule.py --season 2025-26" not in doc
+
+
+# ---------------------------------------------------------------------------
+# The size baseline ignores scratch (_to_delete\, 11-12)
+# ---------------------------------------------------------------------------
+
+def test_the_size_baseline_never_records_or_checks_scratch(tmp_path, monkeypatch):
+    """Every cleanup of _to_delete\\ produced DISAPPEARED failures (13 on
+    11-12), and a --baseline --force taken while scratch held files made the
+    next cleanup fail again. Scratch is neither recorded nor checked, and a
+    baseline that already lists scratch files (Nick's 11-12 --force) has them
+    ignored. A real file that disappears still fails."""
+    spec = importlib.util.spec_from_file_location(
+        "vpi_baseline", PROJECT_ROOT / "scripts" / "verify_project_integrity.py")
+    v = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(v)
+    monkeypatch.setattr(v, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(v, "BASELINE_FILE", tmp_path / "config" / ".file_baselines.json")
+    (tmp_path / "modules").mkdir()
+    (tmp_path / "modules" / "a.py").write_text("x = 1\n" * 50)
+    (tmp_path / "_to_delete" / "cards2").mkdir(parents=True)
+    (tmp_path / "_to_delete" / "cards2" / "check.py").write_text("y = 2\n" * 50)
+    (tmp_path / "_to_delete" / "cards2" / "state.json").write_text("{}")
+    sizes = v.collect_current_sizes()
+    assert set(sizes) == {"modules/a.py"}                        # scratch never recorded
+    v.write_baseline(sizes)
+    # an old baseline (written before the rule) that lists scratch files
+    blob = json.loads(v.BASELINE_FILE.read_text(encoding="utf-8"))
+    blob["sizes"]["_to_delete/cards/build_real.py"] = 1234
+    v.BASELINE_FILE.write_text(json.dumps(blob), encoding="utf-8")
+    import shutil
+    shutil.rmtree(tmp_path / "_to_delete")                        # Nick's cleanup
+    r = v.check_file_baselines()
+    assert r["failures"] == [], r["failures"]
+    assert r["status"].startswith("1/1 OK")
+    (tmp_path / "modules" / "a.py").unlink()                      # a real file still fails
+    r = v.check_file_baselines()
+    assert r["failures"] == ["[SIZE] modules/a.py: DISAPPEARED since baseline"]

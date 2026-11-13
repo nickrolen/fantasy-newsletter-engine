@@ -18,7 +18,9 @@ Writes:
 THE CARDS: output/hub_cards.json when the nightly run built it for this
 payload (same generated_at and engine); otherwise built here from this
 folder's data (a desk build, a scratch build), which takes a few seconds more.
-The preview embeds them in plaintext, headshots included.
+The preview embeds them in plaintext, headshots included. They fail softly
+(run()): a card failure builds the hub with plain names and no card files and
+prints PLAYER CARDS FAILED; a plaintext hit in any file still refuses.
 
 The passphrase is read from HUB_PASSPHRASE and nowhere else; it is never
 printed or written. Missing or shorter than 20 characters: refused. After
@@ -53,62 +55,105 @@ def main(argv=None) -> int:
     ap.add_argument("--out-dir", default=None,
                     help="write the preview and the publish directory under this folder (a scratch build)")
     a = ap.parse_args(argv)
-    from modules import hub_state, hub_page, hub_archive, hub_crypto, hub_publish, hub_cards
-    base = Path(a.base_path)
-    if a.out_dir is not None:
-        from modules.hub_publish import scratch_refusal
-        refusal = scratch_refusal(base, Path(a.out_dir) / "hub_preview.html")
-        if refusal:
-            print(f"REFUSED: {refusal}")
-            return 1
+    from modules import hub_state, hub_archive, hub_crypto, hub_publish
     try:
-        if a.state is not None:
-            import json
-            payload = json.loads(Path(a.state).read_text(encoding="utf-8"))
-            if payload.get("schema") != hub_state.SCHEMA:
-                raise hub_state.HubInputError(f"{a.state} is schema {payload.get('schema')}, "
-                                              f"not {hub_state.SCHEMA}")
-        else:
-            payload = hub_state.load(base)
-        hub_archive.verify(base)
-        out_dir = Path(a.out_dir) if a.out_dir is not None else None
-        if out_dir is not None:
-            out_dir.mkdir(parents=True, exist_ok=True)
-        preview = base / "output" / "hub_preview.html"
-        if out_dir is not None:                 # a scratch build: beside, never inside, its hub_publish/
-            preview = out_dir / "hub_preview.html"
-        cards = None
-        if (payload.get("cards") or {}).get("players"):
-            cards = None if a.state is not None else hub_cards.load_for(base, payload)
-            if cards is None:
-                cards = hub_cards.build(base, payload)
-                print(f"Built {len(cards['cards'])} player card(s) from this folder's data "
-                      f"({cards['seconds']} s); {len(cards['photos'])} with a headshot.")
-            hub_cards.check_against(payload, cards)
-        preview.write_text(hub_page.render(payload, mode="preview",
-                                           cards=None if cards is None else hub_cards.preview_bundle(base, cards)),
-                           encoding="utf-8")
-        print(f"Wrote {preview} (plaintext; local only).")
-        if a.preview_only:
-            return 0
-        passphrase = hub_crypto.passphrase_from_env()
-        pub = hub_publish.publish_dir(base) if out_dir is None else out_dir / "hub_publish"
-        gone = hub_publish.clear_superseded(pub)
-        if gone:
-            print(f"Removed {len(gone)} card/headshot file(s) an earlier build wrote.")
-        r = hub_publish.build(base, payload, passphrase, cards=cards,
-                              out_dir=None if out_dir is None else out_dir / "hub_publish")
+        res = run(a.base_path, preview_only=a.preview_only, state=a.state, out_dir=a.out_dir)
     except (hub_state.HubInputError, hub_archive.ArchiveError, hub_crypto.PassphraseError,
-            hub_publish.PublishError, hub_publish.PlaintextLeak, hub_cards.CardsError) as e:
+            hub_publish.PublishError, hub_publish.PlaintextLeak) as e:
         print(f"REFUSED: {e}")
         return 1
-    print(f"Wrote {r['dir']}: {len(r['files'])} file(s), PBKDF2-SHA256 x {r['iterations']:,}.")
+    return res["rc"]
+
+
+def run(base_path=".", *, preview_only: bool = False, state=None, out_dir=None, echo=print) -> dict:
+    """Render, encrypt and write; main()'s work, for the nightly run's hub
+    step too. Returns {"rc", "cards": how many published (None: none),
+    "cards_error": None or {"stage", "error"}, "payload": the payload
+    published (plain names after a card failure), "report": the publish
+    report}.
+
+    THE CARDS FAIL SOFTLY (Nick, 11-12, like advice): building them, their
+    preview bundle or their publish files failing never stops the hub. The
+    hub is then built as it is without cards -- every name plain text
+    (hub_cards.strip), no card or photo file -- and the failure comes back in
+    "cards_error" for the run to record loudly. Never partial cards, never an
+    earlier build's card files (clear_superseded runs first). What still
+    stops it, as before: the page, the encryption, the archive, a stray file
+    and the plaintext scan -- a card file that leaks plaintext is a
+    PlaintextLeak like any other file."""
+    from modules import hub_state, hub_page, hub_archive, hub_crypto, hub_publish, hub_cards
+    base = Path(base_path)
+    if out_dir is not None:
+        refusal = hub_publish.scratch_refusal(base, Path(out_dir) / "hub_preview.html")
+        if refusal:
+            echo(f"REFUSED: {refusal}")
+            return {"rc": 1, "cards": None, "cards_error": None, "payload": None, "report": None}
+    if state is not None:
+        import json
+        payload = json.loads(Path(state).read_text(encoding="utf-8"))
+        if payload.get("schema") != hub_state.SCHEMA:
+            raise hub_state.HubInputError(f"{state} is schema {payload.get('schema')}, "
+                                          f"not {hub_state.SCHEMA}")
+    else:
+        payload = hub_state.load(base)
+    hub_archive.verify(base)
+    out_dir = Path(out_dir) if out_dir is not None else None
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    preview = base / "output" / "hub_preview.html"
+    if out_dir is not None:                 # a scratch build: beside, never inside, its hub_publish/
+        preview = out_dir / "hub_preview.html"
+    cards, err = None, None
+
+    def fail(stage, e):
+        nonlocal cards, err
+        err = hub_cards.failure(stage, e)
+        cards = None
+        hub_cards.strip(payload)
+        echo(f"PLAYER CARDS FAILED ({stage}; the hub goes on with plain names): {err['error']}")
+
+    if (payload.get("cards") or {}).get("players"):
+        try:
+            cards = None if state is not None else hub_cards.load_for(base, payload)
+            if cards is None:
+                cards = hub_cards.build(base, payload)
+                echo(f"Built {len(cards['cards'])} player card(s) from this folder's data "
+                     f"({cards['seconds']} s); {len(cards['photos'])} with a headshot.")
+            hub_cards.check_against(payload, cards)
+        except Exception as e:                       # noqa: BLE001 -- the cards fail softly
+            fail("build", e)
+    preview_cards = None
+    if cards is not None:
+        try:
+            preview_cards = hub_cards.preview_bundle(base, cards)
+        except Exception as e:                       # noqa: BLE001 -- the cards fail softly
+            fail("preview", e)
+    preview.write_text(hub_page.render(payload, mode="preview", cards=preview_cards), encoding="utf-8")
+    echo(f"Wrote {preview} (plaintext; local only).")
+    if preview_only:
+        return {"rc": 0, "cards": None if cards is None else len(cards["cards"]), "cards_error": err,
+                "payload": payload, "report": None}
+    passphrase = hub_crypto.passphrase_from_env()
+    pub = hub_publish.publish_dir(base) if out_dir is None else out_dir / "hub_publish"
+    gone = hub_publish.clear_superseded(pub)
+    if gone:
+        echo(f"Removed {len(gone)} card/headshot file(s) an earlier build wrote.")
+    target = None if out_dir is None else out_dir / "hub_publish"
+    try:
+        r = hub_publish.build(base, payload, passphrase, cards=cards, out_dir=target)
+    except hub_publish.CardFilesError as e:
+        # nothing was written yet: the card files fail before any file is
+        fail("publish", e)
+        preview.write_text(hub_page.render(payload, mode="preview"), encoding="utf-8")
+        r = hub_publish.build(base, payload, passphrase, cards=None, out_dir=target)
+    echo(f"Wrote {r['dir']}: {len(r['files'])} file(s), PBKDF2-SHA256 x {r['iterations']:,}.")
     for f in r["files"]:
-        print(f"  {f}  {r['sizes'][f]:,} bytes")
-    print(f"Plaintext scan: {r['terms']} terms, no hits"
-          + (f" (bundle re-encrypted {r['reseals']} time(s) after a chance match)" if r["reseals"] else "")
-          + ".")
-    return 0
+        echo(f"  {f}  {r['sizes'][f]:,} bytes")
+    echo(f"Plaintext scan: {r['terms']} terms, no hits"
+         + (f" (bundle re-encrypted {r['reseals']} time(s) after a chance match)" if r["reseals"] else "")
+         + ".")
+    return {"rc": 0, "cards": None if cards is None else len(cards["cards"]), "cards_error": err,
+            "payload": payload, "report": r}
 
 
 if __name__ == "__main__":

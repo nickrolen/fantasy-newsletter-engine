@@ -1230,7 +1230,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
             players.append({
                 "name": n, "pos": str(row.get("player_position(s)") or ""),
                 "nba": info[n]["nba_team"],
-                "fppg": pa.fppg_text(s_pts, s_gp), "proj": f"{float(row.get('projectedFPPG') or 0):.1f}",
+                "fppg": pa.fppg_text(s_pts, s_gp), "gp": s_gp,    # gp: not shown; his card's GP equals it
+                "proj": f"{float(row.get('projectedFPPG') or 0):.1f}",
                 "l14": pa.fppg_text(l_pts, l_gp), "gl": DASH if in_il else str(gl),
                 "keep": kv3.pct(keep_p), "keep_strong": keep_p >= 0.5,
                 "in_il": in_il, "tags": chips, "status": st, "_sort": sort})
@@ -1414,12 +1415,20 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                     "il_slots": "data/IL_SLOTS.json",
                     "ledger": f"config/MOVE_LEDGER.json ({ledger_mode} mode)"},
     }
-    # task 40: a card key beside every player name shown, and the list of cards
+    # task 40: a card key beside every player name shown, and the list of cards.
+    # The cards fail softly (Nick, 11-12): a failure here (an unknown
+    # moves-feed form, two players with one slug, anything) leaves every name
+    # plain (hub_cards.strip) and is handed to the run (cards_out["error"]) to
+    # record loudly; the hub itself goes on.
     from . import hub_cards
     try:
         hub_cards.annotate(payload)
-    except hub_cards.CardsError as e:
-        raise HubInputError(str(e)) from None
+    except Exception as e:                           # noqa: BLE001 -- the cards fail softly
+        hub_cards.strip(payload)
+        err = hub_cards.failure("annotate", e)
+        echo(f"PLAYER CARDS FAILED (annotate; the hub goes on with plain names): {err['error']}")
+        if cards_out is not None:
+            cards_out["error"] = err
     if cards_out is not None:
         cards_out.update(keeper_watch=kw, data=data)
     return payload

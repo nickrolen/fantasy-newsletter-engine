@@ -6,7 +6,11 @@ ONE CARD BUILDER. The cards are the newsletter's Keeper Watch cards
 built live from the same run's data, so the hub and the newsletter never show
 a player differently. A player outside Keeper Watch (a free agent, a player
 named only in the moves feed) gets the same card without what does not apply
-to him: no keep chance, no rank, his season from the league's logs.
+to him: no keep chance, no rank. A card's season numbers are his NBA numbers
+(Nick, 11-12): data/player_actuals.json through the roster table's own day
+(nba_lines), so a rostered card equals his row; a player that cache does not
+cover (a free agent) gets a note instead, and the league-roster figure is a
+secondary line (player_card_builder, ONE FPPG EVERYWHERE).
 
 WHICH NAMES (annotate, called by hub_state.build on every payload): every
 player name the hub shows in a table or list --
@@ -243,6 +247,48 @@ def annotate(payload: dict) -> dict:
     return payload["cards"]
 
 
+def strip(payload: dict) -> dict:
+    """Undo annotate, in place, whatever part of it ran: no card key beside
+    any name, no cut text, no card list -- the payload exactly as it was
+    before annotate (tested), so the page shows every name as plain text.
+    The cards fail softly (Nick, 11-12): this is the hub without them."""
+    for rb in (payload.get("rosters") or {}).values():
+        for p in rb["players"]:
+            p.pop("card", None)
+    for key in ("free_agents", "stash"):
+        for r in (payload.get(key) or {}).get("rows") or []:
+            r.pop("card", None)
+    for c in (payload.get("trade_block") or {}).get("cards") or []:
+        for lst in c["lists"]:
+            for r in lst["rows"]:
+                r.pop("card", None)
+    for w in (payload.get("moves") or {}).get("weeks") or []:
+        for it in w["items"]:
+            for x in it["parts"]:
+                x.pop("segs", None)
+    adv = payload.get("advice")
+    if adv is not None:
+        for c in adv["cards"]:
+            for fld in ("move", "followup", "backup"):
+                c.pop(f"{fld}_segs", None)
+    payload["cards"] = None
+    return payload
+
+
+def failure(stage: str, e: BaseException) -> dict:
+    """A card failure as the run records it: {"stage": annotate | build |
+    preview | publish, "error": "Type: message"}."""
+    return {"stage": stage, "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
+
+
+def discard(base_path) -> None:
+    """Remove output/hub_cards.json (an earlier run's cards, regenerable):
+    after a card failure nothing may reuse them."""
+    p = Path(base_path) / CARDS_RELPATH
+    if p.is_file():
+        p.unlink()
+
+
 def shown_names(payload: dict) -> List[tuple]:
     """(name, card key) for every player name the page shows in a table or
     list -- the invariant's walk (tests), independent of annotate's."""
@@ -308,10 +354,11 @@ def build(base_path, payload: dict, *, data=None, keeper_watch=None, echo=print)
     if unshown:
         raise CardsError(f"rostered but not on the hub's rosters: {', '.join(unshown)}")
     extras = [{"player_name": v["name"], "manager": ""} for k, v in reg.items() if v["kind"] != "rostered"]
+    nba = nba_lines(base, payload, kw_rows, extras)
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         built = build_player_cards(kw_rows, base / "data", base / "config", base / "data" / "historical",
-                                   extra_players=extras)
+                                   extra_players=extras, nba=nba)
     by_name = {c["player_name"]: c for c in built}
     try:
         lib = headshots.library(base)
@@ -336,6 +383,26 @@ def build(base_path, payload: dict, *, data=None, keeper_watch=None, echo=print)
     return {"schema": SCHEMA, "generated_at": payload["generated_at"],
             "engine": (payload.get("engine") or {}).get("key"), "seconds": secs,
             "cards": cards, "photos": photos}
+
+
+def nba_lines(base_path, payload: dict, kw_rows, extras) -> dict:
+    """The cards' season numbers (ONE FPPG EVERYWHERE, 11-12): every card
+    player's NBA season through the day the roster table's actuals run to
+    (payload sources.actuals_through), from the same cache
+    (player_actuals.card_lines). A rostered player must be covered (his row
+    already is); anyone else is covered when the cache has his every day, and
+    otherwise gets the note."""
+    from datetime import date
+    from . import player_actuals as pa
+    through = (payload.get("sources") or {}).get("actuals_through")
+    if not through:
+        raise CardsError("the payload names no actuals_through date: the cards' NBA numbers run to it")
+    try:
+        blob = pa.load(base_path)
+        return pa.card_lines(blob, [r["player_name"] for r in kw_rows] + [x["player_name"] for x in extras],
+                             date.fromisoformat(through), required=[r["player_name"] for r in kw_rows])
+    except pa.ActualsError as e:
+        raise CardsError(str(e)) from None
 
 
 def write(base_path, obj: dict) -> Path:

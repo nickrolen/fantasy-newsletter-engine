@@ -253,6 +253,10 @@ function pcRenderCard(c) {
     if (c.season_note) html += '<div class="pc-no-data">' + esc(c.season_note) + '</div>';
     if (hasCareer) html += '<div class="pc-stat-bar">' + pcStatCell('Career', career.career_fppg.toFixed(1)) + '</div>';
   }
+  // the league-roster figure, one secondary line, only where it differs (11-12)
+  if (c.league_season && c.league_season.text) {
+    html += '<div class="pc-league-line">' + esc(c.league_season.text) + '</div>';
+  }
   
   // === KEEPABILITY BREAKDOWN ===
   html += pcRenderKeepability(c);
@@ -1399,6 +1403,12 @@ def get_player_card_css() -> str:
 }
 
 /* --- No data placeholder --- */
+.pc-league-line {
+  font-size: 0.65rem;
+  color: #9e9e9e;
+  text-align: center;
+  padding: 4px 8px 8px;
+}
 .pc-no-data {
   font-size: 0.65rem;
   color: #606060;

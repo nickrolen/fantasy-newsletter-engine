@@ -353,3 +353,70 @@ def last14(blob: dict, roster_name: str, through: date) -> Tuple[float, int]:
 def fppg_text(points: float, games: int) -> str:
     """One decimal, or an em dash with no games in the window."""
     return "\u2014" if games == 0 else f"{points / games:.1f}"
+
+
+# =============================================================================
+# the player cards' NBA numbers (11-12, Nick: "one FPPG everywhere", option c)
+# =============================================================================
+
+NOTE_NEVER = ("No NBA numbers: the engine fetches Yahoo's daily lines only for rostered players, "
+              "and has none for him")
+NOTE_SINCE = ("No NBA numbers: the engine fetches Yahoo's daily lines only for rostered players, "
+              "and has his only through {last}")
+
+
+def find_days(blob: dict, name: str) -> Optional[dict]:
+    """His cached days by any spelling (PlayerIndex rules): the last fetch's
+    roster names first, then every name the cache has held -- a player
+    dropped since keeps his days up to the drop. None: never in the cache."""
+    from .data_loader import PlayerIndex
+    pid = PlayerIndex(blob["roster_names"]).get(name)
+    if pid is None:
+        pid = PlayerIndex({rec["name"]: p for p, rec in blob["players"].items()}).get(name)
+    if pid is None:
+        return None
+    return blob["players"][str(pid)]["days"]
+
+
+def card_lines(blob: dict, names: Iterable[str], through: date, *, required: Iterable[str] = ()) -> dict:
+    """Each card player's NBA season, every game he played from the season's
+    first day through `through` -- the numbers the hub's roster table shows
+    (season(): the same cache, the same days, the same sums).
+
+    Returns {"through": iso, "first_day": iso, "lines": {name: [[iso, points,
+    games], ...] (every day, in order) or None}, "notes": {name: why None}}.
+    A player is covered only when the cache has EVERY day of the window: a
+    partial window is not his season. `required` (the rostered players): one
+    not covered RAISES (ActualsStale), as the roster table does -- never a
+    note standing in for a fetch gap. Every player is found by any spelling
+    the cache has held (find_days): the newsletter's report week can name a
+    player dropped since, whose days through that week are all there."""
+    first = date.fromisoformat(blob["first_day"])
+    req = set(required)
+    lines, notes = {}, {}
+    for n in names:
+        days = find_days(blob, n)
+        if days is None:
+            if n in req:
+                raise ActualsStale(f"{n} is not in {CACHE_RELPATH} (a roster change since the last "
+                                   "fetch): run python scripts/fetch_player_actuals.py")
+            lines[n], notes[n] = None, NOTE_NEVER
+            continue
+        want = days_between(first, through) if through >= first else []
+        gaps = [d.isoformat() for d in want if d.isoformat() not in days]
+        if gaps:
+            if n in req:
+                raise ActualsStale(f"{CACHE_RELPATH} lacks {n} on {gaps[0]}"
+                                   + (f" and {len(gaps) - 1} more day(s)" if len(gaps) > 1 else "")
+                                   + ": run python scripts/fetch_player_actuals.py")
+            have = sorted(d for d in days if d <= through.isoformat())
+            lines[n] = None
+            notes[n] = NOTE_SINCE.format(last=_md_text(have[-1])) if have else NOTE_NEVER
+            continue
+        lines[n] = [[d.isoformat()] + list(days[d.isoformat()]) for d in want]
+    return {"through": through.isoformat(), "first_day": first.isoformat(), "lines": lines, "notes": notes}
+
+
+def _md_text(iso: str) -> str:
+    d = date.fromisoformat(iso)
+    return f"{d.strftime('%b')} {d.day}"

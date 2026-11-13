@@ -86,6 +86,18 @@ SKIP_DIRS = {"__pycache__", ".git", "node_modules", "venv", ".venv", "archive"}
 # Extensions tracked for baseline + size diffs
 BASELINE_EXTENSIONS = {".py", ".json", ".md"}
 
+# Top-level folders the size baseline never records or checks: scratch comes
+# and goes (every cleanup of _to_delete\ produced "DISAPPEARED" failures --
+# 13 on 11-12), and a --baseline --force taken while it holds files would make
+# the next cleanup fail again. A baseline written before this rule may still
+# list such files; they are ignored, never reported.
+BASELINE_SKIP_TOP = {"_to_delete"}
+
+
+def _baseline_skipped(rel):
+    """True for a path (relative, forward slashes) the size baseline ignores."""
+    return rel.split("/", 1)[0] in BASELINE_SKIP_TOP
+
 # Shrink threshold (fraction). 0.20 means flag if file dropped by >20%.
 SHRINK_THRESHOLD = 0.20
 
@@ -200,6 +212,8 @@ def collect_current_sizes():
         # Skip the baseline file itself
         if fpath.resolve() == BASELINE_FILE.resolve():
             continue
+        if _baseline_skipped(_rel(fpath)):
+            continue
         try:
             sizes[_rel(fpath)] = fpath.stat().st_size
         except OSError:
@@ -229,7 +243,8 @@ def check_file_baselines(verbose=False):
             "current_sizes": current,
         }
 
-    baseline_sizes = baseline.get("sizes", {})
+    baseline_sizes = {rel: n for rel, n in baseline.get("sizes", {}).items()
+                      if not _baseline_skipped(rel)}
     checked = 0
     new_files = []
     shrunk = []
@@ -1249,13 +1264,18 @@ def _check_point_in_time_record(cfg, warnings, today=None):
 
 
 def _check_nba_schedule_fresh(cfg, warnings, today=None):
-    """A3: warn here; Step 6 is where a stale schedule is refused."""
+    """A3: warn here; Step 6 is where a stale schedule is refused. Reads the
+    file Step 6 reads (nba_schedule.schedule_path: the refetched copy when
+    there is one, refreshed every night), not season.nba_schedule_file itself
+    -- the base file is weeks old by design, and warning on it said Step 6
+    would refuse when it would not (11-12)."""
     sys.path.insert(0, str(PROJECT_ROOT))
     from modules.schedule_freshness import stale_problem
+    from modules.nba_schedule import schedule_path
     nba_file = cfg.get("season", {}).get("nba_schedule_file")
     if not nba_file:
         return []
-    path = PROJECT_ROOT / nba_file
+    path = schedule_path(PROJECT_ROOT, cfg)
     try:
         sched = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):

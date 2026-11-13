@@ -867,6 +867,8 @@ python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --outp
 
 **Player of the Week photo:** the page uses the headshot library's `assets\headshots\<winner-slug>.webp`, the slug taken from the stats report's winner (Tyrese Maxey -> `tyrese-maxey`). The library is the one the hub's player cards and Keeper Watch use (task 40a, 11-12); `assets\potw\` is retired. To add this week's winner: `python scripts\headshots.py add <file> "<Winner Name>"`, then `python scripts\state.py push`. No photo for this week's winner: the podium alone, and the build prints one line saying so. `--potw <path>` still works, but only for a file named for the winner; anything else refuses.
 
+**Keeper Watch cards' numbers (11-12):** each card's season FPPG, GP and total are the player's NBA numbers (every game he played, from `data\player_actuals.json`) through the report week's last day, the same numbers the hub's roster table shows; the league-roster figure appears under them as one line ("On a league roster: 15.5 FPPG in 2 games") only where it differs. The build reads `data\player_actuals.json` from the state you pulled; if it lacks a day for a Keeper Watch player the build stops with `ActualsStale` naming him: `python scripts\fetch_player_actuals.py`, `python scripts\state.py push`, then build again.
+
 **What's new:** The `--stats-report` flag loads the JSON stats report and injects interactive Stats Corner visualizations (Positional Breakdown, Draft Value Tracker, Waiver ROI, Keeper Watch) into Section 8. If omitted, the newsletter renders normally without visualizations.
 
 **Output:** A single self-contained HTML file with embedded images, visualizations, professional styling, and responsive design.

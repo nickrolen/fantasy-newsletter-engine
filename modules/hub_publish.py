@@ -52,6 +52,13 @@ class PublishError(RuntimeError):
     pass
 
 
+class CardFilesError(PublishError):
+    """The player cards' files could not be made (task 40; 11-12: the cards
+    fail softly). Raised BEFORE any file is written, so the caller can build
+    the hub again without cards (scripts/build_hub.run). Never for plaintext
+    in a published file: that is PlaintextLeak, which stops the hub."""
+
+
 def publish_dir(base_path=".") -> Path:
     return Path(base_path) / PUBLISH_RELDIR
 
@@ -181,7 +188,7 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
         try:
             hub_cards.check_against(payload, cards)
         except hub_cards.CardsError as e:
-            raise PublishError(str(e)) from None
+            raise CardFilesError(str(e)) from None
     idx = hub_archive.verify(base)
     by_file = {e["enc"]: e for e in idx["issues"]}
     nl = payload["newsletter"]
@@ -196,7 +203,14 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
     card_files, card_ref = {}, None
     if cards is not None:
         root = hub_crypto.derive_key(passphrase, kw["salt"], kw.get("iterations", hub_crypto.ITERATIONS))
-        card_files, card_ref = hub_cards.publish_files(base, cards, root, terms)
+        try:
+            card_files, card_ref = hub_cards.publish_files(base, cards, root, terms)
+        except hub_crypto.SealExhausted as e:
+            # a card file matched a scan term every time it was sealed: not
+            # chance, plaintext -- never a soft failure
+            raise PlaintextLeak(str(e)) from None
+        except Exception as e:                       # noqa: BLE001 -- the cards fail softly
+            raise CardFilesError(f"{type(e).__name__}: {e}") from None
     inner_obj = {"page": page, "issues": {f: e["key_b64"] for f, e in by_file.items()}}
     if card_ref is not None:
         inner_obj["cards"] = card_ref
