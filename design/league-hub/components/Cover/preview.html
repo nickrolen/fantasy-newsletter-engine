@@ -1,0 +1,76 @@
+<!-- @dsCard height=300 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>League Hub</title>
+<style>
+  html, body { margin:0; height:100%; }
+  body { background:var(--surface); color:var(--ink); font-family:var(--font-sans); overflow:hidden; }
+  .cover { position:relative; width:960px; height:300px; overflow:hidden; }
+  .art { position:absolute; top:0; left:480px; width:480px; height:300px; overflow:hidden; }
+  .art svg { display:block; }
+  .blue { fill:var(--team-blue); }
+  .orange { fill:var(--team-orange); }
+  .teal { fill:var(--team-teal); }
+  .plum { fill:var(--team-plum); }
+  .deep { fill:var(--dark); }
+  .t1 { fill:var(--dark-raised); }
+  .t2 { fill:var(--dark-line); }
+  .bar { rx:var(--radius-3); }
+  .cell { rx:var(--radius-6); }
+  .base { stroke:var(--axis); stroke-width:1; }
+  .words { position:absolute; left:var(--space-24); bottom:var(--space-24); max-width:440px; }
+  .name { margin:0; font-family:var(--font-display); font-size:112px; line-height:.92; font-weight:700; letter-spacing:-.01em; color:var(--ink); }
+  .tag { margin:var(--space-10) 0 0 2px; font-size:14px; line-height:20px; color:var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 300" width="480" height="300">
+<!--
+  blocks      team-blue 72x216 · team-orange 72x168 · team-teal 72x136 · team-plum 72x96 · dark 104x276 bleeding off the top and right edge — about 30% of 960x300
+  arrangement the four team colours as a ranked bar chart rising from one zero baseline (axis hairline), descending left to right, beside one tall dark slab
+  pattern     tiles cut by the radius tokens: a 3x8 heat grid of radius-6 cells in dark-raised / dark-line inside the dark slab, because the system is a dense data UI whose one dark area holds its densest numbers ("bars start at zero", "neutral sequential scale")
+  scales      bar width 72 and gaps 16 (space-16), tile 24 at a 32 pitch (space-32), insets space-16 / space-24; corners radius-3 (bars), radius-6 (cells)
+-->
+<rect class="deep" x="376" y="-12" width="104" height="276"/>
+<rect class="t2 cell" x="392" y="16" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="424" y="16" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="456" y="16" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="392" y="48" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="424" y="48" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="456" y="48" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="392" y="80" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="424" y="80" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="456" y="80" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="392" y="112" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="424" y="112" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="456" y="112" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="392" y="144" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="424" y="144" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="456" y="144" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="392" y="176" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="424" y="176" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="456" y="176" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="392" y="208" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="424" y="208" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="456" y="208" width="24" height="24" rx="6"/>
+<rect class="t1 cell" x="392" y="240" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="424" y="240" width="24" height="24" rx="6"/>
+<rect class="t2 cell" x="456" y="240" width="24" height="24" rx="6"/>
+<rect class="blue bar" x="24" y="48" width="72" height="216" rx="3"/>
+<rect class="orange bar" x="112" y="96" width="72" height="168" rx="3"/>
+<rect class="teal bar" x="200" y="128" width="72" height="136" rx="3"/>
+<rect class="plum bar" x="288" y="168" width="72" height="96" rx="3"/>
+<line class="base" x1="16" y1="264.5" x2="376" y2="264.5"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">League<br>Hub</h1>
+<p class="tag">The engine computes; the page displays.</p>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!-- @dsCard group="Controls" height=190 subtitle="Tap the ⓘ to open the explanation" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>InfoTip</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px;">
+  <section class="lh-card">
+    <div class="lh-sechead">
+      <h2 class="lh-eyebrow">Attributes</h2>
+      <span class="lh-info">
+        <span class="lh-meta" style="align-self:center;">vs rostered players</span>
+        <button aria-expanded="true" aria-controls="pop1" aria-label="What the grades mean">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+        </button>
+        <span class="lh-info__pop" id="pop1" role="note"><b>Grades</b>Each grade places him against the league's rostered players this season. The bar under it is his percentile.</span>
+      </span>
+    </div>
+    <div style="height:70px"></div>
+  </section>
+</div>
+<script>
+document.querySelectorAll('.lh-info > button').forEach(function (b) {
+  var pop = document.getElementById(b.getAttribute('aria-controls'));
+  b.onclick = function () { var open = b.getAttribute('aria-expanded') === 'true'; b.setAttribute('aria-expanded', String(!open)); pop.hidden = open; };
+});
+</script>
+</body></html>

@@ -1,0 +1,58 @@
+<!-- @dsCard group="Data" height=560 subtitle="Sortable roster table; Simple/Detailed is live; tap a header to sort" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>RosterTable</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px;">
+  <section class="lh-card lh-card--flush">
+    <div class="lh-sechead" style="padding:12px 14px;">
+      <h2 class="lh-eyebrow">Roster</h2>
+      <div class="lh-toggle" role="group" aria-label="Table detail"><button aria-pressed="true" data-mode="simple">Simple</button><button aria-pressed="false" data-mode="detailed">Detailed</button></div>
+    </div>
+    <table class="lh-table" id="t">
+      <thead><tr id="h"></tr></thead>
+      <tbody id="b"></tbody>
+    </table>
+    <div class="lh-table-note">Next = games next week. Tap a column to sort. Detailed adds attribute grades.</div>
+  </section>
+</div>
+<script>
+var players = [
+  {name:'Victor Wembanyama', meta:'C, PF · SAS', ovr:94, d:'▲', dc:'up', pot:97, fppg:61.8, next:4, sco:'A-', reb:'A+', stk:'A+'},
+  {name:'Franz Wagner', meta:'SF, PF · ORL', tag:'Q', ovr:84, d:'', dc:'flat', pot:88, fppg:44.2, next:3, sco:'B+', reb:'C+', stk:'C'},
+  {name:'Jalen Williams', meta:'SG, SF · OKC', ovr:83, d:'▼', dc:'down', pot:87, fppg:42.9, next:4, sco:'B+', reb:'C', stk:'B'},
+  {name:'Josh Giddey', meta:'PG, SG · CHI', ovr:79, d:'▲', dc:'up', pot:81, fppg:39.4, next:3, sco:'C+', reb:'B+', stk:'C'},
+  {name:'Jarrett Allen', meta:'C · CLE', ovr:77, d:'', dc:'flat', pot:77, fppg:36.1, next:4, sco:'C', reb:'A-', stk:'B+'}
+];
+var il = [{name:'Paolo Banchero', meta:'PF · ORL', tag:'IL · back Dec 1', ovr:86, pot:90, fppg:46.0, next:2, sco:'A-', reb:'B', stk:'C'}];
+var mode = 'simple', sortKey = 'ovr', dir = -1;
+var cols = function () {
+  var c = [['name','Player'],['ovr','OVR'],['pot','POT'],['fppg','FPPG'],['next','Next']];
+  return mode === 'simple' ? c : [['name','Player'],['ovr','OVR'],['sco','SCO'],['reb','REB'],['stk','STK'],['fppg','FPPG']];
+};
+function cell(p, k, inactive) {
+  if (k === 'name') return '<td style="max-width:150px"><a class="lh-name" href="#">' + p.name + '</a><span class="lh-sub">' + p.meta + (p.tag ? ' <b style="color:var(--' + (p.tag === 'Q' ? 'status-q' : 'status-il') + ')">' + p.tag + '</b>' : '') + '</span></td>';
+  if (k === 'ovr') return '<td style="white-space:nowrap"><span class="lh-ovr">' + p.ovr + '</span> <span class="lh-delta lh-delta--' + (p.dc || 'flat') + '" style="display:inline-block; width:10px">' + (inactive ? '' : (p.d || '')) + '</span></td>';
+  if (k === 'pot') return '<td><span class="lh-pot">' + p.pot + '</span></td>';
+  if (k === 'fppg') return '<td>' + p.fppg.toFixed(1) + '</td>';
+  if (k === 'next') return '<td>' + p.next + '</td>';
+  var g = p[k], cls = 'lh-g-' + g.charAt(0).toLowerCase();
+  return '<td><span class="lh-grade-cell ' + cls + '" style="color:var(--g)">' + g + '</span></td>';
+}
+function render() {
+  var c = cols();
+  document.getElementById('h').innerHTML = c.map(function (x) {
+    var s = x[0] === sortKey ? ' aria-sort="' + (dir < 0 ? 'descending' : 'ascending') + '"' : '';
+    return '<th' + s + '><button data-k="' + x[0] + '">' + x[1] + (x[0] === sortKey ? (dir < 0 ? ' ▾' : ' ▴') : '') + '</button></th>';
+  }).join('');
+  var gv = function (p) { var v = p[sortKey]; if (typeof v === 'string' && sortKey !== 'name') { var o = 'DCBA'.indexOf(v.charAt(0)) * 3 + (v.charAt(1) === '+' ? 2 : v.charAt(1) === '-' ? 0 : 1); return o; } return v; };
+  var rows = players.slice().sort(function (a, b) { var x = gv(a), y = gv(b); return (x > y ? 1 : x < y ? -1 : 0) * dir; });
+  var html = rows.map(function (p) { return '<tr>' + c.map(function (x) { return cell(p, x[0]); }).join('') + '</tr>'; }).join('');
+  html += '<tr class="lh-group"><td colspan="' + c.length + '">IL slots</td></tr>';
+  html += il.map(function (p) { return '<tr class="lh-inactive">' + c.map(function (x) { return cell(p, x[0], true); }).join('') + '</tr>'; }).join('');
+  document.getElementById('b').innerHTML = html;
+  document.querySelectorAll('#h button').forEach(function (b) { b.onclick = function () { var k = b.dataset.k; if (k === sortKey) dir = -dir; else { sortKey = k; dir = k === 'name' ? 1 : -1; } render(); }; });
+}
+document.querySelectorAll('.lh-toggle button').forEach(function (b) { b.onclick = function () { mode = b.dataset.mode; document.querySelectorAll('.lh-toggle button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); if (!cols().some(function (x) { return x[0] === sortKey; })) { sortKey = 'ovr'; dir = -1; } render(); }; });
+render();
+</script>
+</body></html>

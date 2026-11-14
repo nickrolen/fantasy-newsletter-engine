@@ -1,0 +1,31 @@
+<!-- @dsCard group="Teams & players" height=330 subtitle="Attribute grades with percentile bars; report-card badges" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>GradeTile</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px;">
+  <div class="lh-grades" id="g"></div>
+  <section class="lh-card" style="gap:0; padding-top:4px; padding-bottom:4px;">
+    <div style="display:grid; grid-template-columns:52px minmax(0,1fr); column-gap:12px; align-items:center; padding:10px 0;">
+      <span class="lh-grade-badge lh-g-a">A</span>
+      <span style="display:flex; flex-direction:column; gap:2px;">
+        <span class="lh-t-blue" style="display:flex; align-items:center; gap:6px; font-size:15px; font-weight:800;"><span class="lh-swatch" style="width:9px; height:9px; border-radius:2px"></span>Glass Cannons</span>
+        <span style="font-size:14px; line-height:1.45; color:var(--ink-2);">Covered by 118. Every move landed.</span>
+      </span>
+    </div>
+    <div class="lh-divider" style="display:grid; grid-template-columns:52px minmax(0,1fr); column-gap:12px; align-items:center; padding:10px 0;">
+      <span class="lh-grade-badge lh-g-c">C-</span>
+      <span style="display:flex; flex-direction:column; gap:2px;">
+        <span class="lh-t-teal" style="display:flex; align-items:center; gap:6px; font-size:15px; font-weight:800;"><span class="lh-swatch" style="width:9px; height:9px; border-radius:2px"></span>Zone Defense</span>
+        <span style="font-size:14px; line-height:1.45; color:var(--ink-2);">Injuries, then a 7-start deficit.</span>
+      </span>
+    </div>
+  </section>
+</div>
+<script>
+[['Scoring','A-',84],['Rebounds','A+',97],['Playmaking','C+',58],['Stocks','A+',99],['Efficiency','B+',79],['Durability','B-',66],['Consistency','A',88],['Schedule','D',14]].forEach(function (a) {
+  var d = document.createElement('div'); d.className = 'lh-grade lh-g-' + a[1].charAt(0).toLowerCase();
+  d.innerHTML = '<span class="lh-grade__letter">' + a[1] + '</span><span class="lh-grade__name">' + a[0] + '</span><span class="lh-grade__bar" aria-hidden="true"><span style="width:' + a[2] + '%"></span></span><span class="lh-grade__pct">' + a[2] + 'th pct</span>';
+  document.getElementById('g').appendChild(d);
+});
+</script>
+</body></html>

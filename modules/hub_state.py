@@ -1416,6 +1416,17 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                     "il_slots": "data/IL_SLOTS.json",
                     "ledger": f"config/MOVE_LEDGER.json ({ledger_mode} mode)"},
     }
+    # 4b: the new hub's keys, beside the current page's (modules/hub_v2/data.py):
+    # new keys only. They fail softly until the switch-over (the current page is
+    # the hub): payload["v2"] is None and payload["v2_error"] says why.
+    from .hub_v2 import data as v2data
+    payload["v2"], payload["v2_error"] = v2data.build_soft(base, {
+        "data": data, "now": now, "week": week, "managers": managers, "team_of": MANAGER_TO_TEAM,
+        "power": power, "roster_blocks": roster_blocks, "wk_dates": wk_dates, "av": av, "next_av": next_av,
+        "matchup_cards": payload["matchups"]["cards"], "budget": budget, "adds": adds,
+        "this_days": this_days, "next_days": next_days, "grid_tabs": grid["tabs"],
+        "light_max": cfg["light_night_max"], "standins": sdates, "keeper_watch": kw, "moves": moves,
+        "line": line, "matchup_views": mviews["views"], "newsletter": newsletter}, echo=echo)
     # task 40: a card key beside every player name shown, and the list of cards.
     # The cards fail softly (Nick, 11-12): a failure here (an unknown
     # moves-feed form, two players with one slug, anything) leaves every name

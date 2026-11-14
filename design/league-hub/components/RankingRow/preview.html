@@ -1,0 +1,29 @@
+<!-- @dsCard group="Data" height=290 subtitle="Power rankings: rank, team, trend, title odds and change" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>RankingRow</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px;">
+  <section class="lh-card" style="gap:8px;">
+    <div class="lh-sechead"><h2 class="lh-eyebrow">Power rankings</h2><span class="lh-meta">Title odds · last 4 weeks</span></div>
+    <div id="rows"></div>
+  </section>
+</div>
+<script>
+var rows = [
+  [1,'GC','Glass Cannons','4-1','7,412','blue',[22,27,32,38],'▲ 6','up'],
+  [2,'PR','Pick & Roll Call','3-2','7,198','orange',[24,23,25,27],'▲ 2','up'],
+  [3,'ZD','Zone Defense','3-2','7,055','teal',[31,29,26,21],'▼ 5','down'],
+  [4,'FB','Fast Break Bros','2-3','6,880','plum',[23,21,17,14],'▼ 3','down']
+];
+var el = document.getElementById('rows');
+rows.forEach(function (r) {
+  var pts = r[6].map(function (v, i) { return (4 + i * 18) + ',' + (22 - v / 50 * 20).toFixed(1); }).join(' ');
+  var a = document.createElement('a'); a.href = '#'; a.className = 'lh-rank lh-t-' + r[5];
+  a.innerHTML = '<span class="lh-rank__n">' + r[0] + '</span><span class="lh-mono" style="--s:28px">' + r[1] + '</span>' +
+    '<span style="min-width:0"><span class="lh-mrow__name" style="font-size:14px">' + r[2] + '</span><span class="lh-sub lh-num">' + r[3] + ' · ' + r[4] + ' PF</span></span>' +
+    '<svg class="lh-spark" width="64" height="24" viewBox="0 0 64 24" role="img" aria-label="Title odds, last 4 weeks: ' + r[6].join(', ') + ' percent"><polyline points="' + pts + '"/></svg>' +
+    '<span class="lh-rank__right lh-num"><span class="lh-dsp" style="font-size:18px; font-weight:700">' + r[6][3] + '%</span><span class="lh-delta lh-delta--' + r[8] + '">' + r[7] + '</span></span>';
+  el.appendChild(a);
+});
+</script>
+</body></html>

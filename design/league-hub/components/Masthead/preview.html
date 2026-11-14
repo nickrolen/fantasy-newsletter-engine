@@ -1,0 +1,21 @@
+<!-- @dsCard group="Newsletter" height=330 subtitle="Dark masthead: issue line, headline, dek, contents chips" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Masthead</title></head>
+<body>
+<div style="max-width:390px;">
+  <header class="lh-masthead lh-on-dark">
+    <a href="#" class="lh-back" style="color:var(--ink-on-dark-2); font-size:14px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Hub</a>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <span class="lh-masthead__kicker">The Weekly · Issue 5 · Mon Nov 30</span>
+      <h1 class="lh-masthead__headline">The Cannons can't miss</h1>
+      <p class="lh-masthead__dek">Glass Cannons go 4-1 behind an 82-point Wembanyama night; Fast Break Bros lose a coin flip by 11.</p>
+    </div>
+    <nav class="lh-contents" aria-label="Sections" id="toc"></nav>
+  </header>
+</div>
+<script>
+['Matchups','Report cards','Lines','Player of the Week','Fun facts','What if?','Rankings','Stats corner','Around the NBA','Rumor mill'].forEach(function (t) {
+  var a = document.createElement('a'); a.href = '#'; a.textContent = t; document.getElementById('toc').appendChild(a);
+});
+</script>
+</body></html>

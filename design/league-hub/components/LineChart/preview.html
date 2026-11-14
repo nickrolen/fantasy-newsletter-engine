@@ -1,0 +1,48 @@
+<!-- @dsCard group="Charts" height=470 subtitle="Win chance with an event marker (tap a point), and a two-team game flow with direct labels" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>LineChart</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px;">
+  <section class="lh-card" style="gap:8px;">
+    <div class="lh-sechead"><h2 class="lh-eyebrow">Win chance this week</h2><span class="lh-meta">Glass Cannons</span></div>
+    <svg id="wc" class="lh-chart lh-t-blue" width="100%" viewBox="0 0 356 196" role="img" aria-label="Glass Cannons' win chance moved from 55% on Monday to 64% now, dipping to 48% when Franz Wagner was listed questionable Tuesday"></svg>
+    <div class="lh-readout" id="ro" aria-live="polite">Tap a point to see what changed.</div>
+  </section>
+  <section class="lh-card" style="gap:8px;">
+    <div class="lh-sechead"><h2 class="lh-eyebrow">Game flow</h2><span class="lh-meta">Points by day · dashed = projected</span></div>
+    <svg class="lh-chart" width="100%" viewBox="0 0 356 190" role="img" aria-label="Cumulative points by day. Glass Cannons lead 1,182 to 1,104 after four days and are projected to finish 1,612 to 1,548.">
+      <line class="lh-c-base" x1="36" y1="160" x2="352" y2="160"/>
+      <line class="lh-c-grid" x1="36" y1="85" x2="352" y2="85"/>
+      <line class="lh-c-grid" x1="36" y1="10" x2="352" y2="10"/>
+      <text x="0" y="14">1,600</text><text x="6" y="89">800</text><text x="22" y="164">0</text>
+      <g class="lh-t-blue"><polyline class="lh-c-line" points="40,160 92,121 144,90 196,58 248,49"/><polyline class="lh-c-line lh-c-proj" points="248,49 300,30 348,9"/><text class="lh-c-label" x="296" y="14" text-anchor="end">GC 1,612</text></g>
+      <g class="lh-t-teal"><polyline class="lh-c-line" points="40,160 92,118 144,94 196,66 248,57"/><polyline class="lh-c-line lh-c-proj" points="248,57 300,37 348,15"/><text class="lh-c-label" x="300" y="72" text-anchor="end">ZD 1,548</text></g>
+      <text x="34" y="180">Mon</text><text x="138" y="180">Wed</text><text x="242" y="180">Fri</text><text x="336" y="180">Sun</text>
+    </svg>
+  </section>
+</div>
+<script>
+var win = [55, 57, 56, 58, 60, 48, 51, 55, 59, 61, 63, 64];
+var why = ['Mon nightly: 55%', 'Mon pre-tip: 57%', 'Mon after games: 56%', 'Tue nightly: 58%', 'Tue afternoon: 60%', 'Tue pre-tip: 48% · Franz Wagner listed Q', 'Tue after games: 51%', 'Wed nightly: 55% · Wagner upgraded to probable', 'Wed afternoon: 59%', 'Wed pre-tip: 61%', 'Wed after games: 63%', 'Now: 64%'];
+var s = document.getElementById('wc'), NS = 'http://www.w3.org/2000/svg';
+function el(t, a, txt) { var e = document.createElementNS(NS, t); for (var k in a) e.setAttribute(k, a[k]); if (txt) e.textContent = txt; s.appendChild(e); return e; }
+var X = function (i) { return 40 + i * 28; }, Y = function (v) { return 160 - v * 1.5; };
+el('text', {x: 0, y: 14}, '100%'); el('text', {x: 8, y: 89}, '50%'); el('text', {x: 14, y: 164}, '0%');
+el('line', {'class': 'lh-c-grid', x1: 36, y1: 10, x2: 352, y2: 10});
+el('line', {'class': 'lh-c-ref', x1: 36, y1: 85, x2: 352, y2: 85});
+el('line', {'class': 'lh-c-base', x1: 36, y1: 160, x2: 352, y2: 160});
+el('polyline', {'class': 'lh-c-line', points: win.map(function (v, i) { return X(i) + ',' + Y(v); }).join(' ')});
+el('line', {x1: X(5), y1: Y(48) + 6, x2: X(5), y2: 128, stroke: 'var(--down)'});
+el('circle', {'class': 'lh-c-event', cx: X(5), cy: Y(48), r: 5});
+el('text', {'class': 'lh-c-event-text', x: X(5) + 6, y: 126}, 'Wagner listed Q');
+el('circle', {cx: X(11), cy: Y(64), r: 4, fill: 'var(--team)'});
+el('text', {'class': 'lh-c-label', x: X(11) - 6, y: Y(64) - 8, 'text-anchor': 'end', 'font-size': 12}, '64%');
+el('text', {x: 36, y: 180}, 'Mon'); el('text', {x: 122, y: 180}, 'Tue'); el('text', {x: 208, y: 180}, 'Wed'); el('text', {x: 330, y: 180}, 'now');
+var sel = null;
+win.forEach(function (v, i) {
+  var hit = el('rect', {'class': 'lh-c-hit', x: X(i) - 14, y: 0, width: 28, height: 165, tabindex: 0, role: 'button', 'aria-label': why[i]});
+  var act = function () { if (sel) sel.remove(); sel = el('circle', {cx: X(i), cy: Y(v), r: 6, fill: 'none', stroke: 'var(--ink-strong)', 'stroke-width': 2}); document.getElementById('ro').innerHTML = '<b>' + why[i].split(' · ')[0] + '</b>' + (why[i].indexOf(' · ') > 0 ? ' · ' + why[i].split(' · ')[1] : ''); };
+  hit.addEventListener('click', act); hit.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
+});
+</script>
+</body></html>

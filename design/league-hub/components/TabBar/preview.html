@@ -1,0 +1,26 @@
+<!-- @dsCard group="Shell" height=96 subtitle="Six tabs, Home active" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>TabBar</title></head>
+<body>
+<div style="max-width:390px;">
+  <nav class="lh-tabbar" aria-label="Main" id="tb"></nav>
+</div>
+<script>
+var icons = {
+  Home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
+  Matchups: 'M4 7h10M4 7l3-3M4 7l3 3M20 17H10M20 17l-3-3M20 17l-3 3',
+  Teams: 'M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20c0-3 3-5 6-5s6 2 6 5M14 15c3 0 8 1 8 5',
+  Players: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+  Market: 'M4 7h16l-1.5 11a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2zM9 7a3 3 0 0 1 6 0',
+  League: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4'
+};
+var nav = document.getElementById('tb');
+Object.keys(icons).forEach(function (k, i) {
+  var a = document.createElement('a'); a.href = '#';
+  if (i === 0) a.setAttribute('aria-current', 'page');
+  a.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + icons[k] + '"/></svg><span>' + k + '</span>';
+  a.onclick = function (e) { e.preventDefault(); nav.querySelectorAll('a').forEach(function (x) { x.removeAttribute('aria-current'); }); a.setAttribute('aria-current', 'page'); };
+  nav.appendChild(a);
+});
+</script>
+</body></html>

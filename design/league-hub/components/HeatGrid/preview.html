@@ -1,0 +1,25 @@
+<!-- @dsCard group="Charts" height=200 subtitle="Starts left by day: a neutral sequential scale, numbers in every cell" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>HeatGrid</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px;">
+  <section class="lh-card" style="gap:8px;">
+    <h2 class="lh-eyebrow">Starts left</h2>
+    <div id="grid"></div>
+    <span class="lh-sub">Darker = more starts that day (of 10 lineup spots).</span>
+  </section>
+</div>
+<script>
+var days = ['Wed','Thu','Fri','Sat','Sun'];
+var rows = [['Cannons','blue',[8,3,9,4,7]],['Zone D','teal',[6,5,7,2,8]]];
+var cols = '84px repeat(5, minmax(0, 1fr)) 40px';
+var g = document.getElementById('grid');
+var head = '<div class="lh-heat" style="grid-template-columns:' + cols + '; font-size:11px; font-weight:800; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:4px"><span></span>' + days.map(function (d) { return '<span style="text-align:center">' + d + '</span>'; }).join('') + '<span style="text-align:right">Total</span></div>';
+g.innerHTML = head + rows.map(function (r) {
+  var tot = r[2].reduce(function (a, b) { return a + b; }, 0);
+  return '<div class="lh-heat lh-t-' + r[1] + '" style="grid-template-columns:' + cols + '; margin-bottom:4px"><span style="font-size:12px; font-weight:800; display:flex; align-items:center; gap:6px"><span class="lh-swatch"></span>' + r[0] + '</span>' +
+    r[2].map(function (n) { var b = n >= 7 ? 4 : n >= 5 ? 3 : n >= 3 ? 2 : 1; return '<span class="lh-heat__cell lh-s' + b + '">' + n + '</span>'; }).join('') +
+    '<span class="lh-dsp" style="font-size:18px; font-weight:700; text-align:right">' + tot + '</span></div>';
+}).join('');
+</script>
+</body></html>

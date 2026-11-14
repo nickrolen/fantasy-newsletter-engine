@@ -1,0 +1,28 @@
+<!-- @dsCard group="Controls" height=150 subtitle="Segmented tabs and the Simple/Detailed toggle; both are live" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>SegmentedTabs</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px; background:var(--surface);">
+  <div class="lh-seg" role="tablist" aria-label="Player sections">
+    <button role="tab" aria-selected="true">Season</button>
+    <button role="tab" aria-selected="false">Career</button>
+    <button role="tab" aria-selected="false">Keeper</button>
+    <button role="tab" aria-selected="false">History</button>
+  </div>
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <h2 class="lh-eyebrow">Roster</h2>
+    <div class="lh-toggle" role="group" aria-label="Table detail">
+      <button aria-pressed="true">Simple</button>
+      <button aria-pressed="false">Detailed</button>
+    </div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.lh-seg').forEach(function (g) {
+  g.querySelectorAll('button').forEach(function (b) { b.onclick = function () { g.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); }); }; });
+});
+document.querySelectorAll('.lh-toggle').forEach(function (g) {
+  g.querySelectorAll('button').forEach(function (b) { b.onclick = function () { g.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); }; });
+});
+</script>
+</body></html>

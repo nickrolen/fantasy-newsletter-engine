@@ -1,0 +1,28 @@
+<!-- @dsCard group="Charts" height=290 subtitle="Fantasy points by game with the average marked; tap a bar" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>BarChart</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px;">
+  <section class="lh-card lh-t-blue">
+    <div class="lh-sechead"><h2 class="lh-eyebrow">Fantasy points by game</h2><span class="lh-meta lh-num">18 games</span></div>
+    <div class="lh-bars" id="bars" role="group" aria-label="Fantasy points in each of 18 games; average 61.8, best 82.0 vs OKC"></div>
+    <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--ink-3);"><span>Oct 21</span><span>Best 82.0 vs OKC</span><span>Dec 1</span></div>
+    <div class="lh-readout" id="ro" aria-live="polite">Tap a bar for that game.</div>
+  </section>
+</div>
+<script>
+var fp = [55,71,38,64,59,82,60,66,48,73,57,69,35,61,77,58,66,74];
+var opp = ['@ DAL','vs NOP','@ HOU','vs MIN','@ GSW','vs OKC','@ UTA','vs POR','@ PHI','vs BOS','@ NYK','vs MIA','@ LAL','vs DEN','@ PHX','vs SAC','@ DEN','@ MEM'];
+var max = 90, H = 120, el = document.getElementById('bars');
+var avg = 61.8;
+fp.forEach(function (v, i) {
+  var b = document.createElement('button'); b.style.height = Math.round(v / max * H) + 'px';
+  b.setAttribute('aria-label', 'Game ' + (i + 1) + ', ' + opp[i] + ': ' + v.toFixed(1) + ' points');
+  b.setAttribute('aria-pressed', 'false');
+  b.onclick = function () { el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); var d = v - avg; document.getElementById('ro').innerHTML = '<b>Game ' + (i + 1) + ' ' + opp[i] + ': ' + v.toFixed(1) + '</b> · ' + (d >= 0 ? '▲ ' : '▼ ') + Math.abs(d).toFixed(1) + ' vs his average'; };
+  el.appendChild(b);
+});
+var a = document.createElement('div'); a.className = 'lh-bars__avg'; a.style.bottom = Math.round(avg / max * H) + 'px'; el.appendChild(a);
+var l = document.createElement('span'); l.className = 'lh-bars__avglabel lh-num'; l.style.bottom = (Math.round(avg / max * H) + 2) + 'px'; l.textContent = 'avg ' + avg; el.appendChild(l);
+</script>
+</body></html>
