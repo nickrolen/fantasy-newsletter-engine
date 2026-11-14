@@ -552,5 +552,57 @@
             "more_than_games": 3,
             "free_agent_min_projected_fppg": 26.0
         }
+    },
+    "ratings": {
+        "_comment": "OVR, POT and the attribute grades (modules/ratings.py; claude/4A_RESULT_2026-11-14.md). Every key is required: a missing or malformed one RAISES, naming it. These are the numbers 4a back-tested (_to_delete/4a/PREREG.md, gate_ovr.py, gate_pot.py): change one and the back-test no longer describes what ships, so a change is a new back-test first. Computed for the players on league rosters, the universe the back-test scored.",
+        "as_of": {
+            "_comment": "The as-of conventions. The rating is as of the LIVE LOG's last logged day (keeper_history.live_inputs: LINEUPS.xlsx in the historical definitions), using only rows dated on or before it; games remaining count his NBA team's games from the next day through the season's last fantasy day (config/SCHEDULE.json, the last week's end_date), from the engine's NBA schedule (stand-ins included, Cup final excluded). The back-test did the same at week 2, mid-season and a trade-deadline point of each of nine seasons.",
+            "games_remaining_through": "schedule_last_day"
+        },
+        "ovr": {
+            "_comment": "OVR composite = A x G x (L - R - consistency_penalty x S): L keepability v3's level (FPPG so far shrunk to the P3 prior, config/keepability_v3_params.json level_prior); G his team's games remaining; A availability (below); R the replacement level, the replacement_quantile-th quantile of L over today's rostered players (0.0 = the lowest); S his game-score sd, shrunk to the median with 10 games. availability_k0, replacement_quantile and consistency_penalty were chosen leave-one-season-out in 4a: the same values in all nine folds.",
+            "availability_k0": 5,
+            "_availability_k0": "A = (games + k0 x A0) / (his team's games while rostered + k0); A0 = his last three seasons' games / team games in the league log when those team games reach availability_prior_min_team_games, else today's rostered players' mean availability.",
+            "availability_prior_min_team_games": 20,
+            "replacement_quantile": 0.0,
+            "consistency_penalty": 0.0,
+            "_consistency_penalty": "0.0: leave-one-season-out chose no consistency term in every fold (consistency did not help predict rest-of-season points). Consistency is shown as a grade, not in OVR.",
+            "sd_k0_games": 10,
+            "anchors": [[0, 60], [50, 78], [90, 90], [100, 99]],
+            "_anchors": "[percentile of the composite among today's rostered players, OVR]: piecewise linear in the composite between the composite's values at these percentiles, so the ranking is the composite's and the scale is cosmetic. 0 = the lowest rostered composite (replacement level) -> 60; the median -> 78; the 90th percentile -> 90; the best -> 99. Outside the rostered range: extended along the end segments and clamped to scale_min..scale_max."
+        },
+        "pot": {
+            "_comment": "POT value V = L x m(age) x (1 + next_year_weight x m(age + 1)), m(a) = exp(c0 + c1 (a - center) + c2 (a - center)^2): next season's projected level from the age curve plus the season after it. Keep chance is NOT in it (4a decision 2). Back-tested at the keeper decision point (season's end) only.",
+            "age_curve": {
+                "center": 27,
+                "coef": [-0.013013, -0.007315, 0.000477],
+                "_source": "Fit 2026-11-13 (_to_delete/4a/bin/gate_pot.py, its 2026-27 fold): games-weighted least squares of log(FPPG next season / FPPG this season) on age, every pair of consecutive league-log seasons 2018-19 .. 2025-26 with 20+ games in both (359 pairs), age from data/historical/BBREF_AGES.json. Refit once a season, after the season ends."
+            },
+            "next_year_weight": 1.0,
+            "_next_year_weight": "Chosen leave-one-decision-out from {0, 0.5, 1}: 1 in all six folds.",
+            "anchors": [[0, 60], [50, 78], [90, 90], [100, 99]]
+        },
+        "scale_min": 40,
+        "scale_max": 99,
+        "grade_bands": [[95, "A+"], [85, "A"], [70, "B+"], [50, "B"], [30, "C+"], [15, "C"], [5, "D+"], [0, "D"]],
+        "_grade_bands": "[lowest percentile, letter], highest first. The percentile is the mid-rank percentile among today's rostered players who have the attribute: 100 x (rank - 0.5) / n, ties averaged. Symmetric about the 50th: A+ and D are 5% each, A and D+ 10%, B+ and C 15%, B and C+ 20%.",
+        "grades": {
+            "order": ["scoring", "playmaking", "rebounding", "stocks", "efficiency", "durability", "consistency", "schedule"],
+            "_order": "The card's 8 tiles in order: the league's scoring categories (4a: by share of the between-player spread in this league's points, bbref 2017-18..2024-25: scoring 44%, playmaking 35%, rebounding 20%, steals + blocks 7%, shooting and turnovers net -6%), then durability, consistency, schedule.",
+            "min_team_games": {"durability": 16},
+            "min_games": {"consistency": 16},
+            "_min": "Below these a grade is None with the reason (\"9 games: shows after 16\"). 4a: a 16-game-old percentile agrees with the season-end one at Spearman 0.51 (durability) and 0.53 (consistency); the pre-registered rule gave 1 and 10. Nick decides (4a decision 4). Schedule has no minimum: it is the calendar.",
+            "unavailable": {
+                "scoring": "per-category stats are not stored (4a decision 3)",
+                "playmaking": "per-category stats are not stored (4a decision 3)",
+                "rebounding": "per-category stats are not stored (4a decision 3)",
+                "stocks": "per-category stats are not stored (4a decision 3)",
+                "efficiency": "per-category stats are not stored (4a decision 3)"
+            }
+        },
+        "archetype": {
+            "enabled": false,
+            "_comment": "Dropped in 4a: a rule-based label needs the per-category grades, which need per-category stats the engine does not store. Revisit with 4a decision 3."
+        }
     }
 }
