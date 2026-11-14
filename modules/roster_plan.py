@@ -53,6 +53,14 @@ THE PLAN, at each window after the current week, for every manager alike
      cheapest loss, which is why the old rule ("the lowest-projected, usually
      the replacement who covered him") mostly agreed. Every candidate
      protected RAISES (ActivationError; 15 active and 4 protected cannot).
+     A NEAR-TIE (44d, Nick 11-13): a long-run decision -- an activation drop
+     (the tied-set pick included) or a mid-week returner's activate-or-wait
+     -- whose closest deciding comparison sits within
+     roster_moves.longrun_escalate_margin SEs of the tie band's edge
+     (band_margin) is re-valued on those comparisons at
+     roster_moves.longrun_escalated_sims (a second LongRun, one per run, the
+     same seed and keying: DropContext.longrun_escalated), and THAT answer
+     stands; its record says escalated, with both measurements.
   2. PLACE ON IL every active player whose override has him out for the whole
      week, into the open slots. When the injured outnumber the IL slots --
      the IL occupants still out plus the active players out all week -- the
@@ -67,7 +75,10 @@ THE PLAN, at each window after the current week, for every manager alike
      from a DropContext (for_run: modules/drop_inputs, read only when a
      decision is needed). With no usable stakes file yet (the bootstrap,
      drop_inputs) the plan places as before -- longest return first, the
-     rest held -- and says so (take_notes).
+     rest held -- and says so (take_notes). When the KEEPER WATCH FAILS
+     (44d, Nick 11-13) every injured player beyond the slots is HELD for
+     that run (no drops: there are no keep chances to protect a keeper by),
+     the slots going by value without the keeper term, loudly (FALLBACK_NOTE).
   3. FILL every empty active spot up to 15 with stand-ins, at most
      weekly_add_budget per fantasy week (Nick 10-28: everyone keeps all 15
      filled). A spot the budget cannot reach waits for the next window.
@@ -237,6 +248,9 @@ class DropContext:
                                           season's last bracket week), or None:
                                           the stakes' last week when usable,
                                           else the window alone
+        longrun_escalated(roster, weeks, resolve)  the same value at
+                                          longrun_escalated_sims: what a
+                                          NEAR-TIE is re-decided on (44d)
     keep and longrun are also what an IL return over 15 active needs
     (activation_drops), with or without usable stakes.
     modules/drop_inputs.context builds the real one; a test builds its own."""
@@ -248,6 +262,11 @@ class DropContext:
     availability: object
     longrun: object = None
     longrun_last: object = None
+    # longrun_escalated(roster, weeks, resolve): the same long-run value at
+    # roster_moves.longrun_escalated_sims (44d): a NEAR-TIE is re-decided on it.
+    # Left None, a near-tie RAISES (ActivationError); a deterministic valuer (a
+    # float: no spread) never has one, so such a world needs none
+    longrun_escalated: object = None
     # little_left(manager, window) -> True/False, or None without usable stakes
     # (44b s.6: protection widens to the keeper candidates). Left None, the one
     # activation rule RAISES (44c): a world states it, even as "no stakes"
@@ -308,15 +327,16 @@ def _candidate(name, p, stakes, day_of, level, gp, drops):
 class KeeperWatchFailed(RuntimeError):
     """The keeper watch could not give keep chances (drop_inputs). The plan
     then falls back for that run, LOUDLY: the activation rule to HEAD's
-    lowest-projection rule (44b s.3, Nick 11-12), and 18b's hold-or-drop
-    decisions to decide() without the keeper term (44c, Nick 11-13:
-    injured_drop.decide_without_keepers). Both say FALLBACK_NOTE. Advice
-    does not fall back."""
+    lowest-projection rule (44b s.3, Nick 11-12), and 18b HOLDS every
+    injured player beyond the IL slots -- no drops, the slots by value
+    without the keeper term (44d, Nick 11-13; 44c's decide() without the
+    keeper term could drop a top keeper, with nothing to rank him by). Both
+    say FALLBACK_NOTE. Advice does not fall back."""
 
 
-FALLBACK_NOTE = ("KEEPER WATCH FAILED: {err} -- the plan fell back this run, with no keeper "
-                 "protection: the lowest-projection rule for its activation drops, and 18b's "
-                 "hold-or-drop decisions without the keeper term (K = 0)")
+FALLBACK_NOTE = ("KEEPER WATCH FAILED: {err} -- the plan fell back this run: the lowest-projection "
+                 "rule for its activation drops (no keeper protection), and 18b HELD every injured "
+                 "player beyond the IL slots (no drops; the slots by value without the keeper term)")
 
 
 def _fallback_note(err) -> str:
@@ -360,6 +380,33 @@ def longrun_rules() -> dict:
     if isinstance(band, bool) or not isinstance(band, (int, float)) or band < 0:
         raise ValueError(f"roster_moves.activation_tie_band must be a number >= 0, not {band!r}")
     return {"sims": int(sims), "band": float(band)}
+
+
+def escalation_rules() -> dict:
+    """roster_moves.longrun_escalate_margin and roster_moves.longrun_escalated_sims,
+    both required (44d, Nick 11-13): a long-run decision whose closest deciding
+    comparison sits within `margin` SEs of the tie band's edge (band_margin) is
+    re-decided on those comparisons at `sims` simulations (more than
+    longrun_sims: 800 = 4x), the same seed and keying."""
+    from .data_loader import league_rule
+    margin = league_rule("roster_moves", "longrun_escalate_margin")
+    sims = league_rule("roster_moves", "longrun_escalated_sims")
+    if isinstance(margin, bool) or not isinstance(margin, (int, float)) or margin < 0:
+        raise ValueError(f"roster_moves.longrun_escalate_margin must be a number >= 0, not {margin!r}")
+    if isinstance(sims, bool) or not isinstance(sims, int):
+        raise ValueError(f"roster_moves.longrun_escalated_sims must be a whole number, not {sims!r}")
+    base = longrun_rules()["sims"]
+    if sims <= base:
+        raise ValueError(f"roster_moves.longrun_escalated_sims ({sims}) must exceed longrun_sims ({base}): "
+                         "a near-tie is re-decided at MORE simulations")
+    return {"margin": float(margin), "sims": int(sims)}
+
+
+def _near(margin, escalate_margin) -> bool:
+    """A decision is a NEAR-TIE (44d) when a comparison deciding it can move
+    (margin not None) and sits within escalate_margin SEs of the band's edge.
+    escalate_margin None: the caller states it does not escalate."""
+    return escalate_margin is not None and margin is not None and margin <= float(escalate_margin)
 
 
 def _draws(v):
@@ -428,8 +475,35 @@ def protected_players(roster, chance, n: int) -> frozenset:
     return frozenset(x for x in keep if keep_rank(x, keep)[0] <= int(n))
 
 
+def _pick(loss: dict, proj, band: float) -> dict:
+    """One measurement's answer among the candidates' losses (paired draws):
+    the cheapest, the tied set (the band), the pick (the lowest projection in
+    it, then the name) and its margin (44c: the closest to the band's edge of
+    the comparisons that decide the pick -- the pick's own place in the band,
+    unless he is the cheapest, and every lower-projection candidate's place
+    outside it)."""
+    import numpy as np
+    mean = {x: float(np.mean(v)) for x, v in loss.items()}
+    best = min(loss, key=lambda x: (mean[x], x))
+    tied = sorted(x for x in loss if within_band(loss[x] - loss[best], band))
+    pick = min(tied, key=lambda x: (float(proj(x)), x))
+    rank = (float(proj(pick)), pick)
+    deciding = ([pick] if pick != best else []) + \
+        [x for x in loss if x not in (pick, best) and (float(proj(x)), x) < rank]
+    margin = _closest(band_margin(loss[x] - loss[best], band) for x in deciding)
+    return {"mean": mean, "cheapest": best, "tied": tied, "player": pick, "deciding": deciding,
+            "margin": margin}
+
+
+def _measured(r: dict, sims: int) -> dict:
+    """A measurement as the detail records it."""
+    return {"sims": int(sims), "player": r["player"], "loss": round(r["mean"][r["player"]], 3),
+            "cheapest": r["cheapest"], "tied": r["tied"],
+            "margin": None if r["margin"] is None else round(r["margin"], 2)}
+
+
 def activation_drops(*, manager: str, week: int, active, il, back, n: int, chance,
-                     protected_n: int, value, proj, band: float) -> tuple:
+                     protected_n: int, value, proj, band: float, escalate, escalate_margin) -> tuple:
     """(drops, detail): the `n` players to drop when the IL returns `back`
     take `manager`'s active roster `active` (returners included) over its
     active spots at `week`'s window. THE ONE RULE -- the roster plan's step 1
@@ -455,7 +529,20 @@ def activation_drops(*, manager: str, week: int, active, il, back, n: int, chanc
     comparisons that decide the pick -- the pick's own (unless he is the
     cheapest) and each lower-projection candidate's; None when none can
     move. A deterministic rule on noisy draws always has boundary cases: the
-    margin says which picks another seed could change."""
+    margin says which picks another seed could change.
+
+    A NEAR-TIE (44d): a pick whose margin is at most `escalate_margin` is
+    re-decided on its deciding comparisons -- the cheapest, the tied set
+    (any of them can be the cheapest at more sims, which moves the band's
+    base), the pick and every lower-projection candidate; a higher-projection
+    candidate outside the band can be neither the pick nor, past the band,
+    plausibly the cheapest -- measured by `escalate` (the same long-run value
+    at roster_moves.longrun_escalated_sims, the same seed and keying), and
+    that answer stands, whatever its own margin. The row then says
+    escalated: true, with both measurements; its loss, cheapest, tied and
+    margin are the deciding (escalated) measurement's, "next" the first's
+    (every candidate). A near-tie with no `escalate` RAISES. escalate_margin
+    None: the caller states it does not escalate (a primitive's test)."""
     if n <= 0:
         return [], []
     roster = list(dict.fromkeys(list(active) + list(il)))
@@ -466,29 +553,32 @@ def activation_drops(*, manager: str, week: int, active, il, back, n: int, chanc
             f"week {week}: {manager} activates {', '.join(back)} and must drop {n} of {len(active)} "
             f"active, but only {len(cands)} are neither protected ({', '.join(sorted(prot))}) nor "
             "returning: the one activation rule cannot choose")
-    import numpy as np
     cur, drops, detail = list(active), [], []
     for _ in range(int(n)):
         base = _draws(value(cur))
         loss = {x: base - _draws(value([y for y in cur if y != x])) for x in cands if x not in drops}
-        mean = {x: float(np.mean(v)) for x, v in loss.items()}
-        best = min(loss, key=lambda x: (mean[x], x))
-        tied = sorted(x for x in loss if within_band(loss[x] - loss[best], band))
-        pick = min(tied, key=lambda x: (float(proj(x)), x))
-        # 44c: the comparisons that decide the pick -- the pick's own place in
-        # the band (unless he is the cheapest, always in it), and every
-        # lower-projection candidate's place outside it (he would be the pick
-        # if he were tied) -- and the closest of them to the band's edge
-        rank = (float(proj(pick)), pick)
-        deciding = ([pick] if pick != best else []) + \
-            [x for x in loss if x not in (pick, best) and (float(proj(x)), x) < rank]
-        margin = _closest(band_margin(loss[x] - loss[best], band) for x in deciding)
+        first = _pick(loss, proj, band)
+        r, row = first, {"escalated": False, "sims": len(base)}
+        if _near(first["margin"], escalate_margin):
+            if escalate is None:
+                raise ActivationError(
+                    f"week {week}: {manager}'s activation drop is a near-tie ({first['player']}, "
+                    f"{first['margin']:.2f} SE from the band's edge) and the one activation rule has no "
+                    "escalated long-run value to re-decide it on (DropContext.longrun_escalated)")
+            group = sorted({first["cheapest"], first["player"], *first["tied"], *first["deciding"]})
+            base_e = _draws(escalate(cur))
+            loss_e = {x: base_e - _draws(escalate([y for y in cur if y != x])) for x in group}
+            r = _pick(loss_e, proj, band)
+            row = {"escalated": True, "sims": len(base_e),
+                   "measurements": [_measured(first, len(base)), _measured(r, len(base_e))]}
+        pick = r["player"]
         drops.append(pick)
         cur.remove(pick)
-        detail.append({"player": pick, "loss": round(mean[pick], 3), "cheapest": best,
-                       "tied": tied, "band": band,
-                       "margin": None if margin is None else round(margin, 2),
-                       "next": sorted(((round(v, 3), k) for k, v in mean.items() if k != pick))[:2]})
+        detail.append({"player": pick, "loss": round(r["mean"][pick], 3), "cheapest": r["cheapest"],
+                       "tied": r["tied"], "band": band,
+                       "margin": None if r["margin"] is None else round(r["margin"], 2),
+                       "next": sorted(((round(v, 3), k) for k, v in first["mean"].items()
+                                       if k != pick))[:2], **row})
     return drops, detail
 
 
@@ -719,7 +809,9 @@ def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rul
     try:
         known = PlayerIndex(dict(drops.keep(m)))
     except KeeperWatchFailed as e:
-        # 44c: decide without the keeper term (K = 0, no keeper protection), loudly; the run goes on
+        # 44d (Nick, 11-13; 44c s.2.4's safer option): no keep chances, so nothing can be
+        # protected -- HOLD every injured player beyond the slots this run (no drops), the
+        # slots by value without the keeper term, loudly; the run goes on
         _fallback_note(e)
         known, failed = None, f"fallback: {e}"
     else:
@@ -747,14 +839,19 @@ def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rul
     displaced = [n for n in s["il"] if n not in slots]
     decisions, wants = [], []
     for n in excess:
-        d = (idr.decide(m, cand[n], stakes, keep, cfg) if failed is None
-             else idr.decide_without_keepers(m, cand[n], stakes, cfg))
+        if failed is not None:
+            decisions.append({"player": n, "action": idr.HOLD,
+                              "reason": f"held: the keeper watch failed ({failed[len('fallback: '):]}), so "
+                                        "every injured player beyond the IL slots is held this run (no drops)",
+                              "cost_hold": None, "cost_drop": None, "keeper_term": None, "keep_rank": None,
+                              "keep_chance": None, "little_left": None, "carried_out": True, "rule": failed})
+            continue
+        d = idr.decide(m, cand[n], stakes, keep, cfg)
         decisions.append({"player": n, "action": d.action, "reason": d.reason,
                           "cost_hold": round(d.cost_hold, 6), "cost_drop": round(d.cost_drop, 6),
                           "keeper_term": round(d.keeper_term, 6), "keep_rank": d.keep_rank,
                           "keep_chance": d.keep_chance, "little_left": d.little_left,
-                          "carried_out": d.action == idr.HOLD,
-                          **({"rule": failed} if failed is not None else {})})
+                          "carried_out": d.action == idr.HOLD})
         if d.action == idr.DROP:
             wants.append((-(d.cost_hold - d.cost_drop), n))
     # a drop needs an add for his stand-in, after the placements and open spots
@@ -1036,7 +1133,9 @@ def _activation(m, week, s, back, over, P, drops, managers) -> tuple:
     (protection), the long-run value over longrun_weeks (the season's last
     bracket week in production), the protected count (injured_drop.
     protected_count: the top protected_keepers, the keeper_candidates when the
-    team has little left to play for, 44b s.6), the tie band (config). A
+    team has little left to play for, 44b s.6), the tie band (config), and
+    the near-tie escalation (44d: escalation_rules, DropContext.
+    longrun_escalated). A
     player's keep chance is his manager's, else another manager's (a player
     traded in carries his, as advice reads them); a player joining by a known
     move has none (never protected, as advice's `joining`); any other real
@@ -1090,10 +1189,13 @@ def _activation(m, week, s, back, over, P, drops, managers) -> tuple:
             "protected), and the plan was given none")
     little = drops.little_left(m, week)
     n_prot = protected_count(little, drops.config)
+    esc = drops.longrun_escalated
     d, det = activation_drops(manager=m, week=week, active=list(s["active"]), il=list(s["il"]),
                               back=list(back), n=over, chance=chance, protected_n=n_prot,
                               value=lambda r: drops.longrun(r, weeks, P), proj=lambda x: _proj(P(x)),
-                              band=longrun_rules()["band"])
+                              band=longrun_rules()["band"],
+                              escalate=None if esc is None else (lambda r: esc(r, weeks, P)),
+                              escalate_margin=escalation_rules()["margin"])
     for row in det:
         row["protected_n"] = n_prot
     return d, det, None
@@ -1161,7 +1263,11 @@ def _midweek(m, week, s, n, P, drops, managers, day_of, rules) -> tuple:
     it (step 2 then uses whatever slots are free). With no next window, A is
     valued against B's this week alone. stats (44c): the paired difference's
     gain and SE and its band_margin (how many SEs from the band's edge), for
-    the plan's midweek record."""
+    the plan's midweek record. A NEAR-TIE (44d: a margin within
+    escalation_rules' margin) is re-valued -- A against B on the same rosters
+    -- by DropContext.longrun_escalated, and that answer stands: stats then
+    say escalated, with both measurements (gain, SE and margin are the
+    deciding one's). A near-tie with no escalated measure RAISES."""
     import numpy as np
     if drops is None or drops.longrun is None or drops.config is None:
         raise ActivationError(f"week {week}: {m}'s {n} is back mid-week and the plan has no "
@@ -1175,22 +1281,44 @@ def _midweek(m, week, s, n, P, drops, managers, day_of, rules) -> tuple:
     if rule is not None:                                  # the keeper watch failed: HEAD kept him in IL
         return False, "kept in IL (keeper watch failed: no valuation)", [], [], {}
     roster_a = [x for x in act_a if x not in d_a]
-    va = _draws(drops.longrun(roster_a, weeks, P))
-    vb = _draws(drops.longrun(list(s["active"]), [week], P))
     nxt = int(week) + 1
     later = [w for w in weeks if w > int(week)]          # the same horizon as A's
+    roster_b_later = None
     if later and nxt in day_of:
         d_b, _det, _r = _activation(m, nxt, probe, [n], over, P, drops, managers) if over else ([], [], None)
-        vb = vb + _draws(drops.longrun([x for x in act_a if x not in d_b], later, P))
-    diff = va - vb
-    gain = float(np.mean(diff))
+        roster_b_later = [x for x in act_a if x not in d_b]
+
+    def now_minus_wait(valuer):
+        va = _draws(valuer(roster_a, weeks, P))
+        vb = _draws(valuer(list(s["active"]), [week], P))
+        if roster_b_later is not None:
+            vb = vb + _draws(valuer(roster_b_later, later, P))
+        return va - vb
     band = longrun_rules()["band"]
-    go = gain > 0 and not within_band(diff, band)
-    why = (f"{'activated now' if go else 'kept in IL'}: now minus wait {gain:+.1f} pts "
-           f"(SE {paired_se(diff):.1f}, band {band:g})")
-    margin = band_margin(diff, band)
-    stats = {"gain": round(gain, 3), "se": round(paired_se(diff), 3),
-             "margin": None if margin is None else round(margin, 2)}
+
+    def measure(diff):
+        gain, margin = float(np.mean(diff)), band_margin(diff, band)
+        return {"gain": round(gain, 3), "se": round(paired_se(diff), 3),
+                "margin": None if margin is None else round(margin, 2),
+                "activate": gain > 0 and not within_band(diff, band), "sims": len(diff)}
+    diff = now_minus_wait(drops.longrun)
+    first = measure(diff)
+    r, extra = first, {"escalated": False}
+    if _near(band_margin(diff, band), escalation_rules()["margin"]):
+        if drops.longrun_escalated is None:
+            raise ActivationError(
+                f"week {week}: {m}'s mid-week returner {n} is a near-tie ({first['margin']} SE from the "
+                "band's edge) and the plan has no escalated long-run value to re-decide it on "
+                "(DropContext.longrun_escalated)")
+        diff = now_minus_wait(drops.longrun_escalated)
+        r = measure(diff)
+        extra = {"escalated": True, "measurements": [first, r]}
+    go = r["activate"]
+    why = (f"{'activated now' if go else 'kept in IL'}: now minus wait {r['gain']:+.1f} pts "
+           f"(SE {r['se']:.1f}, band {band:g}"
+           + (f"; a near-tie at {first['sims']} sims ({first['gain']:+.1f}, SE {first['se']:.1f}), "
+              f"decided at {r['sims']}" if extra["escalated"] else "") + ")")
+    stats = {"gain": r["gain"], "se": r["se"], "margin": r["margin"], **extra}
     return go, why, (d_a if go else []), (det_a if go else []), stats
 
 
@@ -1394,13 +1522,17 @@ def for_run(data, team_projections: dict, statuses: dict = None, today: date = N
         # rosters with it, and share its cache
         from dataclasses import replace
         from .data_loader import CURRENT_SEASON
-        lr = LongRun(nba_schedule=getattr(data, "nba_schedule", None),
-                     schedule_weeks=(getattr(data, "schedule", None) or {}).get("weeks", []),
-                     durability_prior=getattr(data, "durability_prior", None),
-                     season=getattr(data, "season", None) or CURRENT_SEASON, statuses=tags,
-                     anchor=today, first_week=start if open_day is not None else start + 1,
-                     last_week=max([w for w, _d in wins] or [start + 1]))
-        drops = replace(drops, longrun=lr.draws)
+        span = dict(nba_schedule=getattr(data, "nba_schedule", None),
+                    schedule_weeks=(getattr(data, "schedule", None) or {}).get("weeks", []),
+                    durability_prior=getattr(data, "durability_prior", None),
+                    season=getattr(data, "season", None) or CURRENT_SEASON, statuses=tags,
+                    anchor=today, first_week=start if open_day is not None else start + 1,
+                    last_week=max([w for w, _d in wins] or [start + 1]))
+        lr = LongRun(**span)
+        # 44d: the near-tie measure, one context per run beside it -- the same seed and
+        # keying at escalated sims; lazy, so a run with no near-tie never builds it
+        esc = LongRun(**span, sims=escalation_rules()["sims"], seed=lr.seed)
+        drops = replace(drops, longrun=lr.draws, longrun_escalated=esc.draws)
     args = dict(start_week=start, il_slots=il.get("slots") or {}, rosters=rosters,
                 windows=wins, players=players,
                 statuses=tags, assume_healthy=assume,

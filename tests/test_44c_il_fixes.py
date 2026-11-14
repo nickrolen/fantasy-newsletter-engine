@@ -5,9 +5,10 @@ s.2.1 an early activation's step names the return day;
 s.2.2 at the OPEN Monday window, today's O/OFS tag holds an IL occupant with
       no injury entry (Q/D/healthy is activated, as before);
 s.2.3 the little-left check raises when nothing states it (no default top 4);
-s.2.4 18b's hold-or-drop decision falls back on a keeper-watch failure:
-      decide() without the keeper term (K = 0), in the same KEEPER WATCH
-      FAILED line, and the run stays ok.
+s.2.4 18b on a keeper-watch failure: the run stays ok, with the KEEPER
+      WATCH FAILED line. (44d replaced 44c's decide() without the keeper
+      term with HOLDING every injured player beyond the slots: its tests are
+      in test_44d_near_ties.py.)
 """
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ from modules.data_loader import PlayerIndex
 from test_advice_v2 import FAST, chat_inputs
 from test_il_followup import MON5, _benton, _plan5
 from test_il_returns import payload, returner_fixture
-from test_injured_drop import CFG, _ctx, _keep_low, _plan_stakes, _three_out
+from test_injured_drop import _ctx, _keep_low, _plan_stakes, _three_out
 from test_roster_plan import GP, RULES, WINDOWS, _build, _league, _p, activation_ctx
 
 LA = ZoneInfo("America/Los_Angeles")
@@ -213,48 +214,11 @@ def test_the_bootstrap_is_the_one_stated_exception_and_the_replay_states_its_che
 
 
 # =============================================================================
-# s.2.4 18b on a keeper-watch failure: decide() without the keeper term
+# s.2.4 18b on a keeper-watch failure (44d: every excess injured player held)
 # =============================================================================
 
 def _broken_keep(m):
     raise rp.KeeperWatchFailed("AgeNotFound: no age for Somebody")
-
-
-def test_decide_without_keepers_is_decide_with_k_zero_and_no_protection():
-    """For a player outside every protection, the same answer and costs as
-    decide() with K = 0; it records no rank or chance; and a top keeper is
-    not protected (nothing ranks him)."""
-    st = _plan_stakes()("Nick", 3)
-    cand = idr.Candidate("X", 7, {w: 0.0 if w < 7 else 40.0 for w in range(3, 11)},
-                         {w: 27.0 for w in range(3, 11)})
-    keep = {"X": 0.01, **{f"K{i}": 0.5 for i in range(8)}}               # X is no. 9: unprotected
-    k0 = replace(CFG, keeper_weight=0.0)
-    a, b = idr.decide("Nick", cand, st, keep, k0), idr.decide_without_keepers("Nick", cand, st, CFG)
-    assert (a.action, a.cost_hold, a.cost_drop) == (b.action, b.cost_hold, b.cost_drop)
-    assert b.keeper_term == 0.0 and b.keep_rank is None and b.keep_chance is None
-    assert "keeper watch failed" in b.reason
-    top = idr.decide("Nick", cand, st, {"X": 0.99, "K0": 0.1}, CFG)
-    assert top.action == idr.HOLD and "top-4" in top.reason
-    assert "top-4" not in idr.decide_without_keepers("Nick", cand, st, CFG).reason
-    with pytest.raises(KeyError):
-        idr.costs(cand, st, None, CFG)                                 # the strict path still raises
-
-
-def test_the_plan_decides_without_the_keeper_term_loudly_when_the_watch_fails():
-    players, rosters = _three_out()
-    keep = _keep_low(rosters["Nick"])
-    good = _build(players, rosters, drops=_ctx(_plan_stakes(), keep))
-    rp.take_notes()
-    bad = _build(players, rosters, drops=replace(_ctx(_plan_stakes(), keep), keep=_broken_keep))
-    (dg,), (db,) = good[3]["Nick"]["decisions"], bad[3]["Nick"]["decisions"]
-    assert (db["player"], db["action"], db["carried_out"]) == (dg["player"], dg["action"], True)
-    assert db["keeper_term"] == 0.0 and db["keep_rank"] is None and db["rule"].startswith("fallback: AgeNotFound")
-    assert "rule" not in dg
-    assert bad[3]["Nick"]["dropped"] == good[3]["Nick"]["dropped"] == ["Nick_2"]
-    notes = rp.take_notes()
-    assert notes == [rp.FALLBACK_NOTE.format(err="AgeNotFound: no age for Somebody")]
-    assert "18b's hold-or-drop decisions without the keeper term (K = 0)" in notes[0]
-    assert "lowest-projection rule" in notes[0]                        # one line for both fallbacks
 
 
 def test_the_run_stays_ok_and_records_the_line(monkeypatch, tmp_path):
@@ -278,5 +242,5 @@ def test_the_run_stays_ok_and_records_the_line(monkeypatch, tmp_path):
     row = run.execute(stubs)
     assert row["outcome"] == "ok"
     kw = row["keeper_watch"]
-    assert kw["failed"] and kw["steps"] == ["line"] and "K = 0" in kw["notes"][0]
+    assert kw["failed"] and kw["steps"] == ["line"] and "HELD every injured player" in kw["notes"][0]
     assert "KEEPER WATCH FAILED" in next(s["detail"] for s in row["steps"] if s["step"] == "line")

@@ -114,7 +114,7 @@ def test_every_candidate_protected_raises():
     keep = {"A": 0.9, "B": 0.8, "C": 0.7, "D": 0.6}
     with pytest.raises(rp.ActivationError, match="neither protected"):
         rp.activation_drops(manager="Nick", week=5, active=["A", "B", "C", "D", "R"], il=[], back=["R"],
-                            n=1, chance=_chance(keep), protected_n=4, value=lambda r: len(r), proj=lambda x: 1.0, band=2.0)
+                            n=1, chance=_chance(keep), protected_n=4, value=lambda r: len(r), proj=lambda x: 1.0, band=2.0, escalate=None, escalate_margin=None)
 
 
 def test_a_returner_is_never_dropped_and_a_stand_in_is_valued_at_his_level():
@@ -125,7 +125,7 @@ def test_a_returner_is_never_dropped_and_a_stand_in_is_valued_at_his_level():
     keep = {"X": 0.1, "K": 0.9, "R": 0.0}            # the stand-in: None
     drops, detail = rp.activation_drops(
         manager="Nick", week=5, active=list(pts), il=[], back=["R"], n=1, chance=_chance(keep),
-        protected_n=1, value=lambda r: sum(pts[n] for n in r), proj=lambda x: pts[x], band=2.0)
+        protected_n=1, value=lambda r: sum(pts[n] for n in r), proj=lambda x: pts[x], band=2.0, escalate=None, escalate_margin=None)
     assert drops == ["Stand-in (30.0)"] and detail[0]["loss"] == 30.0
     assert detail[0]["next"] == [(31.0, "X")]          # K is protected (top 1), R a returner
 
@@ -136,7 +136,7 @@ def test_ties_go_to_the_lower_projection_then_the_name():
     proj = {"Zed": 5.0, "Abe": 20.0, "Bob": 20.0, "R": 30.0}
     drops, _ = rp.activation_drops(manager="Nick", week=5, active=list(proj), il=[], back=["R"], n=2,
                                    chance=lambda x: 0.0, protected_n=0, value=lambda r: 0.0,
-                                   proj=lambda x: proj[x], band=2.0)
+                                   proj=lambda x: proj[x], band=2.0, escalate=None, escalate_margin=None)
     assert drops == ["Zed", "Abe"]
 
 
@@ -170,7 +170,9 @@ def test_the_plan_and_advice_choose_the_same_player_on_the_same_roster():
     advice's own: activation_drops valued with advice's V2 follow-up
     valuation (marginal_value on the advice inputs' own context, _week_points
     over the window through the stakes' last week) picks the same player, and
-    LongRun's numbers equal it for every candidate."""
+    LongRun's numbers equal it for every candidate. 44d: a near-tie is
+    re-decided at the escalated sims, by advice's own valuation at those sims
+    as by the plan's escalated LongRun."""
     fx = returner_fixture()
     inp = chat_inputs(fx)
     P0 = av._plan(inp)
@@ -183,22 +185,30 @@ def test_the_plan_and_advice_choose_the_same_player_on_the_same_roster():
     from modules import marginal_value as mv
     ctx = av._later_ctx(inp, weeks, av.Settings().long_sims, av.Settings().seed, [P0])
 
-    def advice_value(r):                        # advice's own valuation, per simulation (44b s.1)
-        assert all(ctx.players.canonical(n) is not None for n in r)
-        bw = mv.roster_totals(ctx, list(r))[2]
-        return sum(np.asarray(bw[w], dtype=float) for w in weeks)
+    def valuer(ctx):                            # advice's own valuation, per simulation (44b s.1)
+        def value(r):
+            assert all(ctx.players.canonical(n) is not None for n in r)
+            bw = mv.roster_totals(ctx, list(r))[2]
+            return sum(np.asarray(bw[w], dtype=float) for w in weeks)
+        return value
+    advice_value = valuer(ctx)
+    esc = rp.escalation_rules()
+    advice_escalated = valuer(av._later_ctx(inp, weeks, esc["sims"], av.Settings().seed, [P0]))
     active = P0[1]["Nick"]["active"] + ["Hurt"]
     keep = dict(inp.managers["Nick"].keep)
     picked, detail = rp.activation_drops(manager="Nick", week=2, active=active, il=[], back=["Hurt"], n=1,
                                          chance=_chance(keep), protected_n=4, value=advice_value,
                                          proj=lambda x: inp.projection(x).effective_fppg,
-                                         band=rp.longrun_rules()["band"])
+                                         band=rp.longrun_rules()["band"], escalate=advice_escalated,
+                                         escalate_margin=esc["margin"])
     assert picked == step["drops"]
     lr = inp.plan.args["drops"].longrun
     assert av.Settings().long_sims == rp.longrun_rules()["sims"] == 200
     for x in [n for n in active if n != "Hurt"]:
         r = [n for n in active if n != x]
         assert np.allclose(lr(r, weeks, inp.projection), advice_value(r), atol=1e-9), x
+        assert np.allclose(inp.plan.args["drops"].longrun_escalated(r, weeks, inp.projection),
+                           advice_escalated(r), atol=1e-9), x
 
 
 def test_a_protected_low_projection_keeper_is_never_the_activation_drop_in_advice():
