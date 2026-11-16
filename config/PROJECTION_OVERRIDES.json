@@ -1,4 +1,21 @@
 {
   "_comment": "Patches on Yahoo PLAYERLIST rows that are wrong UPSTREAM. Applied by scripts/fetch_playerlist.py after parsing and before writing, so they survive every refetch; scripts/check_playerlist.py lists the live ones and FAILS on any past review_by, or whose Yahoo row no longer matches 'replaces' (upstream may be fixed). Keyed by Yahoo player id. 'set' may name projectedFPPG (a number) and player_proj_GP (a number, or \"team\": the most games remaining Yahoo projects for any teammate in the same fetch). Total FP is derived, FPPG x GP. See modules/projection_overrides.py.",
-  "overrides": []
+  "overrides": [
+    {
+      "yahoo_id": "6514",
+      "player_name": "Evan Mobley",
+      "set": {
+        "projectedFPPG": 37.4,
+        "player_proj_GP": "team"
+      },
+      "replaces": {
+        "projectedFPPG": 0.0,
+        "player_proj_GP": 0.0
+      },
+      "reason": "Yahoo's rest-of-season view gave Mobley 0 GP and 0.00 FP in the 11-16 nightly fetch while he was tagged Q (O->Q on 11-15), the 10-26 Boozer/Acuff pattern. check_playerlist refused both 11-16 nightly attempts (below 5.0 FPPG), so the Monday window run never happened. His absence is the tags' and injury entries' job, not the projection's.",
+      "source": "11-15 PLAYERLIST (Sun 8:30 AM hub): projectedFPPG 37.4; 11-16 nightly fetch: 0 GP, 0.0 FP",
+      "added": "2026-11-16",
+      "review_by": "2026-11-23"
+    }
+  ]
 }
