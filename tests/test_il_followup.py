@@ -65,7 +65,7 @@ def test_a_planted_near_tie_goes_to_the_lower_projection():
     proj = {"A": 30.0, "B": 20.0, "K": 40.0, "R": 35.0}
     d, det = rp.activation_drops(manager="Nick", week=5, active=list(t), il=[], back=["R"], n=1,
                                  chance=lambda x: {"K": 0.9}.get(x, 0.0), protected_n=1,
-                                 value=_draws_of(t), proj=lambda x: proj[x], band=2.0)
+                                 value=_draws_of(t), proj=lambda x: proj[x], band=2.0, escalate=None, escalate_margin=None)
     assert det[0]["cheapest"] == "A" and det[0]["tied"] == ["A", "B"] and d == ["B"]
 
 
@@ -77,7 +77,7 @@ def test_a_clear_gap_goes_to_the_measure():
     proj = {"A": 30.0, "B": 20.0, "K": 40.0, "R": 35.0}
     d, det = rp.activation_drops(manager="Nick", week=5, active=list(t), il=[], back=["R"], n=1,
                                  chance=lambda x: {"K": 0.9}.get(x, 0.0), protected_n=1,
-                                 value=_draws_of(t), proj=lambda x: proj[x], band=2.0)
+                                 value=_draws_of(t), proj=lambda x: proj[x], band=2.0, escalate=None, escalate_margin=None)
     assert det[0]["tied"] == ["A"] and d == ["A"]
 
 
@@ -110,7 +110,7 @@ def test_a_picks_margin_is_its_closest_deciding_comparison():
          "K": np.full(200, 99.0), "R": np.full(200, 50.0)}
     proj = {"A": 30.0, "B": 20.0, "K": 40.0, "R": 35.0}
     kw = dict(manager="Nick", week=5, il=[], back=["R"], n=1, chance=lambda x: {"K": 0.9}.get(x, 0.0),
-              protected_n=1, proj=lambda x: proj[x], band=2.0)
+              protected_n=1, proj=lambda x: proj[x], band=2.0, escalate=None, escalate_margin=None)
     _d, det = rp.activation_drops(active=list(t), value=_draws_of(t), **kw)
     assert det[0]["player"] == "B" and det[0]["cheapest"] == "A"
     assert det[0]["margin"] == round(rp.band_margin(t["B"] - t["A"], 2.0), 2)
@@ -199,17 +199,22 @@ def test_the_seed_does_not_change_a_clear_decision_on_the_real_state(monkeypatch
     (gain +4.3 pts, SE 3.4): kept at the production seed, activated at four
     others -- and the rebuilt plans then differed downstream too. Production
     prices with one fixed seed, so its decisions move only when the inputs
-    do. Near-boundary decisions are printed with their margins, not asserted."""
+    do. Near-boundary decisions are printed with their margins, not asserted.
+    44d: a near-tie (within 2 SEs of the edge) is decided at 800 sims, and
+    the margin recorded is the deciding measurement's."""
     data, tps, tags = _real()
     calls = _capture(monkeypatch)
     run = rp.for_run(data, tps, tags)
     monkeypatch.undo()
     lr = run.args["drops"].longrun.__self__
-    other = rp.LongRun(nba_schedule=lr.nba_schedule, schedule_weeks=lr.schedule_weeks,
-                       durability_prior=lr.durability_prior, season=lr.season,
-                       statuses=dict(lr.statuses), anchor=lr.anchor, first_week=lr.first_week,
-                       last_week=lr.last_week, sims=lr.sims, seed=3)
+    other, other_esc = (rp.LongRun(nba_schedule=lr.nba_schedule, schedule_weeks=lr.schedule_weeks,
+                                   durability_prior=lr.durability_prior, season=lr.season,
+                                   statuses=dict(lr.statuses), anchor=lr.anchor, first_week=lr.first_week,
+                                   last_week=lr.last_week, sims=sims, seed=3)
+                        for sims in (lr.sims, rp.escalation_rules()["sims"]))
     assert lr.seed != other.seed
+    # 44d: the other seed escalates its own near-ties too, at its own escalated sims
+    at3 = replace(run.args["drops"], longrun=other.draws, longrun_escalated=other_esc.draws)
     real = [c for c in calls if c["rule"] is None]
     if not real:
         pytest.skip("today's real plan makes no activation or mid-week decision: nothing to check")
@@ -221,7 +226,7 @@ def test_the_seed_does_not_change_a_clear_decision_on_the_real_state(monkeypatch
         print(f"    week {c['week']} {c['m']} {c['kind']} {', '.join(c['who'])} -> {c['answer']} "
               f"(margin {c['margin']} SE)")
     for c in clear:
-        assert c["redo"](replace(run.args["drops"], longrun=other.draws)) == c["answer"], \
+        assert c["redo"](at3) == c["answer"], \
             (c["kind"], c["week"], c["m"], c["who"], c["margin"])
 
 

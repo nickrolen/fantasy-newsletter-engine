@@ -114,10 +114,13 @@ class Fixture:
         weeks = sorted(sw, key=lambda w: w["week"])
         start = next(w["week"] for w in weeks
                      if date.fromisoformat(w["start_date"]) <= anchor <= date.fromisoformat(w["end_date"]))
-        lr = roster_plan.LongRun(nba_schedule={"games": self.games}, schedule_weeks=weeks,
-                                 durability_prior=None, season="2026-27", statuses=dict(self.statuses),
-                                 anchor=anchor, first_week=start if open_window else start + 1,
-                                 last_week=weeks[-1]["week"])
+        span = dict(nba_schedule={"games": self.games}, schedule_weeks=weeks,
+                    durability_prior=None, season="2026-27", statuses=dict(self.statuses),
+                    anchor=anchor, first_week=start if open_window else start + 1,
+                    last_week=weeks[-1]["week"])
+        lr = roster_plan.LongRun(**span)
+        # 44d: the near-tie measure beside it, as roster_plan.for_run makes it (lazy)
+        lr_esc = roster_plan.LongRun(**span, sims=roster_plan.escalation_rules()["sims"], seed=lr.seed)
 
         def stakes_for(m, window):
             ts = stakes[m]
@@ -139,7 +142,7 @@ class Fixture:
         drops = roster_plan.DropContext(
             config=injured_drop.from_rules(), note=(lambda: None) if stakes else (lambda: "fixture: no stakes"),
             stakes=stakes_for, keep=lambda m: dict(self.keep[m]), games=games, availability=share,
-            longrun=lr.draws,
+            longrun=lr.draws, longrun_escalated=lr_esc.draws,
             little_left=(lambda m, w: injured_drop.little_left(stakes_for(m, w), injured_drop.from_rules()))
             if stakes else (lambda m, w: None))                 # 44c: stated, no stakes -> the top 4
         return av.PlanSpec(dict(
