@@ -193,6 +193,44 @@ def overrides_at(base_path, data, moment: datetime) -> dict:
                                     if "player_name" in pl.columns else [])
 
 
+def align_to_close(tags, rostered) -> tuple:
+    """(tags, left, joined): the pre-tip tags re-sorted to the rosters AS AT
+    THE CLOSE (11-17). The tags are the pre-tip run's, but the rosters are the
+    close's, and a move between the two (a 3:55 PM drop, a 4:30 PM add) moves a
+    player between the record's two populations:
+      - a rostered tag whose player is on no roster at the close becomes a free
+        agent's tag (`left`), so it can't land on nobody
+        (absence.UnresolvedTagName refused week 5's close on 11-17 for Murray
+        and Mobley, both O, both dropped after the pre-tip run);
+      - a free agent's tag whose player is rostered at the close becomes a
+        rostered tag (`joined`).
+    The tag itself never changes: still as at the tip. nba_outs follow the
+    same move (a free agent has none)."""
+    from .data_loader import PlayerIndex
+    from .fetch_injury_statuses import Tags
+    roster = PlayerIndex({n: n for n in rostered})
+    fa = dict(tags.free_agents) if tags.free_agents is not None else None
+    keep, left, joined = {}, [], []
+    for name, st in dict(tags).items():
+        if roster.canonical(name) is None:
+            left.append(name)
+            if fa is not None:
+                fa.setdefault(name, st)
+        else:
+            keep[name] = st
+    have = {roster.canonical(n) for n in keep}
+    if fa is not None:
+        for name in sorted(fa):
+            key = roster.canonical(name)
+            if key is not None and key not in have:
+                keep[name] = fa.pop(name)
+                have.add(key)
+                joined.append(name)
+    outs = {n: d for n, d in dict(tags.nba_outs or {}).items() if roster.canonical(n) is not None}
+    return (Tags(keep, fa, tags.free_agents_assumed_healthy, outs or None),
+            sorted(left), sorted(joined))
+
+
 def check_inputs(base_path, data, *, monday: date, first_tip: datetime, close: datetime) -> dict:
     """Every input the closing line takes from disk, checked against the
     close and the first tip. Raises ClosingRefused naming the input."""
@@ -261,7 +299,9 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
                              f"{now.isoformat(timespec='minutes')}. The closing line is priced after "
                              "the close.")
     row = tag_records.for_close(base, monday, first)          # NoPretipTags is a refusal too
-    tags = tag_records.as_tags(row)
+    close_rostered = [n for v in json.loads((base / "config" / "ROSTERS.json").read_text(
+        encoding="utf-8"))["rosters"].values() for n in v]
+    tags, left_tags, joined_tags = align_to_close(tag_records.as_tags(row), close_rostered)
     at_tip = overrides_at(base, full, first)
     full.injury_overrides = at_tip
     info = check_inputs(base, full, monday=monday, first_tip=first, close=close)
@@ -294,7 +334,9 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
         "generated_at": stamp, "kind": "closing",
         "closing": {"window_close": stamp, "first_tip": first.isoformat(timespec="seconds"),
                     "as_of": monday.isoformat(), "seed": seed,
-                    "tags": {"run_id": row["run_id"], "mode": row["mode"], "taken_at": row["taken_at"]},
+                    "tags": {"run_id": row["run_id"], "mode": row["mode"], "taken_at": row["taken_at"],
+                             "left_roster_before_close": left_tags,
+                             "joined_roster_before_close": joined_tags},
                     "overrides_last_updated": info["overrides_last_updated"],
                     "rule": "rosters and IL as at the close; tags, projections and results as at "
                             "Monday's first tip; the week's seed (Nick, 11-03)"},

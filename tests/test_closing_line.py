@@ -230,3 +230,21 @@ def test_title_odds_at_the_close_use_the_same_inputs(priced_twice, monkeypatch):
                       statuses=priced_twice["tags"])
     assert 3 not in sp.in_progress and 3 in sp.simulated_weeks        # nothing of Monday banked
     assert tor.readouts(sp)["title_odds"] == row["title_odds"]
+
+
+def test_tags_follow_the_rosters_as_at_the_close():
+    """11-17: week 5's close refused (UnresolvedTagName) because Murray and Mobley, both O in
+    the pre-tip record, were dropped between the pre-tip run and the close. A player who left
+    a roster takes his tag to the free agents; one who joined takes his from them; the tags
+    themselves stay as at the tip."""
+    tags = Tags({"Stays": "Q", "Dropped Star": "O", "Dropped Bench": "HEALTHY"},
+                {"Added Guy": "D", "Still Free": "O"}, nba_outs={"Dropped Star": "2026-11-16",
+                                                                  "Stays": "2026-11-16"})
+    out, left, joined = cl.align_to_close(tags, ["Stays", "Added Guy", "Other"])
+    assert dict(out) == {"Stays": "Q", "Added Guy": "D"}
+    assert dict(out.free_agents) == {"Still Free": "O", "Dropped Star": "O", "Dropped Bench": "HEALTHY"}
+    assert left == ["Dropped Bench", "Dropped Star"] and joined == ["Added Guy"]
+    assert dict(out.nba_outs) == {"Stays": "2026-11-16"}
+    # nothing moved: the same tags back
+    same, l2, j2 = cl.align_to_close(Tags({"A": "O"}, {"B": "Q"}), ["A"])
+    assert dict(same) == {"A": "O"} and dict(same.free_agents) == {"B": "Q"} and l2 == j2 == []
