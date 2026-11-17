@@ -471,7 +471,9 @@ class Run:
                 tag = None                                   # not in Yahoo's lists: unknown
             tag = None if tag is None else str(tag or "").upper()
             md = f"{rd.month:02d}-{rd.day:02d}"
-            if tag is not None and not ml.tag_il_eligible(tag):
+            # "Still out" is O/OFS (decision 13b), NOT the IL-eligible set: since 11-16 that
+            # also has Q and D, and a Q player whose return date passed is back, not out.
+            if tag is not None and not ml.tag_il_eligible(tag, ("O", "OFS")):
                 ch = ov.remove_change(self.base, name, now=self.now, by="nightly (13b)")
                 ov.apply(self.base, ch)
                 removed.append({"player": ch["player"], "return_date": rd.isoformat(),
