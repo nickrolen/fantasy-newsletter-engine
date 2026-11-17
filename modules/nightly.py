@@ -70,7 +70,14 @@ s.2.4 and s.4 the design. The nightly run:
                    Then (40b) player_actuals.update_extras: every non-rostered
                    player the previous hub named, for the cards; its failure is
                    recorded (the run's "actuals" block, FREE-AGENT ACTUALS
-                   FAILED in the summary) and never stops the run
+                   FAILED in the summary) and never stops the run. Both
+                   passes keep each day's categories from the same rows (4a2);
+                   a category problem never costs the points: recorded
+                   (CATEGORY STATS FAILED). Then, the nightly run only (4a2),
+                   player_actuals.backfill_categories: days cached before
+                   4a2, oldest first, at most actuals.category_backfill_
+                   calls_max calls; its failure is recorded the same way
+                   (the "actuals" block's "categories") and never stops the run
    9 hub           hub_state.build, then build_hub (encrypted when
                    HUB_PASSPHRASE is set, --preview-only otherwise).
                    Publishing is step 1c-ii. The player cards fail softly
@@ -786,6 +793,9 @@ class Run:
         r = pa.update(self.base, today=self.today)
         detail = (f"through {r['through']}: {len(r['days_fetched'])} day(s), {r['calls']} call(s)"
                   + (f"; backfilled {', '.join(r['backfilled'])}" if r["backfilled"] else ""))
+        block: dict = {}
+        lines: list = []
+        cat_errors = list(r.get("cat_errors") or [])
         # 40b: then every non-rostered player the previous hub named, in their
         # own batches. It feeds only the player cards, which fail softly, so a
         # failure here (Yahoo, the cap, the names) is recorded loudly -- the
@@ -793,19 +803,55 @@ class Run:
         # and the run goes on; the rostered days above are already written.
         t0 = time.perf_counter()
         try:
-            x = pa.update_extras(self.base, source=r.get("source"), rostered=r["ids"], today=self.today)
+            x = pa.update_extras(self.base, source=r.get("source"), rostered=r["ids"], today=self.today,
+                                 header=r.get("header"))
         except Exception as e:                       # noqa: BLE001 -- recorded loudly, never stops the run
             err = f"{type(e).__name__}: {e}".splitlines()[0][:500]
-            self.ctx["actuals"] = {"extras": None, "error": err, "seconds": round(time.perf_counter() - t0, 2)}
-            self.ctx["actuals_lines"] = [f"FREE-AGENT ACTUALS FAILED: {err} -- their cards keep the note; "
-                                         "the rostered players' numbers are fetched"]
-            return detail + f"; free agents FAILED (recorded, the run goes on): {err}"
-        self.ctx["actuals"] = {"extras": x["players"], "no_id": x["no_id"], "days": len(x["days_fetched"]),
-                               "calls": x["calls"], "backfilled": x["backfilled"], "error": None,
-                               "seconds": round(time.perf_counter() - t0, 2)}
-        return (detail + f"; free agents {x['players']} (cap {x['cap']}), {len(x['days_fetched'])} day(s), "
-                f"{x['calls']} call(s)" + (f", backfilled {', '.join(x['backfilled'])}" if x["backfilled"] else "")
-                + (f"; no Yahoo id: {', '.join(x['no_id'])}" if x["no_id"] else ""))
+            block.update({"extras": None, "error": err, "seconds": round(time.perf_counter() - t0, 2)})
+            lines.append(f"FREE-AGENT ACTUALS FAILED: {err} -- their cards keep the note; "
+                         "the rostered players' numbers are fetched")
+            detail += f"; free agents FAILED (recorded, the run goes on): {err}"
+        else:
+            cat_errors += list(x.get("cat_errors") or [])
+            block.update({"extras": x["players"], "no_id": x["no_id"], "days": len(x["days_fetched"]),
+                          "calls": x["calls"], "backfilled": x["backfilled"], "error": None,
+                          "seconds": round(time.perf_counter() - t0, 2)})
+            detail += (f"; free agents {x['players']} (cap {x['cap']}), {len(x['days_fetched'])} day(s), "
+                       f"{x['calls']} call(s)" + (f", backfilled {', '.join(x['backfilled'])}" if x["backfilled"] else "")
+                       + (f"; no Yahoo id: {', '.join(x['no_id'])}" if x["no_id"] else ""))
+        # 4a2: the categories. A day's categories that failed above are left
+        # out (its points are written) and recorded; the nightly run then fills
+        # days cached without categories, at most the config's calls. Both
+        # feed only the grade tiles, so a failure is recorded loudly
+        # (CATEGORY STATS FAILED) and the run goes on.
+        cats: dict = {"errors": cat_errors, "backfill": None, "error": None}
+        if self.mode == "nightly" and not hasattr(r.get("source"), "cats_day"):
+            cats["backfill"] = "skipped: the source fetches no categories"
+        elif self.mode == "nightly":
+            t1 = time.perf_counter()
+            try:
+                bf = pa.backfill_categories(self.base, source=r.get("source"), today=self.today,
+                                            header=r.get("header"))
+            except Exception as e:                   # noqa: BLE001 -- recorded loudly, never stops the run
+                err = f"{type(e).__name__}: {e}".splitlines()[0][:500]
+                cats["error"] = err
+                detail += f"; categories' backfill FAILED (recorded, the run goes on): {err}"
+            else:
+                cats["backfill"] = {k: bf[k] for k in ("days_done", "days_left", "calls", "cap", "corrections",
+                                                       "stopped")}
+                detail += (f"; categories backfilled {len(bf['days_done'])} day(s), {bf['calls']} call(s), "
+                           f"{bf['days_left']} day(s) left")
+            cats["seconds"] = round(time.perf_counter() - t1, 2)
+        for e in cat_errors:
+            lines.append(f"CATEGORY STATS FAILED: {e} -- that day's points are written; the backfill retries it")
+        if cats["error"]:
+            lines.append(f"CATEGORY STATS FAILED: the backfill: {cats['error']} -- the grade tiles wait")
+        if cat_errors:
+            detail += f"; {len(cat_errors)} day(s) of categories FAILED (recorded)"
+        block["categories"] = cats
+        self.ctx["actuals"] = block
+        self.ctx["actuals_lines"] = lines
+        return detail
 
     # -- 9
     def step_hub(self):

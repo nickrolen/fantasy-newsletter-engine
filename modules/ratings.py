@@ -35,8 +35,29 @@ after. It predicts who is kept better than FPPG (held out, six decisions,
 chance, which also knows reputation (kept, draft round). It is not "upside".
 
 GRADES: mid-rank percentiles among today's rostered players, letter bands
-from config. Durability (A), consistency (-sd/FPPG), schedule (G); the five
-category grades are None with a reason until per-category stats are stored.
+from config. Durability (A), consistency (-sd/FPPG). Schedule (4a decision
+5, built in 4a2): his NBA team's games in the next 3 fantasy weeks (the
+games grid's horizon: the rest of the week holding the next day, and the two
+after), the count beside the letter; OVR's G stays rest-of-season.
+
+THE FIVE CATEGORY GRADES (4a2): per-game fantasy points from the league's
+own categories (data/player_actuals.json cat_days, category_season), over
+every game he played from the season's first day through as_of, each count
+times its yahoo_settings value. Which categories make which grade is config
+grades.categories; together they are every scoring category exactly once,
+so the five per-game values add up to his FPPG:
+    scoring     PTS + 3PTM              playmaking  AST
+    rebounding  REB                     stocks      ST + BLK
+    efficiency  FGM + FGA + FTM + FTA + TO (the shooting terms and turnovers)
+None with a reason: "stats still loading" (the cache has no categories for
+a day he played: version 1, or the backfill has not reached it), "N games:
+shows after M" (grades.min_games), or a cache gap.
+
+THE ARCHETYPE (4a decision 7; 4a2): one label from the five category
+percentiles by a rule table (archetype(); ARCHETYPE_RULES). Exactly one rule
+matches any combination (tested over every letter combination). Ships with
+archetype.enabled false: Nick approves the names (config archetype.labels)
+first.
 
 No randomness. Missing inputs RAISE (RatingsInputError, naming them); a
 player the inputs cannot rate gets None and a reason, never a made-up value.
@@ -80,9 +101,16 @@ REQUIRED = {
     ("grades", "min_team_games"): dict,
     ("grades", "min_games"): dict,
     ("grades", "unavailable"): dict,
+    ("grades", "categories"): dict,
+    ("grades", "schedule_weeks"): int,
     ("archetype", "enabled"): bool,
+    ("archetype", "high"): (int, float),
+    ("archetype", "middle"): (int, float),
+    ("archetype", "labels"): dict,
 }
-COMPUTED_GRADES = ("durability", "consistency", "schedule")
+CATEGORY_GRADES = ("scoring", "playmaking", "rebounding", "stocks", "efficiency")
+COMPUTED_GRADES = CATEGORY_GRADES + ("durability", "consistency", "schedule")
+LOADING = "stats still loading"
 
 
 def config(cfg: Optional[dict] = None) -> dict:
@@ -117,7 +145,44 @@ def config(cfg: Optional[dict] = None) -> dict:
             raise RatingsInputError(f"ratings.grades.order names {g!r}, which is neither computed nor listed unavailable")
     if not cfg["scale_min"] < cfg["scale_max"]:
         raise RatingsInputError("ratings.scale_min must be below scale_max")
+    cats = cfg["grades"]["categories"]
+    if set(cats) != set(CATEGORY_GRADES):
+        raise RatingsInputError(f"ratings.grades.categories must name exactly {list(CATEGORY_GRADES)}, "
+                                f"not {sorted(cats)}")
+    seen: dict = {}
+    for gname, cs in cats.items():
+        if not isinstance(cs, list) or not cs or not all(isinstance(c, str) and c for c in cs):
+            raise RatingsInputError(f"ratings.grades.categories.{gname} must be a list of category names")
+        for c in cs:
+            if c in seen:
+                raise RatingsInputError(f"ratings.grades.categories: {c} is in both {seen[c]} and {gname}")
+            seen[c] = gname
+    missing = [g for g in CATEGORY_GRADES if not isinstance(cfg["grades"]["min_games"].get(g), int)
+               or cfg["grades"]["min_games"][g] < 1]
+    if missing:
+        raise RatingsInputError(f"ratings.grades.min_games has no whole number of at least 1 for {missing}")
+    if cfg["grades"]["schedule_weeks"] < 1:
+        raise RatingsInputError("ratings.grades.schedule_weeks must be at least 1")
+    _check_archetype(cfg["archetype"])
     return cfg
+
+
+def _check_archetype(a: dict) -> None:
+    keys = [k for k, _f in ARCHETYPE_RULES]
+    if set(a["labels"]) != set(keys):
+        raise RatingsInputError(f"ratings.archetype.labels must name exactly the rules {keys}, "
+                                f"not {sorted(a['labels'])}")
+    for k, v in a["labels"].items():
+        kw = v.get("keywords") if isinstance(v, dict) else None
+        if (not isinstance(v, dict) or not isinstance(v.get("label"), str) or not v["label"]
+                or not isinstance(kw, list) or not 2 <= len(kw) <= 3 or not all(isinstance(x, str) and x for x in kw)):
+            raise RatingsInputError(f"ratings.archetype.labels.{k} must be {{\"label\": text, "
+                                    "\"keywords\": [two or three texts]}")
+    if not 0 < a["middle"] < a["high"] < 100:
+        raise RatingsInputError("ratings.archetype needs 0 < middle < high < 100")
+    names = [v["label"] for v in a["labels"].values()]
+    if len(set(names)) != len(names):
+        raise RatingsInputError("ratings.archetype.labels repeat a label")
 
 
 def _check_anchors(anchors, name):
@@ -220,6 +285,106 @@ def letter(p: float, bands) -> str:
 
 
 # ---------------------------------------------------------------------------
+# the archetype (4a2): one label from the five category percentiles
+# ---------------------------------------------------------------------------
+
+VOLUME_GRADES = ("scoring", "playmaking", "rebounding", "stocks")
+
+
+def _arch_ctx(pcts: dict, high: float, middle: float) -> dict:
+    """prim / sec: his best two VOLUME grades (efficiency is a modifier, not a
+    role: a rim protector who also grades A+ in efficiency is still a rim
+    protector), ties by the grades' order."""
+    ranked = sorted(VOLUME_GRADES, key=lambda g: (-pcts[g], VOLUME_GRADES.index(g)))
+    hi = [g for g in CATEGORY_GRADES if pcts[g] >= high]
+    return {"n_high": len(hi), "only_eff": hi == ["efficiency"], "prim": ranked[0], "sec": ranked[1],
+            "sec_high": ranked[1] in hi, "top": max(pcts.values()), "middle": middle}
+
+
+def _some(c):                     # one to three strengths, at least one of them a volume grade
+    return 1 <= c["n_high"] <= 3 and not c["only_eff"]
+
+
+def _pair(c, a, b):               # his best two are a and b (either order), the second high too
+    return c["sec_high"] and {c["prim"], c["sec"]} == {a, b}
+
+
+# Ordered by nothing: the predicates partition every combination (exactly one
+# matches; archetype() raises otherwise, and a test enumerates every letter
+# combination). prim / sec: his best and second-best volume grade (ties by
+# the grades' order); "high": config archetype.high (a percentile; 70 = B+);
+# a strength is any of the five at high or better.
+ARCHETYPE_RULES = (
+    ("star",          lambda c: c["n_high"] >= 4),
+    ("rotation",      lambda c: c["n_high"] == 0 and c["top"] >= c["middle"]),
+    ("depth",         lambda c: c["n_high"] == 0 and c["top"] < c["middle"]),
+    ("creator",       lambda c: _some(c) and _pair(c, "scoring", "playmaking")),
+    ("scorer",        lambda c: _some(c) and c["prim"] == "scoring" and not _pair(c, "scoring", "playmaking")),
+    ("floor_general", lambda c: _some(c) and c["prim"] == "playmaking"
+                      and not _pair(c, "scoring", "playmaking") and not _pair(c, "playmaking", "rebounding")),
+    ("point_forward", lambda c: _some(c) and _pair(c, "playmaking", "rebounding")),
+    ("glass",         lambda c: _some(c) and c["prim"] == "rebounding"
+                      and not _pair(c, "playmaking", "rebounding") and not _pair(c, "rebounding", "stocks")),
+    ("anchor",        lambda c: _some(c) and _pair(c, "rebounding", "stocks")),
+    ("disruptor",     lambda c: _some(c) and c["prim"] == "stocks" and not _pair(c, "rebounding", "stocks")),
+    ("finisher",      lambda c: c["only_eff"]),
+)
+
+
+def archetype(pcts: dict, arch_cfg: dict) -> str:
+    """The rule key for five category percentiles ({grade: 0..100}). RAISES
+    unless exactly one rule matches."""
+    missing = [g for g in CATEGORY_GRADES if pcts.get(g) is None]
+    if missing:
+        raise RatingsInputError(f"the archetype needs all five category grades; missing {missing}")
+    c = _arch_ctx(pcts, float(arch_cfg["high"]), float(arch_cfg["middle"]))
+    hits = [k for k, f in ARCHETYPE_RULES if f(c)]
+    if len(hits) != 1:
+        raise RatingsInputError(f"the archetype rules matched {hits} for {pcts}: they must partition")
+    return hits[0]
+
+
+# ---------------------------------------------------------------------------
+# the schedule grade's horizon (4a decision 5) and the category grades (4a2)
+# ---------------------------------------------------------------------------
+
+def schedule_horizon(as_of: str, weeks: list, n_weeks: int) -> Optional[tuple]:
+    """(first, last) ISO days the schedule grade counts: from the day after
+    as_of through the end of the n_weeks-th fantasy week, counting the week
+    that holds that day as the first -- the hub's games grid (the rest of
+    this week, next week, the week after). Before week 1: from week 1. None
+    when no fantasy week remains."""
+    ws = sorted(((str(w["start_date"])[:10], str(w["end_date"])[:10]) for w in weeks), key=lambda t: t[0])
+    if not ws:
+        raise RatingsInputError("no fantasy weeks for the schedule grade")
+    nxt = (date.fromisoformat(as_of) + timedelta(days=1)).isoformat()
+    idx = next((i for i, (a, b) in enumerate(ws) if nxt <= b), None)
+    if idx is None:
+        return None
+    return nxt, ws[min(idx + n_weeks - 1, len(ws) - 1)][1]
+
+
+def category_value(totals: dict, games: int, cats: list, values: dict) -> float:
+    """Per-game fantasy points from these categories."""
+    return sum(totals[c] * values[c] for c in cats) / games
+
+
+def _category_inputs(actuals: Optional[dict], cfg: dict):
+    """(header values by category, or None) and a partition check against
+    the cache's own categories."""
+    if actuals is None or actuals.get("cats") is None:
+        return None
+    h = actuals["cats"]
+    order = list(h["order"])
+    used = [c for g in CATEGORY_GRADES for c in cfg["grades"]["categories"][g]]
+    if sorted(used) != sorted(order):
+        raise RatingsInputError(f"ratings.grades.categories use {sorted(used)}; the league's scoring "
+                                f"categories (data/player_actuals.json cats.order) are {sorted(order)}: "
+                                "each must be in exactly one grade")
+    return dict(zip(order, (float(v) for v in h["values"])))
+
+
+# ---------------------------------------------------------------------------
 # inputs from the league log
 # ---------------------------------------------------------------------------
 
@@ -267,11 +432,15 @@ def team_dates(schedule: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] = None,
-         level_prior: Optional[dict] = None, previous: Optional[dict] = None) -> dict:
+         level_prior: Optional[dict] = None, previous: Optional[dict] = None,
+         actuals: Optional[dict] = None, weeks: Optional[list] = None) -> dict:
     """Ratings for every candidate of a keeper_history Snapshot (point in time:
     only log rows dated on or before snap.as_of are read). dates_by_team: the
     season's NBA games by team; last_day: the last day games remaining count.
     previous: {player: last week's published OVR} for the weekly change.
+    actuals: data/player_actuals.json (the category grades; None: no
+    per-category stats for this day). weeks: config/SCHEDULE.json's weeks
+    (the schedule grade's horizon; None: no schedule grade).
     Returns {"as_of", "season", "universe", "replacement_level", "knots": {...},
     "players": {name: {...}}}."""
     from . import keeper_history as kh
@@ -339,9 +508,32 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
 
     # grades
     g = cfg["grades"]
-    raw = {"durability": {}, "consistency": {}, "schedule": {}}
-    why: dict = {"durability": {}, "consistency": {}, "schedule": {}}
+    raw: dict = {k: {} for k in COMPUTED_GRADES}
+    why: dict = {k: {} for k in COMPUTED_GRADES}
+    horizon = schedule_horizon(as_of, weeks, g["schedule_weeks"]) if weeks is not None else None
+    values = _category_inputs(actuals, cfg)
+    if actuals is not None:
+        from . import player_actuals as pa
+        cat_first = date.fromisoformat(actuals["first_day"])
+        cat_through = date.fromisoformat(as_of)
     for name, b in base.items():
+        # the five category grades (4a2)
+        if actuals is None:
+            reason = "no per-category stats for this day"
+            cs = None
+        else:
+            cs = pa.category_season(actuals, name, cat_first, cat_through)
+            reason = {"loading": LOADING,
+                      "not_cached": "no daily lines cached for him",
+                      "gap": f"his daily lines are not fetched for {cs['day']}"}.get(cs["status"])
+        for attr in CATEGORY_GRADES:
+            need = g["min_games"][attr]
+            if reason is None and cs["games"] < need:
+                raw[attr][name], why[attr][name] = None, f"{cs['games']} games: shows after {need}"
+            elif reason is None:
+                raw[attr][name] = category_value(cs["totals"], cs["games"], g["categories"][attr], values)
+            else:
+                raw[attr][name], why[attr][name] = None, reason
         c = b["c"]
         need = g["min_team_games"].get("durability", 0)
         if c.team_games >= need:
@@ -355,9 +547,15 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
         else:
             raw["consistency"][name] = None
             why["consistency"][name] = f"{b['n']} games: shows after {max(need, 2)}"
-        raw["schedule"][name] = b["G"]
-        if b["G"] is None:
-            why["schedule"][name] = b["g_reason"]
+        # schedule (4a decision 5): games in the next schedule_weeks fantasy weeks
+        if weeks is None:
+            raw["schedule"][name], why["schedule"][name] = None, "no fantasy weeks given"
+        elif not b["team"]:
+            raw["schedule"][name], why["schedule"][name] = None, b["g_reason"]
+        elif horizon is None:
+            raw["schedule"][name], why["schedule"][name] = None, "no fantasy weeks remain"
+        else:
+            raw["schedule"][name] = sum(1 for d in dates_by_team[b["team"]] if horizon[0] <= d <= horizon[1])
     pcts = {k: percentiles(v) for k, v in raw.items()}
 
     players = {}
@@ -374,7 +572,7 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
         pot = None if b["V"] is None else scale(b["V"], pot_knots, cfg["scale_min"], cfg["scale_max"])
         grades = {}
         for attr in g["order"]:
-            if attr in COMPUTED_GRADES:
+            if attr in COMPUTED_GRADES and attr not in g["unavailable"]:
                 p = pcts[attr].get(name)
                 grades[attr] = ({"letter": letter(p, cfg["grade_bands"]), "percentile": p,
                                  "value": raw[attr][name], "reason": None} if p is not None else
@@ -391,11 +589,25 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
                            "game_sd": b["S"], "games": c.games, "team_games": c.team_games,
                            "fppg": c.fppg, "age": c.age},
             "grades": grades,
-            "archetype": None,
-            "archetype_reason": None if cfg["archetype"]["enabled"] else "dropped in 4a: needs per-category grades",
         }
+        players[name].update(_archetype_of(grades, cfg["archetype"]))
     return {"as_of": as_of, "season": season, "last_day": last_day, "universe": len(players),
-            "replacement_level": R, "knots": {"ovr": ovr_knots, "pot": pot_knots}, "players": players}
+            "replacement_level": R, "knots": {"ovr": ovr_knots, "pot": pot_knots},
+            "schedule_horizon": list(horizon) if horizon else None, "players": players}
+
+
+def _archetype_of(grades: dict, arch: dict) -> dict:
+    """{"archetype": {"key", "label", "keywords"} or None, "archetype_reason"}.
+    Off (archetype.enabled false): None, the names await Nick's approval."""
+    if not arch["enabled"]:
+        return {"archetype": None, "archetype_reason": "off: the names await Nick's approval (4a2)"}
+    lacking = [a for a in CATEGORY_GRADES if grades[a]["percentile"] is None]
+    if lacking:
+        return {"archetype": None, "archetype_reason": grades[lacking[0]]["reason"]}
+    key = archetype({a: grades[a]["percentile"] for a in CATEGORY_GRADES}, arch)
+    lab = arch["labels"][key]
+    return {"archetype": {"key": key, "label": lab["label"], "keywords": list(lab["keywords"])},
+            "archetype_reason": None}
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +645,11 @@ def for_today(root=ROOT, previous: Optional[dict] = None, today: Optional[date] 
     ages = kh.load_ages(kh.age_seasons(), root, fetch=_nofetch)
     snap = kh.live_snapshot(li, season, rosters, ages)
     sched = load_nba_schedule(_schedule_path(root), today=today)
-    return rate(snap, li, team_dates(sched), schedule_last_day(root), previous=previous)
+    from . import player_actuals as pa
+    actuals = pa.load(root)                          # required: the category grades read it
+    weeks = json.loads((root / "config" / "SCHEDULE.json").read_text(encoding="utf-8")).get("weeks") or []
+    return rate(snap, li, team_dates(sched), schedule_last_day(root), previous=previous,
+                actuals=actuals, weeks=weeks)
 
 
 # ---------------------------------------------------------------------------

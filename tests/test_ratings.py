@@ -159,7 +159,9 @@ def test_too_few_games_gives_none_with_a_reason(history):
             assert g["letter"] is None and g["percentile"] is None
             assert "shows after 16" in g["reason"]
         for attr in ("scoring", "playmaking", "rebounding", "stocks", "efficiency"):
-            assert p["grades"][attr]["letter"] is None and "not stored" in p["grades"][attr]["reason"]
+            # 4a2: a historical day has no per-category stats (rate() is given no actuals)
+            assert p["grades"][attr]["letter"] is None
+            assert p["grades"][attr]["reason"] == "no per-category stats for this day"
         assert p["archetype"] is None and p["archetype_reason"]
 
 
@@ -187,7 +189,12 @@ def test_todays_ratings_on_the_real_state(history):
     P = res["players"]
     assert res["universe"] >= 60
     rated = [p for p in P.values() if p["ovr"] is not None]
-    assert len(rated) >= 0.9 * len(P)
+    # A player who joined a roster after the live log's last day has no OVR until the
+    # nightly logs his first day (by design: "not on the league log's last day yet").
+    # On a Monday night after the window that is many players (10 of 66 on 11-16), so
+    # they leave the denominator: the 90% check is about broken ratings, not churn.
+    settled = [p for p in P.values() if "not on the league log's last day yet" not in (p["ovr_reason"] or "")]
+    assert len(rated) >= 0.9 * len(settled)
     assert max(p["ovr"] for p in rated) == 99 and min(p["ovr"] for p in rated) == 60
     by_level = sorted(P.values(), key=lambda p: -p["components"]["level"])
     top10 = {p["player"] for p in by_level[:10]}

@@ -92,15 +92,20 @@ def main(argv=None) -> int:
     if r["backfilled"]:
         print(f"  backfilled from the season's first day: {', '.join(r['backfilled'])}")
     try:
-        x = pa.update_extras(a.base_path, source=r["source"], rostered=r["ids"])
+        x = pa.update_extras(a.base_path, source=r["source"], rostered=r["ids"], header=r.get("header"))
     except pa.ActualsError as e:
         print(f"REFUSED (the other players the hub names; the rostered days above are written): {e}")
         return 1
     for line in _extras_lines(x):
         print(line)
     print(f"  {len(x['days_fetched'])} day(s) fetched, {x['calls']} Yahoo call(s), {x['seconds']} s.")
+    # 4a2: a day's categories that failed are left out (its points are written);
+    # the nightly's backfill retries them. Never silent: listed, and exit 1.
+    cat_errors = list(r.get("cat_errors") or []) + list(x.get("cat_errors") or [])
+    for e in cat_errors:
+        print(f"CATEGORY STATS FAILED: {e} -- that day's points are written; the nightly's backfill retries it")
     print("Then: python scripts\\state.py push")
-    return 0
+    return 1 if cat_errors else 0
 
 
 if __name__ == "__main__":

@@ -404,6 +404,11 @@ def test_the_real_actuals_step_covers_every_carded_free_agent(tmp_path, monkeypa
     rosters = sp.load_rosters(base)
     if any(pa.find_days(blob0, n) is None for ns in rosters.values() for n in ns):
         pytest.skip("ROSTERS.json has a pickup the cache has not fetched yet: run the real fetch first")
+    # 4a2: the nightly then backfills categories (league-scoped calls for the rostered players
+    # too); this test is about the two passes' calls, so the backfill is stubbed here and
+    # tested in tests/test_4a2_category_stats.py
+    monkeypatch.setattr(pa, "backfill_categories", lambda *a, **k: {
+        "days_done": [], "days_left": 0, "calls": 0, "cap": 1, "corrections": [], "stopped": None})
     run = nightly.Run(base, "nightly", now=datetime.combine(today, datetime.min.time()).replace(
         hour=0, minute=5, tzinfo=LA), echo=lambda *a: None)
     detail = run.step_actuals()

@@ -471,7 +471,9 @@
     "actuals": {
         "_comment": "40b (claude/HANDOFF_40B_FA_ACTUALS_2026-11-13.md; modules/player_actuals.update_extras): the nightly's actuals step also fetches Yahoo's daily lines for every NON-ROSTERED player the previous hub named (the free agents, the stash, the trade block, the moves feed, advice), for the player cards. Required: missing or below 1 raises (player_actuals.extras_cap).",
         "extra_players_max": 150,
-        "_extra_players_max": "At most this many such players with a Yahoo id; more RAISES naming the count (no name is dropped quietly; the nightly records it loudly and goes on, the cards keep their note). 150, not the handoff's 40: the moves feed lists every move of the season, so its non-rostered names grow about 4 a week (23 after week 4) to roughly 100 by April, plus about 15 free agents and stash players. Each 25 players cost 2 Yahoo calls a night (150 = 12 calls); a new name's backfill is 2 calls a day of the season so far."
+        "_extra_players_max": "At most this many such players with a Yahoo id; more RAISES naming the count (no name is dropped quietly; the nightly records it loudly and goes on, the cards keep their note). 150, not the handoff's 40: the moves feed lists every move of the season, so its non-rostered names grow about 4 a week (23 after week 4) to roughly 100 by April, plus about 15 free agents and stash players. Each 25 players cost 2 Yahoo calls a night (150 = 12 calls); a new name's backfill is 2 calls a day of the season so far.",
+        "category_backfill_calls_max": 20,
+        "_category_backfill_calls_max": "4a2 (claude/HANDOFF_4A2_CATEGORY_STATS_2026-11-14.md; modules/player_actuals.backfill_categories): the nightly run (not the pre-tip, refresh or afternoon runs) fills the per-day categories of days cached before 4a2, oldest first, at most this many Yahoo calls a night. Only the league-scoped request: 1 call per 25 players who played that day; a player who did not play gets zeros with no call. A day is written only when every player asked for on it came back. On 11-14's cache (95 players, 10-20..11-13) the whole backfill is 52 calls: 3 nights at 20 (about 0.2 s a call, so about 4 s a night, inside the nightly's billed minute). Must be at least the calls of the busiest day (4 today, about 6 at 150 players), or that day raises. Required: missing or below 1 raises (player_actuals.backfill_cap)."
     },
     "advice": {
         "_comment": "Advice v2 (claude/HANDOFF_ADVICE_V2_2026-11-11.md; modules/advice_live.py). Every key required: missing or anything else raises (advice_live.hub_switch).",
@@ -560,7 +562,7 @@
     "ratings": {
         "_comment": "OVR, POT and the attribute grades (modules/ratings.py; claude/4A_RESULT_2026-11-14.md). Every key is required: a missing or malformed one RAISES, naming it. These are the numbers 4a back-tested (_to_delete/4a/PREREG.md, gate_ovr.py, gate_pot.py): change one and the back-test no longer describes what ships, so a change is a new back-test first. Computed for the players on league rosters, the universe the back-test scored.",
         "as_of": {
-            "_comment": "The as-of conventions. The rating is as of the LIVE LOG's last logged day (keeper_history.live_inputs: LINEUPS.xlsx in the historical definitions), using only rows dated on or before it; games remaining count his NBA team's games from the next day through the season's last fantasy day (config/SCHEDULE.json, the last week's end_date), from the engine's NBA schedule (stand-ins included, Cup final excluded). The back-test did the same at week 2, mid-season and a trade-deadline point of each of nine seasons.",
+            "_comment": "The as-of conventions. The rating is as of the LIVE LOG's last logged day (keeper_history.live_inputs: LINEUPS.xlsx in the historical definitions), using only rows dated on or before it; games remaining count his NBA team's games from the next day through the season's last fantasy day (config/SCHEDULE.json, the last week's end_date), from the engine's NBA schedule (stand-ins included, Cup final excluded). The back-test did the same at week 2, mid-season and a trade-deadline point of each of nine seasons. This is OVR's G only: the schedule GRADE counts the next grades.schedule_weeks fantasy weeks instead (4a decision 5).",
             "games_remaining_through": "schedule_last_day"
         },
         "ovr": {
@@ -594,19 +596,35 @@
             "order": ["scoring", "playmaking", "rebounding", "stocks", "efficiency", "durability", "consistency", "schedule"],
             "_order": "The card's 8 tiles in order: the league's scoring categories (4a: by share of the between-player spread in this league's points, bbref 2017-18..2024-25: scoring 44%, playmaking 35%, rebounding 20%, steals + blocks 7%, shooting and turnovers net -6%), then durability, consistency, schedule.",
             "min_team_games": {"durability": 16},
-            "min_games": {"consistency": 16},
-            "_min": "Below these a grade is None with the reason (\"9 games: shows after 16\"). 4a: a 16-game-old percentile agrees with the season-end one at Spearman 0.51 (durability) and 0.53 (consistency); the pre-registered rule gave 1 and 10. Nick decides (4a decision 4). Schedule has no minimum: it is the calendar.",
-            "unavailable": {
-                "scoring": "per-category stats are not stored (4a decision 3)",
-                "playmaking": "per-category stats are not stored (4a decision 3)",
-                "rebounding": "per-category stats are not stored (4a decision 3)",
-                "stocks": "per-category stats are not stored (4a decision 3)",
-                "efficiency": "per-category stats are not stored (4a decision 3)"
-            }
+            "min_games": {"consistency": 16, "scoring": 5, "playmaking": 5, "rebounding": 5, "stocks": 5, "efficiency": 5},
+            "_min": "Below these a grade is None with the reason (\"9 games: shows after 16\"). Durability and consistency, 16 (4a decision 4): a 16-game-old percentile agrees with the season-end one at Spearman 0.51 (durability) and 0.53 (consistency). The five category grades, 5 games (4a2): the games FPPG's percentile needed in 4a's back-test (0.71 at 5-7 games); the history has no per-category data to test them, so check it once the cache has the season's categories (claude/4A2_RESULT_2026-11-14.md s.4: split-half reliability by games). Schedule has no minimum: it is the calendar.",
+            "categories": {"scoring": ["PTS", "3PTM"], "playmaking": ["AST"], "rebounding": ["REB"], "stocks": ["ST", "BLK"], "efficiency": ["FGM", "FGA", "FTM", "FTA", "TO"]},
+            "_categories": "4a2: each grade is his per-game fantasy points from these categories (each count x its yahoo_settings.stat_values value) over every game he played this season (data/player_actuals.json cat_days), as a percentile among today's rostered players. Every scoring category is in exactly one grade, so the five add up to his FPPG; a category missing or repeated RAISES. Efficiency is the shooting terms and turnovers in fantasy points: a high-usage player who turns it over a lot grades low even when he shoots well.",
+            "labels": {"scoring": "Scoring", "playmaking": "Playmaking", "rebounding": "Rebounding", "stocks": "Stocks", "efficiency": "FG% & TOs", "durability": "Durability", "consistency": "Consistency", "schedule": "Schedule"},
+            "_labels": "The tiles' display names (Nick, 11-14: the efficiency grade shows as \"FG% & TOs\"; its \u24d8 says \"Fantasy points from his makes, misses and turnovers.\"). The keys stay as they are; 4c reads these for the card.",
+            "schedule_weeks": 3,
+            "_schedule_weeks": "4a decision 5: the schedule grade is his NBA team's games from the day after as_of through the end of this many fantasy weeks, counting the week holding that day as the first (the hub's games grid: the rest of this week, next week, the week after). The tile prints the count beside the letter. OVR's G stays rest-of-season (the back-tested formula).",
+            "unavailable": {},
+            "_unavailable": "{grade: reason} for a grade in order that cannot be computed (4a had the five categories here; 4a2 computes them). Empty."
         },
         "archetype": {
             "enabled": false,
-            "_comment": "Dropped in 4a: a rule-based label needs the per-category grades, which need per-category stats the engine does not store. Revisit with 4a decision 3."
+            "_comment": "4a2 (4a decision 7): one label from the five category grades' percentiles (modules/ratings.archetype, ARCHETYPE_RULES). A strength is a grade at high or better (a percentile: 70 = B+); prim / sec are his best and second-best of the four VOLUME grades (scoring, playmaking, rebounding, stocks: efficiency is a modifier, not a role). star: four or five strengths; rotation / depth: none (best at least middle, or not); finisher: efficiency his only strength; otherwise by prim and sec: creator: scoring and playmaking his best two, both strong; scorer: scoring best otherwise; floor_general: playmaking best otherwise; point_forward: playmaking and rebounding his best two, both strong; glass: rebounding best otherwise; anchor: rebounding and stocks his best two, both strong; disruptor: stocks best otherwise. Exactly one rule matches any combination (tests/test_4a2_category_stats.py enumerates every letter combination). OFF until Nick approves the names (labels and keywords are text only: renaming needs no code).",
+            "high": 70,
+            "middle": 50,
+            "labels": {
+                "star": {"label": "Franchise Star", "keywords": ["Fills every column", "Weekly anchor"]},
+                "creator": {"label": "Shot Creator", "keywords": ["Scorer", "Playmaker"]},
+                "scorer": {"label": "Bucket Getter", "keywords": ["Scorer", "Volume"]},
+                "floor_general": {"label": "Floor General", "keywords": ["Playmaker", "Table-setter"]},
+                "point_forward": {"label": "Point Forward", "keywords": ["Playmaker", "Rebounder"]},
+                "glass": {"label": "Glass Cleaner", "keywords": ["Rebounder", "Second chances"]},
+                "anchor": {"label": "Paint Anchor", "keywords": ["Rebounder", "Rim protector", "Stocks"]},
+                "disruptor": {"label": "Disruptor", "keywords": ["Steals", "Blocks", "Defense"]},
+                "finisher": {"label": "Efficient Finisher", "keywords": ["Efficient", "Low turnover"]},
+                "rotation": {"label": "Balanced", "keywords": ["All-around", "Does a bit of everything"]},
+                "depth": {"label": "Role Player", "keywords": ["Situational", "Fills a need"]}
+            }
         }
     }
 }

@@ -24,9 +24,12 @@ WHERE EVERY NUMBER COMES FROM
             (minutes) = "30"; Anthony Edwards 2026-10-30 (out) -> "0".
 
 THE CACHE (data/player_actuals.json, private state)
-    {"version", "season", "first_day", "players": {yahoo id: {"name",
-    "days": {YYYY-MM-DD: [points, games]}}}, "roster_names": {ROSTERS.json
-    spelling: yahoo id}, "rosters_from", "updated_at"}.
+    {"version", "season", "first_day", "cats": {"order", "values"},
+    "players": {yahoo id: {"name", "days": {YYYY-MM-DD: [points, games]},
+    "cat_days": {YYYY-MM-DD: [one count per cats.order]},
+    "cat_corrections": {YYYY-MM-DD: Yahoo's total when the categories came}}},
+    "roster_names": {ROSTERS.json spelling: yahoo id}, "extra_names",
+    "rosters_from", "updated_at"}.
       - A league day that has FINISHED (before today, Pacific) is fetched once
         and never again. Today's partial lines are never cached: a day on or
         after today refuses to be written.
@@ -37,6 +40,45 @@ THE CACHE (data/player_actuals.json, private state)
         or the whole run REFUSES naming the date and the player. A day is
         written only when every player asked for on it came back: a partial
         day never reaches the cache. Days already complete stay written.
+
+THE CATEGORIES (4a2, 11-14: version 2; the card's grade tiles and the archetype)
+    The league-scoped line the nightly already fetches carries the league's
+    eleven scoring categories (yahoo_settings.stat_values: FGM FGA FTM FTA
+    3PTM PTS REB AST ST BLK TO), so from version 2 each fetched day keeps them
+    too, at no extra call.
+      - SHAPE: a separate map beside "days" ("cat_days"), so [points, games]
+        and every reader of it are exactly what they were. Each day is a list
+        of whole counts in the file's own "cats.order" (stored once at the top
+        with "cats.values", the points each is worth): a list, not a dict, at a
+        third of the size, and the file names its own order.
+      - VERSION 1 (before 4a2) still reads: it has no categories. A day with
+        no categories is simply absent from cat_days (never zeros);
+        category_season says "loading" for him.
+      - A DAY HE DID NOT PLAY (games 0, points 0): eleven zeros, Yahoo's own
+        "-" read as nothing done. Never on a day he played.
+      - CHECKS (validate, on every load; and on every fetch): the counts x
+        cats.values equal the day's cached points to the cent, PTS = 2 FGM +
+        3PTM + FTM, FGM <= FGA, FTM <= FTA, 3PTM <= FGM. A mismatch RAISES,
+        naming the player and the day: it would mean the scoring changed or
+        the categories are misread.
+      - A STAT CORRECTION: the backfill fetches a day weeks later, after any
+        NBA stat correction. When Yahoo's total now differs from the cached
+        points AND the categories score exactly Yahoo's total now, the day's
+        points stay as cached (fetched once, never rewritten) and the new
+        total is kept in "cat_corrections" so the check still holds. Any
+        other mismatch raises.
+      - THE NIGHTLY'S DAY: categories from the same rows as the points. A
+        category problem never costs the points: that day's categories are
+        left out and the error is returned ("cat_errors") for the run to
+        record; the backfill retries the day.
+      - THE BACKFILL (backfill_categories, the nightly only): days cached
+        without categories, oldest first, for the players the last passes
+        tracked (roster_names and extra_names), at most config
+        actuals.category_backfill_calls_max calls a night. Only the
+        league-scoped request (1 call per 25 players who played that day);
+        the players who did not play get zeros with no call. A day is
+        written only when every player asked for on it came back. Its
+        failure is soft and loud: the nightly records it and goes on.
 
 THE OTHER PLAYERS THE HUB NAMES (40b, 11-13: update_extras)
     The player cards show every carded player's NBA season (ONE FPPG
@@ -68,7 +110,8 @@ THE OTHER PLAYERS THE HUB NAMES (40b, 11-13: update_extras)
 READERS
     hub_state (FPPG, L14; rostered players only, by roster_names); the cards
     (card_lines, any player the cache covers); the newsletter's Keeper Watch
-    cards (rostered players). season_performers is unchanged.
+    cards (rostered players); ratings (category_season, 4a2). None of the
+    points readers reads cat_days. season_performers is unchanged.
 """
 
 from __future__ import annotations
@@ -82,8 +125,10 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 CACHE_RELPATH = Path("data") / "player_actuals.json"
 HUB_STATE_RELPATH = Path("output") / "hub_state.json"       # the previous run's names (40b)
-VERSION = 1
+VERSION = 2                 # 4a2: per-day categories (cat_days)
+READS = (1, 2)              # version 1 has no categories and still reads
 BATCH = 25
+CAT_TOL = 0.011             # counts x values vs total points: to the cent
 GP_STAT = "0"               # Yahoo NBA stat id 0: games played
 L14_DAYS = 14
 
@@ -96,6 +141,11 @@ class ActualsStale(ActualsError):
     """The cache does not cover the days a reader needs."""
 
 
+class CategoryError(ActualsError):
+    """A day's category line is missing, malformed, or does not score the
+    day's points (4a2). Names the player and the day."""
+
+
 # =============================================================================
 # the cache
 # =============================================================================
@@ -104,9 +154,12 @@ def cache_path(base_path=".") -> Path:
     return Path(base_path) / CACHE_RELPATH
 
 
-def empty(season: str, first_day: date) -> dict:
-    return {"version": VERSION, "season": season, "first_day": first_day.isoformat(),
+def empty(season: str, first_day: date, header: Optional[dict] = None) -> dict:
+    """A new cache: version 2 with the categories' header, or (no header: a
+    source with no categories) version 1, which ensure_cats upgrades."""
+    blob = {"version": 1, "season": season, "first_day": first_day.isoformat(),
             "players": {}, "roster_names": {}, "rosters_from": None, "updated_at": None}
+    return ensure_cats(blob, header) if header is not None else blob
 
 
 def validate(blob: dict, path="data/player_actuals.json") -> dict:
@@ -114,9 +167,14 @@ def validate(blob: dict, path="data/player_actuals.json") -> dict:
     for k in ("version", "season", "first_day", "players", "roster_names"):
         if k not in blob:
             raise ActualsError(f"{path} has no {k!r}")
-    if blob["version"] != VERSION:
-        raise ActualsError(f"{path} is version {blob['version']}, this code reads {VERSION}")
+    if blob["version"] not in READS:
+        raise ActualsError(f"{path} is version {blob['version']}, this code reads {READS}")
     date.fromisoformat(blob["first_day"])
+    header = blob.get("cats")
+    if blob["version"] == 1 and header is not None:
+        raise ActualsError(f"{path} is version 1 but has categories")
+    if blob["version"] >= 2:
+        _check_header(header, path)
     for pid, rec in blob["players"].items():
         if not str(pid).isdigit() or "name" not in rec or not isinstance(rec.get("days"), dict):
             raise ActualsError(f"{path}: player {pid!r} is malformed")
@@ -127,6 +185,7 @@ def validate(blob: dict, path="data/player_actuals.json") -> dict:
                 raise ActualsError(f"{path}: {rec['name']} {d} is {v!r}, not [points, 0|1]")
             if v[1] == 0 and v[0] != 0:
                 raise ActualsError(f"{path}: {rec['name']} {d} has {v[0]} points and no game")
+        _check_cat_days(rec, header, path)
     for name, pid in blob["roster_names"].items():
         if str(pid) not in blob["players"]:
             raise ActualsError(f"{path}: roster name {name!r} points at id {pid}, not cached")
@@ -134,6 +193,125 @@ def validate(blob: dict, path="data/player_actuals.json") -> dict:
         if str(pid) not in blob["players"]:
             raise ActualsError(f"{path}: extra name {name!r} points at id {pid}, not cached")
     return blob
+
+
+def _check_header(header, path) -> None:
+    ok = (isinstance(header, dict) and isinstance(header.get("order"), list)
+          and isinstance(header.get("values"), list) and header["order"]
+          and len(header["order"]) == len(header["values"])
+          and all(isinstance(c, str) and c for c in header["order"])
+          and len(set(header["order"])) == len(header["order"])
+          and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in header["values"]))
+    if not ok:
+        raise ActualsError(f"{path}: \"cats\" must be {{\"order\": [names], \"values\": [numbers]}}, "
+                           f"one value per name; it is {header!r}")
+
+
+def _check_cat_days(rec: dict, header: Optional[dict], path) -> None:
+    cd = rec.get("cat_days")
+    corr = rec.get("cat_corrections") or {}
+    if cd is None:
+        if corr:
+            raise ActualsError(f"{path}: {rec['name']} has cat_corrections and no cat_days")
+        return
+    if header is None:
+        raise ActualsError(f"{path}: {rec['name']} has categories but the file has no \"cats\" header")
+    if not isinstance(cd, dict) or not isinstance(corr, dict):
+        raise ActualsError(f"{path}: {rec['name']}'s cat_days or cat_corrections is malformed")
+    n = len(header["order"])
+    for d, v in cd.items():
+        if d not in rec["days"]:
+            raise ActualsError(f"{path}: {rec['name']} has categories on {d}, a day with no points cached")
+        if (not isinstance(v, list) or len(v) != n
+                or not all(isinstance(x, int) and not isinstance(x, bool) and x >= 0 for x in v)):
+            raise ActualsError(f"{path}: {rec['name']} {d} categories are {v!r}, not {n} whole counts")
+        pts, games = rec["days"][d]
+        if games == 0 and any(v):
+            raise ActualsError(f"{path}: {rec['name']} {d} has categories {v} and no game")
+        c = corr.get(d)
+        if c is not None and not isinstance(c, (int, float)):
+            raise ActualsError(f"{path}: {rec['name']} {d} correction is {c!r}")
+        check_cats(v, header, pts, rec["name"], d, corrected=c)
+    for d in corr:
+        if d not in cd:
+            raise ActualsError(f"{path}: {rec['name']} has a correction on {d} and no categories that day")
+
+
+def scoring_header(base_path=".") -> dict:
+    """{"order": [category], "values": [points each]} from config
+    yahoo_settings.stat_values (the scoring yahoo_settings checks against
+    Yahoo on every run of record), in its own order. Required."""
+    cfg = json.loads((Path(base_path) / "config" / "league_config.json").read_text(encoding="utf-8"))
+    sv = (cfg.get("yahoo_settings") or {}).get("stat_values")
+    if (not isinstance(sv, dict) or not sv
+            or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in sv.values())):
+        raise ActualsError("config/league_config.json yahoo_settings.stat_values is missing or malformed: "
+                           "the categories' order and values come from it")
+    return {"order": [str(k) for k in sv], "values": [float(v) for v in sv.values()]}
+
+
+def ensure_cats(blob: dict, header: dict) -> dict:
+    """Version 2 with this header; the stored header must be the config's.
+    A different one RAISES: the scoring changed mid-season."""
+    have = blob.get("cats")
+    want = {"order": list(header["order"]), "values": [float(x) for x in header["values"]]}
+    if have is None:
+        blob["cats"] = want
+        blob["version"] = VERSION
+    elif (list(have["order"]) != want["order"]
+          or [float(x) for x in have["values"]] != want["values"]):
+        raise ActualsError(f"{CACHE_RELPATH} stores categories scored {have}, but config yahoo_settings."
+                           f"stat_values is now {want}: the scoring changed mid-season; the stored days "
+                           "cannot be mixed with new ones")
+    return blob
+
+
+def cat_points(cats: List[int], header: dict) -> float:
+    return sum(c * float(v) for c, v in zip(cats, header["values"]))
+
+
+def check_cats(cats: List[int], header: dict, points: float, who: str, d, corrected=None) -> None:
+    """The basketball identities, then counts x values = points (or, after a
+    stat correction, = the corrected total). RAISES CategoryError naming him
+    and the day."""
+    pos = {c: i for i, c in enumerate(header["order"])}
+
+    def g(c):
+        return cats[pos[c]]
+    if all(c in pos for c in ("PTS", "FGM", "3PTM", "FTM")) and g("PTS") != 2 * g("FGM") + g("3PTM") + g("FTM"):
+        raise CategoryError(f"{who} {d}: PTS {g('PTS')} is not 2 x FGM {g('FGM')} + 3PTM {g('3PTM')} + "
+                            f"FTM {g('FTM')}: the categories are misread")
+    for a, b in (("FGM", "FGA"), ("FTM", "FTA"), ("3PTM", "FGM")):
+        if a in pos and b in pos and g(a) > g(b):
+            raise CategoryError(f"{who} {d}: {a} {g(a)} is more than {b} {g(b)}: the categories are misread")
+    tot = cat_points(cats, header)
+    if abs(tot - float(points)) > CAT_TOL and (corrected is None or abs(tot - float(corrected)) > CAT_TOL):
+        raise CategoryError(f"{who} {d}: the categories score {tot:.2f} at the league's values but the "
+                            f"day's points are {points}"
+                            + (f" (corrected {corrected})" if corrected is not None else "")
+                            + ": the scoring changed, or the categories are misread")
+
+
+def parse_cats(row: dict, header: dict, who: str, d, games: int) -> List[int]:
+    """One league-scoped row's categories in header order, whole counts.
+    Yahoo's "-" is nothing done, accepted only on a day he did not play."""
+    out = []
+    for c in header["order"]:
+        if c not in row:
+            raise CategoryError(f"Yahoo's {d} line for {who} has no {c}")
+        v = row[c]
+        if v in ("-", "", None):
+            if games == 0:
+                out.append(0)
+                continue
+            raise CategoryError(f"Yahoo's {d} line for {who}: {c} is {v!r} on a day he played")
+        x = _num(v)
+        if x is None or x < 0 or x != int(x):
+            raise CategoryError(f"Yahoo's {d} line for {who}: {c} is {v!r}, not a count")
+        out.append(int(x))
+    if games == 0 and any(out):
+        raise CategoryError(f"Yahoo's {d} line for {who}: categories {out} on a day he did not play")
+    return out
 
 
 def load(base_path=".", *, required: bool = True) -> Optional[dict]:
@@ -155,7 +333,9 @@ def write(base_path, blob: dict, today: date) -> None:
                                f"({today}), a league day that has not finished")
     validate(blob)
     from .data_loader import atomic_write_json
-    atomic_write_json(cache_path(base_path), blob, indent=1)
+    # compact (Nick, 11-14, 4a2 decision 4): no indent, so each day's 11 counts
+    # are one short line's worth, not eleven lines (~6.8 MB by April at indent=1).
+    atomic_write_json(cache_path(base_path), blob, indent=None)
 
 
 # =============================================================================
@@ -221,7 +401,18 @@ class YahooSource:
     def day(self, pids: List[int], d: date, names: Dict[int, str]) -> Dict[int, list]:
         """{pid: [points, games]} for every pid on day d, or ActualsError
         naming the date and the player."""
+        return self.day_full(pids, d, names)[0]
+
+    def day_full(self, pids: List[int], d: date, names: Dict[int, str],
+                 header: Optional[dict] = None) -> Tuple[Dict[int, list], Optional[dict]]:
+        """(day()'s result, the categories): with a header, {"cats": {pid:
+        counts}, "error": None}, or {"cats": None, "error": why} when any
+        player's categories fail (parse_cats, check_cats) -- the points are
+        returned either way: a category problem never costs a day's points.
+        Without a header, None. The same two requests per batch as day()."""
         out = {}
+        cats: Dict[int, List[int]] = {}
+        cat_err: Optional[str] = None
         for i in range(0, len(pids), BATCH):
             chunk = pids[i:i + BATCH]
             try:
@@ -235,7 +426,7 @@ class YahooSource:
             except Exception as e:                     # network, auth, parse
                 raise ActualsError(f"Yahoo request for {d} failed ({type(e).__name__}: {e}) "
                                    f"for {', '.join(names[p] for p in chunk)}") from e
-            pts = {}
+            pts, rowof = {}, {}
             for r in rows:
                 pid = int(r.get("player_id", 0))
                 if pid in chunk:
@@ -243,6 +434,7 @@ class YahooSource:
                         raise ActualsError(f"Yahoo's {d} line for {names[pid]} has no total_points")
                     v = _num(r["total_points"])
                     pts[pid] = 0.0 if v is None else v
+                    rowof[pid] = r
             gps = parse_game_lines(raw)
             for pid in chunk:
                 if pid not in pts:
@@ -254,6 +446,44 @@ class YahooSource:
                     raise ActualsError(f"Yahoo's {d} line for {names[pid]}: {pts[pid]} points "
                                        "and no game played")
                 out[pid] = [round(pts[pid], 2), g]
+                if header is not None and cat_err is None:
+                    try:
+                        c = parse_cats(rowof[pid], header, names[pid], d, g)
+                        check_cats(c, header, out[pid][0], names[pid], d)
+                        cats[pid] = c
+                    except CategoryError as e:
+                        cat_err = str(e)
+        if header is None:
+            return out, None
+        return out, ({"cats": None, "error": cat_err} if cat_err else {"cats": cats, "error": None})
+
+    def cats_day(self, pids: List[int], d: date, names: Dict[int, str],
+                 header: dict) -> Dict[int, tuple]:
+        """The backfill's request (4a2): {pid: (counts, Yahoo's total now)}
+        for players who PLAYED on day d, from the league-scoped line only
+        (1 call per BATCH). The counts must score Yahoo's total now
+        (check_cats), or CategoryError: the scoring changed. Any missing
+        player or failed request raises, naming the date and the player."""
+        out = {}
+        for i in range(0, len(pids), BATCH):
+            chunk = pids[i:i + BATCH]
+            try:
+                rows = self.lg.player_stats(chunk, "date", date=d)
+                self.calls += 1
+            except Exception as e:                     # network, auth, parse
+                raise ActualsError(f"Yahoo request for {d}'s categories failed ({type(e).__name__}: {e}) "
+                                   f"for {', '.join(names[p] for p in chunk)}") from e
+            byid = {int(r.get("player_id", 0)): r for r in rows}
+            for pid in chunk:
+                r = byid.get(pid)
+                if r is None:
+                    raise ActualsError(f"Yahoo returned no {d} league line for {names[pid]}")
+                if "total_points" not in r or _num(r["total_points"]) is None:
+                    raise ActualsError(f"Yahoo's {d} line for {names[pid]} has no total_points")
+                total = round(_num(r["total_points"]), 2)
+                c = parse_cats(r, header, names[pid], d, 1)
+                check_cats(c, header, total, names[pid], d)
+                out[pid] = (c, total)
         return out
 
 
@@ -276,12 +506,34 @@ def plan(blob: dict, ids: Dict[str, int], first: date, last: date) -> Dict[date,
     return dict(sorted(want.items()))
 
 
+def _fetch_day(source, pids, d, names, header):
+    """(points by pid, the categories result or None): a source with
+    day_full and a header gives categories; any other source (the tests'
+    fakes, a header-less call) gives points and games only."""
+    if header is not None and hasattr(source, "day_full"):
+        return source.day_full(pids, d, names, header)
+    return source.day(pids, d, names), None
+
+
+def _store_cats(blob: dict, d: date, cr: Optional[dict], errors: List[str]) -> None:
+    if cr is None:
+        return
+    if cr["error"]:
+        errors.append(f"{d.isoformat()}: {cr['error']}")
+        return
+    for pid, c in cr["cats"].items():
+        blob["players"][str(pid)].setdefault("cat_days", {})[d.isoformat()] = c
+
+
 def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_names=None,
            today: date = None, first_day: date = None, season: str = None,
-           echo: Callable = print) -> dict:
+           echo: Callable = print, header: Optional[dict] = None) -> dict:
     """Fetch every finished league day the cache lacks for every rostered
     player, write each completed day, and report. RAISES (ActualsError) on the
-    first failure, after keeping the days that completed."""
+    first failure, after keeping the days that completed. With a source that
+    has day_full (YahooSource), each day keeps its categories too (4a2;
+    header: config yahoo_settings.stat_values unless given); a category
+    problem is returned in "cat_errors", never raised."""
     base = Path(base_path)
     from .league_clock import league_today
     today = today or league_today()
@@ -304,6 +556,12 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
             if failures:
                 raise ActualsError("rostered players with no Yahoo id: " + "; ".join(failures))
     names = {pid: n for n, pid in ids.items()}
+    if hasattr(source, "day_full"):
+        header = header or scoring_header(base)
+        ensure_cats(blob, header)
+    else:
+        header = None
+    cat_errors: List[str] = []
     for n, pid in ids.items():
         rec = blob["players"].setdefault(str(pid), {"name": n, "days": {}})
         rec["name"] = n
@@ -314,10 +572,11 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
     done_days = []
     per_player_days: Dict[str, int] = {}
     for d, pids in todo.items():
-        got = source.day(pids, d, names)
+        got, cr = _fetch_day(source, pids, d, names, header)
         for pid, v in got.items():
             blob["players"][str(pid)]["days"][d.isoformat()] = v
             per_player_days[names[pid]] = per_player_days.get(names[pid], 0) + 1
+        _store_cats(blob, d, cr, cat_errors)
         blob["roster_names"] = {n: int(p) for n, p in sorted(ids.items())}
         blob["rosters_from"] = "config/ROSTERS.json"
         from .league_clock import league_now
@@ -339,7 +598,8 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
     return {"days_fetched": done_days, "through": last.isoformat(), "calls":
             getattr(source, "calls", 0) - calls0, "seconds": seconds,
             "backfilled": new_players, "player_days": per_player_days,
-            "players": len(ids), "ids": names_now, "source": source}
+            "players": len(ids), "ids": names_now, "source": source, "header": header,
+            "cat_errors": cat_errors}
 
 
 # =============================================================================
@@ -353,14 +613,23 @@ def calls_for(todo: Dict[date, List[int]]) -> int:
     return sum(2 * math.ceil(len(pids) / BATCH) for pids in todo.values())
 
 
-def extras_cap(base_path=".") -> int:
-    """config actuals.extra_players_max: required, an int of at least 1."""
+def _actuals_int(base_path, key: str) -> int:
     cfg = json.loads((Path(base_path) / "config" / "league_config.json").read_text(encoding="utf-8"))
-    v = (cfg.get("actuals") or {}).get("extra_players_max")
+    v = (cfg.get("actuals") or {}).get(key)
     if not isinstance(v, int) or isinstance(v, bool) or v < 1:
-        raise ActualsError(f"config/league_config.json actuals.extra_players_max is {v!r}: "
+        raise ActualsError(f"config/league_config.json actuals.{key} is {v!r}: "
                            "a whole number of at least 1 is required")
     return v
+
+
+def extras_cap(base_path=".") -> int:
+    """config actuals.extra_players_max: required, an int of at least 1."""
+    return _actuals_int(base_path, "extra_players_max")
+
+
+def backfill_cap(base_path=".") -> int:
+    """config actuals.category_backfill_calls_max (4a2): required, an int of at least 1."""
+    return _actuals_int(base_path, "category_backfill_calls_max")
 
 
 def hub_names(base_path=".") -> Tuple[List[str], str]:
@@ -431,7 +700,7 @@ def extras_set(base_path, rostered: Dict[str, int], *, names: List[str] = None,
 
 
 def update_extras(base_path=".", *, source, rostered: Dict[str, int], today: date = None,
-                  extras: dict = None, dry_run: bool = False) -> dict:
+                  extras: dict = None, dry_run: bool = False, header: Optional[dict] = None) -> dict:
     """Fetch every finished league day the cache lacks for every non-rostered
     player the hub names (extras_set), in their own batches after the rostered
     pass, and write each completed day. RAISES (ActualsError) on the first
@@ -443,6 +712,11 @@ def update_extras(base_path=".", *, source, rostered: Dict[str, int], today: dat
     last = today - timedelta(days=1)
     blob = load(base)
     first = date.fromisoformat(blob["first_day"])
+    if not dry_run and hasattr(source, "day_full"):
+        header = header or scoring_header(base)
+        ensure_cats(blob, header)
+    else:
+        header = None
     ex = extras or extras_set(base, rostered)
     ids = ex["ids"]
     names = {pid: n for n, pid in ids.items()}
@@ -458,7 +732,7 @@ def update_extras(base_path=".", *, source, rostered: Dict[str, int], today: dat
     out = {"through": last.isoformat(), "players": len(ids), "no_id": ex["no_id"], "from": ex["from"],
            "cap": ex["cap"], "backfilled": new_players, "missing_days": missing,
            "planned_days": len(todo), "planned_calls": calls_for(todo), "days_fetched": [], "calls": 0,
-           "seconds": 0.0}
+           "seconds": 0.0, "cat_errors": []}
     if dry_run:
         return out
     t0 = time.time()
@@ -466,9 +740,10 @@ def update_extras(base_path=".", *, source, rostered: Dict[str, int], today: dat
     names_now = {n: int(p) for n, p in sorted(ids.items())}
     from .league_clock import league_now
     for d, pids in todo.items():
-        got = source.day(pids, d, names)
+        got, cr = _fetch_day(source, pids, d, names, header)
         for pid, v in got.items():
             blob["players"][str(pid)]["days"][d.isoformat()] = v
+        _store_cats(blob, d, cr, out["cat_errors"])
         blob["extra_names"] = names_now
         blob["updated_at"] = league_now().isoformat(timespec="seconds")
         write(base, blob, today)
@@ -510,6 +785,102 @@ def rostered_dry_plan(base_path=".", today: date = None) -> dict:
     new_calls = 2 * n_days * math.ceil(len(new) / BATCH) if new else 0
     return {"through": last.isoformat(), "players": len(ids) + len(new), "ids": ids, "new": new,
             "planned_days": len(todo), "planned_calls": calls_for(todo) + new_calls}
+
+
+# =============================================================================
+# the categories' backfill (4a2, 11-14)
+# =============================================================================
+
+def tracked_ids(blob: dict) -> Dict[int, str]:
+    """{id: name} of the players the last passes fetched: roster_names and
+    extra_names. A player the hub no longer names keeps his days but is not
+    backfilled (nothing shows him)."""
+    ids = {int(p) for p in blob["roster_names"].values()} | {int(p) for p in (blob.get("extra_names") or {}).values()}
+    return {pid: blob["players"][str(pid)]["name"] for pid in sorted(ids)}
+
+
+def backfill_plan(blob: dict, last: date) -> Dict[date, dict]:
+    """{day: {"played": [ids], "idle": [ids]}}, oldest first: every cached
+    day through `last` of a tracked player with no categories. "idle" played
+    no game (zeros, no call)."""
+    out: Dict[date, dict] = {}
+    for pid in tracked_ids(blob):
+        rec = blob["players"][str(pid)]
+        have = rec.get("cat_days") or {}
+        for d, v in rec["days"].items():
+            if d in have or date.fromisoformat(d) > last:
+                continue
+            slot = out.setdefault(date.fromisoformat(d), {"played": [], "idle": []})
+            slot["played" if v[1] == 1 else "idle"].append(pid)
+    return dict(sorted(out.items()))
+
+
+def backfill_calls(plan_: Dict[date, dict]) -> int:
+    """1 league-scoped call per BATCH players who played, per day."""
+    return sum(math.ceil(len(p["played"]) / BATCH) for p in plan_.values())
+
+
+def backfill_categories(base_path=".", *, source=None, today: date = None, cap: int = None,
+                        header: dict = None, dry_run: bool = False) -> dict:
+    """Fill categories for days cached without them, oldest first, at most
+    `cap` calls (config actuals.category_backfill_calls_max). A day is written
+    only when every player asked for on it came back (all or nothing); a
+    complete day is never asked for again. Stops at the first day that does
+    not fit in what is left of the cap. RAISES (ActualsError) on a failure,
+    after keeping the days that completed; a day needing more calls than the
+    whole cap raises too (it would never finish). dry_run: the plan, no
+    Yahoo call, nothing written."""
+    base = Path(base_path)
+    from .league_clock import league_today, league_now
+    today = today or league_today()
+    last = today - timedelta(days=1)
+    blob = load(base)
+    header = header or scoring_header(base)
+    ensure_cats(blob, header)
+    cap = cap if cap is not None else backfill_cap(base)
+    names = tracked_ids(blob)
+    todo = backfill_plan(blob, last)
+    out = {"days_missing": len(todo), "calls_needed": backfill_calls(todo), "cap": cap,
+           "days_done": [], "calls": 0, "corrections": [], "stopped": None, "seconds": 0.0}
+    if dry_run:
+        out["days_left"] = len(todo)
+        return out
+    t0 = time.time()
+    for d, want in todo.items():
+        need = math.ceil(len(want["played"]) / BATCH)
+        if need > cap:
+            raise ActualsError(f"{d}'s categories need {need} calls ({len(want['played'])} players played), "
+                               f"more than actuals.category_backfill_calls_max ({cap}): that day would never "
+                               "be written; raise the cap")
+        if out["calls"] + need > cap:
+            out["stopped"] = f"the cap ({cap} calls) before {d.isoformat()}"
+            break
+        calls0 = getattr(source, "calls", 0)
+        got = source.cats_day(want["played"], d, names, header) if want["played"] else {}
+        out["calls"] += getattr(source, "calls", 0) - calls0
+        iso = d.isoformat()
+        for pid in want["played"]:
+            if pid not in got:
+                raise ActualsError(f"Yahoo returned no {d} categories for {names[pid]}")
+        for pid, (c, total) in got.items():
+            rec = blob["players"][str(pid)]
+            stored = rec["days"][iso][0]
+            corrected = None
+            if abs(float(total) - float(stored)) > CAT_TOL:
+                corrected = total                       # an NBA stat correction since the night it came
+            check_cats(c, header, stored, names[pid], iso, corrected=corrected)
+            rec.setdefault("cat_days", {})[iso] = c
+            if corrected is not None:
+                rec.setdefault("cat_corrections", {})[iso] = corrected
+                out["corrections"].append(f"{names[pid]} {iso}: {stored} cached, {corrected} now")
+        for pid in want["idle"]:
+            blob["players"][str(pid)].setdefault("cat_days", {})[iso] = [0] * len(header["order"])
+        blob["updated_at"] = league_now().isoformat(timespec="seconds")
+        write(base, blob, today)
+        out["days_done"].append(iso)
+    out["days_left"] = len(todo) - len(out["days_done"])
+    out["seconds"] = round(time.time() - t0, 1)
+    return out
 
 
 # =============================================================================
@@ -575,11 +946,10 @@ NOTE_NO_ID = ("No NBA numbers: he is not in Yahoo's player list (nor in the leag
               "so the engine has no Yahoo id to fetch his daily lines with")
 
 
-def find_days(blob: dict, name: str) -> Optional[dict]:
-    """His cached days by any spelling (PlayerIndex rules): the last fetch's
-    roster names first, then every name the cache has held -- a player
-    dropped since keeps his days up to the drop. None: never in the cache.
-    (40b: the last extras pass's names come second.)"""
+def find_record(blob: dict, name: str) -> Optional[dict]:
+    """His cache record by any spelling (PlayerIndex rules): the last fetch's
+    roster names first, then the last extras pass's (40b), then every name
+    the cache has held. None: never in the cache."""
     from .data_loader import PlayerIndex
     pid = PlayerIndex(blob["roster_names"]).get(name)
     if pid is None and blob.get("extra_names"):
@@ -588,7 +958,49 @@ def find_days(blob: dict, name: str) -> Optional[dict]:
         pid = PlayerIndex({rec["name"]: p for p, rec in blob["players"].items()}).get(name)
     if pid is None:
         return None
-    return blob["players"][str(pid)]["days"]
+    return blob["players"][str(pid)]
+
+
+def find_days(blob: dict, name: str) -> Optional[dict]:
+    """His cached days by any spelling (find_record): a player dropped since
+    keeps his days up to the drop. None: never in the cache."""
+    rec = find_record(blob, name)
+    return None if rec is None else rec["days"]
+
+
+def category_season(blob: dict, name: str, first: date, through: date) -> dict:
+    """His category totals over the games he played in [first, through]
+    (4a2; ratings reads it). {"status", "games", "totals": {category: count}
+    or None, "day": the first day lacking, or None}:
+      "ok"          every day he played has categories
+      "loading"     the file has no categories (version 1), or a day he
+                    played lacks them (the backfill has not reached it)
+      "not_cached"  never in the cache
+      "gap"         a day in the window is not cached at all
+    Plain data; never raises for a player."""
+    header = blob.get("cats")
+    rec = find_record(blob, name)
+    res = {"status": "ok", "games": 0, "totals": None, "day": None}
+    if header is None:
+        return dict(res, status="loading")
+    if rec is None:
+        return dict(res, status="not_cached")
+    cd = rec.get("cat_days") or {}
+    totals = [0] * len(header["order"])
+    games = 0
+    for d in days_between(first, through) if through >= first else []:
+        iso = d.isoformat()
+        v = rec["days"].get(iso)
+        if v is None:
+            return dict(res, status="gap", day=iso)
+        if v[1] != 1:
+            continue
+        c = cd.get(iso)
+        if c is None:
+            return dict(res, status="loading", day=iso)
+        games += 1
+        totals = [a + b for a, b in zip(totals, c)]
+    return dict(res, games=games, totals=dict(zip(header["order"], totals)))
 
 
 def card_lines(blob: dict, names: Iterable[str], through: date, *, required: Iterable[str] = (),
