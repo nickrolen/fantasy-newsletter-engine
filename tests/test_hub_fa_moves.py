@@ -12,6 +12,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+import league_state                                    # noqa: E402
+
 sys.path.insert(0, str(Path(__file__).parent))
 from modules import hub_state as hs, hub_page, hub_moves, move_ledger as ml  # noqa: E402
 from modules import transaction_log as tlog, transaction_rulings as tr     # noqa: E402
@@ -570,6 +572,7 @@ def real_with_ledger(request):
         pytest.skip("a real move ledger exists: this test layers a scratch one over an empty ledger")
     mp = pytest.MonkeyPatch()
     now = league_now()
+    league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     try:
         base = hs.build(ROOT, now=now, allow_engine_mismatch=True)
     except (hs.HubInputError, player_actuals.ActualsError) as e:

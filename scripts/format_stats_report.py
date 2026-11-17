@@ -1207,6 +1207,24 @@ def load_stats_report(path: Path) -> dict:
         return json.load(f)
 
 
+def joined_label(rc: dict, count: int, week=None) -> str:
+    """'6 joined (3 week-4 adds, 3 week-3 claims)' from a report card's
+    joined_* fields (report_builder._joined_split, H51). A card from before
+    the split (no joined_* fields) says only how many joined."""
+    if "joined_week_adds" not in rc:
+        return f"{count} joined"
+    parts = []
+    a = int(rc["joined_week_adds"])
+    if a:
+        parts.append(f"{a} {'week-' + str(week) + ' ' if week else ''}add{'s' if a != 1 else ''}")
+    for cw, n in sorted((rc.get("joined_claim_weeks") or {}).items(), key=lambda kv: int(kv[0])):
+        parts.append(f"{n} week-{cw} claim{'s' if int(n) != 1 else ''}")
+    nb = int(rc.get("joined_no_budget") or 0)
+    if nb:
+        parts.append(f"{nb} using no add (trade or pre-season)")
+    return f"{count} joined ({', '.join(parts)})" if parts else f"{count} joined"
+
+
 def build_lookup_tables(data: dict) -> dict:
     """Build lookup tables for cross-referencing data."""
     lookups = {}
@@ -1484,10 +1502,16 @@ def format_section_2_report_cards(data: dict, lookups: dict, prev_grades: Option
         fp_per_add = rc.get("fp_per_add", 0)
         waiver_games = rc.get("waiver_games", 0)
         waiver_fppg = rc.get("waiver_fppg", 0)
+        # H51 (FIXES item 1): these are the players who JOINED this week, which
+        # includes last week's rule-7 claims applied in this window; "6 adds"
+        # was drafted as "made six adds" (it was 3 + 3). Split by where each
+        # counts, the ADD BUDGET table's own counting (report_builder).
         if waiver_count > 0:
-            lines.append(f"- Waiver adds: {waiver_count} adds, {waiver_fp:.2f} total FP over {waiver_games} games ({waiver_fppg:.2f} fppg, {fp_per_add:.1f} FP per add)")
+            joined = joined_label(rc, waiver_count, (data.get("metadata") or {}).get("week"))
+            lines.append(f"- New players: {joined}, {waiver_fp:.2f} total FP "
+                         f"over {waiver_games} games ({waiver_fppg:.2f} fppg, {fp_per_add:.1f} FP per player)")
         else:
-            lines.append("- Waiver adds: None")
+            lines.append("- New players: none joined")
         
         # Scheduled games context + utilization rate
         sched = rc.get("scheduled_games", 0)
@@ -1970,7 +1994,7 @@ def format_section_5_fun_facts(data: dict, lookups: dict) -> str:
             lines.append("")
             
             # Career totals
-            lines.append("_Career Luck (all-time):_")
+            lines.append("_Career Luck (all-time, every week incl. playoffs):_")   # H51: Power Rankings' Career Record is regular season only
             lines.append("| Manager | Record | Win% | Expected | Career Luck |")
             lines.append("|---------|--------|------|----------|-------------|")
             sorted_career = sorted(

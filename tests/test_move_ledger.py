@@ -465,87 +465,10 @@ def test_a_settled_entry_is_never_verified_again():
     assert ml.verify(w, rows, states, run_id="r1")[0] == []
 
 
-# =============================================================================
-# the 11-02 window, replayed from the real transaction log
-# =============================================================================
-
-REPLAY = [  # the week-2 group-chat claims, applied in Yahoo in week 3's window (LEAGUE_RULES rule 7)
-    ("Hayden move: +Yaxel Lendeborg", "2026-10-26 22:00"),
-    ("Benton move: +Devin Booker -Nickeil Alexander-Walker", "2026-10-30 08:00"),
-    ("Nick move: +Desmond Bane IL+Anthony Edwards", "2026-10-30 08:15"),
-    # claim times not on record: any time in week 2 gives the same week
-    ("Hayden move: +Anthony Black", "2026-10-31 12:00"),
-    ("Hayden move: +Brandin Podziemski", "2026-10-31 12:01"),
-    ("Benton move: +Caleb Wilson", "2026-10-31 12:02"),
-    ("Nick move: +Miles Bridges -Ty Jerome", "2026-10-31 12:03"),
-]
-IL_WEEK3 = {"Benton": ["Jayson Tatum"], "Garrett": ["Alex Sarr", "Kon Knueppel"],
-            "Hayden": ["Chet Holmgren", "Tyrese Haliburton"], "Nick": ["Anthony Edwards", "Paolo Banchero"]}
-
-
-def _replay_rows():
-    rows = []
-    for i, (text, when) in enumerate(REPLAY, start=1):
-        p = ml.parse(text, M)
-        rows.append({"row": "entry", "id": i, "text": text, "kind": "move", "parsed":
-                     {k: v for k, v in p.items() if k != "kind"},
-                     "claimed_at": ml._parse_at(when).isoformat(), "claim_week": 2, "window_week": 3,
-                     "window": "2026-11-02", "entered_at": "2026-11-05T09:00:00-08:00",
-                     "entered_by": "test replay", "checks": []})
-    return rows
-
-
-@pytest.fixture(scope="module")
-def real_log():
-    from modules import transaction_log as tlog
-    if not (ROOT / tlog.LOG_FILE).is_file():
-        pytest.skip("league state not in this checkout (the transaction log)")
-    sched = json.loads((ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
-    return tlog.transactions(ROOT), sched
-
-
-@pytest.mark.slow
-def test_the_11_02_window_replayed_gives_applied_for_all_seven(real_log):
-    from modules import price_lock
-    txs, sched = real_log
-    weeks = {int(w["week"]): (date.fromisoformat(w["start_date"][:10]), date.fromisoformat(w["end_date"][:10]))
-             for w in sched["weeks"]}
-    w = ml.World(now=at("2026-11-03", 0, 5), weeks=weeks, window_close=price_lock.window_close, managers=M,
-                 rosters={}, il=IL_WEEK3, il_week=3, playerlist=[], universe=[], tags={}, overrides=[],
-                 yahoo_adds=lambda c: {}, transactions=[t for t in txs if t["league_day"] <= "2026-11-02"],
-                 verify_from=date(2026, 10, 27))
-    rows = _replay_rows()
-    new, rep = ml.verify(w, rows, [], run_id="replay")
-    assert [(r["entry"], r["state"]) for r in new] == [(i, "applied") for i in range(1, 8)], rep
-    assert rep["flags"] == [] and rep["unmatched"] == []
-    # every claim's Yahoo add is matched: Bane and Bridges are Nick's, Booker Benton's, ...
-    keys = {r["entry"]: r["transactions"] for r in new}
-    assert all(keys.values())
-
-
-@pytest.mark.slow
-def test_the_11_02_replay_counts_match_the_claim_week_rulings(real_log):
-    """The shadow comparison's first real test: the seven claims counted by the
-    ledger alone (their claim_week rulings set aside) land where the rulings
-    put them -- week 2 -- and every other add where it was."""
-    txs, sched = real_log
-    rulings = tr.load_all(ROOT, sched)
-    without = [r for r in rulings if not (r.kind == "claim_week" and int(r.claim_week) == 2)]
-    claims = ml.budget_claims(ml.entries(_replay_rows()))
-    by_rulings, by_ledger = {}, {}
-    for t in txs:
-        if t["league_day"] != "2026-11-02":
-            continue
-        for p in t["players"]:
-            if p["action"] != "add":
-                continue
-            a = {"date": t["league_day"], "manager": p["to"]["manager"], "player": p["name"]}
-            for out, rs, led in ((by_rulings, rulings, None), (by_ledger, without, claims)):
-                wk = tr.add_budget_week(a, rs, sched, led)
-                out.setdefault(wk, {}).setdefault(a["manager"], []).append(a["player"])
-    assert by_ledger == by_rulings
-    assert sum(len(v) for v in by_ledger[2].values()) == 7
-
+# The 11-02 window replayed from the real transaction log: DELETED (H51, Nick
+# 11-17: a dated one-off). The same verify -> applied path and the ledger's
+# budget counting are covered synthetically above (test_rule_12_..., the
+# window/claim tests) and below (add_budget_week takes the ledger).
 
 # =============================================================================
 # add_budget_week takes the ledger (invariant 10a; "on" mode)

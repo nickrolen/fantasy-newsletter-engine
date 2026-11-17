@@ -20,6 +20,8 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pytest
 
+import league_state                                    # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -655,6 +657,7 @@ def real_payload():
           "output/hub_archive/index.json")
     from modules.data_loader import load_all_data
     data = load_all_data(ROOT, current_week=None)
+    league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     try:
         p = hs.build(ROOT, data=data, allow_engine_mismatch=True, echo=lambda *a: None)
     except hs.HubInputError as e:

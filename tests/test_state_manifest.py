@@ -349,20 +349,43 @@ OUTSIDE = {   # never state: must never move, in either direction
 }
 
 
-@pytest.fixture
-def two(tmp_path):
-    if shutil.which("git") is None:
-        pytest.skip("needs git")
-    remote = tmp_path / "remotes" / "nickrolen" / "newsletter-state.git"
+def _build_two(base):
+    """The two machines and their private remote, under `base`."""
+    remote = base / "remotes" / "nickrolen" / "newsletter-state.git"
     remote.mkdir(parents=True)
-    sh("init", "-q", "--bare", str(remote), cwd=tmp_path)
-    a = machine(tmp_path, "desk", remote)
+    sh("init", "-q", "--bare", str(remote), cwd=base)
+    a = machine(base, "desk", remote)
     for rel, data in {**SEED, **OUTSIDE}.items():
         write(a, rel, data)
     rc, out = run_state(a, "init")
     assert rc == 0, out
-    b = machine(tmp_path, "runner", remote)
+    b = machine(base, "runner", remote)
     write(b, "notes.txt", "runner's own\n")
+    return remote, a, b
+
+
+@pytest.fixture(scope="module")
+def _two_template(tmp_path_factory):
+    """Built once per module (worker) and copied for each test (H51, task G):
+    on Nick's laptop each test's ~25 git processes cost 10-23 s (207 s for
+    this file, 11-17), git and process start being slow on Windows. A copy
+    is a file copy plus two `git remote set-url`; every pull and push in the
+    tests still runs real git against the copy's own remote."""
+    if shutil.which("git") is None:
+        pytest.skip("needs git")
+    base = tmp_path_factory.mktemp("two_template")
+    _build_two(base)
+    return base
+
+
+@pytest.fixture
+def two(tmp_path, _two_template):
+    shutil.copytree(_two_template, tmp_path, dirs_exist_ok=True, symlinks=True)
+    remote = tmp_path / "remotes" / "nickrolen" / "newsletter-state.git"
+    a, b = tmp_path / "desk", tmp_path / "runner"
+    for m in (a, b):                    # each copy's clone points at the copy's own remote
+        sh("remote", "set-url", "origin", str(remote), cwd=m / ".state")
+    assert remote.is_dir()
     return a, b
 
 
@@ -406,8 +429,9 @@ def test_the_cli_runs_as_its_own_process(two):
     rc, out = run_state_cli(b, "pull")
     assert rc == 0, out
     assert (b / "config/ROSTERS.json").read_bytes() == SEED["config/ROSTERS.json"].encode("utf-8")
-    assert run_state_cli(b, "push") == run_state(b, "push")
-    assert run_state_cli(b, "push")[1].strip().startswith("nothing changed")
+    cli = run_state_cli(b, "push")      # two CLI runs, not three: each pays the engine's import
+    assert cli == run_state(b, "push")
+    assert cli[1].strip().startswith("nothing changed")
 
 
 @pytest.mark.slow

@@ -31,6 +31,13 @@ The hub is **https://nickrolen.github.io/newsletter-hub/** (encrypted; the passp
 1. **Start with `python scripts\state.py pull`. End with `python scripts\state.py push`.** Every time, Monday's newsletter included. `pull` merges when the cloud and you changed different files, and refuses (naming them) when you both changed the same one.
 2. **Don't run `nightly.py` by hand.** The cloud does the nightly run, Monday's pre-tip run and the closing line.
 3. **Monday: push your newsletter's state before the pre-tip window opens: first tip - 45 minutes, league time** (for a 4:00 PM Pacific tip, 3:15 PM Pacific [4:15 PM Phoenix]). The first tip moves (MLK Day and Presidents' Day tip at 9:00 AM Pacific), so check it: `python scripts\run_guard.py pretip` prints the day's window, e.g. `outside the pre-tip window 15:15-16:00 PST`. Your build and the pre-tip run write some of the same files (rosters, title odds), and those can't be merged. This rule goes away when the newsletter build moves into the cloud (Step 4 of the self-running build).
+3b. **Monday after the first tip, before the closing line (12:05 AM Tuesday): what's safe to push.** The closing line prices rosters and IL as at the close (its run re-syncs them) and everything else as at the first tip, so the order of your Monday steps doesn't matter to it (H51, 11-17; it holds if the issue moves to Tuesday mornings too):
+   - **`data\PLAYERLIST.xlsx` (Step 4.75): safe.** Every cloud run on the Monday before the tip keeps a copy, `config\snapshots\pretip\PLAYERLIST_weekNN.xlsx`, and the closing line reads it when your file was fetched after the tip. (11-16: the 6:28 PM refetch refused the close; it no longer would.) The one case it still refuses: no Monday run before the tip recorded tags, so there is no copy. Then don't refetch after the tip until the closing line has run.
+   - **`config\INJURY_OVERRIDES.json` (Step 5): safe through `scripts\overrides.py`** (or a phone entry): every change goes into the history, and the closing line undoes it back to the tip. A **hand edit** of the file after the tip refuses the close.
+   - **Rosters, IL slots, the transaction log (Steps 3-4): safe.** The closing run syncs them again after the close. A Yahoo move **after** the close refuses (rule 4: ask before it's priced).
+   - **Tags and the NBA report: safe.** The close reads the last tag record taken before the tip; records after it are ignored.
+   - **Step 6 (title odds, published lines, the report): safe.** The closing line adds its own rows.
+   - **Never by hand: `output\live_lines_weekN.state.json`** (the week's seed).
 4. **Never push state while a cloud run is going** (just after midnight Pacific for a few minutes [about 1:05 AM Phoenix], and Monday's pre-tip window). If you do, the cloud's push is rejected, its state goes to a `rescue/run-<id>` branch, and an issue opens: ask before merging it.
 5. **After any engine update** (a commit the reviewing session made): `git push`, then `python scripts\state.py pull`, then **`python scripts\state.py set-engine`**, or the cloud keeps running the old engine. `set-engine` refuses until you've pulled whatever the cloud committed since your last sync, so pull first, every time.
 6. **The Monday checklist is yours, not the hub's:** `python scripts\ledger.py checklist` prints it per team, in order, with each blocked team's reason and a Yahoo add link on every add line (since 11-09 it is no longer on the hub).
@@ -138,7 +145,7 @@ which are marked `slow`.
   one chunk per call (`--fast` runs only the fast tier the same way).
 
 - **The fast tier stays fast.** In a `-m "not slow"` run, a test that is not
-  marked slow and takes over 3 s (setup + call) fails with its time; mark it
+  marked slow and takes over 8 s (setup + call) fails with its time; mark it
   `@pytest.mark.slow` or make it faster. `tests/test_tiers.py` pins the guard
   and keeps the heaviest tests on record in the slow tier.
 - **xfail is a decision, not a pass.** STATUS item 17's open questions are
@@ -304,6 +311,10 @@ python scripts/check_playerlist.py --snapshot
 ```
 
 That is the whole step. About twenty seconds.
+
+**After the first tip on a Monday this is still safe** (H51, 11-17): the closing
+line reads the cloud's pre-tip copy (`config\snapshots\pretip\`), not this file,
+when this fetch is after the tip. See rule 3b at the top.
 
 ### What the fetch does
 

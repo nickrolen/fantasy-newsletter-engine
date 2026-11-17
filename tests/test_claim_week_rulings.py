@@ -571,7 +571,10 @@ def test_no_module_counts_adds_by_week_but_through_add_budget_week():
     assert set(counters) == {"report_builder.py:build_add_budget", "advice_runner.py:build_advice",
                              "hub_state.py:build", "move_ledger.py:from_base",
                              "move_ledger.py:yahoo_adds", "move_ledger.py:shadow_compare",
-                             "hub_moves.py:build"}
+                             "hub_moves.py:build",
+                             # H51 (FIXES item 2): LEAGUEHISTORY's total_moves_current_season,
+                             # set from adds_by_budget_week
+                             "update_leaguehistory.py:current_season_values"}
     hm = {fn.name: fn for fn in _functions(ROOT / "modules" / "hub_moves.py")}
     assert "add_budget_week" in _calls(hm["place"])
     assert {"ledger_by_mode", "adds_by_budget_week"} <= _calls(hm["build"])

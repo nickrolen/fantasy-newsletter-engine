@@ -593,7 +593,22 @@ class Run:
         row = tag_records.append(self.base, tags, run_id=self.run_id, mode=self.mode,
                                  week=self.week, now=self.now)
         done.append(f"{n} rostered tag(s) recorded at {row['taken_at']}")
+        done.append(self._capture_pretip_playerlist())
         return "; ".join(done)
+
+    def _capture_pretip_playerlist(self) -> str:
+        """H51: beside every tag record, the closing line's pre-tip PLAYERLIST
+        copy (closing_line.capture_pretip_playerlist: window Mondays before the
+        first tip only). A failure here never stops the run: it is named in the
+        step's detail and the run record (ctx "pretip_playerlist"), and the
+        closing line refuses later if it has no pre-tip projections."""
+        from . import closing_line
+        try:
+            out = closing_line.capture_pretip_playerlist(self.base, self.now)
+        except Exception as e:                          # noqa: BLE001 -- named, never silent
+            out = f"PRE-TIP PLAYERLIST COPY FAILED ({type(e).__name__}: {e})"
+        self.ctx["pretip_playerlist"] = out
+        return out
 
     # -- 5a (step 3b): the NBA's official injury report
     def step_nba_report(self):
@@ -636,7 +651,8 @@ class Run:
         self.ctx["nba_report"] = info
         rec = tag_records.append(self.base, tags, run_id=self.run_id, mode=self.mode,
                                  week=self.week, now=self.now)
-        return f"{info['summary']}; tags recorded at {rec['taken_at']}"
+        return (f"{info['summary']}; tags recorded at {rec['taken_at']}; "
+                f"{self._capture_pretip_playerlist()}")
 
     def _assess_report(self, nr, report, tags) -> dict:
         from .data_loader import PlayerIndex, load_all_data
@@ -1035,6 +1051,8 @@ class Run:
             row["actuals"] = self.ctx["actuals"]
         if self.ctx.get("keeper_watch") is not None:
             row["keeper_watch"] = self.ctx["keeper_watch"]
+        if self.ctx.get("pretip_playerlist") is not None:
+            row["pretip_playerlist"] = self.ctx["pretip_playerlist"]
         if self.mode == "nightly":
             row["afternoon"] = afternoon_plan_today(self.base, self.today)
         from .jsonl_log import append_rows

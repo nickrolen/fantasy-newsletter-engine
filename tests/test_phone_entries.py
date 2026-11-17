@@ -774,6 +774,11 @@ def test_the_real_closing_line_raises_on_a_governing_entry_changed_after_the_tip
                                                                    players=[late], last_updated="2026-11-02"))
     monkeypatch.setattr(tr, "for_close", lambda base, monday, first: dict(tr.latest(ROOT), league_day="2026-11-02"))
     monkeypatch.setattr(cl, "check_inputs", lambda *a, **k: {"overrides_last_updated": "x"})
+    # H51: the projections at the tip, stated (the live file; the pre-tip copy is
+    # test_closing_line's business)
+    monkeypatch.setattr(cl, "playerlist_at_tip", lambda *a, **k: {
+        "path": ROOT / "data" / "PLAYERLIST.xlsx", "rel": "data/PLAYERLIST.xlsx",
+        "fetched_at": datetime(2026, 11, 2, 6, 46, tzinfo=LA), "source": "live"})
     try:
         with pytest.raises(cl.ClosingRefused, match=f"{re.escape(who)} \\(updated_at 2026-11-02T17:00"):
             cl.price(ROOT, 3, now=datetime(2026, 11, 3, 9, 0, tzinfo=LA), sims=200, title_sims=200,

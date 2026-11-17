@@ -14,6 +14,17 @@ Week N's line is priced ONCE more after Monday's window closes
     12:01 AM run's). No such record refuses. Yahoo's projections must have
     been fetched before the first tip (PLAYERLIST's fetch stamp), or it refuses;
   - THE WEEK'S SEED, as every line of that week (live_lines_weekN.state.json).
+
+PROJECTIONS AS AT THE FIRST TIP, FROM A COPY THE ENGINE KEEPS (H51, 11-17):
+every run on a window Monday before the first tip that records tags also
+copies the live PLAYERLIST to config/snapshots/pretip/PLAYERLIST_weekNN.xlsx
+(capture_pretip_playerlist; state, under the config/snapshots manifest dir).
+The closing line prices on the latest fetch made before the tip that the
+engine still holds: the live file or that copy, whichever was fetched later
+while still before the tip (playerlist_at_tip). So Monday's Step 4.75 refetch
+after the tip (11-16, 6:28 PM) no longer refuses the close; with no pre-tip
+copy and a post-tip live file it still refuses. A copy's stamp must describe
+its rows and be before the tip, or it refuses.
 No special case for a player added after his own game tipped: Yahoo locks a
 player once his game starts (Nick).
 
@@ -81,6 +92,119 @@ def run_id_for(week: int) -> str:
 # night: those are fixable (a sync, a schedule refetch, Nick's ruling).
 # Nick can record one by hand when a refusal is permanent:
 #     python scripts\nightly.py --no-closing-line --week N --reason "..."
+
+
+PRETIP_DIR = Path("config") / "snapshots" / "pretip"
+
+
+def pretip_playerlist_path(base_path, week: int) -> Path:
+    """Week `week`'s pre-tip PLAYERLIST copy (state: config/snapshots is a
+    manifest dir)."""
+    return Path(base_path) / PRETIP_DIR / f"PLAYERLIST_week{int(week):02d}.xlsx"
+
+
+def _playerlist_stamp(path: Path, what: str):
+    """(fetched_at aware, stamp) of a PLAYERLIST workbook whose stamp describes
+    its rows. Raises ClosingRefused otherwise (no stamp, naive, or rows that
+    changed since the fetch)."""
+    import pandas as pd
+    from .playerlist_freshness import DATA_SHEET, assess, read_stamp
+    st = read_stamp(path) or {}
+    if not st.get("fetched_at"):
+        raise ClosingRefused(f"{what} has no fetch stamp")
+    at = _aware(st["fetched_at"], f"{what}'s fetch stamp")
+    frame = pd.read_excel(path, sheet_name=DATA_SHEET)
+    if assess(frame, st, today=at.date())["how"] != "stamp":
+        raise ClosingRefused(f"{what}'s fetch stamp ({st['fetched_at']}) does not describe its rows "
+                             "(edited or pasted since the fetch): it cannot vouch for the projections "
+                             "as at the first tip.")
+    return at, st
+
+
+def playerlist_at_tip(base_path, week: int, first_tip: datetime) -> dict:
+    """The PLAYERLIST the closing line prices on: the latest fetch made before
+    `first_tip` among the live file and the week's pre-tip copy.
+    {"path": Path, "rel": "data/PLAYERLIST.xlsx" | the copy's, "fetched_at":
+    aware, "source": "live" | "pretip copy"}. Raises ClosingRefused when
+    neither was fetched before the tip, or a copy's stamp cannot vouch for it."""
+    base = Path(base_path)
+    live = base / "data" / "PLAYERLIST.xlsx"
+    copy = pretip_playerlist_path(base, week)
+    found, late = [], []
+    if copy.is_file():
+        rel = copy.relative_to(base).as_posix()
+        at, _st = _playerlist_stamp(copy, rel)
+        if at >= first_tip:
+            raise ClosingRefused(f"{rel} was fetched {at.isoformat(timespec='minutes')}, after Monday's "
+                                 f"first tip ({first_tip.isoformat(timespec='minutes')}): a pre-tip "
+                                 "copy must be from before the tip (it was not written by "
+                                 "capture_pretip_playerlist?).")
+        found.append({"path": copy, "rel": rel, "fetched_at": at, "source": "pretip copy"})
+    if live.is_file():
+        try:
+            at, _st = _playerlist_stamp(live, "data/PLAYERLIST.xlsx")
+        except ClosingRefused:
+            if not found:
+                raise
+            at = None
+        if at is not None and at < first_tip:
+            found.append({"path": live, "rel": "data/PLAYERLIST.xlsx", "fetched_at": at,
+                          "source": "live"})
+        elif at is not None:
+            late.append(at)
+    if not found:
+        when = (f"was fetched {late[0].isoformat(timespec='minutes')}, " if late else "")
+        raise ClosingRefused(f"data/PLAYERLIST.xlsx {when}after Monday's first tip "
+                             f"({first_tip.isoformat(timespec='minutes')}), and there is no pre-tip "
+                             f"copy ({copy.relative_to(base).as_posix()}): the closing line's "
+                             "projections are as at the first tip.")
+    # the latest fetch before the tip; a tie (the copy of the live file) reads the copy
+    return max(found, key=lambda f: (f["fetched_at"], f["source"] == "pretip copy"))
+
+
+def capture_pretip_playerlist(base_path, now: datetime) -> str:
+    """On a window Monday before the first tip, copy the live PLAYERLIST to
+    the week's pre-tip copy (H51). Called by every nightly-family run that
+    records tags (modules/nightly.py), so the copy is the live file as at the
+    last run before the tip, whatever Monday's manual steps do later.
+    Returns what it did (one line for the run record). Writes nothing on any
+    other day, after the tip, when the live file was fetched after the tip,
+    or when the copy already holds a later (or the same) fetch."""
+    import os
+    import shutil
+    from . import price_lock
+    from .data_loader import load_nba_schedule, load_schedule
+    from .nba_schedule import schedule_path
+    base = Path(base_path)
+    if now.tzinfo is None:
+        raise ValueError("capture_pretip_playerlist needs the league clock (aware)")
+    from .league_clock import league_tz
+    day = now.astimezone(league_tz()).date()
+    sched = load_schedule(base / "config" / "SCHEDULE.json")
+    week = next((int(w["week"]) for w in sched.get("weeks", [])
+                 if str(w["start_date"])[:10] == day.isoformat()), None)
+    if week is None:
+        return "not a window day: no pre-tip PLAYERLIST copy"
+    first = price_lock.first_tip(day, load_nba_schedule(schedule_path(base)))
+    if first is None or now >= first:
+        return "after the first tip: the pre-tip PLAYERLIST copy stands"
+    live = base / "data" / "PLAYERLIST.xlsx"
+    at, _st = _playerlist_stamp(live, "data/PLAYERLIST.xlsx")
+    if at >= first:
+        return (f"data/PLAYERLIST.xlsx was fetched {at.isoformat(timespec='minutes')}, after the first "
+                "tip: not copied")
+    copy = pretip_playerlist_path(base, week)
+    if copy.is_file():
+        had, _ = _playerlist_stamp(copy, copy.relative_to(base).as_posix())
+        if had >= at:
+            return (f"pre-tip PLAYERLIST copy for week {week} already holds the fetch of "
+                    f"{had.isoformat(timespec='minutes')}")
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    tmp = copy.with_name(copy.name + ".tmp")
+    shutil.copyfile(live, tmp)
+    os.replace(tmp, copy)
+    return (f"pre-tip PLAYERLIST copy for week {week}: the fetch of {at.isoformat(timespec='minutes')}"
+            f" -> {copy.relative_to(base).as_posix()}")
 
 
 def none_path(base_path, week: int) -> Path:
@@ -231,9 +355,12 @@ def align_to_close(tags, rostered) -> tuple:
             sorted(left), sorted(joined))
 
 
-def check_inputs(base_path, data, *, monday: date, first_tip: datetime, close: datetime) -> dict:
+def check_inputs(base_path, data, *, monday: date, first_tip: datetime, close: datetime,
+                 week: int = None) -> dict:
     """Every input the closing line takes from disk, checked against the
-    close and the first tip. Raises ClosingRefused naming the input."""
+    close and the first tip. Raises ClosingRefused naming the input. With
+    `week`, the projections are playerlist_at_tip's (the live file or the
+    week's pre-tip copy); without it, the live file only."""
     from . import transaction_log as tlog
     from .playerlist_freshness import read_stamp
     base = Path(base_path)
@@ -254,20 +381,26 @@ def check_inputs(base_path, data, *, monday: date, first_tip: datetime, close: d
                                  f"close ({close.isoformat(timespec='minutes')}): the closing line's "
                                  "rosters are as at the close. Run the nightly sync first "
                                  "(python scripts\\nightly.py --closing does it).")
-    st = read_stamp(base / "data" / "PLAYERLIST.xlsx") or {}
-    if not st.get("fetched_at"):
-        raise ClosingRefused("data/PLAYERLIST.xlsx has no fetch stamp")
-    pl_at = _aware(st["fetched_at"], "data/PLAYERLIST.xlsx's fetch stamp")
-    if pl_at >= first_tip:
-        raise ClosingRefused(f"data/PLAYERLIST.xlsx was fetched {pl_at.isoformat(timespec='minutes')}, "
-                             f"after Monday's first tip ({first_tip.isoformat(timespec='minutes')}): "
-                             "the closing line's projections are as at the first tip.")
+    if week is not None:
+        chosen = playerlist_at_tip(base, week, first_tip)
+        pl_at, pl_rel = chosen["fetched_at"], chosen["rel"]
+    else:
+        st = read_stamp(base / "data" / "PLAYERLIST.xlsx") or {}
+        if not st.get("fetched_at"):
+            raise ClosingRefused("data/PLAYERLIST.xlsx has no fetch stamp")
+        pl_at, pl_rel = _aware(st["fetched_at"], "data/PLAYERLIST.xlsx's fetch stamp"), \
+            "data/PLAYERLIST.xlsx"
+        if pl_at >= first_tip:
+            raise ClosingRefused(f"data/PLAYERLIST.xlsx was fetched "
+                                 f"{pl_at.isoformat(timespec='minutes')}, after Monday's first tip "
+                                 f"({first_tip.isoformat(timespec='minutes')}): the closing line's "
+                                 "projections are as at the first tip.")
     ov = str((data.injury_overrides or {}).get("last_updated") or "")
     if ov and ov[:10] > monday.isoformat():
         raise ClosingRefused(f"config/INJURY_OVERRIDES.json was last updated {ov}, after Monday "
                              f"{monday}: the closing line's injuries are as at the first tip.")
     return {"rosters_synced": synced, "il_fetched": fetched, "playerlist_fetched": pl_at,
-            "overrides_last_updated": ov or None}
+            "playerlist": pl_rel, "overrides_last_updated": ov or None}
 
 
 def price(base_path, week: int, *, now: datetime = None, sims: int = None, title_sims: int = None,
@@ -298,20 +431,26 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
         raise ClosingRefused(f"week {week}'s window closes {close.isoformat(timespec='minutes')}; it is "
                              f"{now.isoformat(timespec='minutes')}. The closing line is priced after "
                              "the close.")
+    # H51: the projections as at the first tip, from the live file or the
+    # week's pre-tip copy (playerlist_at_tip); every load below reads that one
+    pl = playerlist_at_tip(base, week, first)
+    paths = {"playerlist": pl["rel"]}
+    if data is None and pl["rel"] != "data/PLAYERLIST.xlsx":
+        full = load_all_data(base, current_week=None, paths=paths)
     row = tag_records.for_close(base, monday, first)          # NoPretipTags is a refusal too
     close_rostered = [n for v in json.loads((base / "config" / "ROSTERS.json").read_text(
         encoding="utf-8"))["rosters"].values() for n in v]
     tags, left_tags, joined_tags = align_to_close(tag_records.as_tags(row), close_rostered)
     at_tip = overrides_at(base, full, first)
     full.injury_overrides = at_tip
-    info = check_inputs(base, full, monday=monday, first_tip=first, close=close)
+    info = check_inputs(base, full, monday=monday, first_tip=first, close=close, week=week)
     sp_ = base / "output" / f"live_lines_week{week}.state.json"
     if not sp_.is_file():
         raise ClosingRefused(f"{sp_.relative_to(base).as_posix()} is missing: the closing line is "
                              "priced on the week's seed, which the week's first line records")
     seed = int(json.loads(sp_.read_text(encoding="utf-8"))["seed"])
 
-    data = pre_close_data(base, monday, load_all_data(base, current_week=None))
+    data = pre_close_data(base, monday, load_all_data(base, current_week=None, paths=paths))
     data.injury_overrides = at_tip
     data.plan_now = now                      # 44b s.2: after the close, so the week is locked
     p = rl.prepare(base, week, monday, seed=seed, statuses=tags, dry_run=True, data=data,
@@ -338,12 +477,14 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
                              "left_roster_before_close": left_tags,
                              "joined_roster_before_close": joined_tags},
                     "overrides_last_updated": info["overrides_last_updated"],
+                    "playerlist": {"file": pl["rel"],
+                                   "fetched_at": pl["fetched_at"].isoformat(timespec="seconds")},
                     "rule": "rosters and IL as at the close; tags, projections and results as at "
                             "Monday's first tip; the week's seed (Nick, 11-03)"},
         "cache": key})
     records = rl.calibration_records(p, res, sims, key, source=cal.CLOSING, as_of=stamp)
 
-    pass_data = pre_close_data(base, monday, load_all_data(base, current_week=None))
+    pass_data = pre_close_data(base, monday, load_all_data(base, current_week=None, paths=paths))
     pass_data.injury_overrides = at_tip
     pass_data.plan_now = now
     sp = tor.run_pass(pass_data, seed=seed, sims=title_sims, statuses=tags)

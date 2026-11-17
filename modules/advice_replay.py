@@ -497,6 +497,9 @@ def replay_plan(season: "Season", week: int, inp: av.MondayInputs, ro: Mapping, 
         rosters={m: list(a) + list(i) for m, (a, i) in ro.items()},
         windows=[(w, season.monday(w)) for w in range(int(week) + 1, BRACKET[1] + 1)],
         players=PlayerIndex(dict(inp.projections)), statuses=dict(inp.statuses), assume_healthy=True,
+        # historical replays keep the rule of the seasons they replay: O and OFS.
+        # The live rule changed on 2026-11-16 (Q and D too, roster_moves.il_eligible_tags);
+        # a replay of a window on or after that date should read the config instead (H51)
         rules={"active_spots": active, "il_slots": il, "add_budget": 3, "il_eligible_tags": {"O", "OFS"},
                "replacement_rank": 4},
         standin_gp=float(season.gp_median), drops=drops, known={}))

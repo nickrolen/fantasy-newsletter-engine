@@ -714,6 +714,33 @@ def adds_by_budget_week(base_path, schedule: dict, ledger=LEDGER_BY_MODE) -> dic
     return out
 
 
+def joined_by_budget_week(base_path, week: int, schedule: dict, ledger=LEDGER_BY_MODE) -> dict:
+    """{manager: {budget week or None: [player, ...]}} for the players LISTED
+    in week `week`'s waivers file -- the players who joined that week -- each
+    placed by add_budget_week, the ADD BUDGET table's own counting
+    (adds_by_budget_week, one file). week N: a week-N add; an earlier week: a
+    claim from that week applied in this window (rule 7); None: an add that
+    uses no budget (a trade, a pre-season add). The report card's "New
+    players" line reads this (H51, FIXES item 1: "6 adds" was six players
+    joined, three of them week-3 claims). {} when the file is missing."""
+    base = Path(base_path)
+    if ledger is LEDGER_BY_MODE:
+        ledger = ledger_by_mode(base)
+    f = base / "data" / f"waivers_week{int(week)}.txt"
+    if not f.is_file():
+        return {}
+    rulings = load_all(base, schedule)
+    lines, _ = waiver_lines(f, base, int(week), schedule)
+    out: dict = {}
+    for ln in lines:
+        a = parse_add_line(ln)
+        if a is None:
+            continue
+        bw = add_budget_week(a, rulings, schedule, ledger)
+        out.setdefault(a["manager"], {}).setdefault(bw, []).append(a["player"])
+    return out
+
+
 def over_budget(counts: dict, budget: int) -> list:
     """[(week, manager, used)] for every budget week a team went over."""
     return sorted((wk, m, len(v)) for wk, by in counts.items() for m, v in by.items()

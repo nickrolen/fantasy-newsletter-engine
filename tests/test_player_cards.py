@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 from modules import headshots as hs, hub_cards as hc, hub_page, hub_crypto, hub_publish  # noqa: E402
 from modules.data_loader import MANAGERS, MANAGER_TO_TEAM  # noqa: E402
+import league_state  # noqa: E402
 from league_state import needs_state  # noqa: E402
 
 TEST_PASS = "a test passphrase, never the real one"
@@ -665,6 +666,7 @@ def test_the_real_hub_builds_with_a_card_for_every_name(tmp_path, monkeypatch):
     # a test salt: the real one is never read here
     monkeypatch.setattr(hub_publish, "hub_salt", lambda b, create=True: b"\x02" * 16)
     co = {}
+    league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     try:
         payload = hub_state.build(ROOT, allow_engine_mismatch=True, echo=lambda *a: None, cards_out=co)
     except hub_state.HubInputError as e:

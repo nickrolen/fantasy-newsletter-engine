@@ -170,7 +170,6 @@ def test_every_ownership_entry_matches_a_recorded_trade(mod):
     assert checked > 0
 
 
-@pytest.mark.xfail(strict=True, reason="STATUS item 17: build_draft_order shows Hayden with 10 picks (expected 9) and calls it even: is the trade log or the expected count wrong?")
 def test_uneven_pick_counts_are_detected_not_silently_reported(mod, capsys, monkeypatch):
     """Uneven counts mean the trade log is incomplete -- the script must say so.
 
@@ -190,9 +189,12 @@ def test_uneven_pick_counts_are_detected_not_silently_reported(mod, capsys, monk
         assert "missing" in out.lower()
     else:
         assert rc == 0
-        # if it claims even, every manager really must have their own expected total
+        # if it claims even, every manager really must have their own expected
+        # total FOR THE SEASON BEING DRAFTED (H51: this compared the 2027-28
+        # board with 2026-27's count, live_picks_for() -- "Hayden 10, expected 9")
         import re
-        expected = live_picks_for()
+        year = re.search(r"DRAFT ORDER -- (\d{4})", out).group(1)
+        expected = live_picks_for(f"{year}-{(int(year) + 1) % 100:02d}")
         for m, n in re.findall(r"^\s+(\w+)\s+(\d+)\s+\(even\)", out, re.M):
             assert int(n) == expected.get(m, min(expected.values())), (
                 f"{m} shows {n} picks, expected {expected.get(m)}")

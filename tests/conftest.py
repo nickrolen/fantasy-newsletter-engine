@@ -45,7 +45,10 @@ def _prices_unlocked_unless_marked(request, monkeypatch):
 # with the time and what to do. The full suite (no -m) is never failed for
 # time. tests/test_tiers.py tests this guard.
 # ---------------------------------------------------------------------------
-FAST_TIER_LIMIT_S = 3.0
+# 8 s, not 3 (11-17): under -n 3 on the VM's 2 cores a 0.1 s test took 5.2 s and a
+# first git status 4-7 s. The guard is for a test that really belongs in the slow tier
+# (those take 10 s and up), not for contention noise.
+FAST_TIER_LIMIT_S = 8.0
 
 
 def fast_tier_run(markexpr):

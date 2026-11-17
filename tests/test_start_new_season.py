@@ -64,6 +64,9 @@ PER_SEASON_CONFIG = {
     # The commissioner's rulings on this season's transactions, each dated in
     # this season's weeks (transaction_rulings): archived, then emptied.
     "config/TRANSACTION_RULINGS.json",
+    # Which lore entries ran, by week (modules/lore_usage): per-season (Nick,
+    # 11-17, STATUS item 17): archived, then emptied.
+    "config/LORE_USAGE.json",
 }
 
 # Files under config/ that deliberately carry across seasons.
@@ -117,7 +120,6 @@ def test_every_per_season_config_file_is_archived():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="STATUS item 17: is config/LORE_USAGE.json per-season (archive and reset it) or cross-season?")
 def test_config_dir_has_no_unclassified_files():
     """Every real config/ file is knowingly per-season or knowingly not.
 
@@ -340,3 +342,22 @@ def test_the_age_cache_is_never_reset(sns):
         assert marker not in src, (
             f"start_new_season.py mentions {marker}; the age cache is "
             "cross-season and must not be archived or cleared")
+
+
+def test_the_lore_usage_ledger_is_reset_to_an_empty_one(tmp_path, monkeypatch):
+    """H51 (item 17): the reset writes an empty ledger, which lore_usage
+    reads as no usage at all (the file is written, never read here)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("sns", PROJECT_ROOT / "scripts" / "start_new_season.py")
+    sns = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sns)
+    from modules import lore_usage
+    monkeypatch.setattr(sns, "PROJECT_ROOT", tmp_path)
+    (tmp_path / "config").mkdir()
+    lore_usage.record(tmp_path, "2026-27", 4, ["a", "b"])
+    sns.reset_lore_usage(execute=False)
+    assert lore_usage.last_used(tmp_path, "2026-27") == {"a": 4, "b": 4}     # a dry run writes nothing
+    sns.reset_lore_usage(execute=True)
+    assert lore_usage.load(tmp_path)["weeks"] == {}
+    assert lore_usage.last_used(tmp_path, "2026-27") == {}
+    assert "reset_lore_usage(execute)" in SCRIPT_SRC

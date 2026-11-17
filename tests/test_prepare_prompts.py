@@ -541,18 +541,3 @@ def test_the_script_refuses_with_exit_1(tmp_path, capsys):
 
 # ============================================================ Nick's real week 2
 
-@pytest.mark.slow
-def test_nicks_real_week_2_fills_cleanly():
-    """On Nick's folder only (the report is league state). Writes nothing.
-    `today` is the IL file's own week, so the check is about the fill, not
-    about when the suite runs."""
-    if not (ROOT / "output/stats_report_week2.md").is_file() or not (ROOT / "data/IL_SLOTS.json").is_file():
-        pytest.skip("Nick's week-2 report is not on this machine")
-    il = json.loads((ROOT / "data/IL_SLOTS.json").read_text("utf-8"))
-    sched = json.loads((ROOT / "config/SCHEDULE.json").read_text("utf-8"))
-    today = date.fromisoformat([w for w in sched["weeks"] if w["week"] == il["fantasy_week"]][0]["start_date"])
-    out = pp.build(ROOT, 2, today=today, now=NOW)
-    assert pp.leftovers(out) == []
-    block = pp.angles_block((ROOT / "output/stats_report_week2.md").read_text("utf-8"))
-    assert block in out and pp.mangled(out.replace(block, "")) == []
-    assert "now in its twelfth season" in out

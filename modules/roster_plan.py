@@ -19,7 +19,8 @@ The rules are LEAGUE_RULES.md "The 2026-27 IL and transaction rules" (Nick,
     occupant scores nothing that week, healthy or not, and a player who
     returns midweek from IL sits out the rest of it and is activated at the
     next window.
-  - IL-eligible: roster_moves.il_eligible_tags (O and OFS; rule 2). A player
+  - IL-eligible: roster_moves.il_eligible_tags (O, OFS, Q and D since 11-16,
+    Yahoo's "Additional IL-eligible statuses"; rule 2). A player
     with a live INJURY_OVERRIDES entry is treated as O -- any future tag is
     unknowable. CHECKED against the season's record (44a s.4.1, 11-12): every
     player whose entry, at any time in the week before a window, had him out

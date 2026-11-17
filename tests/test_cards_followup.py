@@ -32,6 +32,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 from modules import hub_cards as hc, hub_crypto, hub_publish, nightly  # noqa: E402
 from modules import player_actuals as pa  # noqa: E402
 from modules import player_card_builder as pcb  # noqa: E402
+import league_state  # noqa: E402
 from league_state import needs_state  # noqa: E402
 
 TEST_PASS = "a test passphrase, never the real one"
@@ -416,6 +417,7 @@ def test_the_real_hub_cards_carry_the_roster_rows_numbers(tmp_path, monkeypatch)
     from modules import hub_state
     monkeypatch.setattr(hub_publish, "hub_salt", lambda b, create=True: b"\x02" * 16)   # never the real one
     monkeypatch.setenv("HUB_PASSPHRASE", TEST_PASS)
+    league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     try:
         payload = hub_state.build(ROOT, allow_engine_mismatch=True, echo=lambda *a: None)
     except hub_state.HubInputError as e:
@@ -475,6 +477,7 @@ def test_annotate_failing_in_the_real_build_leaves_plain_names(monkeypatch):
         raise hc.CardsError(f"a moves-feed part this module cannot read: {part!r}")
     monkeypatch.setattr(hc, "part_names", broken)                            # after the rosters were keyed
     co = {}
+    league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     try:
         payload = hub_state.build(ROOT, allow_engine_mismatch=True, echo=lambda *a: None, cards_out=co)
     except hub_state.HubInputError as e:

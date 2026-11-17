@@ -271,7 +271,7 @@ For each manager in report_cards[]:
 - Games lost to injury: [games_lost_to_injury] (count only - player names already in Matchup Summaries)
 - Games left on bench: [games_left_on_bench]
 - Blunders: [blunders] ([blunder_points] FP wasted) -- if 0, show as "Blunders: 0" (no FP wasted parenthetical)
-- Waiver adds: [waiver_adds_count] adds, [waiver_fp_total] total FP over [waiver_games] games ([waiver_fppg] fppg, [fp_per_add] FP per add)
+- New players: [waiver_adds_count] joined ([joined_week_adds] week-N adds, [joined_claims] week-(N-1) claims), [waiver_fp_total] total FP over [waiver_games] games ([waiver_fppg] fppg, [fp_per_add] FP per player). These are the players who JOINED the roster this week: last week's rule-7 claims applied in this window are among them. The adds a manager MADE this week are only [joined_week_adds] (the ADD BUDGET table counts the same way). Never write "made N adds" from [waiver_adds_count].
 
 SEASON INJURY CONTEXT (from season_injury_burden for this manager):
 - Season injury burden: [total_injury_burden_pct]% ([non_il_injury_games] games lost to injury)
@@ -291,7 +291,7 @@ SEASON TOTALS (from LEAGUEHISTORY - use for context/rankings):
 ```
 **[Manager] ([Team]) -- [Grade]**
 
-*Record: [W-L] | [Won/Lost] [to/vs] [Opponent] by [margin] | [FP] FP | [+/-X]% vs projection | Injuries: [X] | Bench: [X] | Blunders: [X] ([FP] FP wasted) | Waivers: [count] adds ([FP] FP over [games] games, [fppg] fppg, [FP per add] FP per add)*
+*Record: [W-L] | [Won/Lost] [to/vs] [Opponent] by [margin] | [FP] FP | [+/-X]% vs projection | Injuries: [X] | Bench: [X] | Blunders: [X] ([FP] FP wasted) | New players: [count] joined ([FP] FP over [games] games, [fppg] fppg, [FP per player] FP per player)*
 
 NOTE: Blunders always appear in the stat line. If blunders = 0, show "Blunders: 0" (no FP wasted parenthetical). If blunders > 0, show "Blunders: X (Y FP wasted)". Only call out blunders by name in the prose paragraph when blunders > 0.
 
@@ -478,7 +478,7 @@ LUCK INDEX - CURRENT SEASON (from luck_index):
 Luckiest: [luckiest] | Unluckiest: [unluckiest]
 
 LUCK INDEX - HISTORICAL CONTEXT (from historical_luck):
-Career totals:
+Career totals (all-time, every week incl. playoffs -- not the Power Rankings' regular-season Career Record):
 | Manager | Record | Win% | Career Luck |
 | [manager] | [actual_record] | [win_pct]% | [career_luck] |
 All-time luckiest: [all_time_luckiest] | All-time unluckiest: [all_time_unluckiest]

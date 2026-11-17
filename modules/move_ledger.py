@@ -163,8 +163,9 @@ def il_eligible_tags(cfg=None) -> tuple:
 
 def tag_il_eligible(tag, eligible_tags=None) -> bool:
     """Rule 2, the one definition (task 47): a player may go into an IL slot
-    only when his Yahoo tag is one of roster_moves.il_eligible_tags (O, OFS;
-    OFS's aliases count as OFS). Nothing else makes him eligible -- not an
+    only when his Yahoo tag is one of roster_moves.il_eligible_tags (O, OFS,
+    Q and D since 11-16, Yahoo's "Additional IL-eligible statuses"; OFS's
+    aliases count as OFS). Nothing else makes him eligible -- not an
     injury entry: Yahoo enforces only its own tag. The ledger (World) and the
     hub's stash table (hub_state.stash_rows) both call this."""
     from . import absence

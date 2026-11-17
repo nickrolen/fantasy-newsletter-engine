@@ -137,6 +137,120 @@ def test_a_naive_fetch_stamp_refuses_rather_than_guess_its_zone(tmp_path):
 
 
 # =============================================================================
+# H51: the projections as at the first tip, from the engine's pre-tip copy
+# =============================================================================
+
+WEEK = 3
+
+
+def _write_pl(path, fetched, fppg=30.0):
+    from modules import playerlist_freshness
+    path.parent.mkdir(parents=True, exist_ok=True)
+    playerlist_freshness.write(pd.DataFrame({
+        "player_name": ["A"], "player_nba_team": ["AAA"], "player_position(s)": ["PG"],
+        "player_total_proj_FP": [2400.0], "player_proj_GP": [80], "projectedFPPG": [fppg]}),
+        path, source="test", now=fetched)
+
+
+def test_a_post_tip_live_playerlist_with_a_pre_tip_copy_prices_on_the_copy(tmp_path):
+    """11-16: Step 4.75 refetched at 6:28 PM, after the 4 PM tip. The copy the
+    last pre-tip run kept is what the close prices on, and the check passes."""
+    data = _inputs(tmp_path, fetched=datetime(2026, 11, 2, 18, 28, tzinfo=LA))
+    _write_pl(cl.pretip_playerlist_path(tmp_path, WEEK), datetime(2026, 11, 2, 15, 3, tzinfo=LA))
+    got = cl.playerlist_at_tip(tmp_path, WEEK, FIRST_TIP)
+    assert got["source"] == "pretip copy" and got["rel"] == "config/snapshots/pretip/PLAYERLIST_week03.xlsx"
+    info = cl.check_inputs(tmp_path, data, monday=MONDAY, first_tip=FIRST_TIP, close=CLOSE, week=WEEK)
+    assert info["playerlist"] == got["rel"] and info["playerlist_fetched"] < FIRST_TIP
+
+
+def test_a_post_tip_live_playerlist_with_no_pre_tip_copy_refuses(tmp_path):
+    data = _inputs(tmp_path, fetched=datetime(2026, 11, 2, 18, 28, tzinfo=LA))
+    with pytest.raises(cl.ClosingRefused, match="after Monday's first tip.*no pre-tip copy"):
+        cl.check_inputs(tmp_path, data, monday=MONDAY, first_tip=FIRST_TIP, close=CLOSE, week=WEEK)
+
+
+def test_the_copys_stamp_is_checked(tmp_path):
+    """A copy fetched after the tip, or one whose rows no longer match its
+    stamp, refuses: it cannot vouch for the projections at the tip."""
+    _inputs(tmp_path, fetched=datetime(2026, 11, 2, 18, 28, tzinfo=LA))
+    copy = cl.pretip_playerlist_path(tmp_path, WEEK)
+    _write_pl(copy, datetime(2026, 11, 2, 16, 5, tzinfo=LA))
+    with pytest.raises(cl.ClosingRefused, match="a pre-tip copy must be from before the tip"):
+        cl.playerlist_at_tip(tmp_path, WEEK, FIRST_TIP)
+    _write_pl(copy, datetime(2026, 11, 2, 15, 3, tzinfo=LA))
+    from modules.playerlist_freshness import DATA_SHEET, STAMP_SHEET
+    sheets = pd.read_excel(copy, sheet_name=None)
+    sheets[DATA_SHEET].loc[0, "projectedFPPG"] = 99.0          # a hand edit after the fetch
+    with pd.ExcelWriter(copy, engine="openpyxl") as xw:
+        for name in (DATA_SHEET, STAMP_SHEET):
+            sheets[name].to_excel(xw, sheet_name=name, index=False)
+    with pytest.raises(cl.ClosingRefused, match="does not describe its rows"):
+        cl.playerlist_at_tip(tmp_path, WEEK, FIRST_TIP)
+
+
+def test_the_latest_fetch_before_the_tip_wins(tmp_path):
+    """Both before the tip: a manual fetch at 3:50 PM after the last pre-tip
+    run (3:45) is the projections at the tip, so the live file is read."""
+    _inputs(tmp_path, fetched=datetime(2026, 11, 2, 15, 50, tzinfo=LA))
+    _write_pl(cl.pretip_playerlist_path(tmp_path, WEEK), datetime(2026, 11, 2, 15, 3, tzinfo=LA))
+    assert cl.playerlist_at_tip(tmp_path, WEEK, FIRST_TIP)["source"] == "live"
+
+
+def _capture_world(tmp_path, monkeypatch):
+    from modules import data_loader, price_lock
+    monkeypatch.setattr(data_loader, "load_schedule", lambda p: {"weeks": [
+        {"week": WEEK, "start_date": MONDAY.isoformat(), "end_date": "2026-11-08"}]})
+    monkeypatch.setattr(data_loader, "load_nba_schedule", lambda p, today=None: {"games": []})
+    monkeypatch.setattr(price_lock, "first_tip", lambda day, sched=None: FIRST_TIP if day == MONDAY else None)
+
+
+def test_the_pre_tip_runs_keep_the_copy_and_nothing_after_the_tip_touches_it(tmp_path, monkeypatch):
+    _capture_world(tmp_path, monkeypatch)
+    live = tmp_path / "data" / "PLAYERLIST.xlsx"
+    copy = cl.pretip_playerlist_path(tmp_path, WEEK)
+    _write_pl(live, datetime(2026, 11, 2, 0, 7, tzinfo=LA))
+    # Sunday: not a window day
+    assert "not a window day" in cl.capture_pretip_playerlist(tmp_path, datetime(2026, 11, 1, 23, 0, tzinfo=LA))
+    assert not copy.exists()
+    # the 12:05 AM nightly, then the 3:03 PM fetch and the 3:30 pre-tip run
+    assert "-> config/snapshots/pretip/PLAYERLIST_week03.xlsx" in cl.capture_pretip_playerlist(
+        tmp_path, datetime(2026, 11, 2, 0, 8, tzinfo=LA))
+    _write_pl(live, datetime(2026, 11, 2, 15, 3, tzinfo=LA), fppg=31.0)
+    cl.capture_pretip_playerlist(tmp_path, datetime(2026, 11, 2, 15, 30, tzinfo=LA))
+    kept = copy.read_bytes()
+    assert copy.read_bytes() == live.read_bytes()
+    # a restored older file before the tip never moves the copy backwards
+    _write_pl(live, datetime(2026, 11, 2, 0, 7, tzinfo=LA))
+    assert "already holds" in cl.capture_pretip_playerlist(tmp_path, datetime(2026, 11, 2, 15, 45, tzinfo=LA))
+    assert copy.read_bytes() == kept
+    # Step 4.75 at 6:28 PM, and any run after the tip: the copy stands
+    _write_pl(live, datetime(2026, 11, 2, 18, 28, tzinfo=LA), fppg=40.0)
+    assert "after the first tip" in cl.capture_pretip_playerlist(tmp_path, datetime(2026, 11, 2, 18, 30, tzinfo=LA))
+    assert copy.read_bytes() == kept
+    got = cl.playerlist_at_tip(tmp_path, WEEK, FIRST_TIP)
+    assert got["source"] == "pretip copy" and got["fetched_at"] == datetime(2026, 11, 2, 15, 3, tzinfo=LA)
+
+
+def test_a_live_file_fetched_after_the_tip_is_never_copied(tmp_path, monkeypatch):
+    """A run before the tip that finds a post-tip stamp (a clock or a restore
+    gone wrong) copies nothing rather than vouch for it."""
+    _capture_world(tmp_path, monkeypatch)
+    _write_pl(tmp_path / "data" / "PLAYERLIST.xlsx", datetime(2026, 11, 2, 16, 30, tzinfo=LA))
+    assert "not copied" in cl.capture_pretip_playerlist(tmp_path, datetime(2026, 11, 2, 15, 30, tzinfo=LA))
+    assert not cl.pretip_playerlist_path(tmp_path, WEEK).exists()
+
+
+def test_every_run_that_records_tags_keeps_the_copy():
+    """The capture sits beside both tag-record writers in the nightly, so a
+    nightly, pre-tip, poll, refresh or afternoon run on the Monday keeps it."""
+    import inspect
+    from modules import nightly
+    for step in ("step_tags", "step_nba_report"):
+        src = inspect.getsource(getattr(nightly.Run, step))
+        assert src.count("tag_records.append(") == src.count("_capture_pretip_playerlist()") == 1, step
+
+
+# =============================================================================
 # the real league, week 3 (state-dependent)
 # =============================================================================
 
@@ -167,6 +281,11 @@ def priced_twice(tmp_path_factory):
     mp = pytest.MonkeyPatch()
     mp.setattr(tr, "for_close", lambda base, monday, first: dict(real_row, league_day="2026-11-02"))
     mp.setattr(cl, "check_inputs", lambda *a, **k: {"overrides_last_updated": "x"})
+    # H51: the live file stands in for the projections at the tip (the input
+    # checks, the pre-tip copy included, are the unit tests' business above)
+    live = {"path": ROOT / "data" / "PLAYERLIST.xlsx", "rel": "data/PLAYERLIST.xlsx",
+            "fetched_at": datetime(2026, 11, 2, 6, 46, tzinfo=LA), "source": "live"}
+    mp.setattr(cl, "playerlist_at_tip", lambda *a, **k: dict(live))
     sim_counts.small(mp)     # the roster plan's long-run sims: paths, not counts (tests/sim_counts.py)
     out = tmp_path_factory.mktemp("closing")
     try:

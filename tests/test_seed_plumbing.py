@@ -15,7 +15,6 @@ import pytest
 import il_state
 import sim_counts
 import stakes_state
-import modules.advice_runner as ar
 import modules.data_loader as dl
 import modules.report_builder as rb
 from modules import simulator_betting as sb
@@ -93,38 +92,60 @@ def test_every_simulator_call_in_build_stats_report_passes_the_runs_seed():
     assert seen == set(SIM_CALLS)
 
 
+# H51 (Nick, 11-17): the same questions, asked of the cheapest entry points
+# that still hand one seed to every simulator -- the line (refresh_lines:
+# prepare -> compute, which the live line and the closing line price through)
+# and the season pass (title_odds_run.run_pass, which title odds, the bracket
+# and the Cup read). The weekly build's own wiring is pinned above by source
+# (test_every_simulator_call_in_build_stats_report_passes_the_runs_seed,
+# test_report_metadata_carries_the_seed): no full report build is needed.
+SPIED = (("modules.simulator_betting", "simulate_week_remainder"),
+         ("modules.season_sim", "run_season"))
+
+
 @pytest.fixture(scope="module")
 def runs():
-    """build_stats_report on the project's own data at seeds 3, 3 and 4,
-    with every simulator spied on for the seed it was handed."""
+    """Week 1 priced at seeds 3, 3 and 4 through refresh_lines and the season
+    pass, on the project's own data, with every simulator spied on for the
+    seed it was handed."""
+    import importlib
+    import sys
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import refresh_lines as rl
+    from datetime import date
+    from modules import title_odds_run as tor
+    from modules.fetch_injury_statuses import Tags
     mp = pytest.MonkeyPatch()
-    try:   # undone however the build ends: a raise used to leak these patches into later
-           # tests (test_section10_rules saw the spies on 11-16; task 50)
-        mp.setattr(rb, "build_season_performers", lambda *a, **k: {})   # no Yahoo in tests
-        mp.setattr(ar, "build_advice", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("skip")))
+    try:   # undone however the run ends (task 50)
         stakes_state.state(mp, 1)      # a week-1 replay states its stakes (tests/stakes_state.py)
         sim_counts.small(mp)           # paths, not counts (tests/sim_counts.py)
         got = []
-        for name in SIM_CALLS:
-            real = getattr(rb, name)
+        for mod_name, fn in SPIED:
+            mod = importlib.import_module(mod_name)
+            real = getattr(mod, fn)
 
-            def spy(*a, _real=real, _name=name, **k):
-                got.append((_name, k.get("seed")))
+            def spy(*a, _real=real, _name=fn, **k):
+                seed = k["seed"] if "seed" in k else a[4]       # simulate_week_remainder's 5th
+                got.append((_name, seed))
                 return _real(*a, **k)
-            mp.setattr(rb, name, spy)
+            mp.setattr(mod, fn, spy)
         out = []
+        # one load for the three runs: the roster plan is cached on it and uses
+        # its own fixed seed (roster_plan.Settings.seed), never the run's
+        data = dl.load_all_data(ROOT, current_week=1)
+        # The IL state, stated (tests/il_state.py), and priced without tags
+        # (no_tags / Tags.none): this test is about plumbing.
+        data.il_slots = il_state.as_last_synced(2)
         for seed in (3, 3, 4):
             got.clear()
-            data = dl.load_all_data(ROOT, current_week=1)
-            # The IL state, stated: this test is about plumbing, and the weekly suite
-            # (Step 0b) runs before the roster sync refreshes data/IL_SLOTS.json.
-            data.il_slots = il_state.as_last_synced(2)
-            # Priced without tags, stated (Tags.none): the roster plan's stand-in
-            # pool needs free agents' tags or this statement, never a silent default.
-            from modules.fetch_injury_statuses import Tags as _Tags
-            rep = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
-                                        num_title_sims=60, num_betting_sims=200, seed=seed)
-            out.append((rep, list(got)))
+            p = rl.prepare(ROOT, 1, as_of=date(2026, 10, 20), seed=seed, no_tags=True,
+                           dry_run=True, reseed=True, data=data)
+            key = rl.cache_key(p, 200)
+            res, payload = rl.compute(p, 200, extra={"generated_at": "fixed"})
+            recs = rl.calibration_records(p, res, 200, key, source="weekly_build", as_of="2026-10-20")
+            sp = tor.run_pass(data, seed=seed, sims=20, statuses=Tags.none())
+            out.append({"payload": payload, "records": recs, "odds": tor.readouts(sp),
+                        "got": list(got), "seed": seed})
     finally:
         mp.undo()
     return out
@@ -132,37 +153,38 @@ def runs():
 
 @pytest.mark.slow
 def test_one_run_hands_every_simulator_the_same_seed(runs):
-    for (rep, got), seed in zip(runs, (3, 3, 4)):
-        assert got, "no simulator ran"
-        assert {s for _n, s in got} == {seed}, got
-        assert rep["metadata"]["seed"] == seed
+    for r in runs:
+        assert {n for n, _s in r["got"]} == {fn for _m, fn in SPIED}, r["got"]
+        assert {s for _n, s in r["got"]} == {r["seed"]}, r["got"]
+        assert r["payload"]["seed"] == r["seed"]
 
 
 # 2 -- same seed, same numbers; different seed, different numbers
-def _numbers(rep):
-    return rep.get("looking_ahead"), rep.get("title_odds")
+def _numbers(r):
+    return ([(ln["spread_a"], ln["win_prob_a"], ln["over_under"]) for ln in r["payload"]["lines"]],
+            r["odds"]["title_odds"])
 
 
 @pytest.mark.slow
 def test_the_same_seed_gives_the_same_lines_and_odds(runs):
-    assert _numbers(runs[0][0]) == _numbers(runs[1][0])
-    assert _numbers(runs[0][0])[0] is not None
+    assert _numbers(runs[0]) == _numbers(runs[1])
+    assert _numbers(runs[0])[0]
 
 
 @pytest.mark.slow
 def test_a_different_seed_gives_different_numbers(runs):
-    assert _numbers(runs[0][0]) != _numbers(runs[2][0])
+    assert _numbers(runs[0])[0] != _numbers(runs[2])[0]
+    assert _numbers(runs[0])[1] != _numbers(runs[2])[1]
 
 
 @pytest.mark.slow
 def test_the_build_logs_a_rerun_once_and_a_new_seed_again(runs):
-    """The weekly build's calibration records take their identity from the
-    line key (calibration_log.IDENTITY): the same build twice is the same
-    record, a different seed is a different one -- whatever the clock said."""
+    """A line's calibration records take their identity from the line key
+    (calibration_log.IDENTITY): the same line twice is the same record, a
+    different seed is a different one -- whatever the clock said."""
     from modules import calibration_log as cal
-    keys = [{r["matchup_id"]: r["line_key"] for r in rep["metadata"]["published_lines"]}
-            for rep, _got in runs]
+    keys = [{r["matchup_id"]: r["line_key"] for r in run["records"]} for run in runs]
     assert keys[0] and keys[0] == keys[1]
     assert all(keys[2][m] != k for m, k in keys[0].items())
-    ids = [{cal.identity(r) for r in rep["metadata"]["published_lines"]} for rep, _got in runs]
+    ids = [{cal.identity(r) for r in run["records"]} for run in runs]
     assert ids[0] == ids[1] and not (ids[0] & ids[2])

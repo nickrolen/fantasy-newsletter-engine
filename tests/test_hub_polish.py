@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+import league_state                                    # noqa: E402
+
 sys.path.insert(0, str(Path(__file__).parent))
 from modules import hub_state as hs, hub_page, hub_publish, transaction_log as tlog  # noqa: E402
 from test_transaction_log import _sync, ADD, ADD_DROP, DROP, TRADE, SCHEDULE  # noqa: E402
@@ -341,6 +343,7 @@ def real_all_free_agents():
               ROOT / "output" / "tag_records.jsonl", ROOT / "data" / "transaction_log.jsonl"]
     if not all(p.exists() for p in needed):
         pytest.skip("league state not in this checkout (the hub's real inputs)")
+    league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     orig = hs.hub_config
     hs.hub_config = lambda *a, **k: dict(orig(*a, **k), free_agents_top_n=10 ** 6)
     try:

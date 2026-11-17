@@ -528,6 +528,10 @@ def assess(report: dict, tags, rosters: dict, override_out_on_day, today: date, 
         seen.add(name)
         tag = tidx.get(name)
         norm = absence.normalised_tag(tag) if tag is not None else "HEALTHY"
+        # O/OFS here mean "out" (Yahoo already has him missing tonight), NOT
+        # IL eligibility: since 11-16 the IL also takes Q and D
+        # (roster_moves.il_eligible_tags), and a Q player the NBA lists Out is
+        # exactly what this report adds (H51)
         if norm not in ("O", "OFS"):
             md = f"{today:%a %m-%d}"
             ytxt = "no tag" if norm in ("HEALTHY", "P") else norm

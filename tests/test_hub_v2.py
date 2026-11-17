@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+import league_state                                    # noqa: E402
+
 from modules.hub_v2 import data as v2data, view, page, tokens, publish as v2pub, infotips
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -636,6 +638,7 @@ def real_payload():
               ROOT / "config" / "ROSTERS.json"]
     if not all(p.exists() for p in needed):
         pytest.skip("no league state on this machine")
+    league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     try:
         return hs.build(ROOT, now=league_now(), allow_engine_mismatch=True, echo=lambda *a, **k: None)
     except (hs.HubInputError, player_actuals.ActualsError) as e:

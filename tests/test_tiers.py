@@ -82,7 +82,7 @@ def test_the_guard_turns_an_overrun_into_a_failure(monkeypatch):
 
     class Item:
         config = Cfg()
-        _tier_setup_s = 2.0
+        _tier_setup_s = conftest.FAST_TIER_LIMIT_S - 0.5
 
         def get_closest_marker(self, name):
             return None
@@ -101,4 +101,4 @@ def test_the_guard_turns_an_overrun_into_a_failure(monkeypatch):
     next(gen)
     with pytest.raises(StopIteration):
         gen.send(Outcome())
-    assert rep.outcome == "failed" and "3.5 s" in rep.longrepr
+    assert rep.outcome == "failed" and f"{conftest.FAST_TIER_LIMIT_S + 1.0:.1f} s" in rep.longrepr

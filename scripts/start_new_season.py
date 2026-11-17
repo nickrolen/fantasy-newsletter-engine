@@ -174,6 +174,7 @@ def get_archive_files() -> list[Path]:
         "config/DRAFT_PICKS_CURRENT.json",          # last season's picks + keeper flags
         "config/LAST_WEEK_RECAP.md",                # final week's reporter's-notebook entry
         "config/.leaguehistory_applied_weeks.json", # per-season applied-weeks ledger
+        "config/LORE_USAGE.json",                   # which lore ran, this season (Nick, 11-17)
     ]
 
     files = []
@@ -543,6 +544,27 @@ def reset_applied_weeks_ledger(execute: bool) -> None:
         print(f"    {rel(path)} -> empty ledger")
 
 
+def reset_lore_usage(execute: bool) -> None:
+    """Reset the lore-usage ledger (modules/lore_usage) to an empty one.
+
+    Per-season (Nick, 11-17, STATUS item 17): which lore entries ran, by week,
+    so the drafting chat prefers ones it has not used lately. Archived in
+    Phase 1, emptied here. The ledger is replaced, never read: it is
+    lore-bearing (lore only through output/lore_for_drafting.json)."""
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from modules import lore_usage
+    path = lore_usage.path(PROJECT_ROOT)
+    if not path.exists():
+        print(f"    SKIP {rel(path)} -- file not found")
+        return
+    if execute:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps({"_comment": lore_usage._COMMENT, "weeks": {}}, indent=1) + "\n")
+        print(f"    OK  {rel(path)}")
+    else:
+        print(f"    {rel(path)} -> empty ledger")
+
+
 def reset_excel(filename: str, headers: list[str], execute: bool) -> None:
     """Clear data rows from an Excel file, keeping only the header row."""
     path = PROJECT_ROOT / "data" / filename
@@ -582,6 +604,7 @@ def reset_phase(execute: bool, upcoming_draft_year: int = None) -> None:
     reset_draft_picks_current(execute)
     reset_last_week_recap(execute)
     reset_applied_weeks_ledger(execute)
+    reset_lore_usage(execute)
 
     playerlog_headers = [
         "season_year", "week", "date", "manager", "fantasy_team",

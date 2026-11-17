@@ -182,6 +182,19 @@ def test_2025_26_champions_match_what_was_published(roll, matchups):
 # RECORDS.json agrees with the matchup record
 # ---------------------------------------------------------------------------
 
+def _completed_and_this_season(records, matchups):
+    """"All-time" is completed seasons plus the season in progress, live
+    (Nick, 11-17, STATUS item 17: "Include it, live"). all_matchups.json holds
+    the completed seasons; this season's rows come from RECORDS.json's weekly
+    scores and SCHEDULE.json (season_outcomes.build_matchups, the rollup's own
+    reader). Each season keeps its own regular-season length."""
+    from modules.data_loader import CURRENT_SEASON
+    from modules.season_outcomes import build_matchups
+    schedule = json.loads((PROJECT_ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+    past = [r for r in matchups if r["season"] != CURRENT_SEASON]
+    return past + build_matchups(CURRENT_SEASON, records, schedule)
+
+
 def _regular_season_tally(matchups):
     wl = defaultdict(lambda: [0, 0])
     h2h = defaultdict(lambda: defaultdict(int))
@@ -198,7 +211,6 @@ def _regular_season_tally(matchups):
     return wl, h2h
 
 
-@pytest.mark.xfail(strict=True, reason="STATUS item 17: are RECORDS.json all_time career records regular season only (Nick 113-68) or every game, as stored (115-70)?")
 def test_career_records_are_regular_season_only(records, matchups):
     """They were not. The stored totals were every manager's regular-season
     record PLUS their postseason record -- Nick 120-77 where the regular
@@ -206,7 +218,8 @@ def test_career_records_are_regular_season_only(records, matchups):
     season only; the guard was added after the totals had accumulated and
     they were never rebuilt. Career win % is printed from these.
     """
-    wl, _ = _regular_season_tally(matchups)
+    # H51 (item 17, Nick 11-17): completed seasons + this season so far
+    wl, _ = _regular_season_tally(_completed_and_this_season(records, matchups))
     careers = records["all_time"]["manager_careers"]
     for manager, (wins, losses) in wl.items():
         got = careers[manager]
@@ -218,19 +231,24 @@ def test_career_records_are_regular_season_only(records, matchups):
         assert abs(got["win_pct"] - wins / (wins + losses) * 100) < 0.1
 
 
-@pytest.mark.xfail(strict=True, reason="STATUS item 17: is RECORDS.json all_time.h2h regular season only, or every game as stored?")
 def test_all_time_h2h_is_regular_season_only(records, matchups):
-    _, h2h = _regular_season_tally(matchups)
+    _, h2h = _regular_season_tally(_completed_and_this_season(records, matchups))
     stored = {k: {kk.lower(): vv for kk, vv in v.items() if isinstance(vv, int)}
               for k, v in records["all_time"]["h2h"].items()}
     assert stored == {k: dict(v) for k, v in h2h.items()}
 
 
-@pytest.mark.xfail(strict=True, reason="STATUS item 17: are career games regular season only (181) or every game, as stored (185)?")
 def test_career_games_equal_the_sum_of_every_seasons_regular_season(records, matchups):
-    """An independent route to the same number, so a shared bug shows up."""
+    """An independent route to the same number, so a shared bug shows up:
+    every completed season's own regular-season length, plus this season's
+    regular-season weeks played so far (H51, item 17: "all-time" includes the
+    season in progress, live)."""
+    from modules.data_loader import CURRENT_SEASON
+    rows = _completed_and_this_season(records, matchups)
     expected = sum(regular_season_weeks_for(s)
-                   for s in {r["season"] for r in matchups})
+                   for s in {r["season"] for r in rows} if s != CURRENT_SEASON)
+    expected += len({r["week"] for r in rows if r["season"] == CURRENT_SEASON
+                     and is_regular_season_week(CURRENT_SEASON, r["week"])})
     for manager, got in records["all_time"]["manager_careers"].items():
         assert got["games_played"] == expected, (
             f"{manager} played {got['games_played']} regular-season games; the "

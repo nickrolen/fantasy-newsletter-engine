@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+import league_state                                    # noqa: E402
+
 from modules import hub_state as hs, hub_page, hub_crypto, hub_archive, hub_publish
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -538,6 +540,7 @@ def real():
               ROOT / "data" / "transaction_log.jsonl", ROOT / "config" / "ROSTERS.json"]
     if not all(p.exists() for p in needed):
         pytest.skip("league state not in this checkout (the hub's real inputs)")
+    league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     kdir = ROOT / "data" / "keepability"
     before = {p.name: (p.stat().st_mtime_ns, p.read_bytes()) for p in kdir.glob("*")} if kdir.is_dir() else {}
     from modules import keepability_v3
@@ -613,6 +616,8 @@ def test_real_grid_tabs_are_the_rest_of_this_week_and_next_week(real):
     p = real["payload"]
     wk = schedule_week_dates(load_all_data(ROOT, current_week=None))
     today = real["now"].date()
+    if p["week"] + 1 not in wk:      # H51: a calendar edge (week 23, the season's last)
+        pytest.skip(f"week {p['week']} is the season's last: there is no next week's tab to check")
     this, nxt = p["grid"]["tabs"]
     assert [d["date"] for d in this["days"]] == [d.isoformat() for d in wk[p["week"]] if d >= today]
     assert [d["date"] for d in nxt["days"]] == [d.isoformat() for d in wk[p["week"] + 1]]

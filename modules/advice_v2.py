@@ -141,7 +141,13 @@ from . import simulator_betting as sb
 from .data_loader import PlayerIndex
 from .projections import DEFAULT_WEEKLY_STD_DEV, PlayerProjection, TeamProjections
 
-IL_TAGS = frozenset({"O", "OFS"})          # LEAGUE_RULES 2026-27 IL rule 2
+# "Out" (a Yahoo O or OFS tag): the pool filter's meaning (_healthy_pool),
+# NOT IL eligibility. Since 11-16 Yahoo's IL takes O, OFS, Q and D (Nick
+# turned on the "Additional IL-eligible statuses" setting), so the two sets
+# differ: IL eligibility is move_ledger.tag_il_eligible (league_config
+# roster_moves.il_eligible_tags), read in MondayInputs.il_ok and
+# monday_il_eligible (H51).
+OUT_TAGS = frozenset({"O", "OFS"})
 KINDS = ("add_drop", "add_open", "il_add", "il_swap")
 MONDAY, CHAT = "monday", "chat"
 # The points tie-break (V2 s.6.2): |dwp| summed over the two weeks under this
@@ -428,7 +434,8 @@ class MondayInputs:
             return name in self.il_eligible
         if self.kind != MONDAY:
             raise ValueError("a chat move's IL eligibility is next Monday's: pass il_eligible")
-        return self.status(name) in IL_TAGS
+        from .move_ledger import tag_il_eligible        # rule 2, the one definition
+        return tag_il_eligible(self.statuses.get(name, "HEALTHY"))
 
     def check(self) -> None:
         """Raise on inputs that would make a silent wrong answer."""
@@ -484,9 +491,11 @@ class MondayInputs:
 # =============================================================================
 
 def monday_il_eligible(names, statuses: Mapping[str, str]) -> frozenset:
-    """A Monday move's IL eligibility (rule 2): tagged O or OFS now."""
-    return frozenset(n for n in names
-                     if absence.normalised_tag(statuses.get(n, "HEALTHY")) in IL_TAGS)
+    """A Monday move's IL eligibility (rule 2): tagged IL-eligible now
+    (move_ledger.tag_il_eligible: roster_moves.il_eligible_tags, O, OFS, Q
+    and D since 11-16)."""
+    from .move_ledger import tag_il_eligible
+    return frozenset(n for n in names if tag_il_eligible(statuses.get(n, "HEALTHY")))
 
 
 def chat_il_eligible(names, projections: Mapping[str, PlayerProjection], week: int) -> frozenset:
@@ -1255,7 +1264,9 @@ def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
 # =============================================================================
 
 def _healthy_pool(inputs: MondayInputs) -> list:
-    return [n for n in inputs.pool if inputs.status(n) not in IL_TAGS]
+    # "healthy" here means not out (O/OFS), not "not IL-eligible": a Q free
+    # agent stays in the pool though Yahoo's IL would take him (H51)
+    return [n for n in inputs.pool if inputs.status(n) not in OUT_TAGS]
 
 
 def most_games(inputs: MondayInputs, manager: str, settings: Settings,

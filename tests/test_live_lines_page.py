@@ -14,6 +14,10 @@ from pathlib import Path
 
 import pytest
 
+# Whole module slow (11-17): its first calibration_log.engine_version() runs git status,
+# 3-7 s on the VM's bridge mount, so whichever test comes first trips the fast-tier guard.
+pytestmark = pytest.mark.slow
+
 from modules import calibration_log as cal
 from modules import claim_check as cc
 from modules import live_lines_page as page

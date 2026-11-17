@@ -114,14 +114,18 @@ def test_an_open_active_spot_allows_a_plain_add():
     assert "add_open" in kinds
 
 
-def test_only_o_and_ofs_players_go_to_il():
+def test_only_il_eligible_tags_go_to_il():
+    """Rule 2 at a Monday window: roster_moves.il_eligible_tags (O, OFS, Q and
+    D since 11-16, H51). A P tag is not eligible; a Q tag is."""
     fx = S.scenario_7(45)
-    fx.statuses["Short O"] = "Q"
+    fx.statuses["Short O"] = "P"
     inp = fx.inputs()
     assert not [mo for mo in av.candidate_moves(inp, "Nick", FAST) if mo.to_il]
-    inp = S.scenario_7(45).inputs()
-    il_moves = [mo for mo in av.candidate_moves(inp, "Nick", FAST) if mo.to_il]
-    assert il_moves and {mo.to_il for mo in il_moves} == {"Short O"}
+    for tag in ("O", "Q"):
+        fx = S.scenario_7(45)
+        fx.statuses["Short O"] = tag
+        il_moves = [mo for mo in av.candidate_moves(fx.inputs(), "Nick", FAST) if mo.to_il]
+        assert il_moves and {mo.to_il for mo in il_moves} == {"Short O"}, tag
 
 
 def test_the_weightings():
@@ -423,7 +427,7 @@ def test_a_chat_move_puts_in_il_only_a_player_still_out_next_monday():
     assert av.chat_il_eligible(names, proj, 2) == {"C", "D"} == {n for n in names
                                                                if rp.out_all_week(proj[n], 2)}
     assert av.chat_il_eligible(names, proj, 3) == set()
-    assert av.monday_il_eligible(names, tags) == {"A", "B", "C"}
+    assert av.monday_il_eligible(names, tags) == {"A", "B", "C", "D"}     # Q too since 11-16 (H51)
     fx = S.scenario_7(45)                 # Short O: tagged O, no injury entry
     inp = fx.inputs(now=S.at(1, 2, 15), balance=False)
     assert "Short O" not in inp.il_eligible

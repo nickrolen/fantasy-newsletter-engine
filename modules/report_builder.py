@@ -316,6 +316,35 @@ def build_matchup_summary(
     return summaries
 
 
+def _joined_this_week(data, week: int) -> dict:
+    """transaction_rulings.joined_by_budget_week for the report week (H51)."""
+    from . import transaction_rulings as _tr
+    root = Path(__file__).resolve().parent.parent
+    schedule = getattr(data, "schedule", None) or _tr._schedule(root)
+    return _tr.joined_by_budget_week(root, week, schedule)
+
+
+def _joined_split(buckets: dict, week: int, manager: str, waiver_adds) -> dict:
+    """{"week_adds", "claims", "claim_weeks", "no_budget"} for one card. The
+    split must cover exactly the card's players (the same file, the same
+    rulings): anything else raises rather than print a split that doesn't
+    add up."""
+    from .data_loader import PlayerIndex
+    idx = PlayerIndex({n: n for n in waiver_adds})
+    flat = sorted(str(idx.canonical(n)) for v in buckets.values() for n in v)
+    if flat != sorted(str(n) for n in waiver_adds):
+        raise ValueError(f"{manager}'s week-{week} report card: the players who joined "
+                         f"({sorted(waiver_adds)}) are not the waivers file's add lines as the "
+                         f"add budget counts them ({buckets}): the split would not add up")
+    claims = {bw: len(v) for bw, v in buckets.items() if bw is not None and int(bw) < int(week)}
+    later = [bw for bw in buckets if bw is not None and int(bw) > int(week)]
+    if later:
+        raise ValueError(f"{manager}'s week-{week} file has adds counted in a later week {later}")
+    return {"week_adds": len(buckets.get(int(week), [])), "claims": sum(claims.values()),
+            "claim_weeks": {str(k): v for k, v in sorted(claims.items())},
+            "no_budget": len(buckets.get(None, []))}
+
+
 def build_report_cards(report: WeeklyReport, data: FantasyData,
                        what_if: "WeeklyWhatIf" = None) -> list[dict]:
     """
@@ -334,6 +363,7 @@ def build_report_cards(report: WeeklyReport, data: FantasyData,
     `data` is required rather than optional so a caller cannot quietly fall
     back to a stale one.
     """
+    joined = _joined_this_week(data, report.week)
     cards = []
     
     # Get team efficiency % from weekly_stats (already correctly calculated)
@@ -432,6 +462,7 @@ def build_report_cards(report: WeeklyReport, data: FantasyData,
         
         adds_count = len(stats.waiver_adds)
         waiver_fp = stats.waiver_fp
+        split = _joined_split(joined.get(manager, {}), report.week, manager, stats.waiver_adds)
         
         if adds_count == 0:
             waiver_score = 75.0  # Neutral - no waiver activity
@@ -499,6 +530,12 @@ def build_report_cards(report: WeeklyReport, data: FantasyData,
             "waiver_games": stats.waiver_games,
             "waiver_fppg": round(waiver_fp / stats.waiver_games, 2) if stats.waiver_games > 0 else 0.0,
             "fp_per_add": round(fp_per_add, 1),
+            # H51: the same players, split by where each counts (the ADD BUDGET
+            # table's counting): this week's adds, earlier weeks' claims, none
+            "joined_week_adds": split["week_adds"],
+            "joined_claims": split["claims"],
+            "joined_claim_weeks": split["claim_weeks"],
+            "joined_no_budget": split["no_budget"],
             "scheduled_games": sg["scheduled_games"],
             "scheduled_games_league_avg": round(sg["league_avg"], 1),
             "scheduled_games_z_score": round(sg["z_score"], 2),

@@ -112,19 +112,26 @@ def test_the_h2h_matrix_is_derived_not_read_from_a_stored_baseline():
         "the stored baseline is being read before the derivation")
 
 
-@pytest.mark.xfail(strict=True, reason="STATUS item 17: the h2h matrix counts 362 games and all_time.h2h 370: which scope is the league's (regular season or every game)?")
 def test_all_three_h2h_tables_agree_on_scope(records, matchups):
     """h2h, head_to_head and head_to_head_historical were 362 / 394 / 348 --
     regular season, all games, and all games minus a season. The same
-    newsletter printed Nick over Garrett as both 43-17 and 46-20."""
+    newsletter printed Nick over Garrett as both 43-17 and 46-20.
+
+    H51 (STATUS item 17, Nick 11-17: "Include it, live"): all-time is the
+    completed seasons PLUS this season so far. The matrix is rebuilt the way
+    the weekly build rebuilds it -- with RECORDS.json's own h2h_season, not an
+    empty one (which is what made it 362 here while the stored tables were
+    370) -- and checked against a recount of both."""
     import copy
     from types import SimpleNamespace
+    from modules.season_outcomes import build_matchups
     at = copy.deepcopy(records["all_time"])
-    data = SimpleNamespace(all_matchups=matchups,
-                           records={"h2h_season": {}})
+    data = SimpleNamespace(all_matchups=matchups, records=records)
     rb._rebuild_head_to_head(at, data)
 
-    expected = _regular_season_h2h(matchups)
+    schedule = json.loads((PROJECT_ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+    this_season = build_matchups(CURRENT_SEASON, records, schedule)
+    expected = _regular_season_h2h([r for r in matchups if r["season"] != CURRENT_SEASON] + this_season)
     matrix = {k: v for k, v in at["head_to_head"].items() if isinstance(v, int)}
     assert matrix == expected
 
@@ -177,6 +184,15 @@ def test_the_stored_career_baselines_match_the_player_log(records):
     from modules.data_loader import normalize_player_name
     this_season = defaultdict(float)
     log = pd.read_excel(PROJECT_ROOT / "data" / "PLAYERLOG.xlsx")
+    # H51: RECORDS.json is as of its last weekly build (last_updated_week);
+    # the nightly keeps adding games to PLAYERLOG after it. Count this season
+    # through that week's last day, or the test fails from every Monday's first
+    # game until the next Step 5.75 (it failed on 11-17 by Jokic's 11-16 game).
+    upto = records.get("last_updated_week")
+    if upto and not log.empty:
+        sched = json.loads((PROJECT_ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+        end = next(str(w["end_date"])[:10] for w in sched["weeks"] if int(w["week"]) == int(upto))
+        log = log[log["date"].astype(str).str[:10] <= end]
     if not log.empty:
         mask = (log["started"] == True) & log["fantasy_points"].notna() \
             & (log["fantasy_points"] != 0)

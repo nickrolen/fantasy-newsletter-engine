@@ -168,7 +168,17 @@ def main():
     rounds = max(expected.values())
     keeper_counts = keepers_for(upcoming_season)
     ownership_all = trades.get("draft_pick_ownership", {})
-    year = args.year or sorted(k for k in ownership_all if k.isdigit())[0]
+    # The draft for `upcoming_season` is held in that season's first calendar
+    # year: 2027-28's draft is the "2027" key (the help text's "next calendar
+    # year of the season"). This used to take the EARLIEST key on file, and
+    # TRADES.json still holds "2026", the draft already held for 2026-27: mid-
+    # season it printed the 2026 picks over 2027-28's ten live rounds, ten
+    # each, which read as "Hayden has 10, expected 9" (STATUS item 17; H51:
+    # the 2026 ownership reproduces the real 2026-27 draft round for round).
+    year = args.year or str(upcoming_season)[:4]
+    if not year.isdigit():
+        print(f"ERROR: cannot tell the draft year of {upcoming_season!r}; pass --year")
+        return 1
     owners = {k: v for k, v in ownership_all.get(year, {}).items()
               if not k.startswith("_")}
 

@@ -233,6 +233,113 @@ def compute_weekly_blunders_from_lineups(lineups: pd.DataFrame, playerlog: pd.Da
     return bl.counts(bl.week_from_frames(lineups, playerlog))
 
 
+# =============================================================================
+# H51 (FIXES item 2): the two current-season columns this script never wrote.
+# record_current_season and total_moves_current_season are SET from their
+# sources on every run (never added), so a re-run cannot double count. The
+# April rollover (rollover_leaguehistory.py) adds the moves into
+# total_moves_made_to_date and refuses when the record does not reconcile with
+# RECORDS.json's regular season; both read the same functions as here.
+# =============================================================================
+
+SET_COLUMNS = ("record_current_season", "total_moves_current_season")
+
+
+def current_season_values(base: Path, through_week: int) -> dict:
+    """{manager: {"record_current_season": "(W-L)", "total_moves_current_season": n}}
+    over weeks 1..through_week:
+      - the record: every week played (regular season and post-season), from
+        RECORDS.json's weekly scores and SCHEDULE.json through
+        season_outcomes.build_matchups / build_standings -- the functions the
+        rollover reconciles against (its "wins"/"losses"; the rollover takes
+        reg_wins/reg_losses from the same rows);
+      - the moves: the season's adds as the add budget counts them
+        (transaction_rulings.adds_by_budget_week: rulings applied, voids
+        excluded, trades excluded), budget weeks 1..through_week.
+    Raises on a tie (the column and the rollover read W-L only)."""
+    from modules.data_loader import CURRENT_SEASON
+    from modules.season_outcomes import build_matchups, build_standings
+    from modules import transaction_rulings as tr
+    records = json.loads((base / "config" / "RECORDS.json").read_text(encoding="utf-8"))
+    schedule = json.loads((base / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+    rows = [r for r in build_matchups(CURRENT_SEASON, records, schedule) if r["week"] <= int(through_week)]
+    standings = {row["manager"]: row for row in build_standings(CURRENT_SEASON, rows)} if rows else {}
+    counts = tr.adds_by_budget_week(base, schedule)
+    out = {}
+    from modules.data_loader import MANAGERS
+    for m in MANAGERS:
+        st = standings.get(m, {"wins": 0, "losses": 0, "ties": 0})
+        if st.get("ties"):
+            raise ValueError(f"{m} has {st['ties']} tied week(s) this season: record_current_season "
+                             "and the rollover read W-L only. Ask Nick how a tie is recorded.")
+        moves = sum(len(by.get(m, [])) for wk, by in counts.items() if int(wk) <= int(through_week))
+        out[m] = {"record_current_season": f"({int(st['wins'])}-{int(st['losses'])})",
+                  "total_moves_current_season": int(moves)}
+    return out
+
+
+def set_current_season(ws, col_idx: dict, values: dict) -> list:
+    """SET the two columns on every manager row. Returns [(manager, column,
+    old, new)]. Raises when a column or a manager is missing."""
+    missing = [c for c in SET_COLUMNS if c not in col_idx]
+    if missing:
+        raise ValueError(f"LEAGUEHISTORY.xlsx is missing required column(s): {missing}")
+    seen, changes = set(), []
+    for r in range(2, ws.max_row + 1):
+        name = ws.cell(row=r, column=col_idx["manager_name"]).value
+        if not name:
+            continue
+        m = normalize_manager(name)
+        if m not in values:
+            raise ValueError(f"LEAGUEHISTORY.xlsx row {r}: {name!r} is not a manager this season")
+        seen.add(m)
+        for c in SET_COLUMNS:
+            cell = ws.cell(row=r, column=col_idx[c])
+            changes.append((m, c, cell.value, values[m][c]))
+            cell.value = values[m][c]
+    if seen != set(values):
+        raise ValueError(f"LEAGUEHISTORY.xlsx has no row for {sorted(set(values) - seen)}")
+    return changes
+
+
+def weeks_played(base: Path) -> int:
+    """The last week with a result for every matchup in RECORDS.json."""
+    from modules.data_loader import CURRENT_SEASON
+    from modules.season_outcomes import build_matchups
+    records = json.loads((base / "config" / "RECORDS.json").read_text(encoding="utf-8"))
+    schedule = json.loads((base / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+    rows = build_matchups(CURRENT_SEASON, records, schedule)
+    done = 0
+    for wk in sorted(schedule.get("weeks", []), key=lambda w: int(w["week"])):
+        n = sum(1 for r in rows if r["week"] == int(wk["week"]))
+        if n and n == len(wk.get("matchups", [])):
+            done = int(wk["week"])
+        else:
+            break
+    return done
+
+
+def fill_current_season(base: Path, dry_run: bool, echo=print) -> dict:
+    """--fill-current-season: set the two columns for the weeks already played,
+    touching nothing else (no other column, no applied-weeks ledger)."""
+    through = weeks_played(base)
+    values = current_season_values(base, through)
+    path = base / LEAGUEHISTORY_XLSX_PATH
+    wb = load_workbook(path, data_only=False)
+    ws = wb.active
+    col_idx = {name: i + 1 for i, name in enumerate(cell.value for cell in ws[1])}
+    changes = set_current_season(ws, col_idx, values)
+    echo(f"current-season columns through week {through} (the weeks played):")
+    for m, c, old, new in changes:
+        echo(f"  {m:8} {c:28} {old!s:>8} -> {new}")
+    if dry_run:
+        echo("[DRY-RUN] nothing written.")
+    else:
+        wb.save(path)
+        echo(f"{LEAGUEHISTORY_XLSX_PATH} updated (those two columns only).")
+    return {"through": through, "values": values, "changes": changes}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -243,8 +350,16 @@ def main():
     parser.add_argument(
         "--week",
         type=int,
-        required=True,
         help="Fantasy week number to add into LEAGUEHISTORY.",
+    )
+    parser.add_argument(
+        "--fill-current-season", action="store_true",
+        help="Set record_current_season and total_moves_current_season for the weeks "
+             "already played, touching nothing else (H51; once, by hand).",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="With --fill-current-season: print what it would write, write nothing.",
     )
     parser.add_argument(
         "--force",
@@ -255,6 +370,15 @@ def main():
     args = parser.parse_args()
 
     base = Path(".")
+    if args.fill_current_season:
+        if args.week is not None:
+            parser.error("--fill-current-season sets the weeks played; it takes no --week")
+        fill_current_season(base, args.dry_run)
+        return
+    if args.week is None:
+        parser.error("--week N is required (or --fill-current-season)")
+    if args.dry_run:
+        parser.error("--dry-run goes with --fill-current-season")
 
     # --- Applied-weeks ledger guard (prevents double-counting on re-run) ---
     ledger = _load_applied_weeks_ledger(base, args.season)
@@ -267,6 +391,13 @@ def main():
         print(
             "To force re-application (e.g., after a correction), use --force."
         )
+        # H51: the two SET columns are idempotent: refresh them anyway
+        wb = load_workbook(base / LEAGUEHISTORY_XLSX_PATH, data_only=False)
+        ws = wb.active
+        col_idx = {name: i + 1 for i, name in enumerate(cell.value for cell in ws[1])}
+        set_current_season(ws, col_idx, current_season_values(base, args.week))
+        wb.save(base / LEAGUEHISTORY_XLSX_PATH)
+        print("record_current_season and total_moves_current_season set (idempotent).")
         return
     if _is_week_already_applied(ledger, args.season, args.week) and args.force:
         print(
@@ -380,6 +511,9 @@ def main():
         cur_blunders = get_number(r, "total_blunders_current_season")
         ws.cell(row=r, column=col_idx["total_blunders_current_season"], value=cur_blunders + add_blunders)
 
+    # H51: SET, never added (a re-run cannot double count)
+    for m, c, old, new in set_current_season(ws, col_idx, current_season_values(base, args.week)):
+        print(f"  {m}: {c} {old} -> {new}")
     wb.save(base / LEAGUEHISTORY_XLSX_PATH)
     print("LEAGUEHISTORY.xlsx updated.")
 
