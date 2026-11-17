@@ -58,6 +58,7 @@ def test_the_step_text_names_the_day_only_for_an_early_activation():
         al.step_text({k: v for k, v in early.items() if k != "returns"})      # raise, don't default
 
 
+@pytest.mark.slow
 def test_a_midweek_returner_activated_early_is_named_with_his_day_everywhere():
     """The chat fixture's Hurt returns on week 2's Wednesday and the plan
     activates him at week 2's window (44b s.4): the step carries his return
@@ -74,6 +75,7 @@ def test_a_midweek_returner_activated_early_is_named_with_his_day_everywhere():
     assert act["text"] == want and act["returns"] == {"Hurt": wed.isoformat()}
 
 
+@pytest.mark.slow
 def test_a_return_by_the_window_day_reads_as_before():
     """Back by week 2's window (an entry out for week 1 only): no day named."""
     fx = returner_fixture(hurt_out=[1])

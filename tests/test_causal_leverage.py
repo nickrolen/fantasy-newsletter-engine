@@ -194,6 +194,7 @@ def test_a_row_without_a_usable_causal_leverage_raises(mutate):
         di.team_stakes(b, "Nick", 5, last_regular=15, bracket=list(range(16, 22)))
 
 
+@pytest.mark.slow
 def test_point_value_is_the_only_place_a_point_or_a_win_is_priced():
     """Source pin (s.1): outside injured_drop (which prices), drop_inputs (which
     maps the file) and title_odds_run (which writes it), no module reads a

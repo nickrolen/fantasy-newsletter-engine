@@ -541,6 +541,7 @@ def test_the_script_refuses_with_exit_1(tmp_path, capsys):
 
 # ============================================================ Nick's real week 2
 
+@pytest.mark.slow
 def test_nicks_real_week_2_fills_cleanly():
     """On Nick's folder only (the report is league state). Writes nothing.
     `today` is the IL file's own week, so the check is about the fill, not

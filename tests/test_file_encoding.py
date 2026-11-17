@@ -18,7 +18,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parent.parent
+
+pytestmark = pytest.mark.slow   # subprocesses and a scan of every engine file: the full suite
 
 
 def _unencoded_opens(path: Path):

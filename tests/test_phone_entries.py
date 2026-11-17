@@ -312,6 +312,7 @@ def test_the_desk_edit_commands_write_the_history_too(tmp_path):
     assert _entries(base) == []
 
 
+@pytest.mark.slow
 def test_only_write_change_writes_the_overrides_file():
     srcs = {p.name: p.read_text(encoding="utf-8") for d in ("modules", "scripts")
             for p in (ROOT / d).glob("*.py")}
@@ -518,6 +519,7 @@ def test_a_refresh_before_the_nightly_banks_last_night_is_deferred_not_failed(tm
     assert row["outcome"] == "deferred" and row["exit"] == 0 and calls == ["engine"]
 
 
+@pytest.mark.slow
 def test_a_priced_refresh_appends_one_win_row_with_its_cause_and_an_unchanged_one_none(svc, tmp_path):
     from test_live_lines import MON
     from test_refresh_service import TAGS
@@ -632,6 +634,7 @@ def test_only_the_nightly_run_builds_and_stores_the_paragraph(tmp_path, monkeypa
     assert "cards_out" in got                         # the run's keepability goes to the cards
 
 
+@pytest.mark.slow
 def test_only_the_nightly_hub_step_writes_the_paragraph_file():
     import ast
     callers = set()
@@ -756,6 +759,7 @@ def test_the_closing_line_uses_the_rebuilt_overrides_and_raises_on_an_unrecorded
     assert "oh.changed_after(ws.governing_overrides(" in body and "raise ClosingRefused(" in body
 
 
+@pytest.mark.slow
 def test_the_real_closing_line_raises_on_a_governing_entry_changed_after_the_tip(monkeypatch):
     import test_closing_line as tcl
     tcl._real_or_skip()

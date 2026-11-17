@@ -53,6 +53,7 @@ def _world(extra=(), picks_now=None, picks_next=None, trades=()):
 
 
 # 1 -- every keeper on his manager's end-of-season roster; a mismatch raises
+@pytest.mark.slow
 def test_all_144_keepers_are_on_their_managers_end_of_season_roster():
     inputs = kh.Inputs.load(ROOT)
     found = 0
@@ -107,6 +108,7 @@ def test_no_feature_reads_past_its_as_of_day():
     assert e.manager == "Hayden" and e.fppg > 50 and e.acquired == "trade"
 
 
+@pytest.mark.slow
 def test_the_point_in_time_holds_on_the_real_log_too():
     inputs = kh.Inputs.load(ROOT)
     season = kh.prev_season("2026-27")
@@ -232,6 +234,7 @@ def test_a_missing_age_takes_the_neighbouring_season_and_says_so():
     assert "Hay 3 (bbref 2025-26 - 1)" in s["age_from_neighbour"] and s["missing_age"] == []
 
 
+@pytest.mark.slow
 def test_the_three_real_missing_ages_come_from_the_following_season():
     ages = kh.load_ages(kh.age_seasons(), ROOT)
     assert kh.age_for(ages, "2021-22", "Kawhi Leonard") == (30, "bbref 2022-23 - 1")

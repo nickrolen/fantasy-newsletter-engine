@@ -151,6 +151,7 @@ def _passes(nums: dict, M, F, K) -> list:
     return bad
 
 
+@pytest.mark.slow
 def test_every_pinned_answer_and_direction_holds_on_every_seed(numbers_by_seed):
     assert len(sc.SEEDS) >= 5
     for sd, nums in numbers_by_seed.items():
@@ -163,6 +164,7 @@ def test_every_pinned_answer_and_direction_holds_on_every_seed(numbers_by_seed):
 EXTENT = {"M": 1.10, "K": 0.36, "F": 0.122}
 
 
+@pytest.mark.slow
 def test_the_configured_values_are_away_from_the_regions_edges(numbers_by_seed):
     dM, dK, dF = (0.15 * EXTENT[k] for k in "MKF")
     M, F, K = CFG.margin, CFG.floor, CFG.keeper_weight
@@ -174,6 +176,7 @@ def test_the_configured_values_are_away_from_the_regions_edges(numbers_by_seed):
                     assert _passes(nums, m, f, k) == [], (sd, m, k, f)
 
 
+@pytest.mark.slow
 def test_the_fits_shortcut_is_the_decision_itself(numbers_by_seed):
     """sc.gives (the fit's sweep) and idr.decide agree on every scenario."""
     for s in sc.scenarios():
@@ -182,6 +185,7 @@ def test_the_fits_shortcut_is_the_decision_itself(numbers_by_seed):
         assert d.action == sc.gives(n, CFG.margin, CFG.floor, CFG.keeper_weight), s.sid
 
 
+@pytest.mark.slow
 def test_scenario_8_is_protected_and_6_holds_for_little_left(numbers_by_seed):
     for nums in numbers_by_seed.values():
         assert nums["8"].protected
@@ -441,6 +445,7 @@ def _keep_all(teams, low=()):
     return {m: {n: (0.001 if n in low else 0.5) for n in tp.players} for m, tp in teams.items()}
 
 
+@pytest.mark.slow
 def test_for_run_with_no_stakes_plans_without_drops_and_says_so(monkeypatch, tmp_path):
     data, teams, tags, best = _moving_three(monkeypatch, tmp_path)
     data.drop_context = di.context(data, tmp_path, keep_week=8, keep=_keep_all(teams, best))
@@ -477,6 +482,7 @@ def test_the_nightly_run_records_the_notes_on_the_step(tmp_path):
     assert any(di.BOOTSTRAP_NOTE in ln for ln in shown)
 
 
+@pytest.mark.slow
 def test_only_the_loader_and_the_writer_open_the_stakes():
     srcs = {p.name: p.read_text(encoding="utf-8") for p in (ROOT / "modules").glob("*.py")}
     assert {n for n, s in srcs.items() if "STAKES_FILE" in s} == {"title_odds_run.py", "drop_inputs.py"}
@@ -486,6 +492,7 @@ def test_only_the_loader_and_the_writer_open_the_stakes():
 # E. a third long injury, through the season pass
 # =============================================================================
 
+@pytest.mark.slow
 def test_a_third_long_injury_dropped_moves_that_teams_title_odds_up(monkeypatch, tmp_path):
     import modules.season_sim as ss
     out = {}
@@ -509,6 +516,7 @@ def test_a_third_long_injury_dropped_moves_that_teams_title_odds_up(monkeypatch,
     rp.take_notes()
 
 
+@pytest.mark.slow
 def test_todays_real_plan_reads_decision_inputs_only_where_it_decides():
     """The real plan reads an 18b decision's own inputs -- the stakes, the
     games, the availability -- only at a window where a team has more injured
@@ -566,6 +574,7 @@ def test_todays_real_plan_reads_decision_inputs_only_where_it_decides():
 # F. The scale (HANDOFF_CAUSAL_LEVERAGE_2026-11-12 s.2)
 # =============================================================================
 
+@pytest.mark.slow
 def test_the_scenarios_stakes_are_already_on_the_causal_scale(monkeypatch):
     """The 11-12 price of a point is the near-tie (causal) leverage; the
     11-04 fit of M, F and K was made on these hand-made stakes. Their toy

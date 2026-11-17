@@ -52,6 +52,7 @@ def test_the_engine_modules_open_no_file(mod):
         assert not re.search(pat, code), f"modules/{mod}.py calls {pat}"
 
 
+@pytest.mark.slow
 def test_same_seed_and_inputs_give_the_same_ranking():
     a = av.recommend(S.scenario_1().inputs(), "Nick", FAST)
     b = av.recommend(S.scenario_1().inputs(), "Nick", FAST)
@@ -70,6 +71,7 @@ def test_an_unchanged_roster_prices_to_exactly_zero():
         assert (a == b).all()
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("mk", [S.scenario_1, S.scenario_2, S.scenario_4, lambda: S.scenario_5(False),
                                 lambda: S.scenario_5(True), lambda: S.scenario_7(45)])
 def test_a_top_four_keeper_is_never_a_suggested_drop(mk):
@@ -172,12 +174,14 @@ def test_inputs_check_raises_on_a_doubly_rostered_player():
 # B. Nick's scenarios
 # =============================================================================
 
+@pytest.mark.slow
 def test_scenario_1_coward_over_randle():
     _inp, r = rec(S.scenario_1())
     assert r.top is not None
     assert (r.top.move.add, r.top.move.drop) == ("Cedric Coward", "Julius Randle")
 
 
+@pytest.mark.slow
 def test_scenario_2_the_overflow_trap():
     inp, r = rec(S.scenario_2())
     assert r.top.move.add == "FA Clean"
@@ -185,6 +189,7 @@ def test_scenario_2_the_overflow_trap():
     assert score["FA Clean"] > score["FA Overflow"]
 
 
+@pytest.mark.slow
 def test_scenario_3_lillard_for_jerome_as_a_chat_move_through_the_live_path():
     """Wednesday of week 1, after Monday's close: the live path's horizon
     (horizon_for) is the chat move, weeks 2 and 3, the tags anchored at
@@ -197,6 +202,7 @@ def test_scenario_3_lillard_for_jerome_as_a_chat_move_through_the_live_path():
     assert r.top.dstarts[0] == pytest.approx(1.0, abs=0.05)
 
 
+@pytest.mark.slow
 def test_scenario_4_up_300_shifts_the_ranking_to_next_week():
     _i, close = rec(S.scenario_4())
     _i, up = rec(S.scenario_4(), banked={("Nick", 1): 300.0})
@@ -207,18 +213,21 @@ def test_scenario_4_up_300_shifts_the_ranking_to_next_week():
     assert this_week.dwp[0] < 0.5 * next(p for _s, p in close.ranked if p.move.add == "FA This Week").dwp[0]
 
 
+@pytest.mark.slow
 def test_scenario_5_paolo_yes():
     _inp, r = rec(S.scenario_5(jalen_in_paolos_place=False))
     assert r.top is not None and r.top.move.kind == "il_swap"
     assert (r.top.move.drop, r.top.move.to_il) == ("Paolo Banchero", "Luka Doncic")
 
 
+@pytest.mark.slow
 def test_scenario_5_jalen_johnson_protected_is_never_dropped():
     inp, r = rec(S.scenario_5(jalen_in_paolos_place=True))
     assert "Jalen Johnson" in av.protected(inp.managers["Nick"], 4)
     assert all(not (p.move.drop == "Jalen Johnson") for _s, p in r.ranked)
 
 
+@pytest.mark.slow
 def test_scenario_5_jalen_johnson_unprotected_the_pricing_keeps_him():
     """Only Luka protected: Jalen Johnson's value after his return must keep
     him. "Wins only" -- no title term -- would not (stated in the V1 result)."""
@@ -233,6 +242,7 @@ def test_scenario_5_jalen_johnson_unprotected_the_pricing_keeps_him():
     assert any(p.move.drop == "Jalen Johnson" and s > 0 for s, p in wins_only.ranked)
 
 
+@pytest.mark.slow
 def test_scenario_6_the_third_add_is_not_spent_on_a_marginal_gain():
     _i, three = rec(S.scenario_6())
     _i, one = rec(S.scenario_6(), adds_left=1)
@@ -242,6 +252,7 @@ def test_scenario_6_the_third_add_is_not_spent_on_a_marginal_gain():
     assert one.top is None and one.bar == FAST.last_add_bar
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("fppg,stash", [(18, False), (45, True)])
 def test_scenario_7_a_short_term_o_player_is_stashed_only_for_a_pickup_worth_it(fppg, stash):
     _i, r = rec(S.scenario_7(fppg))
@@ -260,6 +271,7 @@ def test_scenario_7_a_short_term_o_player_is_stashed_only_for_a_pickup_worth_it(
 
 NO_FILLERS = {"Benton": 0, "Garrett": 0}        # the filler teams make no move (they would want the same star)
 
+@pytest.mark.slow
 def test_scenario_8_contested_both_see_also_wanted_by_and_each_gets_an_uncontested_backup():
     inp = S.scenario_8().inputs(opponents=S.CONTEST_OPPONENTS, balance=False, adds=NO_FILLERS)
     adv = av.advise_all(inp, FAST)
@@ -276,6 +288,7 @@ def test_scenario_8_contested_both_see_also_wanted_by_and_each_gets_an_uncontest
                 and a.manager not in ("Nick", "Hayden")]
 
 
+@pytest.mark.slow
 def test_an_uncontested_top_has_no_also_wanted_by():
     inp = S.scenario_1().inputs(adds=dict(NO_FILLERS, Hayden=0))
     adv = av.advise_all(inp, FAST)
@@ -286,6 +299,7 @@ def test_an_uncontested_top_has_no_also_wanted_by():
                                                       and a.top is not None and a.top.move.add == "Cedric Coward"))
 
 
+@pytest.mark.slow
 def test_scenario_9_a_claimed_player_is_never_suggested_to_anyone():
     """Engine side: a reserved player in the pool raises, and the pool the
     live path passes leaves him out (the ledger side: test_advice_live)."""
@@ -301,6 +315,7 @@ def test_scenario_9_a_claimed_player_is_never_suggested_to_anyone():
         bad.check()
 
 
+@pytest.mark.slow
 def test_scenario_10_the_budget_binds_chat_moves():
     """A chat claim counts against this week's budget (rule 7): at 3 adds used
     no chat move; with 1 left only a move above the last add's bar."""
@@ -329,6 +344,7 @@ def _marginal_chat():
     return fx
 
 
+@pytest.mark.slow
 def test_scenario_11_the_switch_at_the_window_close():
     """The same inputs: a Monday move (this week and next) a minute before the
     close, a chat move (next week and the week after) a minute after."""
@@ -360,6 +376,7 @@ def test_horizon_for_is_the_clock_not_the_weekday():
         av.horizon_for(S.at(1, 2).replace(tzinfo=None), 1, wd, close)
 
 
+@pytest.mark.slow
 def test_scenario_12_tags_are_anchored_at_their_fetch_date_for_a_horizon_starting_next_week():
     """Tuesday of week 1, after the close: horizon weeks 2-3, anchor Tuesday.
     No raise; the O chain spends Wed and Fri of week 1 and at most Monday of
@@ -416,6 +433,7 @@ def test_a_chat_move_puts_in_il_only_a_player_still_out_next_monday():
         inp.il_ok("Short O")
 
 
+@pytest.mark.slow
 def test_same_inputs_same_advice():
     a = av.advise_all(S.scenario_8().inputs(opponents=S.CONTEST_OPPONENTS, balance=False), FAST)
     b = av.advise_all(S.scenario_8().inputs(opponents=S.CONTEST_OPPONENTS, balance=False), FAST)
@@ -427,6 +445,7 @@ def test_same_inputs_same_advice():
         assert a[m].also_wanted_by == b[m].also_wanted_by
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("mk,kw", [(S.scenario_3, {"now": S.at(1, 2, 15)}),
                                    (lambda: S.scenario_5(False), {"now": S.at(1, 2, 15)}),
                                    (S.scenario_8, {"opponents": S.CONTEST_OPPONENTS, "balance": False})])
@@ -490,6 +509,7 @@ def test_the_points_tie_break_ranks_flat_moves_by_expected_startable_points():
     assert av.rank_key(w, vetoed)[0] < 0 and not av.qualifies(av.rank_key(w, vetoed), 0.0)
 
 
+@pytest.mark.slow
 def test_a_decided_horizon_is_ranked_on_points_end_to_end():
     """Up 3000 in both weeks: every win-chance change is flat; the engine still
     names the move with the most startable points rather than noise."""
@@ -509,6 +529,7 @@ def test_a_tied_week_counts_by_the_competitions_rule():
     assert av._win(a, b, 0.0) == pytest.approx(0.25)
 
 
+@pytest.mark.slow
 def test_a_week_with_no_matchup_has_no_win_chance_term():
     inp = S.scenario_1().inputs()
     st = inp.managers["Nick"]

@@ -150,6 +150,7 @@ def test_the_monday_plan_covers_12_00_to_19_30_pacific_under_pst_and_pdt(monday)
         t += timedelta(minutes=15)
 
 
+@pytest.mark.slow
 def test_every_window_day_of_the_season_gets_three_pretip_firings_inside_its_window():
     days = rg.window_days(ROOT)
     # Opening day (2026-10-20, a Tuesday) was before the cloud run; every other
@@ -268,6 +269,7 @@ def test_the_run_job_runs_only_what_the_guard_admits_and_copies_back_always():
 # 2. the guards
 # =============================================================================
 
+@pytest.mark.slow
 def test_the_nightly_guard_is_one_definition_shared_with_nightly_py(tmp_path):
     from modules.league_clock import league_tz
     assert rg.league_zone(ROOT).key == league_tz().key
@@ -299,6 +301,7 @@ def _admitted_minutes(day: date) -> list:
     return out
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("day,tip", [
     (date(2026, 11, 9), (16, 0, "PST")),       # week 4, standard time
     (date(2026, 11, 30), (16, 0, "PST")),      # week 7's window (the 14-day week)
@@ -314,6 +317,7 @@ def test_pretip_admits_only_the_45_minutes_before_the_first_tip(day, tip):
     assert len(got) == 45
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("day", [date(2026, 12, 7), date(2026, 11, 10), date(2026, 11, 8)])
 def test_pretip_admits_nothing_off_a_window_day(day):
     # 12-07 is a Monday inside week 7, the 14-day week: not a window day

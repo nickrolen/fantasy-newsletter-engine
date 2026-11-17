@@ -35,3 +35,44 @@ def _prices_unlocked_unless_marked(request, monkeypatch):
         return {"locked": False, "league_day": None, "now": None, "first_tip": None,
                 "_test_default": True}
     monkeypatch.setattr(price_lock, "status", unlocked)
+
+
+# ---------------------------------------------------------------------------
+# Two tiers (task 50, 11-16; pytest.ini). A builder runs the fast tier,
+#     python -m pytest -m "not slow" -n 3 -q -p no:cacheprovider
+# and it has to stay fast: tests drift. In a run that deselects "slow", any
+# test NOT marked slow whose setup + call takes over FAST_TIER_LIMIT_S fails
+# with the time and what to do. The full suite (no -m) is never failed for
+# time. tests/test_tiers.py tests this guard.
+# ---------------------------------------------------------------------------
+FAST_TIER_LIMIT_S = 3.0
+
+
+def fast_tier_run(markexpr):
+    """True when the run's -m expression deselects the slow tier."""
+    return bool(markexpr) and "not slow" in " ".join(str(markexpr).split())
+
+
+def tier_overrun(is_slow, markexpr, seconds, limit=FAST_TIER_LIMIT_S):
+    """The failure text for a fast-tier test over the limit, else None."""
+    if is_slow or not fast_tier_run(markexpr) or seconds <= limit:
+        return None
+    return (f"this test is not marked slow but took {seconds:.1f} s (setup + call) in the fast "
+            f"tier (limit {limit:.0f} s). Make it faster, or mark it @pytest.mark.slow "
+            f"(pytest.ini, tests/conftest.py).")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    rep = outcome.get_result()
+    if rep.when == "setup":
+        item._tier_setup_s = rep.duration if rep.passed else None
+        return
+    if rep.when != "call" or not rep.passed or getattr(item, "_tier_setup_s", None) is None:
+        return
+    msg = tier_overrun(item.get_closest_marker("slow") is not None,
+                       item.config.option.markexpr, item._tier_setup_s + rep.duration)
+    if msg:
+        rep.outcome = "failed"
+        rep.longrepr = msg

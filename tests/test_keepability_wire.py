@@ -63,6 +63,7 @@ def live():
     return data, build_keeper_watch(data, data.current_week)
 
 
+@pytest.mark.slow
 def test_keeper_watch_holds_v3_probabilities_for_every_rostered_player(live):
     data, kw = live
     assert kw["model"] == "keepability v3" and kw["week"] == data.current_week
@@ -216,6 +217,7 @@ WEEKLY_BUILD = ["modules.report_builder", "modules.advice_runner", "modules.advi
                 "generate_player_card_preview"]
 
 
+@pytest.mark.slow
 def test_no_module_in_the_weekly_build_imports_keepability_v2():
     code = ("import sys; sys.path.insert(0, 'scripts'); sys.path.insert(0, '.');\n"
             + "".join(f"import {m}\n" for m in WEEKLY_BUILD)

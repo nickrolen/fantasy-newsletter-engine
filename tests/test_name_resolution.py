@@ -108,6 +108,7 @@ NORMALISE_ALLOWED = {
 }
 
 
+@pytest.mark.slow
 def test_no_other_file_carries_its_own_name_matching():
     offenders = []
     for path in list((ROOT / "modules").glob("*.py")) + list((ROOT / "scripts").glob("*.py")):
@@ -163,6 +164,7 @@ def test_team_names_are_unique():
     assert len(set(MANAGER_TO_TEAM.values())) == len(MANAGER_TO_TEAM)
 
 
+@pytest.mark.slow
 def test_no_ingest_path_defaults_an_unknown_team_to_a_blank_manager():
     pattern = re.compile(r"TEAM_TO_MANAGER\.get\([^)]*\)")
     offenders = []

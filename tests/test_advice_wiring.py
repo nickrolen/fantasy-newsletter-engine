@@ -12,6 +12,8 @@ from pathlib import Path
 import pytest
 
 import il_state
+import sim_counts
+import stakes_state
 from modules import advice_runner as ar
 from modules import advice_render as rr
 
@@ -39,27 +41,33 @@ def failed_report():
     import modules.data_loader as dl
     import modules.report_builder as rb
     mp = pytest.MonkeyPatch()
-    mp.setattr(dl, "SEASON_CONFIG", dict(dl.SEASON_CONFIG, legacy_advice="on"))
+    try:   # undone however the build ends: a raise used to leak these patches into later
+           # tests (test_section10_rules saw the spies on 11-16; task 50)
+        mp.setattr(dl, "SEASON_CONFIG", dict(dl.SEASON_CONFIG, legacy_advice="on"))
 
-    def boom(*a, **k):
-        raise RuntimeError("engine exploded on purpose")
-    mp.setattr(ar, "build_advice", boom)
-    mp.setattr(ar, "ADVICE_PUBLISH_FROM_WEEK", 1)
-    mp.setattr(dl, "ADVICE_PUBLISH_FROM_WEEK", 1)
-    mp.setattr(rb, "build_season_performers", lambda *a, **k: {})   # no Yahoo in tests
-    data = dl.load_all_data(ROOT, current_week=1)
-    # The IL state, stated (tests/il_state.py): the weekly suite (Step 0b)
-    # runs before the roster sync refreshes data/IL_SLOTS.json.
-    data.il_slots = il_state.as_last_synced(2)
-    # Priced without tags, stated (Tags.none): the roster plan's stand-in
-    # pool needs free agents' tags or this statement, never a silent default.
-    from modules.fetch_injury_statuses import Tags as _Tags
-    report = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
-                                   num_title_sims=100, num_betting_sims=100, seed=1)
-    mp.undo()
+        def boom(*a, **k):
+            raise RuntimeError("engine exploded on purpose")
+        mp.setattr(ar, "build_advice", boom)
+        mp.setattr(ar, "ADVICE_PUBLISH_FROM_WEEK", 1)
+        mp.setattr(dl, "ADVICE_PUBLISH_FROM_WEEK", 1)
+        mp.setattr(rb, "build_season_performers", lambda *a, **k: {})   # no Yahoo in tests
+        stakes_state.state(mp, 1)      # a week-1 replay states its stakes (tests/stakes_state.py)
+        sim_counts.small(mp)           # paths, not counts (tests/sim_counts.py)
+        data = dl.load_all_data(ROOT, current_week=1)
+        # The IL state, stated (tests/il_state.py): the weekly suite (Step 0b)
+        # runs before the roster sync refreshes data/IL_SLOTS.json.
+        data.il_slots = il_state.as_last_synced(2)
+        # Priced without tags, stated (Tags.none): the roster plan's stand-in
+        # pool needs free agents' tags or this statement, never a silent default.
+        from modules.fetch_injury_statuses import Tags as _Tags
+        report = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
+                                       num_title_sims=100, num_betting_sims=100, seed=1)
+    finally:
+        mp.undo()
     return report
 
 
+@pytest.mark.slow
 def test_the_report_is_built_when_the_engine_raises(failed_report):
     adv = failed_report["advice"]
     assert adv["ran"] is False and adv["published"] is False
@@ -69,6 +77,7 @@ def test_the_report_is_built_when_the_engine_raises(failed_report):
         assert key in failed_report
 
 
+@pytest.mark.slow
 def test_section_10_says_it_did_not_run_and_does_not_fall_back(failed_report):
     fmt = _load("format_stats_report")
     md = fmt.format_section_10_rumor_mill(failed_report, fmt.build_lookup_tables(failed_report))
@@ -77,6 +86,7 @@ def test_section_10_says_it_did_not_run_and_does_not_fall_back(failed_report):
     assert failed_report["rumor_mill"]["free_agent_targets"] == []
 
 
+@pytest.mark.slow
 def test_the_newsletter_html_generates_and_carries_the_status(failed_report):
     nhg = _load("newsletter_html_generator")
     sections = [("Matchup Summaries", "A recap."), ("Rumor Mill", "Some rumors.")]

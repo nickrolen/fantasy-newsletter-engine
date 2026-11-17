@@ -65,6 +65,7 @@ def _sim(teams, n=400, seed=3, statuses=None, data=None):
 
 
 # 1 -- no simulated lineup is ever illegal
+@pytest.mark.slow
 def test_every_simulated_lineup_fits_the_slots(monkeypatch):
     seen = []
     real = sb.legal_starters

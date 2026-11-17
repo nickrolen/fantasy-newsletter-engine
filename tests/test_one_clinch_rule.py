@@ -48,6 +48,7 @@ LATER = _pairs(5, ("Nick", "Hayden"), ("Benton", "Garrett")) + \
 
 
 # 1 -- eliminated by the pairings, and the newsletter line fires
+@pytest.mark.slow
 def test_a_rival_out_by_the_pairings_is_out_and_the_line_fires():
     recs = {"Nick": Record(3, 1), "Hayden": Record(3, 1), "Benton": Record(1, 3),
             "Garrett": Record(1, 3)}
@@ -121,6 +122,7 @@ def _emits_event(fn) -> bool:
     return False
 
 
+@pytest.mark.slow
 def test_no_module_decides_clinch_or_elimination_but_through_the_one_function():
     import re
     offenders, deciders = [], []
@@ -144,6 +146,7 @@ def test_no_module_decides_clinch_or_elimination_but_through_the_one_function():
     assert set(deciders) == {"angles.py:decided_status", "marginal_value.py:title_eliminated"}
 
 
+@pytest.mark.slow
 def test_the_title_odds_readout_carries_the_pairings_the_check_reads():
     from test_season_sim import _world
     from modules.simulator_title_odds import title_readout

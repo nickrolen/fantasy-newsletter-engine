@@ -162,6 +162,7 @@ def test_a_decided_tie_raises_instead_of_flipping_a_coin():
 
 
 # 4 -- monotonicity
+@pytest.mark.slow
 def test_as_of_advancing_never_adds_games_or_removes_banked_points():
     prev = None
     for k in range(9):
@@ -397,6 +398,7 @@ def refresh(monkeypatch, tmp_path):
     return run
 
 
+@pytest.mark.slow
 def test_refresh_keeps_one_seed_and_the_tags_original_anchor(refresh):
     mon = refresh(MON)
     assert mon["tag_events"][0]["event"] == "baseline"

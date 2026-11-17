@@ -13,6 +13,8 @@ from pathlib import Path
 import pytest
 
 import il_state
+import sim_counts
+import stakes_state
 import modules.advice_runner as ar
 import modules.data_loader as dl
 import modules.report_builder as rb
@@ -96,33 +98,39 @@ def runs():
     """build_stats_report on the project's own data at seeds 3, 3 and 4,
     with every simulator spied on for the seed it was handed."""
     mp = pytest.MonkeyPatch()
-    mp.setattr(rb, "build_season_performers", lambda *a, **k: {})   # no Yahoo in tests
-    mp.setattr(ar, "build_advice", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("skip")))
-    got = []
-    for name in SIM_CALLS:
-        real = getattr(rb, name)
+    try:   # undone however the build ends: a raise used to leak these patches into later
+           # tests (test_section10_rules saw the spies on 11-16; task 50)
+        mp.setattr(rb, "build_season_performers", lambda *a, **k: {})   # no Yahoo in tests
+        mp.setattr(ar, "build_advice", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("skip")))
+        stakes_state.state(mp, 1)      # a week-1 replay states its stakes (tests/stakes_state.py)
+        sim_counts.small(mp)           # paths, not counts (tests/sim_counts.py)
+        got = []
+        for name in SIM_CALLS:
+            real = getattr(rb, name)
 
-        def spy(*a, _real=real, _name=name, **k):
-            got.append((_name, k.get("seed")))
-            return _real(*a, **k)
-        mp.setattr(rb, name, spy)
-    out = []
-    for seed in (3, 3, 4):
-        got.clear()
-        data = dl.load_all_data(ROOT, current_week=1)
-        # The IL state, stated: this test is about plumbing, and the weekly suite
-        # (Step 0b) runs before the roster sync refreshes data/IL_SLOTS.json.
-        data.il_slots = il_state.as_last_synced(2)
-        # Priced without tags, stated (Tags.none): the roster plan's stand-in
-        # pool needs free agents' tags or this statement, never a silent default.
-        from modules.fetch_injury_statuses import Tags as _Tags
-        rep = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
-                                    num_title_sims=60, num_betting_sims=200, seed=seed)
-        out.append((rep, list(got)))
-    mp.undo()
+            def spy(*a, _real=real, _name=name, **k):
+                got.append((_name, k.get("seed")))
+                return _real(*a, **k)
+            mp.setattr(rb, name, spy)
+        out = []
+        for seed in (3, 3, 4):
+            got.clear()
+            data = dl.load_all_data(ROOT, current_week=1)
+            # The IL state, stated: this test is about plumbing, and the weekly suite
+            # (Step 0b) runs before the roster sync refreshes data/IL_SLOTS.json.
+            data.il_slots = il_state.as_last_synced(2)
+            # Priced without tags, stated (Tags.none): the roster plan's stand-in
+            # pool needs free agents' tags or this statement, never a silent default.
+            from modules.fetch_injury_statuses import Tags as _Tags
+            rep = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
+                                        num_title_sims=60, num_betting_sims=200, seed=seed)
+            out.append((rep, list(got)))
+    finally:
+        mp.undo()
     return out
 
 
+@pytest.mark.slow
 def test_one_run_hands_every_simulator_the_same_seed(runs):
     for (rep, got), seed in zip(runs, (3, 3, 4)):
         assert got, "no simulator ran"
@@ -135,15 +143,18 @@ def _numbers(rep):
     return rep.get("looking_ahead"), rep.get("title_odds")
 
 
+@pytest.mark.slow
 def test_the_same_seed_gives_the_same_lines_and_odds(runs):
     assert _numbers(runs[0][0]) == _numbers(runs[1][0])
     assert _numbers(runs[0][0])[0] is not None
 
 
+@pytest.mark.slow
 def test_a_different_seed_gives_different_numbers(runs):
     assert _numbers(runs[0][0]) != _numbers(runs[2][0])
 
 
+@pytest.mark.slow
 def test_the_build_logs_a_rerun_once_and_a_new_seed_again(runs):
     """The weekly build's calibration records take their identity from the
     line key (calibration_log.IDENTITY): the same build twice is the same

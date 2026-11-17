@@ -187,6 +187,7 @@ def _capture(monkeypatch):
     return calls
 
 
+@pytest.mark.slow
 def test_the_seed_does_not_change_a_clear_decision_on_the_real_state(monkeypatch):
     """Every activation and mid-week decision of the real plan that is CLEAR
     of the tie band (above) gives the same answer at another seed of the
@@ -360,6 +361,7 @@ def test_for_run_judges_the_window_at_the_runs_clock_and_the_closing_line_is_loc
     assert 'getattr(data, "plan_now", None)' in src and "window_open(data, start, now)" in src
 
 
+@pytest.mark.slow
 def test_monday_open_on_the_real_state_activates_bentons_returners():
     """Real, unstubbed (the changed run path): today's state with the IL file
     moved to week 5 (as the 12:01 AM sync of 11-16 will write it, the same
@@ -434,6 +436,7 @@ def test_drop_inputs_turns_any_keeper_watch_error_into_one_failure_kept_for_the_
     assert len(calls) == 1
 
 
+@pytest.mark.slow
 def test_lines_and_title_odds_still_price_on_a_broken_keeper_watch(monkeypatch, tmp_path):
     """The season pass and the week's line price on a world whose keeper
     watch fails (test_roster_plan's moving world: two returns over 15 at

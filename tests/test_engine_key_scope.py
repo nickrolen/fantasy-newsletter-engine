@@ -75,6 +75,7 @@ def _refresh_writes(base, week=2):
 
 
 # 1 -- output/ and data/ are not the engine
+@pytest.mark.slow
 def test_writing_output_or_data_does_not_change_the_engine_key(repo):
     clean = _fresh(repo)
     assert clean["dirty"] is False
@@ -85,6 +86,7 @@ def test_writing_output_or_data_does_not_change_the_engine_key(repo):
 
 
 # 1b -- nor is what the weekly workflow writes into config/ (corrects the brief)
+@pytest.mark.slow
 def test_the_weekly_workflows_config_writes_do_not_change_it(repo):
     clean = _fresh(repo)
     for rel in ("config/INJURY_OVERRIDES.json", "config/PLAYER_AGES.json",
@@ -98,6 +100,7 @@ def test_the_weekly_workflows_config_writes_do_not_change_it(repo):
 
 
 # 2 -- the simulator's code and parameters are
+@pytest.mark.slow
 @pytest.mark.parametrize("rel,text", [
     ("modules/simulator.py", "X = 2\n"),
     ("modules/new_engine_part.py", "Y = 1\n"),          # untracked code counts
@@ -114,6 +117,7 @@ def test_touching_the_engine_makes_it_dirty(repo, rel, text):
                            "engine_dirty": after["dirty"]}) == f"{commit}-dirty"
 
 
+@pytest.mark.slow
 def test_tests_are_not_the_engine(repo):
     clean = _fresh(repo)
     (repo / "tests" / "test_x.py").write_text("def test(): pass\n", encoding="utf-8")
@@ -127,6 +131,7 @@ def _payload(engine):
                                               "engine_dirty": engine["dirty"]})}}
 
 
+@pytest.mark.slow
 def test_a_refresh_then_a_render_does_not_trip_the_guard(repo):
     priced = _payload(_fresh(repo))        # the refresh process
     _refresh_writes(repo)                  # ... and what it leaves behind
@@ -136,6 +141,7 @@ def test_a_refresh_then_a_render_does_not_trip_the_guard(repo):
     assert check["payload"] == check["current"] == priced["engine"]["key"]
 
 
+@pytest.mark.slow
 def test_the_guard_still_trips_when_the_engine_changed_in_between(repo):
     priced = _payload(_fresh(repo))
     _refresh_writes(repo)

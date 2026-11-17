@@ -14,6 +14,8 @@ from pathlib import Path
 import pytest
 
 import il_state
+import sim_counts
+import stakes_state
 import modules.advice_runner as ar
 import modules.data_loader as dl
 import modules.report_builder as rb
@@ -36,29 +38,35 @@ def off_report():
     the launch week forced to 1 (so the old rule would have run and spoken),
     every entry to the advice engine spied on."""
     mp = pytest.MonkeyPatch()
-    calls = []
+    try:   # undone however the build ends: a raise used to leak these patches into later
+           # tests (test_section10_rules saw the spies on 11-16; task 50)
+        calls = []
 
-    def spy(name):
-        def f(*a, **k):
-            calls.append(name)
-            raise AssertionError(f"{name} called with the advice off")
-        return f
-    mp.setattr(dl, "SEASON_CONFIG", dict(dl.SEASON_CONFIG, legacy_advice="off"))
-    mp.setattr(dl, "ADVICE_PUBLISH_FROM_WEEK", 1)
-    mp.setattr(ar, "ADVICE_PUBLISH_FROM_WEEK", 1)
-    mp.setattr(ar, "build_advice", spy("build_advice"))
-    mp.setattr(ar, "run_advice_safely", spy("run_advice_safely"))
-    mp.setattr(rb, "_run_advice_guarded", spy("_run_advice_guarded"))
-    mp.setattr(rb, "build_season_performers", lambda *a, **k: {})   # no Yahoo in tests
-    data = dl.load_all_data(ROOT, current_week=1)
-    data.il_slots = il_state.as_last_synced(2)
-    from modules.fetch_injury_statuses import Tags as _Tags
-    report = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
-                                   num_title_sims=60, num_betting_sims=100, seed=1)
-    mp.undo()
+        def spy(name):
+            def f(*a, **k):
+                calls.append(name)
+                raise AssertionError(f"{name} called with the advice off")
+            return f
+        mp.setattr(dl, "SEASON_CONFIG", dict(dl.SEASON_CONFIG, legacy_advice="off"))
+        mp.setattr(dl, "ADVICE_PUBLISH_FROM_WEEK", 1)
+        mp.setattr(ar, "ADVICE_PUBLISH_FROM_WEEK", 1)
+        mp.setattr(ar, "build_advice", spy("build_advice"))
+        mp.setattr(ar, "run_advice_safely", spy("run_advice_safely"))
+        mp.setattr(rb, "_run_advice_guarded", spy("_run_advice_guarded"))
+        mp.setattr(rb, "build_season_performers", lambda *a, **k: {})   # no Yahoo in tests
+        stakes_state.state(mp, 1)      # a week-1 replay states its stakes (tests/stakes_state.py)
+        sim_counts.small(mp)           # paths, not counts (tests/sim_counts.py)
+        data = dl.load_all_data(ROOT, current_week=1)
+        data.il_slots = il_state.as_last_synced(2)
+        from modules.fetch_injury_statuses import Tags as _Tags
+        report = rb.build_stats_report(data, 1, run_simulations=True, injury_statuses=_Tags.none(),
+                                       num_title_sims=60, num_betting_sims=100, seed=1)
+    finally:
+        mp.undo()
     return report, calls
 
 
+@pytest.mark.slow
 def test_the_advice_engine_is_never_called_with_the_switch_off(off_report):
     report, calls = off_report
     assert calls == []
@@ -72,6 +80,7 @@ def _section10(report):
     return fmt.format_section_10_rumor_mill(report, fmt.build_lookup_tables(report))
 
 
+@pytest.mark.slow
 def test_section_10_markdown_has_the_one_line_and_no_c2c3(off_report):
     md = _section10(off_report[0])
     assert md.count(LINE) == 1
@@ -81,6 +90,7 @@ def test_section_10_markdown_has_the_one_line_and_no_c2c3(off_report):
         assert gone not in md
 
 
+@pytest.mark.slow
 def test_section_10_html_has_the_one_line_and_no_c2c3(off_report):
     nhg = _load("newsletter_html_generator")
     out = nhg.generate_html("Week 1", "sub", [("Rumor Mill", "Some rumors.")],
@@ -96,6 +106,7 @@ def _strip_advice(md: str, advice: dict) -> str:
     return md.replace(block, "", 1)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("on_advice", [
     # "on" as it would print: the published engine block ...
     {"ran": True, "published": True, "launched": True, "week": 1, "for_week": 2,
@@ -110,6 +121,7 @@ def test_the_rest_of_section_10_is_unchanged(off_report, on_advice):
         _strip_advice(_section10(on), on_advice)
 
 
+@pytest.mark.slow
 def test_off_keeps_the_old_trade_ideas_in_the_rumor_mill(off_report):
     """Nick, 11-02 ("B is fine for Rumor Mill"): with the switch "off", C2/C3
     never launched, so the rumor mill's old heuristic trade ideas and

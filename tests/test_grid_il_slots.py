@@ -14,6 +14,8 @@ import pytest
 
 from modules import schedule_strength as ss
 import il_state
+import sim_counts
+import stakes_state
 
 ROOT = Path(__file__).resolve().parents[1]
 MON, TUE = date(2026, 10, 26), date(2026, 10, 27)
@@ -73,14 +75,21 @@ def real():
         tags = tag_records.as_tags(tag_records.latest(ROOT))
     except tag_records.TagRecordError as e:
         pytest.skip(f"no tag record in this checkout: {e}")
-    data = load_all_data(ROOT, current_week=1)
-    data.il_slots = il_state.as_last_synced(2)
-    up = ss.build_schedule_strength(data, 1, injury_statuses=tags)["upcoming_week"]
-    teams = load_all_team_projections(data)
-    week_teams, mask = week_rosters(for_run(data, teams, tags), teams, 2)
+    mp = pytest.MonkeyPatch()
+    stakes_state.state(mp, 1)          # a week-1 replay states its stakes (tests/stakes_state.py)
+    sim_counts.small(mp)               # paths, not counts (tests/sim_counts.py)
+    try:
+        data = load_all_data(ROOT, current_week=1)
+        data.il_slots = il_state.as_last_synced(2)
+        up = ss.build_schedule_strength(data, 1, injury_statuses=tags)["upcoming_week"]
+        teams = load_all_team_projections(data)
+        week_teams, mask = week_rosters(for_run(data, teams, tags), teams, 2)
+    finally:
+        mp.undo()
     return data, up, week_teams, mask or {}
 
 
+@pytest.mark.slow
 def test_the_grid_and_the_betting_simulator_agree_on_who_can_play(real):
     data, up, week_teams, mask = real
     assert up["il_slots"] == {m: sorted(v) for m, v in sorted(mask.items()) if v}
@@ -90,6 +99,7 @@ def test_the_grid_and_the_betting_simulator_agree_on_who_can_play(real):
         assert grid_available == sim_available, m
 
 
+@pytest.mark.slow
 def test_every_il_occupant_counts_zero_games_in_the_locked_week(real):
     data, up, _teams, mask = real
     assert any(mask.values()), "the last sync put nobody on IL: nothing to check"

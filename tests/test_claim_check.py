@@ -48,6 +48,7 @@ def _check(prepared, week, text):
 
 # ------------------------------------------------------------ real drafts
 
+@pytest.mark.slow
 @needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_clean_published_draft_stays_clean(prepared):
     """Week 17 was published, its report is the one it was written from,
@@ -55,6 +56,7 @@ def test_clean_published_draft_stays_clean(prepared):
     assert _check(prepared, 17, _draft(17)) == []
 
 
+@pytest.mark.slow
 @needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_false_positive_budget_week20(prepared):
     """Week 20 has two known false positives (a sum across paragraphs; a
@@ -67,6 +69,7 @@ def test_false_positive_budget_week20(prepared):
         ["27%"]
 
 
+@pytest.mark.slow
 @needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_catches_the_errors_that_shipped_in_week19(prepared):
     """Two arithmetic errors that went out in the published week 19
@@ -77,6 +80,7 @@ def test_catches_the_errors_that_shipped_in_week19(prepared):
     assert ("unsupported_number", "1684.40") in found
 
 
+@pytest.mark.slow
 @needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_catches_planted_slips(prepared):
     text = _draft(20)
@@ -89,6 +93,7 @@ def test_catches_planted_slips(prepared):
         assert lines, f"planted {good}->{bad} not caught"
 
 
+@pytest.mark.slow
 @needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_table_row_numbers_belong_to_the_row_player(prepared):
     """A row's fantasy-team column must not license every number that
@@ -363,6 +368,7 @@ def _vocab(prepared):
     return prepared[17][1]
 
 
+@pytest.mark.slow
 @needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_dollars_in_a_week_nothing_was_decided_are_findings(prepared):
     f = cc.money_findings(MONEY_DRAFT, _vocab(prepared), [])
@@ -370,12 +376,14 @@ def test_dollars_in_a_week_nothing_was_decided_are_findings(prepared):
         ("money_without_event", 1, "$180")]          # section 9 is exempt
 
 
+@pytest.mark.slow
 @needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_dollars_in_a_week_money_was_decided_pass(prepared):
     assert cc.money_findings(MONEY_DRAFT, _vocab(prepared),
                              [["safe_from_paying", "Nick"]]) == []
 
 
+@pytest.mark.slow
 @needs_state("archive/2025-26", why="runs the claim check on the drafts and reports that actually shipped in 2025-26")
 def test_unknown_money_events_raise_rather_than_pass(prepared):
     with pytest.raises(ValueError):

@@ -103,6 +103,7 @@ def _shift(frame):
 
 
 # 1 -- the rosters must be synced for the week the PLAYERLIST was fetched in
+@pytest.mark.slow
 def test_rosters_from_an_earlier_week_than_the_fetch_fail(check, capsys):
     frame = _frame(SNAP / "PLAYERLIST_2026-10-13.xlsx").head(30)
     _fetched(check, frame, datetime(2026, 10, 27, 10, 0))              # week 2
@@ -132,6 +133,7 @@ def test_rosters_synced_earlier_in_the_same_week_pass(check, capsys):
 
 
 # 2 -- the GP comparison compares like with like
+@pytest.mark.slow
 def test_a_pre_season_baseline_against_an_in_season_file_is_said_not_failed(check, capsys):
     shutil.copy2(SNAP / "PLAYERLIST_2026-10-13.xlsx", check.SNAPSHOTS / "PLAYERLIST_2026-10-13.xlsx")
     _fetched(check, _in_season(_frame(SNAP / "PLAYERLIST_2026-10-13.xlsx")),
@@ -142,6 +144,7 @@ def test_a_pre_season_baseline_against_an_in_season_file_is_said_not_failed(chec
     assert "signature of stats shifted" not in out
 
 
+@pytest.mark.slow
 @needs_state("config/snapshots/PLAYERLIST_2026-10-05.xlsx", why="Yahoo's real 10-05 -> 10-13 refresh is the negative control")
 def test_a_one_row_shift_against_the_same_baseline_still_fails(check, capsys):
     shutil.copy2(SNAP / "PLAYERLIST_2026-10-05.xlsx", check.SNAPSHOTS / "PLAYERLIST_2026-10-05.xlsx")
@@ -281,6 +284,7 @@ def test_an_override_reaches_the_written_file_and_survives_a_refetch(tmp_path, m
 
 
 # 6 -- --snapshot records the week even when the gate fails
+@pytest.mark.slow
 def test_snapshot_is_written_from_a_failing_file_and_the_exit_stays_non_zero(check, capsys):
     frame = _frame(SNAP / "PLAYERLIST_2026-10-13.xlsx")
     frame.loc[0, ["player_total_proj_FP", "player_proj_GP", "projectedFPPG"]] = 0.0   # Yahoo's zero row
@@ -349,6 +353,7 @@ def _live_pair(check, live=None):
     _rosters(check, frame["player_name"].head(10), "2026-10-26T23:04:00")
 
 
+@pytest.mark.slow
 @needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
 def test_an_ordinary_pair_of_fetches_days_apart_does_not_fail(check, capsys, on_1028):
     _live_pair(check)
@@ -359,6 +364,7 @@ def test_an_ordinary_pair_of_fetches_days_apart_does_not_fail(check, capsys, on_
     assert "larger share" not in out
 
 
+@pytest.mark.slow
 @needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
 def test_a_shifted_live_file_fails_and_names_the_rows(check, capsys, on_1028):
     _live_pair(check, _shift(_frame(SNAP / "PLAYERLIST_2026-10-28.xlsx")))
@@ -368,6 +374,7 @@ def test_a_shifted_live_file_fails_and_names_the_rows(check, capsys, on_1028):
     assert "Luka Don" in out and "LAL -> DEN" in out
 
 
+@pytest.mark.slow
 @needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
 def test_a_shift_confined_to_a_few_rows_still_fails_on_its_neighbours(check, capsys, on_1028):
     live = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx")
@@ -377,6 +384,7 @@ def test_a_shift_confined_to_a_few_rows_still_fails_on_its_neighbours(check, cap
     assert "on the team the player in the next or previous row had" in capsys.readouterr().out
 
 
+@pytest.mark.slow
 @needs_state("config/snapshots/PLAYERLIST_2026-10-26.xlsx", "config/snapshots/PLAYERLIST_2026-10-28.xlsx", why="a real pair of in-season fetches two days apart is the negative control")
 def test_a_real_trade_is_reported_not_failed(check, capsys, on_1028):
     live = _frame(SNAP / "PLAYERLIST_2026-10-28.xlsx").copy()
@@ -390,6 +398,7 @@ def test_a_real_trade_is_reported_not_failed(check, capsys, on_1028):
     assert "2 player(s) changed NBA teams" in out and "LAL -> MIA" in out and "BOS -> POR" in out
 
 
+@pytest.mark.slow
 @needs_state("config/snapshots/PLAYERLIST_2026-10-05.xlsx", why="Yahoo's real 10-05 -> 10-13 refresh is the negative control")
 def test_the_pre_season_path_still_fails_a_shift_at_the_measured_rate(check, capsys):
     import re

@@ -96,6 +96,7 @@ def _six_week_regular_season(monkeypatch):
 
 
 # 1 -- one week, one truth, across all three surfaces
+@pytest.mark.slow
 def test_a_title_odds_week_is_the_betting_lines_week(monkeypatch):
     data, teams = _world()
     seen = _capture(monkeypatch)
@@ -111,6 +112,7 @@ def test_a_title_odds_week_is_the_betting_lines_week(monkeypatch):
 
 
 # 2 -- the feature: one wire move moves the number, slightly and reproducibly
+@pytest.mark.slow
 def test_one_waiver_move_moves_the_odds_slightly_and_reproducibly():
     """An ordinary wire move in an open race (world 1: Garrett 83%, Benton and
     Nick ~8-9%): Benton drops his worst player for one 4 points a game better
@@ -131,6 +133,7 @@ def test_one_waiver_move_moves_the_odds_slightly_and_reproducibly():
 
 
 # 3 -- isolation
+@pytest.mark.slow
 def test_a_roster_change_leaves_the_other_managers_weeks_identical(monkeypatch):
     data, teams = _world()
     seen = _capture(monkeypatch)
@@ -146,6 +149,7 @@ def test_a_roster_change_leaves_the_other_managers_weeks_identical(monkeypatch):
 
 
 # 4 -- no global random
+@pytest.mark.slow
 def test_stdlib_random_cannot_move_title_odds():
     data, teams = _world()
     random.seed(1); a = _odds(data, teams).title_odds
@@ -174,6 +178,7 @@ def test_no_playerlog_calibration_and_no_1500_point_default():
 
 
 # 6 -- reproducible and still random
+@pytest.mark.slow
 def test_same_seed_same_odds_different_seed_different_odds():
     """Same seed, identical odds -- that is the reproducibility guarantee.
 
@@ -209,6 +214,7 @@ def test_the_global_random_samplers_are_gone():
         assert not hasattr(projections, name), name
 
 
+@pytest.mark.slow
 def test_no_module_imports_stdlib_random():
     root = Path(__file__).resolve().parent.parent
     offenders = [str(p.relative_to(root)) for d in ("modules", "scripts")
@@ -220,6 +226,7 @@ def test_no_module_imports_stdlib_random():
 
 
 # the shape the four consumers read is unchanged
+@pytest.mark.slow
 def test_the_public_shape_is_unchanged():
     data, teams = _world()
     r = _odds(data, teams, n=500)
@@ -233,6 +240,7 @@ def test_the_public_shape_is_unchanged():
     assert all(abs(g - WEEKS) < 1e-9 for g in exp_games)              # W + L + T = games left
 
 
+@pytest.mark.slow
 def test_tags_reach_title_odds(monkeypatch):
     """An O tag costs at most three of his team's games (MAX_TAG_GAMES), so
     over a 15-week season it moved expected wins by 0.02 -- this test used to

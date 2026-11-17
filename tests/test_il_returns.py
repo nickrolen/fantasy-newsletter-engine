@@ -211,6 +211,7 @@ def test_the_plan_and_advice_choose_the_same_player_on_the_same_roster():
                            advice_escalated(r), atol=1e-9), x
 
 
+@pytest.mark.slow
 def test_a_protected_low_projection_keeper_is_never_the_activation_drop_in_advice():
     """Weak (5 FPPG, worth nothing long-run) is Nick's most likely keeper:
     the step drops someone else, and no move, backup or follow-up names him."""
@@ -259,6 +260,7 @@ def test_the_il_follow_up_is_the_plans_activation_drop():
 # C. advice shows the return (s.3)
 # =============================================================================
 
+@pytest.mark.slow
 def test_a_return_at_the_chat_moves_window_is_shown_before_the_pick_everywhere():
     """advice_latest.json's "activation", the history row, the summary line,
     advice_show.py and the hub card: "Hurt is back for week 2: activate him
@@ -291,6 +293,7 @@ def test_a_return_at_the_chat_moves_window_is_shown_before_the_pick_everywhere()
         assert v.index("Hurt is back for week 2") < v.index('<div class="ad-m">')
 
 
+@pytest.mark.slow
 def test_the_pick_is_priced_after_the_step_and_cannot_conflict_with_it():
     """The pick is a move from the roster after the step: it never drops the
     player just activated (nor puts him in IL), never drops the step's drop
@@ -320,6 +323,7 @@ def test_the_pick_is_priced_after_the_step_and_cannot_conflict_with_it():
             av.recommend(inp, "Nick", FAST, priced=[replace(good, move=bad)])
 
 
+@pytest.mark.slow
 def test_no_return_changes_nothing_in_the_output():
     fx = returner_fixture(hurt=False)
     inp = chat_inputs(fx)
@@ -391,6 +395,7 @@ def test_an_entry_return_before_the_window_is_shown_and_a_midweek_one_waits():
 # D. the real plan, unstubbed (the changed run path)
 # =============================================================================
 
+@pytest.mark.slow
 def test_the_real_plans_activation_drops_are_the_one_rules():
     """roster_plan.for_run on the real state, nothing stubbed: the keeper
     watch, the stakes file and the run's LongRun. Every activation drop is

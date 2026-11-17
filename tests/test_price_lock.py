@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from modules import price_lock as pl                      # noqa: E402
 from league_state import needs_state                      # noqa: E402
+import sim_counts                                    # noqa: E402
 
 fns = importlib.import_module("fetch_nba_schedule")
 rl = importlib.import_module("refresh_lines")
@@ -225,6 +226,7 @@ def _with_tips(schedule, hh=19):
     return out
 
 
+@pytest.mark.slow
 def test_a_trigger_during_the_lock_prices_nothing_and_writes_nothing(svc):
     svc.box["data"]["nba_schedule"] = _with_tips(_data()[0].nba_schedule)
     assert svc(D[0], now=at(D[0], 0, 30))["outcome"] == "priced"
@@ -295,6 +297,7 @@ def _calls(fn):
     return out
 
 
+@pytest.mark.slow
 def test_every_path_that_writes_a_live_price_consults_the_lock():
     """refresh_lines.price is the one writer of a priced live line (and its
     calibration records). Its callers are the manual refresh and the service,
@@ -311,6 +314,7 @@ def test_every_path_that_writes_a_live_price_consults_the_lock():
     assert sorted(callers) == ["refresh_lines.py:refresh", "refresh_service.py:run"]
 
 
+@pytest.mark.slow
 def test_only_the_lock_and_the_fetch_read_a_tip_time():
     readers = sorted(p.name for p in [*(ROOT / "modules").glob("*.py"), *(ROOT / "scripts").glob("*.py")]
                      if "tip_utc" in p.read_text(encoding="utf-8"))
@@ -324,9 +328,11 @@ def test_only_the_lock_and_the_fetch_read_a_tip_time():
 
 # ============================== 4. tip times change no price (readers date-only)
 
+@pytest.mark.slow
 @needs_state("data/LINEUPS.xlsx", "data/PLAYERLOG.xlsx", "data/PLAYERLIST.xlsx",
              "config/RECORDS.json", why="prices the real week-2 line and title odds twice")
-def test_tip_times_in_the_schedule_change_no_line_and_no_title_odds():
+def test_tip_times_in_the_schedule_change_no_line_and_no_title_odds(monkeypatch):
+    sim_counts.small(monkeypatch)     # a before/after equality: paths, not counts (tests/sim_counts.py)
     from modules.data_loader import load_all_data
     from modules.fetch_injury_statuses import Tags
     from modules.simulator_title_odds import run_title_odds_simulation

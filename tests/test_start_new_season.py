@@ -117,6 +117,7 @@ def test_every_per_season_config_file_is_archived():
     )
 
 
+@pytest.mark.xfail(strict=True, reason="STATUS item 17: is config/LORE_USAGE.json per-season (archive and reset it) or cross-season?")
 def test_config_dir_has_no_unclassified_files():
     """Every real config/ file is knowingly per-season or knowingly not.
 

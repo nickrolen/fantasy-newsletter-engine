@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
+import sim_counts                                       # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -103,6 +104,7 @@ def _inputs(tmp_path, *, synced=datetime(2026, 11, 3, 0, 1, tzinfo=LA),
     return SimpleNamespace(injury_overrides={"last_updated": "2026-11-02", "players": []})
 
 
+@pytest.mark.slow
 def test_a_430pm_roster_change_is_used_and_a_move_after_the_close_refuses(tmp_path):
     data = _inputs(tmp_path, txn_times=[datetime(2026, 11, 2, 16, 30, tzinfo=LA)])
     info = cl.check_inputs(tmp_path, data, monday=MONDAY, first_tip=FIRST_TIP, close=CLOSE)
@@ -127,6 +129,7 @@ def test_projections_fetched_after_the_first_tip_refuse(tmp_path):
         cl.check_inputs(tmp_path, data, monday=MONDAY, first_tip=FIRST_TIP, close=CLOSE)
 
 
+@pytest.mark.slow
 def test_a_naive_fetch_stamp_refuses_rather_than_guess_its_zone(tmp_path):
     data = _inputs(tmp_path, fetched=datetime(2026, 11, 2, 6, 46))
     with pytest.raises(cl.ClosingRefused, match="no time zone"):
@@ -144,6 +147,7 @@ def _real_or_skip():
         pytest.skip("league state (and a tag record) not in this checkout")
 
 
+@pytest.mark.slow
 def test_it_refuses_before_the_close():
     _real_or_skip()
     with pytest.raises(cl.ClosingRefused, match="closes"):
@@ -163,6 +167,7 @@ def priced_twice(tmp_path_factory):
     mp = pytest.MonkeyPatch()
     mp.setattr(tr, "for_close", lambda base, monday, first: dict(real_row, league_day="2026-11-02"))
     mp.setattr(cl, "check_inputs", lambda *a, **k: {"overrides_last_updated": "x"})
+    sim_counts.small(mp)     # the roster plan's long-run sims: paths, not counts (tests/sim_counts.py)
     out = tmp_path_factory.mktemp("closing")
     try:
         now = datetime(2026, 11, 3, 9, 0, tzinfo=LA)
@@ -180,12 +185,14 @@ def priced_twice(tmp_path_factory):
             "out": out, "tags": tr.as_tags(real_row)}
 
 
+@pytest.mark.slow
 def test_the_second_run_is_byte_identical(priced_twice):
     assert priced_twice["first"]["outcome"] == "priced"
     assert priced_twice["second"]["outcome"] == "unchanged"
     assert priced_twice["files1"] == priced_twice["files2"]
 
 
+@pytest.mark.slow
 def test_no_monday_result_is_banked_and_it_is_priced_as_at_the_close(priced_twice):
     line = priced_twice["first"]["line"]
     assert line["completed_dates"] == [] and line["as_of"] == "2026-11-02"
@@ -196,6 +203,7 @@ def test_no_monday_result_is_banked_and_it_is_priced_as_at_the_close(priced_twic
     assert line["seed"] == seed                      # the week's seed
 
 
+@pytest.mark.slow
 def test_its_records_are_closing_records_at_the_close(priced_twice):
     from modules import calibration_log as cal
     recs = cal.load_log(priced_twice["out"])["lines"]
@@ -203,7 +211,9 @@ def test_its_records_are_closing_records_at_the_close(priced_twice):
     assert {r["as_of"] for r in recs} == {priced_twice["first"]["line"]["closing"]["window_close"]}
 
 
-def test_title_odds_at_the_close_use_the_same_inputs(priced_twice):
+@pytest.mark.slow
+def test_title_odds_at_the_close_use_the_same_inputs(priced_twice, monkeypatch):
+    sim_counts.small(monkeypatch)                  # as the fixture priced it
     from modules import title_odds_run as tor
     from modules.data_loader import load_all_data
     row = priced_twice["first"]["row"]

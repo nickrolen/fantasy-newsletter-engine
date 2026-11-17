@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """
-run_test_chunks.py -- the full test suite in pieces that each finish inside a
-time cap (Nick, 11-10: builders' tool calls stop after 3 minutes, and the
-suite takes far longer). Builders run the related tests while working and the
-full suite ONCE at the end, with this.
+run_test_chunks.py -- the test suite in pieces that each finish inside a time
+cap (Nick, 11-10: builders' tool calls stop after 3 minutes).
 
-    python scripts/run_test_chunks.py --chunk K --of N --out-dir DIR
+The tiers (task 50, 11-16; pytest.ini, WEEKLY_WORKFLOW.md Step 0b):
+  - builders run the related tests while working, and the FAST TIER at the
+    end, in one call: python -m pytest -m "not slow" -n 3 -q -p no:cacheprovider
+  - Nick runs the full suite before a push:
+    python -m pytest -q -p no:cacheprovider -n 4 -rfE
+  - this script is for a builder who needs the slow tests too, or whose fast
+    tier will not fit one call: one chunk per call, never in parallel.
+
+    python scripts/run_test_chunks.py --chunk K --of N --out-dir DIR [--fast]
         runs test files K, K+N, K+2N, ... (sorted) with pytest -n WORKERS,
         writes DIR/suite_K_of_N.log, prints the failures and the count line.
+        --fast: only the fast tier (-m "not slow").
     python scripts/run_test_chunks.py --summary --of N --out-dir DIR
         adds up every chunk's log: passed, failed, skipped, and each FAILED
         line, and names any chunk with no log or a timed-out log.
@@ -34,7 +41,7 @@ def files_for(k: int, n: int) -> list:
     return [f for i, f in enumerate(allf, start=1) if i % n == k % n]
 
 
-def run_chunk(k: int, n: int, out: Path, workers: int, timeout: int) -> int:
+def run_chunk(k: int, n: int, out: Path, workers: int, timeout: int, fast: bool = False) -> int:
     k = k % n                    # chunk N is chunk 0 (same files): one log name for both
     files = files_for(k, n)
     if not files:
@@ -42,7 +49,13 @@ def run_chunk(k: int, n: int, out: Path, workers: int, timeout: int) -> int:
         return 0
     out.mkdir(parents=True, exist_ok=True)
     log = out / f"suite_{k}_of_{n}.log"
-    cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rfs"]
+    # --collect-in-virtualenv skips pytest's per-path virtualenv probe, which it
+    # repeats for every file named on the command line: on the VM's shared
+    # folder that was seconds per chunk (task 50). tests/ holds no virtualenv.
+    cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-rfs",
+           "--collect-in-virtualenv"]
+    if fast:
+        cmd += ["-m", "not slow"]
     if workers > 1:
         cmd += ["-n", str(workers)]
     try:
@@ -95,6 +108,7 @@ def main(argv=None) -> int:
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--timeout", type=int, default=170, help="seconds per chunk (default 170)")
     ap.add_argument("--summary", action="store_true")
+    ap.add_argument("--fast", action="store_true", help='only the fast tier (-m "not slow")')
     a = ap.parse_args(argv)
     out = Path(a.out_dir)
     if not out.is_absolute():
@@ -103,7 +117,7 @@ def main(argv=None) -> int:
         return summary(a.of, out)
     if a.chunk is None:
         ap.error("--chunk K is required (or --summary)")
-    return run_chunk(a.chunk, a.of, out, a.workers, a.timeout)
+    return run_chunk(a.chunk, a.of, out, a.workers, a.timeout, a.fast)
 
 
 if __name__ == "__main__":

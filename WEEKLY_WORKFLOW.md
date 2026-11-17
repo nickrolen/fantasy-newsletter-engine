@@ -109,24 +109,41 @@ python scripts\verify_project_integrity.py --baseline
 python -m pip install -r requirements.txt
 ```
 
-`-n 2` needs `pytest-xdist`, which that line installs along with everything
+`-n` needs `pytest-xdist`, which that line installs along with everything
 else; `python -m pip install pytest-xdist` on its own does just this. Without it
-the command below fails with `error: unrecognized arguments: -n` -- that is a
+the commands below fail with `error: unrecognized arguments: -n` -- that is a
 missing package, not a broken suite.
 
-Then, every week:
+**Two tiers** (task 50, 11-16; `pytest.ini`, `tests/conftest.py`). About 3,100
+tests; the time is in a few hundred real-state, simulation and git tests,
+which are marked `slow`.
 
-```cmd
-python -m pytest tests\ -q -n 2
-```
+- **Nick, before a push (and here at Step 0b): the full suite.**
 
-**Always `-n 2`.** The suite is around 1,180 tests and takes about 145 seconds
-in one process, which is over the 180-second cap on a single command run
-against this machine from an automated session -- so a serial run cannot be
-verified in one go any more. On two cores it is about 90 seconds. The time is
-spread evenly across the suite, with the slowest single test at 7.8 seconds:
-there is nothing concentrated to fix, and nothing is marked slow or skipped to
-get the number down.
+  ```cmd
+  python -m pytest -q -p no:cacheprovider -n 4 -rfE
+  ```
+
+- **Builders: the related tests while working, and the fast tier at the end**
+  (everything not marked slow, one command, in one tool call):
+
+  ```cmd
+  python -m pytest -m "not slow" -n 3 -q -p no:cacheprovider
+  ```
+
+  In the desktop VM (2 cores, a slow shared folder) prefix it with
+  `PYTHONPYCACHEPREFIX=$HOME/.pycache` so pandas and numpy are not recompiled
+  by every worker. A builder who needs the slow tests too runs them in pieces:
+  `python scripts/run_test_chunks.py --chunk K --of N --out-dir _to_delete\<job>`,
+  one chunk per call (`--fast` runs only the fast tier the same way).
+
+- **The fast tier stays fast.** In a `-m "not slow"` run, a test that is not
+  marked slow and takes over 3 s (setup + call) fails with its time; mark it
+  `@pytest.mark.slow` or make it faster. `tests/test_tiers.py` pins the guard
+  and keeps the heaviest tests on record in the slow tier.
+- **xfail is a decision, not a pass.** STATUS item 17's open questions are
+  marked `xfail(strict=True)` with the question as the reason: they show as
+  `x`, and turn red if they start passing.
 
 Exit code 0 with no failures is the bar. A failure is a stop, not a warning.
 

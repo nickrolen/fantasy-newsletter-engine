@@ -16,6 +16,8 @@ import ast
 import re
 from pathlib import Path
 
+import pytest
+
 from modules.data_loader import LEAGUE_STRUCTURE, ROSTER_SLOTS
 from modules.report_builder import _pick_is_keeper
 
@@ -57,6 +59,7 @@ KEEPER_BOUNDARY_PATTERN = re.compile(
 )
 
 
+@pytest.mark.slow
 def test_no_hardcoded_keeper_round_boundary_in_engine():
     """Guard against the pattern coming back somewhere new."""
     offenders = []

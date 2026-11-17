@@ -133,6 +133,7 @@ def _real_data():
     return load_all_data(ROOT, current_week=None)
 
 
+@pytest.mark.slow
 def test_kawhis_real_entry_is_still_zero_in_the_weeks_he_is_out_after_the_switch():
     """Thursday 11-05, after Monday 11-02's window closed: the columns are
     weeks 4 and 5, and Kawhi Leonard's real entry (back 11-23) plays 0 in both."""
@@ -430,6 +431,7 @@ def real_moves():
             "feed": hub_moves.build(ROOT, data.schedule, week, managers=list(MANAGERS), budget=3)}
 
 
+@pytest.mark.slow
 def test_real_every_transaction_lands_in_one_week_by_add_budget_week(real_moves):
     sched = real_moves["schedule"]
     txs = tlog.transactions(ROOT)
@@ -454,6 +456,7 @@ def test_real_every_transaction_lands_in_one_week_by_add_budget_week(real_moves)
     assert {k: v for k, v in n_items.items() if v} == {k: v for k, v in want.items() if v}
 
 
+@pytest.mark.slow
 def test_real_adds_used_equal_adds_by_budget_week(real_moves):
     counts = tr.adds_by_budget_week(ROOT, real_moves["schedule"])
     for t in real_moves["feed"]["weeks"]:
@@ -465,6 +468,7 @@ def test_real_adds_used_equal_adds_by_budget_week(real_moves):
                                                   for m in [u["manager"] for u in t["used"]]]
 
 
+@pytest.mark.slow
 def test_real_pre_season_and_voided_moves(real_moves):
     tabs = {t["key"]: t for t in real_moves["feed"]["weeks"]}
     pre = [x["what"] for x in tabs["pre"]["items"]]
@@ -514,6 +518,7 @@ def cells(tab_, m):
     return [int(c["n"]) for c in next(r for r in tab_["rows"] if r["manager"] == m)["cells"]]
 
 
+@pytest.mark.slow
 def test_next_weeks_grid_counts_a_pending_claim_drop_and_il_placement_and_this_week_does_not_move():
     w = make_world(now=lat("2026-11-05"), tags={"Pat Benton01": "O"})
     rows = []

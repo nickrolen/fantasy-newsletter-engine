@@ -394,6 +394,7 @@ def _brute_best(players):
     return best
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("seed", range(60))
 def test_exact_fill_matches_brute_force(seed):
     """Most starters, then most projected points -- checked by exhaustion."""

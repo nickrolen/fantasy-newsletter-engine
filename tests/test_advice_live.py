@@ -147,6 +147,7 @@ def test_the_phases():
 # C. the outputs
 # =============================================================================
 
+@pytest.mark.slow
 def test_one_writer_of_both_outputs():
     hits = []
     for p in list((ROOT / "modules").glob("*.py")) + list((ROOT / "scripts").glob("*.py")):
@@ -288,6 +289,7 @@ REAL = [ROOT / "output" / "tag_records.jsonl", ROOT / "output" / "stakes.json", 
         ROOT / "data" / "PLAYERLIST.xlsx", ROOT / "data" / "IL_SLOTS.json"]
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(not all(p.is_file() for p in REAL), reason="needs the league's real state")
 def test_a_nightly_runs_advice_step_on_the_real_state_writes_both_outputs(tmp_path, monkeypatch):
     """The real step, nothing stubbed in it: nightly.Run.step_advice ->

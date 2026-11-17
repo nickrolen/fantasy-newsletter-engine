@@ -62,6 +62,7 @@ def test_every_shared_recommendation_names_the_others():
     assert plans[2].this_week[0].contested_with == []
 
 
+@pytest.mark.slow
 def test_an_unprojected_player_is_never_the_suggested_drop():
     """C1 values him at 0.0 -- he would always look like the free drop."""
     w = _world()
@@ -73,6 +74,7 @@ def test_an_unprojected_player_is_never_the_suggested_drop():
     assert all(r.drop != "Deep Guy" for r in plan.this_week)
 
 
+@pytest.mark.slow
 def test_the_plan_respects_the_add_budget_and_never_redrops_its_own_add():
     w = _world(seed=4)
     ctxs = {"this_week": (_ctx(w, sims=40), _ctx(w, sims=200))}
@@ -82,6 +84,7 @@ def test_the_plan_respects_the_add_budget_and_never_redrops_its_own_add():
     assert not adds & {r.drop for r in plan.this_week}
 
 
+@pytest.mark.slow
 def test_no_keepability_means_no_drop_advice_and_says_so():
     w = _world()
     ctxs = {"this_week": (_ctx(w, sims=40), _ctx(w, sims=200))}
@@ -155,6 +158,7 @@ def test_replacement_is_ranked_for_this_roster_not_the_global_list():
     assert adv.Refill(c, c, ["BigFA", "GuardFA"], k=2).kth("Nick", open_slot) == "GuardFA"
 
 
+@pytest.mark.slow
 def test_a_star_with_no_games_this_week_is_not_cut_to_stream():
     """The LeBron bug. His team is off this week, so the one-week window
     says cutting him for a streamer is pure profit; he plays next week, and
@@ -203,6 +207,7 @@ def test_rest_of_season_without_a_replacement_rank_refuses():
         adv.waiver_plan("Nick", ctxs, w[4], [], 1, 1)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("seed", range(6))
 def test_the_refill_screen_can_only_lower_the_refill_value(seed, monkeypatch):
     """k-th best of a subset <= k-th best of the full set. The screen's only
@@ -229,6 +234,7 @@ def test_c2_charge_and_c3_credit_are_one_function():
     assert src.count("class Refill") == 1 and "_Replacement" not in src
 
 
+@pytest.mark.slow
 def test_drop_cost_is_value_minus_refill_of_the_same_slot():
     """cost(d) = max(0, -MV(add r_k, drop d)) = value of d - refill credit,
     both measured against roster - d."""

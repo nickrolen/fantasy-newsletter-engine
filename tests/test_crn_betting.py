@@ -103,6 +103,7 @@ def test_the_change_does_move_haydens_own_line():
 
 
 # 2 -- order independence
+@pytest.mark.slow
 def test_pricing_matchups_in_another_order_gives_identical_lines():
     data, week, teams = _world(seed=2)
     pairs = [("Nick", "Benton"), ("Hayden", "Garrett")]
@@ -153,6 +154,7 @@ def test_the_one_iteration_stream_path_is_gone():
 
 
 # 5 -- variance reduction
+@pytest.mark.slow
 def test_crn_at_least_halves_the_error_of_an_add():
     """Value an add as (with - without). Same seed for both: CRN. Different
     seeds: independent. The spread of the estimate across repetitions must
@@ -215,6 +217,7 @@ def test_marginal_values_existing_key_is_byte_identical():
     assert (absence.keyed_uniforms(7, "P3", MON, 100) == old).all()
 
 
+@pytest.mark.slow
 def test_there_is_exactly_one_crn_implementation():
     root = Path(__file__).resolve().parent.parent / "modules"
     hashers = [p.name for p in root.glob("*.py") if "blake2b" in p.read_text(encoding="utf-8")]

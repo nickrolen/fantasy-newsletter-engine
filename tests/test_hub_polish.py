@@ -303,6 +303,7 @@ def _kawhi_entry(data):
     return e[0]
 
 
+@pytest.mark.slow
 def test_kawhis_real_entry_plays_nothing_in_weeks_3_and_4():
     """On 11-04 (week 3): GL 0 and Next 0, whatever his tag, from his real
     entry on the real schedule, and the chip shows the entry's own return
@@ -359,6 +360,7 @@ def _games(r):
     return sum(int(r[k]) for k in ("g1", "g2", "g3") if r.get(k, "").isdigit())
 
 
+@pytest.mark.slow
 def test_real_kawhi_scores_nothing_and_ranks_below_every_healthy_free_agent_with_games(real_all_free_agents):
     p = real_all_free_agents
     rows = p["free_agents"]["rows"]
@@ -379,6 +381,7 @@ def test_real_kawhi_scores_nothing_and_ranks_below_every_healthy_free_agent_with
     assert healthy_with_games and max(healthy_with_games) < names.index("Kawhi Leonard")
 
 
+@pytest.mark.slow
 def test_real_free_agents_are_ranked_by_points_then_proj_then_name(real_all_free_agents):
     rows = real_all_free_agents["free_agents"]["rows"]
     keys = [(-float(r["pts"]), -float(r["proj"]), r["name"]) for r in rows]

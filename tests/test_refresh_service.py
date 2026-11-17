@@ -53,6 +53,7 @@ def svc(monkeypatch, tmp_path):
 
 
 # 1 -- no change: byte-identical; a tag change: a different line
+@pytest.mark.slow
 def test_no_change_is_byte_identical_and_a_tag_change_is_not(svc):
     svc(MON)                                         # the week's tag record starts Monday
     first = svc(D[2])
@@ -115,6 +116,7 @@ def test_an_override_that_does_not_govern_this_week_does_not_move_the_key(monkey
     assert k0 == k1
 
 
+@pytest.mark.slow
 def test_a_dirty_or_unknown_engine_never_serves_a_cached_line(svc):
     svc.box["engine"] = {"commit": "abc1234", "dirty": True}
     svc(MON)
@@ -125,6 +127,7 @@ def test_a_dirty_or_unknown_engine_never_serves_a_cached_line(svc):
     assert svc(D[2])["outcome"] == "priced"
 
 
+@pytest.mark.slow
 def test_a_manual_refresh_in_between_is_never_mistaken_for_the_cached_line(svc):
     svc(MON)
     svc(D[2])

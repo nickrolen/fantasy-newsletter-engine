@@ -344,6 +344,7 @@ def test_the_refetched_copy_is_read_when_present_by_both_the_loader_and_the_guar
     assert rg.schedule_file(eng) == (eng, rel)
 
 
+@pytest.mark.slow
 def test_the_copy_is_state_ignored_and_the_engine_file_is_not():
     from modules import state_manifest
     m = state_manifest.load(ROOT)

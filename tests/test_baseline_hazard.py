@@ -131,7 +131,10 @@ def seasons(live):
     data, teams = live
     on = _season(data, teams)
     mp = pytest.MonkeyPatch()
-    off = _season(data, teams, hazard=False, monkeypatch=mp)
+    try:
+        off = _season(data, teams, hazard=False, monkeypatch=mp)
+    finally:
+        mp.undo()                   # _season undoes on success; this covers a raise (task 50)
     return on, off
 
 
@@ -159,6 +162,7 @@ def seasons(live):
 # Re-derive a started-games band from this season once there are four to six
 # weeks of five-bench data.
 
+@pytest.mark.slow
 def test_reality_dispersion_and_points_per_started_game_inside_the_historical_bands(
         seasons, history_bands):
     m = _metrics(*seasons[0])
@@ -169,6 +173,7 @@ def test_reality_dispersion_and_points_per_started_game_inside_the_historical_ba
     assert abs(m["ppg"] / history_bands["ppg"] - 1) < 0.04, (m, history_bands)
 
 
+@pytest.mark.slow
 def test_started_games_is_reported_not_gated(seasons, history_bands):
     """Printed in every run (-s shows it; scripts/hazard_check.py prints it
     for a build). Asserted only to be a number, never to sit in a band."""
@@ -179,6 +184,7 @@ def test_started_games_is_reported_not_gated(seasons, history_bands):
     assert "not a gate" in lines[0]
 
 
+@pytest.mark.slow
 def test_reality_miss_rate_inside_the_range_real_seasons_produced(seasons, history_bands):
     """The hazard checked on what it models: the share of rostered team games
     a player misses, weeks 1-15, against the per-season range of the same
@@ -190,6 +196,7 @@ def test_reality_miss_rate_inside_the_range_real_seasons_produced(seasons, histo
     assert lo <= m["miss"] <= hi, (m["miss"], history_bands["miss"])
 
 
+@pytest.mark.slow
 def test_reality_check_fails_with_nobody_ever_hurt(seasons, history_bands):
     """The check bites, at any bench depth: with the hazard off the only
     misses left are INJURY_OVERRIDES entries, far below any real season."""
@@ -356,6 +363,7 @@ def test_absences_come_in_blocks_not_coin_flips():
     assert np.abs(mask.mean(axis=0) - rate).max() < 0.03
 
 
+@pytest.mark.slow
 def test_the_chain_is_exactly_stationary_at_any_rate():
     u = np.random.default_rng(0).random((20000, P.games_per_team + 1))
     for rate in (0.03, 0.2, 0.5, 0.9):
@@ -475,6 +483,7 @@ def test_an_override_is_not_charged_twice():
 
 
 # 7 -- one availability model
+@pytest.mark.slow
 def test_marginal_value_and_the_week_engine_agree_on_live_data(live):
     """One availability model. MV is built here exactly as advice_runner
     builds it -- WITH the frozen durability prior. Until 10-27 this test left
@@ -519,6 +528,7 @@ def test_marginal_value_and_the_week_engine_agree_on_live_data(live):
     assert checked > 400, (checked, unprojected)
 
 
+@pytest.mark.slow
 def test_every_real_data_marginal_value_context_reads_the_frozen_prior():
     """build_context's durability_prior=None means "each player's own
     projected GP is his prior" -- right for a synthetic world, wrong for real
@@ -567,6 +577,7 @@ def test_tags_and_absences_follow_the_roster_spelling():
 
 
 # 8 -- the flat discount is gone
+@pytest.mark.slow
 def test_the_flat_injury_discount_is_gone():
     assert not hasattr(sb, "OU_INJURY_DISCOUNT")
     for f in (ROOT / "modules").glob("*.py"):
@@ -587,6 +598,7 @@ def test_baseline_draws_are_keyed_by_player_not_by_who_asks():
     assert not np.array_equal(a1.season_mask(), b.season_mask())
 
 
+@pytest.mark.slow
 def test_another_managers_roster_change_moves_nothing(live):
     data, teams = live
     from modules.projections import load_player_projections
@@ -619,6 +631,7 @@ def test_another_managers_roster_change_moves_nothing(live):
     assert not np.array_equal(r0["Nick"]["score"], r1["Nick"]["score"])
 
 
+@pytest.mark.slow
 def test_order_independence_and_one_week_one_truth(live):
     data, teams = live
     wd = sb.schedule_week(data, 7)

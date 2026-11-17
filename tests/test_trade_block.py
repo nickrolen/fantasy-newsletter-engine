@@ -325,6 +325,7 @@ def test_every_history_row_is_the_files_diff(tmp_path):
                                                "untouchable": [], "block": []}
 
 
+@pytest.mark.slow
 def test_only_write_change_writes_the_file_and_its_history():
     srcs = {p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8")
             for d in ("modules", "scripts") for p in (ROOT / d).glob("*.py")}
@@ -785,6 +786,7 @@ def test_the_pricing_modules_never_name_availability():
 from league_state import needs_state                       # noqa: E402
 
 
+@pytest.mark.slow
 @needs_state("data/LINEUPS.xlsx", "data/PLAYERLOG.xlsx", "data/PLAYERLIST.xlsx", "config/RECORDS.json",
              why="the title odds' season pass on the real season")
 def test_a_season_pass_never_calls_availability(monkeypatch):

@@ -65,7 +65,8 @@ def test_card_lines_covers_a_player_only_with_every_day():
 def test_a_rostered_player_short_a_day_raises_never_a_note():
     with pytest.raises(pa.ActualsStale, match="Cy Short on 2026-11-04"):
         pa.card_lines(_blob(), ["Cy Short"], date(2026, 11, 5), required=["Cy Short"])
-    with pytest.raises(pa.ActualsStale, match="not in data/player_actuals.json"):
+    # the path as the OS writes it: data\\player_actuals.json on Windows (11-16, task 50)
+    with pytest.raises(pa.ActualsStale, match=r"not in data[\\/]player_actuals\.json"):
         pa.card_lines(_blob(), ["Nobody Here"], date(2026, 11, 3), required=["Nobody Here"])
     # a player dropped since, required through a week he was rostered in (the
     # newsletter's report week): covered by his cached days
@@ -271,6 +272,7 @@ def _published_plain(base, res):
     assert res["payload"]["cards"] is None and not [n for n, k in hc.shown_names(res["payload"]) if k]
 
 
+@pytest.mark.slow
 def test_a_card_build_failure_publishes_plain_names_and_no_card_files(deskbase, monkeypatch):
     import build_hub
 
@@ -283,6 +285,7 @@ def test_a_card_build_failure_publishes_plain_names_and_no_card_files(deskbase, 
     _published_plain(deskbase, res)
 
 
+@pytest.mark.slow
 def test_a_card_publish_failure_publishes_plain_names_and_no_card_files(deskbase, monkeypatch):
     import build_hub
     p = json.loads((deskbase / "state.json").read_text())
@@ -403,6 +406,7 @@ def test_a_good_run_records_its_cards_and_the_summary_prints_failures():
 # the real hub (unstubbed): the run path, the NBA numbers, the soft annotate
 # =============================================================================
 
+@pytest.mark.slow
 @needs_state("output/title_odds_latest.json", "output/tag_records.jsonl", "data/transaction_log.jsonl",
              "output/hub_archive/index.json", "data/historical/HISTORICAL_PLAYERLOG.json",
              "data/player_actuals.json",
@@ -460,6 +464,7 @@ def test_the_real_hub_cards_carry_the_roster_rows_numbers(tmp_path, monkeypatch)
             assert c["current_season"]["gp"] == pcb.nba_season(lines)["gp"]
 
 
+@pytest.mark.slow
 @needs_state("output/title_odds_latest.json", "output/tag_records.jsonl", "data/transaction_log.jsonl",
              "output/hub_archive/index.json",
              why="annotate failing inside the real hub build: plain names, the hub goes on")

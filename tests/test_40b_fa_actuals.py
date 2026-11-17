@@ -16,6 +16,7 @@ No live Yahoo call anywhere: the sources are fakes, and the one real run path
 response shapes (the ones step 1b measured; tests/test_player_actuals.py's
 parser test) from a fake league.
 """
+import functools
 import json
 import math
 import os
@@ -126,6 +127,7 @@ def _night(b, today, rostered=ROSTERED, src=None, payload=None):
 # s.1 the free agents' NBA numbers
 # =============================================================================
 
+@pytest.mark.slow
 def test_a_listed_free_agent_is_fetched_and_his_card_shows_the_nba_numbers(tmp_path):
     b = _base(tmp_path)
     today = date(2026, 10, 24)                                   # finished: 10-20 .. 10-23
@@ -381,6 +383,7 @@ class FakeLeague:
                  "total_points": self.line(pid, date)[0]} for pid in ids]
 
 
+@pytest.mark.slow
 @needs_state("data/player_actuals.json", "output/hub_state.json", "config/ROSTERS.json",
              "data/PLAYERLIST.xlsx", "data/transaction_log.jsonl",
              why="the nightly's actuals step on a copy of Nick's state: the free agents his hub names")
@@ -458,7 +461,11 @@ def test_a_404_is_gone_and_gone_says_reload_in_the_page_and_the_shell():
     assert "window.HUB.photo(ref).catch(function(err){if(err&&err.message==='gone'){movedBox();}" in page
 
 
+@functools.lru_cache(maxsize=None)
 def _jsdom_env():
+    """Node and an env that can require jsdom, else (None, None). Asked once,
+    when a jsdom test first runs: at import it cost ~6 s of every collection
+    in a builder's VM (task 50)."""
     node = shutil.which("node")
     if node is None:
         return None, None
@@ -469,9 +476,14 @@ def _jsdom_env():
     return (node, env) if ok else (None, None)
 
 
-NODE, NODE_ENV = _jsdom_env()
-needs_jsdom = pytest.mark.skipif(NODE is None, reason="node and jsdom are not installed here (NODE_PATH or "
-                                                      "HUB_TEST_JSDOM): the published page is run in jsdom")
+@pytest.fixture
+def _jsdom():
+    if _jsdom_env()[0] is None:
+        pytest.skip("node and jsdom are not installed here (NODE_PATH or "
+                    "HUB_TEST_JSDOM): the published page is run in jsdom")
+
+
+needs_jsdom = pytest.mark.usefixtures("_jsdom")
 
 
 from test_player_cards import _cards_for, _payload_no_issue, pubbase  # noqa: E402,F401
@@ -494,8 +506,9 @@ def published(pubbase):
 
 
 def _page(pub, **scenario):
-    r = subprocess.run([NODE, str(ROOT / "tests" / "js" / "hub_loader.js"), str(pub["dir"]), TEST_PASS,
-                        json.dumps(scenario)], env=NODE_ENV, capture_output=True, text=True, timeout=120)
+    node, node_env = _jsdom_env()
+    r = subprocess.run([node, str(ROOT / "tests" / "js" / "hub_loader.js"), str(pub["dir"]), TEST_PASS,
+                        json.dumps(scenario)], env=node_env, capture_output=True, text=True, timeout=120)
     assert r.returncode == 0, r.stdout + r.stderr
     out = json.loads(r.stdout)
     assert out.get("errors") == [], out
@@ -587,6 +600,7 @@ def test_each_job_is_billed_rounded_up_and_the_advice_step_counts():
     assert am.GUARD_MIN == (1, 1)
 
 
+@pytest.mark.slow
 def test_the_estimate_is_the_state_repos_workflows_and_fits_the_free_minutes():
     e = am.estimate(date(2026, 11, 16), ROOT)
     for r in e["estimates"]:

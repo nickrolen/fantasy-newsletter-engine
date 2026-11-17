@@ -47,6 +47,7 @@ def rate_at(inputs, season, point):
 # 1-2
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 def test_a_rating_as_of_a_day_ignores_every_row_after_it(history):
     season = "2024-25"
     full, as_of = rate_at(history, season, "mid")
@@ -59,12 +60,14 @@ def test_a_rating_as_of_a_day_ignores_every_row_after_it(history):
     assert again["replacement_level"] == full["replacement_level"]
 
 
+@pytest.mark.slow
 def test_the_same_inputs_give_the_same_ratings(history):
     a, _ = rate_at(history, "2023-24", "week2")
     b, _ = rate_at(history, "2023-24", "week2")
     assert json.dumps(a, sort_keys=True, default=str) == json.dumps(b, sort_keys=True, default=str)
 
 
+@pytest.mark.slow
 def test_historical_ratings_are_in_range_and_the_anchors_hold(history):
     res, _ = rate_at(history, "2022-23", "mid")
     ovr = [p["ovr"] for p in res["players"].values() if p["ovr"] is not None]
@@ -140,6 +143,7 @@ def test_bad_anchors_raise():
         ratings.config(cfg)
 
 
+@pytest.mark.slow
 def test_a_team_missing_from_the_schedule_raises_naming_the_player(history):
     season = "2024-25"
     snap = kh.snapshot(history, kh.next_season(season), "mid", ages=None, check=False, labels=False)
@@ -151,6 +155,7 @@ def test_a_team_missing_from_the_schedule_raises_naming_the_player(history):
         ratings.rate(snap, history, sched, history.log[season][-1]["date"])
 
 
+@pytest.mark.slow
 def test_too_few_games_gives_none_with_a_reason(history):
     res, _ = rate_at(history, "2024-25", "week2")              # nobody has 16 games at week 2
     for p in res["players"].values():
@@ -179,6 +184,7 @@ def test_the_weekly_change_comes_from_the_line_a_week_back():
 REAL = [ROOT / "config" / "ROSTERS.json", ROOT / "data" / "LINEUPS.xlsx"]
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(not all(p.is_file() for p in REAL), reason="needs the league's real state")
 def test_todays_ratings_on_the_real_state(history):
     """Sanity ranges (4a, seen on 11-13's state and explained there): the anchors put the

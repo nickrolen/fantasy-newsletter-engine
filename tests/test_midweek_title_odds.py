@@ -24,6 +24,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from league_state import needs_state                       # noqa: E402
 
+pytestmark = pytest.mark.slow   # over ~1 s: the full suite, not the fast tier (tests/conftest.py)
+
 rl = importlib.import_module("refresh_lines")
 CUT = date(2026, 10, 23)          # the first day NOT banked: 10-20..10-22 are in the logs
 N = 1500

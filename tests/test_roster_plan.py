@@ -161,6 +161,7 @@ def test_a_midweek_return_from_il_sits_out_that_week_and_plays_from_the_next_win
     assert "Nick_0" in plan[6]["Nick"]["active"] and plan[6]["Nick"]["dropped"] == ["Nick_14"]
 
 
+@pytest.mark.slow
 def test_an_il_slot_scores_nothing_all_week_and_is_bit_identical_to_removal():
     from test_season_sim import _world
     data, teams = _world()
@@ -415,6 +416,7 @@ def _moving_world(monkeypatch):
     return data, teams, tags
 
 
+@pytest.mark.slow
 def test_the_season_pass_and_the_betting_line_read_one_plan(monkeypatch):
     """With moves in play the pass's week equals the line's week, column for column."""
     import modules.season_sim as ss
@@ -434,6 +436,7 @@ def test_the_season_pass_and_the_betting_line_read_one_plan(monkeypatch):
         assert np.array_equal(seen[0][10][m][:120], line[m]["score"]), m
 
 
+@pytest.mark.slow
 def test_reversing_the_manager_order_leaves_the_plan_and_the_odds_bit_identical(monkeypatch):
     import modules.season_sim as ss
     out = []
@@ -460,6 +463,7 @@ def _real():
     return data, teams
 
 
+@pytest.mark.slow
 def test_edwards_end_to_end_on_the_real_inputs(monkeypatch):
     data, teams = _real()
     ae = teams["Nick"].players.get("Anthony Edwards")
@@ -467,18 +471,26 @@ def test_edwards_end_to_end_on_the_real_inputs(monkeypatch):
         pytest.skip("the 10-28 inputs have changed: Edwards' override or roster moved")
     run = rp.for_run(data, teams, fis.Tags.none())     # plan shape, not tags: stated none
     plan = run.plan
-    assert "Anthony Edwards" not in plan[2]["Nick"]["il"], "week 2 is locked"
-    assert "Anthony Edwards" in plan[3]["Nick"]["il"]
-    assert [a.startswith("Replacement for Anthony Edwards (") for a in plan[3]["Nick"]["added"]] == [True]
-    cover = run.standins[plan[3]["Nick"]["added"][0]]
-    assert (cover.nba_team, cover.positions) == (ae.nba_team, list(ae.positions))
-    for w in range(4, 14):
+    # The plan starts at the current week (written in week 2, 10-28; the
+    # current week moves every Monday -- 11-16 it was KeyError: 2, task 50).
+    # Its first week is locked: as synced. If Edwards was not yet in an IL slot
+    # there (10-28), the next week places him with a stand-in for his spot;
+    # once he is in one (Nick's IL+ Edwards, 11-02), he stays.
+    first = min(plan)
+    assert first < 14, "past Edwards' return week: this real-data check has run its course"
+    if "Anthony Edwards" not in plan[first]["Nick"]["il"]:
+        assert "Anthony Edwards" in plan[first + 1]["Nick"]["il"]
+        assert [a.startswith("Replacement for Anthony Edwards (") for a in plan[first + 1]["Nick"]["added"]] \
+            == [True]
+        cover = run.standins[plan[first + 1]["Nick"]["added"][0]]
+        assert (cover.nba_team, cover.positions) == (ae.nba_team, list(ae.positions))
+    for w in range(first + 1, 14):
         assert "Anthony Edwards" in plan[w]["Nick"]["il"], w
     assert "Anthony Edwards" in plan[14]["Nick"]["active"]
     # 44a: the one activation rule -- least long-run value, never protected, never Edwards himself
     assert plan[14]["Nick"]["activated"] == ["Anthony Edwards"]
     assert plan[14]["Nick"]["dropped"] == plan[14]["Nick"]["activation_drops"] != ["Anthony Edwards"]
-    for w in range(3, max(plan) + 1):
+    for w in range(first + 1, max(plan) + 1):
         for m, v in plan[w].items():
             assert len(v["active"]) == 15 or v["waiting"], (w, m)
     # every stand-in matches nobody real, and the order cannot move the plan

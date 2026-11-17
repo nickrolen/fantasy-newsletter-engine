@@ -195,6 +195,7 @@ def test_the_curve_groups_by_engine_and_pools_only_when_asked(tmp_path):
     assert one["groups"]["abc1234 / weekly_build"]["n_lines"] == 2
 
 
+@pytest.mark.slow
 def test_a_dirty_tree_is_its_own_engine_and_so_is_an_unknown_one():
     """On a dirty tree the commit does not identify the simulator, so the
     lines are not pooled with the clean commit's -- and if git cannot say,
@@ -382,6 +383,7 @@ def live(monkeypatch, tmp_path):
     return run
 
 
+@pytest.mark.slow
 def test_a_rerun_after_a_pause_appends_nothing_and_a_moved_input_appends(live):
     import time
     from test_live_lines import D, MON
@@ -398,6 +400,7 @@ def test_a_rerun_after_a_pause_appends_nothing_and_a_moved_input_appends(live):
     assert live.n() == 8                                   # a new seed
 
 
+@pytest.mark.slow
 def test_an_input_that_cannot_move_the_line_appends_nothing_and_one_that_can_does(live):
     from test_live_lines import MON
     live(MON, seed=5)

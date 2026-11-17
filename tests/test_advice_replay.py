@@ -155,6 +155,7 @@ def test_the_injury_stand_ins():
     assert "Late FA" in ar.build_monday(s, 4, FAST).inputs.pool
 
 
+@pytest.mark.slow
 def test_the_three_rules_see_the_same_pool_and_rosters():
     s = season()
     mon = ar.build_monday(s, 5, FAST)
@@ -211,6 +212,7 @@ def _pass_digest(sims: int = 400) -> str:
                        for m in MANAGERS}, sort_keys=True)
 
 
+@pytest.mark.slow
 def test_the_season_pass_is_deterministic_and_leverage_points_the_right_way():
     """Deterministic in-process and ACROSS processes (another PYTHONHASHSEED:
     11-12's flake was a world built from hash(), see _points). The leverage's

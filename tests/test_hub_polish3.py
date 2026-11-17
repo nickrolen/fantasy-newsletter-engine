@@ -258,6 +258,7 @@ def test_the_history_is_state_ignored_and_new():
     assert r.returncode == 0
 
 
+@pytest.mark.slow
 def test_nothing_scores_the_win_pct_history():
     """Pinned like invariant 13 (the title-odds history): the page draws it,
     nothing scores it. Only these files name it."""
@@ -316,6 +317,7 @@ def _git(d, *a):
     subprocess.run(["git", "-C", str(d), *a], check=True, capture_output=True)
 
 
+@pytest.mark.slow
 def test_the_backfill_reads_the_repo_skips_repeats_and_refuses_to_overwrite(tmp_path):
     import backfill_winprob as bw
     st = tmp_path / "state"
@@ -347,6 +349,7 @@ def test_the_backfill_reads_the_repo_skips_repeats_and_refuses_to_overwrite(tmp_
                           text=True).stdout == ""                                 # read-only
 
 
+@pytest.mark.slow
 def test_the_backfill_on_the_real_private_repo_is_read_only(tmp_path):
     _real(".state/.git")
     import backfill_winprob as bw
@@ -395,6 +398,7 @@ def test_the_game_flow_chart_ends_at_the_inputs_and_checks_its_days():
     assert all(p["dash"] == "" for p in final["paths"]) and "Nick 123" in [t["t"] for t in final["texts"]]
 
 
+@pytest.mark.slow
 def test_a_real_priced_line_carries_days_that_add_up_and_prices_do_not_move():
     _real("data/LINEUPS.xlsx", "output/live_lines_week4.state.json")
     import refresh_lines as rl
@@ -477,6 +481,7 @@ def test_the_manager_colours_are_readable_on_the_card():
 # 48e. season points
 # =============================================================================
 
+@pytest.mark.slow
 def test_the_hubs_pf_is_cup_seeding_points_and_get_cup_seeds(real_payload):
     from modules.simulator_cup_odds import cup_seeding_points, get_cup_seeds
     p, data = real_payload
@@ -569,6 +574,7 @@ def test_round_trip_drops_rule_a_and_b_and_the_buzelis_drop_stays():
     assert hub_moves.round_trip_drops(txs, rulings) == {"k1": ["Anthony Davis"], "k3": ["Ty Jerome"]}
 
 
+@pytest.mark.slow
 def test_real_round_trip_drops_are_the_six_listed_in_the_result():
     _real("data/transaction_log.jsonl", "config/TRANSACTION_RULINGS.json")
     from modules import transaction_log as tlog, transaction_rulings as tr
@@ -589,9 +595,14 @@ def test_real_round_trip_drops_are_the_six_listed_in_the_result():
     rows = hub_moves.build(ROOT, sched, wk, managers=["Nick", "Hayden", "Benton", "Garrett"], budget=3)
     texts = [x["what"] for t in rows["weeks"] for x in t["items"]]
     assert "dropped Matas Buzelis" in texts
-    for _when, m, n in want:
-        assert not any(x["who"] == m and any(pt["text"] == f"dropped {n}" for pt in x["parts"])
-                       for t in rows["weeks"] for x in t["items"]), (m, n)
+    # each round-trip drop is hidden ON ITS DAY: a later real drop of the same
+    # player is a move and is shown (Benton dropped Jabari Smith Jr. for real
+    # 11-16, after the 11-07 round trip; that failed the suite, task 50)
+    for when, m, n in want:
+        day = f"{int(when[5:7])}/{int(when[8:10])}"
+        assert not any(x["who"] == m and x["date"] == day
+                       and any(pt["text"] == f"dropped {n}" for pt in x["parts"])
+                       for t in rows["weeks"] for x in t["items"]), (when, m, n)
 
 
 # =============================================================================
@@ -651,6 +662,7 @@ def real_payload():
     return p, data
 
 
+@pytest.mark.slow
 def test_real_views_for_every_card_this_week_and_last(real_payload):
     p, _data = real_payload
     ids = {v["id"] for v in p["matchup_views"]}

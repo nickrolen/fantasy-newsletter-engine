@@ -32,6 +32,7 @@ def _world(n_weeks=4, gp=70.0):
     return data, teams, weeks
 
 
+@pytest.mark.slow
 def test_simulated_is_the_engines_own_availability():
     data, teams, weeks = _world()
     anchor = date.fromisoformat(weeks[0]["start_date"])

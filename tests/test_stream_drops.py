@@ -39,6 +39,7 @@ def _fppg(ctx, p):
 
 
 # 1 -- never outside the pool, even when a non-pool drop scores better
+@pytest.mark.slow
 def test_a_stream_never_drops_outside_the_pool_even_when_that_drop_scores_better():
     w = _world(seed=4)
     projs, rosters = w[0], w[1]
@@ -59,6 +60,7 @@ def test_a_stream_never_drops_outside_the_pool_even_when_that_drop_scores_better
 
 # 2 -- the pool: the N lowest ACTIVE by projected fppg, ties by name;
 #      a keeper may enter, IL and unprojected never do
+@pytest.mark.slow
 def test_the_pool_is_the_n_lowest_active_by_projected_fppg_ties_by_name():
     import dataclasses
     w = _world(seed=4)
@@ -113,6 +115,7 @@ def test_the_pool_ranks_by_the_projection_not_by_actual_play():
 
 
 # 3 -- a player added earlier in the plan never enters the pool
+@pytest.mark.slow
 def test_an_added_player_never_enters_the_pool():
     w = _world(seed=4)
     ctxs = _ctxs(w)
@@ -132,6 +135,7 @@ def test_an_added_player_never_enters_the_pool():
 
 
 # 4 -- the season list is unchanged
+@pytest.mark.slow
 def test_the_season_list_does_not_read_the_pool():
     w = _world(seed=4)
     ctxs = _ctxs(w, season=True)
@@ -156,6 +160,7 @@ def test_the_pool_size_is_required_config():
             stream_drop_pool({"stream_drop_pool": bad})
 
 
+@pytest.mark.slow
 def test_waiver_plan_reads_the_config_when_not_told(monkeypatch):
     import modules.advice as advice_mod
     w = _world(seed=4)
@@ -188,6 +193,7 @@ TODAY = {"Nick": ["Dyson Daniels", "Julius Randle", "Ty Jerome", "Jaylen Brown"]
          "Garrett": ["Aaron Wiggins", "Toumani Camara", "VJ Edgecombe", "Alex Sarr"]}
 
 
+@pytest.mark.slow
 def test_on_the_10_29_data_the_pools_hold_and_lillard_and_embiid_are_safe(monkeypatch):
     root = Path(__file__).resolve().parents[1]
     from modules import advice_runner as ar

@@ -100,6 +100,7 @@ def _stronger(teams, manager):
 
 
 # Isolation -- the point of the port
+@pytest.mark.slow
 def test_another_managers_roster_never_moves_your_week():
     data, teams = _world()
     weeks = list(range(16, 22))
@@ -111,6 +112,7 @@ def test_another_managers_roster_never_moves_your_week():
             assert np.array_equal(a[w][m], b[w][m]), (w, m)
 
 
+@pytest.mark.slow
 def test_a_series_without_the_changed_manager_is_decided_identically():
     """Odds of OTHER managers can move -- they play Nick -- but a series Nick
     is not in comes out the same in every iteration."""
@@ -126,6 +128,7 @@ def test_a_series_without_the_changed_manager_is_decided_identically():
 
 
 # One week, one simulated truth (Nick, 10-20)
+@pytest.mark.slow
 @pytest.mark.parametrize("tagged", [False, True])
 def test_a_bracket_week_is_the_betting_lines_week(tagged):
     """Week 16 at n = 10,000 through the bracket path; the same week at
@@ -144,6 +147,7 @@ def test_a_bracket_week_is_the_betting_lines_week(tagged):
 
 
 # Pairing independence
+@pytest.mark.slow
 def test_who_plays_whom_never_changes_a_simulated_week():
     data, teams = _world()
     wd = dict(data.schedule["weeks"][0])
@@ -158,6 +162,7 @@ def test_who_plays_whom_never_changes_a_simulated_week():
 
 
 # No global random
+@pytest.mark.slow
 def test_stdlib_random_cannot_move_the_odds(world):
     data, _ = world
     random.seed(1); p1 = _playoff(data); c1 = _cup(data)
@@ -173,12 +178,14 @@ def test_neither_bracket_module_draws_from_stdlib_random():
         assert "import random" not in src and "random." not in src.replace("stdlib `random`", ""), mod.__name__
 
 
+@pytest.mark.slow
 def test_different_seeds_still_differ(world):
     data, _ = world
     assert _playoff(data, seed=1) != _playoff(data, seed=2)
 
 
 # Order independence
+@pytest.mark.slow
 def test_cup_then_playoffs_equals_playoffs_then_cup(world):
     data, _ = world
     p1 = _playoff(data); c1 = _cup(data)
@@ -187,6 +194,7 @@ def test_cup_then_playoffs_equals_playoffs_then_cup(world):
 
 
 # Prefix stability end to end
+@pytest.mark.slow
 def test_the_first_n_brackets_are_the_same_at_n_and_2n():
     data, teams = _world()
     weeks = list(range(16, 22))
@@ -198,6 +206,7 @@ def test_the_first_n_brackets_are_the_same_at_n_and_2n():
         assert a.finish_order == b.finish_order
 
 
+@pytest.mark.slow
 def test_odds_at_n_and_2n_agree_within_monte_carlo_error(world):
     data, _ = world
     small, _f = _playoff(data, n=2000, seed=8)
@@ -209,6 +218,7 @@ def test_odds_at_n_and_2n_agree_within_monte_carlo_error(world):
 
 
 # The run simulates each week once, not once per iteration
+@pytest.mark.slow
 def test_each_bracket_week_is_simulated_once_per_run(world, monkeypatch):
     data, _ = world
     calls = []

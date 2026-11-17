@@ -30,6 +30,7 @@ def test_alert_strings_unchanged(week):
         GOLDEN[str(week)]["without"]
 
 
+@pytest.mark.slow
 @needs_state("archive/2025-26/output", why="pins the storylines of the 2025-26 reports as published")
 def test_every_storyline_is_typed():
     for week in range(16, 24):

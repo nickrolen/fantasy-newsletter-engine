@@ -235,7 +235,8 @@ def _world(tmp_path):
                            "Benton": ["Davion Mitchell"], "Garrett": ["A Guard"]}}
     (tmp_path / "config" / "ROSTERS.json").write_text(json.dumps(rosters), encoding="utf-8")
     finished = "# Waiver Adds for Week 2\n# Generated: 2026-11-02 08:00 PST\n\n- [2026-10-28] Nick: Old Pick\n"
-    (tmp_path / "data" / "waivers_week2.txt").write_text(finished, encoding="utf-8")
+    # bytes: text mode wrote "\r\n" on Windows, and the test compares bytes (11-16, task 50)
+    (tmp_path / "data" / "waivers_week2.txt").write_bytes(finished.encode("utf-8"))
     return finished
 
 

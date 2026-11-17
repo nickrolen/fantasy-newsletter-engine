@@ -457,6 +457,7 @@ def _actuals_for(snap, n_days=10, games_of=lambda i: 10, skip=(), loading=()):
     return blob, names
 
 
+@pytest.mark.slow
 def test_category_grades_are_per_game_points_as_percentiles_over_the_rostered(history):
     snap, _r, _s = _rate_with(history, None)
     blob, names = _actuals_for(snap, games_of=lambda i: 3 if i % 5 == 0 else 8,
@@ -483,6 +484,7 @@ def test_category_grades_are_per_game_points_as_percentiles_over_the_rostered(hi
     assert {n: P[n]["grades"]["scoring"]["percentile"] for n in vals} == pytest.approx(ratings.percentiles(vals))
 
 
+@pytest.mark.slow
 def test_no_actuals_and_a_cache_gap_give_reasons(history):
     snap, res, _s = _rate_with(history, None)
     assert all(p["grades"]["stocks"]["reason"] == "no per-category stats for this day" for p in res["players"].values())
@@ -499,6 +501,7 @@ def test_no_actuals_and_a_cache_gap_give_reasons(history):
     assert res["players"][gone]["grades"]["playmaking"]["reason"] == f"his daily lines are not fetched for {last}"
 
 
+@pytest.mark.slow
 def test_a_category_in_no_grade_or_two_raises(history):
     snap, _r, _s = _rate_with(history, None)
     blob, _ = _actuals_for(snap)
@@ -535,6 +538,7 @@ def test_the_schedule_horizon_is_the_games_grids(as_of, want):
     assert ratings.schedule_horizon(as_of, WEEKS, 3) == want
 
 
+@pytest.mark.slow
 def test_the_schedule_grade_counts_the_horizons_games(history):
     snap, _r, sched = _rate_with(history, None)
     as_of = date.fromisoformat(snap.as_of)
@@ -555,6 +559,7 @@ def test_the_schedule_grade_counts_the_horizons_games(history):
 # 7. the archetype
 # =============================================================================
 
+@pytest.mark.slow
 def test_exactly_one_archetype_for_every_grade_combination():
     """Every letter for each of the five grades (8^5 combinations), each at the
     band's floor and just under the next band, plus every all-tied case: one
@@ -590,6 +595,7 @@ def test_the_archetype_ships_off_and_its_table_is_checked():
         ratings.config(bad)
 
 
+@pytest.mark.slow
 def test_the_archetype_when_enabled_needs_every_category_grade(history):
     cfg = copy.deepcopy(ratings.config())
     cfg["archetype"]["enabled"] = True
@@ -613,6 +619,7 @@ KNOWN = ("stats still loading", "no daily lines cached for him", "his daily line
          " games: shows after ")
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(not all(p.is_file() for p in REAL), reason="needs the league's real state")
 def test_todays_cache_rates_without_raising(history):
     """On the cache as it is (version 1 on 11-14: every category grade is

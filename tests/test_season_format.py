@@ -261,6 +261,7 @@ def test_the_three_titles_each_name_the_stage_that_decides_them():
             f"{stage['title_key']} has a title but no payout entry")
 
 
+@pytest.mark.slow
 def test_config_is_the_only_place_the_week_numbers_live():
     """No module may hardcode the old boundary as a literal.
 

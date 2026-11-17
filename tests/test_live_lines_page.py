@@ -79,6 +79,7 @@ def _render(**over):
 # 1 -- the page displays, the engine computes
 # =============================================================================
 
+@pytest.mark.slow
 def test_every_number_is_the_payloads_own():
     line = _line()
     text = _text(_render())
@@ -100,6 +101,7 @@ def test_the_renderer_does_no_arithmetic():
     assert "round(float" not in src
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("field", ["week", "as_of", "lines"])
 def test_a_payload_missing_a_field_raises(field):
     payload = _payload()
@@ -268,6 +270,7 @@ def test_the_page_is_self_contained():
     assert "<style>" in html_str                       # inline, so it opens from disk
 
 
+@pytest.mark.slow
 def test_the_script_writes_one_file_and_refuses_a_retired_payload(tmp_path):
     payload = _payload()
     src = tmp_path / "p.json"

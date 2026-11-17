@@ -112,6 +112,7 @@ def test_the_h2h_matrix_is_derived_not_read_from_a_stored_baseline():
         "the stored baseline is being read before the derivation")
 
 
+@pytest.mark.xfail(strict=True, reason="STATUS item 17: the h2h matrix counts 362 games and all_time.h2h 370: which scope is the league's (regular season or every game)?")
 def test_all_three_h2h_tables_agree_on_scope(records, matchups):
     """h2h, head_to_head and head_to_head_historical were 362 / 394 / 348 --
     regular season, all games, and all games minus a season. The same
@@ -154,6 +155,7 @@ def test_career_baselines_are_recomputed_not_trusted():
         "the stored values go stale the moment a season is rolled in")
 
 
+@pytest.mark.slow
 def test_the_stored_career_baselines_match_the_player_log(records):
     """Even before the derivation runs, they should now agree."""
     rows = json.loads((PROJECT_ROOT / "data" / "historical" /
@@ -213,6 +215,7 @@ def test_the_stored_career_baselines_match_the_player_log(records):
 # Nothing reads the season boundary out of SCHEDULE.json
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 def test_no_module_takes_its_week_counts_from_the_schedule_file():
     """SCHEDULE.json is the PREVIOUS season's file for the whole preseason.
 

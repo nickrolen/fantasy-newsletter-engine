@@ -19,6 +19,7 @@ tests pin:
 """
 import ast
 import fnmatch
+import functools
 import json
 import os
 import re
@@ -70,9 +71,13 @@ def samples(man=MAN):
 
 
 def ignored(paths):
-    r = subprocess.run(["git", "check-ignore", "--no-index", "--stdin"], cwd=str(ROOT),
-                       input="\n".join(paths) + "\n", capture_output=True, text=True)
-    return set(r.stdout.split())
+    # NUL-separated bytes both ways (-z): in text mode Windows wrote "\r\n", git
+    # read every path with a trailing "\r" and quoted it back ("x\r"), so on
+    # Nick's machine almost nothing matched (11-16, 3 failures; task 50). The
+    # engine never pipes paths to git, so only this test was affected.
+    r = subprocess.run(["git", "check-ignore", "--no-index", "-z", "--stdin"], cwd=str(ROOT),
+                       input="\0".join(paths).encode("utf-8") + b"\0", capture_output=True)
+    return {x for x in r.stdout.decode("utf-8").split("\0") if x}
 
 
 # ================================================== 1. ignored, tracked by nothing
@@ -82,6 +87,7 @@ def test_the_manifest_loads_and_names_the_private_repo():
     assert set(MAN.public_exceptions) == PUBLIC_EXCEPTIONS
 
 
+@pytest.mark.slow
 @needs_git
 def test_every_manifest_path_is_ignored_by_the_public_gitignore():
     paths = samples()
@@ -164,6 +170,7 @@ def _parts(node):
     return None
 
 
+@functools.lru_cache(maxsize=None)
 def engine_paths():
     """Every repo path the scripts and modules name, '*' where computed."""
     found = set()
@@ -174,7 +181,7 @@ def engine_paths():
             s = _parts(node)
             if s and s.startswith(ROOT_DIRS) and " " not in s and len(s) < 120:
                 found.add(re.sub(r"\*+", "*", s))
-    return sorted(found)
+    return tuple(sorted(found))      # cached: two tests scan every engine file once
 
 
 def _excluded(path):
@@ -186,6 +193,7 @@ def _excluded(path):
     return False
 
 
+@pytest.mark.slow
 @needs_git
 def test_every_gitignored_path_the_engine_names_is_state_or_excluded():
     paths = engine_paths()
@@ -219,6 +227,7 @@ NEITHER_ON_PURPOSE = {
 }
 
 
+@pytest.mark.slow
 @needs_git
 def test_no_path_the_engine_names_would_be_committed_by_accident():
     """Every path the engine names is tracked (public on purpose), ignored
@@ -251,7 +260,48 @@ def _env():
     return env
 
 
+_STATE_MOD = None
+
+
+def _state_module():
+    """scripts/state.py, imported once. Each run used to be its own Python
+    process, and every one paid the engine's import (modules/__init__ loads
+    pandas): 2-5 s a call, ~50 calls, most of this file's 274 s on 11-16
+    (task 50). main(argv) is the CLI's whole body; git still runs for real
+    in its own processes. test_the_cli_runs_as_its_own_process keeps one
+    real subprocess run."""
+    global _STATE_MOD
+    if _STATE_MOD is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_state_cli_under_test", STATE)
+        _STATE_MOD = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_STATE_MOD)
+    return _STATE_MOD
+
+
 def run_state(root, cmd):
+    """(exit code, stdout + stderr) of `state.py CMD --root ROOT`, in process,
+    with the same git identity the subprocess run had."""
+    import contextlib
+    import io
+    buf, saved = io.StringIO(), {k: os.environ.get(k) for k in _env()}
+    os.environ.update(_env())
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            try:
+                rc = _state_module().main([cmd, "--root", str(root)])
+            except SystemExit as e:              # argparse
+                rc = e.code if isinstance(e.code, int) else 1
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    return rc, buf.getvalue()
+
+
+def run_state_cli(root, cmd):
     r = subprocess.run([sys.executable, str(STATE), cmd, "--root", str(root)],
                        capture_output=True, text=True, env=_env())
     return r.returncode, r.stdout + r.stderr
@@ -320,6 +370,7 @@ def tree(root, rels):
     return {r: (root / r).read_bytes() if (root / r).is_file() else None for r in rels}
 
 
+@pytest.mark.slow
 def test_pull_then_push_round_trips_byte_identical(two):
     a, b = two
     rc, out = run_state(b, "pull")
@@ -338,6 +389,7 @@ def test_pull_then_push_round_trips_byte_identical(two):
         sh("rev-parse", "HEAD", cwd=a).strip()
 
 
+@pytest.mark.slow
 def test_nothing_changed_is_said_and_does_nothing(two):
     a, _ = two
     before = sh("rev-parse", "HEAD", cwd=a / ".state")
@@ -346,6 +398,19 @@ def test_nothing_changed_is_said_and_does_nothing(two):
     assert sh("rev-parse", "HEAD", cwd=a / ".state") == before
 
 
+@pytest.mark.slow
+def test_the_cli_runs_as_its_own_process(two):
+    """The other pull/push tests call state.main in process; this one runs the
+    script as the nightly does, and it says what the in-process run says."""
+    a, b = two
+    rc, out = run_state_cli(b, "pull")
+    assert rc == 0, out
+    assert (b / "config/ROSTERS.json").read_bytes() == SEED["config/ROSTERS.json"].encode("utf-8")
+    assert run_state_cli(b, "push") == run_state(b, "push")
+    assert run_state_cli(b, "push")[1].strip().startswith("nothing changed")
+
+
+@pytest.mark.slow
 def test_pull_refuses_local_edits_not_yet_pushed(two):
     """P2's guarantee, unchanged: local edits are never overwritten. Since
     1c-ii (HANDOFF_STEP1C2 s.5) pull refuses only when the SAME file changed
@@ -362,6 +427,7 @@ def test_pull_refuses_local_edits_not_yet_pushed(two):
     assert (a / "data/waivers_week2.txt").read_text() == "- [2026-10-26] A: C\n"   # untouched
 
 
+@pytest.mark.slow
 def test_push_refuses_when_the_private_repo_moved(two):
     a, b = two
     run_state(b, "pull")
@@ -372,6 +438,7 @@ def test_push_refuses_when_the_private_repo_moved(two):
     assert rc == 1 and "pull first" in out
 
 
+@pytest.mark.slow
 def test_nothing_outside_the_manifest_moves_in_either_direction(two):
     a, b = two
     write(b / ".state", "stray_in_private_repo.txt", "x\n")      # not state
@@ -392,6 +459,7 @@ def test_nothing_outside_the_manifest_moves_in_either_direction(two):
     assert not (b / "stray_in_private_repo.txt").exists()
 
 
+@pytest.mark.slow
 def test_deletions_inside_a_manifest_directory_propagate(two):
     a, b = two
     run_state(b, "pull")
@@ -407,6 +475,7 @@ def test_deletions_inside_a_manifest_directory_propagate(two):
     assert (a / "config/snapshots/PLAYERLIST_2026-10-13.xlsx").read_bytes() == b"pinned prior"
 
 
+@pytest.mark.slow
 def test_init_refuses_a_non_empty_clone(two, tmp_path):
     a, _ = two
     rec = a / ".state_sync.json"
@@ -415,6 +484,7 @@ def test_init_refuses_a_non_empty_clone(two, tmp_path):
     assert rc == 1 and "not an empty clone" in out
 
 
+@pytest.mark.slow
 def test_pull_refuses_without_a_clone_and_names_the_command(tmp_path):
     if shutil.which("git") is None:
         pytest.skip("needs git")
@@ -426,6 +496,7 @@ def test_pull_refuses_without_a_clone_and_names_the_command(tmp_path):
     assert "git clone https://github.com/nickrolen/newsletter-state.git .state" in out
 
 
+@pytest.mark.slow
 def test_pull_refuses_a_clone_of_another_repo(tmp_path):
     if shutil.which("git") is None:
         pytest.skip("needs git")
@@ -437,6 +508,7 @@ def test_pull_refuses_a_clone_of_another_repo(tmp_path):
     assert rc == 1 and "not nickrolen/newsletter-state" in out
 
 
+@pytest.mark.slow
 def test_status_names_what_differs(two):
     a, b = two
     run_state(b, "pull")
@@ -461,6 +533,7 @@ def _record(root):
     return json.loads((root / ".state_sync.json").read_text(encoding="utf-8"))
 
 
+@pytest.mark.slow
 def test_disjoint_changes_merge_on_pull_and_then_push(two):
     a, b = two                                   # a: Nick's desktop; b: the cloud run
     assert run_state(b, "pull")[0] == 0
@@ -494,6 +567,7 @@ def test_disjoint_changes_merge_on_pull_and_then_push(two):
         tree(b, [*SEED, "data/waivers_week3.txt", "output/nightly_runs.jsonl"])
 
 
+@pytest.mark.slow
 def test_an_overlap_refuses_and_changes_nothing(two):
     a, b = two
     run_state(b, "pull")
@@ -512,6 +586,7 @@ def test_an_overlap_refuses_and_changes_nothing(two):
     assert _record(a) == before["record"]
 
 
+@pytest.mark.slow
 def test_the_same_bytes_on_both_sides_is_not_an_overlap(two):
     a, b = two
     run_state(b, "pull")
@@ -523,6 +598,7 @@ def test_the_same_bytes_on_both_sides_is_not_an_overlap(two):
     assert run_state(a, "push")[1].strip().startswith("nothing changed")
 
 
+@pytest.mark.slow
 def test_pull_with_local_changes_and_nothing_new_keeps_them(two):
     a, _ = two
     write(a, "config/ROSTERS.json", "desk\n")
@@ -543,6 +619,7 @@ def _engine_remote(tmp_path, root):
     sh("push", "-q", "origin", "main", cwd=root)
 
 
+@pytest.mark.slow
 def test_set_engine_refuses_a_dirty_or_unpushed_engine_then_pins_it(two, tmp_path):
     a, b = two
     _engine_remote(tmp_path, a)
@@ -568,6 +645,7 @@ def test_set_engine_refuses_a_dirty_or_unpushed_engine_then_pins_it(two, tmp_pat
     assert (b / ".state" / "ENGINE_COMMIT").read_text().strip() == head
 
 
+@pytest.mark.slow
 def test_install_workflows_keeps_the_next_push_working(two):
     a, b = two
     src = a / "deploy" / "state-repo" / ".github" / "workflows"
@@ -593,6 +671,7 @@ def test_install_workflows_keeps_the_next_push_working(two):
 
 # ======================================================= 5. .state is never staged
 
+@pytest.mark.slow
 @pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
 def test_a_nested_state_repo_is_never_staged_as_files(tmp_path):
     repo = tmp_path / "engine"
@@ -632,6 +711,7 @@ def test_ci_passes_the_flag():
     assert "verify_project_integrity.py --no-league-state" in ci
 
 
+@pytest.mark.slow
 def test_the_flag_skips_exactly_the_state_checks_and_lists_each():
     vpi = _integrity()
     res = vpi.check_config_integrity(no_league_state=True)

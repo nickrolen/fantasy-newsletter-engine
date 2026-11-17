@@ -92,6 +92,7 @@ REFERS = re.compile(r"title_odds_history\.jsonl|title_odds_history\s+import|impo
                     r"|from\s+\.?\.?(modules\.)?title_odds_history|title_odds_history\s+as\b")
 
 
+@pytest.mark.slow
 def test_nothing_that_scores_probabilities_reaches_the_history():
     """Invariant 13. The only code that names the history file or imports the
     module: the module itself and the weekly build that writes a row. (The
@@ -116,6 +117,7 @@ def test_nothing_that_scores_probabilities_reaches_the_history():
 SCORERS = ("calibration_log.py", "backtest_metrics.py")
 
 
+@pytest.mark.slow
 def test_nothing_that_scores_reads_the_latest_file_or_the_stakes():
     """Invariant 7 of step 1c: calibration never reads the title-odds history,
     the latest file or the stakes (the 1a source pin, extended)."""
@@ -140,6 +142,7 @@ def test_nothing_that_scores_reads_the_latest_file_or_the_stakes():
                                                                   "drop_inputs.py"}
 
 
+@pytest.mark.slow
 def test_the_weekly_build_writes_a_row_only_on_a_run_of_record():
     src = (ROOT / "scripts" / "generate_stats_report.py").read_text(encoding="utf-8")
     tree = ast.parse(src)

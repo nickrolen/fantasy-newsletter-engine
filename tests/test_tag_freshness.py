@@ -92,6 +92,7 @@ def expected_kind(t: datetime):
     return None
 
 
+@pytest.mark.slow
 def test_the_poll_and_pretip_split_across_every_window_monday_of_the_season():
     mons = window_mondays()
     assert len(mons) >= 20
@@ -106,6 +107,7 @@ def test_the_poll_and_pretip_split_across_every_window_monday_of_the_season():
         assert all(t < tips(d)[-1] - timedelta(minutes=5) for t in polls), d
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("holiday", [date(2027, 1, 18), date(2027, 2, 15)])
 def test_the_holiday_mondays_with_a_9_am_tip(holiday):
     assert tips(holiday)[0].strftime("%H:%M") == "09:00"
@@ -265,6 +267,7 @@ def game_days():
         d += timedelta(days=1)
 
 
+@pytest.mark.slow
 def test_guard_admission_across_the_seasons_real_tip_times():
     cfg = rg.live_cfg(ROOT)
     windows = set(rg.window_days(ROOT))
@@ -316,6 +319,7 @@ def test_a_monday_that_is_not_a_window_day_is_skipped_not_claimed(monkeypatch):
     assert not rg.admits_afternoon(utc(la(d, 15, 30)), ROOT, ROOT)[0]
 
 
+@pytest.mark.slow
 def test_monday_is_excluded_and_the_guard_cli_admits_afternoon(tmp_path, monkeypatch):
     mon = window_mondays()[3]
     for t in rg.live_cfg(ROOT)["firings"]:
@@ -469,6 +473,7 @@ def test_the_nudge_runs_in_the_nightly_only():
 # 4. the NBA report
 # =============================================================================
 
+@pytest.mark.slow
 def test_the_parser_reads_a_stored_real_report():
     p = nr.parse(FIXTURE.read_bytes())
     assert p["heading"] == "11/10/26 05:00 PM"
@@ -554,6 +559,7 @@ def test_the_run_goes_on_when_the_report_step_fails(tmp_path, monkeypatch):
     assert tag_records.read(tmp_path)[-1]["tags"].get("nba_outs") is None      # recorded, nothing applied
 
 
+@pytest.mark.slow
 def test_a_same_report_is_stored_once(tmp_path, monkeypatch):
     body = FIXTURE.read_bytes()
     monkeypatch.setattr(nr, "fetch", lambda *a, **k: ("https://ak/" + FIXTURE.name,
@@ -826,6 +832,7 @@ def test_the_firing_counts_are_recomputed_from_the_files():
     assert am.cron_per_week("*/15 15-23 * * 1") == 36 and am.cron_per_week("*/15 0-3 * * 2") == 16
 
 
+@pytest.mark.slow
 def test_the_worst_case_stays_under_the_cap_once_github_crons_go():
     # 40b: the estimate counts only the private state repo's workflows (public
     # repos are free), per job rounded up; tests/test_40b_fa_actuals.py pins the pieces

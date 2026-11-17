@@ -69,6 +69,7 @@ def test_the_gradient_and_hessian_are_the_likelihoods():
     assert np.allclose(g, num_g, atol=1e-5) and np.allclose(H, num_H, atol=1e-4)
 
 
+@pytest.mark.slow
 def test_the_prior_keeps_a_never_seen_event_rare_not_impossible():
     ros = _synthetic()
     ros.X[:, :, 2] = 0.0
@@ -84,6 +85,7 @@ def test_the_prior_keeps_a_never_seen_event_rare_not_impossible():
 
 
 # 2 -- leave one season out never lets the held-out season into its fit
+@pytest.mark.slow
 def test_leave_one_out_never_fits_on_the_held_out_season(monkeypatch):
     snaps = F.dataset()
     seen = []
@@ -100,6 +102,7 @@ def test_leave_one_out_never_fits_on_the_held_out_season(monkeypatch):
 
 
 # 3 -- point in time: a week-2 prediction reads nothing after week 2
+@pytest.mark.slow
 def test_week_2_features_read_nothing_after_week_2():
     inputs = kh.Inputs.load(ROOT)
     ages = kh.load_ages(kh.age_seasons(), ROOT)
@@ -129,6 +132,7 @@ def test_the_shrinkage_uses_the_measured_constants_and_returns_the_prior_at_zero
 
 
 # 5 -- the fit is deterministic; the same data gives the same parameters file
+@pytest.mark.slow
 def test_refitting_gives_the_same_parameters_file(tmp_path):
     a, b = tmp_path / "a.json", tmp_path / "b.json"
     for out in (a, b):
@@ -143,6 +147,7 @@ def test_refitting_gives_the_same_parameters_file(tmp_path):
         assert set(params["points"][p]["se"]) == set(params["features"])
 
 
+@pytest.mark.slow
 def test_the_committed_parameters_file_loads_and_predicts():
     params = M.load_params()
     assert params["specification"] == "age linear" and params["level_prior"]["spec"] == "P3"
@@ -176,6 +181,7 @@ def test_predict_refuses_a_missing_or_malformed_parameters_file(tmp_path):
 
 
 # 7 -- 2021-22: nobody was kept the season before
+@pytest.mark.slow
 def test_in_the_2021_22_decision_no_candidate_was_kept_the_season_before():
     snaps = F.dataset()
     for p in M.POINTS:
@@ -215,6 +221,7 @@ def test_the_prior_is_games_weighted_over_exactly_the_stated_seasons():
         M.prior_from_lines("2026-27", LINES, "P4")
 
 
+@pytest.mark.slow
 def test_previous_lines_are_whole_seasons_before_the_as_of_season():
     inputs = kh.Inputs.load(ROOT)
     lines = kh.previous_lines(inputs, "2026-27")("Domantas Sabonis")
@@ -263,6 +270,7 @@ def test_each_specs_k0_comes_from_the_parameters_and_a_missing_one_raises():
     assert a[0, 0] != b[0, 0]
 
 
+@pytest.mark.slow
 def test_k0_is_measured_the_way_13_was():
     inputs = kh.Inputs.load(ROOT)
     r = F.measure_k0(F.k0_pairs(inputs, "P1"))

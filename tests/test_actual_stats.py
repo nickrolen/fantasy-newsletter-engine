@@ -101,6 +101,7 @@ def test_misses_without_an_appearance_return_the_projection():
     assert p.effective_std == pytest.approx(61.51 * 0.35)
 
 
+@pytest.mark.slow
 def test_live_log_no_player_is_marked_down_by_a_miss():
     """Reality check on the real PLAYERLOG: every player's actual_fppg is the
     mean of the started games he scored in, and nobody with a miss reads

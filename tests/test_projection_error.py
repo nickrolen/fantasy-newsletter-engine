@@ -56,6 +56,7 @@ def test_a_negative_scale_is_refused(monkeypatch):
 
 
 # 1 -- mean-preserving
+@pytest.mark.slow
 def test_the_multiplier_has_mean_one_and_the_derived_spread():
     data, teams = _world()
     tp = teams["Nick"]
@@ -71,6 +72,7 @@ def _week(data, teams, seed=3, n=4000, week=9):
     return sb.simulate_week_matrix(data, teams, sb.schedule_week(data, week), None, sb.KeyedDraws(seed, n))
 
 
+@pytest.mark.slow
 def test_expected_points_do_not_move(monkeypatch):
     data, teams = _world()
     _cfg(monkeypatch, scale=1.0)
@@ -85,6 +87,7 @@ def test_expected_points_do_not_move(monkeypatch):
         assert on[mgr]["score"].std() > off[mgr]["score"].std()   # and the week widens
 
 
+@pytest.mark.slow
 def test_scale_zero_is_the_engine_without_it_bit_for_bit(monkeypatch):
     """m = exp(0) = 1.0 exactly, so the old engine is the scale-0 engine."""
     _cfg(monkeypatch, scale=0.0)
@@ -99,6 +102,7 @@ def test_scale_zero_is_the_engine_without_it_bit_for_bit(monkeypatch):
 
 
 # 2 -- persistent: one draw per player per season, keyed by the player alone
+@pytest.mark.slow
 def test_the_draw_is_keyed_by_the_player_only_and_shared_by_every_week(monkeypatch):
     data, teams = _world()
     draws = sb.KeyedDraws(5, 500)
@@ -133,6 +137,7 @@ def test_a_player_keeps_his_draw_when_he_changes_rosters():
 
 
 # 6 -- lineup choice never sees m
+@pytest.mark.slow
 def test_the_starters_are_the_same_with_and_without_it(monkeypatch):
     data, teams = _world()
     _cfg(monkeypatch, scale=1.0)

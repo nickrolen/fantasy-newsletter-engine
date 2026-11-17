@@ -59,11 +59,13 @@ def after_a_run(tmp_path_factory):
     return json.loads(path.read_text(encoding="utf-8")), recount
 
 
+@pytest.mark.slow
 def test_the_run_had_current_season_data(after_a_run):
     pl = b.load_current_playerlog()
     assert not pl.empty and pl["week"].max() >= 1, "no current-season PLAYERLOG to test against"
 
 
+@pytest.mark.slow
 def test_a_run_keeps_the_competitive_record_on_every_season_entry(after_a_run):
     records, recount = after_a_run
     checked = 0
@@ -82,6 +84,7 @@ def test_a_run_keeps_the_competitive_record_on_every_season_entry(after_a_run):
     assert checked >= 40
 
 
+@pytest.mark.slow
 def test_no_top10_holds_a_duplicate_after_a_run(after_a_run):
     records, _ = after_a_run
     for key, entries in records["all_time"].items():
@@ -128,6 +131,7 @@ def test_a_damaged_write_is_refused_not_written():
         b.check_written_leaderboards({"longest_loss_streak_top10": [streak, dict(streak)]})
 
 
+@pytest.mark.slow
 def test_career_baselines_are_the_ones_the_weekly_pipeline_derives(after_a_run):
     """report_builder._patch_cumulative_records derives the baseline as
     started AND had_game AND NOT is_injured. Counting only fp > 0 here wrote

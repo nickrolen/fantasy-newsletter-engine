@@ -104,6 +104,7 @@ def _active(roster, il):
     return [p for p in roster if p not in il]
 
 
+@pytest.mark.slow
 def test_a_waiver_plan_never_drops_an_il_player_and_keeps_the_active_count():
     w = _world(seed=4)
     projs, rosters = w[0], w[1]
@@ -124,6 +125,7 @@ def test_a_waiver_plan_never_drops_an_il_player_and_keeps_the_active_count():
     assert worst in roster and len(plan.this_week) <= 3
 
 
+@pytest.mark.slow
 def test_trades_never_move_an_il_player_and_leave_both_rosters_legal():
     w = _world(seed=2, n_players=70)
     projs, rosters, nba, weeks, fas = w
@@ -141,6 +143,7 @@ def test_trades_never_move_an_il_player_and_leave_both_rosters_legal():
             assert len(_active(after, il.get(m, set()))) <= len(_active(small[m], il.get(m, set())))
 
 
+@pytest.mark.slow
 def test_adds_never_exceed_the_weekly_budget():
     w = _world(seed=5)
     ctxs = {"this_week": (_ctx(w, sims=40), _ctx(w, sims=200))}
@@ -218,6 +221,7 @@ def test_marginal_value_reads_the_free_agents_tags():
     assert "injury_statuses=statuses" in src and "advice_statuses(injury_statuses)" in src
 
 
+@pytest.mark.slow
 def test_an_out_free_agent_is_worth_less_this_week_than_a_healthy_one():
     w = _world(seed=3)
     projs, rosters, nba, weeks, fas = w

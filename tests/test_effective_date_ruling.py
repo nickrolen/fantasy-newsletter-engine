@@ -138,8 +138,12 @@ def _raw_lavine_row():
                  & (pd.to_datetime(raw["date"]).dt.strftime("%Y-%m-%d") == "2026-10-25")).any())
 
 
-@pytest.mark.skipif(not _raw_lavine_row(), reason="the 10-26 log (Hayden's 10-25 LaVine row) is gone")
+@pytest.mark.slow
 def test_haydens_week_1_card_on_the_10_26_data():
+    # Checked here, not in a skipif: reading LINEUPS.xlsx at import cost ~3 s
+    # of every collection (task 50).
+    if not _raw_lavine_row():
+        pytest.skip("the 10-26 log (Hayden's 10-25 LaVine row) is gone")
     from modules.data_loader import load_all_data
     from modules.weekly_stats import compute_weekly_report, load_waiver_adds
     from modules.what_if_analyzer import analyze_weekly_what_if

@@ -91,6 +91,7 @@ def test_fetch_failure_paths_raise_never_return_empty(monkeypatch, tmp_path):
     assert not hasattr(fis, "fetch_injury_statuses_safe")
 
 
+@pytest.mark.slow
 def test_the_build_records_the_outcome_in_metadata_and_capture():
     src = (ROOT / "scripts" / "generate_stats_report.py").read_text(encoding="utf-8")
     assert "--allow-no-injury-statuses" in src
@@ -101,6 +102,7 @@ def test_the_build_records_the_outcome_in_metadata_and_capture():
         assert "fetch_injury_statuses_safe" not in f.read_text(encoding="utf-8"), f
 
 
+@pytest.mark.slow
 def test_the_build_refuses_end_to_end_without_tags():
     """A real simulating run with no fetch exits 1 before building anything."""
     r = subprocess.run([sys.executable, "scripts/generate_stats_report.py", "--week", "1",

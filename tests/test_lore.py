@@ -53,6 +53,7 @@ def _scan(games, months, perms=400):
     return cells
 
 
+@pytest.mark.slow
 def test_pure_chance_yields_no_tendency():
     """Coin-flip league, nine seasons: some cells will look striking, none
     may be proposed as a tendency."""
@@ -61,6 +62,7 @@ def test_pure_chance_yields_no_tendency():
         assert not [c for c in cells if L.strength_of(c) == "tendency"]
 
 
+@pytest.mark.slow
 def test_striking_chance_cells_are_offered_only_as_facts():
     cells = _scan(*_world(2))
     lore = {"entries": []}
@@ -70,6 +72,7 @@ def test_striking_chance_cells_are_offered_only_as_facts():
         assert "not a pattern" in e["evidence"]["note"]
 
 
+@pytest.mark.slow
 def test_a_real_effect_is_found():
     games, months = _world(4, edge=("Garrett", 12, 0.95))
     cells = _scan(games, months, perms=1000)
@@ -77,6 +80,7 @@ def test_a_real_effect_is_found():
     assert found.get("month-garrett-dec") == "tendency"
 
 
+@pytest.mark.slow
 def test_rejection_is_logged_not_destroyed():
     """Nick: 34 items in one sitting, he'll misjudge one around item 29.
     A rejected entry stays, isn't re-proposed, and can be brought back."""
@@ -95,6 +99,7 @@ def test_rejection_is_logged_not_destroyed():
     assert len(e["decisions"]) == 2
 
 
+@pytest.mark.slow
 def test_refresh_advances_the_numbers_and_flags_a_dead_tendency():
     """The recurring failure mode: a value derived once and never advanced.
     An approved entry re-renders from its definition on every refresh, and
@@ -126,6 +131,7 @@ def test_refresh_advances_the_numbers_and_flags_a_dead_tendency():
     assert e["stale"] and "month-garrett-dec" in changed
 
 
+@pytest.mark.slow
 def test_fact_rerenders_and_never_goes_stale():
     games, months = _world(2)
     cells = _scan(games, months)
@@ -267,6 +273,7 @@ def test_sitting_walks_one_manager_then_takes_his_own_words(tmp_path):
     assert w[0]["valence"] == {"Benton": "negative"}
 
 
+@pytest.mark.slow
 def test_no_code_reads_chat_exports():
     """Nick, 10-07: no chat logs on disk, and no code that reads them."""
     root = Path(__file__).resolve().parent.parent

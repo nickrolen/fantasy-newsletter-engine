@@ -200,6 +200,7 @@ def _history():
     return json.loads((ROOT / "data" / "historical" / "HISTORICAL_PLAYERLOG.json").read_text(encoding="utf-8"))
 
 
+@pytest.mark.slow
 def test_the_history_has_one_team_per_day_switching_only_on_a_move():
     """On the regenerated file: no player-season's team changes more than its
     distinct teams allow (a flip back and forth fails), Durant 2022-23
@@ -220,6 +221,7 @@ def test_the_history_has_one_team_per_day_switching_only_on_a_move():
         == [("2023-02-09", "BKN", "PHX")]
 
 
+@pytest.mark.slow
 def test_no_team_games_count_exceeds_a_real_schedule():
     """Every had_game row agrees with every other row about who its team
     played that day, and no player-season has more team games than any team

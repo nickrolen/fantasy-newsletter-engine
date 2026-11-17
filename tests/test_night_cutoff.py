@@ -41,6 +41,7 @@ def _days():
         d += timedelta(days=1)
 
 
+@pytest.mark.slow
 def test_the_window_stays_clear_of_the_first_tip_and_inside_6_to_noon():
     for d in _days():
         cut, why = rg.night_cutoff(ROOT, d, LA)
@@ -83,6 +84,7 @@ def test_an_unplaceable_tip_falls_back_to_six_and_never_refuses(monkeypatch):
     assert ok                                                    # 1:00 AM: inside
 
 
+@pytest.mark.slow
 def test_the_workflow_guard_and_the_runs_recheck_agree(tmp_path):
     """Every 30 minutes of every day of the season, no marker: decide()
     (the workflow's guard job) == modules.nightly.scheduled_guard_decision

@@ -375,11 +375,14 @@ def test_the_live_line_refresh_has_the_same_escape():
 
 
 def test_step_0b_is_runnable_from_a_clean_machine():
-    """-n 2 needs pytest-xdist; the step that gives the command must also give
-    the install, or the doc only works on a machine that happens to have it."""
+    """-n needs pytest-xdist; the step that gives the command must also give
+    the install, or the doc only works on a machine that happens to have it.
+    (Since task 50 the step gives two commands, the full suite at -n 4 and the
+    fast tier at -n 3.)"""
     flow = (ROOT / "WEEKLY_WORKFLOW.md").read_text(encoding="utf-8")
     step = flow.split("## Step 0b")[1].split("\n## ")[0]
-    assert "-n 2" in step
+    assert "python -m pytest -q -p no:cacheprovider -n 4 -rfE" in step
+    assert 'python -m pytest -m "not slow" -n 3 -q -p no:cacheprovider' in step
     assert "pip install -r requirements.txt" in step or "pip install pytest-xdist" in step
     assert "unrecognized arguments: -n" in step        # the symptom, named
     reqs = (ROOT / "requirements.txt").read_text(encoding="utf-8")

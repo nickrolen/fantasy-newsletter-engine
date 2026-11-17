@@ -117,6 +117,7 @@ def test_a_game_angle_counts_both_teams_a_subject_angle_only_him():
     assert game.consequence == 0.4 and lead.consequence == 0.0
 
 
+@pytest.mark.slow
 def test_replay_2025_26_runs_and_is_deterministic():
     import angles_report
     r1, *_ = angles_report.replay(ROOT, "2025-26")
@@ -133,6 +134,7 @@ def test_report_still_builds_when_angles_fail(tmp_path):
     assert "unavailable" in block
 
 
+@pytest.mark.slow
 def test_2025_26_postseason_leads_with_the_bracket():
     """The 4 seed knocking out the 17-4 1 seed, then the title, are the
     stories of weeks 22-23 -- not a team's -33% score."""
@@ -187,6 +189,7 @@ def test_a_margin_gets_one_bite_not_two():
     assert mg.consequence == sc.consequence == 0.3
 
 
+@pytest.mark.slow
 def test_last_weeks_lead_again_is_scored_on_what_is_new():
     """Weeks 4 and 5 of 2025-26 led with "Garrett scored X, -18%" twice."""
     import angles_report
@@ -203,6 +206,7 @@ def test_a_streak_extended_is_news_only_by_the_extension():
     assert 0 < p < 1 and A._u(p, 1000) < A._u(A._tail_ge(HIST.runs, 6), 1000)
 
 
+@pytest.mark.slow
 def test_the_title_clinch_leads_its_week():
     """Nick, 10-07: "Nick locks up the championship" should lead the week
     it happened -- week 18 of 2025-26, with 3 weeks left."""
@@ -216,6 +220,7 @@ def test_the_title_clinch_leads_its_week():
         by[21]["lead"]["text"]
 
 
+@pytest.mark.slow
 def test_the_title_race_is_a_standing_thread_every_week():
     import angles_report
     rows, *_ = angles_report.replay(ROOT, "2025-26")
@@ -305,6 +310,7 @@ def test_third_place_stakes_come_from_config(monkeypatch):
     assert any(r["kind"] == "third" for r in cup["rounds"])
 
 
+@pytest.mark.slow
 def test_settled_races_stay_as_history_and_name_their_pot():
     """A settled race stays in the threads as history. Its dollar figure
     belongs to the week it was decided (Nick, 10-14), so in week 23 the
@@ -327,6 +333,7 @@ def test_settled_races_stay_as_history_and_name_their_pot():
                 assert "pot" in x, x
 
 
+@pytest.mark.slow
 def test_dollars_appear_only_in_weeks_money_was_decided():
     """Nick, 10-14: the dry run's week 16 restated every pot although
     nothing had moved since week 15 ("Nick could still pay $45"). Dollar

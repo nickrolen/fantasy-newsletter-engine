@@ -47,6 +47,7 @@ def week21():
     return _check(path)
 
 
+@pytest.mark.slow
 def test_the_shipped_standings_errors_are_found(week21):
     findings, _ = week21
     stored = [f.detail for f in findings if f.check == "stored finish"]
@@ -57,6 +58,7 @@ def test_the_shipped_standings_errors_are_found(week21):
         "22-23 Benton: shown 3, stored regular_season_rank 2"])
 
 
+@pytest.mark.slow
 def test_the_shipped_scope_mixing_is_found(week21):
     kinds = _kinds(week21[0])
     assert ("Historical League Standings", "1st column") in kinds
@@ -66,6 +68,7 @@ def test_the_shipped_scope_mixing_is_found(week21):
     assert ("Historical League Standings", "current column") in kinds
 
 
+@pytest.mark.slow
 def test_the_shifted_draft_row_in_week18_is_found():
     path = ARCHIVE / "WEEK18_NEWSLETTER.html"
     if not path.is_file():
@@ -74,6 +77,7 @@ def test_the_shifted_draft_row_in_week18_is_found():
     assert any(f.check == "FPPG range" and "Pascal Siakam" in f.detail for f in findings)
 
 
+@pytest.mark.slow
 def test_every_table_in_a_shipped_newsletter_has_a_check(week21):
     _, unchecked = week21
     assert unchecked == [], f"tables with no relations defined: {unchecked}"
@@ -156,6 +160,7 @@ def test_games_grid_cells_must_add_up():
 # The current renderers
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 def test_the_current_stats_corner_reconciles():
     """Stats Corner rendered today from the archived week-21 report: the
     history grids, profiles, leaderboards and H2H matrix all reconcile."""

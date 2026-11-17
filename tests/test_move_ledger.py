@@ -504,6 +504,7 @@ def real_log():
     return tlog.transactions(ROOT), sched
 
 
+@pytest.mark.slow
 def test_the_11_02_window_replayed_gives_applied_for_all_seven(real_log):
     from modules import price_lock
     txs, sched = real_log
@@ -522,6 +523,7 @@ def test_the_11_02_window_replayed_gives_applied_for_all_seven(real_log):
     assert all(keys.values())
 
 
+@pytest.mark.slow
 def test_the_11_02_replay_counts_match_the_claim_week_rulings(real_log):
     """The shadow comparison's first real test: the seven claims counted by the
     ledger alone (their claim_week rulings set aside) land where the rulings
@@ -665,6 +667,7 @@ def _calls(path, name):
     return out
 
 
+@pytest.mark.slow
 def test_only_ledger_py_writes_the_ledger_and_only_the_nightly_writes_its_states():
     files = sorted((ROOT / "modules").glob("*.py")) + sorted((ROOT / "scripts").glob("*.py"))
     writers = sorted({c for p in files for c in _calls(p, "write_entries")})

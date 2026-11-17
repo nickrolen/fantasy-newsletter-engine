@@ -76,6 +76,7 @@ def test_a_correct_potw_passes(tmp_path, verify, monkeypatch):
     assert verify._check_potw_attribution([]) == []
 
 
+@pytest.mark.slow
 def test_the_live_potw_history_is_consistent(verify):
     """Against the real files, not a fixture."""
     assert verify._check_potw_attribution([]) == []

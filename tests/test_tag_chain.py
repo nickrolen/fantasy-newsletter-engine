@@ -135,6 +135,7 @@ def test_a_line_record_for_other_tags_raises(monkeypatch, record, match):
                       injury_statuses={"Nick3": "O"}, through="regular", tag_anchors=record)
 
 
+@pytest.mark.slow
 def test_a_midweek_pass_spends_the_lines_anchors_in_both_places(monkeypatch):
     data, teams, w, d0, as_of, seen = _midweek(monkeypatch)
     asked = []
@@ -150,6 +151,7 @@ def test_a_midweek_pass_spends_the_lines_anchors_in_both_places(monkeypatch):
     assert ch.anchors == seen["anchors"] and ch.week_info[0] == w and ch.as_of == as_of
 
 
+@pytest.mark.slow
 def test_without_tags_or_without_a_week_in_progress_nothing_is_read(monkeypatch):
     data, teams, w, d0, as_of, seen = _midweek(monkeypatch)
 
@@ -160,11 +162,30 @@ def test_without_tags_or_without_a_week_in_progress_nothing_is_read(monkeypatch)
     assert seen["tag_chain"] is None and seen["anchors"] is None
 
 
+def _pass_hash(sp):
+    """A pass's hash that does not depend on the platform: integers as int64
+    (numpy's default int is 32-bit on Windows before numpy 2), floats rounded
+    to 1e-4 (summation order can move the last bits). Any real change to the
+    pass still moves it."""
+    h = hashlib.sha256()
+    arrays = [getattr(sp, k) for k in ("reg_finish", "reg_points", "playoff_finish")]
+    arrays += [np.nan_to_num(sp.week_margins[wk], nan=-1e9) for wk in sorted(sp.week_margins)]
+    for a in arrays:
+        a = np.asarray(a)
+        a = a.astype(np.int64) if a.dtype.kind in "iu" else np.round(a.astype(np.float64), 4)
+        h.update(np.ascontiguousarray(a).tobytes())
+    return h.hexdigest()[:16]
+
+
+@pytest.mark.slow
 def test_a_monday_fetch_prices_exactly_as_before():
     """No week in progress (the 12:01 AM Monday run): the pass is the one it
     always was, by hash -- 0eb18da9fa773399 is this fixture's pass at HEAD
     40b5454, before s.3 (computed 11-12 with HEAD's modules), with or without
-    anchors offered."""
+    anchors offered. Since task 50 the hash is of a platform-neutral form
+    (_pass_hash): the raw bytes differed on Nick's Windows run (626773368830a4ab
+    on 11-16); 92a0e7f0105588f8 is the neutral hash of the same pass, computed
+    in the VM at 275a532, where the raw hash was still 0eb18da9fa773399."""
     import test_season_sim as T
     mp = pytest.MonkeyPatch()
     mp.setattr(spo, "resolve_completed_week", lambda d, w: None)
@@ -174,12 +195,7 @@ def test_a_monday_fetch_prices_exactly_as_before():
             sp = ss.run_season(data, num_simulations=300, seed=11, team_projections=teams,
                                injury_statuses={"Nick3": "O", "Hayden5": "Q", "Benton1": "D"},
                                through="playoffs", **kw)
-            h = hashlib.sha256()
-            for k in ("reg_finish", "reg_points", "playoff_finish"):
-                h.update(np.ascontiguousarray(getattr(sp, k)).tobytes())
-            for wk in sorted(sp.week_margins):
-                h.update(np.nan_to_num(sp.week_margins[wk], nan=-1e9).tobytes())
-            assert h.hexdigest()[:16] == "0eb18da9fa773399", kw
+            assert _pass_hash(sp) == "92a0e7f0105588f8", kw
     finally:
         mp.undo()
 
@@ -188,6 +204,7 @@ def test_a_monday_fetch_prices_exactly_as_before():
 # real data, unstubbed: the new run path
 # =============================================================================
 
+@pytest.mark.slow
 @needs_state("data/LINEUPS.xlsx", "data/PLAYERLOG.xlsx", "data/PLAYERLIST.xlsx", "config/RECORDS.json",
              "data/IL_SLOTS.json", "output/tag_records.jsonl", "output/stakes.json",
              why="the season pass on the real state, mid-week, against the real live line")

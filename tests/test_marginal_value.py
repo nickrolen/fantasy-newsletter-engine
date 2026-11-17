@@ -57,6 +57,7 @@ def _two_week_regular_season(monkeypatch):
 
 
 # 1 ---------------------------------------------------------------------------
+@pytest.mark.slow
 def test_same_question_twice_same_answer_exactly():
     w = _world()
     a = mv.marginal_value(_ctx(w), "Nick", adds=["P70"], drops=["P3"])
@@ -64,6 +65,7 @@ def test_same_question_twice_same_answer_exactly():
     assert a == b
 
 
+@pytest.mark.slow
 def test_asking_other_questions_first_changes_nothing():
     """Keyed draws: no shared stream for an earlier call to advance."""
     w = _world()
@@ -90,6 +92,7 @@ def test_common_random_numbers_shrink_the_error():
 
 
 # 3 ---------------------------------------------------------------------------
+@pytest.mark.slow
 @pytest.mark.parametrize("seed", range(10))
 def test_a_pure_add_is_never_negative_in_any_simulation(seed):
     w = _world(seed=seed)
@@ -274,6 +277,7 @@ def test_2025_26_dry_run_was_clear():
     assert all(v.band(dry, k) == "CLEAR" for k in v.ORIGINAL)
 
 
+@pytest.mark.slow
 def test_premise_stats_runs_end_to_end_on_a_small_world():
     v = _validator()
     w = _world(seed=2, n_players=70)
@@ -303,6 +307,7 @@ def test_cached_totals_are_read_only_and_shared_across_orderings():
     assert mv.roster_totals(ctx, list(reversed(roster)))[0] is pts
 
 
+@pytest.mark.slow
 def test_a_cached_baseline_gives_the_same_answer_as_a_fresh_context():
     w = _world(seed=5)
     warm = _ctx(w)
@@ -333,6 +338,7 @@ def test_trade_samples_are_disjoint_keyed_and_reproducible():
     assert v.sampled_swaps(rosters, 700, 2)[1] == [swaps]
 
 
+@pytest.mark.slow
 def test_sampled_premise_stats_scale_and_band_each_sample():
     v = _validator()
     w = _world(seed=2, n_players=70)

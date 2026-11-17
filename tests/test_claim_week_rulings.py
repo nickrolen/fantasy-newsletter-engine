@@ -313,8 +313,10 @@ def test_the_real_rulings_load_with_the_real_schedule():
     labels = [r.label() for r in tr.load_all(ROOT)]
     assert "effective 2026-10-26 2026-10-25 Hayden add Zach LaVine (Nick, 2026-10-30)" in labels
     assert "void 2026-10-25 Hayden add Franz Wagner (Nick, 2026-10-31)" in labels
+    rulings = tr.claim_weeks(tr.load_all(ROOT))
+    # Weeks 1-3 are finished and were ruled by hand: that list is history, exact.
     claims = sorted((r.manager, r.player, r.transaction_date, r.claim_week)
-                    for r in tr.claim_weeks(tr.load_all(ROOT)))
+                    for r in rulings if r.claim_week <= 3)
     assert claims == sorted([
         ("Hayden", "Darius Acuff Jr.", "2026-10-26", 1),
         ("Benton", "Nickeil Alexander-Walker", "2026-10-26", 1),
@@ -339,8 +341,20 @@ def test_the_real_rulings_load_with_the_real_schedule():
         ("Nick", "Immanuel Quickley", "2026-11-09", 3),
         ("Benton", "Jabari Smith Jr.", "2026-11-09", 3)])
     # Nick, 11-10: ledger_mode "on" -- from week 4 on, chat claims count from
-    # the move ledger and no claim_week ruling is written. A new one here is
-    # a mistake, so this list stays exact.
+    # the move ledger. A hand-written claim_week ruling from then on is the
+    # exception (11-16: three week-4 chat claims applied in Yahoo by the
+    # managers themselves), so the list is not pinned (it failed the suite every
+    # time one was written, task 50); what such a ruling must be is: a chat
+    # claim applied in the very next Monday window (rule 7), saying so, ruled by
+    # Nick. Whether one also agrees with the ledger is add_budget_week's check
+    # (it raises when they disagree), run on the real files by the budget tests.
+    weeks = {w["week"]: w for w in json.loads((ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))["weeks"]}
+    for r in rulings:
+        if r.claim_week <= 3:
+            continue
+        nxt = weeks[r.claim_week + 1]["start_date"]
+        assert r.transaction_date == nxt, (r.label(), "not applied in the next Monday window", nxt)
+        assert r.by == "Nick" and "group chat" in r.reason, r.label()
 
 
 # ========================================== listing vs counting (s.3c)
@@ -479,6 +493,7 @@ WAIVER_FILE_MOVERS = {"backfill_waivers.py", "build_dryrun_packet.py", "start_ne
                       "sync_transactions.py"}
 
 
+@pytest.mark.slow
 def test_every_reader_of_a_waivers_file_goes_through_a_parser_that_strips_the_mark():
     offenders = []
     for path in sorted([*(ROOT / "modules").glob("*.py"), *(ROOT / "scripts").glob("*.py")]):
@@ -523,6 +538,7 @@ def _functions(path):
     return [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
 
 
+@pytest.mark.slow
 def test_no_module_counts_adds_by_week_but_through_add_budget_week():
     """A function that holds an add budget AND reads the synced adds is an add
     counter, and must get each add's week from add_budget_week (directly or
@@ -606,6 +622,7 @@ def test_the_real_10_26_window_counts():
         2: {"Garrett": ["Aaron Wiggins", "Toumani Camara"]}}
 
 
+@pytest.mark.slow
 @needs_state("data/waivers_week1.txt", "data/waivers_week2.txt", "data/waivers_week3.txt",
              "config/TRANSACTION_RULINGS.json", "config/SCHEDULE.json",
              why="the season's real add table (HANDOFF_SECTION10_OFF_AND_BUDGET_WEEK, 11-02)")

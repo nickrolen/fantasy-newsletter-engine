@@ -199,6 +199,7 @@ def test_exact_fill_start_keeps_the_start_and_is_unchanged_without_one():
 # every caller uses the one function
 # =============================================================================
 
+@pytest.mark.slow
 def test_every_caller_uses_the_one_function():
     import update_leaguehistory as ulh
     from modules import what_if_analyzer as wia, report_builder as rb
@@ -281,5 +282,6 @@ def _real_week(week):
     return ulh.compute_weekly_blunders_from_lineups(lus, plog, "2026-2027", week)
 
 
+@pytest.mark.slow
 def test_nicks_real_week_3_is_two():
     assert _real_week(3).get("Nick") == 2

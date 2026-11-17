@@ -71,9 +71,11 @@ def _pass(data, teams, n=400, seed=11, through="cup", monkeypatch=None):
 def season():
     mp = pytest.MonkeyPatch()
     mp.setattr(spo, "resolve_completed_week", lambda d, w: None)
-    data, teams = _world()
-    sp = _pass(data, teams)
-    mp.undo()
+    try:                                  # undone even when the pass raises (task 50)
+        data, teams = _world()
+        sp = _pass(data, teams)
+    finally:
+        mp.undo()
     return sp
 
 
@@ -105,6 +107,7 @@ def test_the_payouts_are_the_ones_this_ledger_was_written_for():
                      "playoff_total": 90.0, "playoff_per_payer": 45.0}
 
 
+@pytest.mark.slow
 def test_league_money_and_playoff_money_each_sum_to_zero_every_iteration(season):
     for i in range(season.num_simulations):
         lg, po = _split(season, i)
@@ -114,11 +117,13 @@ def test_league_money_and_playoff_money_each_sum_to_zero_every_iteration(season)
         assert np.array_equal(season.dollars[i], lg + po), i
 
 
+@pytest.mark.slow
 def test_nobody_ever_nets_more_than_270_or_less_than_minus_135(season):
     assert season.dollars.max() <= 270 and season.dollars.min() >= -135
     assert np.all(season.dollars.sum(axis=1) == 0)
 
 
+@pytest.mark.slow
 def test_win_the_regular_season_lose_the_semifinal_is_exactly_plus_135(season):
     led = season.ledger()
     hits = 0
@@ -144,6 +149,7 @@ def test_the_cup_and_the_third_place_series_move_no_money():
     assert "cup" not in inspect.signature(ss.dollars_for).parameters
 
 
+@pytest.mark.slow
 def test_dollars_do_not_depend_on_the_cup(season):
     """Two iterations identical except for the Cup winner have equal dollars."""
     key = lambda i: (tuple(season.reg_finish[i]), tuple(sorted(season.semi_losers[i])),
@@ -159,6 +165,7 @@ def test_dollars_do_not_depend_on_the_cup(season):
     assert pairs > 0
 
 
+@pytest.mark.slow
 def test_stopping_before_the_cup_changes_no_dollar(monkeypatch):
     monkeypatch.setattr(spo, "resolve_completed_week", lambda d, w: None)
     data, teams = _world()
@@ -205,6 +212,7 @@ def test_the_config_wording_and_the_semifinal_rule_diverge_once_third_place_has_
 # One champion each; the bracket is THIS iteration's
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 def test_exactly_one_champion_of_each_kind(season):
     for arr in (season.reg_finish, season.playoff_finish, season.cup_finish):
         for row in arr:
@@ -215,6 +223,7 @@ def test_exactly_one_champion_of_each_kind(season):
         assert set(season.semi_winners[i]) | set(season.semi_losers[i]) == {0, 1, 2, 3}
 
 
+@pytest.mark.slow
 def test_every_bracket_is_seeded_from_that_iterations_standings(season):
     names = season.managers
     for i in range(season.num_simulations):
@@ -228,6 +237,7 @@ def test_every_bracket_is_seeded_from_that_iterations_standings(season):
     assert len(set(season.semi_pairs)) > 1, "one bracket in every season: nothing was tested"
 
 
+@pytest.mark.slow
 def test_wins_losses_and_ties_add_up_to_fifteen_games(season):
     total = season.reg_wins + season.reg_losses + season.reg_ties
     assert np.all(total == 15)
@@ -237,6 +247,7 @@ def test_wins_losses_and_ties_add_up_to_fifteen_games(season):
 # The ledger: two currencies, never summed
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 def test_the_ledger_keeps_dollars_and_the_keeper_apart(season):
     led = season.ledger()
     for m, row in led.items():
@@ -328,6 +339,7 @@ def _scripted(monkeypatch, recs, weeks, scores):
     )
 
 
+@pytest.mark.slow
 def test_an_exact_clinch_is_a_sampled_one_and_an_exact_elimination_a_sampled_zero(monkeypatch):
     data, teams = _world(recorded_through=12)
     level = {"Nick": 2000.0, "Hayden": 1500.0, "Benton": 1400.0, "Garrett": 1000.0}
@@ -404,6 +416,7 @@ def _capture(monkeypatch):
     return seen
 
 
+@pytest.mark.slow
 def test_one_managers_roster_never_moves_another_managers_week(monkeypatch):
     monkeypatch.setattr(spo, "resolve_completed_week", lambda d, w: None)
     data, teams = _world()
@@ -424,6 +437,7 @@ def test_one_managers_roster_never_moves_another_managers_week(monkeypatch):
             assert np.array_equal(a[w][m], b[w][m]), (w, m)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("week", [9, 16, 23])
 def test_a_week_in_the_pass_is_the_betting_lines_week(monkeypatch, week):
     monkeypatch.setattr(spo, "resolve_completed_week", lambda d, w: None)
@@ -436,6 +450,7 @@ def test_a_week_in_the_pass_is_the_betting_lines_week(monkeypatch, week):
         assert np.array_equal(seen[0][week][m][:250], line_week[m]["score"]), (week, m)
 
 
+@pytest.mark.slow
 def test_prefix_stability_in_n(monkeypatch):
     monkeypatch.setattr(spo, "resolve_completed_week", lambda d, w: None)
     data, teams = _world()
@@ -444,6 +459,7 @@ def test_prefix_stability_in_n(monkeypatch):
         assert np.array_equal(getattr(small, k), getattr(big, k)[:150]), k
 
 
+@pytest.mark.slow
 def test_order_independence_and_no_stdlib_random(monkeypatch):
     monkeypatch.setattr(spo, "resolve_completed_week", lambda d, w: None)
     data, teams = _world()
@@ -459,6 +475,7 @@ def test_order_independence_and_no_stdlib_random(monkeypatch):
     assert "import random" not in src and "random." not in src
 
 
+@pytest.mark.slow
 def test_different_seeds_differ(monkeypatch):
     monkeypatch.setattr(spo, "resolve_completed_week", lambda d, w: None)
     data, teams = _world()
@@ -470,6 +487,7 @@ def test_different_seeds_differ(monkeypatch):
 # §8: the gaps this job closes
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 def test_the_in_progress_week_is_banked_plus_remainder_not_dropped(monkeypatch):
     """PLAYERLOG has reached week 9, RECORDS has not: week 9 is the banked
     points plus B2's remainder -- not skipped (Phase 1) and not re-drawn

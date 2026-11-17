@@ -80,6 +80,7 @@ def test_season_is_out_through_the_last_fantasy_week_with_no_return():
     assert back["out_weeks"] == list(range(1, 22)) and back["return_week"] == 22
 
 
+@pytest.mark.slow
 def test_an_entry_with_no_return_is_accepted_everywhere(tmp_path):
     """Shape checks, the absence code and the OFS backstop all take an entry
     with out_weeks and no return; a rostered OFS tag raises no conflict."""
@@ -383,6 +384,7 @@ def test_every_site_raises_naming_the_player():
                          SCHEDULE["weeks"], "week", 3, injury_statuses={"Bad Date": "HEALTHY"})
 
 
+@pytest.mark.slow
 def test_no_silent_ignore_around_a_return_date_remains():
     pat = re.compile(r"except ValueError:\s*\n\s*pass")
     for path in list((ROOT / "modules").glob("*.py")) + list((ROOT / "scripts").glob("*.py")):

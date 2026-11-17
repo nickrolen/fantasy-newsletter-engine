@@ -145,6 +145,7 @@ def _run(desk, *args):
     return rc, "\n".join(out)
 
 
+@pytest.mark.slow
 def test_add_normalises_to_a_320_square_webp_under_the_slug(desk):
     PIL = pytest.importorskip("PIL.Image")
     src = _webp(desk / "in" / "wemby.png", size=(419, 356))
@@ -244,6 +245,7 @@ def test_pillow_is_needed_only_to_add():
 # POTW reads the library; the reset keeps it; the manifest
 # =============================================================================
 
+@pytest.mark.slow
 def test_potw_reads_the_library_and_still_refuses_a_mismatch(tmp_path):
     import newsletter_html_generator as g
     assert g.POTW_DIR == ROOT / "assets" / "headshots"
@@ -343,6 +345,7 @@ def test_the_newsletter_card_gets_the_library_photo_or_no_key(tmp_path):
     assert "photo" not in cards[1]
 
 
+@pytest.mark.slow
 @needs_state("data/historical/HISTORICAL_PLAYERLOG.json", "data/PLAYERLOG.xlsx", "data/PLAYERLIST.xlsx",
              why="a rookie's and a free agent's card are built from the real logs")
 def test_a_rookie_with_no_history_and_a_player_outside_keeper_watch():
@@ -653,6 +656,7 @@ def test_coverage_counts_rostered_players_with_a_photo(tmp_path):
 # the real hub, cards included (unstubbed)
 # =============================================================================
 
+@pytest.mark.slow
 @needs_state("output/title_odds_latest.json", "output/tag_records.jsonl", "data/transaction_log.jsonl",
              "output/hub_archive/index.json", "data/historical/HISTORICAL_PLAYERLOG.json",
              why="the real hub and its cards, from Nick's state, into scratch with a test passphrase")
