@@ -176,12 +176,17 @@ def rec(name, proj):
     return {"player_name": name, "projectedFPPG": proj, "player_position(s)": "SF"}
 
 
-def test_the_stash_is_only_o_and_ofs_free_agents_by_projection_with_their_status():
-    over = [{"player_name": "Out Back", "out_weeks": [3, 4, 5], "return_week": 6, "return_date": "2026-11-23"},
-            {"player_name": "Q Entry", "out_weeks": [3, 4], "return_week": 5, "return_date": "2026-11-18"}]
-    tags = {"Out Back": "O", "Season Gone": "OFS", "O Only": "O", "Q Entry": "Q", "Healthy": "HEALTHY",
-            "Day To Day": "D"}
-    av = stash_world(tags, over)
+STASH_OVER = [{"player_name": "Out Back", "out_weeks": [3, 4, 5], "return_week": 6, "return_date": "2026-11-23"},
+              {"player_name": "Q Entry", "out_weeks": [3, 4], "return_week": 5, "return_date": "2026-11-18"}]
+STASH_TAGS = {"Out Back": "O", "Season Gone": "OFS", "O Only": "O", "Q Entry": "Q", "Healthy": "HEALTHY",
+              "Day To Day": "D"}
+
+
+def test_the_stash_is_only_o_and_ofs_free_agents_by_projection_with_their_status(monkeypatch):
+    # The rule as it was until 11-16 (O and OFS only), pinned here rather than read from the
+    # config, which now also has Q and D (see the next test).
+    monkeypatch.setattr(ml, "il_eligible_tags", lambda cfg=None: ("O", "OFS"))
+    av = stash_world(STASH_TAGS, STASH_OVER)
     recs = [rec("Out Back", 30.0), rec("Season Gone", 45.0), rec("O Only", 20.0), rec("Q Entry", 50.0),
             rec("Healthy", 60.0), rec("Day To Day", 55.0)]
     rows = hs.stash_rows(recs, av, WK[4] + WK[5], 10)
@@ -194,6 +199,23 @@ def test_the_stash_is_only_o_and_ofs_free_agents_by_projection_with_their_status
     assert rows[0]["season_note"] == "an IL slot all season: keeper value only"
     assert hs.stash_rows(recs, av, WK[4] + WK[5], 2) == rows[:2]           # top N
     assert all(isinstance(v, str) for r in rows for k, v in r.items() if k not in ("tags", "season"))
+
+
+def test_with_q_and_d_il_eligible_a_q_free_agent_with_a_long_entry_is_a_stash(monkeypatch):
+    # 11-16: Nick turned on Yahoo's "Additional IL-eligible statuses" (Q and D, not P), and
+    # roster_moves.il_eligible_tags became O, OFS, Q, D. A Q free agent whose injury entry keeps
+    # him out can now go straight into an IL slot; a D tag with no entry is still a short
+    # absence, not a stash (48f), and a healthy player never is.
+    monkeypatch.setattr(ml, "il_eligible_tags", lambda cfg=None: ("O", "OFS", "Q", "D"))
+    av = stash_world(STASH_TAGS, STASH_OVER)
+    recs = [rec("Out Back", 30.0), rec("Season Gone", 45.0), rec("O Only", 20.0), rec("Q Entry", 50.0),
+            rec("Healthy", 60.0), rec("Day To Day", 55.0)]
+    rows = hs.stash_rows(recs, av, WK[4] + WK[5], 10)
+    assert [r["name"] for r in rows] == ["Q Entry", "Season Gone", "Out Back"]
+
+
+def test_the_config_has_q_and_d_il_eligible_since_11_16():
+    assert set(ml.il_eligible_tags()) == {"O", "OFS", "Q", "D"}
 
 
 def test_the_stash_reads_the_il_eligible_tags_from_the_config(monkeypatch):

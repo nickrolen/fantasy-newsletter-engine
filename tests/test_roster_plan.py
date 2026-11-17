@@ -379,7 +379,7 @@ def test_the_roster_moves_keys_are_required(monkeypatch, key):
 def test_the_configured_rules():
     r = rp.rules()
     assert r == {"active_spots": 15, "il_slots": 2, "add_budget": 3,
-                 "il_eligible_tags": {"O", "OFS"}, "replacement_rank": 4}
+                 "il_eligible_tags": {"O", "OFS", "Q", "D"}, "replacement_rank": 4}   # Q, D since 11-16
 
 
 # 12 -- drops, pickups and lineups never see m
