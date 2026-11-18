@@ -572,6 +572,8 @@ def render(vm: dict, *, cards: dict = None) -> str:
                  f'{clean(vm["mismatch"])}.</div>')
     if vm["engine_note"]:
         o.append(f'<div class="v2-calm">{clean(vm["engine_note"])}</div>')
+    if vm.get("closing_note"):                     # H52: a refused closing line, the night went on
+        o.append(f'<div class="v2-calm">{clean(vm["closing_note"])}</div>')
     o.append(f'<div class="lh-stale" id="stale" role="status"{"" if vm["stale"] else " hidden"}>{WARN}'
              f'<span>{clean(vm["stale_text"])}</span></div></div>')
     o.append('<nav class="lh-tabbar" aria-label="Main">' + "".join(

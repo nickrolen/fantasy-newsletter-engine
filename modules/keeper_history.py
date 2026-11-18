@@ -531,11 +531,13 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
     return snap
 
 
-def live_inputs(root=ROOT, history: Optional[Inputs] = None) -> tuple:
+def live_inputs(root=ROOT, history: Optional[Inputs] = None, before=None) -> tuple:
     """(Inputs, season) with THIS season's log built from LINEUPS.xlsx exactly
     as rollup_season_to_history will file it at season's end (bench games
     included), its draft from DRAFT_PICKS_CURRENT.json and its trades from
-    config/TRADES.json -- so live features use the historical definitions."""
+    config/TRADES.json -- so live features use the historical definitions.
+    before (H52): a date; this season's rows dated on or after it are left out
+    (the closing line's keep chances, as of the Sunday before its window)."""
     import sys as _sys
     _sys.path.insert(0, str(Path(root) / "scripts"))
     import rollup_season_to_history as R
@@ -543,6 +545,11 @@ def live_inputs(root=ROOT, history: Optional[Inputs] = None) -> tuple:
     history = history or Inputs.load(root)
     flat = [r for rows in history.log.values() for r in rows]
     rows, _report = R.build_rows(CURRENT_SEASON, flat)
+    if before is not None:
+        cut = before.isoformat() if hasattr(before, "isoformat") else str(before)[:10]
+        rows = [r for r in rows if str(r["date"])[:10] < cut]
+        if not rows:
+            raise ValueError(f"no log rows before {cut}: the keep chances need this season's games")
     rows.sort(key=lambda r: (r["date"], r["manager"], r["player_name"]))
     trades_cfg = json.loads((Path(root) / "config" / "TRADES.json").read_text(encoding="utf-8")) \
         if (Path(root) / "config" / "TRADES.json").is_file() else {}

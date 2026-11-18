@@ -490,15 +490,21 @@ def resolve(entries: list, known: dict, rostered) -> list:
 def assess(report: dict, tags, rosters: dict, override_out_on_day, today: date, known: dict,
            now: datetime = None, cfg: dict = None) -> dict:
     """What tonight's report does. report: latest()["report"] (or None);
-    tags: the run's Yahoo tags (rostered); override_out_on_day(name) -> True
-    when an injury entry keeps him out today.
-    {"applied": {player: today}, "flags": [...], "covered": [...],
-     "unresolved": [...], "loud": [...], "stale": str or None, "filed_at"}."""
+    tags: the run's Yahoo tags (rostered; a Tags also carries the free
+    agents'); override_out_on_day(name) -> True when an injury entry keeps him
+    out today.
+    {"applied": {player: today}, "fa_applied": {free agent: today}, "flags":
+     [...], "covered": [...], "unresolved": [...], "loud": [...], "stale": str
+     or None, "filed_at"}.
+    fa_applied (H52): the same rule for the PLAYERLIST free agents (tags.
+    free_agents): Out tonight, no O/OFS from Yahoo, no entry keeping him out.
+    Recorded only (Tags.free_agent_nba_outs), for the closing line's player
+    added after the last pre-tip record; no flag, no issue, nothing priced."""
     from . import absence
     from .data_loader import PlayerIndex
     cfg = cfg or config()
-    res = {"applied": {}, "flags": [], "covered": [], "unresolved": [], "loud": [], "stale": None,
-           "filed_at": None, "not_submitted": []}
+    res = {"applied": {}, "fa_applied": {}, "flags": [], "covered": [], "unresolved": [], "loud": [],
+           "stale": None, "filed_at": None, "not_submitted": []}
     if not report:
         return res
     res["filed_at"] = report.get("filed_at")
@@ -509,6 +515,8 @@ def assess(report: dict, tags, rosters: dict, override_out_on_day, today: date, 
         return res
     rostered = [n for v in rosters.values() for n in v]
     tidx = tags if isinstance(tags, PlayerIndex) else PlayerIndex(dict(tags or {}))
+    fa = getattr(tags, "free_agents", None)          # H52: the PLAYERLIST free agents' tags
+    ridx = PlayerIndex({n: n for n in rostered})
     day = today.isoformat()
     res["not_submitted"] = [x for x in report.get("not_submitted", []) if x.get("game_date") == day]
     seen = set()
@@ -523,7 +531,15 @@ def assess(report: dict, tags, rosters: dict, override_out_on_day, today: date, 
         if e["status"] != "Out" or e["game_date"] != day:
             continue
         name = e["resolved"]
-        if name not in rostered or name in seen:
+        if name in seen:
+            continue
+        if name not in rostered:
+            # H52: a free agent's Out, kept for the closing line (never priced, never flagged)
+            if fa is not None and ridx.get(name) is None and fa.get(name) is not None:
+                seen.add(name)
+                fnorm = absence.normalised_tag(fa.get(name))
+                if fnorm not in ("O", "OFS") and not override_out_on_day(name):
+                    res["fa_applied"][fa.canonical(name) or name] = day
             continue
         seen.add(name)
         tag = tidx.get(name)

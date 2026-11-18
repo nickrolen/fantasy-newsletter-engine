@@ -21,6 +21,11 @@ on:
     # open (12:01 AM to the last tip - 5 min), on the :00 or :30 slot, POLLS
     # Yahoo's transactions in the guard job instead (run.yml; scripts/
     # monday_poll.py): a new one runs the refresh, nothing new runs nothing.
+    # H52: the firings in the 30 minutes after the window closes (the last tip
+    # - 5 min; 17:55 to 19:25 Pacific this season) are THE CLOSING RUN while
+    # the week's closing line is not on file: `nightly.py --closing
+    # --scheduled`, then the hub. Two firings fall in those 30 minutes on
+    # every window Monday (tests/test_h52_closing_at_close.py checks the season).
 
 permissions:
   contents: write

@@ -36,7 +36,7 @@ def state(mp, week: int):
     (mp: a pytest MonkeyPatch the fixture undoes)."""
     real = drop_inputs.read_stakes
 
-    def read(base_path, season=None):
-        blob, note = real(base_path, season)
+    def read(base_path, season=None, path=None):
+        blob, note = real(base_path, season, path=path)
         return (as_of_week(blob, week), note) if blob is not None else (blob, note)
     mp.setattr(drop_inputs, "read_stakes", read)

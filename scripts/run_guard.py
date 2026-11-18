@@ -28,6 +28,19 @@ steps then read Yahoo's transactions (scripts/monday_poll.py) and run the
 refresh only when one is new. Outside the window nothing polls: moves cannot
 happen then.
 
+H52, THE CLOSING RUN (Nick, 11-17): the closing line is priced in the cloud
+right after Monday's window closes, not at the 12:05 AM nightly. The same
+pre-tip job's firings (every 15 minutes to 19:45 Pacific, cron-job.org) carry
+it: a firing in [window close, window close + CLOSING_ADMIT) on a window day
+whose week has neither its closing line (output/closing_line_weekN.json) nor
+its "no closing line" record (output/closing_none_weekN.json) in the state
+checkout is the CLOSING RUN (the CLI writes closing=true; the workflow runs
+`nightly.py --closing --scheduled`). The close moves every week (the last tip
+- 5 min), so it is derived, never written down. Two firings fall in the 30
+minutes: the first prices; the second does nothing once the line is on file,
+or is the one retry of a refusal (as a failed night is retried once). After
+that the 12:05 AM nightly's due() is the fallback, as before.
+
 STANDARD LIBRARY ONLY, ON PURPOSE (HANDOFF_STEP1C2 s.2). Most firings do
 nothing: the nightly cron fires every 30 minutes through the early morning
 (GitHub delays or drops scheduled firings under load: on 11-05 the first
@@ -286,6 +299,9 @@ def admits_pretip(now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
 # =============================================================================
 
 WINDOW_CLOSE_BEFORE_LAST_TIP = timedelta(minutes=5)   # rule 4; modules/price_lock's (tests pin it)
+CLOSING_ADMIT = timedelta(minutes=30)   # H52: the closing run's firings after the close (two at 15 min)
+CLOSING_REL = "output/closing_line_week{week}.json"     # modules/closing_line.closing_path (tests pin it)
+CLOSING_NONE_REL = "output/closing_none_week{week}.json"  # modules/closing_line.none_path
 
 
 def live_cfg(base=ROOT) -> dict:
@@ -342,6 +358,25 @@ def window_open(base, day: date, tz: ZoneInfo = None, state_dir=None):
     return start, tips[-1] - WINDOW_CLOSE_BEFORE_LAST_TIP
 
 
+def window_week(base, day: date):
+    """The fantasy week whose window day is `day` (SCHEDULE.json), or None."""
+    for w in _read(base, "config/SCHEDULE.json").get("weeks") or []:
+        if str(w.get("start_date", ""))[:10] == day.isoformat():
+            return int(w["week"])
+    return None
+
+
+def closing_settled(state_dir, week: int) -> str:
+    """"priced", "none" or "": modules/closing_line.settled's rule, read from
+    the state checkout (the guard job's sparse checkout carries both files)."""
+    root = Path(state_dir)
+    if (root / CLOSING_REL.format(week=int(week))).is_file():
+        return "priced"
+    if (root / CLOSING_NONE_REL.format(week=int(week))).is_file():
+        return "none"
+    return ""
+
+
 def _slot(now: datetime, cfg: dict):
     """The poll slot minute this firing stands for, or None."""
     for s in cfg["slots"]:
@@ -352,7 +387,8 @@ def _slot(now: datetime, cfg: dict):
 
 def monday_decision(now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
     """(kind, why): kind "pretip" (the pre-tip run), "poll" (read Yahoo's
-    transactions; refresh if one is new) or None (nothing to do)."""
+    transactions; refresh if one is new), "closing" (H52: price the week's
+    closing line, the first firings after the close) or None (nothing to do)."""
     tz = league_zone(base)
     now = _aware(now_utc).astimezone(tz)
     ok, why = admits_pretip(now_utc, base, state_dir)
@@ -362,7 +398,20 @@ def monday_decision(now_utc: datetime, base=ROOT, state_dir=None) -> tuple:
     if win is None:
         return None, why
     start, close = win
-    if not start <= now < close:
+    if now >= close:
+        week = window_week(base, now.date())
+        got = closing_settled(state_dir if state_dir is not None else base, week)
+        if got:
+            return None, (f"{why}; the Monday window closed {close:%H:%M} {close:%Z}, and week {week}'s "
+                          f"closing line is settled ({got})")
+        if now < close + CLOSING_ADMIT:
+            return "closing", (f"closing: the Monday window closed {close:%H:%M} {close:%Z}; week {week}'s "
+                               f"closing line is not on file (admitted to "
+                               f"{close + CLOSING_ADMIT:%H:%M})")
+        return None, (f"{why}; the Monday window closed {close:%H:%M} {close:%Z}, and the closing run's "
+                      f"firings ended at {close + CLOSING_ADMIT:%H:%M}: the 12:05 AM nightly prices "
+                      f"week {week}'s closing line")
+    if not start <= now:
         return None, f"{why}; the Monday window is closed ({start:%H:%M}-{close:%H:%M} {close:%Z})"
     cfg = live_cfg(base)
     slot = _slot(now, cfg)
@@ -444,22 +493,24 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     now = datetime.fromisoformat(a.now.replace("Z", "+00:00")) if a.now else datetime.now(timezone.utc)
     base, state = Path(a.base_path), Path(a.state_dir) if a.state_dir else None
-    poll = False
+    poll = closing = False
     try:
         if a.mode == "pretip":
             kind, why = monday_decision(now, base, state)
-            ok, poll = kind == "pretip", kind == "poll"
+            ok, poll, closing = kind == "pretip", kind == "poll", kind == "closing"
         else:
             ok, why = decide(a.mode, now, base, state)
     except (GuardError, ValueError) as e:
         print(f"GUARD REFUSED ({a.mode}): {e}")
         return 1
-    print(f"{a.mode}: {'GO' if ok else 'POLL' if poll else 'nothing to do'} -- {why}")
+    print(f"{a.mode}: {'GO' if ok else 'POLL' if poll else 'CLOSING' if closing else 'nothing to do'} -- {why}")
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a", encoding="utf-8") as f:
             f.write(f"go={'true' if ok else 'false'}\n")
             f.write(f"poll={'true' if poll else 'false'}\n")
+            if a.mode == "pretip":
+                f.write(f"closing={'true' if closing else 'false'}\n")
     return 0
 
 

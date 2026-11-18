@@ -373,6 +373,7 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
              f' ({clean(payload["generated_text"])})</span></div>'
              f'<div class="lock{" on" if h["lock"]["locked"] else ""}">{clean(h["lock"]["text"])}</div>'
              + (f'<div class="lock">{clean(h["engine_note"])}</div>' if h.get("engine_note") else "")
+             + (f'<div class="lock on">{clean(h["closing_note"])}</div>' if h.get("closing_note") else "")
              + _nba_note(h.get("nba"))
              + '</header>')
 

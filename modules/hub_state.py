@@ -1073,6 +1073,9 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         raise llp.EngineMismatch(f"week {week} live line: {check['why']}")
     status = price_lock.status(now, data.nba_schedule)
     line_at = datetime.fromisoformat(line["generated_at"])
+    # H52: a refused closing line no longer stops the night: the hub says so
+    from . import closing_line as _cl
+    closing_note = _cl.refusal_note(base, now, data) or None
 
     # --- the tags: the latest Yahoo fetch (output/tag_records.jsonl, step 1c),
     # facts that update every night whether or not the line was priced
@@ -1394,7 +1397,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                    "nba": nba_note(base, nba_report),
                    "line_text": f"Line priced {_clock_text(line_at)}",
                    "engine_mismatch": None if check["ok"] else check["why"],
-                   "engine_note": engine_note},
+                   "engine_note": engine_note,
+                   "closing_note": closing_note},
         "matchups": build_matchups(line, mviews),
         "matchup_views": mviews["views"],
         "power": power,

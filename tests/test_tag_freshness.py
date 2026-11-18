@@ -82,13 +82,20 @@ def firings(day: date):
 def expected_kind(t: datetime):
     """The rule, written out apart from run_guard: pre-tip in [first - 45, first);
     else a poll on the :00/:30 firings while the window is open (12:01 AM to the
-    last tip - 5 min); else nothing."""
+    last tip - 5 min); H52: else the closing run in [close, close + 30 min) while
+    the week's closing line (or its none record) is not on file; else nothing."""
     ts = tips(t.date())
     first, last = ts[0], ts[-1]
     if first - timedelta(minutes=45) <= t < first:
         return "pretip"
     if la(t.date(), 0, 1) <= t < last - timedelta(minutes=5) and t.minute in (0, 30):
         return "poll"
+    close = last - timedelta(minutes=5)
+    if close <= t < close + timedelta(minutes=30):
+        week = next(int(w["week"]) for w in json.loads((ROOT / "config/SCHEDULE.json").read_text())["weeks"]
+                    if str(w["start_date"])[:10] == t.date().isoformat())
+        on_file = any((ROOT / "output" / f"closing_{k}_week{week}.json").is_file() for k in ("line", "none"))
+        return None if on_file else "closing"
     return None
 
 

@@ -555,13 +555,15 @@ def _display_inputs(data, week: int) -> tuple:
 
 
 def keeper_watch(data, week: int, root=ROOT, params: Optional[dict] = None,
-                 ages: Optional[dict] = None, history=None) -> dict:
+                 ages: Optional[dict] = None, history=None, logs_before=None) -> dict:
     """Keep probabilities for every rostered player, this report week.
 
     Live inputs exactly as step B2's live run: keepers and draft from
     DRAFT_PICKS_CURRENT.json, this season from the live logs, previous seasons
     from HISTORICAL_PLAYERLOG, ages from basketball-reference, rosters from the
-    roster sync. A player whose inputs cannot be built RAISES with his name."""
+    roster sync. A player whose inputs cannot be built RAISES with his name.
+    logs_before (H52): a date; this season's log rows on or after it are cut
+    (the closing line's keep chances as of the Sunday before its window)."""
     from . import keeper_history as kh
     from .data_loader import PlayerIndex, cup_winner, keepers_for
     root = Path(root)
@@ -575,7 +577,7 @@ def keeper_watch(data, week: int, root=ROOT, params: Optional[dict] = None,
     if not rosters:
         raise KeepabilityInputError("no rosters: the roster sync has not run")
     history = history or kh.Inputs.load(root)
-    li, season = kh.live_inputs(root, history)
+    li, season = kh.live_inputs(root, history, before=logs_before)
     ages = ages if ages is not None else kh.load_ages(kh.age_seasons(), root)
     snap = kh.live_snapshot(li, season, rosters, ages)       # AgeNotFound names the player
     point = as_of_point_for(week, season)

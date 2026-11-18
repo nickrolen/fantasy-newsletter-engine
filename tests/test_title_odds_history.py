@@ -133,10 +133,13 @@ def test_nothing_that_scores_reads_the_latest_file_or_the_stakes():
             for p in [*(ROOT / "modules").glob("*.py"), *(ROOT / "scripts").glob("*.py")]}
     assert {n for n, s in srcs.items() if "load_latest(" in s} == {"hub_state.py", "title_odds_run.py"}
     # (the weekly build names it in a comment and a print, and writes it
-    # through title_odds_run.record)
+    # through title_odds_run.record). H52: closing_line keeps the pre-tip copy
+    # and places a file by its as_of (capture_pretip_stakes, stakes_at_tip);
+    # the plan still reads the stakes only through drop_inputs.read_stakes
     assert {n for n, s in srcs.items() if "stakes.json" in s} <= {"title_odds_run.py",
                                                                   "generate_stats_report.py",
-                                                                  "drop_inputs.py"}
+                                                                  "drop_inputs.py", "closing_line.py"}
+    assert "read_stakes" not in srcs["closing_line.py"]
     assert {n for n, s in srcs.items() if "STAKES_FILE" in s} <= {"title_odds_run.py",
                                                                   "generate_stats_report.py",
                                                                   "drop_inputs.py"}

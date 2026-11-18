@@ -779,6 +779,7 @@ def test_the_real_closing_line_raises_on_a_governing_entry_changed_after_the_tip
     monkeypatch.setattr(cl, "playerlist_at_tip", lambda *a, **k: {
         "path": ROOT / "data" / "PLAYERLIST.xlsx", "rel": "data/PLAYERLIST.xlsx",
         "fetched_at": datetime(2026, 11, 2, 6, 46, tzinfo=LA), "source": "live"})
+    tcl.real_pins(monkeypatch)                # H52: the IL and stakes copies, stated
     try:
         with pytest.raises(cl.ClosingRefused, match=f"{re.escape(who)} \\(updated_at 2026-11-02T17:00"):
             cl.price(ROOT, 3, now=datetime(2026, 11, 3, 9, 0, tzinfo=LA), sims=200, title_sims=200,

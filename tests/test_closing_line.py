@@ -85,6 +85,7 @@ def _inputs(tmp_path, *, synced=datetime(2026, 11, 3, 0, 1, tzinfo=LA),
     (tmp_path / "data" / "IL_SLOTS.json").write_text(
         json.dumps({"fantasy_week": 3, "slots": {}, "fetched_at": synced.isoformat(timespec="seconds")}),
         encoding="utf-8")
+    cl.capture_il_at_close(tmp_path, 3, CLOSE)       # H52: the closing run's sync keeps it
     playerlist_freshness.write(pd.DataFrame({
         "player_name": ["A"], "player_nba_team": ["AAA"], "player_position(s)": ["PG"],
         "player_total_proj_FP": [2400.0], "player_proj_GP": [80], "projectedFPPG": [30.0]}),
@@ -261,6 +262,20 @@ def _real_or_skip():
         pytest.skip("league state (and a tag record) not in this checkout")
 
 
+def real_pins(mp):
+    """H52: the IL slots as at the close and the stakes as at the tip, stated:
+    the live files stand in for the copies the closing run and the pre-tip
+    runs keep (those are tests/test_h52_closing_at_close.py's business)."""
+    il_blob = json.loads((ROOT / "data" / "IL_SLOTS.json").read_text(encoding="utf-8"))
+    st = ROOT / "output" / "stakes.json"
+    st_at = datetime.fromisoformat(json.loads(st.read_text(encoding="utf-8"))["as_of"])
+    mp.setattr(cl, "il_at_close", lambda base, week, close: {
+        "blob": il_blob, "rel": "data/IL_SLOTS.json",
+        "fetched_at": datetime.fromisoformat(il_blob["fetched_at"])})
+    mp.setattr(cl, "stakes_at_tip", lambda base, week, first: {
+        "path": st, "rel": "output/stakes.json", "as_of": st_at, "source": "live"})
+
+
 @pytest.mark.slow
 def test_it_refuses_before_the_close():
     _real_or_skip()
@@ -286,14 +301,18 @@ def priced_twice(tmp_path_factory):
     live = {"path": ROOT / "data" / "PLAYERLIST.xlsx", "rel": "data/PLAYERLIST.xlsx",
             "fetched_at": datetime(2026, 11, 2, 6, 46, tzinfo=LA), "source": "live"}
     mp.setattr(cl, "playerlist_at_tip", lambda *a, **k: dict(live))
+    real_pins(mp)
     sim_counts.small(mp)     # the roster plan's long-run sims: paths, not counts (tests/sim_counts.py)
     out = tmp_path_factory.mktemp("closing")
     try:
-        now = datetime(2026, 11, 3, 9, 0, tzinfo=LA)
+        # H52: the cloud's closing run (Monday 7 PM, after week 3's 18:55 close) and
+        # the 12:05 AM nightly's retry price the same bytes: the plan's clock is the
+        # close, never the run's (a day apart, they used to anchor a day apart)
+        now = datetime(2026, 11, 2, 19, 0, tzinfo=LA)
         first = cl.price(ROOT, 3, now=now, sims=400, title_sims=400, out_base=out)
         body1 = cl.closing_path(out, 3).read_bytes()
         files1 = {p.name: p.read_bytes() for p in out.rglob("*") if p.is_file()}
-        second = cl.price(ROOT, 3, now=datetime(2026, 11, 3, 23, 0, tzinfo=LA), sims=400,
+        second = cl.price(ROOT, 3, now=datetime(2026, 11, 3, 0, 5, tzinfo=LA), sims=400,
                           title_sims=400, out_base=out)
         files2 = {p.name: p.read_bytes() for p in out.rglob("*") if p.is_file()}
     except ILSlotsError as e:

@@ -361,9 +361,10 @@ def test_the_guard_cli_writes_go_for_the_workflow(tmp_path, monkeypatch):
     assert rg.main(["pretip", "--now", "2026-11-10T00:00:00Z"]) == 0
     assert rg.main(["nightly", "--now", "2026-11-09T08:01:00Z", "--state-dir", str(tmp_path)]) == 0
     # step 3b: the pre-tip guard also writes poll=; 16:00 on 11-09 is past the first
-    # tip with the window open (last tip 19:00), so that firing polls
-    assert out.read_text().splitlines() == ["go=true", "poll=false", "go=false", "poll=true", "go=true",
-                                            "poll=false"]
+    # tip with the window open (last tip 19:00), so that firing polls. H52: and
+    # closing= (the first firings after the close, while the closing line is not on file)
+    assert out.read_text().splitlines() == ["go=true", "poll=false", "closing=false", "go=false", "poll=true",
+                                            "closing=false", "go=true", "poll=false"]
 
 
 GUARD_BLOCKER = r'''
@@ -509,12 +510,16 @@ def test_any_other_refusal_stops_the_run_and_is_retried_the_next_night(tmp_path)
     assert cl.due(tmp_path, at(2026, 11, 11, 0, 1), data=w) == 4
 
 
-def test_the_scheduled_nightly_run_stops_when_the_closing_line_refuses(monkeypatch):
+def test_the_scheduled_nightly_run_stops_when_the_closing_line_changed(monkeypatch):
+    # H52 (Nick, 11-17): any other refusal lets the night go on
+    # (tests/test_h52_closing_at_close.py); ClosingChanged still stops everything
+    from modules import closing_line as cl
     monkeypatch.setattr(nightly, "scheduled_guard_decision", lambda now, base=".": (True, "test"))
     marked = []
     monkeypatch.setattr(nightly, "record_night", lambda base, row, ok, now=None: marked.append(ok))
     monkeypatch.setattr(nightly, "scheduled_closing", lambda *a, **k: {
-        "week": 4, "outcome": "refused", "row": {"seconds": 1.0, "error": "ClosingRefused: x"}})
+        "week": 4, "outcome": "refused", "row": {"seconds": 1.0, "error": "ClosingChanged: x"},
+        "exception": cl.ClosingChanged("x")})
     started = []
     monkeypatch.setattr(nightly.Run, "execute", lambda self, steps=None: started.append(1))
     assert nightly.main(["--scheduled"]) == 1 and started == []

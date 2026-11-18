@@ -33,7 +33,7 @@ LORE_FILE = "config/LEAGUE_LORE.json"
 KIND_ORDER = ["unsupported_number", "unsupported_superlative",
               "unsourced_history", "fact_as_tendency", "approximate_number",
               "bad_lore_ref", "money_without_event", "report_card_order",
-              "magic_number_early"]
+              "magic_number_early", "adds_over_card"]
 KIND_LABEL = {
     "unsupported_number": "Numbers with no source",
     "unsupported_superlative": "Rankings with no source",
@@ -44,6 +44,7 @@ KIND_LABEL = {
     "money_without_event": "Dollar figures in a week nothing was decided",
     "report_card_order": "Report cards out of overall_score order",
     "magic_number_early": f"Magic number before the week {_magic_from()} report",
+    "adds_over_card": "Add counts above the card's week adds (joined_week_adds)",
 }
 
 
@@ -80,6 +81,8 @@ def run(draft_text: str, week: int, out_dirs: list[Path], config: dict,
     cards = (meta.get("current_report") or {}).get("report_cards")
     if cards:
         findings += cc.report_card_findings(draft_text, cards)
+        # H52: "made N adds" against the card's joined_week_adds (adff247's safety net)
+        findings += cc.adds_claim_findings(draft_text, vocab, cards)
     # No magic number before presentation.magic_number_from_week (Nick, 11-02)
     findings += cc.magic_number_findings(draft_text, vocab, int(week))
     if money_events is not None:

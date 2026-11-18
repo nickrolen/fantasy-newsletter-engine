@@ -92,14 +92,22 @@ class Tags(PlayerIndex):
     line, the title odds' week in progress and the closing line read it from
     here (simulator_betting.tag_blocks); the tag record keeps it, so the closing
     line prices what the pre-tip line priced. Empty: nothing applied.
+
+    free_agent_nba_outs (H52): the same for the PLAYERLIST FREE AGENTS -- the
+    NBA report has him Out that day and his Yahoo tag is not O/OFS. Nothing
+    prices them while he is a free agent; the tag record keeps them beside the
+    free agents' tags so the closing line can bring a player added after the
+    last pre-tip record in WITH his Out (closing_line.align_to_close). Absent
+    from older records: none.
     """
 
     def __init__(self, rostered=None, free_agents=None, free_agents_assumed_healthy=False,
-                 nba_outs=None):
+                 nba_outs=None, free_agent_nba_outs=None):
         super().__init__(rostered or {})
         self.free_agents = PlayerIndex(free_agents) if free_agents is not None else None
         self.free_agents_assumed_healthy = bool(free_agents_assumed_healthy)
         self.nba_outs = nba_outs_checked(nba_outs)
+        self.free_agent_nba_outs = nba_outs_checked(free_agent_nba_outs)
 
     @classmethod
     def none(cls) -> "Tags":
@@ -112,6 +120,8 @@ class Tags(PlayerIndex):
                "free_agents_assumed_healthy": self.free_agents_assumed_healthy}
         if self.nba_outs:                    # absent when empty: older records read the same
             out["nba_outs"] = dict(self.nba_outs)
+        if self.free_agent_nba_outs:         # H52; absent when empty, as nba_outs
+            out["free_agent_nba_outs"] = dict(self.free_agent_nba_outs)
         return out
 
     @classmethod
@@ -121,7 +131,8 @@ class Tags(PlayerIndex):
         (free_agents None)."""
         if isinstance(blob, dict) and "rostered" in blob:
             return cls(blob.get("rostered") or {}, blob.get("free_agents"),
-                       bool(blob.get("free_agents_assumed_healthy")), blob.get("nba_outs"))
+                       bool(blob.get("free_agents_assumed_healthy")), blob.get("nba_outs"),
+                       blob.get("free_agent_nba_outs"))
         return cls(blob or {}, None)
 
 

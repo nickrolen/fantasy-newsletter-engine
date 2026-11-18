@@ -51,6 +51,8 @@ def test_the_step_order_of_every_mode_is_pinned():
         "pretip": ("engine", "window", "logs", "sync", "settings", "tags", "nba_report", "ledger", "line",
                    "title_odds", "advice", "actuals", "hub"),
         "closing": ("engine", "window", "sync", "closing"),
+        # H52: the cloud's closing run right after the close, then the hub
+        "closing_hub": ("engine", "window", "sync", "closing", "actuals", "hub"),
         # step 3b: a Monday poll's refresh, its cause from the synced transactions
         "poll": ("engine", "banked", "sync", "moves", "settings", "tags", "nba_report", "ledger", "line",
                  "title_odds", "advice", "actuals", "hub"),

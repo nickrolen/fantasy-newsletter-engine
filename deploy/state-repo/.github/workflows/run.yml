@@ -34,6 +34,19 @@
 #     report Out Yahoo does not show, one per player per game) and o-no-entry
 #     (the O-past-3-games nudge, nightly, one per player).
 #
+# H52 (claude/HANDOFF_52_CLOSING_AT_CLOSE_2026-11-17.md; Nick, 11-17):
+#   - THE CLOSING RUN: a pre-tip firing the guard marks closing=true (the first
+#     firings in the 30 minutes after Monday's window closes, while the week's
+#     closing line is not on file: the guard reads output/closing_line_week*.json
+#     and output/closing_none_week*.json from the state checkout) starts the run
+#     job with kind closing: `nightly.py --closing --scheduled` (sync, the
+#     closing line, actuals, the hub). The 12:05 AM nightly's due() stays the
+#     fallback. A good closing run closes no failure issue (it repairs no night).
+#   - A REFUSED CLOSING LINE NO LONGER STOPS THE NIGHT (ClosingChanged still
+#     does): nightly.py exits 0, publishes the hub (with its banner) and writes
+#     closing_refused=true; the failure issue then opens (or is commented on)
+#     from the closing run's row, and the good night does not close it.
+#
 # Lives in the ENGINE at deploy/state-repo/.github/workflows/run.yml and is
 # installed into the private repo by `python scripts\state.py install-workflows`.
 # Edit it in the engine, never in the private repo.
@@ -97,17 +110,20 @@ jobs:
     timeout-minutes: 5
     outputs:
       # step 3b: a poll that found a new transaction starts the run job too
-      go: ${{ steps.guard.outputs.go == 'true' || steps.poll.outputs.go == 'true' }}
-      kind: ${{ steps.poll.outputs.go == 'true' && 'poll' || inputs.mode }}
+      # H52: the closing run, the first firings after Monday's window closes
+      go: ${{ steps.guard.outputs.go == 'true' || steps.poll.outputs.go == 'true' || steps.guard.outputs.closing == 'true' }}
+      kind: ${{ steps.poll.outputs.go == 'true' && 'poll' || steps.guard.outputs.closing == 'true' && 'closing' || inputs.mode }}
       reason: ${{ steps.guard.outputs.reason || steps.poll.outputs.reason }}
     steps:
-      - name: ENGINE_COMMIT, the night's marker and the refetched schedule (the private repo)
+      - name: ENGINE_COMMIT, the night's marker, the closing lines and the refetched schedule (the private repo)
         uses: actions/checkout@v6
         with:
           path: state
           sparse-checkout: |
             /ENGINE_COMMIT
             /output/nightly_last.json
+            /output/closing_line_week*.json
+            /output/closing_none_week*.json
             /data/nba_schedule_*.refetched.json
             /data/transaction_log.jsonl
           sparse-checkout-cone-mode: false
@@ -408,6 +424,8 @@ jobs:
             fi
           elif [ "$MODE" = pretip ] && [ "$KIND" = poll ]; then
             set -- --poll
+          elif [ "$MODE" = pretip ] && [ "$KIND" = closing ]; then
+            set -- --closing --scheduled
           elif [ "$MODE" = pretip ]; then
             set -- --pretip --scheduled
           elif [ "$MODE" = afternoon ]; then
@@ -554,9 +572,10 @@ jobs:
 
       # a refresh never closes the failure issue: it skips the log pull, so a
       # night that failed there is not repaired by it (nor do a poll and the
-      # afternoon check, refreshes too: step 3b)
+      # afternoon check, refreshes too: step 3b; nor the closing run, H52). A
+      # good night whose closing line refused (closing_refused) keeps it open
       - name: Close the failure issue
-        if: success() && steps.run.outputs.ran == 'true' && inputs.mode != 'refresh' && inputs.mode != 'afternoon' && needs.guard.outputs.kind != 'poll'
+        if: success() && steps.run.outputs.ran == 'true' && inputs.mode != 'refresh' && inputs.mode != 'afternoon' && needs.guard.outputs.kind != 'poll' && needs.guard.outputs.kind != 'closing' && steps.run.outputs.closing_refused != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -665,8 +684,9 @@ jobs:
               --body-file "$RUNNER_TEMP/schedule.md"
           fi
 
+      # H52: also a good night whose closing line refused (the night went on)
       - name: Open or comment on the failure issue
-        if: failure()
+        if: failure() || steps.run.outputs.closing_refused == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           ROWS: ${{ steps.before.outputs.rows }}

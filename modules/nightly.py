@@ -154,7 +154,15 @@ STEP 1c-ii (HANDOFF_STEP1C2):
   - a scheduled nightly run first prices the latest closed week's closing line
     when it is due (closing_line.due): a week with no pre-tip tag record is
     recorded once as "no closing line" (closing_line.record_none) and the
-    night goes on; any other refusal stops the run (exit 1);
+    night goes on; H52 (Nick, 11-17): any other refusal is recorded loudly
+    (the closing run's row, the failure issue through closing_refused=true,
+    the hub's banner, a "closing" block in the nightly's row) and the night
+    goes on too; due() retries it first thing every night. Only
+    ClosingChanged (a second run would write different bytes) still stops the
+    run (exit 1);
+  - H52: `--closing --scheduled` is the cloud's closing run right after
+    Monday's window closes (run_guard's "closing" firings): the week due()
+    names, then actuals and the hub (STEPS["closing_hub"]);
   - the engine step compares HEAD with $ENGINE_COMMIT when it is set (the
     runner sets it from the private repo's ENGINE_COMMIT; design invariant 3);
   - --ignore-clock (only with --scheduled, nightly mode): the workflow's
@@ -210,6 +218,11 @@ STEPS = {
     "afternoon": ("engine", "banked", "sync", "settings", "tags", "nba_report", "changes", "ledger",
                   "line", "title_odds", "advice", "actuals", "hub"),
     "closing": ("engine", "window", "sync", "closing"),
+    # H52: the cloud's closing run, right after Monday's window closes
+    # (`nightly.py --closing --scheduled`, run_guard's "closing" firings): the
+    # closing line, then the hub, so the win-% charts show the closing line
+    # that evening instead of after the 12:05 AM nightly
+    "closing_hub": ("engine", "window", "sync", "closing", "actuals", "hub"),
 }
 
 
@@ -319,10 +332,13 @@ class Run:
 
     def __init__(self, base_path=".", mode: str = "nightly", *, week: int = None, now: datetime = None,
                  allow_dirty_engine: bool = False, sims: int = None, title_sims: int = None,
-                 echo=print, cause: str = None, facts_only: bool = False):
+                 echo=print, cause: str = None, facts_only: bool = False, with_hub: bool = False):
         from .league_clock import league_now
         if mode not in MODES:
             raise ValueError(f"mode must be one of {MODES}")
+        if with_hub and mode != "closing":
+            raise ValueError("with_hub is the closing run's switch (--closing --scheduled)")
+        self.with_hub = bool(with_hub)
         if facts_only and mode != "refresh":
             raise ValueError("facts_only is a refresh's switch (--refresh --facts-only)")
         self.facts_only = bool(facts_only)
@@ -395,6 +411,7 @@ class Run:
         if self.now < close:
             raise StepRefused(f"week {self.week}'s window closes {close.isoformat(timespec='minutes')}; "
                               "the closing line is priced after the close")
+        self.ctx["window_close"] = close
         return f"week {self.week}'s window closed {close.isoformat(timespec='minutes')}"
 
     # -- refresh: is last night banked?
@@ -410,6 +427,8 @@ class Run:
 
     def steps(self) -> tuple:
         """This run's steps: STEPS[mode], or the facts-only refresh's."""
+        if self.with_hub:
+            return STEPS["closing_hub"]
         return STEPS["refresh_facts" if self.facts_only else self.mode]
 
     # -- 3a (nightly; task 49): the trade block's upkeep
@@ -516,8 +535,24 @@ class Run:
         if self.week is None:
             self.week = out["week"]
         log = out["log"]
-        return (f"week {out['week']}: {log['appended']} new transaction(s), {log['total']} logged; "
-                + "; ".join(out["counts"]))
+        detail = (f"week {out['week']}: {log['appended']} new transaction(s), {log['total']} logged; "
+                  + "; ".join(out["counts"]))
+        if self.mode == "closing":
+            detail += f"; {self._capture_il_at_close()}"
+        return detail
+
+    def _capture_il_at_close(self) -> str:
+        """H52: the closing run's sync is the first after the close: keep the IL
+        slots as at the close (closing_line.capture_il_at_close; once, never
+        overwritten). A failure is named in the step and the run record
+        (ctx "il_at_close"); the closing line then refuses without the copy."""
+        from . import closing_line
+        try:
+            out = closing_line.capture_il_at_close(self.base, self.week, self.ctx["window_close"])
+        except Exception as e:                          # noqa: BLE001 -- named, never silent
+            out = f"IL-AT-THE-CLOSE COPY FAILED ({type(e).__name__}: {e})"
+        self.ctx["il_at_close"] = out
+        return out
 
     # -- 4
     def step_settings(self):
@@ -633,6 +668,7 @@ class Run:
             lat = nr.latest(self.base)
             attempt, report = lat["attempt"], lat["report"]
             info["outcome"] = attempt.get("outcome") if attempt else "none"
+            tags.free_agent_nba_outs = {}
             if attempt is None or attempt.get("outcome") != "ok":
                 tags.nba_outs = {}
                 info["summary"] = (nr.summary(attempt, {}) if attempt else
@@ -640,12 +676,15 @@ class Run:
             else:
                 assessed = self._assess_report(nr, report, tags)
                 tags.nba_outs = dict(assessed["applied"])
+                # H52: the free agents' Outs, recorded beside their tags for the closing line
+                tags.free_agent_nba_outs = dict(assessed.get("fa_applied") or {})
                 info.update(filed_at=report.get("filed_at"), applied=dict(assessed["applied"]),
                             flags=assessed["flags"], loud=assessed["loud"],
                             unresolved=len(assessed["unresolved"]), covered=assessed["covered"],
                             stale=assessed["stale"], summary=nr.summary(attempt, assessed))
         except Exception as e:                          # noqa: BLE001 -- never stops a run (s.4)
             tags.nba_outs = {}
+            tags.free_agent_nba_outs = {}
             info.update(outcome="error", summary=f"NBA report unavailable ({type(e).__name__}: {e}); "
                                                  "Yahoo's tags stand")
         self.ctx["nba_report"] = info
@@ -787,7 +826,22 @@ class Run:
                         week=self.week, now=self.now)
         odds = out["row"]["title_odds"]
         return (f"seed {seed}, {sims:,} sims: "
-                + ", ".join(f"{m} {v:.1f}" for m, v in sorted(odds.items(), key=lambda kv: -kv[1])))
+                + ", ".join(f"{m} {v:.1f}" for m, v in sorted(odds.items(), key=lambda kv: -kv[1]))
+                + f"; {self._capture_pretip_stakes()}")
+
+    def _capture_pretip_stakes(self) -> str:
+        """H52: after title odds rewrote output/stakes.json, the closing line's
+        pre-tip stakes copy (closing_line.capture_pretip_stakes: window Mondays
+        before the first tip only). A failure never stops the run: it is named
+        (ctx "pretip_stakes"), and the closing line refuses later if it has no
+        stakes as at the tip."""
+        from . import closing_line
+        try:
+            out = closing_line.capture_pretip_stakes(self.base, self.now)
+        except Exception as e:                          # noqa: BLE001 -- named, never silent
+            out = f"PRE-TIP STAKES COPY FAILED ({type(e).__name__}: {e})"
+        self.ctx["pretip_stakes"] = out
+        return out
 
     # -- 7b (advice v2)
     def step_advice(self):
@@ -1053,6 +1107,12 @@ class Run:
             row["keeper_watch"] = self.ctx["keeper_watch"]
         if self.ctx.get("pretip_playerlist") is not None:
             row["pretip_playerlist"] = self.ctx["pretip_playerlist"]
+        if self.ctx.get("pretip_stakes") is not None:              # H52
+            row["pretip_stakes"] = self.ctx["pretip_stakes"]
+        if self.ctx.get("il_at_close") is not None:                # H52
+            row["il_at_close"] = self.ctx["il_at_close"]
+        if self.ctx.get("closing_block") is not None:              # H52: the night's closing line
+            row["closing"] = self.ctx["closing_block"]
         if self.mode == "nightly":
             row["afternoon"] = afternoon_plan_today(self.base, self.today)
         from .jsonl_log import append_rows
@@ -1148,7 +1208,7 @@ def afternoon_plan_today(base, today: date) -> dict:
 
 def scheduled_closing(base_path=".", *, now: datetime = None, allow_dirty_engine: bool = False,
                       sims: int = None, title_sims: int = None, echo=print, data=None,
-                      steps: dict = None) -> dict:
+                      steps: dict = None, with_hub: bool = False) -> dict:
     """The scheduled nightly run's first job (HANDOFF_STEP1C2 s.3): price the
     latest closed week's closing line when it is due.
 
@@ -1165,17 +1225,49 @@ def scheduled_closing(base_path=".", *, now: datetime = None, allow_dirty_engine
         return {"week": None, "outcome": "not due", "row": None}
     echo(f"closing line due: week {week}")
     crun = Run(base_path, "closing", week=week, now=now, allow_dirty_engine=allow_dirty_engine,
-               sims=sims, title_sims=title_sims, echo=echo)
+               sims=sims, title_sims=title_sims, echo=echo, with_hub=with_hub)
     row = crun.execute(steps)
     if row["outcome"] != "refused":
-        return {"week": week, "outcome": "ok", "row": row}
+        return {"week": week, "outcome": "ok", "row": row, "exception": None}
     if isinstance(crun.exception, NoPretipTags):
         p = closing_line.record_none(base_path, week, reason=str(crun.exception),
                                      run_id=crun.run_id, now=now)
         echo(f"week {week}: no closing line this week (no pre-tip tag record); recorded once "
              f"in {Path(p).relative_to(Path(base_path)).as_posix()}, never retried")
-        return {"week": week, "outcome": "none recorded", "row": row}
-    return {"week": week, "outcome": "refused", "row": row}
+        return {"week": week, "outcome": "none recorded", "row": row, "exception": crun.exception}
+    return {"week": week, "outcome": "refused", "row": row, "exception": crun.exception}
+
+
+def closing_summary(c: dict) -> dict:
+    """The nightly row's "closing" block (H52): what the night's closing step did."""
+    row = c.get("row") or {}
+    return {"week": c.get("week"), "outcome": c.get("outcome"), "run_id": row.get("run_id"),
+            "error": row.get("error")}
+
+
+def _scheduled_closing_run(a) -> int:
+    """`nightly.py --closing --scheduled` (H52): the cloud's closing run, right
+    after Monday's window closes (run_guard's "closing" firings). The week that
+    is due (closing_line.due: the latest closed week with neither its line nor
+    its "no closing line" record), priced with the hub after it; nothing to do
+    when none is due (the line is on file: a second firing). A week with no
+    pre-tip tag record is recorded once, as the nightly does. Any refusal exits
+    1 (the failure issue); the next firing in the guard's 30 minutes retries
+    once, then the 12:05 AM nightly does (its due())."""
+    c = scheduled_closing(a.base_path, allow_dirty_engine=a.allow_dirty_engine, sims=a.sims,
+                          title_sims=a.title_sims, with_hub=True)
+    if c["outcome"] == "not due":
+        print("--closing --scheduled: no closing line is due (it is on file, recorded as none, or no "
+              "window has closed); nothing to do.")
+        return _ran(False)
+    row = c["row"]
+    print(f"closing run, week {c['week']}: {c['outcome'].upper()} in {row['seconds']} s"
+          + (f": {row['error']}" if row["error"] else "") + f" (recorded in {RUNS_FILE.as_posix()})")
+    if c["outcome"] == "refused":
+        return _ran(False, 1)
+    if c["outcome"] == "none recorded":
+        return _ran(False, 0)
+    return _ran(True, 0)
 
 
 def main(argv=None) -> int:
@@ -1217,8 +1309,12 @@ def main(argv=None) -> int:
         ap.error("--week goes with --closing or --no-closing-line")
     if a.ignore_clock and not a.scheduled:
         ap.error("--ignore-clock goes with --scheduled")
-    if a.scheduled and (a.closing or a.no_closing_line):
-        ap.error("--scheduled is for the nightly and pre-tip runs")
+    if a.scheduled and a.no_closing_line:
+        ap.error("--scheduled is for the nightly, pre-tip and closing runs")
+    if a.scheduled and a.closing and a.week is not None:
+        ap.error("--closing --scheduled prices the week that is due (closing_line.due): no --week")
+    if a.closing and not a.scheduled and a.week is None:
+        ap.error("--closing needs --week N (or --scheduled, the cloud's closing run)")
     if a.ignore_clock and a.pretip:
         ap.error("--ignore-clock is for the nightly run only: the pre-tip run has its window")
     if a.refresh and not str(a.cause or "").strip():
@@ -1234,6 +1330,8 @@ def main(argv=None) -> int:
     from datetime import timezone
     if a.no_closing_line:
         return _no_closing_line(a)
+    if a.scheduled and a.closing:
+        return _scheduled_closing_run(a)
     if a.scheduled:
         now_utc = datetime.now(timezone.utc)
         if a.pretip:
@@ -1250,19 +1348,39 @@ def main(argv=None) -> int:
                 return _ran(False)
     mode = ("pretip" if a.pretip else "closing" if a.closing else "refresh" if a.refresh
             else "poll" if a.poll else "afternoon" if a.afternoon else "nightly")
+    closing_block = None
     if a.scheduled and mode == "nightly":
+        from .closing_line import ClosingChanged
         c = scheduled_closing(a.base_path, allow_dirty_engine=a.allow_dirty_engine, sims=a.sims,
                               title_sims=a.title_sims)
-        if c["outcome"] == "refused":
+        if c["outcome"] == "refused" and isinstance(c.get("exception"), ClosingChanged):
+            # a second run would write different bytes: the engine or a settled
+            # input moved. That still stops everything (H52 keeps the stop for it)
             row = c["row"]
             print(f"closing run for week {c['week']} REFUSED in {row['seconds']} s: {row['error']} "
-                  f"(recorded in {RUNS_FILE.as_posix()}); the nightly run does not start")
+                  f"(recorded in {RUNS_FILE.as_posix()}); the closing line CHANGED: the nightly run "
+                  "does not start")
             record_night(a.base_path, row, ok=False)
             return _ran(True, 1)
         if c["outcome"] != "not due":
-            print(f"closing line, week {c['week']}: {c['outcome']}")
+            closing_block = closing_summary(c)
+            if c["outcome"] == "refused":
+                # H52 (Nick, 11-17): any other refusal is recorded loudly and the night
+                # goes on -- the closing run's row (above), the failure issue
+                # (closing_refused=true for the workflow), the hub's banner, this
+                # row's "closing" block; due() retries it first thing every night
+                row = c["row"]
+                print(f"CLOSING LINE REFUSED: week {c['week']}'s closing run refused in {row['seconds']} s: "
+                      f"{row['error']} (recorded in {RUNS_FILE.as_posix()}). The nightly run goes on; "
+                      "the 12:05 AM run retries it every night until it prices or Nick records "
+                      f"python scripts\\nightly.py --no-closing-line --week {c['week']} --reason \"...\"")
+                _gh_flag("closing_refused")
+            else:
+                print(f"closing line, week {c['week']}: {c['outcome']}")
     run = Run(a.base_path, mode, week=a.week, allow_dirty_engine=a.allow_dirty_engine,
               sims=a.sims, title_sims=a.title_sims, cause=a.cause, facts_only=a.facts_only)
+    if closing_block is not None:
+        run.ctx["closing_block"] = closing_block
     print(f"{mode} run {run.run_id}")
     row = run.execute()
     if mode == "nightly":

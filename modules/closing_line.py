@@ -28,6 +28,33 @@ its rows and be before the tip, or it refuses.
 No special case for a player added after his own game tipped: Yahoo locks a
 player once his game starts (Nick).
 
+THE INPUTS THAT MOVE AFTER THE CLOSE, PINNED (H52, 11-17). A closing line
+priced late (the 12:05 AM retry, or a night later once the nightly goes on
+after a refusal) must not read what moved since. Each is kept, or cut, at the
+moment the closing line is defined at, the same pattern as the PLAYERLIST copy:
+  - THE IL SLOTS, AS AT THE CLOSE: IL moves are not transactions, so the
+    transaction check cannot see a Tuesday IL change. The first sync at or
+    after the close (the closing run's own) keeps data/IL_SLOTS.json as
+    config/snapshots/close/IL_SLOTS_weekNN.json (capture_il_at_close; never
+    overwritten); the closing line prices on that copy (il_at_close), and
+    refuses without it.
+  - output/stakes.json, AS AT THE TIP: every pricing run rewrites it, and so
+    does Monday's weekly build (Step 6, kind weekly_build, after the tip: week
+    5's 12:05 AM close on 11-17 read the 6:36 PM build's file). Every run on a
+    window Monday before the first tip that prices title odds keeps it as
+    config/snapshots/pretip/stakes_weekNN.json (capture_pretip_stakes); the
+    closing line reads the latest of the copy and the live file whose as_of
+    is before the tip (stakes_at_tip), through data.stakes_file, and refuses
+    with neither.
+  - THE LOGS BEHIND THE KEEP CHANCES, AS OF SUNDAY: keeper_history.live_inputs
+    read the live logs uncut; pre_close_data now sets data.logs_before (the
+    window Monday) and the keeper watch cuts this season's rows before it.
+  - THE PLAN'S CLOCK, THE CLOSE: the roster plan anchors tags and the IL
+    file's week at its run's clock (data.plan_now). The closing line used the
+    pricing run's own time, so a Monday-evening price and a Tuesday 12:05 AM
+    price anchored a day apart; it now uses the window close itself, which is
+    after the close (the week is locked) and the same whenever it runs.
+
 INJURY ENTRIES AS AT MONDAY'S FIRST TIP (Step 3a, task 26): the overrides are
 rebuilt as they stood at the first tip from output/override_history.jsonl
 (modules/override_history.as_of: every change after the tip undone, newest
@@ -37,7 +64,8 @@ the file disagrees with the history. Entries written before the history began
 carry no updated_at and count as before the tip; no time is invented for them.
 
 It uses no information from after the close, so it can run any time after it
-(1c-ii: at the start of Tuesday's 12:01 AM run, before the log pull). It
+(H52: the cloud's closing run right after the close; Tuesday's 12:05 AM run,
+before the log pull, is the fallback). It
 refuses before the close, and run twice it is byte-identical: the payload
 carries the close, never the time it was computed; a second run that would
 write different bytes raises (ClosingChanged) and writes nothing.
@@ -88,8 +116,10 @@ def run_id_for(week: int) -> str:
 # "No closing line this week" (HANDOFF s.3): a week whose Monday has no tag
 # record from before its first tip (tag_records.NoPretipTags) cannot be priced
 # now or ever, so it is recorded ONCE in output/closing_none_weekN.json and
-# never retried. Every other refusal stops the run and is retried the next
-# night: those are fixable (a sync, a schedule refetch, Nick's ruling).
+# never retried. Every other refusal is retried the next night: those are
+# fixable (a sync, a schedule refetch, Nick's ruling). Since H52 the night
+# goes on after one (ClosingChanged excepted), and the cloud's closing run
+# prices it first, right after the close (run_guard's "closing" firings).
 # Nick can record one by hand when a refusal is permanent:
 #     python scripts\nightly.py --no-closing-line --week N --reason "..."
 
@@ -207,6 +237,149 @@ def capture_pretip_playerlist(base_path, now: datetime) -> str:
             f" -> {copy.relative_to(base).as_posix()}")
 
 
+CLOSE_DIR = Path("config") / "snapshots" / "close"
+
+
+def il_close_path(base_path, week: int) -> Path:
+    """Week `week`'s IL slots as at the close (state: config/snapshots)."""
+    return Path(base_path) / CLOSE_DIR / f"IL_SLOTS_week{int(week):02d}.json"
+
+
+def _il_blob(path: Path, what: str) -> dict:
+    blob = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(blob, dict) or "slots" not in blob or "fantasy_week" not in blob:
+        raise ClosingRefused(f"{what} is not an IL slots file (slots, fantasy_week)")
+    return blob
+
+
+def capture_il_at_close(base_path, week: int, close: datetime) -> str:
+    """After a sync at or after week `week`'s close: keep data/IL_SLOTS.json
+    as the week's IL-at-the-close copy, once (the first sync after the close
+    wins; never overwritten). Returns what it did (one line for the run
+    record). Writes nothing when the live file was fetched before the close
+    or is for another fantasy week, or when the copy exists."""
+    import os
+    import shutil
+    base = Path(base_path)
+    copy = il_close_path(base, week)
+    rel = copy.relative_to(base).as_posix()
+    if copy.is_file():
+        had = _il_blob(copy, rel)
+        return f"IL slots at week {week}'s close already kept ({rel}, fetched {had.get('fetched_at')})"
+    live = base / "data" / "IL_SLOTS.json"
+    blob = _il_blob(live, "data/IL_SLOTS.json")
+    at = _aware(blob.get("fetched_at"), "data/IL_SLOTS.json's fetch time")
+    if at < close:
+        return (f"data/IL_SLOTS.json was fetched {at.isoformat(timespec='minutes')}, before week {week}'s "
+                f"close: not kept")
+    if int(blob["fantasy_week"]) != int(week):
+        return (f"data/IL_SLOTS.json is for fantasy week {blob['fantasy_week']}, not {week}: not kept "
+                "(the closing line refuses without its IL copy)")
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    tmp = copy.with_name(copy.name + ".tmp")
+    shutil.copyfile(live, tmp)
+    os.replace(tmp, copy)
+    return f"IL slots at week {week}'s close: the sync of {at.isoformat(timespec='minutes')} -> {rel}"
+
+
+def il_at_close(base_path, week: int, close: datetime) -> dict:
+    """The IL slots the closing line prices on: week `week`'s copy as at the
+    close. {"blob", "rel", "fetched_at"}. Raises ClosingRefused without one, or
+    when it is not from at or after the close, or for another fantasy week."""
+    base = Path(base_path)
+    copy = il_close_path(base, week)
+    rel = copy.relative_to(base).as_posix()
+    if not copy.is_file():
+        raise ClosingRefused(f"{rel} is missing: the closing line's IL slots are as at the close, kept "
+                             "by the first sync after it (nightly.py --closing syncs, then keeps them). "
+                             "Run the closing run, which syncs first.")
+    blob = _il_blob(copy, rel)
+    at = _aware(blob.get("fetched_at"), f"{rel}'s fetch time")
+    if at < close:
+        raise ClosingRefused(f"{rel} was fetched {at.isoformat(timespec='minutes')}, before the close "
+                             f"({close.isoformat(timespec='minutes')})")
+    if int(blob["fantasy_week"]) != int(week):
+        raise ClosingRefused(f"{rel} is for fantasy week {blob['fantasy_week']}, not {week}")
+    return {"blob": blob, "rel": rel, "fetched_at": at}
+
+
+def pretip_stakes_path(base_path, week: int) -> Path:
+    """Week `week`'s pre-tip copy of output/stakes.json (state: config/snapshots)."""
+    return Path(base_path) / PRETIP_DIR / f"stakes_week{int(week):02d}.json"
+
+
+def _stakes_as_of(path: Path, what: str) -> datetime:
+    try:
+        blob = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise ClosingRefused(f"{what} is unreadable ({e})") from None
+    if not isinstance(blob, dict) or not blob.get("as_of"):
+        raise ClosingRefused(f"{what} has no as_of: it cannot be placed against the first tip")
+    return _aware(blob["as_of"], f"{what}'s as_of")
+
+
+def capture_pretip_stakes(base_path, now: datetime) -> str:
+    """On a window Monday before the first tip, after a run priced title odds
+    (which rewrote output/stakes.json): keep it as the week's pre-tip stakes
+    copy, unless the copy already holds a later (or the same) as_of. Returns
+    what it did. Writes nothing on any other day, after the tip, or when the
+    live file's as_of is at or after the tip."""
+    import os
+    import shutil
+    from . import price_lock
+    from .data_loader import load_nba_schedule, load_schedule
+    from .league_clock import league_tz
+    from .nba_schedule import schedule_path
+    base = Path(base_path)
+    if now.tzinfo is None:
+        raise ValueError("capture_pretip_stakes needs the league clock (aware)")
+    day = now.astimezone(league_tz()).date()
+    sched = load_schedule(base / "config" / "SCHEDULE.json")
+    week = next((int(w["week"]) for w in sched.get("weeks", [])
+                 if str(w["start_date"])[:10] == day.isoformat()), None)
+    if week is None:
+        return "not a window day: no pre-tip stakes copy"
+    first = price_lock.first_tip(day, load_nba_schedule(schedule_path(base)))
+    if first is None or now >= first:
+        return "after the first tip: the pre-tip stakes copy stands"
+    live = base / "output" / "stakes.json"
+    if not live.is_file():
+        return "output/stakes.json is missing: no pre-tip stakes copy"
+    at = _stakes_as_of(live, "output/stakes.json")
+    if at >= first:
+        return f"output/stakes.json is as of {at.isoformat(timespec='minutes')}, after the first tip: not copied"
+    copy = pretip_stakes_path(base, week)
+    if copy.is_file() and _stakes_as_of(copy, copy.relative_to(base).as_posix()) >= at:
+        return f"pre-tip stakes copy for week {week} already holds a run as of {at.isoformat(timespec='minutes')} or later"
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    tmp = copy.with_name(copy.name + ".tmp")
+    shutil.copyfile(live, tmp)
+    os.replace(tmp, copy)
+    return (f"pre-tip stakes copy for week {week}: the run as of {at.isoformat(timespec='minutes')} -> "
+            f"{copy.relative_to(base).as_posix()}")
+
+
+def stakes_at_tip(base_path, week: int, first_tip: datetime) -> dict:
+    """The stakes file the closing line's roster plan reads: the latest of the
+    week's pre-tip copy and the live output/stakes.json whose as_of is before
+    `first_tip`. {"path", "rel", "as_of", "source"}. Raises ClosingRefused
+    when neither is."""
+    base = Path(base_path)
+    found = []
+    for path, src in ((pretip_stakes_path(base, week), "pretip copy"), (base / "output" / "stakes.json", "live")):
+        if path.is_file():
+            rel = path.relative_to(base).as_posix()
+            at = _stakes_as_of(path, rel)
+            if at < first_tip:
+                found.append({"path": path, "rel": rel, "as_of": at, "source": src})
+    if not found:
+        raise ClosingRefused(f"no stakes file as at Monday's first tip ({first_tip.isoformat(timespec='minutes')}): "
+                             f"output/stakes.json is from after it and there is no pre-tip copy "
+                             f"({pretip_stakes_path(base, week).relative_to(base).as_posix()}). The roster "
+                             "plan's injured-drop decisions read the stakes as at the tip.")
+    return max(found, key=lambda f: (f["as_of"], f["source"] == "pretip copy"))
+
+
 def none_path(base_path, week: int) -> Path:
     return Path(base_path) / "output" / f"closing_none_week{int(week)}.json"
 
@@ -249,6 +422,56 @@ def due(base_path, now: datetime, data=None):
     return week
 
 
+def closed_unsettled(base_path, now: datetime, data) -> list:
+    """H52: every week whose window has closed by `now` with neither its
+    closing line nor its "no closing line" record, from the first week that
+    has either on (weeks before the closing line existed are not counted).
+    due() only ever offers the LATEST closed week, so once the next window
+    closes, an earlier refused week is never retried: the hub names it."""
+    from . import price_lock
+    weeks = sorted(((date.fromisoformat(str(w["start_date"])[:10]), int(w["week"]))
+                    for w in data.schedule.get("weeks", [])), key=lambda x: x[1])
+    settled_weeks = [w for _d, w in weeks if settled(base_path, w)]
+    if not settled_weeks:
+        return []
+    out = []
+    for day, w in weeks:
+        if w < min(settled_weeks) or day > now.date():
+            continue
+        if price_lock.first_tip(day, data.nba_schedule) is None:
+            continue
+        if price_lock.window_close(day, data.nba_schedule) <= now and not settled(base_path, w):
+            out.append(w)
+    return out
+
+
+def refusal_note(base_path, now: datetime, data) -> str:
+    """H52: the hub's banner when a closing line is refused and not yet
+    settled: "Week N's closing line refused: <error>" (the latest closing run
+    for the due week refused), and every earlier closed week left unsettled.
+    "" when there is nothing to say."""
+    from .jsonl_log import read_rows
+    from .nightly import RUNS_FILE
+    weeks = closed_unsettled(base_path, now, data)
+    if not weeks:
+        return ""
+    rows = read_rows(Path(base_path) / RUNS_FILE) if (Path(base_path) / RUNS_FILE).is_file() else []
+    due_week = due(base_path, now, data=data)
+    bits = []
+    for w in weeks:
+        if w == due_week:
+            last = next((r for r in reversed(rows) if r.get("mode") == "closing" and r.get("week") == w), None)
+            if last is not None and last.get("outcome") == "refused":
+                err = " ".join(str(last.get("error") or "refused").split())
+                bits.append(f"Week {w}'s closing line refused: {err[:200]}. It is retried at every 12:05 AM "
+                            "update until it prices or is recorded as none.")
+        else:
+            bits.append(f"Week {w}'s closing line was never priced: a later window has closed, so it is not "
+                        f"retried. Record it: python scripts\\nightly.py --no-closing-line --week {w} "
+                        "--reason \"...\"")
+    return " ".join(bits)
+
+
 def record_none(base_path, week: int, *, reason: str, run_id: str, now: datetime,
                 by: str = "nightly.py (scheduled)") -> Path:
     """Write output/closing_none_weekN.json: week N has no closing line, once.
@@ -285,6 +508,9 @@ def pre_close_data(base_path, monday: date, data=None):
     wk = data.playerlog["week"].max() if len(data.playerlog) else None
     data.current_week = int(wk) if wk is not None and pd.notna(wk) else 0
     data.__dict__.pop("_roster_plans", None)
+    data.__dict__.pop("_keep_chances", None)
+    # H52: the keep chances' own log read (keeper_history.live_inputs) is cut here too
+    data.logs_before = monday
     return data
 
 
@@ -328,8 +554,12 @@ def align_to_close(tags, rostered) -> tuple:
         and Mobley, both O, both dropped after the pre-tip run);
       - a free agent's tag whose player is rostered at the close becomes a
         rostered tag (`joined`).
-    The tag itself never changes: still as at the tip. nba_outs follow the
-    same move (a free agent has none)."""
+    The tag itself never changes: still as at the tip. The NBA report's Outs
+    follow the same move (H52): a rostered player's Out (nba_outs) goes with
+    him to the free agents (free_agent_nba_outs), and a free agent's Out --
+    recorded beside the free agents' tags since H52 -- comes in with his tag,
+    so a 4:30 PM add the NBA had Out Monday is out Monday in the closing line.
+    A record from before H52 has no free agents' Outs: none come in."""
     from .data_loader import PlayerIndex
     from .fetch_injury_statuses import Tags
     roster = PlayerIndex({n: n for n in rostered})
@@ -350,8 +580,14 @@ def align_to_close(tags, rostered) -> tuple:
                 keep[name] = fa.pop(name)
                 have.add(key)
                 joined.append(name)
-    outs = {n: d for n, d in dict(tags.nba_outs or {}).items() if roster.canonical(n) is not None}
-    return (Tags(keep, fa, tags.free_agents_assumed_healthy, outs or None),
+    outs, fa_outs = {}, {}
+    for n, d in list(dict(tags.nba_outs or {}).items()) + list(dict(getattr(tags, "free_agent_nba_outs", None)
+                                                                    or {}).items()):
+        if roster.canonical(n) is not None:
+            outs.setdefault(n, d)
+        else:
+            fa_outs.setdefault(n, d)
+    return (Tags(keep, fa, tags.free_agents_assumed_healthy, outs or None, fa_outs or None),
             sorted(left), sorted(joined))
 
 
@@ -372,10 +608,15 @@ def check_inputs(base_path, data, *, monday: date, first_tip: datetime, close: d
                         + ", ".join(f"{p['action']} {p['name']}" for p in t["players"]) for t in late)
             + ". Moves after the window break rule 4: ask Nick before the closing line is priced.")
     ros = json.loads((base / "config" / "ROSTERS.json").read_text(encoding="utf-8"))
-    il = json.loads((base / "data" / "IL_SLOTS.json").read_text(encoding="utf-8"))
     synced = _aware(ros.get("_last_sync"), "config/ROSTERS.json's last sync")
-    fetched = _aware(il.get("fetched_at"), "data/IL_SLOTS.json's fetch time")
-    for what, t in (("config/ROSTERS.json", synced), ("data/IL_SLOTS.json", fetched)):
+    if week is not None:
+        # H52: the IL slots as at the close, from the copy the first sync after it kept
+        il_rel = il_at_close(base, week, close)
+        fetched, il_what = il_rel["fetched_at"], il_rel["rel"]
+    else:
+        il = json.loads((base / "data" / "IL_SLOTS.json").read_text(encoding="utf-8"))
+        fetched, il_what = _aware(il.get("fetched_at"), "data/IL_SLOTS.json's fetch time"), "data/IL_SLOTS.json"
+    for what, t in (("config/ROSTERS.json", synced), (il_what, fetched)):
         if t < close:
             raise ClosingRefused(f"{what} was synced at {t.isoformat(timespec='minutes')}, before the "
                                  f"close ({close.isoformat(timespec='minutes')}): the closing line's "
@@ -438,6 +679,9 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
     if data is None and pl["rel"] != "data/PLAYERLIST.xlsx":
         full = load_all_data(base, current_week=None, paths=paths)
     row = tag_records.for_close(base, monday, first)          # NoPretipTags is a refusal too
+    # H52: the IL slots as at the close, the stakes as at the tip (pinned copies)
+    il = il_at_close(base, week, close)
+    stakes = stakes_at_tip(base, week, first)
     close_rostered = [n for v in json.loads((base / "config" / "ROSTERS.json").read_text(
         encoding="utf-8"))["rosters"].values() for n in v]
     tags, left_tags, joined_tags = align_to_close(tag_records.as_tags(row), close_rostered)
@@ -452,7 +696,11 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
 
     data = pre_close_data(base, monday, load_all_data(base, current_week=None, paths=paths))
     data.injury_overrides = at_tip
-    data.plan_now = now                      # 44b s.2: after the close, so the week is locked
+    # 44b s.2: after the close, so the week is locked. H52: the close itself, not
+    # this run's clock, so a 6 PM price and a 12:05 AM price anchor the plan alike
+    data.plan_now = close
+    data.il_slots = json.loads(json.dumps(il["blob"]))
+    data.stakes_file = stakes["path"]
     p = rl.prepare(base, week, monday, seed=seed, statuses=tags, dry_run=True, data=data,
                    fresh_tags=True)
     from . import override_history as oh, week_state as ws
@@ -479,6 +727,10 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
                     "overrides_last_updated": info["overrides_last_updated"],
                     "playerlist": {"file": pl["rel"],
                                    "fetched_at": pl["fetched_at"].isoformat(timespec="seconds")},
+                    "il_slots": {"file": il["rel"],
+                                 "fetched_at": il["fetched_at"].isoformat(timespec="seconds")},
+                    "stakes": {"file": stakes["rel"],
+                               "as_of": stakes["as_of"].isoformat(timespec="seconds")},
                     "rule": "rosters and IL as at the close; tags, projections and results as at "
                             "Monday's first tip; the week's seed (Nick, 11-03)"},
         "cache": key})
@@ -486,7 +738,9 @@ def price(base_path, week: int, *, now: datetime = None, sims: int = None, title
 
     pass_data = pre_close_data(base, monday, load_all_data(base, current_week=None, paths=paths))
     pass_data.injury_overrides = at_tip
-    pass_data.plan_now = now
+    pass_data.plan_now = close
+    pass_data.il_slots = json.loads(json.dumps(il["blob"]))
+    pass_data.stakes_file = stakes["path"]
     sp = tor.run_pass(pass_data, seed=seed, sims=title_sims, statuses=tags)
     ro = tor.readouts(sp)
     hist = toh.make_row(base_path=base, run_id=run_id_for(week), produced_by="closing_line",

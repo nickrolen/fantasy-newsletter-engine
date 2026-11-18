@@ -31,7 +31,13 @@ minute (a guard job that exits in seconds bills one):
     on non-window game days, the Monday pre-tip runs and polls; a poll that
     finds a move starts a refresh (POLL_REFRESHES_PER_MONDAY);
   - phone and desk entries (entry.yml, overrides-push.yml) are one refresh
-    run each, ENTRIES_PER_WEEK.
+    run each, ENTRIES_PER_WEEK;
+  - H52: the closing run, right after Monday's window closes (the guard's
+    "closing" firings, two in its 30 minutes): CLOSING_RUNS_PER_MONDAY run
+    jobs -- one when it prices, two when it refuses and is retried. Its
+    seconds are the closing step (11-10, 11-17: 32-41 s) plus actuals and the
+    hub. The 12:05 AM nightly no longer prices it, a saving inside the
+    nightly's own range, not modelled.
 worst = every run twice as slow, the long polls, the busy entry weeks.
 --usage-csv calibrates it: the report's state-repo minutes by workflow and
 UTC day beside this model's for the same days (tests/test_40b_fa_actuals.py
@@ -73,7 +79,9 @@ RUN_SECONDS = {                          # the python run, without advice (outpu
     "afternoon": (50, 100),              # 11-11/12: 57-62 s with advice ~9 s
     "afternoon_unchanged": (30, 60),     # the line came back unchanged: no title odds, no hub
     "refresh": (55, 110),                # 11-11: 58-62 s
+    "closing": (55, 110),                # H52: the closing step 32-41 s (11-10, 11-17) + actuals + hub
 }
+CLOSING_RUNS_PER_MONDAY = (1, 2)         # H52: priced at the first firing; worst, refused and retried once
 ADVICE_SECONDS = (11, 22)                # the advice step (11-12/13: 8.6-11 s)
 PRICES = {"nightly", "pretip", "poll", "afternoon", "refresh"}
 SHARE_PRICED_AFTERNOON = (0.7, 1.0)      # afternoons whose line changed (tags move most days)
@@ -142,6 +150,9 @@ def job(base, name: str) -> dict:
     return next(j for j in plan["jobs"] if j["name"] == name)
 
 
+_NO_STATE = Path(__file__).resolve().parent / "__no_state__"     # never created: no closing lines on file
+
+
 def season_counts(start: date, base=ROOT) -> dict:
     """What the guard admits on every day from `start` to the season's end."""
     tz = rg.league_zone(base)
@@ -151,6 +162,7 @@ def season_counts(start: date, base=ROOT) -> dict:
     t0, t1 = (datetime.strptime(pre[k], "%H:%M").time() for k in ("from", "to"))
     step = timedelta(minutes=int(pre["every_minutes"]))
     afternoon, skipped, polls, pretips, mondays, game_days = 0, [], 0, 0, 0, 0
+    closing_firings, closing_mondays = 0, 0
     d = start
     while d <= end:
         plan = rg.afternoon_plan(base, d, tz, base)
@@ -163,18 +175,25 @@ def season_counts(start: date, base=ROOT) -> dict:
         if d.weekday() == 0 and d in rg.window_days(base):
             mondays += 1
             t = datetime.combine(d, t0, tzinfo=tz)
+            closings = 0
             while t <= datetime.combine(d, t1, tzinfo=tz):
-                kind, _ = rg.monday_decision(t.astimezone(timezone.utc), base, base)
+                # the state dir is an empty folder: no week's closing line is on file
+                # yet, so the guard's "closing" firings show (H52)
+                kind, _ = rg.monday_decision(t.astimezone(timezone.utc), base, _NO_STATE)
                 polls += kind == "poll"
                 pretips += kind == "pretip"
+                closings += kind == "closing"
                 t += step
+            closing_firings += closings
+            closing_mondays += closings > 0
         d += timedelta(days=1)
     n_weeks = ((end - start).days + 1) / 7
     return {"from": start.isoformat(), "to": end.isoformat(), "weeks": round(n_weeks, 2),
             "non_window_game_days": game_days, "afternoon_runs": afternoon, "afternoon_skipped": skipped,
             "coverage": round(afternoon / game_days, 3) if game_days else None,
             "window_mondays": mondays, "polls": polls, "pretip_runs": pretips,
-            "polls_per_monday": round(polls / mondays, 2) if mondays else 0.0}
+            "polls_per_monday": round(polls / mondays, 2) if mondays else 0.0,
+            "closing_firings": closing_firings, "closing_mondays": closing_mondays}
 
 
 def estimate(start: date, base=ROOT) -> dict:
@@ -188,6 +207,7 @@ def estimate(start: date, base=ROOT) -> dict:
     mondays = month(sc["window_mondays"] / sc["weeks"])
     polls = sc["polls_per_monday"] * mondays
     pretips = month(sc["pretip_runs"] / sc["weeks"])
+    closing_mondays = month(sc["closing_mondays"] / sc["weeks"])
     rows = []
     for i, case in enumerate(("typical", "worst")):
         share = SHARE_PRICED_AFTERNOON[i]
@@ -196,7 +216,8 @@ def estimate(start: date, base=ROOT) -> dict:
             "nightly.yml": month(cjo["Nightly"]) * GUARD_MIN[i] + DAYS_PER_MONTH * run_job_minutes("nightly", i),
             "pretip.yml": (other_pretip_firings * GUARD_MIN[i] + polls * POLL_GUARD_MIN[i]
                            + pretips * run_job_minutes("pretip", i)
-                           + mondays * POLL_REFRESHES_PER_MONDAY[i] * run_job_minutes("poll", i)),
+                           + mondays * POLL_REFRESHES_PER_MONDAY[i] * run_job_minutes("poll", i)
+                           + closing_mondays * CLOSING_RUNS_PER_MONDAY[i] * run_job_minutes("closing", i)),
             "afternoon.yml": (month(cjo["Afternoon tags"]) * GUARD_MIN[i]
                               + aft_runs * (share * run_job_minutes("afternoon", i)
                                             + (1 - share) * run_job_minutes("afternoon_unchanged", i))),
@@ -251,6 +272,7 @@ def day_model(utc_day: date, base=ROOT, case: int = 0) -> dict:
         mon = [t for n, t in fs if n == "Pre-tip"]
         kinds = {t: rg.monday_decision(t.astimezone(timezone.utc), base, base)[0] for t in mon} \
             if mon and d in rg.window_days(base) else {}
+        first_closing = min((t for t, k in kinds.items() if k == "closing"), default=None)
         n_polls = sum(1 for k in kinds.values() if k == "poll")
         for name, t in fs:
             if t.astimezone(timezone.utc).date() != utc_day:
@@ -277,6 +299,8 @@ def day_model(utc_day: date, base=ROOT, case: int = 0) -> dict:
                     m += GUARD_MIN[case]
                     if kind == "pretip":
                         m += run_job_minutes("pretip", case)
+                    elif kind == "closing" and t == first_closing:     # H52: the first prices it
+                        m += run_job_minutes("closing", case)
             out[wf] = out.get(wf, 0.0) + m
     return out
 

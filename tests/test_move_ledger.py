@@ -57,7 +57,9 @@ def make_world(now=None, yahoo=None, txs=(), il=None, il_week=None, tags=None, o
                  rosters=rosters, il=il, il_week=il_week or 3, playerlist=everyone, universe=everyone,
                  tags=t, overrides=list(overrides), yahoo_adds=lambda claims: json.loads(json.dumps(yahoo),
                  object_hook=lambda d: {int(k) if k.isdigit() else k: v for k, v in d.items()}),
-                 transactions=list(txs), verify_from=date(2026, 11, 3))
+                 transactions=list(txs), verify_from=date(2026, 11, 3),
+                 # H52: required; this suite's worlds predate 11-16's Q/D rule
+                 eligible_tags=("O", "OFS"))
     return w
 
 

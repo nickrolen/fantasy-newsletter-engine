@@ -346,13 +346,15 @@ def test_the_open_window_applies_the_midweek_choice_too():
 
 def test_for_run_judges_the_window_at_the_runs_clock_and_the_closing_line_is_locked():
     """for_run reads now, else data.plan_now (set by the pricing entry points),
-    else the league clock; the closing line sets plan_now to its own now, which
-    is never before the close: its plans are the locked week's."""
+    else the league clock; the closing line sets plan_now to the window close
+    itself (H52: before, its own now, which a day later anchored the plan a day
+    later), which is not before the close: its plans are the locked week's."""
     import modules.closing_line as cl
     import modules.title_odds_run as tor
     import modules.hub_state as hs
     from modules import advice_live as al
-    assert inspect.getsource(cl.price).count("plan_now = now") == 2
+    assert inspect.getsource(cl.price).count("plan_now = close") == 2
+    assert "plan_now = now" not in inspect.getsource(cl.price)
     assert "data.plan_now = now" in inspect.getsource(tor.price)
     assert "data.plan_now = now" in inspect.getsource(hs.build)
     assert "data.plan_now = now" in (ROOT / "scripts" / "refresh_service.py").read_text(encoding="utf-8")

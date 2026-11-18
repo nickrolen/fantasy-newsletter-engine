@@ -73,14 +73,16 @@ def stakes_path(base_path) -> Path:
     return Path(base_path) / STAKES_FILE
 
 
-def read_stakes(base_path, season: str = None):
+def read_stakes(base_path, season: str = None, path=None):
     """(blob, None) when the file can be used; (None, note) for the
     bootstrap (missing, another season, schema 1). Raises StakesFileError
-    for anything else."""
+    for anything else. path: another stakes file to read instead of
+    output/stakes.json (H52: the closing line's copy as at the tip,
+    closing_line.stakes_at_tip, through data.stakes_file)."""
     from .data_loader import CURRENT_SEASON
     from .title_odds_run import STAKES_SCHEMA
     season = season or CURRENT_SEASON
-    path = stakes_path(base_path)
+    path = Path(path) if path is not None else stakes_path(base_path)
     if not path.is_file():
         return None, f"{BOOTSTRAP_NOTE} ({path.name} is missing)"
     try:
@@ -169,9 +171,10 @@ def keep_chances(data, base_path, week: int) -> dict:
     it). A copy is returned, so no caller can change another's."""
     from . import keepability_v3 as kv3
     cache = data.__dict__.setdefault("_keep_chances", {}) if hasattr(data, "__dict__") else {}
-    key = (str(Path(base_path).resolve()), max(1, int(week)))
+    before = getattr(data, "logs_before", None)        # H52: the closing line's logs, as of Sunday
+    key = (str(Path(base_path).resolve()), max(1, int(week)), str(before))
     if key not in cache:
-        kw = kv3.keeper_watch(data, max(1, int(week)), root=base_path)
+        kw = kv3.keeper_watch(data, max(1, int(week)), root=base_path, logs_before=before)
         out = {}
         for p in kw["players"]:
             if p.get("keep_k5") is None:
@@ -226,10 +229,13 @@ def context(data, base_path, keep_week: int, keep=None):
     from .data_loader import regular_season_weeks_for, CURRENT_SEASON
     from .simulator_playoff_odds import bracket_weeks
     state = {}
+    # H52: the closing line reads its stakes as at the tip (closing_line.stakes_at_tip)
+    spath = getattr(data, "stakes_file", None)
+    shown = Path(spath) if spath is not None else stakes_path(base_path)
 
     def load():
         if "blob" not in state:
-            state["blob"], state["note"] = read_stakes(base_path)
+            state["blob"], state["note"] = read_stakes(base_path, path=spath)
         return state["blob"], state["note"]
 
     def note():
@@ -240,7 +246,7 @@ def context(data, base_path, keep_week: int, keep=None):
         if blob is None:
             raise idr.StakesError(n)
         return team_stakes(blob, manager, window, last_regular=regular_season_weeks_for(CURRENT_SEASON),
-                           bracket=bracket_weeks(), path=stakes_path(base_path))
+                           bracket=bracket_weeks(), path=shown)
 
     def keep_for(manager):
         # 44b s.3: a keeper-watch failure is KeeperWatchFailed (once per run: the
@@ -270,7 +276,7 @@ def context(data, base_path, keep_week: int, keep=None):
             return None
         team = (blob.get("teams") or {}).get(manager)
         if team is None:
-            raise StakesFileError(f"{stakes_path(base_path)}: no stakes for {manager}")
+            raise StakesFileError(f"{shown}: no stakes for {manager}")
         last_reg = regular_season_weeks_for(CURRENT_SEASON)
         ts = idr.TeamStakes(window_week=int(window), regular_season=int(window) <= last_reg,
                             rs_title=float(team["rs_title"]),

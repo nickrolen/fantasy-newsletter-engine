@@ -468,11 +468,13 @@ class World:
     overrides: List[dict]                     # INJURY_OVERRIDES players
     yahoo_adds: Callable[[object], dict]      # ledger_claims -> {budget week: {manager: [players]}}
     transactions: List[dict]                  # the transaction log
+    # IL eligibility (roster_moves.il_eligible_tags: O, OFS, Q, D since 11-16). REQUIRED
+    # (H52, Nick 11-17): no ("O", "OFS") default a hand-built World could fall back on
+    eligible_tags: tuple
     active_spots: int = 15
     il_slots: int = 2
     budget: int = 3
     deadline: date = date(2027, 3, 4)
-    eligible_tags: tuple = ("O", "OFS")
     verify_from: date = None
     _tag_idx: object = field(default=None, repr=False)
 

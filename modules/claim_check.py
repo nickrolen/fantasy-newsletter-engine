@@ -832,6 +832,60 @@ def report_card_findings(draft: str, cards: list) -> list[Finding]:
     return []
 
 
+# H52 (Nick, 11-17): "made N adds" is checked against the card's own count.
+# The card's "New players" line counts everyone who JOINED (this week's adds
+# plus last week's claims applied in this window); week 4's drafting chat
+# turned Nick's "6 joined" into "made six adds" (he made 3). joined_week_adds
+# is the ADD BUDGET table's own count of this week's adds (adff247).
+_ADD_NUM = r"(\d+|one|" + "|".join(sorted(WORD_NUMS, key=len, reverse=True)) + r")"
+ADDS_CLAIM = re.compile(
+    r"\b(?:made|making|makes|make|had|has|used|burned|spent)\s+" + _ADD_NUM +
+    r"\s+(?:waiver(?:-wire)?\s+|free[- ]agent\s+)?adds?\b"
+    r"|\b" + _ADD_NUM + r"\s+(?:waiver(?:-wire)?\s+|free[- ]agent\s+)?adds?\b"
+    r"(?!\s+(?:left|remaining|to spare|in the bank|available))"
+    r"|\badded\s+" + _ADD_NUM + r"\s+(?:new\s+)?players?\b", re.I)
+
+
+def _add_count(word: str) -> int:
+    w = word.lower()
+    return 1 if w == "one" else int(w) if w.isdigit() else WORD_NUMS[w]
+
+
+def adds_claim_findings(draft: str, vocab: Vocabulary, cards: list) -> list[Finding]:
+    """"<manager> made N adds" (or "N adds", "added N players") where N is
+    more than that manager's card's joined_week_adds for the week. The
+    manager is the one named nearest before the phrase in the sentence (else
+    after it, else the only manager the unit is about); a phrase with no
+    manager to pin it on is not checked. A card from before the split (no
+    joined_week_adds) cannot vouch for an add count: that is a finding too."""
+    by = {norm(c["manager"]): c for c in cards or [] if c.get("manager")}
+    out = []
+    for u in split_units(draft, vocab):
+        text = norm(LORE_TAG.sub("", u.text))
+        mans = [(a, b, c) for a, b, c in vocab.spans(LORE_TAG.sub("", u.text)) if vocab.is_manager(c)]
+        for m in ADDS_CLAIM.finditer(text):
+            word = next(g for g in m.groups() if g)
+            n = _add_count(word)
+            before = [c for a, _b, c in mans if a < m.start()]
+            after = [c for a, _b, c in mans if a >= m.end()]
+            anchor = sorted(c for c in u.anchor if vocab.is_manager(c))
+            who = before[-1] if before else after[0] if after else anchor[0] if len(anchor) == 1 else None
+            if who is None or who not in by:
+                continue
+            card = by[who]
+            have = card.get("joined_week_adds")
+            if have is None:
+                out.append(Finding("adds_over_card", u.section, u.line, m.group(0),
+                                   f"{card['manager']}'s card has no joined_week_adds (a report from "
+                                   f"before 11-17): \"{m.group(0)}\" cannot be checked -- {u.text[:160]}"))
+            elif n > int(have):
+                out.append(Finding("adds_over_card", u.section, u.line, m.group(0),
+                                   f"{card['manager']} made {have} add(s) this week (joined_week_adds; "
+                                   f"{card.get('joined_claims', 0)} more joined as last week's claims): "
+                                   f"{u.text[:160]}"))
+    return out
+
+
 def _raw_digits(n: Num) -> str:
     return n.raw.replace(",", "").rstrip("%").lstrip("-+$").rstrip(
         "stndrh") or "0"

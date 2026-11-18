@@ -18,6 +18,10 @@ The title is "Nightly run failed: <step>: <reason>":
   - <reason> is that row's error, or the last non-empty line of the failed
     workflow step's log (DIR/<step>.log, which the workflow tees), one line,
     at most 160 characters.
+H52: a nightly run whose closing line refused goes on and succeeds; the
+workflow still calls this (closing_refused=true), every step a success. The
+title is then "Closing line refused (the night went on): closing/<step>:
+<reason>", from the closing run's row.
 The workflow opens one issue with that title (label run-failed) or, when one is
 open already, comments on it; the next good run closes it. Nothing here calls
 GitHub.
@@ -71,6 +75,12 @@ def last_line(path: Path) -> str:
 def failure(outcomes: list, rows: list, logs=None) -> tuple:
     """(step, reason) of the first failed workflow step."""
     failed = [k for k, v in outcomes if v == "failure"]
+    refused_closing = [r for r in rows if r.get("mode") == "closing" and r.get("outcome") == "refused"]
+    if not failed and refused_closing:
+        # H52: a good night whose closing line refused (the night went on)
+        r = refused_closing[-1]
+        bad = next((s for s in r.get("steps", []) if s.get("outcome") == "refused"), {})
+        return f"closing/{bad.get('step', '?')}", one_line(r.get("error") or bad.get("detail") or "refused")
     if not failed:
         return "workflow", "a job failed before its steps ran; see the run log"
     step = failed[0]
@@ -88,9 +98,13 @@ def failure(outcomes: list, rows: list, logs=None) -> tuple:
     return step, one_line(reason or "see the run log")
 
 
+CLOSING_PREFIX = "Closing line refused (the night went on)"
+
+
 def title(outcomes, rows, logs=None) -> str:
     step, reason = failure(outcomes, rows, logs)
-    return f"{PREFIX}: {step}: {reason}"
+    failed = any(v == "failure" for _k, v in outcomes)
+    return f"{PREFIX if failed or not step.startswith('closing/') else CLOSING_PREFIX}: {step}: {reason}"
 
 
 def body(outcomes, rows, logs=None, run_url="", mode="") -> str:

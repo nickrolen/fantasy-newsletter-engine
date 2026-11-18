@@ -331,6 +331,7 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "stale_hours": STALE_HOURS, "age": words, "stale": stale,
         "stale_text": STALE_TEXT % payload["generated_text"], "generated_text": payload["generated_text"],
         "mismatch": h.get("engine_mismatch"), "engine_note": h.get("engine_note"),
+        "closing_note": h.get("closing_note"),
         "week_label": h["week_label"], "lock": h["lock"]["text"], "issue": issue,
         "tabs": [{"key": k, "label": lab, "href": f"#/{k}"} for k, lab in TABS],
         "matchups": mus, "clock": payload["matchups"]["clock"], "ranking": ranking,
