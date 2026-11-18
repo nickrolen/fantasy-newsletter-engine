@@ -625,9 +625,11 @@ def test_real_grid_tabs_are_the_rest_of_this_week_and_next_week(real):
 
 
 @pytest.mark.slow
-def test_real_payload_advice_is_null_and_sizes_count_apart(real):
+def test_real_payload_advice_follows_the_switch_and_sizes_count_apart(real):
+    from modules import advice_live as al
     p = real["payload"]
-    assert p["advice"] is None
+    # advice.hub on since 11-18: the view is there exactly when the switch is on
+    assert (p["advice"] is not None) == (al.hub_switch() == "on")
     for rb in p["rosters"].values():
         assert re.fullmatch(r"Active \d+/15 \u00b7 IL \d/2", rb["size"])
 

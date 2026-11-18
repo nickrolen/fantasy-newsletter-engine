@@ -339,11 +339,13 @@ def test_a_nightly_runs_advice_step_on_the_real_state_writes_both_outputs(tmp_pa
 # E. the hub
 # =============================================================================
 
-def test_the_switch_is_required_and_ships_off():
+def test_the_switch_is_required_and_on_since_11_18():
+    """Shipped off (V2 s.7) for a week of Nick reading the picks; turned on 11-18."""
     from modules.data_loader import UnspecifiedRule
-    assert al.hub_switch() == "off"
+    assert al.hub_switch() == "on"
     cfg = json.loads((ROOT / "config" / "league_config.json").read_text(encoding="utf-8"))
-    assert cfg["advice"]["hub"] == "off"
+    assert cfg["advice"]["hub"] == "on"
+    assert al.hub_switch({"advice": {"hub": "off"}}) == "off"
     assert al.hub_switch({"advice": {"hub": "on"}}) == "on"
     with pytest.raises(UnspecifiedRule):
         al.hub_switch({"advice": {}})

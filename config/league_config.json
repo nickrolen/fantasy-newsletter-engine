@@ -481,8 +481,8 @@
     },
     "advice": {
         "_comment": "Advice v2 (claude/HANDOFF_ADVICE_V2_2026-11-11.md; modules/advice_live.py). Every key required: missing or anything else raises (advice_live.hub_switch).",
-        "hub": "off",
-        "_hub": "\"off\" or \"on\". Whether the hub shows the advice view (an \"Advice\" link beside \"Trade block\" and one card per manager). The engine computes and stores the advice either way (output/advice_latest.json, output/advice_history.jsonl) on every run that prices. Ships off (V2 s.7): Nick reads the picks for a week first, from Monday 11-16's window (python scripts\\advice_show.py, the run summary), then turns it on -- an engine change: commit, push, set-engine.",
+        "hub": "on",
+        "_hub": "\"off\" or \"on\". Whether the hub shows the advice view (an \"Advice\" link beside \"Trade block\" and one card per manager). The engine computes and stores the advice either way (output/advice_latest.json, output/advice_history.jsonl) on every run that prices. Ships off (V2 s.7): Nick reads the picks for a week first, from Monday 11-16's window (python scripts\\advice_show.py, the run summary), then turns it on -- an engine change: commit, push, set-engine. TURNED ON 2026-11-18 (Nick: \"The advice seems good to me... ship it ASAP\"), after reading the 11-16 to 11-18 runs; title odds stay hidden (show_title_odds false).",
         "show_title_odds": false,
         "_show_title_odds": "true or false, required (anything else raises). Whether a pick's title-odds change is shown: the change in P(regular-season title) while the horizon starts in weeks 1-15, in P(champion) after. false (shipped 11-12): the hub's advice cards carry no title-odds number, and python scripts\\advice_show.py prints \"title odds: hidden\". true: both show it. The ranking (the veto) uses the title term either way. The estimate tracks the season pass since the causal price of a point (claude/CAUSAL_LEVERAGE_RESULT_2026-11-12.md: held-out correlation 0.97, slope 1.01); turning it on is Nick's call -- an engine change: commit, push, set-engine."
     },
