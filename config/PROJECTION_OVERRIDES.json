@@ -15,7 +15,8 @@
       "reason": "Yahoo's rest-of-season view gave Mobley 0 GP and 0.00 FP in the 11-16 nightly fetch while he was tagged Q (O->Q on 11-15), the 10-26 Boozer/Acuff pattern. check_playerlist refused both 11-16 nightly attempts (below 5.0 FPPG), so the Monday window run never happened. His absence is the tags' and injury entries' job, not the projection's.",
       "source": "11-15 PLAYERLIST (Sun 8:30 AM hub): projectedFPPG 37.4; 11-16 nightly fetch: 0 GP, 0.0 FP",
       "added": "2026-11-16",
-      "review_by": "2026-11-23"
+      "reviewed": "2026-11-18 (Nick): Yahoo still projects him at 0; he is a free agent outside the 175-player pool, so the override applies only if he is rostered or returns to the pool. Kept; next review 12-07.",
+      "review_by": "2026-12-07"
     }
   ]
 }
