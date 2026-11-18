@@ -233,6 +233,15 @@ def annotate(payload: dict) -> dict:
                     raise CardsError(f"advice for {c['manager']}: {missing} not in its {fld} text")
                 if c.get(fld):
                     c[f"{fld}_segs"] = segments(c[fld], named)
+            for st in c.get("steps") or []:              # H53: the plan's steps 2+
+                spl = st.get("players") or {}
+                for fld in ("move", "followup"):
+                    named = [(n, keys.key(n)) for n in spl.get(fld) or [] if n in (st.get(fld) or "")]
+                    if (spl.get(fld) or []) and len(named) != len(spl[fld]):
+                        missing = [n for n in spl[fld] if n not in (st.get(fld) or "")]
+                        raise CardsError(f"advice for {c['manager']}: {missing} not in a step's {fld} text")
+                    if st.get(fld):
+                        st[f"{fld}_segs"] = segments(st[fld], named)
     players = {}
     for k, v in keys.players.items():
         if k in owner:
@@ -272,6 +281,9 @@ def strip(payload: dict) -> dict:
         for c in adv["cards"]:
             for fld in ("step", "move", "followup", "backup"):
                 c.pop(f"{fld}_segs", None)
+            for st in c.get("steps") or []:
+                for fld in ("move", "followup"):
+                    st.pop(f"{fld}_segs", None)
     payload["cards"] = None
     return payload
 
@@ -316,6 +328,12 @@ def shown_names(payload: dict) -> List[tuple]:
                 for n in names:
                     hit = [s for s in segs if s.get("t") == n and s.get("card")]
                     out.append((n, hit[0]["card"] if hit else None))
+            for st in c.get("steps") or []:
+                for fld, names in (st.get("players") or {}).items():
+                    segs = st.get(f"{fld}_segs") or []
+                    for n in names:
+                        hit = [s for s in segs if s.get("t") == n and s.get("card")]
+                        out.append((n, hit[0]["card"] if hit else None))
     return out
 
 

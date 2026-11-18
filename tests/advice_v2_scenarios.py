@@ -436,3 +436,50 @@ def scenario_12():
               status="O")
     fx.player("FA Tagged O", [(1, 2), (2, 0), (2, 2), (2, 4), (2, 6)], 30.0, fa=True, status="O")
     return fx
+
+
+# -----------------------------------------------------------------------------
+# H53: the plan (claude/HANDOFF_53_ADVICE_PLAN_2026-11-18.md)
+# -----------------------------------------------------------------------------
+
+def scenario_plan_streamers():
+    """C2's founding example: two streamers who both fill the same crowded
+    day. Nine of Nick's core also play both Fridays (one seat left); the
+    tenth plays only the crowded Tuesday and Thursday. Streamer A (Mon + Fri)
+    and Streamer B (Wed + Fri) each start 4 games alone; once A has the last
+    Friday seat, B starts only his 2 Wednesdays. Streamer C (Wed + Sat, all 4
+    start) projects lowest of the three. So step 1 is A, and step 2 is C, not
+    B: B alone (4 starts) beats C, B after A (2 starts) does not. Five weak
+    spares (one Sunday game each) are the drops."""
+    fx = Fixture()
+    fri = [(1, 4), (2, 4)]
+    for i in range(10):
+        fx.player(f"Core {i}", [(1, 1), (2, 3)] + (fri if i < 9 else []), 150.0, manager="Nick",
+                  keep=0.9 - 0.01 * i)
+    for i in range(5):
+        fx.player(f"Spare {i}", [(1, 6)], 10.0 + i, manager="Nick", keep=0.0)
+    opponents_flat(fx, {"Hayden": 18.0, "Benton": 18.0, "Garrett": 18.0})
+    for i in range(6):
+        fx.player(f"Wire {i}", [(1, 6), (2, 6)], 12.0, fa=True)
+    fx.player("Streamer A", [(1, 0), (1, 4), (2, 0), (2, 4)], 32.0, fa=True)
+    fx.player("Streamer B", [(1, 2), (1, 4), (2, 2), (2, 4)], 30.0, fa=True)
+    fx.player("Streamer C", [(1, 2), (1, 5), (2, 2), (2, 5)], 28.0, fa=True)
+    return fx
+
+
+def scenario_plan_last_add():
+    """The plan's last add: one good free agent and one marginal one (scenario
+    6's: two 12-FPPG games for a 20-FPPG one-game spare, about +4 points). The
+    marginal move is worth taking while an add would be left after it, and
+    not as the add that spends the last one (last_add_bar)."""
+    fx = Fixture()
+    nick_core(fx)
+    for i in range(3):
+        fx.player(f"Bench {i}", [(1, 0), (1, 2), (1, 5), (2, 0), (2, 2), (2, 5)], 33.0,
+                  manager="Nick", keep=0.3)
+    fx.player("Spare", [(1, 6)], 20.0, manager="Nick", keep=0.0)
+    fx.player("Spare 2", [(1, 6)], 6.0, manager="Nick", keep=0.0)
+    opponents_flat(fx, {"Hayden": 18.0, "Benton": 18.0, "Garrett": 18.0})
+    fx.player("FA Good", [(1, 0), (1, 3), (1, 4), (2, 0), (2, 3), (2, 4)], 30.0, fa=True)
+    fx.player("FA Marginal", [(1, 4), (1, 6)], 12.0, fa=True)
+    return fx

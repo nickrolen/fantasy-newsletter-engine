@@ -8,7 +8,8 @@ modules/advice_live.py, which is the only caller that reads files.
 
     horizon_for(now, week, week_dates, close) -> Horizon (Monday move | chat move)
     recommend(inputs, manager, settings, weighting) -> Recommendation
-    advise_all(inputs, settings, weighting) -> {manager: Advice}  (contested, backups)
+    plan_for(inputs, manager, settings, weighting, max_steps) -> Plan  (H53: up to his adds left)
+    advise_all(inputs, settings, weighting, max_steps) -> {manager: Advice}  (plans, contested, backups)
 
 PURE. Nothing here opens a file (RETRO_SIM_REQUIREMENTS R2; a source test pins
 it): the caller passes the world, the rosters, the projections, the tags and
@@ -94,10 +95,39 @@ HOW A MOVE IS PRICED (decision 7: screen, then price the finalists):
   4. THE LAST ADD: with one add left, a move must clear settings.last_add_bar
      (its insurance value); a flat move never does.
 
-CONTESTED PLAYERS (decision 4): advise_all prices every manager, then marks
-"also wanted by" (another manager whose top move adds the same player) and
-picks each manager's BACKUP: his best qualifying move whose add is neither his
-top add nor anybody else's. Free agents are never split between managers.
+THE PLAN (H53, claude/HANDOFF_53_ADVICE_PLAN_2026-11-18.md): advice is a
+plan of up to the manager's adds left, each move priced after the one before
+it (C2's "a plan, not a list"). plan_for:
+  step 1  recommend() as above: the same candidates, screen, pricing,
+          weighting and bar, so step 1 IS the single top move;
+  apply   apply_step(): the manager's roster after the step (the activation
+          step first, then the move; an IL move's follow-up drop at the next
+          window), as known moves for the plan (MondayInputs.prior), one add
+          fewer, the add out of the pool and joining his roster (no keep chance);
+  step k  recommend() again on that roster, against the same opponents (the
+          plan without his earlier steps: MondayInputs.prior is never read for
+          an opponent), horizon, seed and CRN. Its gain is measured against
+          the roster after the earlier steps, so the steps telescope: their
+          gains sum to the whole plan's against no move (plan_total, priced
+          directly).
+  stop    at his adds left (and max_steps, league_config advice.plan_steps_max),
+          or when nothing beats standing pat, or -- the step that would spend
+          his LAST add -- nothing clears settings.last_add_bar.
+  never undo  a later step never drops (nor IL-swaps out, nor follow-up drops)
+          a player an earlier step added, put in IL or activated, nor the
+          follow-up drop an earlier step scheduled (MondayInputs.locked); a
+          dropped player is gone from his pool for good; protected players
+          are never dropped in any step.
+The activation step (44a) costs no add and comes before step 1; the plan is
+built on the roster after it.
+
+CONTESTED PLAYERS (decision 4): advise_all prices every manager's plan, then
+marks "also wanted by" on every step's add (another manager whose PLAN adds
+the same player, in any step) and picks each manager's BACKUP for step 1: his
+best qualifying first move whose add is in nobody's plan -- not his own (a
+backup that is already his step 2 says nothing new) and not anybody else's
+(so "nobody else's target" is true of every step, not only of their tops).
+Free agents are never split between managers.
 
 PROTECTION (decision 3a): the manager's top `protected` by keep chance are
 never a suggested drop (injured_drop.keep_rank orders them, ties by name).
@@ -406,6 +436,11 @@ class MondayInputs:
     # the season pass's roster plan (PlanSpec): REQUIRED -- the horizon's
     # baseline and the later weeks are read off it (HANDOFF_ADVICE_TITLE_TERM)
     plan: Optional[PlanSpec] = None
+    # H53, the plan's later steps: {manager: known moves of his earlier steps}
+    # (known_for encoding), applied to HIS pricing only -- never to an
+    # opponent's roster -- and {manager: names a later step may not drop}
+    prior: dict = field(default_factory=dict)
+    locked: dict = field(default_factory=dict)
     _standins: dict = field(default_factory=dict, repr=False)
     _sims: dict = field(default_factory=dict, repr=False)
     _ctx: dict = field(default_factory=dict, repr=False)
@@ -683,6 +718,7 @@ class Advice:
     backup: Optional[Priced]       # his best qualifying move whose add is nobody else's top
     backup_score: Optional[float]
     step: Optional[dict] = None    # the plan's activation at the advised window (activation_step)
+    plan: Optional["Plan"] = None  # H53: the steps (plan.steps[0].priced is top), each step's also-wanted
 
 
 # =============================================================================
@@ -754,6 +790,12 @@ def activation_step(inputs: MondayInputs, manager: str) -> Optional[dict]:
     w1 = int(inputs.horizon[0])
     P0 = _plan(inputs)
     v = (P0.get(w1) or {}).get(manager)
+    if manager in inputs.prior:
+        # H53: a later step's roster is after step 1, which carried the activation
+        if v is not None and v.get("activated"):
+            raise ValueError(f"{manager}: the plan activates {v['activated']} at week {w1} after the "
+                             "earlier steps, which already carry the activation step")
+        return None
     if v is None or not v.get("activated"):
         return None
     st = inputs.managers[manager]
@@ -849,7 +891,8 @@ def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> l
         return p - base_p, s - base_s
 
     moves: list = []
-    droppable = [n for n in R if n not in prot and n not in back]
+    lock = inputs.locked.get(manager, frozenset())      # H53: an earlier step's, never undone
+    droppable = [n for n in R if n not in prot and n not in back and n not in lock]
     dcost = {d: -gain([n for n in R if n != d])[0] for d in droppable}
     drops = sorted(droppable, key=lambda d: (dcost[d], d))[:settings.drops_screen]
     pool = [n for n in inputs.pool]
@@ -874,7 +917,7 @@ def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> l
         for f in best_adds(list(R)):
             p, s = gain(list(R) + [f])
             moves.append(Move(manager, "add_open", f, screen_points=p, screen_starts=s))
-    newly_out = [n for n in R if n not in back and inputs.il_ok(n)]
+    newly_out = [n for n in R if n not in back and n not in lock and inputs.il_ok(n)]
     if newly_out and len(R) >= st.active_capacity:
         for pl in newly_out:
             rest = [n for n in R if n != pl]
@@ -885,7 +928,7 @@ def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> l
                     moves.append(Move(manager, "il_add", f, to_il=pl, screen_points=p, screen_starts=s))
             else:
                 for x in IL:
-                    if x in prot:
+                    if x in prot or x in lock:
                         continue
                     for f in adds:
                         p, s = gain(rest + [f])
@@ -974,12 +1017,16 @@ def _leverage(inputs: MondayInputs, manager: str, week: Optional[int]) -> float:
     return sum(_leverage_parts(inputs, manager, week))
 
 
-def _plan(inputs: MondayInputs, extra: Optional[dict] = None) -> dict:
+def _plan(inputs: MondayInputs, extra: Optional[dict] = None, *, prior: bool = True) -> dict:
     """The season pass's roster plan, with `extra` known moves (a move,
     known_for) or as it stands; its stand-ins registered so their projections
-    resolve (MondayInputs.projection)."""
+    resolve (MondayInputs.projection). prior (H53): with the plan's earlier
+    steps (MondayInputs.prior) -- False for an opponent's roster."""
     if inputs.plan is None:
         raise ValueError("no roster plan (PlanSpec) on the inputs")
+    earlier = getattr(inputs, "prior", None) if prior else None
+    if earlier:
+        extra = merge_known(*[earlier[m] for m in sorted(earlier)], extra or {})
     P = inputs.plan.plan(extra)
     sig = lambda x: (x.nba_team, list(x.positions), x.projected_fppg, x.projected_gp)
     clash = {n: p for n, p in PlanSpec.standins(P).items()
@@ -1091,6 +1138,69 @@ def _followup(inputs: MondayInputs, manager: str, move: Move) -> tuple:
     return drops[0], drops[0] in PlanSpec.standins(P)
 
 
+def _price_base(inputs: MondayInputs, manager: str, settings: Settings) -> dict:
+    """What every move of the manager is priced against: the plan as it stands
+    (his earlier steps included, H53), his opponents' rosters in the plan
+    WITHOUT his earlier steps (the same opponents for every step, so the
+    steps' win-chance gains telescope), the stakes."""
+    st = inputs.managers[manager]
+    hz = list(inputs.horizon)
+    P0 = _plan(inputs)
+    Popp = _plan(inputs, prior=False)
+    base = [None if w is None else plan_roster(P0, manager, w) for w in hz]
+    base_sc, opp_sc, ties = [None, None], [None, None], [0.5, 0.5]
+    for k, w in enumerate(hz):
+        if w is None:
+            continue
+        base_sc[k] = _scores(inputs, manager, *base[k], w, settings)
+        o = st.opponents[w]
+        if o is not None:
+            opp_sc[k] = _scores(inputs, o, *plan_roster(Popp, o, w), w, settings)[0]
+            ties[k] = float(inputs.tie_value.get((manager, w), 0.5))
+    wp_base = tuple(None if opp_sc[k] is None else _win(base_sc[k][0], opp_sc[k], ties[k])
+                    for k in (0, 1))
+    parts = [_leverage_parts(inputs, manager, w) for w in hz]
+    levs = [a + b for a, b in parts]
+    return {"hz": hz, "P0": P0, "base_sc": base_sc, "opp_sc": opp_sc, "ties": ties, "wp_base": wp_base,
+            "parts": parts, "levs": levs, "lbar": float(np.mean(levs)) if any(levs) else 0.0,
+            "later": _later_weeks(inputs, manager), "ts": inputs.stakes.get(manager)}
+
+
+def _measure(inputs: MondayInputs, manager: str, settings: Settings, b: dict, P: dict) -> dict:
+    """Plan P against the base b: the two weeks' win-chance, points and starts
+    changes, the title term (horizon, later weeks, by race)."""
+    hz, P0 = b["hz"], b["P0"]
+    dwp, dpts, dst = [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]
+    for k, w in enumerate(hz):
+        if w is None:
+            continue
+        players, il = plan_roster(P, manager, w)
+        sc, games = _scores(inputs, manager, players, il, w, settings)
+        if b["opp_sc"][k] is not None:
+            dwp[k] = _win(sc, b["opp_sc"][k], b["ties"][k]) - b["wp_base"][k]
+        dpts[k] = float(np.mean(sc - b["base_sc"][k][0]))
+        dst[k] = float(np.mean(games - b["base_sc"][k][1]))
+    levs, parts = b["levs"], b["parts"]
+    dT_h = sum(levs[k] * dwp[k] for k in (0, 1))
+    dT_rs = sum(parts[k][0] * dwp[k] for k in (0, 1))
+    dT_po = sum(parts[k][1] * dwp[k] for k in (0, 1))
+    dT_l, dpl, by_w = 0.0, 0.0, []
+    if b["later"]:
+        lctx = _later_ctx(inputs, b["later"], settings.long_sims, settings.seed, [P0, P])
+        for w in b["later"]:
+            a = P[int(w)][manager]["active"]
+            bb = P0[int(w)][manager]["active"]
+            d = 0.0 if sorted(a) == sorted(bb) else _week_points(lctx, a, w) - _week_points(lctx, bb, w)
+            dpl += d
+            by_w.append((w, round(d, 3)))
+            pv_rs, pv_po = injured_drop.point_value_parts(b["ts"].weeks[w], inputs.drop_config)
+            dT_l += (pv_rs + pv_po) * d
+            dT_rs += pv_rs * d
+            dT_po += pv_po * d
+    return {"dwp": tuple(dwp), "dpts": tuple(dpts), "dstarts": tuple(dst), "dT_horizon": dT_h,
+            "dT_later": dT_l, "dpts_later": dpl, "by_week": tuple(by_w), "dT_rs": dT_rs, "dT_po": dT_po}
+
+
 def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: Settings,
           followups: Optional[Mapping] = None) -> list:
     """Each move's two weekly win-chance changes and its title-odds change.
@@ -1106,32 +1216,13 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
     (marginal_value), however far below replacement that is. No replacement
     cap (C2's streaming assumption is gone: the pass does not stream).
     dT_later = sum_w injured_drop.point_value(stake_w) x dpts_w. The opponent's
-    roster in the horizon is the baseline plan's.
+    roster in the horizon is the baseline plan's (without the manager's own
+    earlier plan steps, H53).
     followups: {move: follow-up drop} to price a given follow-up (the check
     against season_sim prices the list's); else followup_drop chooses it."""
-    st = inputs.managers[manager]
-    hz = list(inputs.horizon)
-    w1, w2 = hz
-    P0 = _plan(inputs)
-    base = [None if w is None else plan_roster(P0, manager, w) for w in hz]
-    base_sc, opp_sc, ties = [None, None], [None, None], [0.5, 0.5]
-    for k, w in enumerate(hz):
-        if w is None:
-            continue
-        base_sc[k] = _scores(inputs, manager, *base[k], w, settings)
-        o = st.opponents[w]
-        if o is not None:
-            opp_sc[k] = _scores(inputs, o, *plan_roster(P0, o, w), w, settings)[0]
-            ties[k] = float(inputs.tie_value.get((manager, w), 0.5))
-    wp_base = tuple(None if opp_sc[k] is None else _win(base_sc[k][0], opp_sc[k], ties[k])
-                    for k in (0, 1))
-    parts = [_leverage_parts(inputs, manager, w) for w in hz]
-    levs = [a + b for a, b in parts]
-    lbar = float(np.mean(levs)) if any(levs) else 0.0
-    later = _later_weeks(inputs, manager)
-    ts = inputs.stakes.get(manager)
+    w1, w2 = list(inputs.horizon)
+    b = _price_base(inputs, manager, settings)
     step = activation_step(inputs, manager)
-
     out = []
     for mo in moves:
         fs = False
@@ -1140,34 +1231,9 @@ def price(inputs: MondayInputs, manager: str, moves: Sequence[Move], settings: S
         else:
             fu, fs = _followup(inputs, manager, mo) if mo.to_il else (None, False)
         P = _plan(inputs, known_for(mo, w1, fu, w2, step=step))
-        dwp, dpts, dst = [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]
-        for k, w in enumerate(hz):
-            if w is None:
-                continue
-            players, il = plan_roster(P, manager, w)
-            sc, games = _scores(inputs, manager, players, il, w, settings)
-            if opp_sc[k] is not None:
-                dwp[k] = _win(sc, opp_sc[k], ties[k]) - wp_base[k]
-            dpts[k] = float(np.mean(sc - base_sc[k][0]))
-            dst[k] = float(np.mean(games - base_sc[k][1]))
-        dT_h = sum(levs[k] * dwp[k] for k in (0, 1))
-        dT_rs = sum(parts[k][0] * dwp[k] for k in (0, 1))
-        dT_po = sum(parts[k][1] * dwp[k] for k in (0, 1))
-        dT_l, dpl, by_w = 0.0, 0.0, []
-        if later:
-            lctx = _later_ctx(inputs, later, settings.long_sims, settings.seed, [P0, P])
-            for w in later:
-                a = P[int(w)][manager]["active"]
-                b = P0[int(w)][manager]["active"]
-                d = 0.0 if sorted(a) == sorted(b) else _week_points(lctx, a, w) - _week_points(lctx, b, w)
-                dpl += d
-                by_w.append((w, round(d, 3)))
-                pv_rs, pv_po = injured_drop.point_value_parts(ts.weeks[w], inputs.drop_config)
-                dT_l += (pv_rs + pv_po) * d
-                dT_rs += pv_rs * d
-                dT_po += pv_po * d
-        out.append(Priced(mo, tuple(dwp), wp_base, tuple(dpts), tuple(dst), dT_h, dT_l, dpl, lbar, fu,
-                          tuple(by_w), dT_rs, dT_po, fs))
+        r = _measure(inputs, manager, settings, b, P)
+        out.append(Priced(mo, r["dwp"], b["wp_base"], r["dpts"], r["dstarts"], r["dT_horizon"], r["dT_later"],
+                          r["dpts_later"], b["lbar"], fu, r["by_week"], r["dT_rs"], r["dT_po"], fs))
     return out
 
 
@@ -1210,6 +1276,13 @@ def recommend(inputs: MondayInputs, manager: str, settings: Settings = Settings(
         priced = price(inputs, manager, finalists(candidate_moves(inputs, manager, settings), settings),
                        settings)
     prot = protected_for(inputs, manager, settings)
+    lock = inputs.locked.get(manager, frozenset())
+    if lock:
+        # H53: the plan's own follow-up rule may name an earlier step's add, IL'd player or
+        # returner as a later IL move's follow-up drop; that undoes the earlier step, so the
+        # move is not one of his (never priced into the ranking)
+        priced = [p for p in priced if p.followup_drop not in lock]
+    gone = set((inputs.prior.get(manager) and _prior_drops(inputs.prior[manager])) or ())
     step = activation_step(inputs, manager)
     if step and set(step["drops"]) & prot:
         raise AssertionError(f"{manager}: the activation step drops a protected keeper "
@@ -1217,6 +1290,9 @@ def recommend(inputs: MondayInputs, manager: str, settings: Settings = Settings(
     for p in priced:
         if p.move.drop in prot or p.followup_drop in prot:
             raise AssertionError(f"{p.move.describe()}: drops a protected keeper")
+        if p.move.drop in lock or (p.move.to_il in lock) or p.move.add in gone:
+            raise AssertionError(f"{p.move.describe()}: undoes an earlier step of the plan "
+                                 f"(locked {sorted(lock)}, dropped {sorted(gone)})")
         if step and (p.move.drop in step["back"] or p.move.drop in step["drops"]
                      or p.move.add in step["drops"] or p.move.to_il in step["back"]):
             raise AssertionError(f"{p.move.describe()}: conflicts with the activation step {step}")
@@ -1233,30 +1309,216 @@ def recommend(inputs: MondayInputs, manager: str, settings: Settings = Settings(
     return Recommendation(manager, top, ranked, weighting.name, bar, note, keys)
 
 
+def _prior_drops(known: dict) -> list:
+    return [n for by_m in known.values() for e in by_m.values() for n in e.get("drop") or []]
+
+
+def apply_step(inputs: MondayInputs, manager: str, p: Priced, *, first: bool) -> MondayInputs:
+    """The inputs for the manager's NEXT plan step (H53): his roster after
+    step p (and, for step 1, the activation step before it), as known moves
+    for the plan (MondayInputs.prior), one add fewer, the add out of the pool
+    and joining his roster (no keep chance: never protected), and every name
+    a later step may not undo locked. Everything else -- the world, the
+    opponents, the horizon, the seed, the caches -- is shared, so a later
+    step is priced with the same CRN. Other managers' entries are unchanged
+    (each manager's plan is his own)."""
+    st = inputs.managers[manager]
+    if st.adds_left <= 0:
+        raise ValueError(f"{manager}: no add left to apply a step with")
+    w1, w2 = inputs.horizon
+    mo = p.move
+    step = activation_step(inputs, manager) if first else None
+    known = known_for(mo, w1, p.followup_drop, w2, step=step)
+    R, IL, back = after_step(st, step)
+
+    def moved(active, il, *, later):
+        act, ilst = list(active), list(il)
+        if later and step:
+            act = [n for n in act if n not in step["drops"]] + [n for n in step["back"] if n not in act]
+            ilst = [n for n in ilst if n not in step["back"]]
+        if mo.to_il:
+            act.remove(mo.to_il)
+            ilst.append(mo.to_il)
+        if mo.drop:
+            (ilst if mo.drop in ilst else act).remove(mo.drop)
+        act.append(mo.add)
+        if later and p.followup_drop:
+            if mo.to_il in ilst:
+                ilst.remove(mo.to_il)
+                act.append(mo.to_il)
+            if p.followup_drop in act:
+                act.remove(p.followup_drop)
+        return tuple(act), tuple(ilst)
+
+    active, il = moved(R, IL, later=False)
+    src2 = st.later if st.later is not None else (st.active, st.il)
+    later = moved(*src2, later=True) if w2 is not None else None
+    if len(active) > st.active_capacity or len(il) > st.il_capacity:
+        raise AssertionError(f"{manager}: {mo.describe()} leaves {len(active)} active / {len(il)} IL")
+    lock = set(inputs.locked.get(manager, ())) | {mo.add} | set(back)
+    lock |= {x for x in (mo.to_il, p.followup_drop) if x}
+    nst = replace(st, active=active, il=il, adds_left=st.adds_left - 1, later=later,
+                  joining=frozenset(st.joining) | {mo.add})
+    prior = dict(inputs.prior)
+    prior[manager] = merge_known(prior.get(manager) or {}, known)
+    locked = dict(inputs.locked)
+    locked[manager] = frozenset(lock)
+    out = replace(inputs, managers={**inputs.managers, manager: nst},
+                  pool=tuple(n for n in inputs.pool if n != mo.add), prior=prior, locked=locked)
+    out.check()
+    return out
+
+
+@dataclass(frozen=True)
+class PlanStep:
+    step: int                      # 1, 2, ...
+    priced: Priced                 # its own gain, given the earlier steps
+    score: float
+    rec: Recommendation            # the ranking it was chosen from (the roster after the earlier steps)
+
+
+@dataclass(frozen=True)
+class PlanTotal:
+    """The whole plan against no move, priced DIRECTLY (one plan with every
+    step as known moves): the steps' own gains must sum to it (H53 s.5)."""
+    dwp: tuple
+    wp_base: tuple
+    dpts: tuple
+    dstarts: tuple
+    dT_horizon: float
+    dT_later: float
+    dpts_later: float
+    lbar: float
+    dT_rs: float = 0.0
+    dT_po: float = 0.0
+
+    def title_odds(self, config, regular_season: bool):
+        return Priced.title_odds(self, config, regular_season)
+
+
+@dataclass(frozen=True)
+class Plan:
+    manager: str
+    steps: tuple                   # PlanStep, in order
+    # the MondayInputs each step was chosen on (stages[0] is the run's); one more than the steps
+    # when the plan stopped on the roster after its last step (nothing beat standing pat there)
+    stages: tuple
+    stop: str                      # why it ends: adds | cap | pat | bar | none
+    total: Optional[PlanTotal] = None
+
+    @property
+    def adds(self) -> list:
+        return [s.priced.move.add for s in self.steps]
+
+
+def plan_total(inputs: MondayInputs, plan_steps: Sequence["PlanStep"], manager: str,
+               settings: Settings) -> Optional[PlanTotal]:
+    """The plan priced directly against no move: the plan rebuilt with every
+    step as known moves (step 1 carrying the activation step)."""
+    if not plan_steps:
+        return None
+    w1, w2 = inputs.horizon
+    step = activation_step(inputs, manager)
+    known = merge_known(*[known_for(s.priced.move, w1, s.priced.followup_drop, w2,
+                                    step=step if k == 0 else None)
+                          for k, s in enumerate(plan_steps)])
+    b = _price_base(inputs, manager, settings)
+    r = _measure(inputs, manager, settings, b, _plan(inputs, known))
+    return PlanTotal(r["dwp"], b["wp_base"], r["dpts"], r["dstarts"], r["dT_horizon"], r["dT_later"],
+                     r["dpts_later"], b["lbar"], r["dT_rs"], r["dT_po"])
+
+
+def plan_for(inputs: MondayInputs, manager: str, settings: Settings = Settings(),
+             weighting: Weighting = RECOMMENDED, max_steps: Optional[int] = None,
+             rec: Optional[Recommendation] = None, timings: Optional[list] = None) -> Plan:
+    """The manager's plan (H53): step 1 is recommend()'s top move; each later
+    step is recommend() on the roster after the earlier ones (apply_step),
+    until his adds left (or max_steps) are used, or nothing beats standing
+    pat, or the step that would spend his last add does not clear the bar
+    (recommend applies it whenever one add is left). rec: step 1's
+    Recommendation, already computed. timings: a list the seconds of each
+    later step's pricing (the apply and the recommend) are appended to, then
+    the direct total's (Nick, 11-18: the run log shows each step's cost)."""
+    import time as _time
+    if max_steps is not None and int(max_steps) < 1:
+        raise ValueError(f"max_steps must be at least 1, not {max_steps}")
+    st = inputs.managers[manager]
+    limit = st.adds_left if max_steps is None else min(st.adds_left, int(max_steps))
+    cur = inputs
+    rec = rec if rec is not None else recommend(inputs, manager, settings, weighting)
+    steps, stages = [], [inputs]
+    stop = "none"
+    while True:
+        if rec.top is None:
+            stop = ("adds" if not steps and st.adds_left <= 0
+                    else "bar" if rec.note.startswith("nothing clears") else "pat")
+            break
+        score = next(sc for sc, p in rec.ranked if p is rec.top)
+        steps.append(PlanStep(len(steps) + 1, rec.top, score, rec))
+        if len(steps) >= limit:
+            stop = "adds" if len(steps) >= st.adds_left else "cap"
+            break
+        t0 = _time.perf_counter()
+        cur = apply_step(cur, manager, rec.top, first=len(steps) == 1)
+        stages.append(cur)
+        rec = recommend(cur, manager, settings, weighting)
+        if timings is not None:
+            timings.append(round(_time.perf_counter() - t0, 2))
+    t0 = _time.perf_counter()
+    total = plan_total(inputs, steps, manager, settings) if steps else None
+    if timings is not None and steps:
+        timings.append(round(_time.perf_counter() - t0, 2))
+    return Plan(manager, tuple(steps), tuple(stages), stop, total)
+
+
 def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
-               weighting: Weighting = RECOMMENDED, recs: Optional[dict] = None) -> dict:
-    """{manager: Advice}: every manager's recommendation, then the contest
-    (decision 4). "Also wanted by": another manager whose top move adds the
-    same player. The backup: his best qualifying move whose add is neither
-    his own top add nor anybody else's. Free agents are never split."""
-    recs = recs or {m: recommend(inputs, m, settings, weighting) for m in sorted(inputs.managers)}
-    tops = {m: r.top.move.add for m, r in recs.items() if r.top is not None}
+               weighting: Weighting = RECOMMENDED, recs: Optional[dict] = None,
+               max_steps: Optional[int] = None, timings: Optional[dict] = None) -> dict:
+    """{manager: Advice}: every manager's plan (H53; step 1 is his top move),
+    then the contest (decision 4). "Also wanted by", for every step's add:
+    another manager whose PLAN adds the same player, in any step. The backup
+    (step 1 only): his best qualifying first move whose add is in nobody's
+    plan, his own included. Free agents are never split. timings: a dict
+    filled with {manager: {"steps": [seconds of step 1's pricing, step 2's,
+    ...], "total": seconds of the direct total}} (the run log, Nick 11-18)."""
+    import time as _time
+    t = {}
+    if not recs:
+        recs = {}
+        for m in sorted(inputs.managers):
+            t0 = _time.perf_counter()
+            recs[m] = recommend(inputs, m, settings, weighting)
+            t[m] = [round(_time.perf_counter() - t0, 2)]
+    plans = {}
+    for m in sorted(recs):
+        tl = []
+        plans[m] = plan_for(inputs, m, settings, weighting, max_steps, rec=recs[m], timings=tl)
+        if timings is not None:
+            n = len(plans[m].steps)
+            later = tl[:-1] if n else tl
+            timings[m] = {"steps": (t.get(m) or [None]) + later, "total": tl[-1] if n else None}
+    adds = {m: set(pl.adds) for m, pl in plans.items()}
     out = {}
     for m in sorted(recs):
-        r = recs[m]
+        r, pl = recs[m], plans[m]
         step = activation_step(inputs, m)
         if r.top is None:
-            out[m] = Advice(m, r, None, None, (), None, None, step)
+            out[m] = Advice(m, r, None, None, (), None, None, step, pl)
             continue
-        mine = tops[m]
-        wanted = tuple(sorted(o for o, a in tops.items() if o != m and a == mine))
-        others = {a for o, a in tops.items() if o != m}
-        top_score = next(s for s, p in r.ranked if p is r.top)
+        wanted = tuple(sorted(o for o in adds if o != m and r.top.move.add in adds[o]))
+        anyone = set().union(*adds.values())
+        top_score = pl.steps[0].score
         backup = next(((s, p) for s, p in r.qualifying()
-                       if p.move.add != mine and p.move.add not in others), None)
+                       if p.move.add not in anyone), None)
         out[m] = Advice(m, r, r.top, top_score, wanted,
-                        backup[1] if backup else None, backup[0] if backup else None, step)
+                        backup[1] if backup else None, backup[0] if backup else None, step, pl)
     return out
+
+
+def also_wanted(advice: Mapping[str, "Advice"], manager: str, add: str) -> tuple:
+    """Managers other than `manager` whose plan adds `add`, in any step."""
+    return tuple(sorted(o for o, a in advice.items()
+                        if o != manager and a.plan is not None and add in a.plan.adds))
 
 
 # =============================================================================
@@ -1282,7 +1544,8 @@ def most_games(inputs: MondayInputs, manager: str, settings: Settings,
     _bp, bs, _ = _totals(ctx, R)
     open_spot = len(R) < st.active_capacity
     if drop is None and not open_spot:
-        cands = [n for n in R if n not in prot]
+        lock = inputs.locked.get(manager, frozenset())
+        cands = [n for n in R if n not in prot and n not in lock]
         if not cands:
             return None
         lost = {d: bs - _totals(ctx, [n for n in R if n != d])[1] for d in cands}

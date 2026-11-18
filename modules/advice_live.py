@@ -72,9 +72,20 @@ activate him and drop X. It costs no add." Nobody returning: no field, no
 line (null). The drop is the plan's one activation rule's
 (roster_plan.activation_drops); the pick is priced on the roster after it.
 
+THE PLAN (H53, claude/HANDOFF_53_ADVICE_PLAN_2026-11-18.md): each manager's
+advice is a plan of up to his adds left (advice_v2.plan_for), capped by
+league_config advice.plan_steps_max (required). Per manager "plan" is the
+ordered steps -- each carrying everything a move carries, plus "step", its own
+"also_wanted_by" (another manager's PLAN has the same add) and "cumulative"
+(the steps so far, summed) -- and "plan_total" is the whole plan priced
+directly against no move. "move" IS plan[0] (every reader before 53 works
+unchanged) and "backup" stays, for step 1 only. Each step's pricing time is
+in "seconds" (and so in the run log's advice block).
+
 THE OUTPUTS (state, config/STATE_MANIFEST.json):
-  output/advice_latest.json     the latest run's advice: per manager his move
-                                and backup with every number, the reason, the
+  output/advice_latest.json     the latest run's advice: per manager his plan
+                                (move = its first step) and backup with every
+                                number, the reason, the
                                 horizon, "also wanted by", the title-odds change,
                                 the run id and its cause, and the display strings
   output/advice_history.jsonl   append-only, one row per run (V4's scorecard
@@ -126,6 +137,26 @@ def hub_switch(cfg: dict = None) -> str:
         v = cfg["advice"]["hub"]
     if v not in SWITCH_VALUES:
         raise AdviceInputError(f"league_config.json advice.hub is {v!r}; it must be one of {SWITCH_VALUES}")
+    return v
+
+
+def plan_steps_max(cfg: dict = None) -> int:
+    """league_config.json advice.plan_steps_max (H53): the most steps a plan
+    shows, an integer from 1 to the add budget, required. Missing raises
+    UnspecifiedRule; anything else raises AdviceInputError."""
+    if cfg is None:
+        from .data_loader import league_rule
+        v = league_rule("advice", "plan_steps_max")
+    else:
+        if "advice" not in cfg or "plan_steps_max" not in (cfg["advice"] or {}):
+            from .data_loader import UnspecifiedRule
+            raise UnspecifiedRule("league_config.json has no advice.plan_steps_max")
+        v = cfg["advice"]["plan_steps_max"]
+    from . import move_ledger as ml
+    budget = ml.roster_shape()[2]
+    if isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= int(budget):
+        raise AdviceInputError(f"league_config.json advice.plan_steps_max is {v!r}; it must be an integer "
+                               f"from 1 to the add budget ({budget})")
     return v
 
 
@@ -576,6 +607,28 @@ def reason_text(m: dict, horizon: dict) -> str:
     return "; ".join(parts)
 
 
+def step_move_text(m: dict, k: int, n: int) -> str:
+    """A plan step's move line (H53): "1. Add X, drop Y", "2. Then add Z,
+    drop W" -- "then", so nobody reads step 2 as an alternative to step 1.
+    A one-step plan has no number."""
+    t = move_text(m)
+    if n <= 1:
+        return t
+    if k == 1:
+        return f"1. {t}"
+    return f"{k}. Then {t[0].lower()}{t[1:]}"
+
+
+def plan_text(total: dict, horizon: dict, opponents: dict, *, show_title: bool) -> str:
+    """'Plan: +9.0% vs Hayden next week, +4.1% vs Benton the week after'."""
+    return "Plan: " + numbers_text(total, horizon, opponents, show_title=show_title)
+
+
+STOP_TEXT = {"adds": "uses every add left", "cap": "stops at advice.plan_steps_max",
+             "pat": "stops: no further move beats standing pat",
+             "bar": "stops: the next add would be the last, and no move clears the last add's bar"}
+
+
 def followup_text(m: dict, horizon: dict) -> str:
     if not m.get("followup_drop"):
         return ""
@@ -660,14 +713,34 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
         opps = {str(w): st.opponents.get(w) for w in hz.weeks if w is not None}
         e = {"adds_left": st.adds_left, "opponents": opps, "also_wanted_by": list(a.also_wanted_by),
              "activation": step_dict(a.step),
-             "move": None, "backup": None, "note": a.rec.note, "bar": a.rec.bar if a.rec.bar != float("inf") else None}
-        for key, p, s in (("move", a.top, a.top_score), ("backup", a.backup, a.backup_score)):
-            if p is None:
-                continue
-            d = _move_dict(p, s, inputs, hz, cfg)
+             "move": None, "backup": None, "note": a.rec.note, "bar": a.rec.bar if a.rec.bar != float("inf") else None,
+             "plan": [], "plan_total": None, "plan_stop": None}
+        pl = a.plan
+        steps = list(pl.steps) if pl is not None else []
+        if pl is not None and steps and steps[0].priced is not a.top:
+            raise AdviceInputError(f"{m}: the plan's first step is not the top move")
+        cum = None
+        for k, ps in enumerate(steps, 1):
+            d = _move_dict(ps.priced, ps.score, inputs, hz, cfg)
+            d["step"] = k
+            d["also_wanted_by"] = list(av_also_wanted(advice, m, ps.priced.move.add))
+            cum = _cumulate(cum, d)
+            d["cumulative"] = {**cum, "title_odds": _cum_title(cum, inputs, hz, cfg)}
+            d["text"] = {"move": move_text(d), "step": step_move_text(d, k, len(steps)),
+                         "numbers": numbers_text(d, horizon, opps, show_title=show),
+                         "reason": reason_text(d, horizon), "followup": followup_text(d, horizon)}
+            e["plan"].append(d)
+        if e["plan"]:
+            e["move"] = e["plan"][0]
+            e["plan_stop"] = {"code": pl.stop, "text": STOP_TEXT.get(pl.stop, pl.stop)}
+            t = _total_dict(pl.total, inputs, hz, cfg)
+            t["text"] = plan_text(t, horizon, opps, show_title=show)
+            e["plan_total"] = t
+        if a.backup is not None:
+            d = _move_dict(a.backup, a.backup_score, inputs, hz, cfg)
             d["text"] = {"move": move_text(d), "numbers": numbers_text(d, horizon, opps, show_title=show),
                          "reason": reason_text(d, horizon), "followup": followup_text(d, horizon)}
-            e[key] = d
+            e["backup"] = d
         if a.top is None:
             e["empty"] = ("No adds left this week (week {}'s budget)".format(hz.budget_week)
                           if st.adds_left <= 0 else
@@ -698,6 +771,42 @@ def no_window_payload(*, run_id, mode, cause, now, meta, seconds) -> dict:
     return p
 
 
+def _cumulate(cum: Optional[dict], d: dict) -> dict:
+    """The steps so far, summed (H53): two-week lists element by element."""
+    keys2 = ("dwp", "dpts", "dstarts")
+    keys1 = ("dT_horizon", "dT_later", "dT_rs", "dT_po", "dpts_later")
+    if cum is None:
+        return {**{k: list(d[k]) for k in keys2}, **{k: d[k] for k in keys1}}
+    return {**{k: [round(a + b, 6) for a, b in zip(cum[k], d[k])] for k in keys2},
+            **{k: round(cum[k] + d[k], 6) for k in keys1}}
+
+
+def _cum_title(cum: dict, inputs, hz, cfg) -> Optional[float]:
+    if phase_of(hz.weeks[0]) == "cup":
+        return None
+    regular = phase_of(hz.weeks[0]) == "regular_season"
+    w = cfg.rs_weight if regular else cfg.playoff_weight
+    return round((cum["dT_rs"] if regular else cum["dT_po"]) / w, 6) if w else None
+
+
+def _total_dict(t, inputs, hz, cfg) -> dict:
+    """The plan priced directly against no move (advice_v2.PlanTotal)."""
+    regular = phase_of(hz.weeks[0]) == "regular_season"
+    no_stakes = phase_of(hz.weeks[0]) == "cup"
+    to = None if no_stakes else t.title_odds(cfg, regular)
+    return {"dwp": [round(x, 6) for x in t.dwp], "wp_base": [None if x is None else round(x, 6) for x in t.wp_base],
+            "dpts": [round(x, 3) for x in t.dpts], "dstarts": [round(x, 3) for x in t.dstarts],
+            "dT_horizon": round(t.dT_horizon, 6), "dT_later": round(t.dT_later, 6),
+            "dT_rs": round(t.dT_rs, 6), "dT_po": round(t.dT_po, 6), "dpts_later": round(t.dpts_later, 3),
+            "title_odds": None if to is None else round(to, 6),
+            "title_label": None if no_stakes else ("title odds" if regular else "playoff title odds")}
+
+
+def av_also_wanted(advice: dict, manager: str, add: str) -> tuple:
+    from .advice_v2 import also_wanted
+    return also_wanted(advice, manager, add)
+
+
 def _hist_move(d: Optional[dict]) -> Optional[dict]:
     if d is None:
         return None
@@ -716,7 +825,15 @@ def history_row(payload: dict, *, published: bool) -> dict:
             "managers": {m: {"adds_left": e["adds_left"], "opponents": e["opponents"],
                              "also_wanted_by": e["also_wanted_by"], "note": e["note"],
                              "activation": e.get("activation"),
-                             "top": _hist_move(e["move"]), "backup": _hist_move(e["backup"])}
+                             "top": _hist_move(e["move"]), "backup": _hist_move(e["backup"]),
+                             # H53: the plan, each step's own predicted gains (V4 scores step 2+)
+                             "plan": [{**_hist_move(d), "step": d["step"], "also_wanted_by": d["also_wanted_by"]}
+                                      for d in e.get("plan") or []],
+                             "plan_total": None if not e.get("plan_total") else
+                             {k: e["plan_total"][k] for k in ("dwp", "wp_base", "dpts", "dstarts", "dT_horizon",
+                                                             "dT_later", "dT_rs", "dT_po", "dpts_later",
+                                                             "title_odds")},
+                             "plan_stop": (e.get("plan_stop") or {}).get("code")}
                          for m, e in payload["managers"].items()},
             "error": payload["error"]}
 
@@ -773,10 +890,20 @@ def summary_lines(payload: dict) -> list:
         if e["move"] is None:
             out.append(head + f"{e.get('empty', 'no move')}")
             continue
-        mv = e["move"]
-        line = head + f"{mv['text']['move']} -- {mv['text']['numbers']}"
-        if e["also_wanted_by"]:
-            line += f" [also wanted by {', '.join(e['also_wanted_by'])}]"
+        plan = e.get("plan") or [e["move"]]
+        if len(plan) == 1:
+            mv = e["move"]
+            line = head + f"{mv['text']['move']} -- {mv['text']['numbers']}"
+            if e["also_wanted_by"]:
+                line += f" [also wanted by {', '.join(e['also_wanted_by'])}]"
+        else:
+            bits = []
+            for d in plan:
+                b = f"{d['step']}) {d['text']['move']}"
+                if d.get("also_wanted_by"):
+                    b += f" [also wanted by {', '.join(d['also_wanted_by'])}]"
+                bits.append(b)
+            line = head + " ".join(bits) + f" -- {e['plan_total']['text']}"
         out.append(line)
     return out
 
@@ -800,8 +927,13 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
                                         seconds=seconds)
         else:
             t1 = time.perf_counter()
-            advice = av.advise_all(inp, settings, av.RECOMMENDED)
+            timings = {}
+            advice = av.advise_all(inp, settings, av.RECOMMENDED, max_steps=plan_steps_max(),
+                                   timings=timings)
             seconds["engine"] = round(time.perf_counter() - t1, 2)
+            # Nick, 11-18 (H53): each step's pricing seconds per manager, in the run log
+            seconds["steps"] = {m: v["steps"] for m, v in timings.items()}
+            seconds["plan_totals"] = {m: v["total"] for m, v in timings.items()}
             payload = latest_payload(run_id=run_id, mode=mode, cause=cause, now=now, inputs=inp, hz=hz,
                                      meta=meta, advice=advice, weighting=av.RECOMMENDED.name,
                                      settings=settings, seconds=seconds)
@@ -825,8 +957,10 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
     elif payload.get("season_over"):
         detail = payload["season_over"]
     else:
+        per = "; ".join(f"{m} " + "+".join(f"{x:g}" for x in v if x is not None)
+                        for m, v in (seconds.get("steps") or {}).items() if any(v))
         detail = (f"{payload['horizon']['label']}, weeks {payload['horizon']['weeks']}, "
-                  f"{seconds.get('total')} s: "
+                  f"{seconds.get('total')} s" + (f" (each step's pricing, s: {per})" if per else "") + ": "
                   + "; ".join(f"{m} {(e['move'] or {}).get('describe') or e.get('empty')}"
                               for m, e in payload["managers"].items()))
     return {"block": block, "detail": detail, "lines": lines, "payload": payload}
@@ -853,6 +987,7 @@ def hub_view(latest: dict, power_rows: list) -> dict:
         card = {"manager": m, "team": r["team"], "heading": hz.get("label") or "", "step": "", "move": "",
                 "followup": "",
                 "numbers": "", "reason": "", "also": "", "backup": "", "empty": "",
+                "steps": [], "plan": "",   # H53: steps 2+ ({move, followup, numbers, reason, also, players})
                 "players": {}}         # task 40: the players each text names (hub_cards makes them tappable)
         if latest.get("error"):
             card["empty"] = "Advice could not be updated."
@@ -870,7 +1005,22 @@ def hub_view(latest: dict, power_rows: list) -> dict:
                 card["empty"] = e.get("empty") or "No move beats standing pat"
             else:
                 t = e["move"]["text"]
-                card.update(move=t["move"], followup=t["followup"], numbers=t["numbers"], reason=t["reason"])
+                plan = e.get("plan") or [e["move"]]          # a file from before H53 has no plan
+                card.update(move=t.get("step") or t["move"], followup=t["followup"], numbers=t["numbers"],
+                            reason=t["reason"])
+                for d in plan[1:]:                          # H53: "2. Then add ..."
+                    ts = d["text"]
+                    sc = {"move": ts["step"], "followup": ts["followup"], "numbers": ts["numbers"],
+                          "reason": ts["reason"], "also": "", "players": {}}
+                    sc["players"]["move"] = _move_players(d, ("add", "drop", "to_il"))
+                    if ts["followup"]:
+                        sc["players"]["followup"] = _move_players(
+                            d, ("to_il",) if d.get("followup_standin") else ("followup_drop", "to_il"))
+                    if d.get("also_wanted_by"):
+                        sc["also"] = "Also wanted by " + " and ".join(d["also_wanted_by"])
+                    card["steps"].append(sc)
+                if len(plan) > 1:
+                    card["plan"] = e["plan_total"]["text"]
                 card["players"]["move"] = _move_players(e["move"], ("add", "drop", "to_il"))
                 if t["followup"]:
                     card["players"]["followup"] = _move_players(
@@ -879,14 +1029,17 @@ def hub_view(latest: dict, power_rows: list) -> dict:
                     card["also"] = "Also wanted by " + " and ".join(e["also_wanted_by"])
                 if e["backup"] is not None:
                     b = e["backup"]["text"]
-                    card["backup"] = f"If he's gone: {b['move']} ({b['numbers']})"
+                    who = "he's" if len(e.get("plan") or [None]) <= 1 else f"{e['move']['add']} is"
+                    card["backup"] = f"If {who} gone: {b['move']} ({b['numbers']})"
                     card["players"]["backup"] = _move_players(e["backup"], ("add", "drop", "to_il"))
         cards.append(card)
     foot = latest["updated_text"]
     if latest.get("error"):
         foot += " The last pick is not shown: it may no longer stand."
     return {"title": "Advice", "link": "Advice", "cards": cards, "foot": foot,
-            "note": ("The engine's pick for each team: win chance this week and next for a Monday move, "
+            "note": ("The engine's plan for each team, up to its adds left: each move is priced after "
+                     "the one before it, so step 2 is a second move, not an alternative to step 1. "
+                     "Win chance this week and next for a Monday move, "
                      "next week and the week after for a chat move, plus the change in title odds. "
                      "A move that costs title odds is held back; one that gains them gets no credit "
                      "for it. Advice, not a rule.")}

@@ -4,7 +4,12 @@ advice_show.py -- the latest advice, on Nick's desk (advice v2, V2 s.5).
 
     python scripts\\state.py pull
     python scripts\\advice_show.py              the latest run's advice, every manager
-    python scripts\\advice_show.py --runs 5     also the last 5 runs' top moves, one line each
+    python scripts\\advice_show.py --runs 5     also the last 5 runs' plans, one line each
+
+H53: each manager's advice is a plan (up to his adds left, each move priced
+after the one before it): numbered steps, each with its own gain, then the
+plan's total, then the backup (for step 1). A file from before 53 has no
+plan: its one move is shown as before.
 
 Reads output/advice_latest.json and output/advice_history.jsonl (written by
 every run that prices: modules/advice_live). Writes nothing. For the shadow
@@ -53,28 +58,43 @@ def show(latest: dict, out=print) -> None:
         if e["move"] is None:
             out(f"  {e.get('empty') or 'No move beats standing pat'}")
             continue
-        for label, key in (("Move", "move"), ("Backup", "backup")):
-            mv = e[key]
-            if mv is None:
-                if key == "backup":
-                    out("  Backup: none (no other qualifying move whose add is nobody else's top)")
-                continue
-            t = mv["text"]
-            out(f"  {label}: {t['move']}")
-            if t["followup"]:
-                out(f"    {t['followup']}")
-            out(f"    {t['numbers']}")
-            if latest.get("show_title_odds") is False:
-                out(f"    title odds: hidden (advice.show_title_odds is false; the estimate "
-                    f"{mv['title_odds'] if mv['title_odds'] is None else format(100 * mv['title_odds'], '+.1f') + '%'} "
-                    "is kept in the file)")
-            elif "show_title_odds" not in latest:
-                out("    title odds: as written before advice.show_title_odds existed")
-            out(f"    {t['reason']}")
-            out(f"    engine: score {mv['score']:+.4f}; dwp {mv['dwp']}; dpts {mv['dpts']}; "
-                f"title term later {mv['dT_later']:+.4f} (stake units){'; ranked on points' if mv['flat'] else ''}")
-        if e["also_wanted_by"]:
-            out(f"  Also wanted by {', '.join(e['also_wanted_by'])}")
+        plan = e.get("plan") or [e["move"]]       # before H53: the one move
+        n = len(plan)
+        for mv in plan:
+            label = "Move" if n == 1 else f"Step {mv.get('step', 1)}"
+            _move_lines(latest, mv, label, out)
+            also = mv.get("also_wanted_by", e["also_wanted_by"] if mv is e["move"] else [])
+            if also:
+                out(f"    Also wanted by {', '.join(also)}")
+        if n > 1:
+            t = e["plan_total"]
+            out(f"  {t['text']}")
+            out(f"    engine: the plan priced as one, dwp {t['dwp']}; dpts {t['dpts']}; starts {t['dstarts']}; "
+                f"steps summed dwp {[round(sum(d['dwp'][k] for d in plan), 6) for k in (0, 1)]}")
+        if e.get("plan_stop"):
+            out(f"  Plan {e['plan_stop']['text']} ({e['adds_left']} add(s) left)")
+        if e["backup"] is None:
+            out("  Backup: none (no other qualifying first move whose add is in nobody's plan)"
+                if e.get("plan") else "  Backup: none (no other qualifying move whose add is nobody else's top)")
+        else:
+            _move_lines(latest, e["backup"], "Backup (instead of step 1)" if n > 1 else "Backup", out)
+
+
+def _move_lines(latest: dict, mv: dict, label: str, out) -> None:
+    t = mv["text"]
+    out(f"  {label}: {t['move']}")
+    if t["followup"]:
+        out(f"    {t['followup']}")
+    out(f"    {t['numbers']}")
+    if latest.get("show_title_odds") is False:
+        out(f"    title odds: hidden (advice.show_title_odds is false; the estimate "
+            f"{mv['title_odds'] if mv['title_odds'] is None else format(100 * mv['title_odds'], '+.1f') + '%'} "
+            "is kept in the file)")
+    elif "show_title_odds" not in latest:
+        out("    title odds: as written before advice.show_title_odds existed")
+    out(f"    {t['reason']}")
+    out(f"    engine: score {mv['score']:+.4f}; dwp {mv['dwp']}; dpts {mv['dpts']}; "
+        f"title term later {mv['dT_later']:+.4f} (stake units){'; ranked on points' if mv['flat'] else ''}")
 
 
 def show_runs(rows: list, n: int, out=print) -> None:
@@ -86,11 +106,19 @@ def show_runs(rows: list, n: int, out=print) -> None:
             continue
         bits = []
         for m, e in (r.get("managers") or {}).items():
-            t = e.get("top")
-            bits.append(f"{m} " + (f"+{t['add']}" + (f" -{t['drop']}" if t.get("drop") else "")
-                                   + (f" IL+{t['to_il']}" if t.get("to_il") else "") if t else "pat"))
+            plan = e.get("plan") or ([e["top"]] if e.get("top") else [])    # before H53: the top move
+            if not plan:
+                bits.append(f"{m}: pat")
+                continue
+            bits.append(f"{m}: " + " ".join(f"{k}) {_short(t)}" for k, t in enumerate(plan, 1)))
         pub = " [published]" if r.get("published") else ""
         out(f"  {r['as_of']} {r['mode']}{pub}: " + "; ".join(bits))
+
+
+def _short(t: dict) -> str:
+    """'+LeBron James -Anthony Black' (IL+ for an IL placement)."""
+    return (f"+{t['add']}" + (f" -{t['drop']}" if t.get("drop") else "")
+            + (f" IL+{t['to_il']}" if t.get("to_il") else ""))
 
 
 def main(argv=None) -> int:

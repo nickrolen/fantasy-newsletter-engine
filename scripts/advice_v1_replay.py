@@ -11,6 +11,17 @@ really happened. Writes ONLY under --out (scratch, never a state file).
     python scripts\\advice_v1_replay.py parse  --raw _to_delete\\v1\\bbref_daily --out _to_delete\\v1
     python scripts\\advice_v1_replay.py run    --out _to_delete\\v1 --weeks 2-22
     python scripts\\advice_v1_replay.py report --out _to_delete\\v1
+    python scripts\\advice_v1_replay.py plan   --out _to_delete\\v1 --plan-out _to_delete\\h53 --weeks 2-20
+    python scripts\\advice_v1_replay.py plan-report --plan-out _to_delete\\h53
+
+plan (H53, claude/HANDOFF_53_ADVICE_PLAN_2026-11-18.md): each manager's PLAN
+(advice_v2.plan_for, up to the replay's 3 adds), every step scored on what
+really happened ON THE ROSTER AFTER THE EARLIER STEPS (the plan's own stage
+inputs, advice_v2.apply_step), against two second-add rules given the same
+earlier steps: "add the most games" (advice_v2.most_games on that roster) and
+"the list's runner-up" (step 1's best other qualifying move: what a ranked
+list of alternatives would have offered). Writes plan-out/replay_plan/
+week_NN.json, resumable like run.
 
 run is resumable by week: each Monday writes out/replay/week_NN.json when it
 finishes, and a finished week is skipped (--force to redo). A shell call is
@@ -238,6 +249,80 @@ def run_week(season, actuals, week, settings):
     return rec
 
 
+def _realised_step(season, actuals, stage, m, mo, fu=None):
+    return ar.realised(season, actuals, stage, m, mo, fu)
+
+
+def run_plan_week(season, actuals, week, settings):
+    """One Monday's plans (H53): see the module docstring, plan."""
+    t0 = time.time()
+    mon = ar.build_monday(season, week, settings)
+    inp = mon.inputs
+    stakes = ar.season_stakes(season, mon, settings)
+    inp.stakes = {m: v for m, v in stakes.items() if m != "_title"}
+    rec = {"week": week, "horizon": list(inp.horizon), "pool": len(inp.pool), "managers": {}}
+    for m in sorted(inp.managers):
+        tm = time.time()
+        pl = av.plan_for(inp, m, settings, av.RECOMMENDED, max_steps=3)
+        steps = []
+        for k, st in enumerate(pl.steps):
+            p = st.priced
+            steps.append({"step": k + 1, **move_dict(p.move), "followup": p.followup_drop,
+                          "score": round(st.score, 5), "dwp": [round(x, 4) for x in p.dwp],
+                          "dpts": [round(x, 2) for x in p.dpts], "dstarts": [round(x, 3) for x in p.dstarts],
+                          "dT_l": round(p.dT_later, 5),
+                          "real": _realised_step(season, actuals, pl.stages[k], m, p.move, p.followup_drop)})
+        stages = []
+        for k in range(1, len(pl.stages)):           # the roster after k earlier steps
+            stg = pl.stages[k]
+            eng = steps[k] if k < len(steps) else None
+            mg = av.most_games(stg, m, settings)
+            row = {"after": k, "adds_left": stg.managers[m].adds_left,
+                   "engine": None if eng is None else {"move": {kk: eng[kk] for kk in ("kind", "add", "drop", "to_il")},
+                                                       "real": eng["real"]},
+                   "most_games": {"move": move_dict(mg),
+                                  "real": _realised_step(season, actuals, stg, m, mg)}}
+            if k == 1:
+                s1 = pl.steps[0].priced.move
+                lock = stg.locked.get(m, frozenset())
+                roster = set(stg.managers[m].roster())
+                nxt = next((p for _sc, p in pl.steps[0].rec.qualifying()
+                            if p.move.add != s1.add and p.move.drop not in lock
+                            and (p.move.drop is None or p.move.drop in roster)
+                            and (p.move.to_il is None or p.move.to_il in stg.managers[m].active)
+                            and p.move.kind in ("add_drop", "add_open")
+                            and (p.move.kind != "add_open" or len(stg.managers[m].active) < stg.managers[m].active_capacity)),
+                           None)
+                row["runner_up"] = {"move": move_dict(None if nxt is None else nxt.move),
+                                    "real": _realised_step(season, actuals, stg, m, None if nxt is None else nxt.move)}
+            stages.append(row)
+        rec["managers"][m] = {"stop": pl.stop, "steps": steps, "stages": stages,
+                              "seconds": round(time.time() - tm, 2)}
+    rec["timing"] = {"total": round(time.time() - t0, 2)}
+    return rec
+
+
+def cmd_plan(a):
+    out = Path(a.plan_out) / "replay_plan"
+    out.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    season = load_season(Path(a.out))
+    actuals = ar.Actuals(season.games)
+    print(f"loaded in {time.time() - t0:.1f}s")
+    for w in parse_weeks(a.weeks):
+        f = out / f"week_{w:02d}.json"
+        if f.is_file() and not a.force:
+            continue
+        if time.time() - t0 > a.budget:
+            print("budget reached; run again to continue")
+            return
+        rec = run_plan_week(season, actuals, w, SETTINGS)
+        tmp = f.with_suffix(".tmp")
+        tmp.write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(f)
+        print(f"week {w}: {rec['timing']['total']}s", flush=True)
+
+
 def parse_weeks(s):
     out = []
     for part in s.split(","):
@@ -277,11 +362,18 @@ def main(argv=None):
     r = sub.add_parser("run"); r.add_argument("--out", required=True); r.add_argument("--weeks", default="2-22")
     r.add_argument("--force", action="store_true"); r.add_argument("--budget", type=float, default=120)
     rp = sub.add_parser("report"); rp.add_argument("--out", required=True)
+    pp = sub.add_parser("plan"); pp.add_argument("--out", required=True); pp.add_argument("--plan-out", required=True)
+    pp.add_argument("--weeks", default="2-20"); pp.add_argument("--force", action="store_true")
+    pp.add_argument("--budget", type=float, default=120)
+    pr = sub.add_parser("plan-report"); pr.add_argument("--plan-out", required=True)
     a = ap.parse_args(argv)
     if a.cmd == "report":
         from scripts.advice_v1_report import report    # noqa: E402
         return report(Path(a.out))
-    {"fetch": cmd_fetch, "parse": cmd_parse, "run": cmd_run}[a.cmd](a)
+    if a.cmd == "plan-report":
+        from scripts.advice_v1_report import plan_report    # noqa: E402
+        return plan_report(Path(a.plan_out))
+    {"fetch": cmd_fetch, "parse": cmd_parse, "run": cmd_run, "plan": cmd_plan}[a.cmd](a)
 
 
 if __name__ == "__main__":

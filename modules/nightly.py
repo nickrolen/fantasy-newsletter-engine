@@ -53,7 +53,7 @@ s.2.4 and s.4 the design. The nightly run:
    7 title_odds    title_odds_run.price at the week's seed: the history row,
                    output/title_odds_latest.json, output/stakes.json. Skipped
                    (nothing priced) when the line step found prices locked
-  7b advice       advice v2 (modules/advice_live): every manager's best move --
+  7b advice       advice v2 (modules/advice_live): every manager's plan (H53) --
                    the Monday move before this week's window close, the chat
                    move after it -- with its backup, on the live rosters, the
                    ledger's pending moves, the tags and the stakes; written to

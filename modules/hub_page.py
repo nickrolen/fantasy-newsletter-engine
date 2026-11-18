@@ -189,6 +189,8 @@ border-bottom:1px solid #EEF0F3}
 .ad-m{font-size:15px;font-weight:700;padding-top:4px;overflow-wrap:anywhere}
 .ad-n{font-size:13px;font-weight:600;padding-top:4px;overflow-wrap:anywhere}
 .ad-s{font-size:12px;color:#5B6270;padding-top:3px;overflow-wrap:anywhere}
+.ad-x{padding-top:10px}
+.ad-p{border-top:1px solid #EEF0F3;margin-top:8px;padding-top:6px}
 .tb-r .pn .n{white-space:normal;overflow-wrap:anywhere}
 .tb-r .since{flex:none;white-space:nowrap}
 .issue{all:unset;box-sizing:border-box;cursor:pointer;background:#121417;color:#fff;border-radius:14px;padding:16px;
@@ -647,8 +649,17 @@ def render(payload: dict, *, now: datetime = None, mode: str = "preview",
                          + (f'<div class="ad-s">{_text(c, "followup")}</div>' if c["followup"] else "")
                          + f'<div class="ad-n">{clean(c["numbers"])}</div>'
                          + f'<div class="ad-s">{clean(c["reason"])}</div>'
-                         + (f'<div class="ad-s">{clean(c["also"])}</div>' if c["also"] else "")
-                         + (f'<div class="ad-s">{_text(c, "backup")}</div>' if c["backup"] else ""))
+                         + (f'<div class="ad-s">{clean(c["also"])}</div>' if c["also"] else ""))
+                for st in c.get("steps") or []:      # H53: "2. Then add ...", its own numbers
+                    o.append(f'<div class="ad-m ad-x">{_text(st, "move")}</div>'
+                             + (f'<div class="ad-s">{_text(st, "followup")}</div>' if st["followup"] else "")
+                             + f'<div class="ad-n">{clean(st["numbers"])}</div>'
+                             + f'<div class="ad-s">{clean(st["reason"])}</div>'
+                             + (f'<div class="ad-s">{clean(st["also"])}</div>' if st["also"] else ""))
+                if c.get("plan"):
+                    o.append(f'<div class="ad-n ad-p">{clean(c["plan"])}</div>')
+                if c["backup"]:
+                    o.append(f'<div class="ad-s">{_text(c, "backup")}</div>')
             else:
                 o.append(f'<div class="empty">{clean(c["empty"])}</div>')
             o.append("</div></div>")

@@ -280,3 +280,75 @@ def report(out: Path):
     print("personalisation", {k: v for k, v in res["personalisation"].items() if k != "by_monday"})
     print("playoffs", json.dumps({k: {"engine": v["engine"], "mg": v["most_games"], "vsmg": v["engine_vs_most_games"]} for k, v in res["playoffs"].items()}))
     return res
+
+
+# =============================================================================
+# H53: the plan's step 2+ (scripts/advice_v1_replay.py plan)
+# =============================================================================
+
+def plan_report(plan_out: Path):
+    """Step 2+ of the plan (H53), scored on real points from games that would
+    have started over the two weeks, ON THE ROSTER AFTER THE EARLIER STEPS,
+    against "add the most games" given the same earlier steps and (step 2) the
+    list's runner-up. A stage where the engine's plan stopped (nothing beat
+    standing pat, or the last add's bar) is the engine's 0. Writes
+    plan-out/plan_report.json; prints the summary. Intervals: 95%, bootstrap
+    over whole Mondays."""
+    rng = np.random.default_rng(53)
+    weeks = [json.loads(f.read_text(encoding="utf-8"))
+             for f in sorted((plan_out / "replay_plan").glob("week_*.json"))]
+    weeks = [w for w in weeks if w["week"] <= REGULAR_LAST_MONDAY]
+    rows, step1 = [], []
+    for w in weeks:
+        for m, e in sorted(w["managers"].items()):
+            if e["steps"]:
+                step1.append(gain(e["steps"][0]["real"]))
+            for st in e["stages"]:
+                k = st["after"] + 1
+                eng = st["engine"]
+                pred = None
+                if eng is not None:
+                    s = e["steps"][st["after"]]
+                    pred = float(sum(s["dpts"]))
+                rows.append({"week": w["week"], "manager": m, "step": k,
+                             "engine": gain(eng["real"]) if eng else 0.0, "engine_moved": eng is not None,
+                             "engine_pred": pred,
+                             "most_games": gain(st["most_games"]["real"]) if st["most_games"]["move"] else 0.0,
+                             "runner_up": (gain(st["runner_up"]["real"]) if st.get("runner_up") and
+                                           st["runner_up"]["move"] else (0.0 if "runner_up" in st else None))})
+    out = {"mondays": [w["week"] for w in weeks], "n_step1": len(step1),
+           "step1_real_mean": float(np.mean(step1)) if step1 else None, "by_step": {}}
+    print(f"Plan replay: {len(weeks)} regular-season Mondays ({out['mondays'][0] if weeks else '-'}-"
+          f"{out['mondays'][-1] if weeks else '-'}), {len(step1)} step-1 picks, "
+          f"step 1 real {out['step1_real_mean']:+.1f} pts/pick")
+    for label, sel in (("step 2", lambda r: r["step"] == 2), ("step 3", lambda r: r["step"] == 3),
+                       ("steps 2+", lambda r: r["step"] >= 2)):
+        rs = [r for r in rows if sel(r)]
+        if not rs:
+            continue
+        d = {"n": len(rs), "engine_moved": sum(r["engine_moved"] for r in rs),
+             "engine": float(np.mean([r["engine"] for r in rs])),
+             "most_games": float(np.mean([r["most_games"] for r in rs]))}
+        d["vs_most_games"] = compare(rs, "engine", "most_games", rng)
+        moved = [r for r in rs if r["engine_moved"]]
+        if moved:
+            d["moved_pred"] = float(np.mean([r["engine_pred"] for r in moved]))
+            d["moved_real"] = float(np.mean([r["engine"] for r in moved]))
+        ru = [r for r in rs if r["runner_up"] is not None]
+        if ru:
+            d["runner_up"] = float(np.mean([r["runner_up"] for r in ru]))
+            d["vs_runner_up"] = compare(ru, "engine", "runner_up", rng)
+        out["by_step"][label] = d
+        mg = d["vs_most_games"]
+        ru_c = d.get("vs_runner_up")
+        print(f"  {label}: n {d['n']} (engine moved {d['engine_moved']}); engine {d['engine']:+.1f}, "
+              f"most games {d['most_games']:+.1f}; engine - most games {mg['mean']:+.1f} "
+              f"[{mg['ci'][0]:+.1f}, {mg['ci'][1]:+.1f}] {mg['verdict']}, W-T-L {mg['wins']}-{mg['ties']}-{mg['losses']}"
+              + (f"; vs runner-up {d['runner_up']:+.1f}: {ru_c['mean']:+.1f} "
+                 f"[{ru_c['ci'][0]:+.1f}, {ru_c['ci'][1]:+.1f}] {ru_c['verdict']}, "
+                 f"W-T-L {ru_c['wins']}-{ru_c['ties']}-{ru_c['losses']}" if ru_c else "")
+              + (f"; when it moved: predicted {d['moved_pred']:+.1f}, real {d['moved_real']:+.1f}"
+                 if moved else ""))
+    out["rows"] = rows
+    (plan_out / "plan_report.json").write_text(json.dumps(out, indent=1), encoding="utf-8")
+    return out
