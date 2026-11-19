@@ -452,11 +452,11 @@ def test_the_state_manifest_declares_both_outputs_and_git_ignores_them():
 # E. Nick's switch: advice.show_title_odds (HANDOFF_CAUSAL_LEVERAGE_2026-11-12 s.5)
 # =============================================================================
 
-def test_show_title_odds_is_required_a_boolean_and_ships_false(monkeypatch):
+def test_show_title_odds_is_required_a_boolean_and_on_since_11_18(monkeypatch):
     from modules import data_loader as dl
     cfg = json.loads((ROOT / "config" / "league_config.json").read_text(encoding="utf-8"))
-    assert cfg["advice"]["show_title_odds"] is False and cfg["advice"]["_show_title_odds"]
-    assert al.show_title_odds() is False
+    assert cfg["advice"]["show_title_odds"] is True and "TURNED ON 2026-11-18" in cfg["advice"]["_show_title_odds"]
+    assert al.show_title_odds() is True
     with pytest.raises(dl.UnspecifiedRule):
         al.show_title_odds({"advice": {"hub": "off"}})
     for bad in ("false", 0, None, "on"):
