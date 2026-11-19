@@ -457,7 +457,7 @@ def test_compare_keys_are_integers_age_has_none_and_a_free_agent_wins_nothing(sy
     p, _ = syn
     pl = p["v2"]["players"]
     labels = [r["label"] for r in pl["cmp_rows"]]
-    assert labels == ["POT", "FPPG", "L14", "Avail %", "Games, next 3 wks", "Keep %", "Age", "Scoring",
+    assert labels == ["POT", "FPPG", "L14", "MIN", "Avail %", "Games, next 3 wks", "Keep %", "Age", "Scoring",
                       "Playmaking", "Rebounding", "Stocks", "FG% & TOs"]
     age = labels.index("Age")
     for z in pl["rows"]:

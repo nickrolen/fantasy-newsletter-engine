@@ -27,10 +27,11 @@ computes nothing.
       "orders": {col key: [row index...]}                 best first
     }
 
-THE COLUMNS (Nick's s.2 table; MIN and MIN delta wait for 4a3's minutes, see
-FORM_MINUTES):
+THE COLUMNS (Nick's s.2 table):
   Value     OVR (and its weekly change), POT, Team value, Title delta, Start %
-  Form      FPPG, L14, vs Proj, Trend, Floor, Ceil, Boom %, Bust %
+  Form      FPPG, L14, vs Proj, Trend, Floor, Ceil, Boom %, Bust %, MIN, MIN
+            delta (4a3: FORM_MINUTES, the Players row's strings; a cell with
+            no value says why: "loading", "3 of 4 games")
   Schedule  Next, Next starts, GL, B2B
   Health    GP, Avail %, Missed, Back
   Keeper    Keep %, Keep rank, Age, Acquired, Since acq.
@@ -55,12 +56,13 @@ MIDDOT = "\u00b7"
 MIN_GAMES_SPREAD = 10
 BOOM, BUST = 1.25, 0.75
 TREND_GAMES = 10
-# 4a3 adds the minutes: MIN and MIN delta go in the Form group, after Bust %
+# 4a3: MIN and MIN delta, in the Form group after Bust % (the Players row's
+# strings and order keys: modules/hub_v2/players.minutes_cells)
 FORM_MINUTES = ("min", "mind")
 
 GROUPS = (
     ("value", "Value", ("ovr", "pot", "tv", "tdelta", "start")),
-    ("form", "Form", ("fppg", "l14", "vsproj", "trend", "floor", "ceil", "boom", "bust")),
+    ("form", "Form", ("fppg", "l14", "vsproj", "trend", "floor", "ceil", "boom", "bust") + FORM_MINUTES),
     ("schedule", "Schedule", ("next", "nstarts", "gl", "b2b")),
     ("health", "Health", ("gp", "avail", "missed", "back")),
     ("keeper", "Keeper", ("keep", "keeprank", "age", "acq", "since")),
@@ -82,6 +84,9 @@ COLS = {
     "ceil": ("Ceil", True, "His 90th-percentile game this season."),
     "boom": ("Boom %", True, "Games at 1.25x his FPPG or more."),
     "bust": ("Bust %", True, "Games at 0.75x his FPPG or less."),
+    "min": ("MIN", True, "Minutes per game in his NBA games this season."),
+    "mind": ("MIN \u0394", True, "His minutes per game over the last 14 days minus his season: a bigger "
+                                "or smaller role."),
     "next": ("Next", True, "Games next week he will play."),
     "nstarts": ("Next starts", True, "Of next week's games, how many fit this team's daily lineup."),
     "gl": ("GL", True, "Games left this week."),
@@ -373,6 +378,12 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             else:
                 trend.append(None)
                 r["trend"], v["trend"] = DASH, None
+            # 4a3: the minutes, as the Players row prints them (one string everywhere)
+            if any(k not in z for k in ("min", "min_k", "mind", "mind_k")):
+                raise RosterError(f"{n} ({m}): his Players row has no minutes (MIN, MIN \u0394): rebuild it "
+                                  "with this engine")
+            r["min"], v["min"] = z["min"], z["min_k"]
+            r["mind"], v["mind"] = z["mind"], z["mind_k"]
             if gp >= MIN_GAMES_SPREAD:
                 fl, ce = nearest_rank(pts, 0.10), nearest_rank(pts, 0.90)
                 bo = sum(1 for x in pts if x >= BOOM * fppg) / gp
@@ -486,7 +497,10 @@ def build(base, payload: dict, ctx: dict) -> tuple:
            "floor": f"Fewer than {MIN_GAMES_SPREAD} games", "ceil": f"Fewer than {MIN_GAMES_SPREAD} games",
            "boom": f"Fewer than {MIN_GAMES_SPREAD} games", "bust": f"Fewer than {MIN_GAMES_SPREAD} games",
            "nstarts": "IL slot", "b2b": "IL slot", "back": "Not out", "since": "No games since he joined",
-           "trend": "No games yet"}
+           "trend": "No games yet",
+           "min": "No games yet; \"loading\" until the nightly has the minutes of every game he played",
+           "mind": ("the cell says why: too few games in the last 14 days, \"no earlier games\" (all his games "
+                    "are in them), or \"loading\"")}
     wk = tv.get("weeks") or []
     notes = [f"Team value and Title \u0394: weeks {' and '.join(str(w) for w in wk)}, each roster as it "
              f"stands, against the best free agent in his place ({tv.get('sims')} simulations)."

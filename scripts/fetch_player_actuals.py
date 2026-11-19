@@ -68,6 +68,13 @@ def dry_run(base: str) -> int:
     for line in _extras_lines(x):
         print(line)
     print(f"  {x['planned_days']} day(s) to fetch, {x['planned_calls']} call(s)")
+    # 4a3: the nightly's minutes backfill (the desk never backfills)
+    try:
+        bm = pa.backfill_minutes(base, dry_run=True)
+        print(f"Minutes backfill (the nightly does it, at most {bm['cap']} calls a night): "
+              f"{bm['days_missing']} day(s) without minutes, {bm['calls_needed']} call(s)")
+    except pa.ActualsError as e:
+        print(f"Minutes backfill: cannot plan it: {e}")
     total = r["planned_calls"] + x["planned_calls"]
     print(f"PLANNED: {total} Yahoo call(s), about {round(total * SECONDS_PER_CALL)} s, plus the login. "
           "Then run it without --dry-run, then python scripts\\state.py push.")
@@ -104,8 +111,12 @@ def main(argv=None) -> int:
     cat_errors = list(r.get("cat_errors") or []) + list(x.get("cat_errors") or [])
     for e in cat_errors:
         print(f"CATEGORY STATS FAILED: {e} -- that day's points are written; the nightly's backfill retries it")
+    # 4a3: likewise a day's minutes (its points and categories are written)
+    min_errors = list(r.get("min_errors") or []) + list(x.get("min_errors") or [])
+    for e in min_errors:
+        print(f"MINUTES FAILED: {e} -- that day's points and categories are written; the nightly's backfill retries it")
     print("Then: python scripts\\state.py push")
-    return 1 if cat_errors else 0
+    return 1 if (cat_errors or min_errors) else 0
 
 
 if __name__ == "__main__":

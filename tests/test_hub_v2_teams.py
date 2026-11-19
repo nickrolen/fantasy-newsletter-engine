@@ -95,7 +95,9 @@ def team_world(tmp_path, *, archetype=None):
 
     def prow(n):
         return {"name": n, "kind": "rostered", "ovr": "80", "ovr_k": 80, "ovr_d": {"t": "\u25b22", "dir": "up"},
-                "pot": "84", "pot_k": 84, "avail": "90%", "age": "26", "arch": archetype and {"label": "Slasher"}}
+                "pot": "84", "pot_k": 84, "avail": "90%", "age": "26", "arch": archetype and {"label": "Slasher"},
+                # 4a3: the minutes as a row has them before the backfill (no min_days in this cache)
+                "min": "loading", "min_k": None, "mind": "loading", "mind_k": None, "min_g": {}}
 
     def rrow(n, gp, fppg, il=False):
         return {"name": n, "gp": gp, "in_il": il, "nba": "AAA", "fppg": fppg, "l14": fppg, "gl": DASH if il else "2",
@@ -213,9 +215,10 @@ def test_the_orders_are_best_first_with_missing_last(built):
         assert sorted(o[k]) == [0, 1, 2, 3], k
 
 
-def test_min_columns_wait_for_4a3_and_the_archetype_needs_its_switch(tmp_path, monkeypatch, built):
+def test_min_columns_close_the_form_group_and_the_archetype_needs_its_switch(tmp_path, monkeypatch, built):
     shared, _d, _c = built
-    assert not set(R.FORM_MINUTES) & set(shared["keys"])
+    form = next(g for g in shared["groups"] if g["key"] == "form")["cols"]
+    assert tuple(form[-2:]) == R.FORM_MINUTES == ("min", "mind")          # 4a3: after Bust %
     assert "arch" not in shared["keys"]
     from modules import ratings
     real = ratings.config()
@@ -231,7 +234,7 @@ def test_the_groups_are_nicks_and_all_is_every_column(built):
     assert [g["key"] for g in shared["groups"]] == ["value", "form", "schedule", "health", "keeper", "profile", "all"]
     by = {g["key"]: g["cols"] for g in shared["groups"]}
     assert by["value"] == ["ovr", "pot", "tv", "tdelta", "start"]
-    assert by["form"] == ["fppg", "l14", "vsproj", "trend", "floor", "ceil", "boom", "bust"]
+    assert by["form"] == ["fppg", "l14", "vsproj", "trend", "floor", "ceil", "boom", "bust", "min", "mind"]
     assert by["schedule"] == ["next", "nstarts", "gl", "b2b"]
     assert by["health"] == ["gp", "avail", "missed", "back"]
     assert by["keeper"] == ["keep", "keeprank", "age", "acq", "since"]
@@ -297,12 +300,12 @@ def test_sorting_uses_the_payload_orders_for_every_column():
     assert "var ord=orders[key].slice();if(dir<0){ord.reverse();}" in js
 
 
-def test_il_rows_stay_apart_and_mins_are_absent():
+def test_il_rows_stay_apart_and_mins_are_present():
     sec = _team_section(render())
     il = re.search(r'<tbody class="v2-il">(.*?)</tbody>', sec, re.S).group(1)
     assert "Marcus Hurt" in il and "Marcus Hurt" not in re.search(r'<tbody class="v2-active">(.*?)</tbody>', sec,
                                                                     re.S).group(1)
-    assert 'data-k="d_min"' not in sec and 'data-k="d_mind"' not in sec
+    assert 'data-k="d_min"' in sec and 'data-k="d_mind"' in sec                # 4a3
 
 
 def test_the_chip_is_remembered_in_memory_only():

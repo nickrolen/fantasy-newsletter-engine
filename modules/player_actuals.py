@@ -80,6 +80,43 @@ THE CATEGORIES (4a2, 11-14: version 2; the card's grade tiles and the archetype)
         written only when every player asked for on it came back. Its
         failure is soft and loud: the nightly records it and goes on.
 
+THE MINUTES (4a3, 11-19: the roster's MIN and MIN delta, the card's last
+5 games, Compare)
+    The GAME-scoped daily line the nightly already fetches for games played
+    (stat 0) carries stat 2, minutes, in the same response, so from 4a3 each
+    fetched day keeps them too, at no extra call (both passes: the extras
+    pass makes the same request).
+      - SHAPE: "min_days" beside "days" and "cat_days", {YYYY-MM-DD: whole
+        minutes}. Still version 2: the map is optional, every reader of
+        "days" and "cat_days" is unchanged, and code from before 4a3 reads
+        and rewrites a file that has it (it keeps the map and adds no
+        minutes), so rolling the engine back needs no downgrade.
+      - AN ENTRY ON EVERY CACHED DAY, like cat_days: the minutes on a day
+        he played (games 1; a cameo with no time recorded is a legal 0),
+        and 0 on a day he did not (games 0). The cache's "days" already
+        stores a DNP and a day with no team game alike ([0, 0]; Yahoo's
+        "-" is read as 0 at the fetch), so the minutes cannot tell them
+        apart either; no reader needs to (MIN counts the games he played).
+        "Is this day complete" is then: min_days has the day.
+      - FORMAT (parse_minutes): Yahoo's "30" or "30:12" (whole minutes,
+        seconds rounded half up: "30:30" is 31), or "-" / absent / "0" on a
+        day he did not play. CHECKS that RAISE (MinutesError), naming the
+        player and the day: minutes over 0 with games played 0; games
+        played 1 with no minutes; over MIN_MAX (70) minutes; anything else.
+        validate() checks every stored entry the same way.
+      - THE NIGHTLY'S DAY: minutes from the same game-scoped rows as stat 0.
+        A minutes problem never costs the day's points or categories: that
+        day's minutes are left out for the pass and the error is returned
+        ("min_errors") for the run to record (MINUTES FAILED); the backfill
+        retries the day.
+      - THE BACKFILL (backfill_minutes, the nightly only): days cached
+        without minutes, oldest first, for the tracked players (roster_names
+        and extra_names), at most config actuals.minutes_backfill_calls_max
+        calls a night. Only the game-scoped request (1 call per 25 players
+        who played that day); a player who did not play gets 0 with no call.
+        A day is written only when every player asked for on it came back,
+        still with games played 1. Its failure is soft and loud.
+
 THE OTHER PLAYERS THE HUB NAMES (40b, 11-13: update_extras)
     The player cards show every carded player's NBA season (ONE FPPG
     EVERYWHERE), so the cache also covers every NON-ROSTERED player the hub
@@ -110,8 +147,10 @@ THE OTHER PLAYERS THE HUB NAMES (40b, 11-13: update_extras)
 READERS
     hub_state (FPPG, L14; rostered players only, by roster_names); the cards
     (card_lines, any player the cache covers); the newsletter's Keeper Watch
-    cards (rostered players); ratings (category_season, 4a2). None of the
-    points readers reads cat_days. season_performers is unchanged.
+    cards (rostered players); ratings (category_season, 4a2); the new hub's
+    MIN, MIN delta and the card's last-5 minutes (minutes_games, 4a3). None
+    of the points readers reads cat_days or min_days. season_performers is
+    unchanged.
 """
 
 from __future__ import annotations
@@ -130,6 +169,9 @@ READS = (1, 2)              # version 1 has no categories and still reads
 BATCH = 25
 CAT_TOL = 0.011             # counts x values vs total points: to the cent
 GP_STAT = "0"               # Yahoo NBA stat id 0: games played
+MIN_STAT = "2"              # Yahoo NBA stat id 2: minutes (4a3; the same game-scoped response)
+MIN_MAX = 70                # minutes in one game over this RAISE: misread (4a3; 70, not 65, so a
+                            # quadruple-overtime game, up to ~68, never stalls a day: 11-19 review)
 L14_DAYS = 14
 
 
@@ -144,6 +186,11 @@ class ActualsStale(ActualsError):
 class CategoryError(ActualsError):
     """A day's category line is missing, malformed, or does not score the
     day's points (4a2). Names the player and the day."""
+
+
+class MinutesError(ActualsError):
+    """A day's minutes are missing, malformed, or disagree with games played
+    (4a3). Names the player and the day."""
 
 
 # =============================================================================
@@ -186,6 +233,7 @@ def validate(blob: dict, path="data/player_actuals.json") -> dict:
             if v[1] == 0 and v[0] != 0:
                 raise ActualsError(f"{path}: {rec['name']} {d} has {v[0]} points and no game")
         _check_cat_days(rec, header, path)
+        _check_min_days(rec, path)
     for name, pid in blob["roster_names"].items():
         if str(pid) not in blob["players"]:
             raise ActualsError(f"{path}: roster name {name!r} points at id {pid}, not cached")
@@ -235,6 +283,23 @@ def _check_cat_days(rec: dict, header: Optional[dict], path) -> None:
     for d in corr:
         if d not in cd:
             raise ActualsError(f"{path}: {rec['name']} has a correction on {d} and no categories that day")
+
+
+def _check_min_days(rec: dict, path) -> None:
+    """4a3: each entry is on a cached day, whole minutes from 0 to MIN_MAX,
+    and 0 on a day he did not play."""
+    md = rec.get("min_days")
+    if md is None:
+        return
+    if not isinstance(md, dict):
+        raise ActualsError(f"{path}: {rec['name']}'s min_days is malformed")
+    for d, m in md.items():
+        if d not in rec["days"]:
+            raise ActualsError(f"{path}: {rec['name']} has minutes on {d}, a day with no points cached")
+        if not isinstance(m, int) or isinstance(m, bool) or m < 0 or m > MIN_MAX:
+            raise ActualsError(f"{path}: {rec['name']} {d} minutes are {m!r}, not whole minutes from 0 to {MIN_MAX}")
+        if rec["days"][d][1] == 0 and m != 0:
+            raise ActualsError(f"{path}: {rec['name']} {d} has {m} minutes and no game")
 
 
 def scoring_header(base_path=".") -> dict:
@@ -335,7 +400,9 @@ def write(base_path, blob: dict, today: date) -> None:
     from .data_loader import atomic_write_json
     # compact (Nick, 11-14, 4a2 decision 4): no indent, so each day's 11 counts
     # are one short line's worth, not eleven lines (~6.8 MB by April at indent=1).
-    atomic_write_json(cache_path(base_path), blob, indent=None)
+    # 4a3 review (11-19): and no spaces after separators, about 20% smaller again
+    # (~3.9 MB by April with the minutes otherwise).
+    atomic_write_json(cache_path(base_path), blob, indent=None, separators=(",", ":"))
 
 
 # =============================================================================
@@ -354,6 +421,13 @@ def _num(x) -> Optional[float]:
 def parse_game_lines(raw: dict) -> Dict[int, str]:
     """{yahoo id: stat 0's raw value} from a game-scoped players/stats
     response. Raises on a shape it does not recognise."""
+    return {pid: v[GP_STAT] for pid, v in parse_game_stats(raw).items()}
+
+
+def parse_game_stats(raw: dict) -> Dict[int, dict]:
+    """{yahoo id: {GP_STAT: raw or None, MIN_STAT: raw or None}} from a
+    game-scoped players/stats response (4a3: stat 2, minutes, rides in the
+    same response). Raises on a shape it does not recognise."""
     try:
         players = raw["fantasy_content"]["players"]
     except (KeyError, TypeError):
@@ -371,13 +445,13 @@ def parse_game_lines(raw: dict) -> Dict[int, str]:
                 pid = int(item["player_id"])
         if pid is None:
             raise ActualsError(f"Yahoo's game-scoped stats: player entry {k} has no player_id")
-        gp = None
+        got = {GP_STAT: None, MIN_STAT: None}
         stats = ((parts[1] or {}).get("player_stats") or {}).get("stats") or []
         for s in stats:
             st = s.get("stat") or {}
-            if str(st.get("stat_id")) == GP_STAT:
-                gp = st.get("value")
-        out[pid] = gp
+            if str(st.get("stat_id")) in got:
+                got[str(st.get("stat_id"))] = st.get("value")
+        out[pid] = got
     return out
 
 
@@ -387,6 +461,36 @@ def games_value(raw_value, who: str, d: date) -> int:
     if raw_value in ("0", 0, "-"):
         return 0
     raise ActualsError(f"Yahoo's {d} games-played stat for {who} is {raw_value!r}, not 0, 1 or '-'")
+
+
+_MIN_RE = None
+
+
+def parse_minutes(raw, who: str, d, games: int) -> int:
+    """Whole minutes from Yahoo's stat 2 (4a3): "30", "30:12" (seconds
+    rounded half up: "30:30" is 31), or "-" / "" / absent on a day he did
+    not play (0). RAISES MinutesError naming him and the day: games played 1
+    with no minutes; minutes over 0 with games played 0; over MIN_MAX
+    minutes; anything else. A cameo (games 1, "0" or "0:20") is a legal 0."""
+    global _MIN_RE
+    if _MIN_RE is None:
+        import re
+        _MIN_RE = re.compile(r"^(\d{1,3})(?::([0-5]\d))?$")
+    if raw is None or raw in ("-", ""):
+        if games == 0:
+            return 0
+        raise MinutesError(f"Yahoo's {d} line for {who}: games played 1 and no minutes ({raw!r})")
+    if isinstance(raw, bool) or not isinstance(raw, (int, str)):
+        raise MinutesError(f"Yahoo's {d} line for {who}: minutes are {raw!r}, not \"30\", \"30:12\" or \"-\"")
+    m = _MIN_RE.match(str(raw).strip())
+    if m is None:
+        raise MinutesError(f"Yahoo's {d} line for {who}: minutes are {raw!r}, not \"30\", \"30:12\" or \"-\"")
+    whole, sec = int(m.group(1)), int(m.group(2) or 0)
+    if whole * 60 + sec > MIN_MAX * 60:
+        raise MinutesError(f"Yahoo's {d} line for {who}: {raw!r} minutes, over {MIN_MAX}: misread")
+    if games == 0 and whole * 60 + sec > 0:
+        raise MinutesError(f"Yahoo's {d} line for {who}: {raw!r} minutes and no game played")
+    return whole + (1 if sec >= 30 else 0)
 
 
 class YahooSource:
@@ -403,24 +507,40 @@ class YahooSource:
         naming the date and the player."""
         return self.day_full(pids, d, names)[0]
 
+    def _game_raw(self, chunk: List[int], d: date) -> dict:
+        keys = ",".join(f"{self.game_key}.p.{p}" for p in chunk)
+        raw = self.lg.yhandler.get(f"players;player_keys={keys}/stats;type=date;date={d.isoformat()}")
+        self.calls += 1
+        return raw
+
     def day_full(self, pids: List[int], d: date, names: Dict[int, str],
                  header: Optional[dict] = None) -> Tuple[Dict[int, list], Optional[dict]]:
+        """day_all's first two results (4a2's contract, unchanged)."""
+        out, cr, _mr = self.day_all(pids, d, names, header)
+        return out, cr
+
+    def day_all(self, pids: List[int], d: date, names: Dict[int, str],
+                header: Optional[dict] = None) -> Tuple[Dict[int, list], Optional[dict], dict]:
         """(day()'s result, the categories): with a header, {"cats": {pid:
         counts}, "error": None}, or {"cats": None, "error": why} when any
         player's categories fail (parse_cats, check_cats) -- the points are
         returned either way: a category problem never costs a day's points.
-        Without a header, None. The same two requests per batch as day()."""
+        Without a header, None. The same two requests per batch as day().
+        Third (4a3): the minutes, {"minutes": {pid: whole minutes}, "error":
+        None}, or {"minutes": None, "error": why} when any player's minutes
+        fail (parse_minutes) -- the points and categories are returned either
+        way. Stat 2 of the game-scoped response that carries stat 0."""
         out = {}
         cats: Dict[int, List[int]] = {}
         cat_err: Optional[str] = None
+        mins: Dict[int, int] = {}
+        min_err: Optional[str] = None
         for i in range(0, len(pids), BATCH):
             chunk = pids[i:i + BATCH]
             try:
                 rows = self.lg.player_stats(chunk, "date", date=d)
                 self.calls += 1
-                keys = ",".join(f"{self.game_key}.p.{p}" for p in chunk)
-                raw = self.lg.yhandler.get(f"players;player_keys={keys}/stats;type=date;date={d.isoformat()}")
-                self.calls += 1
+                raw = self._game_raw(chunk, d)
             except ActualsError:
                 raise
             except Exception as e:                     # network, auth, parse
@@ -435,13 +555,13 @@ class YahooSource:
                     v = _num(r["total_points"])
                     pts[pid] = 0.0 if v is None else v
                     rowof[pid] = r
-            gps = parse_game_lines(raw)
+            gst = parse_game_stats(raw)
             for pid in chunk:
                 if pid not in pts:
                     raise ActualsError(f"Yahoo returned no {d} league line for {names[pid]}")
-                if pid not in gps or gps[pid] is None:
+                if pid not in gst or gst[pid][GP_STAT] is None:
                     raise ActualsError(f"Yahoo returned no {d} games-played stat for {names[pid]}")
-                g = games_value(gps[pid], names[pid], d)
+                g = games_value(gst[pid][GP_STAT], names[pid], d)
                 if g == 0 and pts[pid] != 0:
                     raise ActualsError(f"Yahoo's {d} line for {names[pid]}: {pts[pid]} points "
                                        "and no game played")
@@ -453,9 +573,41 @@ class YahooSource:
                         cats[pid] = c
                     except CategoryError as e:
                         cat_err = str(e)
+                if min_err is None:
+                    try:
+                        mins[pid] = parse_minutes(gst[pid][MIN_STAT], names[pid], d, g)
+                    except MinutesError as e:
+                        min_err = str(e)
+        mr = {"minutes": None, "error": min_err} if min_err else {"minutes": mins, "error": None}
         if header is None:
-            return out, None
-        return out, ({"cats": None, "error": cat_err} if cat_err else {"cats": cats, "error": None})
+            return out, None, mr
+        return out, ({"cats": None, "error": cat_err} if cat_err else {"cats": cats, "error": None}), mr
+
+    def minutes_day(self, pids: List[int], d: date, names: Dict[int, str]) -> Dict[int, int]:
+        """The minutes backfill's request (4a3): {pid: whole minutes} for
+        players who PLAYED on day d (the cache says games 1), from the
+        game-scoped line only (1 call per BATCH). Yahoo must still say games
+        played 1, and the minutes must parse, or MinutesError naming him and
+        the day; any missing player or failed request raises too."""
+        out = {}
+        for i in range(0, len(pids), BATCH):
+            chunk = pids[i:i + BATCH]
+            try:
+                raw = self._game_raw(chunk, d)
+            except Exception as e:                     # network, auth, parse
+                raise ActualsError(f"Yahoo request for {d}'s minutes failed ({type(e).__name__}: {e}) "
+                                   f"for {', '.join(names[p] for p in chunk)}") from e
+            gst = parse_game_stats(raw)
+            for pid in chunk:
+                if pid not in gst or gst[pid][GP_STAT] is None:
+                    raise ActualsError(f"Yahoo returned no {d} games-played stat for {names[pid]}")
+                g = games_value(gst[pid][GP_STAT], names[pid], d)
+                if g != 1:
+                    raise MinutesError(f"Yahoo's {d} line for {names[pid]} now says games played "
+                                       f"{gst[pid][GP_STAT]!r}, but the cache has him playing: the day's minutes "
+                                       "are not written")
+                out[pid] = parse_minutes(gst[pid][MIN_STAT], names[pid], d, 1)
+        return out
 
     def cats_day(self, pids: List[int], d: date, names: Dict[int, str],
                  header: dict) -> Dict[int, tuple]:
@@ -507,12 +659,15 @@ def plan(blob: dict, ids: Dict[str, int], first: date, last: date) -> Dict[date,
 
 
 def _fetch_day(source, pids, d, names, header):
-    """(points by pid, the categories result or None): a source with
-    day_full and a header gives categories; any other source (the tests'
-    fakes, a header-less call) gives points and games only."""
+    """(points by pid, the categories result or None, the minutes result or
+    None): a source with day_all (YahooSource) and a header gives categories
+    and minutes; one with day_full only, categories; any other source (the
+    tests' fakes, a header-less call) gives points and games only."""
+    if header is not None and hasattr(source, "day_all"):
+        return source.day_all(pids, d, names, header)
     if header is not None and hasattr(source, "day_full"):
-        return source.day_full(pids, d, names, header)
-    return source.day(pids, d, names), None
+        return source.day_full(pids, d, names, header) + (None,)
+    return source.day(pids, d, names), None, None
 
 
 def _store_cats(blob: dict, d: date, cr: Optional[dict], errors: List[str]) -> None:
@@ -525,6 +680,18 @@ def _store_cats(blob: dict, d: date, cr: Optional[dict], errors: List[str]) -> N
         blob["players"][str(pid)].setdefault("cat_days", {})[d.isoformat()] = c
 
 
+def _store_minutes(blob: dict, d: date, mr: Optional[dict], errors: List[str]) -> None:
+    """4a3: the day's minutes for every player the pass asked for, or none
+    (its error recorded; the backfill retries the day)."""
+    if mr is None:
+        return
+    if mr["error"]:
+        errors.append(f"{d.isoformat()}: {mr['error']}")
+        return
+    for pid, m in mr["minutes"].items():
+        blob["players"][str(pid)].setdefault("min_days", {})[d.isoformat()] = m
+
+
 def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_names=None,
            today: date = None, first_day: date = None, season: str = None,
            echo: Callable = print, header: Optional[dict] = None) -> dict:
@@ -533,7 +700,8 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
     first failure, after keeping the days that completed. With a source that
     has day_full (YahooSource), each day keeps its categories too (4a2;
     header: config yahoo_settings.stat_values unless given); a category
-    problem is returned in "cat_errors", never raised."""
+    problem is returned in "cat_errors", never raised; a minutes problem
+    (4a3) in "min_errors", never raised."""
     base = Path(base_path)
     from .league_clock import league_today
     today = today or league_today()
@@ -562,6 +730,7 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
     else:
         header = None
     cat_errors: List[str] = []
+    min_errors: List[str] = []
     for n, pid in ids.items():
         rec = blob["players"].setdefault(str(pid), {"name": n, "days": {}})
         rec["name"] = n
@@ -572,11 +741,12 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
     done_days = []
     per_player_days: Dict[str, int] = {}
     for d, pids in todo.items():
-        got, cr = _fetch_day(source, pids, d, names, header)
+        got, cr, mr = _fetch_day(source, pids, d, names, header)
         for pid, v in got.items():
             blob["players"][str(pid)]["days"][d.isoformat()] = v
             per_player_days[names[pid]] = per_player_days.get(names[pid], 0) + 1
         _store_cats(blob, d, cr, cat_errors)
+        _store_minutes(blob, d, mr, min_errors)
         blob["roster_names"] = {n: int(p) for n, p in sorted(ids.items())}
         blob["rosters_from"] = "config/ROSTERS.json"
         from .league_clock import league_now
@@ -599,7 +769,7 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
             getattr(source, "calls", 0) - calls0, "seconds": seconds,
             "backfilled": new_players, "player_days": per_player_days,
             "players": len(ids), "ids": names_now, "source": source, "header": header,
-            "cat_errors": cat_errors}
+            "cat_errors": cat_errors, "min_errors": min_errors}
 
 
 # =============================================================================
@@ -630,6 +800,11 @@ def extras_cap(base_path=".") -> int:
 def backfill_cap(base_path=".") -> int:
     """config actuals.category_backfill_calls_max (4a2): required, an int of at least 1."""
     return _actuals_int(base_path, "category_backfill_calls_max")
+
+
+def minutes_cap(base_path=".") -> int:
+    """config actuals.minutes_backfill_calls_max (4a3): required, an int of at least 1."""
+    return _actuals_int(base_path, "minutes_backfill_calls_max")
 
 
 def hub_names(base_path=".") -> Tuple[List[str], str]:
@@ -732,7 +907,7 @@ def update_extras(base_path=".", *, source, rostered: Dict[str, int], today: dat
     out = {"through": last.isoformat(), "players": len(ids), "no_id": ex["no_id"], "from": ex["from"],
            "cap": ex["cap"], "backfilled": new_players, "missing_days": missing,
            "planned_days": len(todo), "planned_calls": calls_for(todo), "days_fetched": [], "calls": 0,
-           "seconds": 0.0, "cat_errors": []}
+           "seconds": 0.0, "cat_errors": [], "min_errors": []}
     if dry_run:
         return out
     t0 = time.time()
@@ -740,10 +915,11 @@ def update_extras(base_path=".", *, source, rostered: Dict[str, int], today: dat
     names_now = {n: int(p) for n, p in sorted(ids.items())}
     from .league_clock import league_now
     for d, pids in todo.items():
-        got, cr = _fetch_day(source, pids, d, names, header)
+        got, cr, mr = _fetch_day(source, pids, d, names, header)
         for pid, v in got.items():
             blob["players"][str(pid)]["days"][d.isoformat()] = v
         _store_cats(blob, d, cr, out["cat_errors"])
+        _store_minutes(blob, d, mr, out["min_errors"])
         blob["extra_names"] = names_now
         blob["updated_at"] = league_now().isoformat(timespec="seconds")
         write(base, blob, today)
@@ -799,14 +975,15 @@ def tracked_ids(blob: dict) -> Dict[int, str]:
     return {pid: blob["players"][str(pid)]["name"] for pid in sorted(ids)}
 
 
-def backfill_plan(blob: dict, last: date) -> Dict[date, dict]:
+def backfill_plan(blob: dict, last: date, key: str = "cat_days") -> Dict[date, dict]:
     """{day: {"played": [ids], "idle": [ids]}}, oldest first: every cached
-    day through `last` of a tracked player with no categories. "idle" played
-    no game (zeros, no call)."""
+    day through `last` of a tracked player with no categories (key
+    "cat_days"), or no minutes (4a3: key "min_days"). "idle" played no game
+    (zeros, no call)."""
     out: Dict[date, dict] = {}
     for pid in tracked_ids(blob):
         rec = blob["players"][str(pid)]
-        have = rec.get("cat_days") or {}
+        have = rec.get(key) or {}
         for d, v in rec["days"].items():
             if d in have or date.fromisoformat(d) > last:
                 continue
@@ -875,6 +1052,63 @@ def backfill_categories(base_path=".", *, source=None, today: date = None, cap: 
                 out["corrections"].append(f"{names[pid]} {iso}: {stored} cached, {corrected} now")
         for pid in want["idle"]:
             blob["players"][str(pid)].setdefault("cat_days", {})[iso] = [0] * len(header["order"])
+        blob["updated_at"] = league_now().isoformat(timespec="seconds")
+        write(base, blob, today)
+        out["days_done"].append(iso)
+    out["days_left"] = len(todo) - len(out["days_done"])
+    out["seconds"] = round(time.time() - t0, 1)
+    return out
+
+
+# =============================================================================
+# the minutes' backfill (4a3, 11-19)
+# =============================================================================
+
+def backfill_minutes(base_path=".", *, source=None, today: date = None, cap: int = None,
+                     dry_run: bool = False) -> dict:
+    """Fill minutes for days cached without them, oldest first, at most `cap`
+    calls (config actuals.minutes_backfill_calls_max). backfill_categories'
+    rules: a day is written only when every player asked for on it came back
+    (all or nothing); a complete day is never asked for again; it stops at
+    the first day that does not fit in what is left of the cap; a day
+    needing more calls than the whole cap raises. Only the game-scoped
+    request, for the players who played (source.minutes_day); the others
+    get 0 with no call. RAISES (ActualsError) on a failure, after keeping the
+    days that completed. dry_run: the plan, no Yahoo call, nothing written."""
+    base = Path(base_path)
+    from .league_clock import league_today, league_now
+    today = today or league_today()
+    last = today - timedelta(days=1)
+    blob = load(base)
+    cap = cap if cap is not None else minutes_cap(base)
+    names = tracked_ids(blob)
+    todo = backfill_plan(blob, last, key="min_days")
+    out = {"days_missing": len(todo), "calls_needed": backfill_calls(todo), "cap": cap,
+           "days_done": [], "calls": 0, "stopped": None, "seconds": 0.0}
+    if dry_run:
+        out["days_left"] = len(todo)
+        return out
+    t0 = time.time()
+    for d, want in todo.items():
+        need = math.ceil(len(want["played"]) / BATCH)
+        if need > cap:
+            raise ActualsError(f"{d}'s minutes need {need} calls ({len(want['played'])} players played), "
+                               f"more than actuals.minutes_backfill_calls_max ({cap}): that day would never "
+                               "be written; raise the cap")
+        if out["calls"] + need > cap:
+            out["stopped"] = f"the cap ({cap} calls) before {d.isoformat()}"
+            break
+        calls0 = getattr(source, "calls", 0)
+        got = source.minutes_day(want["played"], d, names) if want["played"] else {}
+        out["calls"] += getattr(source, "calls", 0) - calls0
+        iso = d.isoformat()
+        for pid in want["played"]:
+            if pid not in got:
+                raise ActualsError(f"Yahoo returned no {d} minutes for {names[pid]}")
+        for pid, m in got.items():
+            blob["players"][str(pid)].setdefault("min_days", {})[iso] = m
+        for pid in want["idle"]:
+            blob["players"][str(pid)].setdefault("min_days", {})[iso] = 0
         blob["updated_at"] = league_now().isoformat(timespec="seconds")
         write(base, blob, today)
         out["days_done"].append(iso)
@@ -1001,6 +1235,45 @@ def category_season(blob: dict, name: str, first: date, through: date) -> dict:
         games += 1
         totals = [a + b for a, b in zip(totals, c)]
     return dict(res, games=games, totals=dict(zip(header["order"], totals)))
+
+
+def minutes_games(blob: dict, name: str, first: date, through: date) -> dict:
+    """His minutes in each game he played in [first, through] (4a3; the new
+    hub's MIN, MIN delta and the card's last 5 read it). {"status", "games":
+    [(iso, minutes)] in order, "day": the first day lacking, or None}:
+      "ok"          every day he played has minutes
+      "loading"     a day he played lacks them (the backfill has not
+                    reached it); "games" holds none
+      "not_cached"  never in the cache
+      "gap"         a day in the window is not cached at all
+    Plain data; never raises for a player."""
+    rec = find_record(blob, name)
+    res = {"status": "ok", "games": [], "day": None}
+    if rec is None:
+        return dict(res, status="not_cached")
+    md = rec.get("min_days") or {}
+    games = []
+    for d in days_between(first, through) if through >= first else []:
+        iso = d.isoformat()
+        v = rec["days"].get(iso)
+        if v is None:
+            return dict(res, status="gap", day=iso)
+        if v[1] != 1:
+            continue
+        m = md.get(iso)
+        if m is None:
+            return dict(res, status="loading", day=iso)
+        games.append((iso, m))
+    return dict(res, games=games)
+
+
+def minutes_on(blob: dict, name: str, isos: Iterable[str]) -> Dict[str, int]:
+    """{iso: minutes} of the given days that have minutes stored (4a3: the
+    card's last 5 games, which show a game's minutes as soon as that day has
+    them, before the backfill reaches his older days)."""
+    rec = find_record(blob, name)
+    md = (rec or {}).get("min_days") or {}
+    return {i: md[i] for i in isos if i in md}
 
 
 def card_lines(blob: dict, names: Iterable[str], through: date, *, required: Iterable[str] = (),

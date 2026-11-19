@@ -412,6 +412,9 @@ def test_the_real_actuals_step_covers_every_carded_free_agent(tmp_path, monkeypa
     # tested in tests/test_4a2_category_stats.py
     monkeypatch.setattr(pa, "backfill_categories", lambda *a, **k: {
         "days_done": [], "days_left": 0, "calls": 0, "cap": 1, "corrections": [], "stopped": None})
+    # 4a3: likewise the minutes' backfill (game-scoped calls; tested in tests/test_4a3_minutes.py)
+    monkeypatch.setattr(pa, "backfill_minutes", lambda *a, **k: {
+        "days_done": [], "days_left": 0, "calls": 0, "cap": 1, "stopped": None})
     run = nightly.Run(base, "nightly", now=datetime.combine(today, datetime.min.time()).replace(
         hour=0, minute=5, tzinfo=LA), echo=lambda *a: None)
     detail = run.step_actuals()

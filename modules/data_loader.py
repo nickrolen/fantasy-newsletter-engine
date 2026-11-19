@@ -1820,7 +1820,7 @@ def load_all_data(
     return data
 
 
-def atomic_write_json(path, data, indent: int = 2) -> None:
+def atomic_write_json(path, data, indent: int = 2, separators=None) -> None:
     """
     Write JSON atomically: dump to a .tmp file in the same directory, then
     os.replace() it over the target. A crash mid-write leaves the original
@@ -1831,7 +1831,7 @@ def atomic_write_json(path, data, indent: int = 2) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(p.suffix + ".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=indent)
+        json.dump(data, f, indent=indent, separators=separators)
     tmp.replace(p)
 
 

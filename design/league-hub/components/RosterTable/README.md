@@ -9,7 +9,7 @@ The team's roster as a sortable table, 2K-roster-viewer style: OVR with its week
   - **Simple (team page):** FPPG, GP, Proj, Next.
   - **Detailed (4c2)** adds a chip row: **Value · Form · Schedule · Health · Keeper · Profile · All**. Each chip shows its group's columns beside the pinned name; **All** shows every column and the table scrolls sideways with the name column sticky. The chip (and Simple/Detailed) is remembered for the session, in memory only.
     - **Value:** OVR (with ▲/▼ this week), POT, Team value, Title Δ, Start %.
-    - **Form:** FPPG, L14, vs Proj, Trend (a sparkline of his last 10 games, one scale per team), Floor, Ceil, Boom %, Bust % (MIN and MIN Δ join here once minutes are stored, job 4a3).
+    - **Form:** FPPG, L14, vs Proj, Trend (a sparkline of his last 10 games, one scale per team), Floor, Ceil, Boom %, Bust %, **MIN** (minutes per game this season) and **MIN Δ** (minutes per game over the last 14 days minus the season, signed; 4a3). A MIN cell with no value says why in the cell itself, never 0: "loading" until the nightly has the minutes of every game he played, "3 games: shows after 4" (MIN Δ needs 4 games in the last 14 days), "no earlier games" (every game of his is in them); — with no games, as FPPG.
     - **Schedule:** Next, Next starts, GL, B2B.
     - **Health:** GP, Avail %, Missed, Back.
     - **Keeper:** Keep %, Keep rank ("#3 of 5"), Age, Acquired ("Kept '26", "R2 '26", "FA 11-09", "Trade 10-30"), Since acq.

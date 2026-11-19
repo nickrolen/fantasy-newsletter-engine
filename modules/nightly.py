@@ -82,7 +82,14 @@ s.2.4 and s.4 the design. The nightly run:
                    player_actuals.backfill_categories: days cached before
                    4a2, oldest first, at most actuals.category_backfill_
                    calls_max calls; its failure is recorded the same way
-                   (the "actuals" block's "categories") and never stops the run
+                   (the "actuals" block's "categories") and never stops the run.
+                   4a3: both passes keep each day's minutes from the same
+                   game-scoped rows; a minutes problem never costs the points
+                   or the categories: recorded (MINUTES FAILED). Then, the
+                   nightly run only, player_actuals.backfill_minutes: days
+                   cached before 4a3, oldest first, at most actuals.minutes_
+                   backfill_calls_max calls; its failure is recorded the same
+                   way (the "actuals" block's "minutes") and never stops the run
    9 hub           hub_state.build, then build_hub (encrypted when
                    HUB_PASSPHRASE is set, --preview-only otherwise).
                    4c1: hub_state.build computes the ratings (OVR, POT, the
@@ -917,6 +924,7 @@ class Run:
         block: dict = {}
         lines: list = []
         cat_errors = list(r.get("cat_errors") or [])
+        min_errors = list(r.get("min_errors") or [])             # 4a3
         # 40b: then every non-rostered player the previous hub named, in their
         # own batches. It feeds only the player cards, which fail softly, so a
         # failure here (Yahoo, the cap, the names) is recorded loudly -- the
@@ -934,6 +942,7 @@ class Run:
             detail += f"; free agents FAILED (recorded, the run goes on): {err}"
         else:
             cat_errors += list(x.get("cat_errors") or [])
+            min_errors += list(x.get("min_errors") or [])
             block.update({"extras": x["players"], "no_id": x["no_id"], "days": len(x["days_fetched"]),
                           "calls": x["calls"], "backfilled": x["backfilled"], "error": None,
                           "seconds": round(time.perf_counter() - t0, 2)})
@@ -970,6 +979,34 @@ class Run:
         if cat_errors:
             detail += f"; {len(cat_errors)} day(s) of categories FAILED (recorded)"
         block["categories"] = cats
+        # 4a3: the minutes. A day's minutes that failed above are left out (its
+        # points and categories are written) and recorded; the nightly run then
+        # fills days cached without minutes, at most the config's calls. Both
+        # feed only MIN, MIN delta and the card's last 5, so a failure is
+        # recorded loudly (MINUTES FAILED) and the run goes on.
+        mins: dict = {"errors": min_errors, "backfill": None, "error": None}
+        if self.mode == "nightly" and not hasattr(r.get("source"), "minutes_day"):
+            mins["backfill"] = "skipped: the source fetches no minutes"
+        elif self.mode == "nightly":
+            t2 = time.perf_counter()
+            try:
+                bm = pa.backfill_minutes(self.base, source=r.get("source"), today=self.today)
+            except Exception as e:                   # noqa: BLE001 -- recorded loudly, never stops the run
+                err = f"{type(e).__name__}: {e}".splitlines()[0][:500]
+                mins["error"] = err
+                detail += f"; minutes' backfill FAILED (recorded, the run goes on): {err}"
+            else:
+                mins["backfill"] = {k: bm[k] for k in ("days_done", "days_left", "calls", "cap", "stopped")}
+                detail += (f"; minutes backfilled {len(bm['days_done'])} day(s), {bm['calls']} call(s), "
+                           f"{bm['days_left']} day(s) left")
+            mins["seconds"] = round(time.perf_counter() - t2, 2)
+        for e in min_errors:
+            lines.append(f"MINUTES FAILED: {e} -- that day's points and categories are written; the backfill retries it")
+        if mins["error"]:
+            lines.append(f"MINUTES FAILED: the backfill: {mins['error']} -- MIN and MIN delta wait")
+        if min_errors:
+            detail += f"; {len(min_errors)} day(s) of minutes FAILED (recorded)"
+        block["minutes"] = mins
         self.ctx["actuals"] = block
         self.ctx["actuals_lines"] = lines
         return detail

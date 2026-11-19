@@ -507,8 +507,11 @@ def test_real_market_in_every_segment_the_preview_and_publish(tmp_path):
     import league_state
     from modules import hub_state, hub_publish
     league_state.skip_if_actuals_behind()          # H51: the real build reads actuals through yesterday
-    p = hub_state.build(ROOT, allow_engine_mismatch=True, echo=lambda *a, **k: None, players_out={})
+    po = {}
+    p = hub_state.build(ROOT, allow_engine_mismatch=True, echo=lambda *a, **k: None, players_out=po)
     assert p["v2_error"] is None, p["v2_error"]
+    from modules.hub_v2 import data as v2data
+    v2data.attach_players(p, po)            # 4c2: the Players rows live in their own file (4a3 review fix)
     mk = p["v2"]["market"]
     assert mk["available"]["rows"] and [s[0] for s in mk["segs"]][:2] == ["available", "stash"]
     for r in mk["available"]["rows"]:

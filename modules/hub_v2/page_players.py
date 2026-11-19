@@ -371,7 +371,9 @@ def card_html(cv: dict) -> str:
     o.append('<div class="v2-pane" data-pane-of="season"><section class="lh-card v2-gap8"><div class="lh-kpis">'
              + _kpi(s["kpis"][0], ids, "fppg") + _kpi(s["kpis"][1], ids) + _kpi(s["kpis"][2], ids)
              + _kpi(s["kpis"][3], ids) + "</div>"
-             + (f'<span class="lh-sub">{clean(s["league"])}</span>' if s["league"] else "") + "</section>")
+             + (f'<span class="lh-sub">{clean(s["league"])}</span>' if s["league"] else "")
+             + (f'<span class="v2-kpi-head"><span class="lh-sub">{clean(s["minutes"])}</span>{_info(ids, "min")}</span>'
+                if s.get("minutes") else "") + "</section>")
     o.append(f'<section class="lh-card v2-gap8"><div class="lh-sechead"><h2 class="lh-eyebrow">Attributes</h2>'
              f'{_info(ids, "grades", "vs rostered players")}</div>')
     if s["grades"]:
@@ -409,9 +411,10 @@ def card_html(cv: dict) -> str:
     o.append('<section class="lh-card lh-card--flush"><div class="lh-sechead v2-pad"><h2 class="lh-eyebrow">Last 5 games'
              '</h2></div>')
     if s["last"]:
-        o.append('<table class="lh-table v2-last"><thead><tr><th>Day</th><th>Opp</th><th>FP</th></tr></thead><tbody>'
-                 + "".join(f'<tr><td>{clean(g["day"])}</td><td>{clean(g["opp"])}</td><td>{clean(g["fp"])}</td></tr>'
-                           for g in s["last"]) + "</tbody></table>")
+        o.append('<table class="lh-table v2-last"><thead><tr><th>Day</th><th>Opp</th><th>FP</th><th>MIN</th></tr></thead>'
+                 '<tbody>'
+                 + "".join(f'<tr><td>{clean(g["day"])}</td><td>{clean(g["opp"])}</td><td>{clean(g["fp"])}</td>'
+                           f'<td>{clean(g["min"])}</td></tr>' for g in s["last"]) + "</tbody></table>")
     else:
         o.append('<p class="v2-p v2-empty">No games this season yet.</p>')
     o.append("</section></div>")

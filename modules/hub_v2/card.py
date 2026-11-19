@@ -15,6 +15,9 @@ only when enabled (or in a --archetype-preview build, marked).
     view(card, row, ctx) -> {"key", "hero", "season", "career", "keeper",
                              "history"}: strings, plus percentage strings for
                              the bars (the engine scales them)
+4a3: the Season tab's minutes line (MIN and MIN delta, the Players row's
+strings) and the last-5 table's MIN (the row's min_g: a game's minutes as
+soon as its day has them; "loading" before; a dash on an injured day).
 
 The page (page.card_html) prints it; the card's file is encrypted by its
 content (publish.py), as hub_cards' are, and fetched on the tap.
@@ -253,14 +256,23 @@ def view(card: dict, row: dict, ctx: dict) -> dict:
     games.sort(key=lambda g: g["date"])
     bar = bars(games, fppg, card.get("last_10") or [])
     last = []
+    min_g = row.get("min_g") or {}
     for g in (card.get("last_10") or [])[:LAST_N]:
         o = g.get("opponent") or ""
+        iso = str(g["date"])[:10]
         last.append({"day": _day(g["date"]), "opp": o or DASH,
-                     "fp": "INJ" if g.get("injured") else f"{float(g['fp']):.1f}"})
+                     "fp": "INJ" if g.get("injured") else f"{float(g['fp']):.1f}",
+                     "min": DASH if g.get("injured") else min_g.get(iso, "loading")})
+    if row["min_k"] is None and row["min"] == DASH:
+        minutes = ""                                   # no games: the tiles say so
+    elif row["min_k"] is None:
+        minutes = f"MIN {row['min']} \u00b7 MIN \u0394 {row['mind']}"
+    else:
+        minutes = f"MIN {row['min']} a game this season \u00b7 MIN \u0394 {row['mind']}"
     keep = {"text": card.get("keep_text") or ("Free agents have no keep chance." if not rostered else DASH)}
     season = {"kpis": [k_fppg, k_gp, k_tot, k_l14],
               "league": (card.get("league_season") or {}).get("text") or "",
-              "grades": tiles(row["grades"]), "bars": bar, "keep": keep, "last": last}
+              "grades": tiles(row["grades"]), "bars": bar, "keep": keep, "last": last, "minutes": minutes}
 
     # ---------------------------------------------------------------- career
     car = card.get("career") or {}

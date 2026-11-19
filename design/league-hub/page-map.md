@@ -64,11 +64,12 @@ Built in 4c1 (mockups `mockups/Players.html`, `mockups/Players-Compare.html`).
       - **Attributes:** 8 **GradeTile**s (the five categories, durability, consistency, schedule with its 3-week game count); tap a tile for what it measures. Free agents get a line instead: the grades rank the rostered players.
       - **Fantasy points by game:** a **BarChart** with his average; tap a bar for the game.
       - **Keeper outlook:** keep chance and rank on his team.
-      - **Last 5 games:** a small table.
+      - **Last 5 games:** a small table: Day, Opp, FP, **MIN** (4a3: a game's minutes as soon as its day has them, "loading" before, — on an injured day).
+      - Under the KpiTiles, one context line with an InfoTip (4a3): "MIN 31.4 a game this season · MIN Δ +2.3" (MIN Δ's reason when it has no value; "MIN loading · MIN Δ loading" before the backfill; no line with no games). The 2×2 tiles stay.
     - **Career:** the FPPG trend (**LineChart**) and the by-season table with the career line.
     - **Keeper:** keep chance beside POT (4a decision 2), rank on his team, and this league's age curve (**LineChart**, his age marked).
     - **History:** ownership by season, draft slots, trades, record-book entries.
-- **Compare** (`#/players/compare/<a>` picks the second player with the same search; then `#/players/compare/<a>/<b>`): two square headshots (`headshot-compare`, 96 px), names, team chips and OVR rings (`ring-compare`, 56 px); then rows of POT, FPPG, L14, Avail %, games in the next 3 weeks, Keep %, Age and the five category grades. The better value in each row is `ink-strong` weight 800 (not colour), decided only by the engine's integer order keys; Age has no winner, and a missing value ("—", e.g. a free agent's OVR or Keep %) wins nothing.
+- **Compare** (`#/players/compare/<a>` picks the second player with the same search; then `#/players/compare/<a>/<b>`): two square headshots (`headshot-compare`, 96 px), names, team chips and OVR rings (`ring-compare`, 56 px); then rows of POT, FPPG, L14, MIN (4a3; more is better), Avail %, games in the next 3 weeks, Keep %, Age and the five category grades. The better value in each row is `ink-strong` weight 800 (not colour), decided only by the engine's integer order keys; Age has no winner, and a missing value ("—", e.g. a free agent's OVR or Keep %) wins nothing.
 
 ## Market
 

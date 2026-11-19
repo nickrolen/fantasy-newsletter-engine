@@ -50,6 +50,11 @@ TIPS = {
     "grade_schedule": ("Schedule",
                        "His NBA team's games over the next 3 fantasy weeks, the games grid's weeks. The count "
                        "is beside the letter."),
+    # 4a3: the minutes (the card's Season line; the roster's MIN columns carry their own notes)
+    "min": ("MIN",
+            "Minutes per game in his NBA games this season. MIN \u0394: his minutes per game over the last "
+            "14 days against his season, a sign of a bigger or smaller role. It shows from 4 games in the "
+            "last 14 days."),
     "fa_pct": ("Free agents",
                "Free agents get no OVR or POT: the ratings were tested on rostered players only. Instead, his "
                "FPPG and its percentile among the rostered players."),

@@ -32,7 +32,8 @@ today). archetype_preview() adds it to a PREVIEW build only (build_hub.py
                 pot_d, fppg, l14, next, keep, keep_rank, avail, g3, fa_pct,
                 chips [{text, kind}], healthy, f {pos, nba, age, h, k},
                 cmp [{t, k}] (CMP_ROWS order), grades [8 tiles] or None,
-                ring {hero, cmp} or None, ini, team_gp, gp, total, total_rank}],
+                ring {hero, cmp} or None, ini, team_gp, gp, total, total_rank,
+                min, min_k, mind, mind_k, min_g {iso: minutes} (4a3)}],
       "orders": {col: {"d": [i...], "a": [i...]}}   missing values last both ways
       "default": "ovr",
       "filters": {"pos": [..], "nba": [..], "age": [{key, label}]},
@@ -40,6 +41,16 @@ today). archetype_preview() adds it to a PREVIEW build only (build_hub.py
       "count": "99 players", "who": the list's description,
       "cmp_rows": [{key, label}], "grade_labels": [..]}
     v2["ratings"] = {"as_of", "error", "change_note", "fa_note", "archetype"}
+
+MINUTES (4a3; minutes_cells): MIN is his minutes per game over the games he
+played this season; MIN delta is his minutes per game over the last 14 days
+minus MIN (one decimal each, as printed), shown from MIN_DELTA_GAMES games
+in the last 14 days. Until the nightly's backfill gives every game he played
+its minutes, both say "loading"; below the minimum MIN delta says "3 games:
+of 4 games" (the reason, short: 11-19 review); with every game of his in the last 14 days it says "no
+earlier games" (the difference would be 0 by construction). Never a made-up
+0. The roster table (roster.py), the card (card.py) and Compare all print
+these strings.
 """
 
 from __future__ import annotations
@@ -56,8 +67,13 @@ BASE_POS = ("PG", "SG", "SF", "PF", "C")
 AGE_BANDS = (("u25", "24 and under", None, 24), ("25-29", "25\u201329", 25, 29), ("30+", "30 and over", 30, None))
 RISERS_MAX = 5
 # Compare's rows, in order (s.4): the five category grades follow these
-CMP_ROWS = (("pot", "POT"), ("fppg", "FPPG"), ("l14", "L14"), ("avail", "Avail %"), ("g3", "Games, next 3 wks"),
-            ("keep", "Keep %"), ("age", "Age"))
+CMP_ROWS = (("pot", "POT"), ("fppg", "FPPG"), ("l14", "L14"), ("min", "MIN"), ("avail", "Avail %"),
+            ("g3", "Games, next 3 wks"), ("keep", "Keep %"), ("age", "Age"))
+# 4a3: MIN delta shows from this many games in the last 14 days; the card's
+# last-5 table reads his last MIN_LAST games' minutes
+MIN_DELTA_GAMES = 4
+MIN_LAST = 10
+MIN_LOADING = "loading"
 CATEGORY_GRADES = ("scoring", "playmaking", "rebounding", "stocks", "efficiency")
 # the rings' circumferences (bundle.css .lh-ring: r 34 in an 80 box; Compare: r 22 in a 56 box)
 RING_HERO_R, RING_CMP_R = 34.0, 22.0
@@ -146,6 +162,43 @@ def _int_or_none(text: str, scale: int = 1) -> Optional[int]:
     if text in (None, DASH, ""):
         return None
     return int(round(float(str(text).replace("%", "").replace(",", "")) * scale))
+
+
+def _signed1(x: float) -> str:
+    return f"+{x:.1f}" if x > 0 else (f"{MINUS}{abs(x):.1f}" if x < 0 else "0.0")
+
+
+def minutes_cells(actuals: dict, name: str, first: date, through: date, l14_first: date,
+                  played: List[str]) -> dict:
+    """4a3: {"min", "min_k", "mind", "mind_k", "min_g"} for one player (the
+    module docstring's MINUTES). min_k and mind_k are the printed values x10
+    as integers (None: no value, sorts last and wins nothing). played: the
+    days he played, in order (his card lines); min_g holds the minutes of the
+    last MIN_LAST of them that have minutes stored, as strings, so the card's
+    last 5 shows a game's minutes as soon as its day has them."""
+    from .. import player_actuals as pa
+    out = {"min": DASH, "min_k": None, "mind": DASH, "mind_k": None,
+           "min_g": {i: str(m) for i, m in pa.minutes_on(actuals, name, played[-MIN_LAST:]).items()}}
+    st = pa.minutes_games(actuals, name, first, through)
+    if st["status"] == "loading":
+        return dict(out, min=MIN_LOADING, mind=MIN_LOADING)
+    if st["status"] != "ok" or not st["games"]:
+        return out                                     # no games, or no lines: a dash, as FPPG is
+    mins = [m for _i, m in st["games"]]
+    mpg = sum(mins) / len(mins)
+    out["min"] = f"{mpg:.1f}"
+    out["min_k"] = _int_or_none(out["min"], 10)
+    l14 = [m for i, m in st["games"] if i >= l14_first.isoformat()]
+    k = len(l14)
+    if k < MIN_DELTA_GAMES:
+        out["mind"] = f"{k} of {MIN_DELTA_GAMES} games"
+    elif k == len(mins):
+        out["mind"] = "no earlier games"
+    else:
+        dl = round(round(sum(l14) / k, 1) - round(mpg, 1), 1)
+        out["mind"] = _signed1(dl)
+        out["mind_k"] = int(round(dl * 10))
+    return out
 
 
 # =============================================================================
@@ -356,6 +409,9 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             row["l14_ctx"] = (f"{UP} {abs(dl):.1f} vs season" if dl > 0.05 else
                               f"{DOWN} {abs(dl):.1f} vs season" if dl < -0.05 else "Level with his season")
             row["l14_dir"] = "up" if dl > 0.05 else "down" if dl < -0.05 else ""
+        # 4a3: the minutes (MIN, MIN delta, Compare's MIN, the card's last 5)
+        played = [ln[0] for ln in (cl["lines"].get(n) or []) if int(ln[2]) == 1]
+        row.update(minutes_cells(actuals, n, first, yesterday, l14_first, played))
         # the total's rank among the rostered players
         if x["covered"] and r_total:
             rk = 1 + sum(1 for t in r_total if t > x["pts"])
@@ -417,6 +473,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
         cells = [{"t": row["pot"], "k": row["pot_k"]},
                  {"t": fppg, "k": _int_or_none(fppg, 10)},
                  {"t": l14, "k": _int_or_none(l14, 10)},
+                 {"t": row["min"], "k": row["min_k"]},                    # 4a3: more is better
                  {"t": row["avail"], "k": _int_or_none(row["avail"])},
                  {"t": g3, "k": _int_or_none(g3)},
                  {"t": keep, "k": _int_or_none(keep) if u["kind"] == "rostered" else None},
