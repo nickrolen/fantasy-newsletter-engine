@@ -1,8 +1,11 @@
 """ratings.py -- OVR, POT and the attribute grades (4a; claude/4A_RESULT_2026-11-14.md).
 
 The numbers the new hub's player card and roster table show. Plain data out
-(numbers and reasons); formatting into strings is hub_state's job (4c).
-Nothing here is wired into hub_state, the payload or the page.
+(numbers and reasons); formatting into strings is the new hub's engine side
+(modules/hub_v2/players.py). Wired in 4c1: hub_state.build computes for_today
+on the run's own inputs (failing softly until the switch-over), and the
+nightly's hub step appends history_line to output/ratings_history.jsonl for
+every PUBLISHED run (append_history; HISTORY_RELPATH, a state file).
 
 WHAT IS VALIDATED IS WHAT SHIPS. Every function below is the formula 4a
 back-tested on nine seasons of the league log (_to_delete/4a/PREREG.md):
@@ -628,9 +631,15 @@ def schedule_last_day(root=ROOT) -> str:
 
 
 def for_today(root=ROOT, previous: Optional[dict] = None, today: Optional[date] = None,
-              history=None) -> dict:
+              history=None, *, live: Optional[tuple] = None, actuals: Optional[dict] = None,
+              cfg: Optional[dict] = None) -> dict:
     """rate() on today's rosters (config/ROSTERS.json), the live log, the
-    engine's NBA schedule and keepability v3's level prior. Read-only."""
+    engine's NBA schedule and keepability v3's level prior. Read-only.
+    live (4c1): keeper_history.live_inputs(root, history)'s (Inputs, season),
+    when the caller already built it (hub_state.build shares the one its
+    keep chances use: building it is ~7 of the ~8 seconds); actuals: the
+    already-loaded data/player_actuals.json. Both give exactly what reading
+    them here would. cfg: the "ratings" block (default: config's)."""
     from . import keeper_history as kh
     from .data_loader import load_nba_schedule, _schedule_path
     root = Path(root)
@@ -641,32 +650,93 @@ def for_today(root=ROOT, previous: Optional[dict] = None, today: Optional[date] 
     rosters = {m: list(v) for m, v in blob.get("rosters", {}).items() if isinstance(v, list) and v}
     if not rosters:
         raise RatingsInputError("config/ROSTERS.json has no rosters")
-    li, season = kh.live_inputs(root, history)
+    li, season = live if live is not None else kh.live_inputs(root, history)
     ages = kh.load_ages(kh.age_seasons(), root, fetch=_nofetch)
     snap = kh.live_snapshot(li, season, rosters, ages)
     sched = load_nba_schedule(_schedule_path(root), today=today)
-    from . import player_actuals as pa
-    actuals = pa.load(root)                          # required: the category grades read it
+    if actuals is None:
+        from . import player_actuals as pa
+        actuals = pa.load(root)                      # required: the category grades read it
     weeks = json.loads((root / "config" / "SCHEDULE.json").read_text(encoding="utf-8")).get("weeks") or []
-    return rate(snap, li, team_dates(sched), schedule_last_day(root), previous=previous,
+    return rate(snap, li, team_dates(sched), schedule_last_day(root), cfg=cfg, previous=previous,
                 actuals=actuals, weeks=weeks)
 
 
 # ---------------------------------------------------------------------------
-# the weekly history (proposed state file; 4a does not write it)
+# the weekly history: output/ratings_history.jsonl (4a decision 9; written 4c1)
 # ---------------------------------------------------------------------------
 
+HISTORY_RELPATH = Path("output") / "ratings_history.jsonl"
+TERMS = ("level", "availability", "games_remaining")
+
+
 def history_line(result: dict) -> dict:
-    """One line for the proposed output/ratings_history.jsonl: as_of and each player's OVR and POT."""
+    """One line of output/ratings_history.jsonl: as_of, each player's OVR and
+    POT, and (4c1) OVR's three terms [level, availability, games remaining]
+    -- what the Risers' one-line reason compares a week later."""
+    terms = {}
+    for n, p in result["players"].items():
+        c = p["components"]
+        if p["ovr"] is not None and all(c.get(t) is not None for t in TERMS):
+            terms[n] = [round(float(c["level"]), 3), round(float(c["availability"]), 4), int(c["games_remaining"])]
     return {"as_of": result["as_of"], "season": result["season"],
             "ovr": {n: p["ovr"] for n, p in result["players"].items() if p["ovr"] is not None},
-            "pot": {n: p["pot"] for n, p in result["players"].items() if p["pot"] is not None}}
+            "pot": {n: p["pot"] for n, p in result["players"].items() if p["pot"] is not None},
+            "terms": terms}
 
 
-def previous_from_history(lines: list, as_of: str, days: int = 7) -> Optional[dict]:
-    """{player: OVR} from the latest published line at least `days` before as_of, or None."""
+def line_from_history(lines: list, as_of: str, days: int = 7) -> Optional[dict]:
+    """The latest published line at least `days` before as_of, or None (then
+    there is no weekly change: no marker, never a zero)."""
     cut = (date.fromisoformat(as_of) - timedelta(days=days)).isoformat()
     older = [l for l in lines if l.get("as_of") and l["as_of"] <= cut]
     if not older:
         return None
-    return dict(max(older, key=lambda l: l["as_of"])["ovr"])
+    return max(older, key=lambda l: l["as_of"])
+
+
+def previous_from_history(lines: list, as_of: str, days: int = 7, key: str = "ovr") -> Optional[dict]:
+    """{player: OVR} (key="pot": POT) from the latest published line at least
+    `days` before as_of, or None."""
+    line = line_from_history(lines, as_of, days)
+    return None if line is None else dict(line.get(key) or {})
+
+
+def read_history(root=ROOT) -> list:
+    """Every line of output/ratings_history.jsonl, oldest first; [] when the
+    file does not exist yet (it is created by the first published run). A
+    malformed line RAISES, naming it."""
+    p = Path(root) / HISTORY_RELPATH
+    if not p.is_file():
+        return []
+    out = []
+    for i, raw in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if not raw.strip():
+            continue
+        try:
+            line = json.loads(raw)
+        except ValueError as e:
+            raise RatingsInputError(f"{HISTORY_RELPATH.as_posix()} line {i} is not JSON: {e}") from None
+        if not isinstance(line, dict) or not isinstance(line.get("as_of"), str) \
+                or not isinstance(line.get("ovr"), dict):
+            raise RatingsInputError(f"{HISTORY_RELPATH.as_posix()} line {i} has no as_of and ovr")
+        out.append(line)
+    return out
+
+
+def append_history(root, line: dict) -> Optional[Path]:
+    """Append one line (a published run's history_line) to
+    output/ratings_history.jsonl, creating it. Append-only: nothing is ever
+    rewritten. ONE LINE PER as_of (4c1 review, 11-18): when the file's last
+    line already has this line's as_of (a later run the same day: the live
+    log's last day has not moved), nothing is written and None is returned.
+    The weekly change reads by as_of, so it is unchanged; the file is ~3x
+    smaller than one line per published run."""
+    p = Path(root) / HISTORY_RELPATH
+    prior = read_history(root)
+    if prior and prior[-1]["as_of"] == line["as_of"]:
+        return None
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(line, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n")
+    return p

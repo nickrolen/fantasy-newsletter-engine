@@ -75,6 +75,11 @@ def _flow(a, b):
 
 
 def synth_payload() -> dict:
+    """The 4b synthetic payload, plus (4c1) its Players block by the real engine path."""
+    return add_synth_players(_synth_payload_4b())
+
+
+def _synth_payload_4b() -> dict:
     rosters = {}
     for m in MGRS:
         ps = _players(m)
@@ -187,9 +192,130 @@ def synth_payload() -> dict:
     }
 
 
+# =============================================================================
+# 4c1: the synthetic league's Players block, made by the REAL engine path
+# (modules/hub_v2/players.build) on made-up inputs: a cache of daily lines
+# that gives each roster row its own FPPG and L14, a ratings result, and a
+# stand-in for the free agents' availability
+# =============================================================================
+
+SYN_YESTERDAY = (GEN - timedelta(days=1)).date()
+SYN_FIRST = SYN_YESTERDAY - timedelta(days=29)
+FA_NAME, FA_KEY = "Free Guy", "free-guy"
+GRADE_KEYS = ["scoring", "playmaking", "rebounding", "stocks", "efficiency", "durability", "consistency", "schedule"]
+LETTERS = ["A+", "A", "B+", "B", "C+", "C", "D+", "D"]
+
+
+def _syn_days(fppg: str, l14: str, gp: int) -> dict:
+    """Every day from SYN_FIRST to SYN_YESTERDAY: 5 games in the last 14 days
+    averaging l14, the rest before them, so the season averages fppg."""
+    F, L = float(fppg), float(l14)
+    days = [SYN_FIRST + timedelta(days=i) for i in range((SYN_YESTERDAY - SYN_FIRST).days + 1)]
+    recent = [d for d in days if d > SYN_YESTERDAY - timedelta(days=14)]
+    old = [d for d in days if d not in recent]
+    out = {d.isoformat(): [0.0, 0] for d in days}
+    for d in recent[:5]:
+        out[d.isoformat()] = [round(L, 4), 1]
+    per_old = (F * gp - 5 * L) / (gp - 5)
+    for d in old[:gp - 5]:
+        out[d.isoformat()] = [round(per_old, 4), 1]
+    return out
+
+
+class _FakeAv:
+    team_dates = {"AAA": [SYN_FIRST + timedelta(days=i) for i in range(0, 40, 2)]}
+
+    def playable(self, name, days):
+        return list(days)[:3]
+
+
+def synth_ratings(rosters: dict, previous: bool) -> dict:
+    """A ratings result for the synthetic rostered players (ratings.rate's shape)."""
+    players = {}
+    k = 0
+    for m in MGRS:
+        for j, p in enumerate(rosters[m]["players"]):
+            k += 1
+            ovr = 95 - k * 2
+            grades = {}
+            for gi, g in enumerate(GRADE_KEYS):
+                if j == 3 and g in GRADE_KEYS[:5]:
+                    grades[g] = {"letter": None, "percentile": None, "value": None, "reason": "stats still loading"}
+                else:
+                    li = (k + gi) % 8
+                    pct = [97.0, 88.0, 75.0, 55.0, 35.0, 20.0, 8.0, 2.0][li]
+                    grades[g] = {"letter": LETTERS[li], "percentile": pct, "value": 9.0 if g == "schedule" else 1.0,
+                                 "reason": None}
+            players[p["name"]] = {
+                "player": p["name"], "manager": m, "nba_team": "AAA", "ovr": ovr,
+                "ovr_change": ({1: 3, 2: 2, 3: -1}.get(k, 0) if previous else None), "ovr_reason": None,
+                "ovr_composite": 1000.0 - k, "pot": ovr + 1, "pot_reason": None, "pot_value": 80.0 - k,
+                "components": {"level": 40.0 - k, "availability": 0.9 - k / 100.0, "games_remaining": 60 - k,
+                               "game_sd": 10.0, "games": 10, "team_games": 12, "fppg": 40.0, "age": 25 + j},
+                "grades": grades, "archetype": None, "archetype_reason": "off"}
+    return {"as_of": SYN_YESTERDAY.isoformat(), "season": "2026-27", "players": players,
+            "schedule_horizon": [GEN.date().isoformat(), (GEN.date() + timedelta(days=20)).isoformat()]}
+
+
+def add_synth_players(p: dict, previous: bool = True) -> dict:
+    """payload["v2"]["players"] and ["ratings"], by players.build on made-up inputs."""
+    from modules.hub_v2 import players as v2players
+    reg = {}
+    for m in MGRS:
+        for pl in p["rosters"][m]["players"]:
+            reg[pl["card"]] = {"name": pl["name"], "kind": "rostered", "manager": m,
+                               "status": [{"text": f"{TEAMS[m]} \u00b7 {m}", "kind": "own"}] + list(pl["tags"])}
+    reg[FA_KEY] = {"name": FA_NAME, "kind": "free_agent", "manager": "",
+                   "status": [{"text": "Free agent", "kind": "fa"}]}
+    p["cards"] = {"players": dict(sorted(reg.items()))}
+    blob = {"first_day": SYN_FIRST.isoformat(), "roster_names": {}, "players": {}}
+    pid = 0
+    for m in MGRS:
+        for pl in p["rosters"][m]["players"]:
+            pid += 1
+            blob["roster_names"][pl["name"]] = pid
+            blob["players"][str(pid)] = {"name": pl["name"], "days": _syn_days(pl["fppg"], pl["l14"], pl["gp"])}
+    blob["players"]["999"] = {"name": FA_NAME, "days": _syn_days("31.5", "33.0", 9)}
+    res = synth_ratings(p["rosters"], previous)
+    prev = None
+    if previous:
+        prev = {"as_of": (SYN_YESTERDAY - timedelta(days=7)).isoformat(), "season": "2026-27",
+                "ovr": {n: r["ovr"] - (r["ovr_change"] or 0) for n, r in res["players"].items()},
+                "pot": {n: r["pot"] - 1 for n, r in res["players"].items()},
+                "terms": {n: [r["components"]["level"] - (2.0 if i % 3 == 0 else 0.0),
+                              r["components"]["availability"] - (0.1 if i % 3 == 1 else 0.0),
+                              r["components"]["games_remaining"] + 3]
+                          for i, (n, r) in enumerate(sorted(res["players"].items()))}}
+    av = _FakeAv()
+    ctx = {"ratings": {"result": res, "error": None, "previous_line": prev},
+           "actuals": blob, "yesterday": SYN_YESTERDAY, "av": av,
+           "info": {FA_NAME: {"nba_team": "AAA"}},
+           "next_days": [GEN.date() + timedelta(days=5 + i) for i in range(7)],
+           "proj": {FA_NAME: {"player_position(s)": "SF,PF", "player_nba_team": "AAA", "age": 24}},
+           "keeper_watch": {"players": [{"manager": m, "player_name": pl["name"], "age": 25 + j}
+                                        for m in MGRS for j, pl in enumerate(p["rosters"][m]["players"])]},
+           "tag_row": {}, "no_id": [], "fa_av": lambda names: av}
+    p["v2"]["players"], p["v2"]["ratings"] = v2players.build(ROOT, p, ctx)
+    return p
+
+
 def render(p=None, mode="preview", now=None):
     p = p or synth_payload()
     return page.render(view.build(p, mode=mode, now=now or GEN + timedelta(hours=2)))
+
+
+def dyn_route(href: str) -> str:
+    """The screen a hash opens (4c1: the player card and Compare are one screen
+    each, filled by the script): the page script's own mapping."""
+    parts = href.split("/")
+    if parts[0] == "players" and len(parts) > 1 and parts[1]:
+        if parts[1] == "compare":
+            return "compare" if len(parts) > 3 and parts[3] else "compare-pick"
+        return "player"
+    return href
+
+
+ALL_CSS = page.LAYOUT_CSS + page.pp.CSS          # the renderer's own CSS (4c1: Players, the card, Compare)
 
 
 def visible_text(h: str) -> str:
@@ -220,7 +346,7 @@ def test_six_tabs_in_order_and_every_route_resolves():
     assert re.findall(r'data-tab="(\w+)"', nav) == ["home", "matchups", "teams", "players", "market", "league"]
     routes = set(re.findall(r'data-route="([^"]+)"', h))
     for href in set(re.findall(r'href="#/([^"]*)"', h)):
-        assert href in routes, f"#/{href} has no screen"
+        assert dyn_route(href) in routes, f"#/{href} has no screen"
     for m in MGRS:
         assert f"teams/{m}" in routes
     assert {"matchups/w9-0", "matchups/w9-1", "home", "matchups", "teams"} <= routes
@@ -236,17 +362,19 @@ def test_home_sections_are_in_page_map_order():
 
 def test_placeholders_say_coming_and_link_the_current_page_only_in_preview():
     pv, pb = render(), render(mode="publish")
-    for key in ("players", "market", "league"):
+    for key in ("market", "league"):                      # Players is built (4c1)
         sec = lambda h: re.search(rf'data-route="{key}".*?</section></div></section>', h, re.S).group(0)
         assert view.PLACEHOLDER in sec(pv) and view.PLACEHOLDER in sec(pb)
         assert "hub_preview.html#" in sec(pv) and "hub_preview.html" not in sec(pb)
 
 
-def test_player_names_carry_the_current_card_key():
+def test_player_names_carry_the_card_key_and_open_the_new_card():
     h = render()
     assert 'data-card="marcus-guard"' in h and 'data-card="jordan-bench"' in h and 'data-card="free-guy"' in h
     js = page.PAGE_JS
-    assert "The hub has been updated: reload the page to open player cards. " in js and "window.pcShow" in js
+    # 4c1: a name opens the NEW card (#/players/<key>), never the old modal
+    assert "function openCard(key){location.hash='#/players/'+key;}" in js
+    assert "window.pcShow" not in js and "The hub has been updated: reload the page to open player cards." in js
 
 
 def test_detail_pages_hide_the_header_and_keep_freshness():
@@ -367,7 +495,7 @@ def test_the_current_shell_is_untouched():
 # =============================================================================
 
 def test_the_renderers_own_css_has_no_hex_and_no_px():
-    css = page.LAYOUT_CSS
+    css = ALL_CSS
     assert not re.search(r"#[0-9A-Fa-f]{3,8}\b", css), "a hex colour in the renderer's CSS"
     assert not re.search(r"\d(?:\.\d+)?px", css), "a px literal in the renderer's CSS"
     assert not re.search(r"\d(?:\.\d+)?px", page.render.__doc__ or "")
@@ -375,9 +503,9 @@ def test_the_renderers_own_css_has_no_hex_and_no_px():
 
 def test_every_var_resolves_to_a_token_and_media_queries_come_from_tokens():
     vals = tokens.values()
-    whole = tokens.css(page.LAYOUT_CSS)
-    for name in set(re.findall(r"var\(--([a-z0-9-]+)", page.LAYOUT_CSS + tokens.BUNDLE.read_text(encoding="utf-8"))):
-        assert name in vals or name in ("team", "team-tint", "team-ink", "g", "g-tint", "s", "n"), name
+    whole = tokens.css(ALL_CSS)
+    for name in set(re.findall(r"var\(--([a-z0-9-]+)", ALL_CSS + tokens.BUNDLE.read_text(encoding="utf-8"))):
+        assert name in vals or name in ("team", "team-tint", "team-ink", "g", "g-tint", "s", "n", "y"), name
     assert "{{" not in whole
     assert f"@media (min-width:{vals['bp-wide']})" in whole and f"@media (min-width:{vals['bp-mid']})" in whole
     with pytest.raises(tokens.TokenError):
@@ -439,7 +567,7 @@ def test_every_tap_target_is_at_least_44px():
     bad = tap_violations(render())
     assert not bad, f"interactive elements without a 44px tap class: {bad[:5]}"
     # and each tap class's CSS gives the height
-    css = tokens.css(page.LAYOUT_CSS)
+    css = tokens.css(ALL_CSS)
     for c in page.TAP_CLASSES:
         if c == "lh-c-hit":
             continue                      # the design's chart strips: full plot height (README LineChart)
@@ -451,7 +579,7 @@ def test_every_tap_target_is_at_least_44px():
 
 
 def test_no_text_under_10px():
-    css = tokens.css(page.LAYOUT_CSS)
+    css = tokens.css(ALL_CSS)
     vals = tokens.values()
     for m in re.findall(r"font-size:\s*([^;}]+)", css):
         m = m.strip()
@@ -473,7 +601,7 @@ def test_every_chart_has_an_aria_label_and_nothing_is_hover_only():
     assert len(charts) >= 4
     for a in charts:
         assert re.search(r'aria-label="[^"]{10,}"', a), a
-    css = tokens.css(page.LAYOUT_CSS)
+    css = tokens.css(ALL_CSS)
     assert ":hover" not in css
     assert not re.search(r"mouseover|mouseenter|mouseleave", page.PAGE_JS)
 
@@ -489,7 +617,7 @@ def test_charts_use_the_design_classes_and_no_colour():
 
 
 def test_desktop_two_columns_and_top_bar():
-    css = tokens.css(page.LAYOUT_CSS)
+    css = tokens.css(ALL_CSS)
     wide = css[css.index(f"@media (min-width:{tokens.values()['bp-wide']})"):]
     assert ".v2-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))" in wide
     assert ".lh-tabbar{order:-1;position:sticky;top:0" in wide
@@ -674,7 +802,7 @@ def test_real_v2_preview_from_todays_inputs(real_payload, tmp_path):
     for m in MANAGERS:
         assert f"teams/{m}" in routes
     for href in set(re.findall(r'href="#/([^"]*)"', h)):
-        assert href in routes
+        assert dyn_route(href) in routes
     assert "http://" not in h and "https://" not in h and "lore:" not in h
     assert not tap_violations(h)
     for a in [a for a in re.findall(r"<svg\b([^>]*)>", h) if re.search(r'class="lh-(chart|spark)', a)]:

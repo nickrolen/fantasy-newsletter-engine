@@ -1017,7 +1017,7 @@ def roster_size_text(n_rostered: int, n_in_il: int, active_cap: int, il_cap: int
 def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismatch: bool = False,
           previous_engine_ok: bool = False,
           archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None,
-          nba_report: dict = None, cards_out: dict = None) -> dict:
+          nba_report: dict = None, cards_out: dict = None, ratings_out: dict = None) -> dict:
     """The hub's payload. night (Step 3a): "build" builds the matchup
     paragraph (the nightly run, and a desk build); "reuse" shows the nightly
     run's stored one (a refresh, a pre-tip run). night_out, when given, gets
@@ -1025,7 +1025,10 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     nba_report (step 3b): the run's "nba_report" block (nightly.step_nba_report);
     a desk build reads the latest run row that carries one.
     cards_out (task 40), when given, gets {"keeper_watch", "data"} so the
-    run's player cards are built from this build's own keepability."""
+    run's player cards are built from this build's own keepability.
+    ratings_out (4c1), when given, gets the ratings step's record
+    (ratings_step): the nightly appends its history line once the hub is
+    published, and records its error and seconds."""
     base = Path(base_path)
     from .league_clock import league_now
     from .data_loader import (load_all_data, MANAGERS, MANAGER_TO_TEAM, PlayerIndex,
@@ -1097,7 +1100,15 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
 
     # --- the builders
     health = build_current_team_health(data, report_week, injury_statuses=tags, il_state=il_state)
-    kw = kv3.keeper_watch(data, report_week, root=base)
+    # 4c1: the live log (keeper_history.live_inputs, ~7 s) is built once and
+    # shared by the keep chances and the ratings. If it cannot be built here,
+    # keeper_watch builds it itself and raises with its own words, as before.
+    from . import keeper_history as kh
+    try:
+        live = kh.live_inputs(base, kh.Inputs.load(base))
+    except Exception:                                # noqa: BLE001 -- keeper_watch names the input
+        live = None
+    kw = kv3.keeper_watch(data, report_week, root=base, live=live)
     keep_of = {(p["manager"], p["player_name"]): p for p in kw["players"]}
     budget = add_budget_for(CURRENT_SEASON)
     if budget is None:
@@ -1124,6 +1135,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     pl = data.playerlist
     info = build_player_info_map(pl)
     augment_player_info_from_lineups(info, rosters, data.lineups)
+    player_info = info                       # 4c1: kept (the free-agent block reuses the name "info")
     proj = PlayerIndex({r["player_name"]: r for r in pl.to_dict("records")})
     av = Availability.from_data(data, rosters, il_slots, tags,
                                 data.injury_overrides or {"players": []}, week, info, today,
@@ -1420,6 +1432,12 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                     "il_slots": "data/IL_SLOTS.json",
                     "ledger": f"config/MOVE_LEDGER.json ({ledger_mode} mode)"},
     }
+    # 4c1: the ratings (modules/ratings: OVR, POT, the grades) on this build's
+    # own inputs. They fail softly until the switch-over, like v2: an error is
+    # recorded (ratings_out, the run's "ratings" block) and the build goes on.
+    rt = ratings_step(base, live, actuals, echo=echo)
+    if ratings_out is not None:
+        ratings_out.update(rt)
     # 4b: the new hub's keys, beside the current page's (modules/hub_v2/data.py):
     # new keys only. They fail softly until the switch-over (the current page is
     # the hub): payload["v2"] is None and payload["v2_error"] says why.
@@ -1445,9 +1463,51 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         echo(f"PLAYER CARDS FAILED (annotate; the hub goes on with plain names): {err['error']}")
         if cards_out is not None:
             cards_out["error"] = err
+    # 4c1: the Players tab's rows and the ratings' strings (modules/hub_v2/
+    # players.py), after annotate: they carry its card keys. New keys under
+    # v2 only; a failure leaves v2 out, softly (v2_error), as v2's own does.
+    if payload["v2"] is not None:
+        payload["v2"], payload["v2_error"] = v2data.players_soft(base, payload, {
+            "ratings": rt, "actuals": actuals, "yesterday": yesterday, "av": av, "info": player_info,
+            "next_days": next_days, "proj": proj, "keeper_watch": kw, "tag_row": tag_row}, echo=echo)
     if cards_out is not None:
         cards_out.update(keeper_watch=kw, data=data)
     return payload
+
+
+def ratings_step(base, live, actuals: dict, echo=print) -> dict:
+    """The ratings on this build's inputs (4c1): ratings.for_today with the
+    shared live log and the loaded actuals, the weekly change read from
+    output/ratings_history.jsonl's line at least 7 days back. FAILS SOFTLY
+    until the switch-over: {"result", "error", "seconds", "previous_line",
+    "line"}; on any exception result and line are None, error says why, and
+    RATINGS FAILED is echoed."""
+    import time as _time
+    from . import ratings
+    t0 = _time.perf_counter()
+    out = {"result": None, "error": None, "seconds": None, "previous_line": None, "line": None}
+    try:
+        cfg = ratings.config()
+        lines = ratings.read_history(base)
+        # as_of is the live log's last day: read it from the shared inputs
+        if live is None:
+            raise ratings.RatingsInputError("the live log could not be built (the keep chances say why)")
+        as_of = max(r["date"] for r in live[0].log[live[1]])
+        prev = ratings.line_from_history(lines, as_of)
+        out["previous_line"] = prev
+        res0 = ratings.for_today(base, previous=None if prev is None else dict(prev["ovr"]), live=live,
+                                 actuals=actuals, cfg=cfg)
+        if res0["as_of"] != as_of:
+            raise ratings.RatingsInputError(f"the ratings are as of {res0['as_of']}, the live log's last day "
+                                            f"is {as_of}")
+        out["result"] = res0
+        out["line"] = ratings.history_line(res0)
+    except Exception as e:                           # noqa: BLE001 -- the ratings fail softly (4c1)
+        out["result"], out["line"] = None, None
+        out["error"] = f"{type(e).__name__}: {e}".splitlines()[0][:500]
+        echo(f"RATINGS FAILED (the new hub shows no OVR/POT; the current hub goes on): {out['error']}")
+    out["seconds"] = round(_time.perf_counter() - t0, 2)
+    return out
 
 
 # =============================================================================

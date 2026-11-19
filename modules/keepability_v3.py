@@ -555,7 +555,7 @@ def _display_inputs(data, week: int) -> tuple:
 
 
 def keeper_watch(data, week: int, root=ROOT, params: Optional[dict] = None,
-                 ages: Optional[dict] = None, history=None, logs_before=None) -> dict:
+                 ages: Optional[dict] = None, history=None, logs_before=None, live=None) -> dict:
     """Keep probabilities for every rostered player, this report week.
 
     Live inputs exactly as step B2's live run: keepers and draft from
@@ -563,7 +563,10 @@ def keeper_watch(data, week: int, root=ROOT, params: Optional[dict] = None,
     from HISTORICAL_PLAYERLOG, ages from basketball-reference, rosters from the
     roster sync. A player whose inputs cannot be built RAISES with his name.
     logs_before (H52): a date; this season's log rows on or after it are cut
-    (the closing line's keep chances as of the Sunday before its window)."""
+    (the closing line's keep chances as of the Sunday before its window).
+    live (4c1): keeper_history.live_inputs(root, history)'s (Inputs, season),
+    already built by the caller (hub_state.build shares it with the ratings);
+    not with logs_before."""
     from . import keeper_history as kh
     from .data_loader import PlayerIndex, cup_winner, keepers_for
     root = Path(root)
@@ -576,8 +579,14 @@ def keeper_watch(data, week: int, root=ROOT, params: Optional[dict] = None,
     rosters = {m: list(v) for m, v in data.get_current_rosters().items() if v}
     if not rosters:
         raise KeepabilityInputError("no rosters: the roster sync has not run")
-    history = history or kh.Inputs.load(root)
-    li, season = kh.live_inputs(root, history, before=logs_before)
+    if live is not None and logs_before is not None:
+        raise KeepabilityInputError("keeper_watch: live inputs and logs_before together (the live "
+                                    "inputs would not be cut)")
+    if live is not None:
+        li, season = live
+    else:
+        history = history or kh.Inputs.load(root)
+        li, season = kh.live_inputs(root, history, before=logs_before)
     ages = ages if ages is not None else kh.load_ages(kh.age_seasons(), root)
     snap = kh.live_snapshot(li, season, rosters, ages)       # AgeNotFound names the player
     point = as_of_point_for(week, season)

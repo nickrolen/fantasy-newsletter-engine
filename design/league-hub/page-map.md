@@ -46,20 +46,28 @@ The big things, in this order:
 
 ## Players
 
-- **Search and browse:** a search field, filter chips (position, NBA team, fantasy team, status), and a sortable table (name, OVR, POT, FPPG, team, next).
-- **Player card:**
-  - **PlayerHero**;
+Built in 4c1 (mockups `mockups/Players.html`, `mockups/Players-Compare.html`).
+
+- **AppHeader** carries a search button (`lh-iconbtn`) that opens Players with the search field focused.
+- **Search and browse** (`#/players`):
+  - a search field over every player the hub has a card for (the rostered players and the free agents it names). The engine gives each player a folded search key ("jokic" finds "Jokić"); the page folds what is typed the same way and only matches strings;
+  - **SegmentedTabs**-style **All / Rostered / Free agents**;
+  - filter chips: **Position**, **Team** (NBA), **Age** (24 and under, 25–29, 30 and over), each a native picker inside a pill, and a **Healthy only** toggle. The engine assigns every player's values;
+  - a sortable table: player (name, team chip in the manager's colour or "FA", positions · NBA team, status chips), **OVR** with its weekly change, **POT**, **FPPG**, **Next** (next week's games he will play). Sorting uses the engine's orders (best first, then reversed); a missing value sorts last both ways. A free agent's OVR and POT cells are "—", explained by the OVR column's InfoTip;
+  - **Risers this week**: the biggest OVR gains against the ratings at least 7 days old, each with the engine's one-line reason (which of OVR's terms moved most). The section is absent, not empty, until such a line exists.
+- **Player card** (`#/players/<key>`), opened by every player name in the hub:
+  - **PlayerHero**: a white top bar with Back and **Compare**; square headshot (initials in `ink-3` when there is no photo); OVR ring and POT with their weekly changes (a free agent: FPPG and its percentile among the rostered players instead, with an InfoTip); team chip or "Free agent"; name; positions · NBA team · age; status chips ("Healthy" when none); the archetype only when enabled (or marked "Preview" in a local preview);
   - **SegmentedTabs**:
     - **Season:**
-      - 2×2 **KpiTile**s: FPPG vs last season, games of team games, total FP with rank, last 14 days vs season. NBA numbers lead, with the league-roster figure as a secondary line where it differs.
-      - **Attributes:** 8 **GradeTile**s.
-      - **Fantasy points by game:** a **BarChart** with the average.
-      - **Keeper outlook:** keep chance, team rank, acquired.
+      - 2×2 **KpiTile**s: FPPG vs last season, games of team games, total FP with its rank among the rostered players, last 14 days vs season. NBA numbers lead, with the league-roster figure as one secondary line where it differs.
+      - **Attributes:** 8 **GradeTile**s (the five categories, durability, consistency, schedule with its 3-week game count); tap a tile for what it measures. Free agents get a line instead: the grades rank the rostered players.
+      - **Fantasy points by game:** a **BarChart** with his average; tap a bar for the game.
+      - **Keeper outlook:** keep chance and rank on his team.
       - **Last 5 games:** a small table.
-    - **Career:** a by-season table and the FPPG trend (**LineChart**).
-    - **Keeper:** keep chance, rank on his team, POT, and the age curve.
-    - **History:** who has owned him, his draft slot and trades, and his records.
-- **Compare:** two players' heroes side by side (headshots 96 px), then the same rows of KPIs and grades in two columns, with the better value in each row marked in `ink-strong` weight 800 (not colour).
+    - **Career:** the FPPG trend (**LineChart**) and the by-season table with the career line.
+    - **Keeper:** keep chance beside POT (4a decision 2), rank on his team, and this league's age curve (**LineChart**, his age marked).
+    - **History:** ownership by season, draft slots, trades, record-book entries.
+- **Compare** (`#/players/compare/<a>` picks the second player with the same search; then `#/players/compare/<a>/<b>`): two square headshots (`headshot-compare`, 96 px), names, team chips and OVR rings (`ring-compare`, 56 px); then rows of POT, FPPG, L14, Avail %, games in the next 3 weeks, Keep %, Age and the five category grades. The better value in each row is `ink-strong` weight 800 (not colour), decided only by the engine's integer order keys; Age has no winner, and a missing value ("—", e.g. a free agent's OVR or Keep %) wins nothing.
 
 ## Market
 

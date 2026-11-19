@@ -174,7 +174,8 @@ These are not optional.
 - **Player headshots:** square, on white, `radius-0`, with no frame, border or shadow.
   - Source: the headshot library (`assets/headshots/<slug>.webp`, 320 px).
   - Shown at `headshot-hero` (148) on the card, `headshot-feature` (132) in the newsletter, and 56 in lists.
-  - Missing: the neutral silhouette in `axis`, never a broken image.
+  - Shown at `headshot-compare` (96) on Compare (4c1).
+  - Missing: his initials in `ink-3` on the white square (4c1; was the neutral silhouette), never a broken image.
   - Never on `dark`, a tint or a team colour.
 - **Team pictures:** fetched nightly from Yahoo and cached by content. They are shown inside `lh-mono` at 72/36/32/28 px, with the monogram on the team colour as the fallback.
 - No stock photos, illustrations or mascots.

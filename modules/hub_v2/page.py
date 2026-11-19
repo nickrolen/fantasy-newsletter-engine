@@ -19,16 +19,18 @@ as it is, then LAYOUT_CSS -- which may hold no hex colour and no px literal
 OFFLINE: no http(s) anywhere in the page, fonts embedded, icons inline SVG.
 
 ROUTES (hash): #/home, #/matchups, #/matchups/<id>, #/teams, #/teams/<manager>,
-#/players, #/market, #/league. Every screen is in the page; the script shows
+#/players, #/players/<key>, #/players/compare/<a>[/<b>], #/market, #/league. Every screen is in the page; the script shows
 the one the hash names (an unknown hash shows Home), so the back button
 works and a deep link opens its screen after the unlock (the decrypt shell
 keeps the hash).
 
-PLAYER NAMES open the CURRENT player card: the same loader as hub_page (the
-bundle once -- inline in preview, HUB.cards() published -- then the player's
-history and headshot, then the newsletter's modal), with the 404 message
-"The hub has been updated: reload the page to open player cards." The new
-card is 4c.
+PLAYER NAMES open the NEW player card (4c1): #/players/<key>, the card
+rendered at build time (page_players.card_html) -- inline in preview, its
+encrypted file published (HUB.cards() gives the index, HUB.part the card,
+HUB.photo the headshot) -- with the 404 message "The hub has been updated:
+reload the page to open player cards." Players, the card and Compare are
+page_players.py; routes #/players, #/players/<key>, #/players/compare/<a>
+(pick the second player) and #/players/compare/<a>/<b>.
 
 MODES: preview (plaintext, output/hub_v2_preview.html, links to the current
 page's sections from the placeholders) and publish (inside the decrypt shell;
@@ -42,13 +44,15 @@ from datetime import datetime
 
 from ..live_lines_page import clean
 from .infotips import tip
+from . import page_players as pp
 
 # tap targets: an interactive element carries one of these classes (or sits
 # in one of TAP_PARENTS); each class's CSS gives it at least tap-min (or
 # row-min) of height. tests/test_hub_v2.py checks both halves. Chart tap
 # strips (lh-c-hit) are the design's per-point hit areas: full plot height,
 # keyboard-reachable, as wide as the point's share of the axis.
-TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-iconbtn", "v2-tap", "lh-c-hit")
+TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-iconbtn", "v2-tap", "lh-c-hit",
+               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile")
 TAP_PARENTS = ("lh-tabbar", "lh-seg", "lh-toggle", "lh-info")
 
 ICONS = {
@@ -72,7 +76,7 @@ LAYOUT_CSS = """
 .v2-minw{min-width:0;display:flex;flex-direction:column}
 .v2-gap8{gap:var(--space-8)}
 .v2-p{margin:0;font-size:var(--type-body-size);line-height:var(--type-body-lh);color:var(--ink-2)}
-.v2-stale-hd{display:flex;gap:var(--space-8);align-items:center}
+.v2-stale-hd{display:flex;gap:var(--space-8);align-items:center;justify-content:space-between}
 .v2-lock{font-size:var(--type-small-size);line-height:var(--type-small-lh);color:var(--ink-on-dark-3)}
 .lh-tabbar{position:fixed;left:0;right:0;bottom:0;z-index:4}
 .lh-seg button{min-height:var(--tap-min)}
@@ -549,20 +553,22 @@ def _matchup_page(mu: dict, vm: dict, ids: _Ids) -> str:
 # =============================================================================
 
 def render(vm: dict, *, cards: dict = None) -> str:
-    """The page as one HTML string. cards: the preview's plaintext card bundle
-    (hub_cards.preview_bundle), embedded only in preview."""
+    """The page as one HTML string. cards: the preview's plaintext new-card
+    bundle ({"cards": {key: {"html", "photo"}}}, publish.preview_cards),
+    embedded only in preview."""
     from . import tokens
     if cards is not None and vm["mode"] != "preview":
         raise ValueError("the cards are embedded only in the plaintext preview")
     ids = _Ids()
     o = ["<!DOCTYPE html>", '<html lang="en"><head><meta charset="utf-8">',
          '<meta name="viewport" content="width=device-width,initial-scale=1">', '<meta name="robots" content="noindex">',
-         f"<title>{clean(vm['title'])}</title>", f"<style>{tokens.css(LAYOUT_CSS)}</style></head><body>",
+         f"<title>{clean(vm['title'])}</title>", f"<style>{tokens.css(LAYOUT_CSS + pp.CSS)}</style></head><body>",
          f'<div class="v2-app" id="hub" data-epoch="{vm["epoch"]}" data-stale-hours="{vm["stale_hours"]}">']
     # header (tab roots), then the banners, then the tab bar (a top bar on desktop)
     o.append('<header class="lh-header lh-on-dark v2-hdr" id="app-header"><div class="v2-stale-hd">'
              f'<span class="v2-minw"><span class="lh-header__title">{clean(vm["title"])}</span>'
-             f'<span class="lh-header__date">{clean(vm["week_label"])}</span></span></div>'
+             f'<span class="lh-header__date">{clean(vm["week_label"])}</span></span>'
+             f'<button type="button" class="lh-iconbtn" data-go="search" aria-label="Search players">{pp.SEARCH}</button></div>'
              f'<div class="lh-fresh"><span class="lh-fresh__dot" id="fresh-dot"{" hidden" if vm["stale"] else ""}></span>'
              f'<span>Updated <span class="v2-age">{clean(vm["age"])}</span> ({clean(vm["generated_text"])})</span></div>'
              f'<span class="v2-lock">{clean(vm["lock"])}</span></header>')
@@ -619,6 +625,11 @@ def render(vm: dict, *, cards: dict = None) -> str:
     for tp in vm["team_pages"]:
         o.append(_team_page(tp, vm, ids))
 
+    # ---------------------------------------------------------------- players (4c1)
+    o.append(pp.players_screen(vm, ids))
+    o.append(pp.card_screen(vm))
+    o.append(pp.compare_screens(vm))
+
     # ---------------------------------------------------------------- placeholders
     for ph in vm["placeholders"]:
         o.append(f'<section class="v2-screen" data-route="{ph["key"]}" hidden><div class="v2-stack"><section class="lh-card">'
@@ -634,7 +645,7 @@ def render(vm: dict, *, cards: dict = None) -> str:
     o.append("</div>")
     if cards is not None:
         blob = json.dumps(cards, separators=(",", ":"), ensure_ascii=True).replace("</", "<\\/")
-        o.append(f'<script type="application/json" id="hub-cards">{blob}</script>')
+        o.append(f'<script type="application/json" id="v2-cards">{blob}</script>')
     o.append(f"<script>{PAGE_JS}</script></body></html>")
     return "\n".join(o)
 
@@ -645,10 +656,16 @@ var hub=document.getElementById('hub');
 var header=document.getElementById('app-header');
 var seen={};                       // segmented-tab choice per kind, for the session
 function screens(){return document.querySelectorAll('.v2-screen');}
+var depth=0,focusSearch=false;    // hash changes since the page opened (the back buttons), the header's search
 function route(){
   var r=location.hash.replace(/^#\/?/,'')||'home';
+  var parts=r.split('/'),want=r,dyn='';
+  if(parts[0]==='players'&&parts.length>1&&parts[1]){
+    if(parts[1]==='compare'){dyn=(parts.length>3&&parts[3])?'compare':'compare-pick';}else{dyn='player';}
+    want=dyn;
+  }
   var target=null,all=screens();
-  for(var i=0;i<all.length;i++){if(all[i].getAttribute('data-route')===r){target=all[i];}}
+  for(var i=0;i<all.length;i++){if(all[i].getAttribute('data-route')===want){target=all[i];}}
   if(!target){r='home';for(var j=0;j<all.length;j++){if(all[j].getAttribute('data-route')==='home'){target=all[j];}}}
   for(var k=0;k<all.length;k++){all[k].hidden=(all[k]!==target);}
   header.hidden=!!target.getAttribute('data-detail');
@@ -656,11 +673,15 @@ function route(){
   var ts=document.querySelectorAll('.lh-tabbar a');
   for(var t=0;t<ts.length;t++){if(ts[t].getAttribute('data-tab')===tab){ts[t].setAttribute('aria-current','page');}
     else{ts[t].removeAttribute('aria-current');}}
-  var segs=target.querySelectorAll('.lh-seg');
+  var segs=target.querySelectorAll('.lh-seg[data-seg]');
   for(var s=0;s<segs.length;s++){var kind=segs[s].getAttribute('data-seg');if(seen[kind]){pick(segs[s],seen[kind]);}}
   window.scrollTo(0,0);
+  if(dyn==='player'){showCard(parts[1]);}
+  else if(dyn==='compare-pick'){showPick(parts[2]);}
+  else if(dyn==='compare'){showCompare(parts[2],parts[3]);}
+  if(r==='players'&&focusSearch){focusSearch=false;var sf=document.getElementById('pl-search');if(sf){sf.focus();}}
 }
-window.addEventListener('hashchange',route);
+window.addEventListener('hashchange',function(){depth++;route();});
 function age(){
   var ms=Date.now()-Number(hub.getAttribute('data-epoch'));
   var lim=Number(hub.getAttribute('data-stale-hours'))*3600000,w;
@@ -711,34 +732,142 @@ function closeTips(except){
   for(var i=0;i<bs.length;i++){if(bs[i]!==except){bs[i].setAttribute('aria-expanded','false');
     document.getElementById(bs[i].getAttribute('aria-controls')).hidden=true;}}
 }
-// player cards (task 40): the current card, as hub_page loads it
-var cardsP=null;
-function cardsBundle(){
+// player cards (4c1): the NEW card, rendered at build time; inline in
+// preview (#v2-cards), published as encrypted files (HUB.cards() gives the
+// index, HUB.part a card, HUB.photo a headshot)
+var cardsP=null,photos={},shownKey=null;
+function cardIndex(){
   if(cardsP){return cardsP;}
-  var el=document.getElementById('hub-cards');
-  var p=el?Promise.resolve(JSON.parse(el.textContent)):
+  var el=document.getElementById('v2-cards');
+  cardsP=el?Promise.resolve(JSON.parse(el.textContent)):
     ((window.HUB&&window.HUB.cards)?window.HUB.cards():Promise.reject(new Error('no cards')));
-  cardsP=p.then(function(b){
-    return (b.code?window.HUB.part(b.code):Promise.resolve(b)).then(function(code){
-      var st=document.createElement('style');st.textContent=code.css;document.head.appendChild(st);
-      var sc=document.createElement('script');sc.textContent=code.js;document.body.appendChild(sc);
-      window.pcPhotoLoader=(window.HUB&&window.HUB.photo)?function(ref){
-        return window.HUB.photo(ref).catch(function(err){if(err&&err.message==='gone'){movedBox();}throw err;});}:null;
-      return b;});});
   cardsP.catch(function(){cardsP=null;});
   return cardsP;
 }
-function openCard(key){
-  cardsBundle().then(function(b){
-    var c=b.cards[key];
+function cardOf(key){
+  return cardIndex().then(function(ix){
+    var c=ix.cards[key];
     if(!c){throw new Error('no card');}
-    if(c.hist&&!c.histIn){return window.HUB.part(c.hist).then(function(prior){
-      c.sparkline=prior.concat(c.sparkline);c.histIn=true;return c;});}
-    return c;
-  }).then(function(c){window.pcShow(c);},function(err){
-    if(err&&err.message==='gone'){movedBox();return;}
-    alertBox((err&&err.message==='old browser')?'This browser is too old to open player cards.':
-      'That player card could not be opened.');});
+    if(c.html!==undefined){return c;}
+    if(!c.got){c.got=window.HUB.part(c.card).then(function(p){return {html:p.html,photo:c.photo};});
+      c.got.catch(function(){c.got=null;});}
+    return c.got;});
+}
+function photoOf(c,key){
+  if(!c.photo){return Promise.resolve(null);}
+  if(typeof c.photo==='string'){return Promise.resolve(c.photo);}
+  if(!photos[key]){photos[key]=window.HUB.photo(c.photo);photos[key].catch(function(){photos[key]=null;});}
+  return photos[key];
+}
+function putPhoto(slot,url){
+  if(!slot||!url){return;}
+  var img=document.createElement('img');img.alt='';
+  img.addEventListener('error',function(){img.remove();});     // never a broken image: the initials stay
+  img.src=url;slot.appendChild(img);
+}
+function cardMessage(body,err){
+  if(err&&err.message==='gone'){movedBox();}
+  var p=document.createElement('p');p.className='v2-card-load';
+  p.textContent=(err&&err.message==='old browser')?'This browser is too old to open player cards.':
+    (err&&err.message==='gone')?'The hub has been updated: reload the page to open player cards.':
+    'That player card could not be opened.';
+  body.textContent='';body.appendChild(p);
+}
+function showCard(key){
+  var body=document.getElementById('card-body');
+  var cur=body.querySelector('[data-card-key]');
+  if(cur&&cur.getAttribute('data-card-key')===key){return;}
+  shownKey=key;
+  var wait=document.createElement('p');wait.className='v2-card-load';wait.textContent='Opening the card\u2026';
+  body.textContent='';body.appendChild(wait);
+  cardOf(key).then(function(c){
+    if(shownKey!==key){return;}
+    body.innerHTML=c.html;                         // the engine's HTML: every string through clean()
+    var seg=body.querySelector('.lh-seg[data-seg]');if(seg&&seen.card){pick(seg,seen.card);}
+    photoOf(c,key).then(function(u){putPhoto(body.querySelector('[data-photo-slot]'),u);},function(){});
+  },function(err){if(shownKey===key){cardMessage(body,err);}});
+}
+function openCard(key){location.hash='#/players/'+key;}
+// the Players table: search (folded, as the engine folds the keys), filters, sort
+var FOLD={'\u00f8':'o','\u0111':'d','\u0142':'l','\u00df':'ss','\u00e6':'ae','\u0153':'oe','\u0131':'i','\u00f0':'d','\u00fe':'th'};
+function fq(s){
+  s=String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  return s.replace(/[\u00f8\u0111\u0142\u00df\u00e6\u0153\u0131\u00f0\u00fe]/g,function(c){return FOLD[c];}).trim();
+}
+var PF={k:'',pos:'',nba:'',age:'',h:''};
+function plFilter(){
+  var inp=document.getElementById('pl-search');if(!inp){return;}
+  var q=fq(inp.value),trs=document.querySelectorAll('#pl-table tbody tr'),any=false;
+  for(var i=0;i<trs.length;i++){var t=trs[i],ok=true;
+    if(q&&t.getAttribute('data-q').indexOf(q)<0){ok=false;}
+    if(PF.k&&t.getAttribute('data-k')!==PF.k){ok=false;}
+    if(PF.pos&&(' '+t.getAttribute('data-pos')+' ').indexOf(' '+PF.pos+' ')<0){ok=false;}
+    if(PF.nba&&t.getAttribute('data-nba')!==PF.nba){ok=false;}
+    if(PF.age&&t.getAttribute('data-age')!==PF.age){ok=false;}
+    if(PF.h&&t.getAttribute('data-h')!=='1'){ok=false;}
+    t.hidden=!ok;if(ok){any=true;}}
+  document.getElementById('pl-none').hidden=any;
+}
+function plSort(key){
+  var tbl=document.getElementById('pl-table'),orders=JSON.parse(tbl.getAttribute('data-porders'));
+  var dir=(tbl.getAttribute('data-pcol')===key&&tbl.getAttribute('data-pdir')==='d')?'a':'d';
+  var ord=orders[key][dir],body=tbl.querySelector('tbody'),rows={},rs=body.querySelectorAll('tr[data-i]');
+  for(var i=0;i<rs.length;i++){rows[rs[i].getAttribute('data-i')]=rs[i];}
+  for(var j=0;j<ord.length;j++){var r=rows[String(ord[j])];if(r){body.appendChild(r);}}
+  tbl.setAttribute('data-pcol',key);tbl.setAttribute('data-pdir',dir);
+  var ths=tbl.querySelectorAll('th[data-k]');
+  for(var t=0;t<ths.length;t++){var on=ths[t].getAttribute('data-k')===key,ar=ths[t].querySelector('.v2-arrow');
+    var down=(key==='name')?(dir==='a'):(dir==='d');
+    if(on){ths[t].setAttribute('aria-sort',down?'descending':'ascending');ar.textContent=down?' \u25be':' \u25b4';}
+    else{ths[t].removeAttribute('aria-sort');ar.textContent='';}}
+}
+// Compare: the better value in a row is the one whose ENGINE order key is
+// larger; a missing key (null) wins nothing, and Age's keys are all null
+var CMP=null,cmpA='';
+function cmpData(){if(!CMP){CMP=JSON.parse(document.getElementById('v2-cmp').textContent);}return CMP;}
+function mk(tag,cls,text){var e=document.createElement(tag);if(cls){e.className=cls;}if(text!==undefined){e.textContent=text;}return e;}
+var RING='<svg width="56" height="56" viewBox="0 0 56 56" role="img"><circle class="lh-ring__track" cx="28" cy="28" r="22" '+
+  'fill="none" stroke-width="5"/><circle class="lh-ring__arc" cx="28" cy="28" r="22" fill="none" stroke-width="5" '+
+  'stroke-linecap="round" transform="rotate(-90 28 28)"/></svg><div class="lh-ring__inner"><span class="lh-ring__value"></span></div>';
+function cmpSide(p,key,right){
+  var s=mk('div','v2-cmp-side'+(right?' v2-right':''));
+  var hs=mk('div','lh-headshot v2-hs v2-hs-cmp');hs.appendChild(mk('span','v2-ini',p.ini));s.appendChild(hs);
+  cardOf(key).then(function(c){return photoOf(c,key);}).then(function(u){putPhoto(hs,u);},function(){});
+  var nm=mk('a','v2-cmp-name v2-tap',p.name);nm.href='#/players/'+key;s.appendChild(nm);
+  var chip=mk('span',p.cls?('lh-chip v2-mini '+p.cls):'lh-chip lh-chip--fa v2-mini');
+  if(p.cls){chip.appendChild(mk('span','lh-swatch'));}
+  chip.appendChild(document.createTextNode(p.chip));s.appendChild(chip);
+  if(p.ring){
+    var ring=mk('div','lh-ring v2-ring-sm '+p.cls);ring.innerHTML=RING;
+    ring.querySelector('svg').setAttribute('aria-label','Overall rating '+p.ovr+' of 99');
+    ring.querySelector('.lh-ring__arc').setAttribute('stroke-dasharray',p.ring);
+    ring.querySelector('.lh-ring__value').textContent=p.ovr;s.appendChild(ring);
+  }else{s.appendChild(mk('span','lh-sub',p.fa?'Free agent: no OVR':'No OVR on this run'));}
+  if(p.arch){var a=mk('span','v2-chiprow');a.appendChild(mk('span','v2-arch-h',p.arch));
+    if(p.arch_preview){a.appendChild(mk('span','v2-preview','Preview'));}s.appendChild(a);}
+  return s;
+}
+function showCompare(a,b){
+  var D=cmpData(),A=D.rows[a],B=D.rows[b],hero=document.getElementById('cmp-hero'),rows=document.getElementById('cmp-rows');
+  hero.textContent='';rows.textContent='';
+  if(!A||!B){rows.appendChild(mk('p','v2-p','One of these players is not in the hub any more.'));return;}
+  hero.appendChild(cmpSide(A,a,false));hero.appendChild(cmpSide(B,b,true));
+  for(var i=0;i<D.labels.length;i++){
+    var x=A.cmp[i],y=B.cmp[i];
+    var xw=(x.k!==null&&y.k!==null&&x.k>y.k),yw=(x.k!==null&&y.k!==null&&y.k>x.k);
+    var r=mk('div','v2-cmp-row');
+    r.appendChild(mk('span','v2-cmp-v'+(xw?' v2-win':''),x.t));r.appendChild(mk('span','v2-cmp-lab',D.labels[i]));
+    r.appendChild(mk('span','v2-cmp-v'+(yw?' v2-win':''),y.t));rows.appendChild(r);
+  }
+}
+function showPick(a){
+  cmpA=a;var A=cmpData().rows[a];
+  document.getElementById('cmp-a-name').textContent=A?A.name:'';
+  var inp=document.getElementById('cmp-search');inp.value='';pickFilter();
+}
+function pickFilter(){
+  var q=fq(document.getElementById('cmp-search').value),bs=document.querySelectorAll('.v2-pick');
+  for(var i=0;i<bs.length;i++){bs[i].hidden=(bs[i].getAttribute('data-pick')===cmpA)||(q!==''&&bs[i].getAttribute('data-q').indexOf(q)<0);}
 }
 function alertBox(msg){var d=document.createElement('div');d.className='lh-stale';d.setAttribute('role','status');
   d.textContent=msg;hub.insertBefore(d,hub.firstChild);}
@@ -754,11 +883,31 @@ function openFrame(url){document.getElementById('issue-frame').src=url;document.
 document.addEventListener('click',function(e){
   var t=e.target.closest('[data-card]');
   if(t){e.preventDefault();e.stopPropagation();openCard(t.getAttribute('data-card'));return;}
+  t=e.target.closest('[data-go="search"]');
+  if(t){focusSearch=true;if(location.hash==='#/players'){route();}else{location.hash='#/players';}return;}
+  t=e.target.closest('[data-back]');
+  if(t){if(depth>0){history.back();}else{location.hash=t.getAttribute('data-back');}return;}
+  t=e.target.closest('.lh-seg[data-filter] button');
+  if(t){var fs=t.closest('.lh-seg'),fb=fs.querySelectorAll('button');
+    for(var f=0;f<fb.length;f++){fb[f].setAttribute('aria-selected',String(fb[f]===t));}
+    PF.k=t.getAttribute('data-v');plFilter();return;}
+  t=e.target.closest('button[data-filter="h"]');
+  if(t){var on=t.getAttribute('aria-pressed')!=='true';t.setAttribute('aria-pressed',String(on));PF.h=on?'1':'';plFilter();return;}
+  t=e.target.closest('[data-psort]');
+  if(t){plSort(t.getAttribute('data-psort'));return;}
+  t=e.target.closest('[data-pick]');
+  if(t){location.hash='#/players/compare/'+cmpA+'/'+t.getAttribute('data-pick');return;}
+  t=e.target.closest('.v2-bar');
+  if(t){var bb=t.parentNode.querySelectorAll('.v2-bar');for(var q=0;q<bb.length;q++){bb[q].setAttribute('aria-pressed',String(bb[q]===t));}
+    var ro=document.querySelector('[data-readout="'+t.parentNode.getAttribute('data-bars')+'"]');if(ro){ro.textContent=t.getAttribute('data-label');}return;}
+  t=e.target.closest('.v2-gtile');
+  if(t){var gg=t.parentNode.querySelectorAll('.v2-gtile');for(var g=0;g<gg.length;g++){gg[g].setAttribute('aria-pressed',String(gg[g]===t));}
+    var gr=document.querySelector('[data-readout="'+t.getAttribute('data-grid')+'"]');if(gr){gr.textContent=t.getAttribute('data-tip');}return;}
   t=e.target.closest('.lh-info > button');
   if(t){var open=t.getAttribute('aria-expanded')==='true';closeTips(t);
     t.setAttribute('aria-expanded',String(!open));document.getElementById(t.getAttribute('aria-controls')).hidden=open;return;}
   if(!e.target.closest('.lh-info__pop')){closeTips(null);}
-  t=e.target.closest('.lh-seg button');
+  t=e.target.closest('.lh-seg[data-seg] button');
   if(t){var seg=t.closest('.lh-seg');seen[seg.getAttribute('data-seg')]=t.getAttribute('data-pane');pick(seg,t.getAttribute('data-pane'));return;}
   t=e.target.closest('.lh-toggle button');
   if(t){var tg=t.closest('.lh-toggle'),bs=tg.querySelectorAll('button');
@@ -819,6 +968,13 @@ function check130(){
     d.textContent='Text-size check at 130%: '+(bad.length?bad.length+' clipped on this screen:\n'+bad.join('\n'):'nothing clipped on this screen.');
     hub.insertBefore(d,hub.firstChild);},300);
 }
+document.addEventListener('input',function(e){
+  if(e.target.id==='pl-search'){plFilter();}else if(e.target.id==='cmp-search'){pickFilter();}
+});
+document.addEventListener('change',function(e){
+  var f=e.target.getAttribute&&e.target.getAttribute('data-filter');
+  if(f&&e.target.tagName==='SELECT'){PF[f]=e.target.value;plFilter();}
+});
 route();check130();
 })();
 """

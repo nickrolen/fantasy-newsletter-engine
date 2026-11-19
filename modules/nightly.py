@@ -80,6 +80,12 @@ s.2.4 and s.4 the design. The nightly run:
                    (the "actuals" block's "categories") and never stops the run
    9 hub           hub_state.build, then build_hub (encrypted when
                    HUB_PASSPHRASE is set, --preview-only otherwise).
+                   4c1: hub_state.build computes the ratings (OVR, POT, the
+                   grades) on the run's own inputs, softly: an error is the
+                   run's "ratings" block and RATINGS FAILED in the summary,
+                   and the current hub goes out unchanged. A PUBLISHED run
+                   appends their line to output/ratings_history.jsonl,
+                   one line per as_of (a later run the same day skips).
                    Publishing is step 1c-ii. The player cards fail softly
                    (11-12, like advice): a card failure publishes the hub
                    with plain names and no card files, and is recorded (the
@@ -933,13 +939,13 @@ class Run:
             return "skipped: nothing changed since the last line (nothing published)"
         # decisions 2-3: only the nightly run builds the matchup paragraph; a
         # refresh or a pre-tip run shows last night's, byte for byte
-        night_out, cards_out = {}, {}
+        night_out, cards_out, ratings_out = {}, {}, {}
         payload = hub_state.build(self.base, now=self.now, allow_engine_mismatch=self.allow_dirty,
                                   previous_engine_ok=self.mode in REFRESH_MODES,
                                   echo=lambda *a: None,
                                   night="build" if self.mode == "nightly" else "reuse",
                                   night_out=night_out, nba_report=self.ctx.get("nba_report"),
-                                  cards_out=cards_out)
+                                  cards_out=cards_out, ratings_out=ratings_out)
         # task 40: the player cards, on every run that builds the hub, from this
         # build's own keepability; build_hub publishes them (output/hub_cards.json,
         # regenerable, not state). THEY FAIL SOFTLY (Nick, 11-12, like advice):
@@ -978,6 +984,7 @@ class Run:
             hub_state.write(self.base, res["payload"])
             hub_cards.discard(self.base)
             self.ctx["headshots"] = None
+        self.ctx["ratings"] = self._ratings_record(ratings_out, published=enc)
         self.ctx["cards"] = {"error": None if err is None else err["error"],
                              "stage": None if err is None else err["stage"],
                              "cards": None if cards is None else len(cards["cards"]),
@@ -994,6 +1001,37 @@ class Run:
         return ("encrypted publish directory" if enc else "preview only (no HUB_PASSPHRASE)") \
             + f"; {bits}" \
             + (" -- ENGINE MISMATCH banner (dirty engine)" if payload["header"]["engine_mismatch"] else "")
+
+    def _ratings_record(self, rt: dict, published: bool) -> dict:
+        """4c1: the ratings step's record (the run's "ratings" block), and the
+        weekly history: one line of output/ratings_history.jsonl per PUBLISHED
+        run (the encrypted hub went out) and as_of (a same-day repeat skips); none on a preview build or when the
+        ratings failed. Soft until the switch-over, like v2: a failure is
+        recorded (RATINGS FAILED in the summary) and the run goes on."""
+        from . import ratings
+        res = rt.get("result")
+        rec = {"error": rt.get("error"), "seconds": rt.get("seconds"),
+               "as_of": None if res is None else res["as_of"],
+               "players": None if res is None else len(res["players"]),
+               "weekly_change_from": (rt.get("previous_line") or {}).get("as_of"),
+               "history": None}
+        lines = []
+        if rt.get("error"):
+            lines.append(f"RATINGS FAILED: {rt['error']} -- the new hub shows no OVR/POT; the current hub went out")
+            rec["history"] = "not written: the ratings failed"
+        elif not published:
+            rec["history"] = "not written: a preview build (nothing published)"
+        elif rt.get("line") is not None:
+            try:
+                done = ratings.append_history(self.base, rt["line"])
+                rec["history"] = (f"appended ({ratings.HISTORY_RELPATH.as_posix()})" if done is not None
+                                  else f"skipped: a line for {rt['line']['as_of']} is already on file")
+            except Exception as e:                   # noqa: BLE001 -- recorded loudly, never stops the run
+                msg = f"{type(e).__name__}: {e}".splitlines()[0][:300]
+                rec["history"] = f"FAILED: {msg}"
+                lines.append(f"RATINGS HISTORY FAILED: {msg} -- next week's change reads an older line")
+        self.ctx["ratings_lines"] = lines
+        return rec
 
     # -- (nightly, last; step 3b s.3): the O-past-3-games nudge
     def step_nudges(self):
@@ -1101,6 +1139,8 @@ class Run:
             row["headshots"] = self.ctx["headshots"]
         if self.ctx.get("cards") is not None:
             row["cards"] = self.ctx["cards"]
+        if self.ctx.get("ratings") is not None:
+            row["ratings"] = self.ctx["ratings"]
         if self.ctx.get("actuals") is not None:
             row["actuals"] = self.ctx["actuals"]
         if self.ctx.get("keeper_watch") is not None:
@@ -1420,6 +1460,8 @@ def main(argv=None) -> int:
     for line in run.ctx.get("advice_lines") or []:                # advice v2: one line per manager
         print(line)
     for line in run.ctx.get("cards_lines") or []:                 # the cards fail softly, loudly
+        print(line)
+    for line in run.ctx.get("ratings_lines") or []:               # 4c1: so do the ratings
         print(line)
     for line in run.ctx.get("actuals_lines") or []:               # 40b: so do their free agents' numbers
         print(line)

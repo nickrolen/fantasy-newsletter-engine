@@ -22,6 +22,40 @@ TIPS = {
     "lines": ("The lines",
               "Spread: the favourite's projected margin. Total: both teams' projected points added together. "
               "Moneyline: American odds; \u2212200 means risking 200 to win 100, +200 winning 200 on 100."),
+    # 4c1: the ratings. OVR's words are 4a decision 1's; FG% & TOs' are 4a2
+    # decision 5's; the rest are for Nick's approval.
+    "ovr": ("OVR",
+            "Rest-of-season fantasy value above a replacement player: his scoring level, how often he plays, "
+            "and his team's games left. It doesn't know injury return dates yet."),
+    "pot": ("POT",
+            "His value as a keeper: his scoring level projected over the next two seasons with this league's "
+            "age curve. Keep chance is shown beside it, not inside it."),
+    "fppg": ("FPPG",
+             "Fantasy points per game in his NBA games this season, on a league roster or not. Where his "
+             "league-roster figure differs, it is the line under the tiles."),
+    "grades": ("Grades",
+               "Each grade ranks him among the players on league rosters: A+ is the top 5%, D the bottom 5%. "
+               "Tap a grade for what it measures."),
+    "grade_scoring": ("Scoring", "Fantasy points per game from his points and threes."),
+    "grade_playmaking": ("Playmaking", "Fantasy points per game from his assists."),
+    "grade_rebounding": ("Rebounding", "Fantasy points per game from his rebounds."),
+    "grade_stocks": ("Stocks", "Fantasy points per game from his steals and blocks."),
+    "grade_efficiency": ("FG% & TOs", "Fantasy points from his makes, misses and turnovers."),
+    "grade_durability": ("Durability",
+                         "How often he plays when his team does, this season and his last three in the league. "
+                         "It shows after 16 team games."),
+    "grade_consistency": ("Consistency",
+                          "How steady his games are: the smaller the swings around his average, the higher. "
+                          "It shows after 16 games."),
+    "grade_schedule": ("Schedule",
+                       "His NBA team's games over the next 3 fantasy weeks, the games grid's weeks. The count "
+                       "is beside the letter."),
+    "fa_pct": ("Free agents",
+               "Free agents get no OVR or POT: the ratings were tested on rostered players only. Instead, his "
+               "FPPG and its percentile among the rostered players."),
+    "age_curve": ("The age curve",
+                  "How a player's scoring changes from one season to the next at each age, fitted on this "
+                  "league's own history. POT uses it."),
 }
 
 

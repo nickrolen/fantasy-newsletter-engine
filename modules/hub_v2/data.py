@@ -32,6 +32,8 @@ page never prints them.
                     "win": {...}, "flow": {...}, "starts": {...}, "missing": [...],
                     "lines": {...}}]          this week's, in the payload's card order
       "issue": {"text", "file", "week"} or None
+      "players", "ratings"   (4c1; players_soft, after hub_cards.annotate:
+                             modules/hub_v2/players.py)
     }
 
 TEAM SLOTS (league_config hub.team_slots, required): each manager to one of
@@ -347,6 +349,25 @@ def build_soft(base, ctx: dict, echo=print) -> tuple:
         err = {"stage": "v2", "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
         echo(f"NEW HUB KEYS FAILED (payload v2 left out; the current hub goes on): {err['error']}")
         return None, err
+
+
+def players_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
+    """(v2, error) with v2["players"] and v2["ratings"] added (4c1,
+    modules/hub_v2/players.py), after hub_cards.annotate gave the card keys.
+    A failure here leaves v2 out, as build_soft does (v2 is whole or absent):
+    (None, {"stage": "players", "error"}), echoed loudly. A RATINGS failure is
+    not one of these: it is recorded in ctx["ratings"]["error"] and the
+    Players tab shows no OVR/POT, saying why."""
+    from . import players
+    try:
+        block, rblock = players.build(base, payload, ctx)
+    except Exception as e:                       # noqa: BLE001 -- v2 fails softly until the switch-over
+        err = {"stage": "players", "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
+        echo(f"NEW HUB KEYS FAILED (payload v2 left out; the current hub goes on): {err['error']}")
+        return None, err
+    v2 = payload["v2"]
+    v2["players"], v2["ratings"] = block, rblock
+    return v2, None
 
 
 def build(base, ctx: dict) -> dict:

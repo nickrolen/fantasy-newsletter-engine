@@ -39,6 +39,12 @@ with a throwaway passphrase and salt (a measurement, not a hub anyone opens;
 the league passphrase and salt are never read). The current hub's files are
 not touched. Needs a payload with the new keys (payload "v2"): one built by
 this engine (python scripts/build_hub_state.py, or --state from --out).
+4c1: the preview embeds the NEW player card for every Players row, and the
+publish-mode measurement builds the new card's encrypted files beside its
+index.html. With --out-dir DIR the measurement goes to DIR/publish/.
+--archetype-preview (with --v2): the ratings' archetype labels on the card
+and in Compare, marked "Preview", in the PREVIEW only; the publish-mode
+measurement is skipped (publish mode refuses a preview).
 
 Preview the published hub on this machine (fetching the issues needs a
 server, not a file:// page):
@@ -65,16 +71,22 @@ def main(argv=None) -> int:
                     help="write the preview and the publish directory under this folder (a scratch build)")
     ap.add_argument("--v2", action="store_true",
                     help="build the NEW hub's preview and its publish-mode size measurement (4b); publishes nothing")
+    ap.add_argument("--archetype-preview", action="store_true",
+                    help="with --v2: show the archetype labels in the preview, marked; never in publish mode (4c1)")
     a = ap.parse_args(argv)
     from modules import hub_state, hub_archive, hub_crypto, hub_publish
     if a.v2:
         from modules.hub_v2 import view, publish as v2pub, tokens
         try:
-            return run_v2(a.base_path, state=a.state, out_dir=a.out_dir)["rc"]
+            return run_v2(a.base_path, state=a.state, out_dir=a.out_dir,
+                          archetype_preview=a.archetype_preview)["rc"]
         except (hub_state.HubInputError, hub_archive.ArchiveError, view.ViewError, v2pub.V2PublishError,
                 tokens.TokenError, hub_publish.PublishError, hub_publish.PlaintextLeak) as e:
             print(f"REFUSED: {e}")
             return 1
+    if a.archetype_preview:
+        print("REFUSED: --archetype-preview goes with --v2 (the new hub's preview only)")
+        return 1
     try:
         res = run(a.base_path, preview_only=a.preview_only, state=a.state, out_dir=a.out_dir)
     except (hub_state.HubInputError, hub_archive.ArchiveError, hub_crypto.PassphraseError,
@@ -180,13 +192,16 @@ V2_PREVIEW = Path("output") / "hub_v2_preview.html"
 V2_MEASURE_PASSPHRASE = "a throwaway passphrase for measuring the size only"
 
 
-def run_v2(base_path=".", *, state=None, out_dir=None, echo=print) -> dict:
-    """The new hub (4b): its preview, and its publish-mode page built to the
-    scratch folder with a throwaway key, to measure what a phone downloads.
-    Returns {"rc", "preview", "report"}. The cards fail softly, as in run()."""
+def run_v2(base_path=".", *, state=None, out_dir=None, echo=print, archetype_preview: bool = False) -> dict:
+    """The new hub (4b, 4c1): its preview, with the new player cards embedded,
+    and its publish-mode page and card files built to a scratch folder with a
+    throwaway key, to measure what a phone downloads. Returns {"rc",
+    "preview", "report"}. The cards fail softly, as in run().
+    archetype_preview (4c1): the archetype labels in the preview only,
+    marked; no publish-mode measurement (publish mode refuses it)."""
     import json
     from modules import hub_state, hub_archive, hub_cards, hub_crypto
-    from modules.hub_v2 import view, page, publish as v2pub
+    from modules.hub_v2 import view, page, publish as v2pub, players as v2players
     from datetime import datetime
     base = Path(base_path)
     if state is not None:
@@ -203,15 +218,25 @@ def run_v2(base_path=".", *, state=None, out_dir=None, echo=print) -> dict:
         if refusal:
             echo(f"REFUSED: {refusal}")
             return {"rc": 1, "preview": None, "report": None}
-    preview_cards = None
+    if (payload.get("v2") or {}).get("players") is None:
+        raise view.ViewError("the payload's new-hub keys predate 4c1 (no Players tab): rebuild it with this "
+                             "engine (python scripts/build_hub_state.py)")
+    if archetype_preview:
+        n = v2players.archetype_preview(payload)
+        echo(f"Archetype PREVIEW: {n} rostered player(s) labelled (the rest lack a category grade); "
+             "the preview is marked, and publish mode is not measured.")
+        for label, who in v2players.archetype_table(payload):
+            echo(f"  {label} ({len(who)}): " + "; ".join(f"{n_} ({m_}, {x_})" for n_, m_, x_ in who))
+    cards, preview_cards = None, None
     if (payload.get("cards") or {}).get("players"):
         try:
             cards = hub_cards.load_for(base, payload) if state is None else None
             if cards is None:
                 cards = hub_cards.build(base, payload, echo=lambda *a, **k: None)
             hub_cards.check_against(payload, cards)
-            preview_cards = hub_cards.preview_bundle(base, cards)
+            preview_cards = v2pub.preview_cards(base, payload, cards)
         except Exception as e:                       # noqa: BLE001 -- the cards fail softly
+            cards, preview_cards = None, None
             hub_cards.strip(payload)
             echo(f"PLAYER CARDS FAILED (the preview goes on with plain names): {type(e).__name__}: {e}")
     gen = datetime.fromisoformat(payload["generated_at"])
@@ -220,14 +245,22 @@ def run_v2(base_path=".", *, state=None, out_dir=None, echo=print) -> dict:
     preview.parent.mkdir(parents=True, exist_ok=True)
     preview.write_text(html, encoding="utf-8")
     echo(f"Wrote {preview} (plaintext; local only; {len(html.encode('utf-8')):,} bytes"
-         + (", player cards embedded" if preview_cards else "") + ").")
-    rep = v2pub.build(base, payload, V2_MEASURE_PASSPHRASE, salt=hub_crypto.new_salt(),
-                      out_dir=base / V2_PUBLISH_SCRATCH, now=now)
+         + (f", {len(preview_cards['cards'])} new player cards embedded" if preview_cards else "") + ").")
+    if archetype_preview:
+        return {"rc": 0, "preview": str(preview), "report": None}
+    pub = base / V2_PUBLISH_SCRATCH if out_dir is None else Path(out_dir) / "publish"
+    rep = v2pub.build(base, payload, V2_MEASURE_PASSPHRASE, salt=hub_crypto.new_salt(), out_dir=pub, now=now,
+                      cards=cards)
     echo(f"Wrote {rep['dir']}/index.html in publish mode (a throwaway key: a size measurement, never published).")
     echo(f"  index.html as served: {rep['served_bytes']:,} bytes ({rep['served_bytes'] / 1000:.1f} KB, the bundle "
          f"gzipped before encryption); the fonts' share {rep['fonts_served_bytes']:,} bytes")
     echo(f"  with the shell as it is today (no gzip): {rep['served_plain_bytes']:,} bytes; "
          f"the page itself {rep['page_bytes']:,} bytes")
+    if rep.get("card_files"):
+        c = rep["card_files"]
+        echo(f"  new cards: {c['cards']} card files (median {c['card_bytes_median']:,} bytes, largest "
+             f"{c['card_bytes_max']:,}), index {c['index_bytes']:,} bytes, {c['photos']} headshots (median "
+             f"{c['photo_bytes_median']:,} bytes)")
     echo(f"Plaintext scan: {rep['terms']} terms, no hits.")
     return {"rc": 0, "preview": str(preview), "report": rep}
 

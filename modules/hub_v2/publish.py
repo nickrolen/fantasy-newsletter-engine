@@ -25,8 +25,21 @@ RAISES unless its anchor is found exactly once; hub_page.py is untouched):
      fonts alone ~133 KB of it. gz=False builds the shell as it is today,
      for the comparison.
 
-The card and headshot files are not built here (they are the current
-build's, unchanged by 4b); the measurement is index.html, the first load.
+THE NEW CARD'S FILES (4c1; cards=, hub_cards.build's result for the payload):
+    cards/<sha16>.enc   one per player: his new card, rendered at build time
+                        (card.view -> page_players.card_html), gzipped JSON
+                        {"html"}; encrypted by its content
+    photos/<sha16>.enc  one per headshot: hub_cards' own rule (the same bytes
+                        and the same subkey give the same file as the current
+                        hub's)
+    cards/<sha16>.enc   the index: {"v": 2, "cards": {key: {"card", "photo"}}},
+                        whose file and key ride in the page bundle ("cards"),
+                        fetched on the first tap (HUB.cards())
+A card tap fetches the index once, then that player's card file and headshot.
+The current hub's card files (hub_cards.publish_files) are not touched.
+
+An ARCHETYPE PREVIEW (build_hub.py --v2 --archetype-preview) is never built in
+publish mode: build() refuses a payload that carries one.
 """
 
 from __future__ import annotations
@@ -94,23 +107,80 @@ def refusal(base, out_dir) -> str:
     return scratch_refusal(b, o / "index.html")
 
 
+def card_html_all(payload: dict, cards_obj: dict) -> dict:
+    """{key: the new card's HTML} for every Players row with a card."""
+    from . import card, page_players
+    return {k: page_players.card_html(v) for k, v in card.views(payload, cards_obj).items()}
+
+
+def preview_cards(base, payload: dict, cards_obj: dict) -> dict:
+    """The plaintext preview's new cards: {"cards": {key: {"html", "photo":
+    a data URI or None}}} (embedded in DIR/hub_v2_preview.html only)."""
+    from .. import headshots
+    out = {}
+    for k, h in card_html_all(payload, cards_obj).items():
+        ph = cards_obj["photos"].get(k)
+        out[k] = {"html": h, "photo": headshots.data_uri(Path(base) / ph) if ph else None}
+    return {"v": 2, "cards": out}
+
+
+def card_files(base, payload: dict, cards_obj: dict, root_key: bytes, terms=()) -> tuple:
+    """({relative path: bytes}, the index's {"file", "key"}, a size report)."""
+    import hashlib
+    from .. import hub_crypto, hub_cards
+    K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
+    files = {}
+
+    def put(dirname: str, plaintext: bytes) -> dict:
+        k, blob = hub_crypto.seal_by_content(K, plaintext, terms)
+        rel = f"{dirname}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+        files[rel] = blob
+        return {"file": rel, "key": hub_crypto.b64(k)}
+
+    idx, card_sizes, photo_sizes = {}, [], []
+    for k, h in sorted(card_html_all(payload, cards_obj).items()):
+        ref = put(hub_cards.CARD_DIR, hub_cards._gz({"html": h}))
+        card_sizes.append(len(files[ref["file"]]))
+        ph = cards_obj["photos"].get(k)
+        pref = None
+        if ph:
+            pref = put(hub_cards.PHOTO_DIR, (Path(base) / ph).read_bytes())
+            photo_sizes.append(len(files[pref["file"]]))
+        idx[k] = {"card": ref, "photo": pref}
+    ref = put(hub_cards.CARD_DIR, hub_cards._gz({"v": 2, "cards": idx}))
+    srt = sorted(card_sizes)
+    rep = {"cards": len(idx), "index_bytes": len(files[ref["file"]]),
+           "card_bytes_median": srt[len(srt) // 2] if srt else 0, "card_bytes_max": srt[-1] if srt else 0,
+           "photo_bytes_median": sorted(photo_sizes)[len(photo_sizes) // 2] if photo_sizes else 0,
+           "photos": len(photo_sizes), "files": len(files)}
+    return files, ref, rep
+
+
 def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterations: int = None,
-          terms=None, now: datetime = None, gz: bool = True) -> dict:
+          terms=None, now: datetime = None, gz: bool = True, cards: dict = None) -> dict:
     from .. import hub_archive, hub_crypto, hub_publish
     from . import view, page
     why = refusal(base, out_dir)
     if why:
         raise V2PublishError(why)
+    if ((payload.get("v2") or {}).get("ratings") or {}).get("preview"):
+        raise V2PublishError("this payload carries an archetype preview (--archetype-preview): a preview is "
+                             "never built in publish mode")
     base = Path(base)
     out = Path(out_dir)
     gen = datetime.fromisoformat(payload["generated_at"])
     html = page.render(view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo)))
     idx = hub_archive.verify(base)
     by_file = {e["enc"]: e for e in idx["issues"]}
-    inner = json.dumps({"page": html, "issues": {f: e["key_b64"] for f, e in by_file.items()}},
-                       separators=(",", ":")).encode("utf-8")
     terms = terms if terms is not None else hub_publish.scan_terms(base)
     kw = {"salt": salt} if iterations is None else {"salt": salt, "iterations": iterations}
+    inner_obj = {"page": html, "issues": {f: e["key_b64"] for f, e in by_file.items()}}
+    cfiles, crep = {}, None
+    if cards is not None:
+        root = hub_crypto.derive_key(passphrase, salt, kw.get("iterations", hub_crypto.ITERATIONS))
+        cfiles, cref, crep = card_files(base, payload, cards, root, terms)
+        inner_obj["cards"] = cref
+    inner = json.dumps(inner_obj, separators=(",", ":")).encode("utf-8")
     for attempt in range(1, hub_publish.MAX_RESEAL + 1):
         bundle = seal(passphrase, inner, gz, **kw)
         sh = shell(hub_crypto.bundle_json(bundle), gz).encode("utf-8")
@@ -120,13 +190,16 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterati
         raise hub_publish.PlaintextLeak("the v2 shell matched a scan term after every re-encryption")
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.html").write_bytes(sh)
+    for f, b in cfiles.items():
+        (out / f).parent.mkdir(parents=True, exist_ok=True)
+        (out / f).write_bytes(b)
     scan = hub_publish.scan_dir(out, terms)
     if scan["hits"]:
         raise hub_publish.PlaintextLeak(f"plaintext in {out}: {scan['hits']}")
     # the other variant's size, for the comparison (never written)
     other = len(shell(hub_crypto.bundle_json(seal(passphrase, inner, not gz, **kw)), not gz).encode("utf-8"))
     return {"dir": str(out), "files": scan["files"], "terms": len(terms), "reseals": attempt - 1, "gzip": gz,
-            **measure(html, len(sh), other if gz else len(sh), inner)}
+            "card_files": crep, **measure(html, len(sh), other if gz else len(sh), inner)}
 
 
 def measure(html: str, served: int, served_plain: int, inner: bytes) -> dict:

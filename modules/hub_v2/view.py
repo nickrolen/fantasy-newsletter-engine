@@ -25,7 +25,6 @@ TABS = [("home", "Home"), ("matchups", "Matchups"), ("teams", "Teams"), ("player
 PLACEHOLDER = "Coming in the new hub."
 # preview only: where each placeholder's content lives on the current page
 CURRENT_LINKS = {
-    "players": [("v-main", "Player names on the current hub open their cards")],
     "market": [("v-main", "Free agents, the stash and the moves feed"), ("v-block", "Trade block")],
     "league": [("v-chart", "Title odds over the season"), ("v-main", "The newsletter archive")],
 }
@@ -200,6 +199,9 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         raise ViewError("the payload has no new-hub keys (payload v2): "
                         + (f"the run recorded {err['stage']}: {err['error']}" if err else
                            "it was built before 4b; rebuild it (python scripts/build_hub_state.py)"))
+    if "players" not in v2 or "ratings" not in v2:
+        raise ViewError("the payload's new-hub keys predate 4c1 (no Players tab): rebuild it with this "
+                        "engine (python scripts/build_hub_state.py)")
     h = payload["header"]
     gen = datetime.fromisoformat(payload["generated_at"])
     words, stale = age_words(gen, now)
@@ -321,7 +323,7 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         issue = {"text": iss["text"], "attr": attr}
 
     placeholders = []
-    for key, label in TABS[3:]:
+    for key, label in TABS[4:]:                       # Players is built (4c1); Market and League are 4c3/4c4
         placeholders.append({"key": key, "label": label, "text": PLACEHOLDER,
                              "links": ([{"href": f"hub_preview.html#{vid}", "t": t} for vid, t in CURRENT_LINKS[key]]
                                        if mode == "preview" else [])})
@@ -340,5 +342,56 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "trade_foot": payload["trade_block"]["foot"], "grid3": grid3,
         "sched_cols": v2["sched_cols"], "sched_note": v2["sched_note"],
         "placeholders": placeholders, "odds_label": payload["power"]["label"],
+        "players": players(payload, teams),
         "footer": (f"Engine {payload['engine']['key']} \u00b7 actual points through "
                    f"{payload['sources']['actuals_through']}")}
+
+
+# =============================================================================
+# Players, the player card and Compare (4c1)
+# =============================================================================
+
+def players(payload: dict, teams: dict) -> dict:
+    """The Players screen, Compare's data and the pick list, from payload v2
+    players (modules/hub_v2/players.py). Joins only: a row's team class, its
+    card's route, the filters' labels. Every printed value is a payload string;
+    Compare's winners are decided in the page from the integer order keys."""
+    import json as _json
+    v2 = payload["v2"]
+    pl = v2["players"]
+    rt = v2["ratings"]
+    reg = (payload.get("cards") or {}).get("players") or {}
+    rows = []
+    for i, z in enumerate(pl["rows"]):
+        key = z["key"] if z["key"] and z["key"] in reg else None
+        slot = z["chip"]["slot"]
+        rows.append({"i": i, "key": key, "name": z["name"], "href": f"#/players/{key}" if key else "",
+                     "chip": {"text": z["chip"]["text"], "cls": team_cls(slot) if slot else "",
+                              "team": z["chip"]["team"], "m": z["m"]},
+                     "meta": z["meta"], "ovr": z["ovr"], "ovr_d": z["ovr_d"], "pot": z["pot"], "fppg": z["fppg"],
+                     "next": z["next"], "chips": z["chips"], "kind": z["kind"],
+                     "data": {"q": z["q"], "k": z["f"]["k"], "pos": " ".join(z["f"]["pos"]), "nba": z["f"]["nba"],
+                              "age": z["f"]["age"], "h": z["f"]["h"]}})
+    risers = None
+    if pl["risers"] is not None:
+        risers = [{"name": rows[r["i"]]["name"], "key": rows[r["i"]]["key"], "reason": r["reason"],
+                   "ovr": r["ovr"], "d": r["d"]} for r in pl["risers"]]
+    cmp = {"labels": [r["label"] for r in pl["cmp_rows"]], "rows": {}}
+    for z, r in zip(pl["rows"], rows):
+        if r["key"] is None:
+            continue
+        cmp["rows"][r["key"]] = {"name": z["name"], "team": z["chip"]["team"], "chip": z["chip"]["text"],
+                                 "cls": r["chip"]["cls"], "ovr": z["ovr"], "ring": (z["ring"] or {}).get("cmp") or "",
+                                 "ini": z["ini"], "cmp": z["cmp"], "fa": z["kind"] == "fa",
+                                 "arch": (z.get("arch") or {}).get("label") or "",
+                                 "arch_preview": bool((z.get("arch") or {}).get("preview"))}
+    f = pl["filters"]
+    return {"rows": rows, "rows_default": [rows[i] for i in pl["orders"][pl["default"]]["d"]],
+            "orders": pl["orders"], "orders_json": _json.dumps(pl["orders"], separators=(",", ":")),
+            "default": pl["default"], "count": pl["count"], "who": pl["who"], "risers": risers,
+            "filters": {"pos": [{"v": x, "t": x} for x in f["pos"]], "nba": [{"v": x, "t": x} for x in f["nba"]],
+                        "age": [{"v": a["key"], "t": a["label"]} for a in f["age"]]},
+            "error": rt["error"], "as_of": rt["as_of"], "change_note": rt["change_note"], "fa_note": rt["fa_note"],
+            "preview_arch": bool(rt.get("preview")),
+            "cmp_json": _json.dumps(cmp, separators=(",", ":"), ensure_ascii=True),
+            "pick": [r for r in rows if r["key"]]}
