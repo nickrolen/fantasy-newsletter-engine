@@ -528,3 +528,22 @@ def test_real_market_in_every_segment_the_preview_and_publish(tmp_path):
                       iterations=1000, terms=terms)
     assert rep["served_bytes"] <= budget_bytes()
     assert hub_publish.scan_dir(out, terms)["hits"] == {}
+
+
+def test_a_one_row_card_still_shows_its_title_odds_change():
+    """Nick, 11-19: "Even though its only one move, it should still show title
+    odds change". A one-row card (no plan line) gets a title line of its own,
+    the engine's string; none with the switch off; a two-row card keeps it on
+    its plan line only."""
+    p = synth_payload()
+    tyler = next(c for c in p["v2"]["market"]["advice"]["cards"] if c["m"] == "Tyler")
+    assert len(tyler["rows"]) == 1 and tyler["plan"] is None
+    assert tyler["title"] and tyler["title"].startswith("title odds ")
+    assert tyler["title"] in strings(p["v2"]["market"]["advice"])
+    tc = _card(render(p), "Tyler")
+    assert 'class="adv-plan adv-title"' in tc and tyler["title"].replace("−", "&minus;") in tc \
+        or tyler["title"] in visible_text(tc)
+    off = render(_payload(advice=MF.advice_latest(show_title=False), show_title=False))
+    assert "adv-title" not in _card(off, "Tyler") and "title odds" not in visible_text(_card(off, "Tyler"))
+    marcus = next(c for c in p["v2"]["market"]["advice"]["cards"] if c["m"] == "Marcus")
+    assert marcus["plan"] is not None and marcus["title"] is None

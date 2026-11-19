@@ -259,7 +259,7 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
         opps = e["opponents"]
         vs = DOT.join(f"Wk {w} vs {team_of[o] if o else 'no matchup'}" for w, o in opps.items())
         card = {"m": m, "vs": vs, "adds": _plural(int(e["adds_left"]), "add left", "adds left"),
-                "rows": [], "plan": None, "backup": None, "empty": ""}
+                "rows": [], "plan": None, "title": None, "backup": None, "empty": ""}
         plan = e.get("plan") or ([e["move"]] if e.get("move") else [])
         act = e.get("activation")
         hold = e.get("hold") if (e.get("il_choice") or {}).get("choice") == "hold" else None
@@ -300,6 +300,14 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
             if pv["rows"] >= 2:
                 card["plan"] = {"label": pv["label"], "title": pv["title"] if show_title else None,
                                 "weeks": pv["weeks"]}
+        # Nick, 11-19: a one-row card shows its title-odds change too, not only
+        # behind the tap ("Even though its only one move, it should still show
+        # title odds change"). The plan line carries it from two rows; one row
+        # gets a title line of its own, the engine's string.
+        if show_title and card["plan"] is None and len(card["rows"]) == 1:
+            src = hold if hold is not None else (act if act else (plan[0] if plan else None))
+            if src is not None and src.get("title_label") and src.get("title_odds") is not None:
+                card["title"] = f"{src['title_label']} {al._pct(src['title_odds'])}"
         b = e.get("backup")
         if b is not None:
             tx = b["text"].get("v2") or al.v2_texts(b, hz, opps, show_title=show_title)

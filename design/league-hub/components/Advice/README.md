@@ -49,3 +49,5 @@ The engine's plan for each team, as the Market tab's **Advice** segment shows it
 ## Tokens added (4c3)
 
 `adv-dot` 22px · `adv-col` 112px · `adv-bar` 3px (`tokens.json`, sizing).
+
+- **One-row cards show their title odds too** (Nick, 11-19): a card with a single row (one move, or only the IL row) has no plan line, so it gets a slim title line of its own under the row ("title odds +1.2%", the engine's string; `adv-plan adv-title`). Absent when `advice.show_title_odds` is false.

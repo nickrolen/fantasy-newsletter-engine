@@ -378,6 +378,9 @@ def _advice(av: dict, ids, info, mark_of) -> str:
                      f'{clean(p["label"])}</span>'
                      + (f'<span class="lh-sub">{clean(p["title"])}</span>' if p["title"] else "")
                      + f'</span>{_weeks(p["weeks"])}<span></span></div>')
+        elif c.get("title"):                                     # one row: its title-odds line (Nick, 11-19)
+            o.append(f'<div class="adv-plan adv-title"><span></span><span class="adv-plan-l">'
+                     f'<span class="lh-sub">{clean(c["title"])}</span></span><span></span><span></span></div>')
         if c["backup"]:
             b = c["backup"]
             did = ids.next("adv")
