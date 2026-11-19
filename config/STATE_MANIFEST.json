@@ -96,6 +96,7 @@
     {"path": "output/hub_preview.html", "why": "the hub's plaintext local preview: regenerable from output/hub_state.json (scripts/build_hub.py), never published"},
     {"path": "output/hub_v2_preview.html", "why": "the new hub's plaintext local preview (4b): regenerable from output/hub_state.json (scripts/build_hub.py --v2), never published"},
     {"path": "output/hub_publish/", "why": "the hub's publish directory: encrypted files only, regenerable (scripts/build_hub.py); step 1c publishes it"},
+    {"path": "output/hub_players.json", "why": "the new hub's Players rows (payload v2.players, 4c2): rebuilt by every run that builds the hub, read by build_hub --v2; out of the payload for its size (4c1 decision 8)"},
     {"path": "output/hub_cards.json", "why": "the hub's player cards in plaintext for this run's payload (modules/hub_cards; task 40): rebuilt by every run that builds the hub, read by build_hub; several MB, so not committed nightly"},
     {"path": ".state_overlay.json", "why": "scripts/state_overlay.py's marker on a runner's engine checkout: overlay in completed, so overlay out may copy back. Per checkout, never copied"}
   ],

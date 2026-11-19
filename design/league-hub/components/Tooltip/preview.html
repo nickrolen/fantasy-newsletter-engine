@@ -1,0 +1,46 @@
+<!-- @dsCard group="Controls" height=300 subtitle="Tap a cell or the chart's marker: the one small dark box (made-up data)" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Tooltip</title></head>
+<body>
+<div class="lh-stack" style="max-width:390px;">
+  <section class="lh-card" style="gap:8px;">
+    <div class="lh-sechead"><h2 class="lh-eyebrow">Games, next 3 weeks</h2></div>
+    <div class="lh-heat" style="grid-template-columns:2fr 1fr 1fr 1fr;">
+      <span class="lh-sub">Marcus Guard</span>
+      <button class="lh-heat__cell lh-s2" style="border:0;min-height:44px;font:inherit;font-weight:800;" data-tip-h="Wk 9 rest" data-tip-b="Fri · Sat" data-tip-f="Fri–Sat B2B" aria-label="Wk 9 rest · 2 · Fri · Sat · Fri–Sat B2B" aria-expanded="false">2</button>
+      <button class="lh-heat__cell lh-s4" style="border:0;min-height:44px;font:inherit;font-weight:800;" data-tip-h="Wk 10" data-tip-b="Mon · Wed · Fri · Sun" data-tip-f="out Tue" aria-label="Wk 10 · 4 · Mon · Wed · Fri · Sun · out Tue" aria-expanded="false">4</button>
+      <button class="lh-heat__cell" style="border:0;min-height:44px;font:inherit;font-weight:800;background:var(--surface-sunken);color:var(--ink-3);" data-tip-h="Wk 11" data-tip-b="IL slot · back 01-25" aria-label="Wk 11 · — · IL slot · back 01-25" aria-expanded="false">—</button>
+    </div>
+  </section>
+  <section class="lh-card" style="gap:8px;">
+    <div class="lh-sechead"><h2 class="lh-eyebrow">Win chance this week</h2><span class="lh-meta">Glass Cannons</span></div>
+    <svg class="lh-chart lh-t-blue" width="100%" viewBox="0 0 356 120" role="group" aria-label="Glass Cannons' win chance: 64% now, with one event marked">
+      <line class="lh-c-ref" x1="36" y1="60" x2="272" y2="60"/>
+      <polyline class="lh-c-line" points="40,52 90,48 140,74 190,50 240,38"/>
+      <circle class="lh-c-event" cx="140" cy="74" r="4"/>
+      <circle cx="240" cy="38" r="4" fill="var(--team)"/>
+      <text class="lh-c-label" x="246" y="42">GC 64%</text>
+      <circle cx="140" cy="74" r="22" fill="transparent" tabindex="0" role="button" data-tip-h="Tue 3:15 PM" data-tip-b="Marcus Wing healthy→Q" data-tip-f="GC −9.1%" aria-label="Tue 3:15 PM · Marcus Wing healthy→Q · GC −9.1%" aria-expanded="false"/>
+    </svg>
+  </section>
+</div>
+<div class="lh-tip" id="tip" role="status" hidden></div>
+<script>
+var tip = document.getElementById('tip'), cur = null;
+function show(el) {
+  hide(); tip.textContent = '';
+  ['h', 'b', 'f'].forEach(function (k, i) { var v = el.getAttribute('data-tip-' + k); if (!v) return;
+    var e = document.createElement(i ? 'span' : 'b'); e.textContent = v; tip.appendChild(e); });
+  tip.hidden = false; cur = el; el.setAttribute('aria-expanded', 'true');
+  var a = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, vw = document.documentElement.clientWidth;
+  var left = a.left + a.width / 2 - w / 2, top = a.top - h - 8;
+  if (top < 8) top = a.bottom + 8; if (left + w > vw - 8) left = vw - 8 - w; if (left < 8) left = 8;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+function hide() { tip.hidden = true; if (cur) { cur.setAttribute('aria-expanded', 'false'); cur = null; } }
+document.addEventListener('click', function (e) { var t = e.target.closest('[data-tip-h]');
+  if (t) { if (cur === t) hide(); else show(t); return; } hide(); });
+document.addEventListener('focusin', function (e) { if (e.target.getAttribute && e.target.getAttribute('data-tip-h') !== null) show(e.target); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hide(); });
+</script>
+</body></html>

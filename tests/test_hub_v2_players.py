@@ -589,11 +589,13 @@ def real():
     if not all(x.exists() for x in needed):
         pytest.skip("no league state on this machine")
     league_state.skip_if_actuals_behind()
-    rt = {}
+    rt, po = {}, {}
     try:
-        p = hs.build(ROOT, now=league_now(), allow_engine_mismatch=True, echo=lambda *a, **k: None, ratings_out=rt)
+        p = hs.build(ROOT, now=league_now(), allow_engine_mismatch=True, echo=lambda *a, **k: None, ratings_out=rt,
+                     players_out=po)
     except (hs.HubInputError, player_actuals.ActualsError) as e:
         pytest.skip(f"the hub's real inputs are not current today ({e})")
+    v2data.attach_players(p, po)            # 4c2: the Players rows live in their own file
     cards = hub_cards.build(ROOT, p, echo=lambda *a, **k: None)
     return p, rt, cards
 

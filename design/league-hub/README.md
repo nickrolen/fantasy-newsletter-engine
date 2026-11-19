@@ -149,7 +149,7 @@ These are not optional.
   - dual y-axes;
   - decoration a number could replace.
 - **Show uncertainty where it matters:** win chances as percentages with the bar, ranges in Detailed views, and projections dashed and labelled.
-- **Say why it moved:** where the engine knows the cause (an injury tag, a move), mark it on the chart with a short label.
+- **Say why it moved:** where the engine knows the cause (an injury tag, a move), mark it on the chart with a small hollow marker; its words open in the **Tooltip** on a tap, never as text on the chart (4c2).
 - **One message per chart:** its `aria-label` states it as a sentence, and the section meta names the unit.
 - **Sizes:**
   - Line charts are 356 px wide on a phone with 2.5 px lines.
@@ -160,7 +160,8 @@ These are not optional.
 ## Interactivity
 
 - **Entities:** every team chip and mark opens the team, every player name opens his card, and every matchup card opens the matchup.
-- **Charts:** tap or scrub a point for its value, time and reason in a readout line under the chart.
+- **Charts:** tap or scrub a point for its value, time and reason in a readout line under the chart. A tap on an event marker opens the **Tooltip** (components/Tooltip).
+- **Grids:** tap any games-grid cell for the **Tooltip**: the days he plays, or a team's starts by day, or who starts that day (4c2).
 - **Tables:** sort by any column, and filter by position, team and status where a list is long (Players, Market).
 - **Views:** Simple/Detailed toggles and segmented tabs. Remember the choice for the session.
 - **Compare:** two players side by side, from the player card's Compare button.

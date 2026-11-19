@@ -218,6 +218,11 @@ def run_v2(base_path=".", *, state=None, out_dir=None, echo=print, archetype_pre
         if refusal:
             echo(f"REFUSED: {refusal}")
             return {"rc": 1, "preview": None, "report": None}
+    if payload.get("v2") is not None and "players" not in payload["v2"]:
+        # 4c2: the Players rows live in their own file beside the payload
+        from modules.hub_v2 import data as v2data
+        sp = Path(state) if state is not None else base / hub_state.PAYLOAD_RELPATH
+        v2data.attach_players(payload, hub_state.load_players(sp))
     if (payload.get("v2") or {}).get("players") is None:
         raise view.ViewError("the payload's new-hub keys predate 4c1 (no Players tab): rebuild it with this "
                              "engine (python scripts/build_hub_state.py)")

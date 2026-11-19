@@ -19,6 +19,10 @@ line page does.
 --out PATH writes the payload there instead of output/hub_state.json (a
 scratch build that leaves the league state alone; refused if PATH is a state
 path in config/STATE_MANIFEST.json).
+
+4c2: the new hub's Players rows are written beside the payload, not in it:
+output/hub_players.json (regenerable, not state), or <stem>_players.json
+beside --out PATH.
 """
 
 from __future__ import annotations
@@ -47,18 +51,23 @@ def main(argv=None) -> int:
             print(f"REFUSED: {refusal}")
             return 1
     try:
-        payload = hub_state.build(a.base_path, allow_engine_mismatch=a.allow_engine_mismatch)
+        players = {}
+        payload = hub_state.build(a.base_path, allow_engine_mismatch=a.allow_engine_mismatch, players_out=players)
     except (hub_state.HubInputError, player_actuals.ActualsError, hub_archive.ArchiveError,
             live_lines_page.EngineMismatch) as e:
         print(f"REFUSED: {e}")
         return 1
     if a.out is None:
         p = hub_state.write(a.base_path, payload)
+        if players:                    # 4c2: the Players rows, beside it (output/hub_players.json)
+            hub_state.write_players(a.base_path, players)
     else:
         from modules.data_loader import atomic_write_json
         p = Path(a.out)
         p.parent.mkdir(parents=True, exist_ok=True)
         atomic_write_json(p, payload, indent=1)
+        if players:                    # 4c2: the Players file beside it (hub_state.players_path_for)
+            atomic_write_json(hub_state.players_path_for(p), players, indent=None)
     print(f"Wrote {p} for week {payload['week']} ({payload['league_day']}) in {time.time() - t0:.1f} s.")
     if payload["header"]["engine_mismatch"]:
         print(f"  ENGINE MISMATCH (allowed): {payload['header']['engine_mismatch']}")

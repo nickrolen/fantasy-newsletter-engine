@@ -109,17 +109,15 @@ def win_chart(win: dict, a: str, b: str, teams: dict) -> dict:
     out["lines"].append({"cls": team_cls(teams[a]["slot"]), "points": " ".join(f"{_f(x)},{_f(y)}"
                                                                                for x, y in zip(xs, ys)),
                          "proj": False})
-    evs = [i for i, p in enumerate(pts) if p["event"]]
-    for i in evs:
-        out["events"].append({"cx": _f(xs[i]), "cy": _f(ys[i]), "label": "", "lx": "", "ly": ""})
-    if evs:                                   # only the latest event is labelled: labels would collide
-        i = evs[-1]
-        e = out["events"][-1]
-        e["label"] = pts[i]["event"]
-        e["lx"], e["ly"] = _f(min(xs[i] + 6, X1 - 4)), _f(Y1 - 8 if ys[i] < (Y0 + Y1) / 2 else Y0 + 12)
-        e["anchor"] = "end" if xs[i] > (X0 + X1) / 2 else "start"
-        if e["anchor"] == "end":
-            e["lx"] = _f(xs[i] - 6)
+    # 4c2 (HUB_PREVIEW_NOTES s.1): no event text on the chart. Each event is a
+    # small hollow dot, up or down, and a tap (a 44-px circle) opens the
+    # tooltip: the time, the event, the swing -- the engine's strings
+    for i, p in enumerate(pts):
+        if not p["event"]:
+            continue
+        tip = p.get("tip") or {"h": p["when"], "b": p["event"], "f": ""}
+        out["events"].append({"cx": _f(xs[i]), "cy": _f(ys[i]), "dir": p.get("dir") or "down", "tip": tip,
+                              "label": " \u00b7 ".join(x for x in (tip["h"], tip["b"], tip.get("f", "")) if x)})
     last = pts[-1]
     ya, yb = _spread([Y(last["a"]), Y(last["b"])])
     out["ends"] = [{"cls": team_cls(teams[a]["slot"]), "x": _f(xs[-1] + 6), "y": _f(ya + 4),
@@ -199,8 +197,14 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         raise ViewError("the payload has no new-hub keys (payload v2): "
                         + (f"the run recorded {err['stage']}: {err['error']}" if err else
                            "it was built before 4b; rebuild it (python scripts/build_hub_state.py)"))
-    if "players" not in v2 or "ratings" not in v2:
+    if "ratings" not in v2:
         raise ViewError("the payload's new-hub keys predate 4c1 (no Players tab): rebuild it with this "
+                        "engine (python scripts/build_hub_state.py)")
+    if "players" not in v2:
+        raise ViewError("the new hub's Players rows are not attached: they live in their own file since 4c2 "
+                        "(output/hub_players.json; hub_v2.data.attach_players)")
+    if "roster_cols" not in v2 or "last" not in v2:
+        raise ViewError("the payload's new-hub keys predate 4c2 (no roster columns): rebuild it with this "
                         "engine (python scripts/build_hub_state.py)")
     h = payload["header"]
     gen = datetime.fromisoformat(payload["generated_at"])
@@ -267,6 +271,22 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         orders = dict(rb["orders"])
         orders.update(tv["roster"]["orders"])
         default = rb["default_order"]
+        det = tv["roster"]["detail"]
+        rc = v2["roster_cols"]
+        for k in rc["keys"]:
+            orders["d_" + k] = det["orders"][k]
+        for i, r in enumerate(rows):
+            vals = det["rows"][i]
+            cells = []
+            for k, txt in zip(rc["keys"], vals):
+                c = {"k": k, "t": txt}
+                if k == "ovr" and det["ovr_d"][i]:
+                    c["d"] = det["ovr_d"][i]
+                if k == "trend" and det["trend"][i]:
+                    c["spark"] = spark(det["trend"][i]["values"], det["trend_max"])
+                    c["aria"] = det["trend"][i]["aria"]
+                cells.append(c)
+            r["dcells"] = cells
         active = [rows[i] for i in orders[default] if not rows[i]["in_il"]]
         il = [rows[i] for i in orders[default] if rows[i]["in_il"]]
         keepers = [{"rank": tv["roster"]["keep_rank"][i], "name": rows[i]["name"], "card": rows[i]["card"],
@@ -289,7 +309,10 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
             "m": m, "team": t, "route": f"teams/{m}", "sub": tv["sub"], "kpi": kpi, "spark": sp,
             "spark_aria": tv["spark"]["aria"], "record": tv["record"], "odds": tv["odds"],
             "adds_left": tv["adds_left"], "injured": tv["injured"],
-            "roster": {"active": active, "il": il, "orders": orders, "default": default},
+            "roster": {"active": active, "il": il, "orders": orders, "default": default,
+                       "groups": rc["groups"], "cols": rc["cols"], "keys": rc["keys"],
+                       "gs": {k: [g["key"] for g in rc["groups"] if k in g["cols"]] for k in rc["keys"]},
+                       "why": rc["why"], "notes": rc["notes"]},
             "keepers": keepers, "keep_line": tv["roster"]["keep_line"], "keep_all": keep_all,
             "sched": sched, "moves": moves, "note": rb["note"], "size": rb["size"],
             "pending": [j["text"] for j in rb["pending"]]})
@@ -309,6 +332,24 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
                                  "players": [{"name": r["name"], "card": r.get("card")} for r in lst["rows"]]}
                                 for lst in c["lists"]],
                       "empty": c["empty"]})
+    last = None
+    if v2["last"] is not None:
+        lw = v2["last"]
+        lcards = []
+        for c in lw["cards"]:
+            a, b = c["a"], c["b"]
+            sv = views[c["views"]["sum"]]
+            sides = [{"m": m, "team": teams[m], "name": teams[m]["team"], "manager": m, "score": sc,
+                      "win": w, "won": c["won"] == s}
+                     for s, m, sc, w in (("a", a, c["score_a"], c["win_a"]), ("b", b, c["score_b"], c["win_b"]))]
+            lcards.append({"id": c["id"], "route": f"matchups/{c['id']}", "href": f"#/matchups/{c['id']}",
+                           "sides": sides, "result": c["result"], "line": c["line"], "verdict": c["verdict"],
+                           "bar_a": c["win_a"],
+                           "bar_aria": f"Final: {teams[a]['team']} {c['score_a']}, {teams[b]['team']} {c['score_b']}",
+                           "title": f"{teams[a]['team']} vs {teams[b]['team']}", "sub": sv["sub"],
+                           "paras": sv["paras"], "win": win_chart(c["win"], a, b, teams),
+                           "flow": flow_chart(c["flow"], a, b, teams)})
+        last = {"title": lw["title"], "note": lw["note"], "cards": lcards}
     grid3 = {"cols": v2["grid3"]["cols"], "note": v2["grid3"]["note"],
              "rows": [{"team": teams[r["m"]], "cells": r["cells"]} for r in v2["grid3"]["rows"]]}
 
@@ -335,6 +376,7 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "mismatch": h.get("engine_mismatch"), "engine_note": h.get("engine_note"),
         "closing_note": h.get("closing_note"),
         "week_label": h["week_label"], "lock": h["lock"]["text"], "issue": issue,
+        "line_text": v2["line_text"], "last": last,
         "tabs": [{"key": k, "label": lab, "href": f"#/{k}"} for k, lab in TABS],
         "matchups": mus, "clock": payload["matchups"]["clock"], "ranking": ranking,
         "rank_meta": f"{payload['power']['label']} \u00b7 by week", "spark_note": scale["note"],

@@ -75,8 +75,10 @@ def _flow(a, b):
 
 
 def synth_payload() -> dict:
-    """The 4b synthetic payload, plus (4c1) its Players block by the real engine path."""
-    return add_synth_players(_synth_payload_4b())
+    """The 4b synthetic payload, plus (4c1) its Players block by the real engine
+    path, plus (4c2) the roster table's Detailed columns by the real engine path
+    (roster.build), the grids' tooltips and last week."""
+    return add_synth_teams(add_synth_players(_synth_payload_4b()))
 
 
 def _synth_payload_4b() -> dict:
@@ -114,7 +116,7 @@ def _synth_payload_4b() -> dict:
         ps = rosters[m]["players"]
         teams[m] = {
             "slot": SLOTS[m], "mono": v2data.monogram(TEAMS[m]), "team": TEAMS[m], "manager": m,
-            "sub": f"{m} \u00b7 {power_rows[i]['record']} \u00b7 #{i + 1} \u00b7 {power_rows[i]['pf']} PF",
+            "sub": f"{m} \u00b7 {power_rows[i]['record']} \u00b7 Power #{i + 1} \u00b7 {power_rows[i]['pf']} PF",
             "record": power_rows[i]["record"], "odds": power_rows[i]["odds"], "injured": "2", "adds_left": "2",
             "kpi": {"odds": {"label": "Title odds", "value": power_rows[i]["odds"], "ctx": "\u25b2 6.0 pts since the last run",
                              "dir": "up"},
@@ -301,6 +303,8 @@ def add_synth_players(p: dict, previous: bool = True) -> dict:
 
 def render(p=None, mode="preview", now=None):
     p = p or synth_payload()
+    if p.get("v2") is not None and "roster_cols" not in p["v2"] and "players" in p["v2"]:
+        add_synth_teams(p)                  # a 4c1 test's own payload: the 4c2 keys by the same path
     return page.render(view.build(p, mode=mode, now=now or GEN + timedelta(hours=2)))
 
 
@@ -571,6 +575,10 @@ def test_every_tap_target_is_at_least_44px():
     for c in page.TAP_CLASSES:
         if c == "lh-c-hit":
             continue                      # the design's chart strips: full plot height (README LineChart)
+        if c == "v2-ev-hit":              # 4c2: a chart marker's tap circle, 44 across (r 22)
+            assert re.findall(r'<circle class="v2-ev-hit"[^>]*\br="(\d+)"', render()) and \
+                set(re.findall(r'<circle class="v2-ev-hit"[^>]*\br="(\d+)"', render())) == {"22"}
+            continue
         rules = re.findall(rf"\.{re.escape(c)}(?:[\w:\-\[\]=\"]*)\s*\{{([^}}]*)\}}", css)
         ok = any(re.search(r"(min-)?height:\s*var\(--(tap-min|row-min)\)", r) for r in rules) or c == "lh-card"
         assert ok, f".{c} sets no tap-min height"
@@ -613,7 +621,7 @@ def test_charts_use_the_design_classes_and_no_colour():
     for c in ch:
         assert not re.search(r"#[0-9A-Fa-f]{6}\b", c)
         assert "lh-c-line" in c and re.search(r'class="lh-t-(blue|teal|orange|plum)"', c)
-    assert 'class="lh-c-event"' in h and "Marcus Wing healthy" in h
+    assert 'class="lh-c-event v2-ev--' in h and 'data-tip-b="Marcus Wing healthy' in h      # 4c2: words on tap
 
 
 def test_desktop_two_columns_and_top_bar():
@@ -768,7 +776,11 @@ def real_payload():
         pytest.skip("no league state on this machine")
     league_state.skip_if_actuals_behind()   # H51: a cache a day behind is normal
     try:
-        return hs.build(ROOT, now=league_now(), allow_engine_mismatch=True, echo=lambda *a, **k: None)
+        po = {}
+        p = hs.build(ROOT, now=league_now(), allow_engine_mismatch=True, echo=lambda *a, **k: None, players_out=po)
+        if p.get("v2") is not None:
+            v2data.attach_players(p, po)    # 4c2: the Players rows live in their own file
+        return p
     except (hs.HubInputError, player_actuals.ActualsError) as e:
         pytest.skip(f"the hub's real inputs are not current today ({e})")
 
@@ -812,3 +824,157 @@ def test_real_v2_preview_from_todays_inputs(real_payload, tmp_path):
                       now=now)
     assert rep["served_bytes"] <= budget_bytes(), rep
     assert hub_publish.scan_dir(tmp_path / "pub", hub_publish.scan_terms(ROOT))["hits"] == {}
+
+
+# =============================================================================
+# 4c2: the roster table's Detailed columns (modules/hub_v2/roster.build, the
+# REAL engine path on made-up inputs), the grids' tooltips and last week
+# =============================================================================
+
+import tempfile as _tempfile
+from types import SimpleNamespace as _NS
+
+SYN_BASE = Path(_tempfile.mkdtemp(prefix="hub_v2_syn_"))
+SYN_PRICE = 0.02                       # title-odds points per point
+SYN_TV = {0: 52.4, 1: -18.6, 2: 7.2, 3: -3.4}        # by roster index (4 = the IL row)
+
+
+def _syn_files(base: Path) -> None:
+    """config/DRAFT_PICKS_CURRENT.json and data/transaction_log.jsonl for the
+    made-up league: each team's Guard kept, Wing drafted in round 2, Big added
+    as a free agent 11-09, Bench traded for 10-30, Hurt drafted in round 5."""
+    (base / "config").mkdir(parents=True, exist_ok=True)
+    (base / "data").mkdir(parents=True, exist_ok=True)
+    picks = []
+    for k, m in enumerate(MGRS):
+        picks += [{"season": "2026-27", "pick_number": 40 + k, "round": 10, "manager": m, "player_name": f"{m} Guard",
+                   "is_keeper": True},
+                  {"season": "2026-27", "pick_number": 5 + k, "round": 2, "manager": m, "player_name": f"{m} Wing",
+                   "is_keeper": False},
+                  {"season": "2026-27", "pick_number": 17 + k, "round": 5, "manager": m, "player_name": f"{m} Hurt",
+                   "is_keeper": False}]
+    (base / "config" / "DRAFT_PICKS_CURRENT.json").write_text(json.dumps({"season": "2026-27", "picks": picks}),
+                                                             encoding="utf-8")
+    rows = []
+    for m in MGRS:
+        rows.append({"row": "transaction", "status": "successful", "type": "add", "league_day": "2026-11-09",
+                     "players": [{"action": "add", "name": f"{m} Big", "to": {"manager": m}}]})
+        rows.append({"row": "transaction", "status": "successful", "type": "trade", "league_day": "2026-10-30",
+                     "players": [{"action": "trade", "name": f"{m} Bench", "to": {"manager": m}}]})
+    (base / "data" / "transaction_log.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n",
+                                                         encoding="utf-8")
+
+
+def syn_world(p: dict) -> dict:
+    """The made-up inputs roster.build reads: the actuals cache (the same days
+    4c1's Players rows were built from), the NBA schedule (team AAA plays every
+    other day, against BBB at home), the daily lineups log, the projections."""
+    import pandas as pd
+    from modules.hub_v2 import data as _d
+    blob = {"first_day": SYN_FIRST.isoformat(), "roster_names": {}, "players": {}}
+    games, lu, proj = [], [], {}
+    pid = 0
+    tdates = [SYN_FIRST + timedelta(days=i) for i in range(0, 60, 1)]
+    for d in tdates:
+        games.append({"date": f"{d.isoformat()}T19:00:00Z", "home": "AAA", "away": "BBB"})
+    for m in MGRS:
+        for j, pl in enumerate(p["rosters"][m]["players"]):
+            pid += 1
+            days = _syn_days(pl["fppg"], pl["l14"], pl["gp"])
+            blob["roster_names"][pl["name"]] = pid
+            blob["players"][str(pid)] = {"name": pl["name"], "days": days}
+            proj[pl["name"]] = {"projectedFPPG": float(pl["proj"])}
+            for iso, (pts, g) in sorted(days.items()):
+                # on this team from the first day, except the Bench, traded for 11-21
+                if j == 3 and iso < "2026-11-21":
+                    continue
+                slot = "BN" if (j == 2 and g and iso.endswith(("1", "3", "5"))) else "PG"
+                lu.append({"date": iso, "manager": m, "player_name": pl["name"], "slot": slot,
+                           "fantasy_points": pts if g and slot != "BN" else float("nan")})
+    return {"blob": blob, "games": games, "lineups": pd.DataFrame(lu), "proj": proj, "tdates": tdates}
+
+
+class _SynAv:
+    """The Availability roster.build and data.py read: team AAA's dates, who
+    will play (every rostered non-IL player on a team date), positions."""
+
+    def __init__(self, p, tdates):
+        self.team_dates = {"AAA": list(tdates)}
+        self.rosters = {m: [x["name"] for x in p["rosters"][m]["players"] if not x["in_il"]] for m in MGRS}
+        self.info = {x["name"]: {"positions": ["PG"], "proj_fppg": 30.0, "nba_team": "AAA"}
+                     for m in MGRS for x in p["rosters"][m]["players"]}
+
+    def players(self, m, d):
+        return list(self.rosters[m]) if d in self.team_dates["AAA"] else []
+
+    def playable(self, name, days):
+        return [d for d in days if d in self.team_dates["AAA"] and not name.endswith("Wing")]
+
+    def has_game(self, name, d):
+        return d in self.team_dates["AAA"]
+
+
+def add_synth_teams(p: dict) -> dict:
+    """v2's 4c2 keys on the made-up league: roster_cols and every team's
+    roster.detail by the REAL roster.build; the grids' tooltips; the win
+    chart's event tooltip; last week; the header's line string."""
+    from modules.hub_v2 import roster as R, data as _d
+    _syn_files(SYN_BASE)
+    w = syn_world(p)
+    av = _SynAv(p, w["tdates"])
+    data = _NS(lineups=w["lineups"], nba_schedule={"games": w["games"]}, injury_overrides={"players": []})
+    tv = {"weeks": [10, 11], "kind": "chat", "sims": 48, "seconds": 0.1,
+          "values": {m: {x["name"]: {"pts": SYN_TV[j], "by_week": {}, "repl": "Free Guy"}
+                         for j, x in enumerate(p["rosters"][m]["players"]) if not x["in_il"]} for m in MGRS}}
+    joined = {(m, x["name"]): ("2026-11-21" if j == 3 else "2026-11-09" if j == 2 else None)
+              for m in MGRS for j, x in enumerate(p["rosters"][m]["players"])}
+    nxt = [GEN.date() + timedelta(days=5 + i) for i in range(7)]
+    ctx = {"players_block": p["v2"]["players"], "actuals": w["blob"], "yesterday": SYN_YESTERDAY,
+           "today": GEN.date(), "av": av, "next_av": av, "data": data, "joined": joined, "proj": w["proj"],
+           "next_days": nxt, "team_value": tv, "title_prices": ({m: SYN_PRICE for m in MGRS}, "title", None),
+           "sched_days": [[GEN.date() + timedelta(days=i) for i in range(5)], nxt,
+                          [GEN.date() + timedelta(days=12 + i) for i in range(7)]]}
+    shared, detail = R.build(SYN_BASE, p, ctx)
+    v2 = p["v2"]
+    v2["roster_cols"] = shared
+    for m in MGRS:
+        v2["teams"][m]["roster"]["detail"] = detail[m]
+        for row in v2["teams"][m]["schedule"]["rows"]:
+            for k, c in enumerate(row["cells"]):
+                il = p["rosters"][m]["players"][row["i"]]["in_il"]
+                c["tip"] = ({"h": f"Wk {9 + k}", "b": "IL slot \u00b7 back 12-14"} if il else
+                            {"h": f"Wk {9 + k}" + (" rest" if k == 0 else ""), "b": "Mon \u00b7 Wed",
+                             "f": "Fri\u2013Sat B2B \u00b7 out Mon"})
+                if il:
+                    c["n"], c["b"] = DASH, 0
+                else:
+                    c["n"], c["b"] = "2", 2
+    for r in v2["grid3"]["rows"]:
+        for k, c in enumerate(r["cells"]):
+            c["tip"] = {"h": f"Wk {9 + k}", "b": "Mon 8 \u00b7 Tue 7", "f": f"{c['n']} starts"}
+    for mu in v2["matchups"]:
+        for r in mu["starts"]["rows"]:
+            for k, c in enumerate(r["cells"]):
+                c["tip"] = {"h": f"Thu 12-0{3 + k} \u00b7 {TEAMS[r['m']]}", "b": f"{r['m']} Guard, {r['m']} Big",
+                            "f": f"{c['n']} starts"}
+        for pt in mu["win"]["points"]:
+            if pt["event"]:
+                pt["dir"], pt["tip"] = "down", {"h": pt["when"], "b": pt["event"], "f": "GC \u22129.1%"}
+    lw = {"week": 8, "title": "Week 8 \u00b7 Nov 23\u201329",
+          "note": "How last week ended, and how Monday's closing line did.", "cards": []}
+    p["matchups"]["last"] = {"cards": []}
+    for i, (a, b, sa, sb, line, verdict) in enumerate([
+            ("Marcus", "Tyler", "1,702", "1,544", "Marcus \u221264 \u00b7 61% at the close",
+             "Marcus covered: won by 158"),
+            ("Dana", "Jordan", "1,480", "1,512", "No closing line that week", "")]):
+        ids = {k: f"v-mu8-{i}-{k}" for k in ("sum", "win", "flow")}
+        p["matchup_views"].append({"id": ids["sum"], "title": "x", "sub": "Week 8 \u00b7 Summary \u00b7 final",
+                                   "kind": "summary", "paras": [{"head": "Final", "text": f"{a} and {b} are done."}]})
+        lw["cards"].append({"id": f"w8-{i}", "a": a, "b": b, "score_a": sa, "score_b": sb,
+                            "result": f"Final: {a if sa > sb else b} by {158 if i == 0 else 32}", "line": line,
+                            "verdict": verdict, "views": ids, "win_a": "100.0%" if i == 0 else "0.0%",
+                            "win_b": "0.0%" if i == 0 else "100.0%", "won": "a" if i == 0 else "b",
+                            "win": _win(), "flow": _flow(a, b)})
+    v2["last"] = lw
+    v2["line_text"] = p["header"]["line_text"]
+    return p

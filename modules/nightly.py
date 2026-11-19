@@ -939,13 +939,13 @@ class Run:
             return "skipped: nothing changed since the last line (nothing published)"
         # decisions 2-3: only the nightly run builds the matchup paragraph; a
         # refresh or a pre-tip run shows last night's, byte for byte
-        night_out, cards_out, ratings_out = {}, {}, {}
+        night_out, cards_out, ratings_out, players_out = {}, {}, {}, {}
         payload = hub_state.build(self.base, now=self.now, allow_engine_mismatch=self.allow_dirty,
                                   previous_engine_ok=self.mode in REFRESH_MODES,
                                   echo=lambda *a: None,
                                   night="build" if self.mode == "nightly" else "reuse",
                                   night_out=night_out, nba_report=self.ctx.get("nba_report"),
-                                  cards_out=cards_out, ratings_out=ratings_out)
+                                  cards_out=cards_out, ratings_out=ratings_out, players_out=players_out)
         # task 40: the player cards, on every run that builds the hub, from this
         # build's own keepability; build_hub publishes them (output/hub_cards.json,
         # regenerable, not state). THEY FAIL SOFTLY (Nick, 11-12, like advice):
@@ -968,7 +968,10 @@ class Run:
                 hub_cards.strip(payload)
         if cards is None:
             hub_cards.discard(self.base)             # an earlier run's cards are never reused
+        # 4c2: the new hub's Players rows go to output/hub_players.json (not state)
         hub_state.write(self.base, payload)
+        if players_out:
+            hub_state.write_players(self.base, players_out)
         if self.mode == "nightly" and night_out.get("night") is not None:
             hub_matchups.write_night(self.base, night_out["night"], run_id=self.run_id)
         self.ctx["headshots"] = hub_cards.coverage(self.base, payload) if cards is not None else None

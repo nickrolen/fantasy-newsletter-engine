@@ -72,6 +72,10 @@ from typing import Dict, List, Optional
 
 SCHEMA = 1
 PAYLOAD_RELPATH = Path("output") / "hub_state.json"
+# 4c2 (4c1 decision 8): the new hub's Players rows, beside the payload, not in
+# it: regenerable (every hub build writes it), not state (the manifest's
+# excluded), read back by the v2 page's builder (hub_v2.data.attach_players)
+PLAYERS_RELPATH = Path("output") / "hub_players.json"
 MOVES_DAYS = 7                     # the ledger view's feed window (move_ledger.hub_view)
 WEEKDAY_LETTER = "MTWTFSS"
 MINUS = "\u2212"
@@ -1017,7 +1021,8 @@ def roster_size_text(n_rostered: int, n_in_il: int, active_cap: int, il_cap: int
 def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismatch: bool = False,
           previous_engine_ok: bool = False,
           archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None,
-          nba_report: dict = None, cards_out: dict = None, ratings_out: dict = None) -> dict:
+          nba_report: dict = None, cards_out: dict = None, ratings_out: dict = None,
+          players_out: dict = None) -> dict:
     """The hub's payload. night (Step 3a): "build" builds the matchup
     paragraph (the nightly run, and a desk build); "reuse" shows the nightly
     run's stored one (a refresh, a pre-tip run). night_out, when given, gets
@@ -1028,7 +1033,11 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     run's player cards are built from this build's own keepability.
     ratings_out (4c1), when given, gets the ratings step's record
     (ratings_step): the nightly appends its history line once the hub is
-    published, and records its error and seconds."""
+    published, and records its error and seconds.
+    players_out (4c2), when given, gets the new hub's Players file
+    (hub_v2.data.players_file: v2.players, stamped with this payload): the
+    payload itself never holds v2.players. Write it with write_players(base,
+    ...); the v2 page's builder reads it back (attach_players)."""
     base = Path(base_path)
     from .league_clock import league_now
     from .data_loader import (load_all_data, MANAGERS, MANAGER_TO_TEAM, PlayerIndex,
@@ -1076,6 +1085,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         raise llp.EngineMismatch(f"week {week} live line: {check['why']}")
     status = price_lock.status(now, data.nba_schedule)
     line_at = datetime.fromisoformat(line["generated_at"])
+    line_text = header_line_text(base, week, line_at)
     # H52: a refused closing line no longer stops the night: the hub says so
     from . import closing_line as _cl
     closing_note = _cl.refusal_note(base, now, data) or None
@@ -1407,7 +1417,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "header": {"title": "League Hub", "week_label": f"Week {week} \u00b7 {_mon_d(today)}",
                    "lock": lock_note(status, base, week),
                    "nba": nba_note(base, nba_report),
-                   "line_text": f"Line priced {_clock_text(line_at)}",
+                   "line_text": line_text,
                    "engine_mismatch": None if check["ok"] else check["why"],
                    "engine_note": engine_note,
                    "closing_note": closing_note},
@@ -1448,7 +1458,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "matchup_cards": payload["matchups"]["cards"], "budget": budget, "adds": adds,
         "this_days": this_days, "next_days": next_days, "grid_tabs": grid["tabs"],
         "light_max": cfg["light_night_max"], "standins": sdates, "keeper_watch": kw, "moves": moves,
-        "line": line, "matchup_views": mviews["views"], "newsletter": newsletter}, echo=echo)
+        "line": line, "matchup_views": mviews["views"], "newsletter": newsletter,
+        "matchups_last": payload["matchups"]["last"], "line_text": line_text}, echo=echo)
     # task 40: a card key beside every player name shown, and the list of cards.
     # The cards fail softly (Nick, 11-12): a failure here (an unknown
     # moves-feed form, two players with one slug, anything) leaves every name
@@ -1470,6 +1481,19 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         payload["v2"], payload["v2_error"] = v2data.players_soft(base, payload, {
             "ratings": rt, "actuals": actuals, "yesterday": yesterday, "av": av, "info": player_info,
             "next_days": next_days, "proj": proj, "keeper_watch": kw, "tag_row": tag_row}, echo=echo)
+    # 4c2: the roster table's Detailed columns (modules/hub_v2/roster.py, with
+    # Team value: modules/hub_v2/team_value.py), after the Players rows they
+    # share; then v2.players leaves the payload for its own file (4c1 decision 8)
+    if payload["v2"] is not None:
+        payload["v2"], payload["v2_error"] = v2data.teams_soft(base, payload, {
+            "data": data, "now": now, "week": week, "today": today, "yesterday": yesterday,
+            "actuals": actuals, "av": av, "next_av": next_av, "next_days": next_days, "wk_dates": wk_dates,
+            "joined": joined, "proj": proj, "tag_row": tag_row, "tags": tags, "il_slots": il_slots,
+            "pool": [r["player_name"] for r in fa_records] + list(dropped)}, echo=echo)
+    if payload["v2"] is not None:
+        obj = v2data.players_file(payload)
+        if players_out is not None:
+            players_out.update(obj)
     if cards_out is not None:
         cards_out.update(keeper_watch=kw, data=data)
     return payload
@@ -1572,11 +1596,51 @@ def newsletter_block(index: dict, schedule: dict) -> dict:
             "note": "Past issues, exactly as published. An issue loads when you tap it."}
 
 
+def header_line_text(base, week: int, line_at: datetime) -> str:
+    """The header's line string. "Line priced <the live line's time>", or,
+    once this week's closing line is on file AND is the latest pricing (the
+    live line was priced before the window closed: the evening between the
+    closing run and the 12:05 AM nightly), "Closing line priced <the close>"
+    (H52 s.7, Nick: yes). From the next pricing on, the live line's time again:
+    the matchup cards then show that line, not the close."""
+    cp = Path(base) / "output" / f"closing_line_week{week}.json"
+    if cp.is_file():
+        cl = json.loads(cp.read_text(encoding="utf-8"))
+        close = datetime.fromisoformat(cl["closing"]["window_close"])
+        if line_at < close:
+            return f"Closing line priced {_clock_text(close)}"
+    return f"Line priced {_clock_text(line_at)}"
+
+
+def players_path_for(state_path) -> Path:
+    """Where a payload file's Players file lives: output/hub_state.json ->
+    output/hub_players.json; any other (a scratch --out) -> <stem>_players.json
+    beside it."""
+    p = Path(state_path)
+    return p.with_name("hub_players.json" if p.stem == "hub_state" else f"{p.stem}_players.json")
+
+
 def write(base_path, payload: dict) -> Path:
     from .data_loader import atomic_write_json
     p = Path(base_path) / PAYLOAD_RELPATH
     atomic_write_json(p, payload, indent=1)
     return p
+
+
+def write_players(base_path, players: dict) -> Path:
+    """output/hub_players.json: build's players_out (4c2), beside the payload."""
+    from .data_loader import atomic_write_json
+    p = players_path_for(Path(base_path) / PAYLOAD_RELPATH)
+    atomic_write_json(p, players, indent=None)
+    return p
+
+
+def load_players(state_path) -> Optional[dict]:
+    """The Players file beside a payload file, or None when there is none."""
+    q = players_path_for(state_path)
+    if not q.is_file():
+        return None
+    return json.loads(q.read_text(encoding="utf-8"))
 
 
 def load(base_path=".") -> dict:

@@ -384,7 +384,10 @@ def card_html(cv: dict) -> str:
     b = s["bars"]
     o.append('<section class="lh-card v2-gap8"><div class="lh-sechead"><h2 class="lh-eyebrow">Fantasy points by game'
              '</h2><span class="lh-meta">this season</span></div>')
-    if b["bars"]:
+    if b.get("line"):                              # 4c2: past card.BAR_MAX_GAMES, a line
+        o.append(_line(b["line"], ids.next("ch")))
+        o.append('<div class="v2-axis">' + "".join(f"<span>{clean(t)}</span>" for t in b["axis"]) + "</div>")
+    elif b["bars"]:
         cid = ids.next("bars")
         o.append(f'<div class="lh-bars v2-bars{" " + tcls if tcls else ""}" role="group" aria-label="{clean(b["aria"])}" '
                  f'data-bars="{cid}">')

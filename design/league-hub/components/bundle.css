@@ -86,6 +86,12 @@ button { font: inherit; color: inherit; }
 .lh-info__pop { position: absolute; z-index: 5; top: calc(100% + 4px); right: -8px; width: 240px; background: var(--dark); color: var(--ink-on-dark); border-radius: var(--radius-12); padding: 10px 12px; font-size: 12px; line-height: 1.45; }
 .lh-info__pop b { display: block; font-size: 12px; margin-bottom: 2px; }
 .lh-info__pop[hidden] { display: none; }
+/* Tooltip (4c2): the one small dark box a tap opens -- a chart's event marker, a games-grid cell. The page's script places it (fixed: above its anchor, inside the screen, never over a chart's end labels). */
+.lh-tip { position: fixed; z-index: 20; max-width: var(--tip-max); background: var(--dark); color: var(--ink-on-dark); border-radius: var(--radius-12); padding: var(--space-8) var(--space-12); font-size: 12px; line-height: 1.45; pointer-events: none; }
+.lh-tip b { display: block; font-weight: 800; }
+.lh-tip span { display: block; }
+.lh-tip span + span { color: var(--ink-on-dark-2); }
+.lh-tip[hidden] { display: none; }
 
 /* ---------- tables ---------- */
 .lh-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }

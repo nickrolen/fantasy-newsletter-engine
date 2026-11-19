@@ -32,6 +32,13 @@ page never prints them.
                     "win": {...}, "flow": {...}, "starts": {...}, "missing": [...],
                     "lines": {...}}]          this week's, in the payload's card order
       "issue": {"text", "file", "week"} or None
+      "last": {"title", "note", "cards": [...]} or None   last week's matchups, final (4c2)
+      "line_text": the header's line string (hub_state's, the same engine string)
+    4c2: every games-grid cell carries "tip" {"h", "b", "f"}: the tooltip's
+    head (the week or the day), body (the days he plays, who starts) and foot
+    (back-to-backs, the days he is out), strings; the win-% points' events carry
+    "tip" and "dir". teams[m].roster.detail (modules/hub_v2/roster.py) is added
+    after the Players rows.
       "players", "ratings"   (4c1; players_soft, after hub_cards.annotate:
                              modules/hub_v2/players.py)
     }
@@ -179,6 +186,62 @@ def bucket(v: int, edges) -> int:
 
 
 # =============================================================================
+# the games grids' tooltips (4c2, HUB_PREVIEW_NOTES s.3): one small dark box,
+# {"h": the week or the day, "b": the days or who, "f": the marks}, strings
+# =============================================================================
+
+def week_head(w: int, sub: str) -> str:
+    return f"Wk {w}" + (" rest" if sub == "rest" else "")
+
+
+def day_name(d: date, long_week: bool) -> str:
+    """"Mon", or "Mon 12-21" in a week longer than seven days (rule 9)."""
+    return f"{d:%a}" + (f" {d.month:02d}-{d.day:02d}" if long_week else "")
+
+
+def b2b_text(days: list, long_week: bool) -> list:
+    """["Fri\u2013Sat B2B"] for each pair of consecutive days in `days`."""
+    ds = sorted(days)
+    return [f"{day_name(x, long_week)}\u2013{day_name(y, long_week)} B2B" for x, y in zip(ds, ds[1:])
+            if (y - x).days == 1]
+
+
+def player_week_tip(av, name: str, w: int, sub: str, days: list, long_week: bool) -> tuple:
+    """(count, tip) for a player's week: the days he will play (av.plays, the
+    count's own rule), back-to-backs among them, and his team's game days he
+    is out ("out Mon"), so the count and the days agree."""
+    plays = av.playable(name, days)
+    out = [d for d in days if av.has_game(name, d) and d not in plays]
+    marks = b2b_text(plays, long_week)
+    if out:
+        marks.append("out " + ", ".join(day_name(d, long_week) for d in out))
+    body = " \u00b7 ".join(day_name(d, long_week) for d in plays) or "No games he will play"
+    tip = {"h": week_head(w, sub), "b": body}
+    if marks:
+        tip["f"] = " \u00b7 ".join(marks)
+    return len(plays), tip
+
+
+def il_tip(w: int, sub: str, back: str) -> dict:
+    return {"h": week_head(w, sub), "b": "IL slot" + (f" \u00b7 {back}" if back else "")}
+
+
+def starters_on(av, m: str, d: date) -> tuple:
+    """(starters, maybe, out tonight): the daily fill of who will play (the
+    grid's own fit, schedule_strength.fill_daily_lineup_detail), a Q's next
+    game added when it fits, and the NBA report's Outs. Names."""
+    from ..schedule_strength import fill_daily_lineup_detail
+
+    def fit(ps):
+        return fill_daily_lineup_detail([(p, set(av.info[p]["positions"]), float(av.info[p].get("proj_fppg", 0.0)))
+                                         for p in ps])[0]
+    sure, maybe, nba = av.grid_players(m, d)
+    st = fit(sure)
+    hi = fit(sure + maybe)
+    return st, [p for p in hi if p not in st], nba
+
+
+# =============================================================================
 # the title-odds sparkline
 # =============================================================================
 
@@ -242,7 +305,7 @@ def sparks(points: dict, wk_dates: dict, today: date, managers, label: str) -> t
 # the matchup charts' series
 # =============================================================================
 
-def win_series(entry: dict, a: str, b: str, points: list, tz, team_of: dict) -> dict:
+def win_series(entry: dict, a: str, b: str, points: list, tz, team_of: dict, mono: dict = None) -> dict:
     """The Win % chart's points: x the moment's place in the week (0..1), the
     two percentages, the tap text (time, run or cause, both values), and an
     event label where the engine recorded a cause off the routine schedule and
@@ -266,8 +329,16 @@ def win_series(entry: dict, a: str, b: str, points: list, tz, team_of: dict) -> 
             short = short.split(", ")[0].split("; ")[0]
             ev = short if len(short) <= EVENT_LABEL_MAX else short[:EVENT_LABEL_MAX - 1].rstrip() + "\u2026"
         cause = "" if lab == "final" else lab
-        out.append({"x": x, "a": float(pa), "b": float(pb), "ta": pct(pa), "tb": pct(pb), "when": when,
-                    "cause": cause, "event": ev})
+        pt = {"x": x, "a": float(pa), "b": float(pb), "ta": pct(pa), "tb": pct(pb), "when": when,
+              "cause": cause, "event": ev}
+        if ev:
+            # 4c2: a hollow up/down dot, its words in the tooltip only
+            from ..hub_charts import signed
+            sw = float(pa) - float(prev)
+            pt["dir"] = "up" if sw > 0 else "down"
+            pt["tip"] = {"h": when, "b": short,
+                         "f": ((mono or {}).get(a, team_of[a]) + " " + signed(sw, 1) + "%")}
+        out.append(pt)
         prev = pa
     days = [a0 + timedelta(days=i) for i in range((b0 - a0).days + 1)]
     ticks = [{"x": (i + 0.5) / len(days), "t": f"{d:%a}"} for i, d in enumerate(days)]
@@ -370,6 +441,68 @@ def players_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
     return v2, None
 
 
+def teams_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
+    """(v2, error) with each team's roster.detail (4c2, modules/hub_v2/
+    roster.py) and Team value (team_value.py) added, after the Players rows.
+    A failure leaves v2 out, softly, as build_soft does: (None, {"stage":
+    "roster", "error"}), echoed loudly."""
+    from . import roster, team_value as tvm
+    v2 = payload["v2"]
+    try:
+        active = {m: [p["name"] for p in rb["players"] if not p["in_il"]] for m, rb in payload["rosters"].items()}
+        tv = tvm.compute(data=ctx["data"], now=ctx["now"], week=ctx["week"], wk_dates=ctx["wk_dates"],
+                         active=active, pool=list(ctx["pool"]), tag_row=ctx["tag_row"], tags=ctx["tags"])
+        prices = tvm.title_prices(base, list(payload["rosters"]), tv["weeks"]) if tv["weeks"] else ({}, "", "")
+        wk = {int(w): list(v) for w, v in ctx["wk_dates"].items()}
+        today = ctx["today"]
+        sched_days = [[d for d in wk.get(ctx["week"], []) if d >= today], wk.get(ctx["week"] + 1, []),
+                      wk.get(ctx["week"] + 2, [])]
+        shared, detail = roster.build(base, payload, dict(ctx, players_block=v2["players"], team_value=tv,
+                                                          title_prices=prices, sched_days=sched_days))
+    except Exception as e:                       # noqa: BLE001 -- v2 fails softly until the switch-over
+        err = {"stage": "roster", "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
+        echo(f"NEW HUB KEYS FAILED (payload v2 left out; the current hub goes on): {err['error']}")
+        return None, err
+    v2["roster_cols"] = shared
+    for m, d in detail.items():
+        v2["teams"][m]["roster"]["detail"] = d
+    v2["team_value"] = {"weeks": tv["weeks"], "seconds": tv["seconds"], "sims": tv["sims"]}
+    return v2, None
+
+
+PLAYERS_SCHEMA = 1
+
+
+def players_file(payload: dict) -> dict:
+    """Take v2.players OUT of the payload (4c1 decision 8: the payload's size)
+    and return it as its own file's object, stamped with the payload's
+    generated_at and engine key so a stale file is never shown with a newer
+    payload. The payload keeps a pointer: v2["players_file"]."""
+    v2 = payload["v2"]
+    block = v2.pop("players")
+    v2["players_file"] = {"rows": len(block["rows"]), "generated_at": payload["generated_at"]}
+    return {"schema": PLAYERS_SCHEMA, "generated_at": payload["generated_at"],
+            "engine": (payload.get("engine") or {}).get("key"), "players": block}
+
+
+def attach_players(payload: dict, obj: Optional[dict]) -> dict:
+    """The payload with v2.players put back from its file, in memory, for the
+    page's builder. RAISES V2Error when the file is missing or was built for
+    another payload."""
+    v2 = payload.get("v2")
+    if v2 is None or "players" in v2:
+        return payload
+    if obj is None:
+        raise V2Error("the new hub's Players file (output/hub_players.json) is missing: rebuild the payload "
+                      "with this engine (python scripts/build_hub_state.py)")
+    if obj.get("schema") != PLAYERS_SCHEMA or obj.get("generated_at") != payload.get("generated_at") \
+            or obj.get("engine") != (payload.get("engine") or {}).get("key"):
+        raise V2Error(f"the Players file was built for {obj.get('generated_at')}, the payload is "
+                      f"{payload.get('generated_at')}: rebuild both (python scripts/build_hub_state.py)")
+    v2["players"] = obj["players"]
+    return payload
+
+
 def build(base, ctx: dict) -> dict:
     """payload["v2"] from hub_state.build's own locals (ctx). RAISES V2Error."""
     from .. import hub_charts as hc, winprob_history as wh, keepability_v3 as kv3
@@ -428,7 +561,8 @@ def build(base, ctx: dict) -> dict:
     sched_cols = []
     for w, days, sub in ((week, this_days, "rest"), (week + 1, next_days, ""), (week + 2, third_days, "")):
         if days:
-            sched_cols.append({"label": f"Wk {w}", "sub": sub, "days": days})
+            sched_cols.append({"label": f"Wk {w}", "sub": sub, "days": days, "w": w,
+                               "long": len(wk_dates.get(w) or days) > 7})
 
     # --- the 3-week games grid: starts per team per week. The first two
     # columns are the current grid's tabs; the third is the same rule on the
@@ -445,17 +579,21 @@ def build(base, ctx: dict) -> dict:
         cols3.append(("third", third_days))
     cols3 = [(k, ds) for k, ds in cols3 if ds]
     grid_cells = {m: [] for m in managers}
-    for k, _ds in cols3:
+    for (k, ds), sc in zip(cols3, sched_cols):
         vals = {m: _lo(grid_rows[k][m]["starts"]) for m in managers}
         ranked = sorted(set(vals.values()), reverse=True)
         for m in managers:
             # darkest for the most starts that week; ranks, so a short week compares fairly
-            grid_cells[m].append({"n": grid_rows[k][m]["starts"], "b": 4 - min(3, ranked.index(vals[m]))})
+            per_day = [f"{day_name(d, sc['long'])} {cell['starts']}" for d, cell in zip(ds, grid_rows[k][m]["cells"])]
+            tip = {"h": week_head(sc["w"], sc["sub"]), "b": " \u00b7 ".join(per_day),
+                   "f": f"{grid_rows[k][m]['starts']} starts"}
+            grid_cells[m].append({"n": grid_rows[k][m]["starts"], "b": 4 - min(3, ranked.index(vals[m])), "tip": tip})
     grid3 = {"cols": [{"label": c["label"], "sub": c["sub"]} for c in sched_cols],
              "rows": [{"m": m, "cells": grid_cells[m]} for m in order],
-             "note": ("Starts: games that fit a starting lineup, for players who will play. Darker = more "
-                      "starts than the other teams that week. Weeks after this one count rosters as they "
-                      "will stand with the pending moves.")}
+             "note": ("Starts: games that fit a starting lineup, for players who will play. Shaded by rank "
+                      "within each week: darker = more starts than the other teams that week, so a short "
+                      "week compares fairly. Weeks after this one count rosters as they will stand with the "
+                      "pending moves. Tap a cell for its starts by day.")}
 
     # --- teams
     teams = {}
@@ -466,15 +604,20 @@ def build(base, ctx: dict) -> dict:
         # roster extras: games played, next week's games
         extra, sched_rows = [], []
         for i, p in enumerate(players):
-            per = []
+            per, tips = [], []
+            back = next((t["text"] for t in p["tags"] if str(t["text"]).startswith("back ")), "")
             for c in sched_cols:
-                n = None if p["in_il"] else len(av.playable(p["name"], c["days"]))
+                if p["in_il"]:
+                    n, tip = None, il_tip(c["w"], c["sub"], back)
+                else:
+                    n, tip = player_week_tip(av, p["name"], c["w"], c["sub"], c["days"], c["long"])
                 per.append(n)
+                tips.append(tip)
             nxt_n = per[1] if len(per) > 1 else None
             extra.append({"gp": str(int(p["gp"])), "next": DASH if nxt_n is None else str(nxt_n)})
             sched_rows.append({"i": i, "cells": [{"n": DASH if n is None else str(n),
-                                                  "b": 0 if n is None else bucket(n, WEEK_GAME_EDGES)}
-                                                 for n in per]})
+                                                  "b": 0 if n is None else bucket(n, WEEK_GAME_EDGES), "tip": tip}
+                                                 for n, tip in zip(per, tips)]})
         nm = lambda i: players[i]["name"]
         ord_gp = sorted(range(len(players)), key=lambda i: (-int(players[i]["gp"]), nm(i)))
         ord_next = sorted(range(len(players)),
@@ -503,7 +646,7 @@ def build(base, ctx: dict) -> dict:
         o = opp.get(m)
         teams[m] = {
             "slot": slots[m], "mono": mono[m], "team": team_of[m], "manager": m,
-            "sub": f"{m} \u00b7 {rk['record']} \u00b7 #{rk['rank']} \u00b7 {rk['pf']} PF",
+            "sub": f"{m} \u00b7 {rk['record']} \u00b7 Power #{rk['rank']} \u00b7 {rk['pf']} PF",
             "record": rk["record"], "odds": rk["odds"], "injured": str(injured),
             "adds_left": str(left),
             "kpi": {
@@ -567,7 +710,7 @@ def build(base, ctx: dict) -> dict:
             wpts = hc.winprob_points(a, b, rows, closing, None)
         except hc.ChartError as e:
             raise V2Error(str(e)) from None
-        win = win_series(entry, a, b, wpts, tz, team_of)
+        win = win_series(entry, a, b, wpts, tz, team_of, mono)
         flow = flow_series(entry, a, b, banked, expected, team_of, mono)
         for m, s in ((a, "a"), (b, "b")):
             if _int(flow["series"][m]["banked"][-1]) != c[s]["now"]:
@@ -577,8 +720,18 @@ def build(base, ctx: dict) -> dict:
         srows = []
         for m in (a, b):
             r = this_tab[m]
-            srows.append({"m": m, "total": r["starts"],
-                          "cells": [{"n": x["starts"], "b": bucket(_lo(x["starts"]), DAY_EDGES)} for x in r["cells"]]})
+            cells = []
+            for d, x in zip(this_days, r["cells"]):
+                st, maybe, nba = starters_on(av, m, d)
+                foot = [f"{x['starts']} starts"]
+                if maybe:
+                    foot.append("if Q plays: " + ", ".join(maybe))
+                if nba:
+                    foot.append("out tonight: " + ", ".join(nba))
+                cells.append({"n": x["starts"], "b": bucket(_lo(x["starts"]), DAY_EDGES),
+                              "tip": {"h": f"{d:%a} {d.month:02d}-{d.day:02d} \u00b7 {team_of[m]}",
+                                      "b": ", ".join(st) or "Nobody starts", "f": " \u00b7 ".join(foot)}})
+            srows.append({"m": m, "total": r["starts"], "cells": cells})
         # who's missing: either side's players who are not healthy, in roster order
         missing = []
         for m in (a, b):
@@ -639,9 +792,12 @@ def build(base, ctx: dict) -> dict:
                     "views": dict(c["views"]), "win": win, "flow": flow,
                     "starts": {"days": days_hdr, "rows": srows,
                                "note": "Darker = more starts that day, of 10 lineup spots (0\u20133, 4\u20135, "
-                                       "6\u20137, 8\u201310)."},
+                                       "6\u20137, 8\u201310). Tap a day for who starts."},
                     "missing": missing})
         mus[-1]["lines"] = lines
+
+    # --- last week's matchups, final, with how the closing line did (4c2)
+    last = last_week(base, data, week, ctx.get("matchups_last"), team_of, mono, tz)
 
     # --- the issue bar
     cur = (ctx["newsletter"] or {}).get("current")
@@ -652,4 +808,95 @@ def build(base, ctx: dict) -> dict:
             "sched_cols": [{"label": c["label"], "sub": c["sub"]} for c in sched_cols],
             "sched_note": ("Games he will play each week: not in an IL slot, not out under a tag or an "
                            "injury entry. Darker = more games (0\u20131, 2, 3, 4+)."),
-            "matchups": mus, "issue": issue}
+            "matchups": mus, "issue": issue, "last": last, "line_text": ctx.get("line_text") or ""}
+
+
+# =============================================================================
+# last week (4c2; 4b decision 11)
+# =============================================================================
+
+def line_verdict(close_ln: dict, a: str, b: str, fa: int, fb: int) -> tuple:
+    """(line text, verdict) for a matchup's closing line against its printed
+    final scores: the spread's favourite and how it went."""
+    from ..hub_state import _signed
+    from ..hub_charts import pts
+    sa, sb = (float(close_ln["spread_a"]), float(close_ln["spread_b"])) if close_ln["manager_a"] == a else \
+        (float(close_ln["spread_b"]), float(close_ln["spread_a"]))
+    wa = float(close_ln["win_prob_a"]) if close_ln["manager_a"] == a else float(close_ln["win_prob_b"])
+    if sa == sb:
+        return "Pick'em at the close", ("Tied" if fa == fb else f"{a if fa > fb else b} won by {pts(abs(fa - fb))}")
+    fav, spread, wf = (a, sa, wa) if sa < sb else (b, sb, 100.0 - wa)
+    dog = b if fav == a else a
+    text = f"{fav} {_signed(spread)} \u00b7 {wf:.0f}% at the close"
+    margin = (fa - fb) if fav == a else (fb - fa)
+    need = -spread
+    if margin > need:
+        verdict = f"{fav} covered: won by {pts(margin)}"
+    elif margin == need:
+        verdict = f"Push: {fav} won by exactly {pts(margin)}"
+    elif margin > 0:
+        verdict = f"{fav} won by {pts(margin)}, short of the spread"
+    elif margin == 0:
+        verdict = "Tied: the favourite did not win"
+    else:
+        verdict = f"Upset: {dog} won by {pts(-margin)}"
+    return text, verdict
+
+
+def last_week(base, data, week: int, cur_last: Optional[dict], team_of: dict, mono: dict, tz) -> Optional[dict]:
+    """Last week's matchups as they ended: final scores (equal to the current
+    hub's, hub_matchups' last-week block: RAISES otherwise), the closing line
+    and its verdict ("No closing line that week" without one), and each
+    matchup's Win % and Game flow as at the end (the final point; every day
+    banked). None in week 1."""
+    from .. import hub_charts as hc, winprob_history as wh
+    from ..hub_matchups import week_flow
+    from ..week_state import week_entry
+    from datetime import time as _time
+    lw = int(week) - 1
+    if lw < 1:
+        return None
+    if cur_last is None:
+        raise V2Error(f"week {week}: the payload has no last-week block to match")
+    e2 = week_entry(data, lw)
+    end2 = date.fromisoformat(str(e2["end_date"])[:10])
+    flow = week_flow(data, lw, end2 + timedelta(days=1))
+    rows2 = wh.read(base, lw)
+    cp = Path(base) / "output" / f"closing_line_week{lw}.json"
+    close2 = json.loads(cp.read_text(encoding="utf-8")) if cp.is_file() else None
+    at = datetime.combine(end2 + timedelta(days=1), _time(0), tzinfo=tz)
+    cards = []
+    mus = e2.get("matchups", [])
+    if len(mus) != len(cur_last["cards"]):
+        raise V2Error(f"week {lw}: {len(mus)} matchups, the payload's last-week block has {len(cur_last['cards'])}")
+    for i, (mu, lc) in enumerate(zip(mus, cur_last["cards"])):
+        a, b = mu["manager_a"], mu["manager_b"]
+        fa_, fb_ = float(flow["total"][a]), float(flow["total"][b])
+        if (lc["a"]["manager"], lc["b"]["manager"]) != (a, b) or hc.pts(fa_) != lc["a"]["score"] \
+                or hc.pts(fb_) != lc["b"]["score"]:
+            raise V2Error(f"week {lw} {a} vs {b}: {hc.pts(fa_)}\u2013{hc.pts(fb_)} here, "
+                          f"{lc['a']['score']}\u2013{lc['b']['score']} in the payload's results")
+        fa, fb = int(round(fa_)), int(round(fb_))
+        close_ln = None
+        if close2 is not None:
+            for x in close2["lines"]:
+                if {x["manager_a"], x["manager_b"]} == {a, b}:
+                    close_ln = x
+            if close_ln is None:
+                raise V2Error(f"closing_line_week{lw}.json has no line for {a} vs {b}")
+        if close_ln is None:
+            ltext, verdict = "No closing line that week", ""
+        else:
+            ltext, verdict = line_verdict(close_ln, a, b, fa, fb)
+        wpts = hc.winprob_points(a, b, rows2, close2, {"at": at, "a": fa_, "b": fb_})
+        win = win_series(e2, a, b, wpts, tz, team_of, mono)
+        fl = flow_series(e2, a, b, {a: flow["banked"][a], b: flow["banked"][b]}, None, team_of, mono)
+        win_a = "100.0%" if fa > fb else "0.0%" if fa < fb else "50.0%"
+        win_b = "100.0%" if fb > fa else "0.0%" if fb < fa else "50.0%"
+        cards.append({"id": f"w{lw}-{i}", "a": a, "b": b, "score_a": lc["a"]["score"], "score_b": lc["b"]["score"],
+                      "result": lc["result"], "line": ltext, "verdict": verdict, "views": dict(lc["views"]),
+                      "win_a": win_a, "win_b": win_b, "won": "a" if fa > fb else "b" if fb > fa else "",
+                      "win": win, "flow": fl})
+    return {"week": lw, "title": cur_last["title"], "cards": cards,
+            "note": ("How last week ended, and how Monday's closing line did: the favourite by the spread, "
+                     "against the final scores. Tap a matchup for its charts at the end.")}

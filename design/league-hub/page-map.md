@@ -6,27 +6,28 @@ Every screen, what's on it, and which components build it, in the order they app
 
 The big things, in this order:
 
-1. **AppHeader**: week, date, search, freshness (stale banner when stale).
+1. **AppHeader**: week, date, search, freshness (stale banner when stale), and the line's engine string: "Line priced Wed Nov 18, 3:30 PM Pacific", or, between the closing run and the next pricing, "Closing line priced Mon Nov 23, 6:55 PM Pacific" (4c2).
 2. **IssueBar**: "Latest issue · Week N: <headline>", which opens the newsletter.
 3. **This week's matchups**: one **MatchupCard** per matchup, in the engine's order. Eyebrow title on `canvas`, meta "Day N of 7".
 4. **Power rankings**: a Card of **RankingRow**s (title odds, 4-week sparkline, change).
 5. **Teams**: a 2×2 grid of team summary cards. Each card is a **TeamMark** + name + manager + four nested values: record, title odds, adds left, injured. The whole card is a link.
-6. **Trade block**: a Card listing each team's stance (Buying / Selling / Neutral as a neutral `StatusChip`), what's on the block and what they want.
+6. **Trade block**: a Card listing each team's stance (Buying / Selling / Neutral as a neutral `StatusChip`), then "On the block" and "Untouchable", or "Nothing listed." ("What they want" is dropped: the block does not record it; 4b decision 6.)
 7. **TabBar**.
 
 ## Matchups
 
-- **List:** every matchup this week as **MatchupCard**s, then the **games grid** (a **HeatGrid** of games per team, **3 weeks out**).
+- **List:** every matchup this week as **MatchupCard**s, then the **games grid** (a **HeatGrid** of starts per team, **3 weeks out**, shaded by rank within each week; tap a cell for its starts by day), then **Last week** (4c2; 4b decision 11): each of last week's matchups with its final scores, the result, and how Monday's closing line did ("Nick −72 · 61% at the close", then "Nick covered: won by 140", "won by 50, short of the spread", "Push" or "Upset: Benton won by 236"; "No closing line that week" when there was none). A tap opens that matchup as it stood at the end.
+- **Last week's matchup page** (`#/matchups/w4-0`): the final scores (the winner bold), the win bar at 100/0, **SegmentedTabs** Summary (the closing line and its verdict, the Final paragraph, Monday's preview) / Win % (with the final point) / Game flow (every day banked).
 - **Matchup page:**
   - a white top bar (back to Matchups);
   - both teams (**TeamMark** 36, name, score `display-xl`, projection);
   - the **win bar** with both percentages;
   - **SegmentedTabs**:
     - **Summary:** the engine's key facts, starts left, who's missing.
-    - **Win %:** a **LineChart** of win chance through the week with event markers; tap a point for what changed.
+    - **Win %:** a **LineChart** of win chance through the week. Events are small hollow up/down markers with no text on the chart; tap one for the **Tooltip** ("Fri 3:15 PM · Dejounte Murray D→O · LM −4.2%"); tap any other point for the readout line.
     - **Game flow:** a **LineChart** of cumulative points by day for both teams, with projections dashed.
     - **Lines:** spread, total and moneyline as nested **KpiTile**s, with how they moved since Monday.
-  - **Starts left** (**HeatGrid** by day).
+  - **Starts left** (**HeatGrid** by day): tap a team's day for the **Tooltip**: who starts that day, a Q who fits if he plays, and who is out tonight.
   - **Who's missing** (rows with swatch, name, reason, **StatusChip**).
 
 ## Teams
@@ -34,13 +35,13 @@ The big things, in this order:
 - **List:** four team cards (as on Home, larger).
 - **Team page:**
   - a white top bar;
-  - **TeamMark** 72 (Yahoo picture or monogram), name `display-lg`, "manager · record · place · PF";
+  - **TeamMark** 72 (Yahoo picture or monogram), name `display-lg`, "manager · record · Power #2 · PF" (the power ranking, labelled so it is not read as the standings place; 4b decision 5);
   - **SegmentedTabs**: Roster / Schedule / Moves / Keepers.
   - **Roster** tab:
     - 2×2 **KpiTile**s: title odds with sparkline, this week's win chance, points for vs the league average, adds left with reset day.
-    - The **RosterTable** (Simple/Detailed, IL slots apart).
+    - The **RosterTable** (IL slots apart): Simple = FPPG, GP, Proj, Next; Detailed = the chip row Value · Form · Schedule · Health · Keeper · Profile · All (RosterTable README, 4c2). Every value is the engine's string; Team value is the points he adds to this team's best daily lineups over advice's two weeks against the best free agent in his place, and Title Δ is Team value at the causal price of a point, in title-odds points (it always has Team value's sign).
     - **Likely keepers**: ranked rows with keep-chance bars (`lh-bar-h` in the team colour).
-  - **Schedule** tab: next 3 weeks of games per player (**HeatGrid**).
+  - **Schedule** tab: next 3 weeks of games per player (**HeatGrid**); tap a cell for the days he plays ("Wk 5 · Mon · Wed · Fri · Sun", back-to-backs and "out" days marked; "IL slot · back 01-25" on a dash).
   - **Moves** tab: this team's moves ledger (date, add/drop, players).
   - **Keepers** tab: keep chance, rank on the team, and POT for each player.
 

@@ -52,7 +52,10 @@ from . import page_players as pp
 # strips (lh-c-hit) are the design's per-point hit areas: full plot height,
 # keyboard-reachable, as wide as the point's share of the axis.
 TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-iconbtn", "v2-tap", "lh-c-hit",
-               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile")
+               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit")
+# 4c2: the roster table's Detailed chip groups (roster.GROUPS, plus "all"): the
+# CSS shows a column when the table's data-group is one of its groups
+DETAIL_GROUPS = ("value", "form", "schedule", "health", "keeper", "profile", "all")
 TAP_PARENTS = ("lh-tabbar", "lh-seg", "lh-toggle", "lh-info")
 
 ICONS = {
@@ -154,6 +157,27 @@ button.lh-issuebar{width:100%;border:0;border-bottom:var(--hairline) solid var(-
 .v2-banner{background:var(--status-out-tint);color:var(--status-out);padding:var(--space-10) var(--space-16);font-size:var(--type-body-size);font-weight:700}
 .v2-calm{background:var(--surface-sunken);color:var(--ink-2);padding:var(--space-10) var(--space-16);font-size:var(--type-body-size)}
 .v2-check{background:var(--dark);color:var(--ink-on-dark);padding:var(--space-10) var(--space-16);font-size:var(--type-meta-size);white-space:pre-wrap}
+.lh-heat__cell.v2-cell{min-height:var(--tap-min);height:auto;width:100%;border:0;padding:0;font-family:inherit;cursor:pointer}
+.v2-cell[aria-expanded="true"]{outline:var(--hairline) solid var(--ink-strong);outline-offset:var(--space-2)}
+.lh-chart .v2-ev--up{stroke:var(--up)}
+.lh-chart .v2-ev-hit{fill:transparent;cursor:pointer;outline:none}
+.lh-chart .v2-ev-hit:focus-visible{stroke:var(--accent);stroke-width:2}
+.lh-table th button.v2-tap{position:relative}
+.v2-rt th button.v2-tap{min-width:var(--tap-min);justify-content:flex-end}
+.v2-rt th.v2-sticky button.v2-tap{justify-content:flex-start}
+.v2-rt .v2-dc{display:none}
+.v2-rt[data-mode="detailed"] .v2-sc{display:none}
+.v2-dchips{display:flex;gap:var(--space-6);overflow-x:auto;padding:0 var(--space-14) var(--space-8)}
+button.v2-dchip{min-height:var(--tap-min);padding:0 var(--space-12);border:var(--hairline) solid var(--line);border-radius:var(--radius-pill);background:var(--surface);font-family:inherit;font-size:var(--type-meta-size);font-weight:800;color:var(--ink-2);white-space:nowrap;cursor:pointer}
+button.v2-dchip[aria-selected="true"]{background:var(--dark);color:var(--ink-on-dark);border-color:var(--dark)}
+.v2-gnote{display:none}
+.v2-ovrd{font-size:var(--type-small-size);font-weight:700;margin-left:var(--space-2)}
+.v2-ovrd--up{color:var(--up)}.v2-ovrd--down{color:var(--down)}.v2-ovrd--flat{color:var(--ink-3)}
+.v2-rt .lh-spark{display:inline-block;vertical-align:middle}
+.v2-lcard{text-decoration:none;color:var(--ink);gap:var(--space-8)}
+.v2-lline{font-size:var(--type-meta-size);color:var(--ink-2)}
+.v2-lverdict{font-size:var(--type-meta-size);font-weight:800;color:var(--ink)}
+.v2-won{font-weight:800}
 @media (min-width:{{bp-mid}}){
  .lh-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
@@ -167,6 +191,11 @@ button.lh-issuebar{width:100%;border:0;border-bottom:var(--hairline) solid var(-
  .v2-cols .lh-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 """
+# 4c2: one rule per Detailed chip group: the table shows a column when its
+# data-group is one of the column's groups; the group's note shows likewise
+LAYOUT_CSS += "".join(f'.v2-rt[data-mode="detailed"][data-group="{g}"] .v2-g-{g}{{display:table-cell}}\n'
+                      f'.v2-rtwrap[data-mode="detailed"][data-group="{g}"] .v2-gnote[data-gnote="{g}"]'
+                      '{display:block}\n' for g in DETAIL_GROUPS)
 
 
 # =============================================================================
@@ -265,10 +294,7 @@ def _chart(ch: dict, cid: str) -> str:
         o.append(f'<g class="{ln["cls"]}"><polyline class="lh-c-line{" lh-c-proj" if ln["proj"] else ""}" '
                  f'points="{ln["points"]}"/></g>')
     for e in ch["events"]:
-        o.append(f'<circle class="lh-c-event" cx="{e["cx"]}" cy="{e["cy"]}" r="5"/>')
-        if e["label"]:
-            o.append(f'<text class="lh-c-event-text" x="{e["lx"]}" y="{e["ly"]}" text-anchor="{e["anchor"]}">'
-                     f'{clean(e["label"])}</text>')
+        o.append(f'<circle class="lh-c-event v2-ev--{clean(e["dir"])}" cx="{e["cx"]}" cy="{e["cy"]}" r="4"/>')
     if ch["dot"]:
         d = ch["dot"]
         o.append(f'<g class="{d["cls"]}"><circle class="v2-dot" cx="{d["cx"]}" cy="{d["cy"]}" r="4"/></g>')
@@ -279,6 +305,9 @@ def _chart(ch: dict, cid: str) -> str:
         o.append(f'<rect class="lh-c-hit" x="{h["x"]}" y="{h["y"]}" width="{h["w"]}" height="{h["h"]}" tabindex="0" '
                  f'role="button" aria-label="{clean(h["label"])}" data-cx="{h["cx"]}" data-cy="{h["cy"]}" '
                  f'data-head="{clean(h["head"])}" data-body="{clean(h["body"])}"/>')
+    for e in ch["events"]:                         # on top of the strips: a 44-px circle per marker
+        o.append(f'<circle class="v2-ev-hit" cx="{e["cx"]}" cy="{e["cy"]}" r="22" tabindex="0" role="button" '
+                 f'aria-label="{clean(e["label"])}"{_tip_attrs(e["tip"])}/>')
     o.append("</svg>")
     r0 = ch.get("readout0") or {"head": ch.get("empty") or "", "body": ""}
     o.append(f'<div class="lh-readout" aria-live="polite" data-readout="{cid}">'
@@ -286,6 +315,25 @@ def _chart(ch: dict, cid: str) -> str:
     if ch.get("empty"):
         o.append(f'<p class="v2-p">{clean(ch["empty"])}</p>')
     return "".join(o)
+
+
+def _tip_attrs(tip: dict) -> str:
+    """The one tooltip (4c2): its three strings on the element that opens it."""
+    return (f' data-tip-h="{clean(tip["h"])}" data-tip-b="{clean(tip["b"])}"'
+            + (f' data-tip-f="{clean(tip["f"])}"' if tip.get("f") else "") + ' aria-expanded="false"')
+
+
+def _tip_label(tip: dict, n: str) -> str:
+    return clean(" \u00b7 ".join(x for x in (tip["h"], n, tip["b"], tip.get("f", "")) if x))
+
+
+def _cell(c: dict) -> str:
+    """A games-grid cell: a tap that opens its tooltip (the days, who starts)."""
+    cls = "lh-s" + str(c["b"]) if c["b"] else "v2-s0"
+    if not c.get("tip"):
+        return f'<span class="lh-heat__cell {cls}">{clean(c["n"])}</span>'
+    return (f'<button type="button" class="lh-heat__cell v2-cell {cls}"{_tip_attrs(c["tip"])} '
+            f'aria-label="{_tip_label(c["tip"], c["n"])}">{clean(c["n"])}</button>')
 
 
 def _heat(rows: list, cols: list, *, total: bool, label_of) -> str:
@@ -299,8 +347,7 @@ def _heat(rows: list, cols: list, *, total: bool, label_of) -> str:
     for r in rows:
         o.append(f'<div class="lh-heat {cls}{" " + r["team"]["cls"] if r.get("team") else ""}" style="--n:{n}">'
                  f'<span class="v2-heat-lab">{label_of(r)}</span>')
-        o += [f'<span class="lh-heat__cell {"lh-s" + str(c["b"]) if c["b"] else "v2-s0"}">{clean(c["n"])}</span>'
-              for c in r["cells"]]
+        o += [_cell(c) for c in r["cells"]]
         if total:
             o.append(f'<span class="v2-heat-tot">{clean(r["total"])}</span>')
         o.append("</div>")
@@ -393,26 +440,53 @@ def _kpi(k: dict, team: dict, ids: _Ids, key: str, spark_html: str = "") -> str:
     return f'<div class="lh-kpi {team["cls"]}">{head}{body}<span class="{cls}">{clean(k["ctx"])}</span></div>'
 
 
-ROSTER_COLS = [("name", "Player", False), ("fppg", "FPPG", False), ("gp", "GP", False), ("proj", "Proj", False),
-               ("next", "Next", False), ("l14", "L14", True), ("gl", "GL", True), ("keep", "Keep", True)]
+SIMPLE_COLS = [("name", "Player", False), ("fppg", "FPPG", False), ("gp", "GP", False), ("proj", "Proj", False),
+               ("next", "Next", False)]
+
+
+def _dcell(c: dict) -> str:
+    """A Detailed cell's inside: the engine's string; OVR with its weekly
+    change; Trend as its sparkline (the view's geometry)."""
+    if c.get("spark"):
+        return _spark(c["spark"], c["aria"])
+    t = clean(c["t"])
+    if c.get("d"):
+        t += f'<span class="v2-ovrd v2-ovrd--{clean(c["d"]["dir"])}">{clean(c["d"]["t"])}</span>'
+    return t
 
 
 def _roster(tp: dict, ids: _Ids) -> str:
+    """The RosterTable: Simple (FPPG, GP, Proj, Next) and Detailed, whose chip
+    row (Value, Form, Schedule, Health, Keeper, Profile, All) picks the columns
+    shown; the name stays pinned and the table scrolls sideways. Every cell is
+    a payload string; sorting uses the payload's orders."""
     r = tp["roster"]
     default = r["default"]
-    o = ['<section class="lh-card lh-card--flush" data-section="roster"><div class="lh-sechead v2-pad">'
+    groups = r["groups"]
+    g0 = groups[0]["key"]
+    o = [f'<section class="lh-card lh-card--flush v2-rtwrap" data-section="roster" data-mode="simple" '
+         f'data-group="{clean(g0)}"><div class="lh-sechead v2-pad">'
          f'<h2 class="lh-eyebrow">Roster</h2>{_info(ids, "proj")}'
          '<div class="lh-toggle" role="group" aria-label="Table detail"><button type="button" aria-pressed="true" '
          'data-mode="simple">Simple</button><button type="button" aria-pressed="false" data-mode="detailed">Detailed'
          '</button></div></div>'
-         f'<div class="v2-scroll"><table class="lh-table v2-rt" data-mode="simple" data-sort="{clean(default)}" '
-         f'data-dir="1" data-orders=\'{clean(json.dumps(r["orders"], separators=(",", ":")))}\'><thead><tr>']
-    for k, lab, det in ROSTER_COLS:
-        cls = " ".join(x for x in ("v2-sticky" if k == "name" else "", "v2-det" if det else "") if x)
+         '<div class="v2-dchips" role="tablist" aria-label="Columns" hidden>'
+         + "".join(f'<button type="button" class="v2-dchip" role="tab" data-dgroup="{clean(g["key"])}" '
+                   f'aria-selected="{"true" if g["key"] == g0 else "false"}">{clean(g["label"])}</button>' for g in groups)
+         + '</div>'
+         f'<div class="v2-scroll"><table class="lh-table v2-rt" data-mode="simple" data-group="{clean(g0)}" '
+         f'data-sort="{clean(default)}" data-dir="1" '
+         f'data-orders=\'{clean(json.dumps(r["orders"], separators=(",", ":")))}\'><thead><tr>']
+    for k, lab, _det in SIMPLE_COLS:
+        cls = "v2-sticky" if k == "name" else "v2-sc"
         sort = f' aria-sort="descending"' if k == default else ""
-        o.append(f'<th{" class=" + chr(34) + cls + chr(34) if cls else ""}{sort} data-k="{k}"><button type="button" '
+        o.append(f'<th class="{cls}"{sort} data-k="{k}"><button type="button" '
                  f'class="v2-tap" data-sort="{k}">{clean(lab)}<span class="v2-arrow">{" &#9662;" if k == default else ""}'
                  f'</span></button></th>')
+    for k in r["keys"]:
+        gcls = " ".join(f"v2-g-{g}" for g in r["gs"][k])
+        o.append(f'<th class="v2-dc {gcls}" data-k="d_{k}"><button type="button" class="v2-tap" data-sort="d_{k}">'
+                 f'{clean(r["cols"][k]["label"])}<span class="v2-arrow"></span></button></th>')
     o.append("</tr></thead>")
 
     def row(p, inactive):
@@ -420,17 +494,27 @@ def _roster(tp: dict, ids: _Ids) -> str:
                  f'<span class="lh-sub">{clean(p["meta"])}'
                  + (f'<span class="v2-chips">{"".join(_chip(c) for c in p["chips"])}</span>' if p["chips"] else "")
                  + "".join(f" &middot; {clean(n)}" for n in p["notes"]) + "</span></td>"]
-        for k, _lab, det in ROSTER_COLS[1:]:
-            cells.append(f'<td{" class=" + chr(34) + "v2-det" + chr(34) if det else ""}>{clean(p["cells"][k])}</td>')
+        for k, _lab, _det in SIMPLE_COLS[1:]:
+            cells.append(f'<td class="v2-sc">{clean(p["cells"][k])}</td>')
+        for c in p["dcells"]:
+            gcls = " ".join(f"v2-g-{g}" for g in r["gs"][c["k"]])
+            cells.append(f'<td class="v2-dc {gcls}">{_dcell(c)}</td>')
         return f'<tr data-i="{p["i"]}"{" class=" + chr(34) + "lh-inactive" + chr(34) if inactive else ""}>' + "".join(cells) + "</tr>"
     o.append('<tbody class="v2-active">' + "".join(row(p, False) for p in r["active"]) + "</tbody>")
     if r["il"]:
-        o.append(f'<tbody class="v2-il"><tr class="lh-group"><td colspan="{len(ROSTER_COLS)}">IL slots</td></tr>'
-                 + "".join(row(p, True) for p in r["il"]) + "</tbody>")
+        o.append(f'<tbody class="v2-il"><tr class="lh-group"><td colspan="{len(SIMPLE_COLS) + len(r["keys"])}">IL slots'
+                 '</td></tr>' + "".join(row(p, True) for p in r["il"]) + "</tbody>")
     o.append("</table></div>"
              f'<div class="lh-table-note">{clean(tp["size"])}. {clean(tp["note"])} GP is games played; Next is next '
-             "week's games he will play. Tap a column to sort; Detailed adds L14, GL and Keep.</div>"
-             + "".join(f'<div class="lh-table-note">{clean(x)}</div>' for x in tp["pending"]) + "</section>")
+             "week's games he will play. Tap a column to sort; Detailed picks a group of columns.</div>")
+    for g in groups:
+        o.append(f'<div class="lh-table-note v2-gnote" data-gnote="{clean(g["key"])}">'
+                 + " ".join(f'<b>{clean(r["cols"][k]["label"])}</b>: {clean(r["cols"][k]["tip"])}'
+                            + (f' &mdash; when there is none: {clean(r["why"][k])}.' if k in r["why"] else "")
+                            for k in g["cols"]) + "</div>")
+    o.append("".join(f'<div class="lh-table-note v2-gnote" data-gnote="{clean(g["key"])}">{clean(n)}</div>'
+                     for g in groups for n in r["notes"]))
+    o.append("".join(f'<div class="lh-table-note">{clean(x)}</div>' for x in tp["pending"]) + "</section>")
     return "".join(o)
 
 
@@ -548,6 +632,64 @@ def _matchup_page(mu: dict, vm: dict, ids: _Ids) -> str:
     return "".join(o)
 
 
+def _last_week(lw: dict) -> str:
+    """Matchups' Last week (4b decision 11): final scores and how the closing
+    line did; each opens the matchup as it stood at the end."""
+    o = ['<section class="v2-sec" data-section="last"><div class="lh-sechead"><h2 class="lh-eyebrow">Last week</h2>'
+         f'<span class="lh-meta lh-meta--canvas">{clean(lw["title"])}</span></div>']
+    for lc in lw["cards"]:
+        o.append(f'<a class="lh-card v2-lcard" href="{lc["href"]}" data-last="{clean(lc["id"])}">')
+        for s in lc["sides"]:
+            t = s["team"]
+            o.append(f'<span class="lh-mrow {t["cls"]}">{_mono(t)}'
+                     f'<span class="v2-minw"><span class="lh-mrow__name">{clean(s["name"])}</span>'
+                     f'<span class="lh-sub">{clean(s["manager"])}</span></span>'
+                     f'<span class="lh-num v2-mpts"><span class="lh-dsp v2-banked{" v2-won" if s["won"] else ""}">'
+                     f'{clean(s["score"])}</span></span></span>')
+        o.append(f'<span class="v2-lverdict">{clean(lc["result"])}</span>'
+                 f'<span class="v2-lline">{"Closing line: " if lc["verdict"] else ""}{clean(lc["line"])}</span>'
+                 + (f'<span class="v2-lverdict">{clean(lc["verdict"])}</span>' if lc["verdict"] else "")
+                 + '<span class="lh-divider v2-mfoot"><span class="v2-note">Final charts</span>'
+                 '<span class="v2-details">Details &rsaquo;</span></span></a>')
+    o.append(f'<span class="lh-sub">{clean(lw["note"])}</span></section>')
+    return "".join(o)
+
+
+def _last_page(lc: dict, vm: dict, ids: _Ids) -> str:
+    """Last week's matchup as it stood at the end: Summary (the final
+    paragraph, Monday's preview, the closing line), Win % and Game flow."""
+    o = [f'<section class="v2-screen" data-route="{clean(lc["route"])}" data-detail="1" hidden>',
+         _topbar("#/matchups", "Matchups", vm["age"]), '<div class="v2-mhead">']
+    for s in lc["sides"]:
+        t = s["team"]
+        o.append(f'<div class="v2-mside {t["cls"]}">{_mono(t, "36")}<span class="v2-minw">'
+                 f'<a class="lh-mrow__name v2-tap" href="{t["href"]}">{clean(s["name"])}</a>'
+                 f'<span class="lh-sub">{clean(s["manager"])} &middot; final</span>'
+                 f'</span><span class="v2-score">{clean(s["score"])}</span></div>')
+    a, b = lc["sides"]
+    o.append(f'<span class="lh-winbar" role="img" aria-label="{clean(lc["bar_aria"])}">'
+             f'<span class="{a["team"]["cls"]}" style="width:{clean(lc["bar_a"])}"></span><span class="{b["team"]["cls"]}"></span></span>'
+             f'<span class="lh-meta">{clean(lc["result"])} &middot; {clean(lc["sub"])}</span></div><div class="v2-stack">')
+    o.append(_seg("lastmu", [("summary", "Summary"), ("win", "Win %"), ("flow", "Game flow")]))
+    o.append('<div class="v2-pane" data-pane-of="summary"><section class="lh-card v2-gap8">'
+             '<h2 class="lh-eyebrow">The closing line</h2>'
+             f'<p class="v2-p">{clean(lc["line"])}</p>'
+             + (f'<p class="v2-p"><b>{clean(lc["verdict"])}</b></p>' if lc["verdict"] else "")
+             + '</section><section class="lh-card">')
+    for p in lc["paras"]:
+        o.append('<div class="v2-para">' + (f'<h3 class="lh-eyebrow">{clean(p["head"])}</h3>' if p["head"] else "")
+                 + f'<p class="v2-p">{clean(p["text"])}</p></div>')
+    o.append("</section></div>")
+    o.append('<div class="v2-pane" data-pane-of="win" hidden><section class="lh-card v2-gap8"><div class="lh-sechead">'
+             f'<h2 class="lh-eyebrow">Win chance through the week</h2>{_info(ids, "win", a["team"]["team"])}</div>'
+             + _chart(lc["win"], ids.next("ch")) + "</section></div>")
+    o.append('<div class="v2-pane" data-pane-of="flow" hidden><section class="lh-card v2-gap8"><div class="lh-sechead">'
+             '<h2 class="lh-eyebrow">Game flow</h2><span class="lh-meta">Points by day &middot; final</span></div>'
+             + _chart(lc["flow"], ids.next("ch")) + "</section></div>")
+    o.append("</div></section>")
+    return "".join(o)
+
+
 # =============================================================================
 # the page
 # =============================================================================
@@ -571,6 +713,7 @@ def render(vm: dict, *, cards: dict = None) -> str:
              f'<button type="button" class="lh-iconbtn" data-go="search" aria-label="Search players">{pp.SEARCH}</button></div>'
              f'<div class="lh-fresh"><span class="lh-fresh__dot" id="fresh-dot"{" hidden" if vm["stale"] else ""}></span>'
              f'<span>Updated <span class="v2-age">{clean(vm["age"])}</span> ({clean(vm["generated_text"])})</span></div>'
+             f'<span class="v2-lock">{clean(vm["line_text"])}</span>'
              f'<span class="v2-lock">{clean(vm["lock"])}</span></header>')
     o.append('<div class="v2-stale-wrap">')
     if vm["mismatch"]:
@@ -614,9 +757,12 @@ def render(vm: dict, *, cards: dict = None) -> str:
              + _heat(g["rows"], g["cols"], total=False,
                      label_of=lambda r: f'<a class="v2-heat-a v2-tap {r["team"]["cls"]}" href="{r["team"]["href"]}">'
                                         f'<span class="lh-swatch"></span>{clean(r["team"]["team"])}</a>')
-             + f'<span class="lh-sub">{clean(g["note"])}</span></section></div></div></section>')
+             + f'<span class="lh-sub">{clean(g["note"])}</span></section>'
+             + (_last_week(vm["last"]) if vm["last"] else "") + "</div></div></section>")
     for mu in vm["matchups"]:
         o.append(_matchup_page(mu, vm, ids))
+    for lc in (vm["last"] or {}).get("cards", []):
+        o.append(_last_page(lc, vm, ids))
 
     # ---------------------------------------------------------------- teams
     o.append('<section class="v2-screen" data-route="teams" hidden><div class="v2-stack"><section class="v2-sec">'
@@ -673,6 +819,8 @@ function route(){
   var ts=document.querySelectorAll('.lh-tabbar a');
   for(var t=0;t<ts.length;t++){if(ts[t].getAttribute('data-tab')===tab){ts[t].setAttribute('aria-current','page');}
     else{ts[t].removeAttribute('aria-current');}}
+  hideTip();
+  if(seen['dgroup']){dgroup(seen['dgroup']);}
   var segs=target.querySelectorAll('.lh-seg[data-seg]');
   for(var s=0;s<segs.length;s++){var kind=segs[s].getAttribute('data-seg');if(seen[kind]){pick(segs[s],seen[kind]);}}
   window.scrollTo(0,0);
@@ -705,6 +853,7 @@ function sortTable(tbl,key){
   var orders=JSON.parse(tbl.getAttribute('data-orders'));
   var dir=(tbl.getAttribute('data-sort')===key)?-Number(tbl.getAttribute('data-dir')):1;
   var ord=orders[key].slice();if(dir<0){ord.reverse();}
+  hideTip();
   var bodies=tbl.querySelectorAll('tbody');
   for(var b=0;b<bodies.length;b++){
     var rows={},rs=bodies[b].querySelectorAll('tr[data-i]');
@@ -731,6 +880,62 @@ function closeTips(except){
   var bs=document.querySelectorAll('.lh-info > button[aria-expanded="true"]');
   for(var i=0;i<bs.length;i++){if(bs[i]!==except){bs[i].setAttribute('aria-expanded','false');
     document.getElementById(bs[i].getAttribute('aria-controls')).hidden=true;}}
+}
+// THE ONE TOOLTIP (4c2; design/league-hub/components/Tooltip): a small dark
+// box with the engine's three strings (data-tip-h / -b / -f). A tap opens it
+// (a second tap or a tap elsewhere closes it), keyboard focus opens it, Escape
+// closes it. It sits above its anchor (below when there is no room), inside
+// the screen, and never over a chart's end labels. Layout only: no number is
+// made here.
+var TIP=null,tipFor=null,ptrFocus=false;
+function tipBox(){
+  if(!TIP){TIP=document.createElement('div');TIP.className='lh-tip';TIP.id='v2-tip';
+    TIP.setAttribute('role','status');TIP.hidden=true;hub.appendChild(TIP);}
+  return TIP;
+}
+function placeTip(el,box){
+  var a=el.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight;
+  var vw=document.documentElement.clientWidth,vh=document.documentElement.clientHeight,pad=8;
+  var left=a.left+a.width/2-w/2,top=a.top-h-pad;
+  if(top<pad){top=a.bottom+pad;}
+  if(top+h>vh-pad){top=vh-pad-h;}
+  if(left+w>vw-pad){left=vw-pad-w;}
+  if(left<pad){left=pad;}
+  var svg=el.closest('svg');
+  if(svg){
+    var labs=svg.querySelectorAll('.lh-c-label');
+    for(var i=0;i<labs.length;i++){var r=labs[i].getBoundingClientRect();
+      if(left+w>r.left&&left<r.right&&top<r.bottom&&top+h>r.top){left=r.left-pad-w;}}
+    if(left<pad){left=pad;var s=svg.getBoundingClientRect();top=s.bottom+pad;}
+  }
+  box.style.left=left+'px';box.style.top=top+'px';
+}
+function showTip(el){
+  hideTip();
+  var box=tipBox();box.textContent='';
+  var hd=document.createElement('b');hd.textContent=el.getAttribute('data-tip-h');box.appendChild(hd);
+  var bd=document.createElement('span');bd.textContent=el.getAttribute('data-tip-b');box.appendChild(bd);
+  var ft=el.getAttribute('data-tip-f');
+  if(ft){var fe=document.createElement('span');fe.textContent=ft;box.appendChild(fe);}
+  box.hidden=false;tipFor=el;el.setAttribute('aria-expanded','true');
+  placeTip(el,box);
+}
+function hideTip(){
+  if(TIP){TIP.hidden=true;}
+  if(tipFor){tipFor.setAttribute('aria-expanded','false');tipFor=null;}
+}
+document.addEventListener('pointerdown',function(){ptrFocus=true;},true);
+document.addEventListener('keydown',function(){ptrFocus=false;},true);
+window.addEventListener('scroll',function(){hideTip();},true);
+window.addEventListener('resize',function(){hideTip();});
+// the roster's Detailed chip row: the group of columns shown, kept for the session
+function dgroup(key){
+  seen['dgroup']=key;
+  var ws=document.querySelectorAll('.v2-rtwrap');
+  for(var i=0;i<ws.length;i++){ws[i].setAttribute('data-group',key);
+    var t=ws[i].querySelector('.v2-rt');if(t){t.setAttribute('data-group',key);}
+    var cs=ws[i].querySelectorAll('.v2-dchip');
+    for(var j=0;j<cs.length;j++){cs[j].setAttribute('aria-selected',String(cs[j].getAttribute('data-dgroup')===key));}}
 }
 // player cards (4c1): the NEW card, rendered at build time; inline in
 // preview (#v2-cards), published as encrypted files (HUB.cards() gives the
@@ -881,7 +1086,10 @@ function movedBox(){
 }
 function openFrame(url){document.getElementById('issue-frame').src=url;document.getElementById('issue-view').hidden=false;}
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-card]');
+  var t=e.target.closest('[data-tip-h]');
+  if(t){ptrFocus=false;if(tipFor===t){hideTip();}else{showTip(t);}return;}
+  hideTip();
+  t=e.target.closest('[data-card]');
   if(t){e.preventDefault();e.stopPropagation();openCard(t.getAttribute('data-card'));return;}
   t=e.target.closest('[data-go="search"]');
   if(t){focusSearch=true;if(location.hash==='#/players'){route();}else{location.hash='#/players';}return;}
@@ -914,9 +1122,13 @@ document.addEventListener('click',function(e){
     for(var i=0;i<bs.length;i++){bs[i].setAttribute('aria-pressed',String(bs[i]===t));}
     var mode=t.getAttribute('data-mode');seen['detail']=mode;
     var tb=document.querySelectorAll('.v2-rt');for(var j=0;j<tb.length;j++){tb[j].setAttribute('data-mode',mode);}
+    var rw=document.querySelectorAll('.v2-rtwrap');for(var w=0;w<rw.length;w++){rw[w].setAttribute('data-mode',mode);
+      var ch=rw[w].querySelector('.v2-dchips');if(ch){ch.hidden=(mode!=='detailed');}}
     var tgs=document.querySelectorAll('.lh-toggle button');
     for(var k=0;k<tgs.length;k++){tgs[k].setAttribute('aria-pressed',String(tgs[k].getAttribute('data-mode')===mode));}
     return;}
+  t=e.target.closest('[data-dgroup]');
+  if(t){dgroup(t.getAttribute('data-dgroup'));return;}
   t=e.target.closest('[data-sort]');
   if(t){sortTable(t.closest('table'),t.getAttribute('data-sort'));return;}
   t=e.target.closest('.lh-c-hit');
@@ -935,9 +1147,10 @@ document.addEventListener('click',function(e){
 // keyboard focus on a chart point reads it (its ring marks the focus)
 document.addEventListener('focusin',function(e){
   var t=e.target;if(t.classList&&t.classList.contains('lh-c-hit')){readout(t);}
+  if(t.getAttribute&&t.getAttribute('data-tip-h')!==null&&!ptrFocus){showTip(t);}
 });
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){closeTips(null);return;}
+  if(e.key==='Escape'){closeTips(null);hideTip();return;}
   var t=e.target;
   if(t.classList&&t.classList.contains('lh-c-hit')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();readout(t);}
 });

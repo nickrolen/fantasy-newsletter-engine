@@ -36,6 +36,11 @@ LAST_N = 5
 W, H = 356, 160
 X0, X1, Y0, Y1 = 36, 300, 12, 128
 AGE_LO, AGE_HI = 20, 37
+# 4c2 (4c1 decision 9): past this many games the game-by-game BarChart becomes
+# a line. At 40 a bar is about 5 px wide in the 356-px phone chart with the
+# design's 4 px gaps, and its tap column about 9 px; past it the bars blur into
+# a comb and a line reads better (about mid-December for an everyday player)
+BAR_MAX_GAMES = 40
 
 
 class CardError(RuntimeError):
@@ -72,6 +77,8 @@ def bars(games: list, fppg: Optional[float], cur_last10: list) -> dict:
     opp = {g["date"]: g.get("opponent") or "" for g in cur_last10}
     if not games:
         return {"bars": [], "avg": None, "axis": [], "aria": "No games this season yet."}
+    if len(games) > BAR_MAX_GAMES:
+        return game_line(games, fppg, opp)
     top = max([g["fp"] for g in games] + [fppg or 0.0, 1.0])
     top = 10.0 * math.ceil(top / 10.0)
     out = []
@@ -98,10 +105,33 @@ def bars(games: list, fppg: Optional[float], cur_last10: list) -> dict:
     return {"bars": out, "avg": avg, "axis": axis, "aria": aria}
 
 
-def line(points: list, ylab, aria: str, mark: Optional[int] = None) -> dict:
+def game_line(games: list, fppg: Optional[float], opp: dict) -> dict:
+    """Past BAR_MAX_GAMES: fantasy points by game as a LineChart (the games he
+    played, in order; a game he missed injured is left out, as no point), his
+    average as the dashed reference line, a tap strip per game. The same
+    "bars" dict shape, with "line" set and no bars."""
+    played = [g for g in games if not g["injured"]]
+    pts = []
+    for g in played:
+        o = opp.get(g["date"], "")
+        when = _day(g["date"]) + (f" vs {o}" if o and not o.startswith("@") else f" at {o[1:]}" if o else "")
+        tail = "" if fppg is None else f" ({_signed1(g['fp'] - fppg)} vs his average)"
+        pts.append((_day(g["date"]), g["fp"], f"{when}: {g['fp']:.1f}{tail}"))
+    best = max(played, key=lambda g: (g["fp"], g["date"])) if played else None
+    aria = (f"Fantasy points in each of his {len(played)} games this season"
+            + (f", averaging {fppg:.1f}" if fppg is not None else "")
+            + (f"; best {best['fp']:.1f}." if best else "."))
+    ch = line(pts, lambda v: f"{v:.0f}", aria, ref=None if fppg is None else (fppg, f"avg {fppg:.1f}"))
+    axis = [_day(games[0]["date"])] + ([f"Best {best['fp']:.1f} ({_day(best['date'])})"] if best else []) \
+        + [_day(games[-1]["date"])]
+    return {"bars": [], "line": ch, "avg": None, "axis": axis, "aria": aria}
+
+
+def line(points: list, ylab, aria: str, mark: Optional[int] = None, ref: Optional[tuple] = None) -> dict:
     """A small LineChart: points [(x label, value, tap text)], 0 to the next
     10 above the top, three y labels, a tap strip per point. mark: the index
-    to draw as the end dot (default: the last)."""
+    to draw as the end dot (default: the last). ref: (value, label) drawn as
+    a dashed reference line with its label (the game line's average)."""
     if not points:
         return {"vb": f"0 0 {W} {H}", "aria": aria, "points": "", "grid": [], "labels": [], "hits": [],
                 "dot": None, "empty": "No seasons yet."}
@@ -124,6 +154,9 @@ def line(points: list, ylab, aria: str, mark: Optional[int] = None) -> dict:
             {"cls": "lh-c-grid", "x1": _f(X0), "y1": _f(Y(mid)), "x2": _f(X1), "y2": _f(Y(mid))},
             {"cls": "lh-c-base", "x1": _f(X0), "y1": _f(Y(lo)), "x2": _f(X1), "y2": _f(Y(lo))}]
     labels = [{"x": _f(X0 - 4), "y": _f(Y(v) + 3), "t": ylab(v), "anchor": "end"} for v in (lo, mid, hi)]
+    if ref is not None:
+        grid.append({"cls": "lh-c-ref", "x1": _f(X0), "y1": _f(Y(ref[0])), "x2": _f(X1), "y2": _f(Y(ref[0]))})
+        labels.append({"x": _f(X1 + 4), "y": _f(Y(ref[0]) + 3), "t": ref[1], "anchor": "start"})
     labels += [{"x": _f(xs[0]), "y": _f(Y1 + 16), "t": points[0][0], "anchor": "start" if n > 1 else "middle"}]
     if n > 1:
         labels.append({"x": _f(xs[-1]), "y": _f(Y1 + 16), "t": points[-1][0], "anchor": "end"})
