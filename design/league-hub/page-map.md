@@ -84,17 +84,21 @@ SegmentedTabs, in this order (4c3, the Advice mockup's): **Available · Stash ·
 
 ## League
 
-- **Standings:** a table, and title odds over the season (**LineChart**, four teams, direct labels).
-- **Power rankings history:** **RankingRow**s by week.
-- **History:**
-  - all-time standings;
-  - head-to-head records (a 4×4 table);
-  - the record book;
-  - champions;
-  - trade history;
-  - **draft history**: each pick, who made it, and how he has rated since (OVR at the time vs now).
-- **Awards:** a running MVP race and best pickup (**RankingRow**s with players), most improved, and Player of the Week history. Definitions are still to be decided.
-- **Newsletter archive:** every issue, newest first. Past issues open in their original look.
+SegmentedTabs, in this order (4c4): **Standings · History · Awards · Archive**. Routes: `#/league/<segment>`, `#/league/history/<chip>`, `#/league/history/h2h/<a>/<b>` (a cell open), `#/league/history/draft/<season>`. The tab remembers its segment for the session.
+
+- **Standings:**
+  - **The regular-season table** (weeks 1–15), in `data_loader.standings_order` (winning percentage, a T counting half; then head-to-head; then points): rank, TeamMark (24) and the manager's first name (the team's name in the label: the table must fit 360 px), W-L (a T shows: 4-3-1), PF, Strk (W3, L2, T1: every week counts, a T ends one), and the title odds with their change since the run before stacked under them. A tie the rules broke marks both ranks with `*` and the note says how ("… level at 4-3-1: ordered on head-to-head"). The record and PF count the weeks the weekly build has recorded; between the Monday night banking and that build, the note says Home's records are a week ahead.
+  - **Title odds over the season:** a **LineChart** of the four teams' regular-season title odds, **one point per run** (the history file; before it began, each published weekly report), 0–100% with gridlines at 25/50/75, week ticks, direct end labels. **Event markers** (the Tooltip): a week's results (the first run after the week ended: "Week 4 final: SF beat LM, BL beat BN", the two biggest swings in the foot), a closing line, a trade. A cause that moved no line by 0.05 points gets no marker. Tap any point for its run in the readout.
+  - **Power rankings by week:** **RankingRow**s for each week's published power rankings (the weekly report), newest first: rank, TeamMark, team, record, title odds, and the change in rank (▲ 1 / ▼ 1 / –; — in week 1).
+- **History:** filter chips **Champions · All-time · Head to head · Records · Draft · Trades**. Each chip is its own encrypted file, loaded on its first tap (`HUB.part`); the plaintext preview carries them as templates.
+  - **Champions:** newest first. This season (in progress; the Cup's first edition, weeks 22–23), then each season with its champion (TeamMark, that season's team name, the manager), runner-up and regular-season winner; a season with no bracket says so (2019-20); **2016-17: Not played**; **2014-15 and 2015-16** in one row, records only: their champions and regular-season winners, the season each came in not recorded.
+  - **All-time standings:** every season with records (2014-15 and 2015-16 from LEAGUEHISTORY, 2017-18 on, and this season live), the scope named in the note: rank, TeamMark and manager with his playoff record under, W-L-T with win % under, PF, Champ (playoff titles), 1st (regular-season titles).
+  - **Head to head:** the **HeadToHead** grid (component), with chips **Regular season · Postseason**. Tap a cell for the pair's seasons.
+  - **Records:** four **KpiTile**s (highest week, biggest blowout, closest game, best player game), then the record book's lists by group (team weeks, team seasons, player games, weeks, seasons, careers, duos, moves), each a disclosure with its leader on the summary line and its top ten inside. A record with a game opens the Tooltip with that week's final.
+  - **Draft:** the **DraftTable** (component), a season select (this season first).
+  - **Trades:** every trade, newest first: the date and season, both team chips (⇄), and what each side got: players (cards where they have one) and draft picks named by their original owner.
+- **Awards:** **Player of the Week** by season, newest first: week, the player (his card), the team chip, points with games and FPPG (a week with no points recorded says so). Then "The season's awards races arrive here soon." (4c5 builds the races.)
+- **Archive:** every issue, newest first: the week number, its dates, the headline once issues have one (4d), the size; a tap opens it in its original look (IssueBar's rule: `HUB.openIssue` when published, the plaintext file in the preview).
 
 ## Every screen
 

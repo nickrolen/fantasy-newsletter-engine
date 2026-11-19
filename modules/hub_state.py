@@ -1502,6 +1502,12 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                           for i, c in enumerate(fcols["cols"])],
             "advice_on": advice_raw is not None, "advice": advice_raw, "show_title": al.show_title_odds(),
             "first_day": first_day}, echo=echo)
+    # 4c4: the League tab (modules/hub_v2/league.py): standings, the title-odds
+    # chart, power history, awards, the archive; History goes to the side file
+    if payload["v2"] is not None:
+        payload["v2"], payload["v2_error"] = v2data.league_soft(base, payload, {
+            "data": data, "now": now, "ratings": rt.get("result"), "ratings_error": rt.get("error"),
+            "live": live}, echo=echo)
     if payload["v2"] is not None:
         obj = v2data.players_file(payload)
         if players_out is not None:

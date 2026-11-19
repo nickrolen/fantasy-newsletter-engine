@@ -46,6 +46,7 @@ from ..live_lines_page import clean
 from .infotips import tip
 from . import page_players as pp
 from . import page_market as pm
+from . import page_league as pl
 
 # tap targets: an interactive element carries one of these classes (or sits
 # in one of TAP_PARENTS); each class's CSS gives it at least tap-min (or
@@ -53,7 +54,7 @@ from . import page_market as pm
 # strips (lh-c-hit) are the design's per-point hit areas: full plot height,
 # keyboard-reachable, as wide as the point's share of the axis.
 TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-iconbtn", "v2-tap", "lh-c-hit",
-               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit") + pm.TAP_CLASSES
+               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit") + pm.TAP_CLASSES + pl.TAP_CLASSES
 # 4c2: the roster table's Detailed chip groups (roster.GROUPS, plus "all"): the
 # CSS shows a column when the table's data-group is one of its groups
 DETAIL_GROUPS = ("value", "form", "schedule", "health", "keeper", "profile", "all")
@@ -725,7 +726,7 @@ def render(vm: dict, *, cards: dict = None) -> str:
     ids = _Ids()
     o = ["<!DOCTYPE html>", '<html lang="en"><head><meta charset="utf-8">',
          '<meta name="viewport" content="width=device-width,initial-scale=1">', '<meta name="robots" content="noindex">',
-         f"<title>{clean(vm['title'])}</title>", f"<style>{tokens.css(LAYOUT_CSS + pp.CSS + pm.CSS)}</style>",
+         f"<title>{clean(vm['title'])}</title>", f"<style>{tokens.css(LAYOUT_CSS + pp.CSS + pm.CSS + pl.CSS)}</style>",
          _pictures_style(vm.get("pictures") or []) + "</head><body>",
          f'<div class="v2-app" id="hub" data-epoch="{vm["epoch"]}" data-stale-hours="{vm["stale_hours"]}">']
     # header (tab roots), then the banners, then the tab bar (a top bar on desktop)
@@ -801,6 +802,9 @@ def render(vm: dict, *, cards: dict = None) -> str:
     # ---------------------------------------------------------------- market (4c3)
     o.append(pm.market_screen(vm, ids, _info, lambda t: _mono(t)))
 
+    # ---------------------------------------------------------------- league (4c4)
+    o.append(pl.league_screen(vm, ids, _info, _mono, _chart, DOC, CHEV))
+
     # ---------------------------------------------------------------- placeholders
     for ph in vm["placeholders"]:
         o.append(f'<section class="v2-screen" data-route="{ph["key"]}" hidden><div class="v2-stack"><section class="lh-card">'
@@ -814,11 +818,25 @@ def render(vm: dict, *, cards: dict = None) -> str:
     o.append('<div class="v2-issue" id="issue-view" hidden><div class="v2-topbar"><button type="button" class="lh-back" '
              f'id="issue-close">{BACK}Back to the hub</button></div><iframe id="issue-frame" title="Newsletter"></iframe></div>')
     o.append("</div>")
+    if vm["mode"] == "preview":                    # 4c4: History's chips, plaintext, this machine only
+        o.append(pl.templates(vm["league"], _mono))
     if cards is not None:
         blob = json.dumps(cards, separators=(",", ":"), ensure_ascii=True).replace("</", "<\\/")
         o.append(f'<script type="application/json" id="v2-cards">{blob}</script>')
-    o.append(f"<script>{PAGE_JS}{pm.JS}</script></body></html>")
+    o.append(f"<script>{script()}</script></body></html>")
     return "\n".join(o)
+
+
+def script() -> str:
+    """The page's one script: PAGE_JS with each tab's own script INSIDE its
+    closure, before the first route() (4c4). Market's (4c3) used to follow the
+    closure, where sortTable was not defined: its Sort select threw
+    "sortTable is not defined". League's needs pick() and movedBox() too, and
+    its routes must exist before the first route()."""
+    tail = "route();check130();\n})();\n"
+    if not PAGE_JS.endswith(tail):
+        raise ValueError("PAGE_JS no longer ends with its first route() call")
+    return PAGE_JS[:-len(tail)] + pm.JS + pl.JS + tail
 
 
 PAGE_JS = r"""
@@ -831,6 +849,7 @@ var depth=0,focusSearch=false;    // hash changes since the page opened (the bac
 function route(){
   var r=location.hash.replace(/^#\/?/,'')||'home';
   var parts=r.split('/'),want=r,dyn='';
+  if(parts[0]==='league'&&parts.length>1&&parts[1]){want='league';dyn='league';}
   if(parts[0]==='players'&&parts.length>1&&parts[1]){
     if(parts[1]==='compare'){dyn=(parts.length>3&&parts[3])?'compare':'compare-pick';}else{dyn='player';}
     want=dyn;
@@ -852,6 +871,7 @@ function route(){
   if(dyn==='player'){showCard(parts[1]);}
   else if(dyn==='compare-pick'){showPick(parts[2]);}
   else if(dyn==='compare'){showCompare(parts[2],parts[3]);}
+  else if(dyn==='league'&&window.lgRoute){window.lgRoute(parts.slice(1));}
   if(r==='players'&&focusSearch){focusSearch=false;var sf=document.getElementById('pl-search');if(sf){sf.focus();}}
 }
 window.addEventListener('hashchange',function(){depth++;route();});

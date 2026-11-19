@@ -38,6 +38,13 @@ THE NEW CARD'S FILES (4c1; cards=, hub_cards.build's result for the payload):
 A card tap fetches the index once, then that player's card file and headshot.
 The current hub's card files (hub_cards.publish_files) are not touched.
 
+LEAGUE'S HISTORY (4c4): each History chip's HTML (page_league.chip_html),
+rendered at build time, gzipped JSON {"html"}, encrypted by its content as
+parts/<sha16>.enc. Each chip's file and key ride inside the ENCRYPTED page
+(data-part on its pane); HUB.part opens a chip's file on its first tap. A
+payload without the History (no side file) builds the page with the chips'
+panes empty, saying why: never a plaintext copy.
+
 An ARCHETYPE PREVIEW (build_hub.py --v2 --archetype-preview) is never built in
 publish mode: build() refuses a payload that carries one.
 """
@@ -156,6 +163,30 @@ def card_files(base, payload: dict, cards_obj: dict, root_key: bytes, terms=()) 
     return files, ref, rep
 
 
+PART_DIR = "parts"
+
+
+def league_files(vm: dict, root_key: bytes, terms=()) -> tuple:
+    """({relative path: bytes}, {chip: {"file", "key"}}, a size report) for
+    League's History chips (4c4), from the view model's history."""
+    import hashlib
+    from .. import hub_crypto, hub_cards
+    from . import page as _page, page_league
+    h = (vm.get("league") or {}).get("history")
+    if not h:
+        return {}, {}, None
+    K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
+    files, refs, sizes = {}, {}, {}
+    for chip, _lab in h["chips"]:
+        html = page_league.chip_html(h, chip, _page._mono)
+        k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": html}), terms)
+        rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+        files[rel] = blob
+        refs[chip] = {"file": rel, "key": hub_crypto.b64(k)}
+        sizes[chip] = len(blob)
+    return files, refs, {"parts": len(files), "bytes": sizes, "largest": max(sizes.values()) if sizes else 0}
+
+
 def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterations: int = None,
           terms=None, now: datetime = None, gz: bool = True, cards: dict = None) -> dict:
     from .. import hub_archive, hub_crypto, hub_publish
@@ -171,16 +202,23 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterati
     gen = datetime.fromisoformat(payload["generated_at"])
     from .. import team_pictures
     pics, _notes = team_pictures.data_uris(base, list((payload.get("v2") or {}).get("team_order") or []))
-    html = page.render(view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo), pictures=pics))
+    vm = view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo), pictures=pics)
     idx = hub_archive.verify(base)
     by_file = {e["enc"]: e for e in idx["issues"]}
     terms = terms if terms is not None else hub_publish.scan_terms(base)
     kw = {"salt": salt} if iterations is None else {"salt": salt, "iterations": iterations}
-    inner_obj = {"page": html, "issues": {f: e["key_b64"] for f, e in by_file.items()}}
-    cfiles, crep = {}, None
+    inner_obj = {"page": None, "issues": {f: e["key_b64"] for f, e in by_file.items()}}
+    cfiles, crep, lrep = {}, None, None
+    root = hub_crypto.derive_key(passphrase, salt, kw.get("iterations", hub_crypto.ITERATIONS))
+    lfiles, lrefs, lrep = league_files(vm, root, terms)
+    vm["league"]["parts"] = lrefs
+    vm["league"]["history"] = None                # never in the page itself: only its encrypted files
+    html = page.render(vm)
+    inner_obj["page"] = html
+    cfiles.update(lfiles)
     if cards is not None:
-        root = hub_crypto.derive_key(passphrase, salt, kw.get("iterations", hub_crypto.ITERATIONS))
-        cfiles, cref, crep = card_files(base, payload, cards, root, terms)
+        files2, cref, crep = card_files(base, payload, cards, root, terms)
+        cfiles.update(files2)
         inner_obj["cards"] = cref
     inner = json.dumps(inner_obj, separators=(",", ":")).encode("utf-8")
     for attempt in range(1, hub_publish.MAX_RESEAL + 1):
@@ -201,7 +239,7 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterati
     # the other variant's size, for the comparison (never written)
     other = len(shell(hub_crypto.bundle_json(seal(passphrase, inner, not gz, **kw)), not gz).encode("utf-8"))
     return {"dir": str(out), "files": scan["files"], "terms": len(terms), "reseals": attempt - 1, "gzip": gz,
-            "card_files": crep, **measure(html, len(sh), other if gz else len(sh), inner)}
+            "card_files": crep, "league_parts": lrep, **measure(html, len(sh), other if gz else len(sh), inner)}
 
 
 def measure(html: str, served: int, served_plain: int, inner: bytes) -> dict:

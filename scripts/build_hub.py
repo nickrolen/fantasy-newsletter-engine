@@ -270,6 +270,10 @@ def run_v2(base_path=".", *, state=None, out_dir=None, echo=print, archetype_pre
         echo(f"  new cards: {c['cards']} card files (median {c['card_bytes_median']:,} bytes, largest "
              f"{c['card_bytes_max']:,}), index {c['index_bytes']:,} bytes, {c['photos']} headshots (median "
              f"{c['photo_bytes_median']:,} bytes)")
+    if rep.get("league_parts"):
+        lp = rep["league_parts"]
+        echo(f"  League history: {lp['parts']} encrypted chip files ("
+             + ", ".join(f"{k} {v:,}" for k, v in lp["bytes"].items()) + " bytes), loaded on tap")
     echo(f"Plaintext scan: {rep['terms']} terms, no hits.")
     return {"rc": 0, "preview": str(preview), "report": rep}
 

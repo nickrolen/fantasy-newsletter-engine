@@ -11,3 +11,4 @@ A line over time in a team's colour, labelled directly at its end, with the mome
 - **Tap any other point** for its value, time and reason in the readout line under the chart (a hit strip per point, full plot height, keyboard-reachable). Never hover-only.
 - Every chart has an `aria-label` sentence that states the takeaway.
 - Lines are 2.5 px; the current point gets a filled dot and its value.
+- **Four lines** (4c4, League's title odds over the season): one per team in its colour, one point per run; the four end labels are spread vertically (at least 12 units apart) and kept above the axis; a week tick that would run into them is left out. A marker sits on the line of the team that moved most, and its Tooltip foot names the two biggest swings ("LM −16.1% · BL +10.4%").

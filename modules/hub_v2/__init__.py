@@ -22,4 +22,6 @@ keeps one rule.
     publish.py the same page inside the existing decrypt shell, built only to
                a scratch folder until the switch-over, to measure its size.
     infotips.py the InfoTip explanations, in one place (for Nick to approve).
+    league.py, page_league.py  the League tab (4c4): its strings (engine side)
+               and its renderer; History's chips are lazy encrypted parts.
 """

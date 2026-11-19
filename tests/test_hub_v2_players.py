@@ -103,7 +103,8 @@ def test_the_weekly_change_needs_a_line_at_least_7_days_back():
     assert ratings.line_from_history(lines, "2026-11-22")["as_of"] == "2026-11-14"   # the latest a week back
     # no line a week back: no marker on anyone, never a zero, and no Risers section
     import hub_v2_market_fixture as MF
-    p = MF.add_market(add_synth_players(_synth_payload_4b(), previous=False))    # 4c3: the page has Market
+    import hub_v2_league_fixture as LF
+    p = LF.add_league(MF.add_market(add_synth_players(_synth_payload_4b(), previous=False)))  # 4c3/4c4: Market, League
     assert all(z["ovr_d"] is None and z["pot_d"] is None for z in _rows(p))
     assert p["v2"]["players"]["risers"] is None
     h = render(p)
@@ -167,7 +168,8 @@ def test_a_ratings_error_leaves_ovr_out_with_its_reason():
     P.build = with_error
     try:
         import hub_v2_market_fixture as MF
-        p = MF.add_market(T.add_synth_players(p))                                # 4c3: the page has Market
+        import hub_v2_league_fixture as LF
+        p = LF.add_league(MF.add_market(T.add_synth_players(p)))                 # 4c3/4c4: Market, League
     finally:
         P.build = orig
     assert all(z["ovr"] == DASH and z["pot"] == DASH and z["grades"] is None for z in _rows(p))

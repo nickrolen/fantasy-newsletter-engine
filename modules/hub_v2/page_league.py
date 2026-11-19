@@ -1,0 +1,499 @@
+"""
+hub_v2/page_league.py -- the new hub's League tab (4c4): Standings . History .
+Awards . Archive, printed from the view model (view.league, view.league_
+history), which carries payload strings only (modules/hub_v2/league.py made
+them).
+
+THE PAGE DISPLAYS. Every number is a payload string through clean(). The
+script switches segments, chips and the draft's season, opens a head-to-head
+cell's seasons, and (publish mode) loads a History chip's encrypted file the
+first time it opens. It computes nothing.
+
+HISTORY IS LAZY (4c4 s.2): each chip's HTML is rendered at build time
+(chip_html). The plaintext preview embeds it (a <template> per chip); the
+published page carries only each chip's encrypted file and key (in the
+encrypted page), and HUB.part fetches and opens it on the chip's first tap.
+
+CSS rules: tokens only (var(--...)); no hex colour, no px literal.
+"""
+
+from __future__ import annotations
+
+import json
+
+from ..live_lines_page import clean
+
+TAP_CLASSES = ("v2-lg-cell", "v2-lg-why", "v2-lg-game", "v2-lg-issue", "v2-lg-sum", "v2-lg-tile")
+DOT = " &middot; "
+
+CSS = """
+.v2-lg-pane{display:flex;flex-direction:column;gap:var(--space-20)}
+.v2-lg-team{display:flex;align-items:center;gap:var(--space-8);min-width:0;text-decoration:none;color:var(--ink)}
+.v2-lg-team b{font-size:var(--type-row-size);font-weight:800;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-lg-rank{font-family:var(--font-display);font-size:var(--type-display-row-size);font-weight:700;min-width:var(--space-14);text-align:center}
+.v2-lg-tie{font-size:var(--type-small-size);font-weight:800;color:var(--ink-3);vertical-align:super}
+.v2-lg-st td{vertical-align:middle;white-space:nowrap}
+.v2-lg-st td:first-child{text-align:left;white-space:normal}
+.v2-lg-st th:first-child,.v2-lg-st td:first-child{padding-left:var(--space-10)}
+.v2-lg-st .v2-lg-team{gap:var(--space-6)}
+.v2-lg-st .lh-sub{font-size:var(--type-small-size)}
+.v2-lg-blk{display:block}
+.v2-lg-st .v2-lg-team b{max-width:20vw}
+.v2-lg-st .v2-lg-rank{min-width:var(--space-10)}
+.v2-lg-odds{display:flex;flex-direction:column;align-items:flex-end;gap:var(--space-2)}
+.v2-lg-odds b{font-weight:800}
+.v2-lg-wk{display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-10)}
+.v2-lg-wk:first-of-type{padding-top:0}
+.v2-lg-wkh{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-8)}
+.v2-lg-row{display:grid;grid-template-columns:var(--space-24) minmax(0,1fr) auto;column-gap:var(--space-10);align-items:center;min-height:var(--row-min);border-top:var(--hairline) solid var(--line-soft);padding:var(--space-6) 0}
+.v2-lg-row:first-child{border-top:0}
+.v2-lg-right{display:flex;flex-direction:column;align-items:flex-end;gap:var(--space-2);text-align:right;white-space:nowrap}
+.v2-lg-val{font-family:var(--font-display);font-size:var(--type-display-sm-size);font-weight:700;font-variant-numeric:tabular-nums}
+.v2-lg-wkn{font-size:var(--type-small-size);font-weight:800;color:var(--ink-3);text-transform:uppercase;letter-spacing:var(--type-label-ls)}
+.v2-lg-soon{font-size:var(--type-body-size);color:var(--ink-2)}
+.v2-lg-issue{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:grid;grid-template-columns:var(--space-32) minmax(0,1fr) auto;column-gap:var(--space-10);align-items:center;min-height:var(--row-min);border-top:var(--hairline) solid var(--line-soft);padding:var(--space-6) 0}
+.v2-lg-issue:first-child{border-top:0}
+.v2-lg-issue:focus-visible{outline:var(--hairline) solid var(--accent)}
+.v2-lg-issue:disabled{opacity:.6}
+.v2-lg-iwk{font-family:var(--font-display);font-size:var(--type-display-sm-size);font-weight:700;text-align:center}
+.v2-lg-chips{display:flex;flex-wrap:wrap;gap:var(--space-6)}
+.v2-lg-hist{display:flex;flex-direction:column;gap:var(--space-20)}
+.v2-lg-champ{display:grid;grid-template-columns:var(--space-32) minmax(0,1fr);column-gap:var(--space-10);align-items:start;min-height:var(--row-min);border-top:var(--hairline) solid var(--line-soft);padding:var(--space-8) 0}
+.v2-lg-champ:first-child{border-top:0}
+.v2-lg-season{font-family:var(--font-display);font-size:var(--type-display-row-size);font-weight:700;font-variant-numeric:tabular-nums}
+.v2-lg-line{font-size:var(--type-meta-size);color:var(--ink-2);overflow-wrap:anywhere}
+.v2-lg-line b{color:var(--ink);font-weight:800}
+.v2-lg-h2h{display:grid;grid-template-columns:var(--tap-min) repeat(var(--n),minmax(0,1fr));gap:var(--space-4);align-items:center}
+.v2-lg-hh{font-size:var(--type-small-size);font-weight:800;color:var(--ink-3);text-align:center;display:flex;justify-content:center}
+.v2-lg-cell{all:unset;box-sizing:border-box;cursor:pointer;min-height:var(--tap-min);display:flex;align-items:center;justify-content:center;border-radius:var(--radius-6);background:var(--surface-subtle);font-size:var(--type-meta-size);font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.v2-lg-cell[aria-expanded="true"]{box-shadow:0 0 0 var(--hairline) var(--ink-strong)}
+.v2-lg-cell:focus-visible{outline:var(--hairline) solid var(--accent)}
+.v2-lg-diag{min-height:var(--tap-min);display:flex;align-items:center;justify-content:center;color:var(--ink-3);font-size:var(--type-meta-size)}
+.v2-lg-pair{display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-10);border-top:var(--hairline) solid var(--line-soft)}
+.v2-lg-pl{display:grid;grid-template-columns:var(--space-32) minmax(0,1fr);column-gap:var(--space-10);font-size:var(--type-meta-size);color:var(--ink-2)}
+.v2-lg-pl span:first-child{font-weight:800;color:var(--ink);white-space:nowrap}
+.v2-lg-tiles .lh-kpi{text-align:left}
+.v2-lg-tile{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:var(--space-2);min-height:var(--tap-min)}
+.v2-lg-group{display:flex;flex-direction:column;gap:var(--space-6)}
+.v2-lg-group details{border-top:var(--hairline) solid var(--line-soft)}
+.v2-lg-group details:first-of-type{border-top:0}
+.v2-lg-sum{cursor:pointer;min-height:var(--tap-min);display:flex;align-items:center;justify-content:space-between;gap:var(--space-8);font-size:var(--type-row-size);font-weight:800;color:var(--ink);list-style:none}
+.v2-lg-sum::-webkit-details-marker{display:none}
+.v2-lg-sum span:last-child{font-size:var(--type-meta-size);font-weight:700;color:var(--ink-2);white-space:nowrap}
+.v2-lg-rec{display:grid;grid-template-columns:var(--space-20) minmax(0,1fr) auto;column-gap:var(--space-8);align-items:center;min-height:var(--row-min);border-top:var(--hairline) solid var(--line-soft)}
+.v2-lg-rec .v2-lg-who{display:flex;flex-direction:column;min-width:0;font-size:var(--type-body-size);overflow-wrap:anywhere}
+.v2-lg-n{font-size:var(--type-small-size);font-weight:800;color:var(--ink-3);text-align:center}
+.v2-lg-game{all:unset;box-sizing:border-box;cursor:pointer;min-height:var(--tap-min);min-width:var(--tap-min);display:inline-flex;align-items:center;justify-content:flex-end;gap:var(--space-4)}
+.v2-lg-game[aria-expanded="true"] .v2-lg-val{text-decoration:underline}
+.v2-lg-dsel{display:flex;flex-wrap:wrap;gap:var(--space-8);align-items:center}
+.v2-lg-dr td{vertical-align:middle}
+.v2-lg-dr td:nth-child(2),.v2-lg-dr th:nth-child(2){text-align:left;max-width:44vw}
+.v2-lg-k{font-size:var(--type-small-size);font-weight:800;color:var(--ink-3);margin-left:var(--space-4)}
+.v2-lg-why{all:unset;box-sizing:border-box;cursor:pointer;min-height:var(--tap-min);min-width:var(--tap-min);display:inline-flex;align-items:center;justify-content:flex-end;color:var(--ink-3);text-decoration:underline dotted var(--axis-strong)}
+.v2-lg-why[aria-expanded="true"]{color:var(--ink)}
+.v2-lg-chg{font-size:var(--type-small-size);font-weight:700;margin-left:var(--space-2)}
+.v2-lg-chg--up{color:var(--up)}.v2-lg-chg--down{color:var(--down)}.v2-lg-chg--flat{color:var(--ink-3)}
+.v2-lg-trade{display:flex;flex-direction:column;gap:var(--space-4);border-top:var(--hairline) solid var(--line-soft);padding:var(--space-10) 0}
+.v2-lg-trade:first-child{border-top:0;padding-top:0}
+.v2-lg-th{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-6)}
+.v2-lg-side{font-size:var(--type-body-size);color:var(--ink-2);overflow-wrap:anywhere}
+.v2-lg-side b{color:var(--ink);font-weight:800}
+.v2-lg-load{font-size:var(--type-body-size);color:var(--ink-2)}
+"""
+
+JS = r"""
+// 4c4: the League tab -- the History chips (a chip's encrypted file is
+// fetched and opened on its first tap in publish mode), head-to-head's phase
+// and a cell's seasons, the draft's season. Nothing computed.
+var LG={chip:'champions'};
+function lgPart(pane){
+  if(pane.getAttribute('data-loaded')==='1'){return Promise.resolve();}
+  var tpl=document.getElementById('v2-lg-'+pane.getAttribute('data-lhchip-of'));
+  if(tpl){pane.innerHTML=tpl.innerHTML;pane.setAttribute('data-loaded','1');return Promise.resolve();}
+  var ref=pane.getAttribute('data-part');
+  if(!ref||!window.HUB||!window.HUB.part){return Promise.resolve();}
+  return window.HUB.part(JSON.parse(ref)).then(function(p){pane.innerHTML=p.html;pane.setAttribute('data-loaded','1');},
+    function(err){if(err&&err.message==='gone'){movedBox();}
+      var e=pane.querySelector('.v2-lg-load');if(e){e.textContent='This part of the history could not be opened.';}});
+}
+function lgChip(key){
+  LG.chip=key;
+  var bs=document.querySelectorAll('[data-lhchip]');
+  for(var i=0;i<bs.length;i++){bs[i].setAttribute('aria-pressed',String(bs[i].getAttribute('data-lhchip')===key));}
+  var ps=document.querySelectorAll('[data-lhchip-of]'),want=null;
+  for(var j=0;j<ps.length;j++){var on=ps[j].getAttribute('data-lhchip-of')===key;ps[j].hidden=!on;if(on){want=ps[j];}}
+  return want?lgPart(want):Promise.resolve();
+}
+function lgPhase(ph){
+  var bs=document.querySelectorAll('[data-lhphase]');
+  for(var i=0;i<bs.length;i++){bs[i].setAttribute('aria-pressed',String(bs[i].getAttribute('data-lhphase')===ph));}
+  var gs=document.querySelectorAll('[data-lhphase-of]');
+  for(var j=0;j<gs.length;j++){gs[j].hidden=gs[j].getAttribute('data-lhphase-of')!==ph;}
+}
+function lgPair(key){
+  var cs=document.querySelectorAll('[data-lhpair]');
+  for(var i=0;i<cs.length;i++){cs[i].setAttribute('aria-expanded',String(cs[i].getAttribute('data-lhpair')===key));}
+  var ps=document.querySelectorAll('[data-lhpair-of]');
+  for(var j=0;j<ps.length;j++){ps[j].hidden=ps[j].getAttribute('data-lhpair-of')!==key;}
+}
+function lgDraft(season){
+  var sel=document.querySelector('[data-lhdraft]');if(sel){sel.value=season;}
+  var ps=document.querySelectorAll('[data-lhdraft-of]');
+  for(var j=0;j<ps.length;j++){ps[j].hidden=ps[j].getAttribute('data-lhdraft-of')!==season;}
+}
+// #/league/<segment>[/<chip>[/<a>/<b> | /<season>]]
+window.lgRoute=function(parts){
+  var seg=document.querySelector('.lh-seg[data-seg="league"]');
+  var s=parts[0]||'standings';seen['league']=s;if(seg){pick(seg,s);}
+  if(s!=='history'){return;}
+  var c=parts[1]||LG.chip;
+  lgChip(c).then(function(){
+    if(c==='h2h'&&parts.length>3){lgPair(decodeURIComponent(parts[2])+'|'+decodeURIComponent(parts[3]));}
+    if(c==='draft'&&parts[2]){lgDraft(decodeURIComponent(parts[2]));}
+  });
+};
+document.addEventListener('click',function(e){
+  var t=e.target.closest('.lh-seg[data-seg="league"] button[data-pane="history"]');
+  if(t){setTimeout(function(){lgChip(LG.chip);},0);}
+  t=e.target.closest('[data-lhchip]');
+  if(t){lgChip(t.getAttribute('data-lhchip'));return;}
+  t=e.target.closest('[data-lhphase]');
+  if(t){lgPhase(t.getAttribute('data-lhphase'));return;}
+  t=e.target.closest('[data-lhpair]');
+  if(t){var k=t.getAttribute('data-lhpair');lgPair(t.getAttribute('aria-expanded')==='true'?'':k);return;}
+});
+document.addEventListener('change',function(e){
+  var t=e.target;
+  if(t.matches&&t.matches('[data-lhdraft]')){lgDraft(t.value);}
+});
+"""
+
+
+def _team(t: dict, mono, sub: str = "", size: str = "28") -> str:
+    return (f'<a class="v2-lg-team v2-tap" href="{t["href"]}">{mono(t, size)}<span class="v2-minw">'
+            f'<b>{clean(t["team"])}</b>' + (f'<span class="lh-sub">{clean(sub)}</span>' if sub else "")
+            + "</span></a>")
+
+
+def _mgr(t: dict, mono, sub: str = "") -> str:
+    """A table's team cell where width is short: the monogram and the manager's
+    first name (the README's rule for people), the team's name in its label."""
+    return (f'<a class="v2-lg-team v2-tap" href="{t["href"]}" aria-label="{clean(t["team"])}, {clean(t["manager"])}">'
+            f'{mono(t, "24")}<span class="v2-minw"><b>{clean(t["manager"])}</b>'
+            + (f'<span class="lh-sub">{clean(sub)}</span>' if sub else "") + "</span></a>")
+
+
+def _chip(t: dict) -> str:
+    return (f'<a class="lh-chip {t["cls"]} v2-tap" href="{t["href"]}"><span class="lh-swatch"></span>'
+            f'{clean(t["team"])}</a>')
+
+
+def _name(p: str, href: str, bold: bool = False) -> str:
+    inner = f"<b>{clean(p)}</b>" if bold else clean(p)
+    if href:
+        return f'<a class="v2-pl v2-tap" href="{clean(href)}">{inner}</a>'
+    return f"<span>{inner}</span>"
+
+
+def _tip(tip: dict) -> str:
+    return (f' data-tip-h="{clean(tip["h"])}" data-tip-b="{clean(tip["b"])}"'
+            + (f' data-tip-f="{clean(tip["f"])}"' if tip.get("f") else "") + ' aria-expanded="false"')
+
+
+def _why(text: str, who: str, reason: str) -> str:
+    """A "\u2014" with its reason one tap away (the shared tooltip)."""
+    if not reason:
+        return clean(text)
+    return (f'<button type="button" class="v2-lg-why"{_tip({"h": who, "b": reason})} '
+            f'aria-label="{clean(who)}: {clean(reason)}">{clean(text)}</button>')
+
+
+# =============================================================================
+# Standings
+# =============================================================================
+
+def _standings(lg: dict, ids, info, mono, chart) -> str:
+    st = lg["standings"]
+    o = ['<section class="lh-card lh-card--flush" data-section="standings"><div class="lh-sechead v2-pad">'
+         f'<h2 class="lh-eyebrow">{clean(st["title"])}</h2><span class="lh-meta">{clean(st["meta"])}</span></div>'
+         '<div class="v2-scroll"><table class="lh-table v2-lg-st"><thead><tr><th>Team</th><th>W-L</th><th>PF</th>'
+         f'<th>Strk</th><th>{clean(st["odds_label"].split(" ")[0])}</th></tr></thead><tbody>']
+    for r in st["rows"]:
+        t = r["team"]
+        d = r["dir"] if r["dir"] in ("up", "down") else "flat"
+        tie = ('<span class="v2-lg-tie" aria-label="tie broken: see the note">*</span>' if r["tie"] else "")
+        o.append(f'<tr><td><span class="v2-lg-team"><span class="v2-lg-rank">{clean(r["rank"])}{tie}</span>'
+                 + _mgr(t, mono) + "</span></td>"
+                 f'<td class="lh-num">{clean(r["record"])}</td><td class="lh-num">{clean(r["pf"])}</td>'
+                 f'<td class="lh-num">{clean(r["streak"])}</td><td class="lh-num"><span class="v2-lg-odds"><b>{clean(r["odds"])}</b>'
+                 f'<span class="lh-delta lh-delta--{d}">{clean(r["delta"])}</span></span></td></tr>')
+    o.append("</tbody></table></div>")
+    note = st["note"] + ("".join(" * " + x for x in st["ties"]) if st["ties"] else "")
+    o.append(f'<div class="lh-table-note">{clean(note)}</div></section>')
+    o.append('<section class="lh-card v2-gap8" data-section="title-odds"><div class="lh-sechead">'
+             f'<h2 class="lh-eyebrow">{clean(st["odds_label"])} over the season</h2>'
+             f'{info(ids, "title_odds", "tap a point")}</div>' + chart(lg["chart"], "lg-odds")
+             + f'<span class="lh-sub">{clean(lg["chart_note"])}</span></section>')
+    pw = lg["power"]
+    o.append('<section class="lh-card v2-gap8" data-section="power-history"><div class="lh-sechead">'
+             '<h2 class="lh-eyebrow">Power rankings by week</h2></div>')
+    if not pw["weeks"]:
+        o.append(f'<p class="v2-p">{clean(pw["empty"])}</p>')
+    for w in pw["weeks"]:
+        o.append(f'<div class="v2-lg-wk"><div class="v2-lg-wkh"><span class="lh-label">{clean(w["label"])}</span>'
+                 f'<span class="lh-meta">{clean(w["sub"])}</span></div>')
+        for r in w["rows"]:
+            t = r["team"]
+            d = r["dir"] if r["dir"] in ("up", "down") else "flat"
+            o.append(f'<div class="v2-lg-row {t["cls"]}"><span class="lh-rank__n">{clean(r["rank"])}</span>'
+                     + _team(t, mono, r["record"], "28")
+                     + f'<span class="v2-lg-right"><span class="lh-dsp v2-dsp-sm lh-num">{clean(r["odds"])}</span>'
+                       f'<span class="lh-delta lh-delta--{d}">{clean(r["move"])}</span></span></div>')
+        o.append("</div>")
+    o.append(f'<span class="lh-sub">{clean(pw["note"])}</span></section>')
+    return "".join(o)
+
+
+# =============================================================================
+# Awards and Archive
+# =============================================================================
+
+def _awards(aw: dict, mono) -> str:
+    o = ['<section class="lh-card v2-gap8" data-section="potw"><div class="lh-sechead">'
+         '<h2 class="lh-eyebrow">Player of the Week</h2></div>']
+    for s in aw["potw"]:
+        o.append(f'<div class="v2-lg-wk"><span class="lh-label">{clean(s["season"])}</span>')
+        for r in s["rows"]:
+            t = r["team"]
+            sub = (_chip(t) if t else "")
+            o.append(f'<div class="v2-lg-row"><span class="v2-lg-wkn">{clean(r["week"])}</span>'
+                     f'<span class="v2-minw">{_name(r["player"], r["href"], True)}'
+                     f'<span class="lh-sub">{sub}</span></span><span class="v2-lg-right">'
+                     f'<span class="v2-lg-val">{clean(r["pts"])}</span><span class="lh-sub">{clean(r["sub"])}</span>'
+                     "</span></div>")
+        o.append("</div>")
+    o.append(f'<span class="lh-sub">{clean(aw["potw_note"])}</span></section>')
+    o.append(f'<section class="lh-card" data-section="races"><h2 class="lh-eyebrow">Awards</h2>'
+             f'<p class="v2-lg-soon">{clean(aw["soon"])}</p></section>')
+    return "".join(o)
+
+
+def _archive(ar: dict, doc: str, chev: str) -> str:
+    o = ['<section class="lh-card v2-gap8" data-section="archive"><div class="lh-sechead">'
+         '<h2 class="lh-eyebrow">Newsletter archive</h2></div>']
+    if not ar["issues"]:
+        o.append(f'<p class="v2-p">{clean(ar["empty"])}</p>')
+    o.append('<div class="v2-mk-list">')
+    for i in ar["issues"]:
+        k, v = i["attr"]
+        head = f'<span class="lh-sub">{clean(i["headline"])}</span>' if i["headline"] else ""
+        o.append(f'<button type="button" class="v2-lg-issue" {k}="{clean(v)}" '
+                 f'aria-label="Open the week {clean(i["week"])} issue"><span class="v2-lg-iwk">{clean(i["week"])}</span>'
+                 f'<span class="v2-minw"><b class="v2-name14">{clean(i["label"])}</b>{head}'
+                 f'<span class="lh-sub">{clean(i["size"])}</span></span>{chev}</button>')
+    o.append(f'</div><span class="lh-sub">{clean(ar["note"])}</span></section>')
+    return "".join(o)
+
+
+# =============================================================================
+# History: one chip's HTML (inline in preview, an encrypted file when published)
+# =============================================================================
+
+def _champions(c: dict, mono) -> str:
+    o = ['<section class="lh-card v2-gap8"><div class="lh-sechead"><h2 class="lh-eyebrow">Champions</h2>'
+         f'<span class="lh-meta">{clean(c["meta"])}</span></div><div class="v2-mk-list">']
+    for r in c["rows"]:
+        t = r["team"]
+        head = (f'{mono(t, "28")}' if t else '<span></span>')
+        title = (f'<b class="v2-name14">{clean(r["team"])}</b><span class="lh-sub">{clean(r["who"])}</span>'
+                 if t else "")
+        lines = "".join(f'<span class="v2-lg-line"><b>{clean(x["k"])}:</b> {clean(x["t"])}</span>' for x in r["lines"])
+        o.append(f'<div class="v2-lg-champ">{head}<span class="v2-minw"><span class="v2-lg-season">'
+                 f'{clean(r["season"])}</span>{title}{lines}</span></div>')
+    o.append(f'</div><span class="lh-sub">{clean(c["note"])}</span></section>')
+    return "".join(o)
+
+
+def _alltime(a: dict, mono) -> str:
+    o = ['<section class="lh-card lh-card--flush"><div class="lh-sechead v2-pad"><h2 class="lh-eyebrow">All-time standings'
+         f'</h2><span class="lh-meta">{clean(a["meta"])}</span></div><div class="v2-scroll"><table class="lh-table v2-lg-st">'
+         "<thead><tr><th>Team</th><th>W-L</th><th>PF</th><th>Champ</th><th>1st</th></tr></thead><tbody>"]
+    for r in a["rows"]:
+        o.append(f'<tr><td><span class="v2-lg-team"><span class="v2-lg-rank">{clean(r["rank"])}</span>'
+                 + _mgr(r["team"], mono, "Playoffs " + r["post"]) + "</span></td>"
+                 f'<td class="lh-num">{clean(r["record"])}<span class="lh-sub v2-lg-blk">{clean(r["pct"])}</span></td>'
+                 f'<td class="lh-num">{clean(r["pf"])}</td><td class="lh-num">{clean(r["champs"])}</td>'
+                 f'<td class="lh-num">{clean(r["firsts"])}</td></tr>')
+    o.append(f'</tbody></table></div><div class="lh-table-note">{clean(a["note"])}</div></section>')
+    return "".join(o)
+
+
+def _h2h(h: dict, mono) -> str:
+    n = str(len(h["cols"]))
+    o = ['<section class="lh-card v2-gap8"><div class="lh-sechead"><h2 class="lh-eyebrow">Head to head</h2></div>'
+         '<div class="v2-fchips" role="group" aria-label="Phase">']
+    for i, (k, lab) in enumerate(h["phases"]):
+        o.append(f'<button type="button" class="v2-fchip" data-lhphase="{k}" aria-pressed="{"true" if i == 0 else "false"}">'
+                 f'{clean(lab)}</button>')
+    o.append("</div>")
+    for i, (k, lab) in enumerate(h["phases"]):
+        o.append(f'<div class="v2-lg-h2h" data-lhphase-of="{k}" style="--n:{n}" role="table" '
+                 f'aria-label="{clean(lab)}: each row against each column"{"" if i == 0 else " hidden"}>'
+                 '<span role="columnheader"></span>'
+                 + "".join(f'<span class="v2-lg-hh" role="columnheader" aria-label="{clean(t["manager"])}">'
+                           f'{mono(t, "28")}</span>' for t in h["cols"]))
+        for r in h["grid"][k]:
+            o.append(f'<a class="v2-lg-team v2-tap" href="{r["team"]["href"]}" role="rowheader" '
+                     f'aria-label="{clean(r["team"]["manager"])}">{mono(r["team"], "28")}</a>')
+            for c, t in zip(r["cells"], h["cols"]):
+                if c is None:
+                    o.append('<span class="v2-lg-diag" aria-hidden="true">&mdash;</span>')
+                    continue
+                o.append(f'<button type="button" class="v2-lg-cell" data-lhpair="{clean(c["key"])}" aria-expanded="false" '
+                         f'aria-label="{clean(r["team"]["manager"])} against {clean(t["manager"])}, {clean(lab)}: '
+                         f'{clean(c["t"])}. Tap for each season.">{clean(c["t"])}</button>')
+        o.append("</div>")
+    for key, p in h["pairs"].items():
+        o.append(f'<div class="v2-lg-pair" data-lhpair-of="{clean(key)}" hidden><b class="v2-name14">{clean(p["title"])}</b>'
+                 f'<span class="lh-sub">{clean(p["total"])}</span>'
+                 + "".join(f'<span class="v2-lg-pl"><span>{clean(x["season"])}</span><span>{clean(x["t"])}</span></span>'
+                           for x in p["lines"]) + "</div>")
+    o.append(f'<span class="lh-sub">{clean(h["note"])}</span></section>')
+    return "".join(o)
+
+
+def _records(r: dict) -> str:
+    o = ['<div class="lh-kpis v2-lg-tiles">']
+    for t in r["tiles"]:
+        inner = (f'<span class="lh-label">{clean(t["label"])}</span><span class="lh-kpi__value">{clean(t["value"])}</span>'
+                 f'<span class="lh-kpi__ctx">{clean(t["who"])} &middot; {clean(t["ctx"])}</span>')
+        if t["tip"]:
+            o.append(f'<div class="lh-kpi"><button type="button" class="v2-lg-tile"{_tip(t["tip"])} '
+                     f'aria-label="{clean(t["label"])}: {clean(t["value"])}, {clean(t["who"])}. Tap for the game.">'
+                     f"{inner}</button></div>")
+        else:
+            o.append(f'<div class="lh-kpi">{inner}</div>')
+    o.append("</div>")
+    for g in r["groups"]:
+        o.append(f'<section class="lh-card v2-lg-group"><h2 class="lh-eyebrow">{clean(g["label"])}</h2>')
+        for lst in g["lists"]:
+            top = lst["rows"][0]
+            o.append(f'<details><summary class="v2-lg-sum"><span>{clean(lst["label"])}</span>'
+                     f'<span>{clean(top["value"])}</span></summary>')
+            for x in lst["rows"]:
+                val = f'<span class="v2-lg-val">{clean(x["value"])}</span>'
+                if x["tip"]:
+                    val = (f'<button type="button" class="v2-lg-game"{_tip(x["tip"])} '
+                           f'aria-label="{clean(lst["label"])} #{clean(x["rank"])}: {clean(x["value"])}. Tap for the game.">'
+                           f"{val}</button>")
+                who = (_name(x["who"], x["href"]) if x["player"] and x["href"] else f"<span>{clean(x['who'])}</span>")
+                o.append(f'<div class="v2-lg-rec"><span class="v2-lg-n">{clean(x["rank"])}</span><span class="v2-lg-who">'
+                         f'{who}<span class="lh-sub">{clean(x["ctx"])}</span></span>{val}</div>')
+            o.append("</details>")
+        o.append("</section>")
+    o.append(f'<span class="lh-sub">{clean(r["note"])}</span>')
+    return "".join(o)
+
+
+def _draft(d: dict) -> str:
+    o = ['<div class="v2-lg-dsel"><label class="v2-fchip">Season<select data-lhdraft aria-label="Draft season">']
+    for s in d["seasons"]:
+        o.append(f'<option value="{clean(s["season"])}"{" selected" if s["season"] == d["default"] else ""}>'
+                 f'{clean(s["season"])}</option>')
+    o.append("</select></label></div>")
+    for s in d["seasons"]:
+        o.append(f'<section class="lh-card lh-card--flush" data-lhdraft-of="{clean(s["season"])}"'
+                 f'{"" if s["season"] == d["default"] else " hidden"}><div class="lh-sechead v2-pad">'
+                 f'<h2 class="lh-eyebrow">{clean(s["season"])} draft</h2><span class="lh-meta">{clean(s["meta"])}</span>'
+                 '</div><div class="v2-scroll"><table class="lh-table v2-lg-dr"><thead><tr><th>Pick</th>'
+                 f'<th>Player</th><th>Then</th><th>{clean(s["later_label"])}</th></tr></thead><tbody>')
+        for r in s["rows"]:
+            t = r["team"]
+            team = _chip(t) if t else clean(r["m"])
+            k = '<span class="v2-lg-k">K</span>' if r["keeper"] else ""
+            chg = (f'<span class="v2-lg-chg v2-lg-chg--{r["dir"]}">{clean(r["chg"])}</span>' if r["chg"] else "")
+            o.append(f'<tr><td class="lh-num">{clean(r["pick"])}{k}</td><td>{_name(r["player"], r["href"], True)}'
+                     f'<span class="lh-sub">{team}</span></td>'
+                     f'<td class="lh-num">{_why(r["then"], r["player"], r["then_why"])}</td>'
+                     f'<td class="lh-num">{_why(r["later"], r["player"], r["later_why"])}{chg}</td></tr>')
+        o.append(f'</tbody></table></div><div class="lh-table-note">{clean(s["drafted"])}</div></section>')
+    o.append(f'<span class="lh-sub">{clean(d["note"])}</span>')
+    return "".join(o)
+
+
+def _trades(tr: dict) -> str:
+    o = ['<section class="lh-card v2-gap8"><div class="lh-sechead"><h2 class="lh-eyebrow">Trades</h2>'
+         f'<span class="lh-meta">{clean(tr["count"])}</span></div>']
+    if not tr["items"]:
+        o.append(f'<p class="v2-p">{clean(tr["empty"])}</p>')
+    o.append('<div class="v2-mk-list">')
+    for it in tr["items"]:
+        o.append(f'<div class="v2-lg-trade"><span class="lh-sub">{clean(it["date"])} &middot; {clean(it["season"])}</span>'
+                 f'<span class="v2-lg-th">{_chip(it["teams"][0])} &#8644; {_chip(it["teams"][1])}</span>')
+        for sd in it["sides"]:
+            gets = ", ".join(_name(g["t"], g["href"]) for g in sd["gets"]) or "nothing recorded"
+            o.append(f'<span class="v2-lg-side"><b>{clean(sd["m"])} gets:</b> {gets}</span>')
+        o.append("</div>")
+    o.append(f'</div><span class="lh-sub">{clean(tr["note"])}</span></section>')
+    return "".join(o)
+
+
+def chip_html(h: dict, chip: str, mono) -> str:
+    """One History chip's HTML, from view.league_history's model."""
+    if chip == "champions":
+        return _champions(h["champions"], mono)
+    if chip == "alltime":
+        return _alltime(h["alltime"], mono)
+    if chip == "h2h":
+        return _h2h(h["h2h"], mono)
+    if chip == "records":
+        return _records(h["records"])
+    if chip == "draft":
+        return _draft(h["draft"])
+    if chip == "trades":
+        return _trades(h["trades"])
+    raise ValueError(f"no History chip {chip!r}")
+
+
+def _history(lg: dict, mode: str) -> str:
+    chips = lg["chips"]
+    o = ['<div class="v2-lg-chips" role="group" aria-label="History">']
+    for i, (k, lab) in enumerate(chips):
+        o.append(f'<button type="button" class="v2-fchip" data-lhchip="{k}" aria-pressed="{"true" if i == 0 else "false"}">'
+                 f"{clean(lab)}</button>")
+    o.append("</div>")
+    parts = lg.get("parts") or {}
+    have = bool(parts) if mode == "publish" else bool(lg.get("history"))
+    msg = ("Loading this part of the history&hellip;" if have else
+           "The history is not in this build: its file was not built with this page.")
+    for i, (k, _lab) in enumerate(chips):
+        ref = parts.get(k)
+        attr = f" data-part='{clean(json.dumps(ref, separators=(',', ':')))}'" if (mode == "publish" and ref) else ""
+        o.append(f'<div class="v2-lg-hist" data-lhchip-of="{k}"{attr}{"" if i == 0 else " hidden"}>'
+                 f'<p class="v2-lg-load">{msg}</p></div>')
+    return "".join(o)
+
+
+def templates(lg: dict, mono) -> str:
+    """The preview's History, every chip's HTML in a <template> (plaintext,
+    this machine only); the published page never carries it."""
+    h = lg.get("history")
+    if not h:
+        return ""
+    return "".join(f'<template id="v2-lg-{k}">{chip_html(h, k, mono)}</template>' for k, _lab in h["chips"])
+
+
+def league_screen(vm: dict, ids, info, mono, chart, doc: str, chev: str) -> str:
+    lg = vm["league"]
+    o = ['<section class="v2-screen" data-route="league" hidden><div class="v2-stack"><div class="v2-sec">',
+         '<div class="lh-seg" role="tablist" data-seg="league">']
+    for i, (k, lab) in enumerate(lg["segs"]):
+        o.append(f'<button type="button" role="tab" data-pane="{k}" aria-selected="{"true" if i == 0 else "false"}">'
+                 f"{clean(lab)}</button>")
+    o.append("</div>")
+    o.append('<div class="v2-lg-pane" data-pane-of="standings">' + _standings(lg, ids, info, mono, chart) + "</div>")
+    o.append('<div class="v2-lg-pane" data-pane-of="history" hidden>' + _history(lg, vm["mode"]) + "</div>")
+    o.append('<div class="v2-lg-pane" data-pane-of="awards" hidden>' + _awards(lg["awards"], mono) + "</div>")
+    o.append('<div class="v2-lg-pane" data-pane-of="archive" hidden>' + _archive(lg["archive"], doc, chev) + "</div>")
+    o.append("</div></div></section>")
+    return "".join(o)

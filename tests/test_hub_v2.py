@@ -80,7 +80,8 @@ def synth_payload() -> dict:
     (roster.build), the grids' tooltips and last week, plus (4c3) the Market
     tab by the real engine path (market.build: tests/hub_v2_market_fixture.py)."""
     import hub_v2_market_fixture as MF
-    return MF.add_market(add_synth_teams(add_synth_players(_synth_payload_4b())))
+    import hub_v2_league_fixture as LF
+    return LF.add_league(MF.add_market(add_synth_teams(add_synth_players(_synth_payload_4b()))))
 
 
 def _synth_payload_4b() -> dict:
@@ -321,7 +322,7 @@ def dyn_route(href: str) -> str:
     return href
 
 
-ALL_CSS = page.LAYOUT_CSS + page.pp.CSS + page.pm.CSS   # the renderer's own CSS (4c1: Players, the card, Compare; 4c3: Market)
+ALL_CSS = page.LAYOUT_CSS + page.pp.CSS + page.pm.CSS + page.pl.CSS   # the renderer's own CSS (4c1: Players, the card, Compare; 4c3: Market; 4c4: League)
 
 
 def visible_text(h: str) -> str:
@@ -366,12 +367,12 @@ def test_home_sections_are_in_page_map_order():
     assert "Week 8 issue" in home                      # until 4d's headline
 
 
-def test_placeholders_say_coming_and_link_the_current_page_only_in_preview():
+def test_no_placeholder_is_left():
+    # 4c4: League, the last placeholder, is built: no tab says "Coming", and
+    # nothing links the current page any more
     pv, pb = render(), render(mode="publish")
-    for key in ("market", "league"):                      # Players is built (4c1)
-        sec = lambda h: re.search(rf'data-route="{key}".*?</section></div></section>', h, re.S).group(0)
-        assert view.PLACEHOLDER in sec(pv) and view.PLACEHOLDER in sec(pb)
-        assert "hub_preview.html#" in sec(pv) and "hub_preview.html" not in sec(pb)
+    for h in (pv, pb):
+        assert view.PLACEHOLDER not in h and "hub_preview.html#" not in h
 
 
 def test_player_names_carry_the_card_key_and_open_the_new_card():
@@ -470,7 +471,9 @@ def test_the_publish_mode_file_holds_only_ciphertext_and_round_trips(tmp_path):
     p["v2"]["issue"]["file"] = e["enc"]
     out = tmp_path / "_to_delete" / "4b" / "publish"
     rep = v2pub.build(tmp_path, p, PASS, salt=b"\x01" * 16, out_dir=out, iterations=1000, terms=TERMS, now=GEN)
-    assert rep["files"] == ["index.html"]
+    # 4c4: beside index.html, only League's History chips, each an encrypted part file
+    assert rep["files"][0] == "index.html" and len(rep["files"]) == 7
+    assert all(re.fullmatch(r"parts/[0-9a-f]{16}\.enc", f) for f in rep["files"][1:])
     sh = (out / "index.html").read_text(encoding="utf-8")
     from modules import hub_publish
     assert hub_publish.scan_dir(out, TERMS)["hits"] == {}

@@ -482,8 +482,10 @@ class Run:
             return f"team pictures FAILED (recorded; the run goes on): {blk['error']}"
         got = [m for m, v in blk["teams"].items() if v.get("sha")]
         changed = [m for m, v in blk["teams"].items() if v.get("changed")]
+        dflt = [m for m, v in blk["teams"].items() if v.get("default")]      # 4c4: Yahoo's generic avatar
         return (f"team pictures: {len(got)} of {len(MANAGERS)} stored"
                 + (f", changed: {', '.join(changed)}" if changed else ", none changed")
+                + (f"; Yahoo's default avatar (monogram shown): {', '.join(sorted(dflt))}" if dflt else "")
                 + (f"; FAILED: {', '.join(sorted(blk['failures']))}" if blk["failures"] else "")
                 + ("" if blk.get("downscaled", True) else "; NOT downscaled (no Pillow)"))
 

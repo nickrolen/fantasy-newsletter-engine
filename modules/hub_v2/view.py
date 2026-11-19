@@ -366,11 +366,7 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
             attr = ("data-href", archive_href + iss["file"].replace(".enc", ".html"))
         issue = {"text": iss["text"], "attr": attr}
 
-    placeholders = []
-    for key, label in TABS[5:]:                       # Players (4c1) and Market (4c3) are built; League is 4c4
-        placeholders.append({"key": key, "label": label, "text": PLACEHOLDER,
-                             "links": ([{"href": f"hub_preview.html#{vid}", "t": t} for vid, t in CURRENT_LINKS[key]]
-                                       if mode == "preview" else [])})
+    placeholders = []                                 # every tab is built (4c4: League, the last)
 
     return {
         "mode": mode, "title": h["title"], "epoch": int(payload["generated_epoch_ms"]),
@@ -389,6 +385,8 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "placeholders": placeholders, "odds_label": payload["power"]["label"],
         "players": players(payload, teams),
         "market": market(payload, teams),
+        "league": dict(league(payload, teams, mode, archive_href),
+                       history=league_history(payload, teams) if "league_history" in v2 else None),
         "pictures": [{"slot": teams_v2[m]["slot"], "uri": uri} for m, uri in sorted(pictures.items())
                      if m in teams_v2],
         "footer": (f"Engine {payload['engine']['key']} \u00b7 actual points through "
@@ -492,3 +490,132 @@ def players(payload: dict, teams: dict) -> dict:
             "preview_arch": bool(rt.get("preview")),
             "cmp_json": _json.dumps(cmp, separators=(",", ":"), ensure_ascii=True),
             "pick": [r for r in rows if r["key"]]}
+
+
+# =============================================================================
+# League (4c4)
+# =============================================================================
+
+def _spread_n(ys: List[float], gap: float = 12.0, lo: float = Y0, hi: float = Y1 - 2) -> List[float]:
+    """End labels moved apart to at least `gap`, in their order, kept inside
+    [lo, hi] (layout only: the labels' own strings are the engine's)."""
+    idx = sorted(range(len(ys)), key=lambda i: ys[i])
+    pos = [ys[i] for i in idx]
+    for k in range(1, len(pos)):
+        if pos[k] - pos[k - 1] < gap:
+            pos[k] = pos[k - 1] + gap
+    over = pos[-1] - hi if pos else 0
+    if over > 0:
+        pos = [p - over for p in pos]
+        for k in range(len(pos) - 2, -1, -1):
+            if pos[k + 1] - pos[k] < gap:
+                pos[k] = pos[k + 1] - gap
+    if pos and pos[0] < lo - gap:
+        pos = [p + (lo - gap - pos[0]) for p in pos]
+    out = [0.0] * len(ys)
+    for k, i in enumerate(idx):
+        out[i] = pos[k]
+    return out
+
+
+def title_chart(c: dict, teams: dict, order: list) -> dict:
+    """The title-odds lines (one per manager, his slot class), 0-100% with the
+    50% reference, direct end labels, a hollow marker per engine event (its
+    words in the tooltip only), and one tap strip per run."""
+    def Y(v):
+        return Y1 - (Y1 - Y0) * v / 100.0
+    pts = c["points"]
+    xs = [X0 + (X1 - X0) * p["x"] for p in pts]
+    grid = []
+    for t in c["yticks"]:
+        cls = "lh-c-base" if t["v"] == 0 else "lh-c-ref" if t["v"] == 50 else "lh-c-grid"
+        grid.append({"cls": cls, "x1": _f(X0), "y1": _f(Y(t["v"])), "x2": _f(X1), "y2": _f(Y(t["v"]))})
+    ylab = [{"x": _f(X0 - 4), "y": _f(Y(t["v"]) + 3), "t": t["t"], "anchor": "end"} for t in c["yticks"]]
+    # a week tick too close to the right edge would run into the end labels: left out (layout only)
+    xlab = [{"x": _f(X0 + (X1 - X0) * t["x"]), "y": _f(Y1 + 16), "t": t["t"], "anchor": "start"} for t in c["ticks"]
+            if X0 + (X1 - X0) * t["x"] <= X1 - 16]
+    out = {"vb": f"0 0 {W} {H}", "aria": c["aria"], "grid": grid, "labels": ylab + xlab, "lines": [],
+           "events": [], "ends": [], "hits": [], "empty": c["empty"], "dot": None,
+           "readout0": {"head": "Tap a point for its run.", "body": ""}}
+    if not pts:
+        return out
+    for m in order:
+        out["lines"].append({"cls": team_cls(teams[m]["slot"]),
+                             "points": " ".join(f"{_f(x)},{_f(Y(p['vals'][m]))}" for x, p in zip(xs, pts)),
+                             "proj": False})
+    for e in c["events"]:
+        i, m = e["i"], e["m"]
+        tip = e["tip"]
+        out["events"].append({"cx": _f(xs[i]), "cy": _f(Y(pts[i]["vals"][m])), "dir": e["dir"], "tip": tip,
+                              "label": " \u00b7 ".join(x for x in (tip["h"], tip["b"], tip.get("f", "")) if x)})
+    last = pts[-1]
+    ys = _spread_n([Y(last["vals"][m]) for m in order])
+    out["ends"] = [{"cls": team_cls(teams[m]["slot"]), "x": _f(xs[-1] + 6), "y": _f(y + 4),
+                    "t": f"{teams[m]['mono']} {last['texts'][m]}"} for m, y in zip(order, ys)]
+    for (lo, hi), p, x in zip(_strips(xs), pts, xs):
+        out["hits"].append({"x": _f(lo), "y": _f(Y0 - 6), "w": _f(hi - lo), "h": _f(Y1 - Y0 + 12),
+                            "cx": _f(x), "cy": "", "head": p["head"], "body": p["body"],
+                            "label": f"{p['head']}: {p['body']}"})
+    return out
+
+
+def league(payload: dict, teams: dict, mode: str, archive_href: str) -> dict:
+    """The League tab from payload v2.league (modules/hub_v2/league.py): joins
+    (a manager to his team mark, a card key to its route, an issue to how it
+    opens) and the title chart's geometry. Every printed value is a payload
+    string. The History chips' content is league_history(), built from the
+    side file (v2.league_history) and, in publish mode, loaded on tap."""
+    v2 = payload["v2"]
+    lg = v2.get("league")
+    if lg is None:
+        raise ViewError("the payload has no v2 league (built before 4c4): rebuild it with this engine "
+                        "(python scripts/build_hub_state.py)")
+    reg = (payload.get("cards") or {}).get("players") or {}
+    order = v2["team_order"]
+
+    def href(key):
+        return f"#/players/{key}" if key and key in reg else ""
+    st = dict(lg["standings"], rows=[dict(r, team=teams[r["m"]]) for r in lg["standings"]["rows"]])
+    pw = dict(lg["power"], weeks=[dict(w, rows=[dict(r, team=teams[r["m"]]) for r in w["rows"]])
+                                  for w in lg["power"]["weeks"]])
+    aw = dict(lg["awards"], potw=[dict(s, rows=[dict(r, team=teams.get(r["m"]), href=href(r["card"]))
+                                                 for r in s["rows"]]) for s in lg["awards"]["potw"]])
+    issues = []
+    for i in lg["archive"]["issues"]:
+        attr = ("data-issue", i["file"]) if mode == "publish" else ("data-href", archive_href + i["plain"])
+        issues.append(dict(i, attr=attr))
+    return {"segs": lg["segs"], "standings": st, "chart": title_chart(lg["chart"], teams, order),
+            "chart_note": lg["chart"]["note"], "power": pw, "awards": aw,
+            "archive": dict(lg["archive"], issues=issues), "chips": lg["chips"], "history": None, "parts": None}
+
+
+def league_history(payload: dict, teams: dict) -> dict:
+    """History's six chips from v2.league_history (the side file, put back by
+    data.attach_players): joins only."""
+    v2 = payload["v2"]
+    h = v2.get("league_history")
+    if h is None:
+        raise ViewError("the new hub's League history is not attached: it lives in the side file "
+                        "(output/hub_players.json; hub_v2.data.attach_players)")
+    reg = (payload.get("cards") or {}).get("players") or {}
+
+    def href(key):
+        return f"#/players/{key}" if key and key in reg else ""
+    ch = dict(h["champions"], rows=[dict(r, team=teams.get(r["m"]) if r["m"] else None)
+                                    for r in h["champions"]["rows"]])
+    at = dict(h["alltime"], rows=[dict(r, team=teams[r["m"]]) for r in h["alltime"]["rows"]])
+    hh = h["h2h"]
+    grid = {ph: [dict(r, team=teams[r["m"]]) for r in rows] for ph, rows in hh["grid"].items()}
+    h2 = dict(hh, cols=[teams[m] for m in hh["order"]], grid=grid,
+              pairs={k: dict(v, ta=teams[v["a"]], tb=teams[v["b"]]) for k, v in hh["pairs"].items()})
+    rc = dict(h["records"], groups=[dict(g, lists=[dict(lst, rows=[dict(r, href=href(r["card"]))
+                                                                       for r in lst["rows"]])
+                                                   for lst in g["lists"]]) for g in h["records"]["groups"]])
+    dr = dict(h["draft"], seasons=[dict(s, rows=[dict(r, team=teams.get(r["m"]), href=href(r["card"]))
+                                                 for r in s["rows"]]) for s in h["draft"]["seasons"]])
+    tr = dict(h["trades"], items=[dict(it, teams=[teams[m] for m in it["ms"]],
+                                       sides=[dict(sd, team=teams[sd["m"]],
+                                                   gets=[dict(g, href=href(g["card"])) for g in sd["gets"]])
+                                              for sd in it["sides"]]) for it in h["trades"]["items"]])
+    return {"chips": h["chips"], "champions": ch, "alltime": at, "h2h": h2, "records": rc, "draft": dr,
+            "trades": tr}

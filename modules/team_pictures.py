@@ -37,6 +37,15 @@ PRIVATE: the pictures are the managers' own images. They are league state
 inside the encrypted hub (data URIs in the bundle; the plaintext scan covers
 them), and never appear in a test: tests make their images in memory.
 
+YAHOO'S GENERIC DEFAULT AVATAR (4c4; 4c3 decision 8) is not a manager's own
+picture: a team whose downloaded picture is it shows the monogram, exactly as
+a team with no picture does (is_default). The rule is config hub.default_
+avatars: the default's SHA-256 (of the bytes as downloaded) or a fragment of
+its URL. Both lists start EMPTY: the default's URL and bytes are in no code or
+document the project has, and learning them needs a live Yahoo call, which no
+builder makes. Every team's raw_sha256 and url are recorded (the index and
+the run row), so a default seen on the first nightly can be added to config.
+
 Without Pillow the picture is stored as downloaded (a JPEG, PNG, GIF or WebP
 by its first bytes, at most MAX_BYTES), not downscaled, and the index and the
 run row say so (px null; "NOT downscaled" on the step's line). Pillow is not
@@ -170,13 +179,34 @@ def _write(path: Path, data: bytes) -> None:
     tmp.replace(path)
 
 
-def store(base, managers, urls: dict, get_bytes: Callable, now: datetime) -> dict:
+def default_rules(league_config: dict = None) -> dict:
+    """config hub.default_avatars {"sha256": [...], "url_contains": [...]}.
+    RAISES PictureError when the block or a list is missing."""
+    if league_config is None:
+        from .data_loader import _LEAGUE_CONFIG as league_config
+    d = ((league_config or {}).get("hub") or {}).get("default_avatars")
+    if not isinstance(d, dict) or not isinstance(d.get("sha256"), list) or not isinstance(d.get("url_contains"), list):
+        raise PictureError("league_config hub.default_avatars must hold the lists sha256 and url_contains")
+    return {"sha256": {str(x).lower() for x in d["sha256"]}, "url_contains": [str(x) for x in d["url_contains"] if x]}
+
+
+def is_default(url: str, raw: bytes, rules: dict) -> Optional[str]:
+    """Why this picture is Yahoo's generic default ("url" or "sha256"), or None."""
+    if any(f in (url or "") for f in rules["url_contains"]):
+        return "url"
+    if hashlib.sha256(raw).hexdigest() in rules["sha256"]:
+        return "sha256"
+    return None
+
+
+def store(base, managers, urls: dict, get_bytes: Callable, now: datetime, rules: dict = None) -> dict:
     """Fetch, process and store each manager's picture; write the index; remove
     files the index no longer names. Returns the run row's block: {"teams":
     {m: {"sha", "bytes", "changed"}}, "failures": {m: why}, "downscaled",
     "seconds"}. Never raises for one team's picture (recorded instead)."""
     t0 = time.perf_counter()
     base = Path(base)
+    rules = rules if rules is not None else default_rules()
     idx = load_index(base)
     teams, failures, block = dict(idx.get("teams") or {}), {}, {"teams": {}, "failures": {}}
     downscaled = True
@@ -188,7 +218,15 @@ def store(base, managers, urls: dict, get_bytes: Callable, now: datetime) -> dic
             block["teams"][m] = {"sha": None, "bytes": 0, "changed": False, "none": True}
             continue
         try:
-            pic = process(get_bytes(url))
+            raw = get_bytes(url)
+            raw_sha = hashlib.sha256(raw).hexdigest()
+            why = is_default(url, raw, rules)
+            if why:                                  # Yahoo's generic default: the monogram shows
+                teams.pop(m, None)
+                block["teams"][m] = {"sha": None, "bytes": 0, "changed": False, "default": why,
+                                     "raw_sha256": raw_sha, "url": url}
+                continue
+            pic = process(raw)
             sha = hashlib.sha256(pic["data"]).hexdigest()
             name = f"{sha[:16]}.{EXT[pic['mime']]}"
             path = base / DIR / name
@@ -197,10 +235,11 @@ def store(base, managers, urls: dict, get_bytes: Callable, now: datetime) -> dic
             old = teams.get(m) or {}
             changed = old.get("sha") != sha
             teams[m] = {"file": name, "sha": sha, "mime": pic["mime"], "px": pic["px"],
-                        "bytes": len(pic["data"]), "url": url, "fetched_at": stamp,
+                        "bytes": len(pic["data"]), "url": url, "raw_sha256": raw_sha, "fetched_at": stamp,
                         "changed_at": stamp if changed else old.get("changed_at", stamp)}
             downscaled = downscaled and pic["downscaled"]
-            block["teams"][m] = {"sha": sha[:16], "bytes": len(pic["data"]), "changed": changed}
+            block["teams"][m] = {"sha": sha[:16], "bytes": len(pic["data"]), "changed": changed,
+                                 "raw_sha256": raw_sha, "url": url}
         except Exception as e:                       # noqa: BLE001 -- one team's picture never stops the run
             failures[m] = f"{type(e).__name__}: {e}".splitlines()[0][:200]
     teams = {m: v for m, v in teams.items() if m in set(managers)}
@@ -228,11 +267,11 @@ def http_get(url: str, timeout: float = 20.0) -> bytes:
 
 
 def fetch(base, managers, teams_json: dict, *, now: datetime, get_bytes: Callable = None,
-          manager_of: Callable = None) -> dict:
+          manager_of: Callable = None, rules: dict = None) -> dict:
     """The nightly step's work: logo_urls, then store. RAISES only when the
     teams cannot be read at all (the step records that softly)."""
     urls = logo_urls(teams_json, manager_of=manager_of)
-    return store(base, managers, urls, get_bytes or http_get, now)
+    return store(base, managers, urls, get_bytes or http_get, now, rules=rules)
 
 
 # =============================================================================

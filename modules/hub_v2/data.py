@@ -486,6 +486,28 @@ def market_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
     return v2, None
 
 
+def league_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
+    """(v2, error) with v2["league"] and v2["league_history"] added (4c4,
+    modules/hub_v2/league.py), after the Market. A failure leaves v2 out,
+    softly, as build_soft does: (None, {"stage": "league", "error"}), echoed
+    loudly. league_history leaves the payload for the side file with the
+    Players rows (players_file), for the payload's size."""
+    from . import league
+    v2 = payload["v2"]
+    try:
+        inp = league.gather(base, data=ctx["data"], power=payload["power"], managers=list(v2["team_order"]),
+                            teams=v2["teams"], newsletter=payload["newsletter"], now=ctx["now"],
+                            ratings=ctx.get("ratings"), ratings_error=ctx.get("ratings_error"), live=ctx.get("live"))
+        v2["league"], v2["league_history"] = league.build(inp)
+    except Exception as e:                       # noqa: BLE001 -- v2 fails softly until the switch-over
+        err = {"stage": "league", "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
+        echo(f"NEW HUB KEYS FAILED (payload v2 left out; the current hub goes on): {err['error']}")
+        v2.pop("league", None)
+        v2.pop("league_history", None)
+        return None, err
+    return v2, None
+
+
 PLAYERS_SCHEMA = 1
 
 
@@ -497,8 +519,12 @@ def players_file(payload: dict) -> dict:
     v2 = payload["v2"]
     block = v2.pop("players")
     v2["players_file"] = {"rows": len(block["rows"]), "generated_at": payload["generated_at"]}
-    return {"schema": PLAYERS_SCHEMA, "generated_at": payload["generated_at"],
-            "engine": (payload.get("engine") or {}).get("key"), "players": block}
+    obj = {"schema": PLAYERS_SCHEMA, "generated_at": payload["generated_at"],
+           "engine": (payload.get("engine") or {}).get("key"), "players": block}
+    if "league_history" in v2:                 # 4c4: League's History rides in the same side file
+        obj["league_history"] = v2.pop("league_history")
+        v2["players_file"]["league_history"] = True
+    return obj
 
 
 def attach_players(payload: dict, obj: Optional[dict]) -> dict:
@@ -516,6 +542,10 @@ def attach_players(payload: dict, obj: Optional[dict]) -> dict:
         raise V2Error(f"the Players file was built for {obj.get('generated_at')}, the payload is "
                       f"{payload.get('generated_at')}: rebuild both (python scripts/build_hub_state.py)")
     v2["players"] = obj["players"]
+    if (v2.get("players_file") or {}).get("league_history"):
+        if "league_history" not in obj:
+            raise V2Error("the side file lacks League's History: rebuild both (python scripts/build_hub_state.py)")
+        v2["league_history"] = obj["league_history"]
     return payload
 
 

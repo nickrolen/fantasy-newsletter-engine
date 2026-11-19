@@ -81,7 +81,7 @@ def test_the_segments_in_the_advice_mockups_order_and_the_placeholder_is_gone():
     assert re.findall(r'data-pane="\w+" aria-selected="(\w+)"', segs) == ["true", "false", "false", "false", "false"]
     assert "Coming in the new hub" not in m
     lg = h[h.index('data-route="league"'):]
-    assert "Coming in the new hub" in lg[:2000]                       # League keeps its placeholder (4c4)
+    assert "Coming in the new hub" not in lg[:2000]                   # 4c4: League is built; no placeholder left
 
 
 def test_advice_hub_off_leaves_the_advice_segment_out():
