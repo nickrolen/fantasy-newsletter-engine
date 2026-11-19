@@ -89,6 +89,11 @@
         "playoff_championships": {
             "Nick": 1,
             "Benton": 1
+        },
+        "_seasons": "Who won each pre-data-era season (Nick, 11-19). The two seasons are 2014-15 and 2016-17; 2015-16 was not played. Their winners must sum to titles_won (regular_season) and playoff_championships (champion); the hub's League > History > Champions reads them (modules/hub_v2/league.champions).",
+        "seasons": {
+            "2014-15": {"regular_season": "Nick", "regular_season_runner_up": "Benton", "champion": "Nick", "runner_up": "Benton"},
+            "2016-17": {"regular_season": "Hayden", "regular_season_runner_up": "Nick", "champion": "Benton", "runner_up": "Garrett"}
         }
     },
     "season": {
@@ -96,7 +101,7 @@
         "current_long": "2026-2027",
         "data_era_season_number": 10,
         "league_season_number": 12,
-        "_season_number_comment": "Two counts, two scopes -- the same 11-vs-9 split as career honours. data_era_season_number: seasons with Yahoo data, 2017-18 on (this is the 10th); 'all-time' in the newsletter means this era. league_season_number: the whole league, counting 2014-15 and 2015-16 (records only, no stats; 2016-17 was not played) -- this is the 12th. Every consumer picks one explicitly; there is no plain season_number.",
+        "_season_number_comment": "Two counts, two scopes -- the same 11-vs-9 split as career honours. data_era_season_number: seasons with Yahoo data, 2017-18 on (this is the 10th); 'all-time' in the newsletter means this era. league_season_number: the whole league, counting 2014-15 and 2016-17 (records only, no stats; 2015-16 was not played; corrected 11-19) -- this is the 12th. Every consumer picks one explicitly; there is no plain season_number.",
         "regular_season_weeks": 15,
         "playoff_start_week": 16,
         "total_weeks": 23,
@@ -130,13 +135,13 @@
     },
     "season_structure": {
         "_comment": "Per-season week layout. season.regular_season_weeks describes ONLY the current season; historical seasons varied and the engine must not assume one shape for all time. regular_through = last regular-season week. bracket = a postseason bracket was played.",
-        "_pre_yahoo": "2014-15 and 2015-16 predate usable Yahoo data and have no matchup records; their results live only in LEAGUEHISTORY.xlsx to-date totals. The league took 2016-17 off entirely.",
+        "_pre_yahoo": "2014-15 and 2016-17 predate usable Yahoo data and have no matchup records; their results live only in LEAGUEHISTORY.xlsx to-date totals and pre_data_era.seasons. The league took 2015-16 off entirely (Nick, 11-19, correcting the earlier record that said 2016-17).",
         "2014-15": {
             "regular_through": null,
             "bracket": true,
             "note": "pre-Yahoo; no matchup data"
         },
-        "2015-16": {
+        "2016-17": {
             "regular_through": null,
             "bracket": true,
             "note": "pre-Yahoo; no matchup data"

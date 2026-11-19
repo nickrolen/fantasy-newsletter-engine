@@ -536,24 +536,39 @@ def champions(inp: dict) -> dict:
         rows.append({"season": s, "kind": "played", "m": c, "team": _season_team(inp, s, c), "who": c,
                      "lines": [{"k": "Runner-up", "t": f"{r2} ({_season_team(inp, s, r2)})"},
                                {"k": "Regular season", "t": f1}]})
-    rows.append({"season": "2016-17", "kind": "off", "m": None, "team": "", "who": "",
-                 "lines": [{"k": "Not played", "t": "the league took the season off"}]})
+    # The two seasons before the Yahoo data, season by season (Nick, 11-19):
+    # 2014-15 and 2016-17 were played; 2015-16 was not. pre_data_era.seasons
+    # must agree with its titles_won / playoff_championships totals, or RAISE.
     pre = inp["pre_data_era"] or {}
     pc = pre.get("playoff_championships") or {}
     tw = pre.get("titles_won") or {}
-    if not pc or not tw:
-        raise LeagueError("league_config pre_data_era lacks playoff_championships or titles_won")
-
-    def names(d):
-        return ", ".join(f"{m}" + (f" ({n})" if n > 1 else "") for m, n in sorted(d.items()) if n)
-    rows.append({"season": "2014-15 and 2015-16", "kind": "records", "m": None, "team": "", "who": "",
-                 "lines": [{"k": "Champions", "t": names(pc)}, {"k": "Regular season", "t": names(tw)},
-                           {"k": "Records only", "t": "which season each came in is not recorded"}]})
-    n_played = len([r for r in rows if r["kind"] in ("played", "nobracket")])
-    return {"rows": rows, "meta": f"{n_played + 2} seasons with results",
+    ps = pre.get("seasons") or {}
+    if not pc or not tw or not ps:
+        raise LeagueError("league_config pre_data_era lacks playoff_championships, titles_won or seasons")
+    for key, total, field in (("champion", pc, "playoff_championships"), ("regular_season", tw, "titles_won")):
+        counted: dict = {}
+        for s, v in ps.items():
+            counted[v[key]] = counted.get(v[key], 0) + 1
+        if {m: n for m, n in counted.items() if n} != {m: n for m, n in total.items() if n}:
+            raise LeagueError(f"league_config pre_data_era.seasons' {key}s {counted} disagree with its {field} {total}")
+    pre_rows = {s: {"season": s, "kind": "records", "m": v["champion"], "team": "", "who": v["champion"],
+                    "lines": [{"k": "Runner-up", "t": v["runner_up"]},
+                              {"k": "Regular season", "t": f"{v['regular_season']} (runner-up {v['regular_season_runner_up']})"},
+                              {"k": "Records only", "t": "before the Yahoo data: no scores or stats"}]}
+                for s, v in ps.items()}
+    # newest first: every season from the first data-era one back to the first
+    # pre-data-era one; a season in neither is one the league did not play
+    first_era = min(int(r["season"][:4]) for r in inp["all_standings"])
+    for y in range(first_era - 1, min(int(s[:4]) for s in ps) - 1, -1):
+        s = f"{y}-{(y + 1) % 100:02d}"
+        rows.append(pre_rows[s] if s in ps else
+                    {"season": s, "kind": "off", "m": None, "team": "", "who": "",
+                     "lines": [{"k": "Not played", "t": "the league took the season off"}]})
+    n_played = len([r for r in rows if r["kind"] in ("played", "nobracket", "records")])
+    return {"rows": rows, "meta": f"{n_played} seasons with results",
             "note": ("Champion = the playoff bracket's winner; regular season = first in the standings. "
-                     "2014-15 and 2015-16 predate the Yahoo data: their honours are in LEAGUEHISTORY's totals, "
-                     "season unrecorded. The Cup starts this season.")}
+                     "2014-15 and 2016-17 predate the Yahoo data: records only, from LEAGUEHISTORY and the "
+                     "league's own account. 2015-16 was not played. The Cup starts this season.")}
 
 
 # =============================================================================
@@ -570,7 +585,7 @@ def _wl(s) -> tuple:
 
 def alltime(inp: dict, results: dict) -> dict:
     """Every season with records: LEAGUEHISTORY's completed seasons (2014-15 and
-    2015-16 included) plus this season, live (its regular-season weeks so far)."""
+    2016-17 included) plus this season, live (its regular-season weeks so far)."""
     reg = inp["reg_weeks"]
     live: dict = {m: [0, 0, 0] for m in inp["managers"]}
     live_post: dict = {m: [0, 0, 0] for m in inp["managers"]}
@@ -614,8 +629,8 @@ def alltime(inp: dict, results: dict) -> dict:
     cur_through = max([w for w in results if w <= reg], default=0)
     return {"rows": rows,
             "meta": "every season with records",
-            "note": (f"Scope: every season with records: 2014-15 and 2015-16 (records only, from LEAGUEHISTORY), "
-                     f"2017-18 to 2025-26, and this season live through week {cur_through}. 2016-17 was not "
+            "note": (f"Scope: every season with records: 2014-15 and 2016-17 (records only, from LEAGUEHISTORY), "
+                     f"2017-18 to 2025-26, and this season live through week {cur_through}. 2015-16 was not "
                      "played. W-L-T and win % are the regular season (a T counts half); the playoffs are the "
                      "second line. Champ = playoff titles; 1st = regular-season titles."),
             "seasons_note": "12 seasons"}

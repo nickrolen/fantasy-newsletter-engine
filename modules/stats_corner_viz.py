@@ -706,7 +706,7 @@ def _render_historical_standings_grid(historical_luck: dict) -> str:
 def _scope_note(seasons) -> str:
     """Says which seasons the totals cover, so nobody reads them as all-time."""
     return (f"Totals count the {len(seasons)} seasons shown "
-            f"({seasons[0]} to {seasons[-1]}). 2014-15 and 2015-16, played "
+            f"({seasons[0]} to {seasons[-1]}). 2014-15 and 2016-17, played "
             f"before the data era, are not in this table.")
 
 

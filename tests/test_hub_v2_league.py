@@ -254,18 +254,28 @@ def test_an_unpublished_report_raises():
 # D. History
 # =============================================================================
 
-def test_champions_per_season_with_2016_17_named_and_the_records_only_seasons():
+def test_champions_per_season_with_2015_16_named_and_the_records_only_seasons():
+    """Nick, 11-19: the record-only seasons are 2014-15 and 2016-17; 2015-16 was
+    not played (the earlier record had them the other way round)."""
     _, h = L.build(_inputs())
     rows = {r["season"]: r for r in h["champions"]["rows"]}
     assert list(rows)[0] == "2026-27" and rows["2026-27"]["kind"] == "live"
     assert rows["2025-26"]["who"] == "Jordan" and "Tyler" in rows["2025-26"]["lines"][0]["t"]
     assert rows["2024-25"]["who"] == "Marcus"
     assert rows["2023-24"]["kind"] == "nobracket" and "a made-up stoppage" in rows["2023-24"]["lines"][0]["t"]
-    assert rows["2016-17"]["kind"] == "off" and rows["2016-17"]["lines"][0]["k"] == "Not played"
-    pre = rows["2014-15 and 2015-16"]
-    assert pre["kind"] == "records" and "Dana, Jordan" in pre["lines"][0]["t"] and "Marcus, Tyler" in pre["lines"][1]["t"]
+    assert rows["2015-16"]["kind"] == "off" and rows["2015-16"]["lines"][0]["k"] == "Not played"
+    assert rows["2016-17"]["kind"] == "records" and rows["2016-17"]["who"] == "Jordan"
+    assert rows["2016-17"]["lines"][0]["t"] == "Tyler" and "Tyler (runner-up Marcus)" in rows["2016-17"]["lines"][1]["t"]
+    assert rows["2014-15"]["kind"] == "records" and rows["2014-15"]["who"] == "Dana"
     seasons = [r["season"] for r in h["champions"]["rows"]]
-    assert seasons.index("2016-17") < seasons.index("2014-15 and 2015-16")
+    assert seasons.index("2017-18") < seasons.index("2016-17") < seasons.index("2015-16") < seasons.index("2014-15")
+
+
+def test_pre_data_era_seasons_must_agree_with_the_totals():
+    inp = _inputs()
+    inp["pre_data_era"]["seasons"]["2016-17"]["champion"] = "Marcus"
+    with pytest.raises(L.LeagueError, match="disagree"):
+        L.build(inp)
 
 
 def test_alltime_is_leaguehistory_plus_the_live_season():
@@ -283,7 +293,7 @@ def test_alltime_is_leaguehistory_plus_the_live_season():
         live = sum(e["score"] for e in inp["weekly_scores"][r["m"]])
         assert r["pf"] == f"{done + live:,.0f}"
         assert r["champs"] == str(lh["playoff_championships"]) and r["firsts"] == str(lh["titles_won"])
-    assert "every season with records" in h["alltime"]["note"] and "2016-17 was not played" in h["alltime"]["note"]
+    assert "every season with records" in h["alltime"]["note"] and "2015-16 was not played" in h["alltime"]["note"]
 
 
 def test_head_to_head_is_symmetric_and_splits_the_postseason():

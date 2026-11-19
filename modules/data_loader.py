@@ -1510,7 +1510,7 @@ def stage_weeks(season, stage):
     entry = entry if isinstance(entry, dict) else {}
 
     # A listed season with regular_through explicitly null has no week-level
-    # data at all -- 2014-15 and 2015-16 predate Yahoo and survive only as
+    # data at all -- 2014-15 and 2016-17 predate Yahoo and survive only as
     # to-date totals in LEAGUEHISTORY.xlsx. Falling back to the current
     # season's week count here would invent a schedule for them.
     if "regular_through" in entry and entry["regular_through"] is None:
