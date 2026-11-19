@@ -169,7 +169,9 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterati
     base = Path(base)
     out = Path(out_dir)
     gen = datetime.fromisoformat(payload["generated_at"])
-    html = page.render(view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo)))
+    from .. import team_pictures
+    pics, _notes = team_pictures.data_uris(base, list((payload.get("v2") or {}).get("team_order") or []))
+    html = page.render(view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo), pictures=pics))
     idx = hub_archive.verify(base)
     by_file = {e["enc"]: e for e in idx["issues"]}
     terms = terms if terms is not None else hub_publish.scan_terms(base)

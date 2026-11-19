@@ -19,7 +19,7 @@ as it is, then LAYOUT_CSS -- which may hold no hex colour and no px literal
 OFFLINE: no http(s) anywhere in the page, fonts embedded, icons inline SVG.
 
 ROUTES (hash): #/home, #/matchups, #/matchups/<id>, #/teams, #/teams/<manager>,
-#/players, #/players/<key>, #/players/compare/<a>[/<b>], #/market, #/league. Every screen is in the page; the script shows
+#/players, #/players/<key>, #/players/compare/<a>[/<b>], #/market (4c3: page_market.py), #/league. Every screen is in the page; the script shows
 the one the hash names (an unknown hash shows Home), so the back button
 works and a deep link opens its screen after the unlock (the decrypt shell
 keeps the hash).
@@ -45,6 +45,7 @@ from datetime import datetime
 from ..live_lines_page import clean
 from .infotips import tip
 from . import page_players as pp
+from . import page_market as pm
 
 # tap targets: an interactive element carries one of these classes (or sits
 # in one of TAP_PARENTS); each class's CSS gives it at least tap-min (or
@@ -52,7 +53,7 @@ from . import page_players as pp
 # strips (lh-c-hit) are the design's per-point hit areas: full plot height,
 # keyboard-reachable, as wide as the point's share of the axis.
 TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-iconbtn", "v2-tap", "lh-c-hit",
-               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit")
+               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit") + pm.TAP_CLASSES
 # 4c2: the roster table's Detailed chip groups (roster.GROUPS, plus "all"): the
 # CSS shows a column when the table's data-group is one of its groups
 DETAIL_GROUPS = ("value", "form", "schedule", "health", "keeper", "profile", "all")
@@ -91,6 +92,8 @@ button.lh-name{all:unset;cursor:pointer;font-size:var(--type-row-size);font-weig
 .v2-mono-72{--s:var(--mono-72)}
 .v2-mono-36{--s:var(--mono-36)}
 .v2-mono-28{--s:var(--mono-28)}
+.v2-pic{position:relative}
+.v2-pic::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent center/cover no-repeat}
 .v2-mcard{text-decoration:none;color:var(--ink);gap:var(--space-12)}
 .v2-mpts{display:flex;flex-direction:column;align-items:flex-end}
 .v2-mcard .lh-mrow__name,.v2-mside .lh-mrow__name{white-space:normal;overflow-wrap:anywhere}
@@ -238,6 +241,20 @@ def _info(ids: _Ids, key: str, meta: str = "") -> str:
             f'{clean(body)}</span></span>')
 
 
+def _pictures_style(pics: list) -> str:
+    """4c3: each team picture once, as its slot's TeamMark background (data
+    URIs: the page stays offline; encrypted in publish mode). Only base64
+    characters reach the style, so nothing in it can close it."""
+    import re as _re
+    rules = []
+    for p in pics:
+        if not _re.fullmatch(r"data:image/(jpeg|png|gif|webp);base64,[A-Za-z0-9+/=]+", p["uri"]) \
+                or p["slot"] not in ("blue", "orange", "teal", "plum"):
+            raise ValueError(f"a team picture that is not a base64 image data URI (slot {p['slot']!r})")
+        rules.append(f'.v2-pic-{p["slot"]}::after{{background-image:url("{p["uri"]}")}}')
+    return f'<style id="v2-pics">{"".join(rules)}</style>' if rules else ""
+
+
 def _pl(name: str, card, cls: str = "v2-pl v2-tap") -> str:
     """A player's name: a button that opens his current card when he has one."""
     if card:
@@ -246,7 +263,11 @@ def _pl(name: str, card, cls: str = "v2-pl v2-tap") -> str:
 
 
 def _mono(team: dict, size: str = "") -> str:
-    return f'<span class="lh-mono {team["cls"]}{" v2-mono-" + size if size else ""}" aria-hidden="true">' \
+    """TeamMark: the monogram in the manager's colour, with his picture drawn
+    over it when the page has one (4c3; v2-pic-<slot>, defined once in the
+    page's pictures style). A picture that fails to draw leaves the monogram."""
+    pic = f' v2-pic v2-pic-{team["slot"]}' if team.get("pic") else ""
+    return f'<span class="lh-mono {team["cls"]}{" v2-mono-" + size if size else ""}{pic}" aria-hidden="true">' \
            f'{clean(team["mono"])}</span>'
 
 
@@ -704,7 +725,8 @@ def render(vm: dict, *, cards: dict = None) -> str:
     ids = _Ids()
     o = ["<!DOCTYPE html>", '<html lang="en"><head><meta charset="utf-8">',
          '<meta name="viewport" content="width=device-width,initial-scale=1">', '<meta name="robots" content="noindex">',
-         f"<title>{clean(vm['title'])}</title>", f"<style>{tokens.css(LAYOUT_CSS + pp.CSS)}</style></head><body>",
+         f"<title>{clean(vm['title'])}</title>", f"<style>{tokens.css(LAYOUT_CSS + pp.CSS + pm.CSS)}</style>",
+         _pictures_style(vm.get("pictures") or []) + "</head><body>",
          f'<div class="v2-app" id="hub" data-epoch="{vm["epoch"]}" data-stale-hours="{vm["stale_hours"]}">']
     # header (tab roots), then the banners, then the tab bar (a top bar on desktop)
     o.append('<header class="lh-header lh-on-dark v2-hdr" id="app-header"><div class="v2-stale-hd">'
@@ -776,6 +798,9 @@ def render(vm: dict, *, cards: dict = None) -> str:
     o.append(pp.card_screen(vm))
     o.append(pp.compare_screens(vm))
 
+    # ---------------------------------------------------------------- market (4c3)
+    o.append(pm.market_screen(vm, ids, _info, lambda t: _mono(t)))
+
     # ---------------------------------------------------------------- placeholders
     for ph in vm["placeholders"]:
         o.append(f'<section class="v2-screen" data-route="{ph["key"]}" hidden><div class="v2-stack"><section class="lh-card">'
@@ -792,7 +817,7 @@ def render(vm: dict, *, cards: dict = None) -> str:
     if cards is not None:
         blob = json.dumps(cards, separators=(",", ":"), ensure_ascii=True).replace("</", "<\\/")
         o.append(f'<script type="application/json" id="v2-cards">{blob}</script>')
-    o.append(f"<script>{PAGE_JS}</script></body></html>")
+    o.append(f"<script>{PAGE_JS}{pm.JS}</script></body></html>")
     return "\n".join(o)
 
 

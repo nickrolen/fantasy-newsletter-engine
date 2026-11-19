@@ -39,8 +39,9 @@ def test_the_step_order_of_every_mode_is_pinned():
         # step 3b: the NBA report after the tags (it records them); the O-past-3
         # nudge last (it reads the night's player actuals, and opens issues only)
         # task 49: the trade block's upkeep right after the sync (the rosters it checks)
-        "nightly": ("engine", "logs", "sync", "trade_block", "settings", "schedule", "tags", "nba_report",
-                    "returns", "ledger", "line", "title_odds", "advice", "actuals", "hub", "nudges"),
+        # 4c3: the team pictures once a night, after the sync (their Yahoo read is its own)
+        "nightly": ("engine", "logs", "sync", "trade_block", "team_pictures", "settings", "schedule", "tags",
+                    "nba_report", "returns", "ledger", "line", "title_odds", "advice", "actuals", "hub", "nudges"),
         # step 3a: the refresh is the nightly path without the log pull
         # advice v2 (11-11): every mode that prices runs advice after title_odds
         "refresh": ("engine", "banked", "sync", "settings", "tags", "nba_report", "ledger", "line",

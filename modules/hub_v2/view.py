@@ -25,7 +25,6 @@ TABS = [("home", "Home"), ("matchups", "Matchups"), ("teams", "Teams"), ("player
 PLACEHOLDER = "Coming in the new hub."
 # preview only: where each placeholder's content lives on the current page
 CURRENT_LINKS = {
-    "market": [("v-main", "Free agents, the stash and the moves feed"), ("v-block", "Trade block")],
     "league": [("v-chart", "Title odds over the season"), ("v-main", "The newsletter archive")],
 }
 
@@ -187,7 +186,8 @@ def _strips_days(n: int, X) -> List[tuple]:
 # the view model
 # =============================================================================
 
-def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_archive/") -> dict:
+def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_archive/",
+          pictures: dict = None) -> dict:
     from ..hub_page import age_words, STALE_HOURS, STALE_TEXT
     if mode not in ("preview", "publish"):
         raise ViewError(f"mode {mode!r}")
@@ -211,8 +211,11 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
     words, stale = age_words(gen, now)
     teams_v2 = v2["teams"]
     order = v2["team_order"]
+    # 4c3: pictures {manager: data URI} (team_pictures.data_uris, given by the page's builder):
+    # a team with one shows it in its TeamMark, over the monogram
+    pictures = pictures or {}
     teams = {m: {"cls": team_cls(t["slot"]), "slot": t["slot"], "mono": t["mono"], "team": t["team"],
-                 "manager": m, "href": f"#/teams/{m}"} for m, t in teams_v2.items()}
+                 "manager": m, "href": f"#/teams/{m}", "pic": m in pictures} for m, t in teams_v2.items()}
     rosters = payload["rosters"]
     power = {r["manager"]: r for r in payload["power"]["rows"]}
     scale = v2["spark_scale"]
@@ -364,7 +367,7 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         issue = {"text": iss["text"], "attr": attr}
 
     placeholders = []
-    for key, label in TABS[4:]:                       # Players is built (4c1); Market and League are 4c3/4c4
+    for key, label in TABS[5:]:                       # Players (4c1) and Market (4c3) are built; League is 4c4
         placeholders.append({"key": key, "label": label, "text": PLACEHOLDER,
                              "links": ([{"href": f"hub_preview.html#{vid}", "t": t} for vid, t in CURRENT_LINKS[key]]
                                        if mode == "preview" else [])})
@@ -385,8 +388,60 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "sched_cols": v2["sched_cols"], "sched_note": v2["sched_note"],
         "placeholders": placeholders, "odds_label": payload["power"]["label"],
         "players": players(payload, teams),
+        "market": market(payload, teams),
+        "pictures": [{"slot": teams_v2[m]["slot"], "uri": uri} for m, uri in sorted(pictures.items())
+                     if m in teams_v2],
         "footer": (f"Engine {payload['engine']['key']} \u00b7 actual points through "
                    f"{payload['sources']['actuals_through']}")}
+
+
+# =============================================================================
+# Market (4c3)
+# =============================================================================
+
+def market(payload: dict, teams: dict) -> dict:
+    """The Market tab from payload v2 market (modules/hub_v2/market.py):
+    joins only -- a manager to his team (class, colour slot, route), a card
+    key to its route when the card exists. Every printed value is a payload
+    string."""
+    import json as _json
+    mk = payload["v2"].get("market")
+    if mk is None:
+        raise ViewError("the payload has no v2 market (built before 4c3): rebuild it with this engine "
+                        "(python scripts/build_hub_state.py)")
+    reg = (payload.get("cards") or {}).get("players") or {}
+
+    def href(key):
+        return f"#/players/{key}" if key and key in reg else ""
+
+    def who(p):
+        return dict(p, href=href(p.get("card")))
+    a = mk["available"]
+    av = dict(a, rows=[dict(r, href=href(r["card"])) for r in a["rows"]],
+              orders_json=_json.dumps(a["orders"], separators=(",", ":")),
+              default_rows=list(a["orders"][a["default"]]))
+    st = dict(mk["stash"], rows=[dict(r, href=href(r["card"])) for r in mk["stash"]["rows"]])
+    bl = {"foot": mk["block"]["foot"],
+          "cards": [dict(c, team=teams[c["m"]],
+                         lists=[{"label": lst["label"], "players": [who(p) for p in lst["players"]]}
+                                for lst in c["lists"]]) for c in mk["block"]["cards"]]}
+    mv = dict(mk["moves"], teams=[teams[m] for m in mk["moves"]["teams"]],
+              items=[dict(it, teams=[teams[m] for m in it["ms"]],
+                          parts=[dict(p, segs=[dict(x, href=href(x.get("card"))) for x in p["segs"]])
+                                 for p in it["parts"]]) for it in mk["moves"]["items"]])
+    adv = None
+    if mk["advice"] is not None:
+        a2 = mk["advice"]
+        cards = []
+        for c in a2["cards"]:
+            rows = [dict(r, adds=[who(p) for p in r["adds"]], lines=[who(x) for x in r["lines"]],
+                         also=[teams[o["m"]] for o in r["also"]]) for r in c["rows"]]
+            bk = c["backup"]
+            if bk is not None:
+                bk = dict(bk, add=who(bk["add"]), lines=[who(x) for x in bk["lines"]])
+            cards.append(dict(c, team=teams[c["m"]], rows=rows, backup=bk))
+        adv = dict(a2, cards=cards)
+    return {"segs": mk["segs"], "available": av, "stash": st, "advice": adv, "block": bl, "moves": mv}
 
 
 # =============================================================================

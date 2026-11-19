@@ -909,7 +909,12 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                 that cannot apply (a player not where it says) RAISES: the ledger
                 checked it, so the rosters moved under it. None: no known moves
                 (shadow mode, and every plan before step 2) -- the plan is
-                unchanged.
+                unchanged. 4c3: an entry may also carry "il_hold": [names],
+                IL occupants the manager keeps in their slots at that window
+                (rule 3: legal, and the team then makes no move there at all:
+                nothing is activated, dropped, placed or added for him). Only
+                advice's do-nothing pricing of the activation step uses it; the
+                ledger never writes it. "held" in the week's entry records it.
     open_day:   44b s.2 -- the start week's window day when that window is
                 still OPEN (the window day itself, before price_lock.window_close;
                 for_run decides). The start week is then a window like any later
@@ -957,6 +962,9 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
     upto = int(start_week) - 1 if open_day is not None else int(start_week)
     for w in sorted(w for w in known if w <= upto):
         for m, mv in known[w].items():
+            if mv.get("il_hold"):
+                raise ValueError(f"week {w}: il_hold for {m} at a locked window (at or before the start "
+                                 f"week {start_week}): nothing can be held there")
             start_known.setdefault(m, []).extend(_apply_known(state, m, mv, w, players, rules))
     plan = {int(start_week): {m: {"active": sorted(state[m]["active"]), "il": sorted(state[m]["il"]),
                                    "added": [], "dropped": [], "waiting": 0, "standins": {},
@@ -1001,6 +1009,23 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
             # 0. the ledger's known moves for this window (on mode only)
             known_here = (_apply_known(state, m, known[week][m], week, players, rules)
                           if m in known.get(week, {}) else None)
+            # 4c3: "il_hold" -- the manager leaves these healthy IL occupants in their
+            # slots at this window (LEAGUE_RULES rule 3: legal, and while he does the team
+            # can make no roster move at all). Advice's do-nothing alternative to the
+            # activation step: nobody is activated, dropped, placed or added here.
+            hold = list((known.get(week, {}).get(m) or {}).get("il_hold") or [])
+            if hold:
+                gone = [n for n in hold if n not in s["il"]]
+                if gone:
+                    raise ValueError(f"week {week}: il_hold {gone} for {m}, who is not in an IL slot "
+                                     f"(IL {sorted(s['il'])})")
+                out_week[m] = {"active": sorted(s["active"]), "il": sorted(s["il"]), "added": [],
+                               "dropped": [], "waiting": max(0, rules["active_spots"] - len(s["active"])),
+                               "standins": {}, "decisions": [], "activated": [], "activation_drops": [],
+                               "activation_detail": [], "held": sorted(hold)}
+                if known_here is not None:
+                    out_week[m]["known"] = known_here
+                continue
             # 1. activate; over 15, THE ONE ACTIVATION RULE (44a): least
             # long-run value, never a protected player, never a returner.
             # Then (44b s.4) each IL occupant back MID-WEEK this week: activate

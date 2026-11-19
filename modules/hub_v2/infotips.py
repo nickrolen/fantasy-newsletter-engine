@@ -53,6 +53,11 @@ TIPS = {
     "fa_pct": ("Free agents",
                "Free agents get no OVR or POT: the ratings were tested on rostered players only. Instead, his "
                "FPPG and its percentile among the rostered players."),
+    # 4c3: the Market tab's Advice view
+    "advice": ("Advice",
+               "The engine's plan for each team, up to its adds left. Each move is priced after the one before it, "
+               "as the change in your chance to win each week; an IL activation is priced against leaving him in "
+               "IL, which blocks every move. Advice, not a rule."),
     "age_curve": ("The age curve",
                   "How a player's scoring changes from one season to the next at each age, fitted on this "
                   "league's own history. POT uses it."),

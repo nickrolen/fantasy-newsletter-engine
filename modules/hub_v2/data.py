@@ -470,6 +470,22 @@ def teams_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
     return v2, None
 
 
+def market_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
+    """(v2, error) with v2["market"] added (4c3, modules/hub_v2/market.py),
+    after the Players rows. A failure leaves v2 out, softly, as build_soft
+    does: (None, {"stage": "market", "error"}), echoed loudly."""
+    from . import market
+    v2 = payload["v2"]
+    try:
+        v2["market"] = market.build(payload, ctx)
+    except Exception as e:                       # noqa: BLE001 -- v2 fails softly until the switch-over
+        err = {"stage": "market", "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
+        echo(f"NEW HUB KEYS FAILED (payload v2 left out; the current hub goes on): {err['error']}")
+        v2.pop("market", None)
+        return None, err
+    return v2, None
+
+
 PLAYERS_SCHEMA = 1
 
 

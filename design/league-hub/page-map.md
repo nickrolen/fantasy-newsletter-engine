@@ -72,11 +72,14 @@ Built in 4c1 (mockups `mockups/Players.html`, `mockups/Players-Compare.html`).
 
 ## Market
 
-- **Free agents:** a sortable table with 3-week games (Simple/Detailed).
-- **The stash:** players worth holding, with return dates.
-- **Trade block:** in full, by team.
-- **Advice:** the engine's picks, once advice goes on; whether it gets its own tab is still open.
-- **Moves ledger:** every add, drop and trade, newest first, with filter chips by team.
+SegmentedTabs, in this order (4c3, the Advice mockup's): **Available · Stash · Advice · Block · Moves**. Advice is there only while `advice.hub` is on.
+
+- **Available:** filter chips (Healthy; Position; Sort: L14, FPPG, projected points), then the free-agent table: Player (name, positions · NBA team, status chips), FPPG, L14 (sortable headers) and the **3-week game cells**. Each cell is a 44 px tap that opens the Tooltip with the days it counts (the engine's day list; "out" days in its foot). The rows are the ones the current page lists (the best by projected points over the three weeks, plus every player dropped in the chat), so every name has a card.
+- **Stash:** players worth holding (OFS, or O with an injury entry), with their return dates as status chips, the open IL slots, and the rule note.
+- **Advice:** the **Advice** component (one card per team, in the page's team order). See `components/Advice/README.md`.
+- **Block (TradeBlock):** the trade block in full, one row per team: the team chip, its stance (Buying / Selling / Neutral, with "since MM-DD"), then **On the block** and **Untouchable**, each player with positions · NBA team · since. No "what they want" anywhere (4b decision 6). The foot: how to change it, and the deadline.
+- **Moves:** every add, drop, claim and trade of the season, newest first, with team filter chips (All teams + one per team). Each move: its marker (**+** add, **−** drop, **⇄** trade, **IL** a chat IL step), the team chip(s), each part with its own marker, and the day and time. Yahoo logs no IL slot changes, so IL steps show only while a chat entry is pending.
+- Every player name opens his card; every team chip opens the team.
 
 ## League
 

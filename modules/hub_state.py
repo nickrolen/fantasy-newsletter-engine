@@ -1396,7 +1396,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     # --- advice v2 (V2 s.7): behind the switch; the advice step wrote it
     from . import advice_live as al
     try:
-        advice = al.hub_view(al.read_latest(base), power["rows"]) if al.hub_switch() == "on" else None
+        advice_raw = al.read_latest(base) if al.hub_switch() == "on" else None     # 4c3: v2 reads it too
+        advice = al.hub_view(advice_raw, power["rows"]) if advice_raw is not None else None
     except al.AdviceInputError as e:
         raise HubInputError(str(e)) from None
 
@@ -1490,6 +1491,17 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
             "actuals": actuals, "av": av, "next_av": next_av, "next_days": next_days, "wk_dates": wk_dates,
             "joined": joined, "proj": proj, "tag_row": tag_row, "tags": tags, "il_slots": il_slots,
             "pool": [r["player_name"] for r in fa_records] + list(dropped)}, echo=echo)
+    # 4c3: the Market tab (modules/hub_v2/market.py), after the Players rows it
+    # reads (card keys, FPPG, L14), before they leave the payload
+    if payload["v2"] is not None:
+        payload["v2"], payload["v2_error"] = v2data.market_soft(base, payload, {
+            "fa_av": fa_av,
+            "col_specs": [{"w": c["week"], "label": c["label"],
+                           "sub": "rest" if (fcols["mode"] == "this" and i == 0) else "",
+                           "days": list(c["days"]), "long": len(c["days"]) > 7}
+                          for i, c in enumerate(fcols["cols"])],
+            "advice_on": advice_raw is not None, "advice": advice_raw, "show_title": al.show_title_odds(),
+            "first_day": first_day}, echo=echo)
     if payload["v2"] is not None:
         obj = v2data.players_file(payload)
         if players_out is not None:

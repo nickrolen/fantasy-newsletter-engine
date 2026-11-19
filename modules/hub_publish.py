@@ -79,6 +79,10 @@ def scan_terms(base_path=".", data=None) -> List[str]:
         raise PublishError("data/PLAYERLIST.xlsx is missing: the plaintext scan reads its names")
     terms.update(str(n) for n in pd.read_excel(pl)["player_name"].dropna())
     terms.add(LORE_MARKER)
+    # 4c3: the team pictures (the managers' own images) never reach a published
+    # file unencrypted: a slice of each one's base64, the form the page carries
+    from . import team_pictures
+    terms.update(team_pictures.scan_terms(base))
     lp = base / "output" / "lore_for_drafting.json"
     if not lp.is_file():
         raise PublishError("output/lore_for_drafting.json is missing: the scan checks every lore id")

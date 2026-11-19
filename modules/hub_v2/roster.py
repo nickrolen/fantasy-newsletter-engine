@@ -70,7 +70,8 @@ COLS = {
     "ovr": ("OVR", True, "4a's OVR, with its change this week."),
     "pot": ("POT", True, "4a's POT: his value as a keeper."),
     "tv": ("Team value", True, "Points he adds to this team's best daily lineups over the next two weeks, "
-                               "against the best free agent in his place."),
+                               "against the best free agent in his place. A gap of a few points between two "
+                               "players is within the noise."),
     "tdelta": ("Title \u0394", True, "Team value at the price of a point: title-odds points."),
     "start": ("Start %", True, "Of his games on this team this season, the share he started."),
     "fppg": ("FPPG", True, "Fantasy points per game this season."),

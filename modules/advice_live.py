@@ -72,6 +72,27 @@ activate him and drop X. It costs no add." Nobody returning: no field, no
 line (null). The drop is the plan's one activation rule's
 (roster_plan.activation_drops); the pick is priced on the roster after it.
 
+THE ACTIVATION, PRICED (4c3): the step is priced like a move against doing
+nothing (advice_v2.price_activation: the returners held in IL through the
+horizon, no drop, no other move -- LEAGUE_RULES rule 3). "activation" gains
+"step": 0, its numbers (dwp, wp_base, dpts, dstarts, the title terms,
+title_odds) and "texts" ({"numbers": "+x% vs Opp ...", "reason", "v2"}); the
+history row carries them; the summary's Step line and advice_show print the
+numbers; the hub card's activation line gains its numbers line (step_numbers)
+and nothing else. "plan_total" is then measured against doing nothing too, so
+it includes the activation (plan_total.includes_activation), and each step's
+"cumulative" starts from the activation. A file from before 4c3 has no
+numbers on "activation": every reader shows the step as before.
+
+THE NEW HUB'S STRINGS (4c3, the Market tab's Advice view): every move, the
+activation carry text.v2 (the activation texts.v2) -- "weeks" ([{"label":
+"Wk 6", "value": "+4.6%", "dir"}] per horizon week), "tiles" (Starts, Points
+and, when shown, Title odds) and "why" (one sentence); plan_total.text.v2 adds
+"label" ("Both moves", "All three": the activation counts) and "title" in
+plan_total.v2 (plan_total.text stays the string every reader uses); each
+manager gets "v2_empty", the one-sentence state ("Standing pat is best this
+week." / "No adds left. Resets Monday.").
+
 THE PLAN (H53, claude/HANDOFF_53_ADVICE_PLAN_2026-11-18.md): each manager's
 advice is a plan of up to his adds left (advice_v2.plan_for), capped by
 league_config advice.plan_steps_max (required). Per manager "plan" is the
@@ -670,6 +691,93 @@ def step_text(step: dict) -> str:
     return s + ("" if s.endswith(".") else ".") + " It costs no add."
 
 
+FIRST_TEXT = "Needed before any add: while a healthy player sits in IL, you can't make moves."
+EMPTY_V2 = {"adds": "No adds left. Resets Monday.", "pat": "Standing pat is best this week.",
+            "bar": "Standing pat is best this week: no move is worth your last add."}
+PLAN_LABELS = {2: "Both moves", 3: "All three", 4: "All four", 5: "All five"}
+
+
+def _dir(x: float, digits: int = 1, scale: float = 100.0) -> str:
+    v = round(scale * float(x), digits)
+    return "up" if v > 0 else "down" if v < 0 else "flat"
+
+
+def v2_weeks(m: dict, horizon: dict, opponents: dict) -> list:
+    """The Advice view's two columns: [{"label": "Wk 6", "value": "+4.6%",
+    "dir"}] per horizon week; a week with no matchup or past the season is a
+    dash."""
+    out = []
+    for k, w in enumerate(horizon["weeks"]):
+        if w is None:
+            out.append({"label": f"Wk {horizon['weeks'][0] + 1}", "value": "\u2014", "dir": "flat"})
+        elif opponents.get(str(w)) is None:
+            out.append({"label": f"Wk {w}", "value": "\u2014", "dir": "flat"})
+        else:
+            out.append({"label": f"Wk {w}", "value": _pct(m["dwp"][k]), "dir": _dir(m["dwp"][k])})
+    return out
+
+
+def v2_tiles(m: dict, *, show_title: bool) -> list:
+    """The tap-open tiles: Starts, Points and (advice.show_title_odds) Title odds."""
+    st = m["dstarts"][0] + m["dstarts"][1]
+    pts = m["dpts"][0] + m["dpts"][1]
+    out = [{"label": "Starts", "value": f"{st:+.1f}".replace("-", "\u2212"), "dir": _dir(st, 1, 1.0)},
+           {"label": "Points", "value": f"{pts:+.0f}".replace("-", "\u2212"), "dir": _dir(pts, 0, 1.0)}]
+    if show_title:
+        t = m.get("title_odds")
+        out.append({"label": "Title odds" if m.get("title_label") != "playoff title odds" else "Playoff odds",
+                    "value": "\u2014" if t is None else _pct(t), "dir": "flat" if t is None else _dir(t)})
+    return out
+
+
+def v2_why(m: dict, horizon: dict) -> str:
+    """One plain sentence: the lineup starts it adds, by week, named as the
+    view's columns name them ("in week 6")."""
+    ws = horizon["weeks"]
+    st = m["dstarts"]
+    tot = st[0] + st[1]
+    word = "start" if abs(round(tot, 1)) == 1.0 else "starts"
+    by = ", ".join(f"{st[k]:+.1f} in week {w}" for k, w in enumerate(ws) if w is not None)
+    s = (f"{tot:+.1f} lineup {word}: {by}.").replace("-", "\u2212")
+    if m.get("flat"):
+        s += " The matchups are as good as decided, so it is ranked on points."
+    return s
+
+
+def v2_texts(m: dict, horizon: dict, opponents: dict, *, show_title: bool) -> dict:
+    return {"weeks": v2_weeks(m, horizon, opponents), "tiles": v2_tiles(m, show_title=show_title),
+            "why": v2_why(m, horizon)}
+
+
+def activation_dict(step, priced, *, inputs, hz, cfg, horizon: dict, opponents: dict, show_title: bool,
+                    steps_after: int) -> Optional[dict]:
+    """advice_latest.json's "activation" (44a), with its pricing (4c3) when
+    the step was priced: "step" 0, the numbers against doing nothing, and
+    "texts". steps_after: the plan's steps after it (the "needed before any
+    add" sentence is its reason only then)."""
+    d = step_dict(step)
+    if d is None or priced is None:
+        return d
+    regular = phase_of(hz.weeks[0]) == "regular_season"
+    no_stakes = phase_of(hz.weeks[0]) == "cup"
+    t = None if no_stakes else priced.title_odds(cfg, regular)
+    d.update({"step": 0, "kind": "activate", "baseline": "hold",
+              "dwp": [round(x, 6) for x in priced.dwp],
+              "wp_base": [None if x is None else round(x, 6) for x in priced.wp_base],
+              "dpts": [round(x, 3) for x in priced.dpts], "dstarts": [round(x, 3) for x in priced.dstarts],
+              "dT_horizon": round(priced.dT_horizon, 6), "dT_later": round(priced.dT_later, 6),
+              "dT_rs": round(priced.dT_rs, 6), "dT_po": round(priced.dT_po, 6),
+              "dpts_later": round(priced.dpts_later, 3), "flat": False,
+              "title_odds": None if t is None else round(t, 6),
+              "title_label": None if no_stakes else ("title odds" if regular else "playoff title odds")})
+    v2 = v2_texts(d, horizon, opponents, show_title=show_title)
+    if steps_after:
+        v2["why"] = FIRST_TEXT
+    d["texts"] = {"numbers": numbers_text(d, horizon, opponents, show_title=show_title),
+                  "reason": reason_text(d, horizon), "v2": v2}
+    return d
+
+
 def step_dict(step) -> Optional[dict]:
     """advice_latest.json's "activation" for one manager, or None."""
     if not step:
@@ -711,15 +819,21 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
     for m, a in sorted(advice.items()):
         st = inputs.managers[m]
         opps = {str(w): st.opponents.get(w) for w in hz.weeks if w is not None}
-        e = {"adds_left": st.adds_left, "opponents": opps, "also_wanted_by": list(a.also_wanted_by),
-             "activation": step_dict(a.step),
-             "move": None, "backup": None, "note": a.rec.note, "bar": a.rec.bar if a.rec.bar != float("inf") else None,
-             "plan": [], "plan_total": None, "plan_stop": None}
         pl = a.plan
         steps = list(pl.steps) if pl is not None else []
+        act_p = getattr(pl, "activation", None) if pl is not None else None
+        if act_p is not None and act_p.step != a.step:
+            raise AdviceInputError(f"{m}: the priced activation {act_p.step} is not the advised step {a.step}")
+        act = activation_dict(a.step, act_p, inputs=inputs, hz=hz, cfg=cfg, horizon=horizon, opponents=opps,
+                              show_title=show, steps_after=len(steps))
+        e = {"adds_left": st.adds_left, "opponents": opps, "also_wanted_by": list(a.also_wanted_by),
+             "activation": act,
+             "move": None, "backup": None, "note": a.rec.note, "bar": a.rec.bar if a.rec.bar != float("inf") else None,
+             "plan": [], "plan_total": None, "plan_stop": None}
         if pl is not None and steps and steps[0].priced is not a.top:
             raise AdviceInputError(f"{m}: the plan's first step is not the top move")
-        cum = None
+        # 4c3: the steps' running sums start from the priced activation (the total includes it)
+        cum = _cumulate(None, act) if act is not None and "dwp" in act else None
         for k, ps in enumerate(steps, 1):
             d = _move_dict(ps.priced, ps.score, inputs, hz, cfg)
             d["step"] = k
@@ -728,24 +842,36 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
             d["cumulative"] = {**cum, "title_odds": _cum_title(cum, inputs, hz, cfg)}
             d["text"] = {"move": move_text(d), "step": step_move_text(d, k, len(steps)),
                          "numbers": numbers_text(d, horizon, opps, show_title=show),
-                         "reason": reason_text(d, horizon), "followup": followup_text(d, horizon)}
+                         "reason": reason_text(d, horizon), "followup": followup_text(d, horizon),
+                         "v2": v2_texts(d, horizon, opps, show_title=show)}
             e["plan"].append(d)
         if e["plan"]:
             e["move"] = e["plan"][0]
             e["plan_stop"] = {"code": pl.stop, "text": STOP_TEXT.get(pl.stop, pl.stop)}
             t = _total_dict(pl.total, inputs, hz, cfg)
+            t["includes_activation"] = act is not None and "dwp" in act
             t["text"] = plan_text(t, horizon, opps, show_title=show)
+            rows = len(steps) + (1 if t["includes_activation"] else 0)
+            title = None
+            if show and t["title_label"] is not None:
+                title = f"{t['title_label']} {_pct(t['title_odds'] or 0.0)}"
+            # the new hub's plan line (4c3): its own key, beside the string "text" every reader uses
+            t["v2"] = {"weeks": v2_weeks(t, horizon, opps), "label": PLAN_LABELS.get(rows, f"All {rows}") if rows >= 2 else "",
+                       "rows": rows, "title": title}
             e["plan_total"] = t
         if a.backup is not None:
             d = _move_dict(a.backup, a.backup_score, inputs, hz, cfg)
             d["text"] = {"move": move_text(d), "numbers": numbers_text(d, horizon, opps, show_title=show),
-                         "reason": reason_text(d, horizon), "followup": followup_text(d, horizon)}
+                         "reason": reason_text(d, horizon), "followup": followup_text(d, horizon),
+                         "v2": v2_texts(d, horizon, opps, show_title=show)}
             e["backup"] = d
         if a.top is None:
             e["empty"] = ("No adds left this week (week {}'s budget)".format(hz.budget_week)
                           if st.adds_left <= 0 else
                           "No move clears the last add's bar" if a.rec.note.startswith("nothing clears")
                           else "No move beats standing pat")
+            e["v2_empty"] = EMPTY_V2["adds" if st.adds_left <= 0 else
+                                     "bar" if a.rec.note.startswith("nothing clears") else "pat"]
         mans[m] = e
     return {"schema": SCHEMA, "run_id": run_id, "mode": mode, "cause": cause,
             "cause_text": cause_text(mode, cause), "as_of": now.isoformat(timespec="seconds"),
@@ -815,6 +941,14 @@ def _hist_move(d: Optional[dict]) -> Optional[dict]:
     return {**{k: d[k] for k in keep}, "followup_standin": bool(d.get("followup_standin"))}
 
 
+def _hist_activation(a: Optional[dict]) -> Optional[dict]:
+    """The activation as the history row keeps it: the step (44a) and, when
+    priced (4c3), its numbers (V4 scores step 0) -- not the display texts."""
+    if not a:
+        return a
+    return {k: v for k, v in a.items() if k != "texts"}
+
+
 def history_row(payload: dict, *, published: bool) -> dict:
     """One row per run (V4's scorecard): enough to score later -- the move,
     its predicted gains, the horizon, the as-of, the opponents."""
@@ -824,15 +958,17 @@ def history_row(payload: dict, *, published: bool) -> dict:
             "anchor": (payload.get("inputs") or {}).get("anchor"),
             "managers": {m: {"adds_left": e["adds_left"], "opponents": e["opponents"],
                              "also_wanted_by": e["also_wanted_by"], "note": e["note"],
-                             "activation": e.get("activation"),
+                             "activation": _hist_activation(e.get("activation")),
                              "top": _hist_move(e["move"]), "backup": _hist_move(e["backup"]),
                              # H53: the plan, each step's own predicted gains (V4 scores step 2+)
                              "plan": [{**_hist_move(d), "step": d["step"], "also_wanted_by": d["also_wanted_by"]}
                                       for d in e.get("plan") or []],
                              "plan_total": None if not e.get("plan_total") else
-                             {k: e["plan_total"][k] for k in ("dwp", "wp_base", "dpts", "dstarts", "dT_horizon",
-                                                             "dT_later", "dT_rs", "dT_po", "dpts_later",
-                                                             "title_odds")},
+                             {**{k: e["plan_total"][k] for k in ("dwp", "wp_base", "dpts", "dstarts", "dT_horizon",
+                                                                "dT_later", "dT_rs", "dT_po", "dpts_later",
+                                                                "title_odds")},
+                              # 4c3: measured against doing nothing when there is a priced activation
+                              "includes_activation": bool(e["plan_total"].get("includes_activation"))},
                              "plan_stop": (e.get("plan_stop") or {}).get("code")}
                          for m, e in payload["managers"].items()},
             "error": payload["error"]}
@@ -886,7 +1022,9 @@ def summary_lines(payload: dict) -> list:
     out = []
     for m, e in payload["managers"].items():
         st = e.get("activation")
-        head = f"ADVICE {m} ({hz['label']}): " + (f"Step: {st['text']} Then: " if st else "")
+        sn = ((st or {}).get("texts") or {}).get("numbers")           # 4c3: the step, priced
+        head = f"ADVICE {m} ({hz['label']}): " + (f"Step: {st['text']}" + (f" ({sn})" if sn else "")
+                                                  + " Then: " if st else "")
         if e["move"] is None:
             out.append(head + f"{e.get('empty', 'no move')}")
             continue
@@ -934,6 +1072,9 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
             # Nick, 11-18 (H53): each step's pricing seconds per manager, in the run log
             seconds["steps"] = {m: v["steps"] for m, v in timings.items()}
             seconds["plan_totals"] = {m: v["total"] for m, v in timings.items()}
+            # 4c3: the activation step's own pricing (one more per manager with a returner)
+            seconds["activation"] = {m: v.get("activation") for m, v in timings.items()
+                                     if v.get("activation") is not None}
             payload = latest_payload(run_id=run_id, mode=mode, cause=cause, now=now, inputs=inp, hz=hz,
                                      meta=meta, advice=advice, weighting=av.RECOMMENDED.name,
                                      settings=settings, seconds=seconds)
@@ -957,8 +1098,10 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
     elif payload.get("season_over"):
         detail = payload["season_over"]
     else:
-        per = "; ".join(f"{m} " + "+".join(f"{x:g}" for x in v if x is not None)
-                        for m, v in (seconds.get("steps") or {}).items() if any(v))
+        act_s = seconds.get("activation") or {}
+        per = "; ".join(f"{m} " + (f"act {act_s[m]:g}+" if m in act_s else "")
+                        + "+".join(f"{x:g}" for x in v if x is not None)
+                        for m, v in (seconds.get("steps") or {}).items() if any(v) or m in act_s)
         detail = (f"{payload['horizon']['label']}, weeks {payload['horizon']['weeks']}, "
                   f"{seconds.get('total')} s" + (f" (each step's pricing, s: {per})" if per else "") + ": "
                   + "; ".join(f"{m} {(e['move'] or {}).get('describe') or e.get('empty')}"
@@ -1000,6 +1143,9 @@ def hub_view(latest: dict, power_rows: list) -> dict:
             st = e.get("activation")
             if st:
                 card["step"] = st["text"]
+                if (st.get("texts") or {}).get("numbers"):
+                    # 4c3: the activation's "+x% vs Opp" line, only when priced (an older file: no key)
+                    card["step_numbers"] = st["texts"]["numbers"]
                 card["players"]["step"] = list(st["back"]) + list(st["drops"])
             if e["move"] is None:
                 card["empty"] = e.get("empty") or "No move beats standing pat"

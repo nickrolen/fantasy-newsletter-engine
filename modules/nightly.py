@@ -16,6 +16,11 @@ s.2.4 and s.4 the design. The nightly run:
    3 sync          sync_transactions.nightly_sync: the transaction log, the
                    current week's partial adds file, ROSTERS.json (checked
                    against Yahoo's live rosters), IL_SLOTS.json
+  3b team_pictures (nightly only; 4c3) each team's Yahoo picture, downscaled
+                   and cached by content in output/team_pictures/
+                   (modules/team_pictures). Soft: a failure is the run's
+                   "team_pictures" block and TEAM PICTURES FAILED in the
+                   summary; the hub keeps the last good picture or the monogram
    4 settings      yahoo_settings.check: a drift refuses
   4b schedule      (nightly only; task 33) refetch the NBA schedule at most once a
                    league day (modules/nba_schedule.refetch, through
@@ -203,8 +208,8 @@ STEP_TIMEOUT_S = 900
 # title_odds (the stakes it reads) and before actuals and the hub (which shows
 # it when advice.hub is on); not refresh_facts, not closing.
 STEPS = {
-    "nightly": ("engine", "logs", "sync", "trade_block", "settings", "schedule", "tags", "nba_report",
-                "returns", "ledger", "line", "title_odds", "advice", "actuals", "hub", "nudges"),
+    "nightly": ("engine", "logs", "sync", "trade_block", "team_pictures", "settings", "schedule", "tags",
+                "nba_report", "returns", "ledger", "line", "title_odds", "advice", "actuals", "hub", "nudges"),
     # Step 3a: the nightly path without the log pull; actuals stays right
     # before the hub, as in every mode that builds one (F1)
     "refresh": ("engine", "banked", "sync", "settings", "tags", "nba_report", "ledger", "line",
@@ -443,6 +448,44 @@ class Run:
         out = tb.upkeep(self.base, tb.rosters_now(self.base), self.today, self.now)
         self.ctx["trade_block"] = {"cleared": out["cleared"], "removed": out["removed"]}
         return tb.upkeep_text(out)
+
+    # -- 4c3: each team's Yahoo picture, once a night (modules/team_pictures.py)
+    def step_team_pictures(self):
+        """The league's teams from Yahoo (the sync's own client), each team's
+        logo downloaded, downscaled and cached by content in
+        output/team_pictures/. SOFT, like the cards: any failure is recorded
+        (the run row's "team_pictures" block, TEAM PICTURES FAILED in the
+        summary) and the run goes on; the hub shows the last good picture, or
+        the monogram."""
+        from . import team_pictures as tp
+        from .data_loader import MANAGERS
+        t0 = time.perf_counter()
+        try:
+            blk = tp.fetch(self.base, list(MANAGERS), self._yahoo_teams(), now=self.now)
+            blk["error"] = None
+        except Exception as e:                       # noqa: BLE001 -- recorded loudly, never stops the run
+            blk = {"error": f"{type(e).__name__}: {e}".splitlines()[0][:300], "teams": {}, "failures": {},
+                   "seconds": round(time.perf_counter() - t0, 2)}
+        self.ctx["team_pictures"] = blk
+        if blk["error"] or blk["failures"]:
+            why = blk["error"] or "; ".join(f"{m}: {w}" for m, w in sorted(blk["failures"].items()))
+            self.ctx["team_pictures_lines"] = [f"TEAM PICTURES FAILED: {why} -- the hub shows the last good "
+                                               "picture, or the monogram"]
+        if blk["error"]:
+            return f"team pictures FAILED (recorded; the run goes on): {blk['error']}"
+        got = [m for m, v in blk["teams"].items() if v.get("sha")]
+        changed = [m for m, v in blk["teams"].items() if v.get("changed")]
+        return (f"team pictures: {len(got)} of {len(MANAGERS)} stored"
+                + (f", changed: {', '.join(changed)}" if changed else ", none changed")
+                + (f"; FAILED: {', '.join(sorted(blk['failures']))}" if blk["failures"] else "")
+                + ("" if blk.get("downscaled", True) else "; NOT downscaled (no Pillow)"))
+
+    def _yahoo_teams(self) -> dict:
+        """League.teams(), through the fail-fast OAuth client (yahoo_auth)."""
+        from yahoo_oauth import OAuth2
+        from .yahoo_auth import build_oauth
+        from .fetch_injury_statuses import get_league
+        return get_league(build_oauth(self.base / "oauth2.json", OAuth2=OAuth2)).teams()
 
     # -- facts-only refresh (task 49): the hub builds only on a line of this engine
     def step_line_engine(self):
@@ -1142,6 +1185,8 @@ class Run:
             row["headshots"] = self.ctx["headshots"]
         if self.ctx.get("cards") is not None:
             row["cards"] = self.ctx["cards"]
+        if self.ctx.get("team_pictures") is not None:            # 4c3
+            row["team_pictures"] = self.ctx["team_pictures"]
         if self.ctx.get("ratings") is not None:
             row["ratings"] = self.ctx["ratings"]
         if self.ctx.get("actuals") is not None:
@@ -1463,6 +1508,8 @@ def main(argv=None) -> int:
     for line in run.ctx.get("advice_lines") or []:                # advice v2: one line per manager
         print(line)
     for line in run.ctx.get("cards_lines") or []:                 # the cards fail softly, loudly
+        print(line)
+    for line in run.ctx.get("team_pictures_lines") or []:         # 4c3: so do the team pictures
         print(line)
     for line in run.ctx.get("ratings_lines") or []:               # 4c1: so do the ratings
         print(line)

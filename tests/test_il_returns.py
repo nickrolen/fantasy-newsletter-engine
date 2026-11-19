@@ -272,11 +272,15 @@ def test_a_return_at_the_chat_moves_window_is_shown_before_the_pick_everywhere()
     pl = payload(fx, inp)
     act = pl["managers"]["Nick"]["activation"]
     want = f"Hurt is back for week 2: activate him and drop {step['drops'][0]}. It costs no add."
-    assert act == {"week": 2, "back": ["Hurt"], "drops": step["drops"], "returns": {}, "text": want}
+    # 44a's step, and (4c3) its pricing against doing nothing: step 0, numbers, texts
+    assert {k: act[k] for k in ("week", "back", "drops", "returns", "text")} == \
+        {"week": 2, "back": ["Hurt"], "drops": step["drops"], "returns": {}, "text": want}
+    assert act["step"] == 0 and act["baseline"] == "hold" and len(act["dwp"]) == 2
     assert all(pl["managers"][m]["activation"] is None for m in MANAGERS if m != "Nick")
-    assert al.history_row(pl, published=False)["managers"]["Nick"]["activation"] == act
+    assert al.history_row(pl, published=False)["managers"]["Nick"]["activation"] == \
+        {k: v for k, v in act.items() if k != "texts"}
     line = next(l for l in al.summary_lines(pl) if l.startswith("ADVICE Nick"))
-    assert f"Step: {want} Then: " in line
+    assert f"Step: {want} ({act['texts']['numbers']}) Then: " in line
     out = []
     pl.update(published=False)
     advice_show.show(pl, out=out.append)

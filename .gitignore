@@ -334,3 +334,7 @@ output/trade_block_history.jsonl
 # (modules/advice_live).
 output/advice_latest.json
 output/advice_history.jsonl
+
+# 4c3: each team's Yahoo picture (modules/team_pictures): league state, the
+# managers' own images, never public.
+output/team_pictures

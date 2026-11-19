@@ -54,7 +54,15 @@ def show(latest: dict, out=print) -> None:
         out(f"{m} -- {e['adds_left']} add(s) left; opponents "
             + ", ".join(f"week {w}: {o or 'not set'}" for w, o in e["opponents"].items()))
         if e.get("activation"):
-            out(f"  Step: {e['activation']['text']}")
+            a = e["activation"]
+            out(f"  Step: {a['text']}")
+            if a.get("texts"):            # 4c3: priced against doing nothing (held in IL, no move)
+                out(f"    {a['texts']['numbers']}")
+                out(f"    {a['texts']['reason']}")
+                out(f"    engine: step 0 against holding {', '.join(a['back'])} in IL with no move; "
+                    f"dwp {a['dwp']}; dpts {a['dpts']}; title term later {a['dT_later']:+.4f} (stake units)"
+                    + ("  [NEGATIVE: holding him is better for this window, and it blocks every add]"
+                       if sum(a["dwp"]) < 0 or (abs(sum(a["dwp"])) < 1e-12 and sum(a["dpts"]) < 0) else ""))
         if e["move"] is None:
             out(f"  {e.get('empty') or 'No move beats standing pat'}")
             continue
@@ -66,11 +74,14 @@ def show(latest: dict, out=print) -> None:
             also = mv.get("also_wanted_by", e["also_wanted_by"] if mv is e["move"] else [])
             if also:
                 out(f"    Also wanted by {', '.join(also)}")
-        if n > 1:
+        if n > 1 or (n == 1 and (e.get("plan_total") or {}).get("includes_activation")):
             t = e["plan_total"]
             out(f"  {t['text']}")
+            act = e.get("activation") if (t.get("includes_activation") and e.get("activation")) else None
+            rows = ([act] if act else []) + list(plan)
             out(f"    engine: the plan priced as one, dwp {t['dwp']}; dpts {t['dpts']}; starts {t['dstarts']}; "
-                f"steps summed dwp {[round(sum(d['dwp'][k] for d in plan), 6) for k in (0, 1)]}")
+                f"{'activation + steps' if act else 'steps'} summed dwp "
+                f"{[round(sum(d['dwp'][k] for d in rows), 6) for k in (0, 1)]}")
         if e.get("plan_stop"):
             out(f"  Plan {e['plan_stop']['text']} ({e['adds_left']} add(s) left)")
         if e["backup"] is None:

@@ -121,6 +121,18 @@ it (C2's "a plan, not a list"). plan_for:
 The activation step (44a) costs no add and comes before step 1; the plan is
 built on the roster after it.
 
+THE ACTIVATION, PRICED (4c3, claude/HANDOFF_4C3_MARKET_ADVICE_2026-11-18.md
+s.2.2): price_activation measures the step like a move -- the plan as it
+stands (the step and its drops, the plan's own) against DOING NOTHING: the
+returners stay in their IL slots through the horizon, nobody is dropped and
+no other move is made (hold_known; LEAGUE_RULES rule 3: a healthy player may
+stay in IL, and while he does the team can make no roster move at all). Same
+opponents, horizon, seed and CRN as the steps. The steps' own numbers do not
+change (each is still measured after the step), and plan_total measures the
+whole plan against doing nothing, so the activation's gains plus the steps'
+sum to it (telescoping, as H53). A negative activation is reported as it is:
+holding him is then better for that window, and it blocks every add.
+
 CONTESTED PLAYERS (decision 4): advise_all prices every manager's plan, then
 marks "also wanted by" on every step's add (another manager whose PLAN adds
 the same player, in any step) and picks each manager's BACKUP for step 1: his
@@ -646,7 +658,22 @@ def merge_known(*parts) -> dict:
                                                               "il_activate": []})
                 for key in ("il_place", "drop", "add", "il_activate"):
                     t[key] = list(t[key]) + list(e.get(key) or [])
+                if e.get("il_hold"):                       # 4c3: the do-nothing alternative only
+                    t["il_hold"] = list(t.get("il_hold") or []) + list(e["il_hold"])
     return out
+
+
+def hold_known(inputs: "MondayInputs", manager: str, step: dict) -> dict:
+    """The DO-NOTHING alternative to the activation step (4c3; LEAGUE_RULES
+    rule 3) as known moves: at every horizon window the step's returners stay
+    in their IL slots and the manager makes no move at all (roster_plan's
+    "il_hold"). Raises if the step is not the horizon's first week's."""
+    w1 = int(inputs.horizon[0])
+    if int(step["week"]) != w1:
+        raise ValueError(f"{manager}: the activation step is week {step['week']}'s, the horizon starts at {w1}")
+    return {int(w): {manager: {"il_place": [], "drop": [], "add": [], "il_activate": [],
+                               "il_hold": list(step["back"])}}
+            for w in inputs.horizon if w is not None}
 
 
 @dataclass(frozen=True)
@@ -1138,14 +1165,16 @@ def _followup(inputs: MondayInputs, manager: str, move: Move) -> tuple:
     return drops[0], drops[0] in PlanSpec.standins(P)
 
 
-def _price_base(inputs: MondayInputs, manager: str, settings: Settings) -> dict:
+def _price_base(inputs: MondayInputs, manager: str, settings: Settings, base_plan: Optional[dict] = None) -> dict:
     """What every move of the manager is priced against: the plan as it stands
     (his earlier steps included, H53), his opponents' rosters in the plan
     WITHOUT his earlier steps (the same opponents for every step, so the
-    steps' win-chance gains telescope), the stakes."""
+    steps' win-chance gains telescope), the stakes. base_plan (4c3): another
+    plan for HIS rosters -- the do-nothing plan the activation step and the
+    whole plan are measured against; the opponents are unchanged."""
     st = inputs.managers[manager]
     hz = list(inputs.horizon)
-    P0 = _plan(inputs)
+    P0 = _plan(inputs) if base_plan is None else base_plan
     Popp = _plan(inputs, prior=False)
     base = [None if w is None else plan_roster(P0, manager, w) for w in hz]
     base_sc, opp_sc, ties = [None, None], [None, None], [0.5, 0.5]
@@ -1370,6 +1399,51 @@ def apply_step(inputs: MondayInputs, manager: str, p: Priced, *, first: bool) ->
 
 
 @dataclass(frozen=True)
+class ActivationPriced:
+    """The activation step priced (4c3): the plan as it stands (the step and
+    its drops) against doing nothing (hold_known). Plan step 0."""
+    step: dict                     # activation_step's dict
+    dwp: tuple
+    wp_base: tuple                 # the manager's win chance doing nothing
+    dpts: tuple
+    dstarts: tuple
+    dT_horizon: float
+    dT_later: float
+    dpts_later: float
+    lbar: float
+    dT_rs: float = 0.0
+    dT_po: float = 0.0
+    dpts_later_by_week: tuple = ()
+
+    def title_odds(self, config, regular_season: bool):
+        return Priced.title_odds(self, config, regular_season)
+
+
+def _hold_plan(inputs: MondayInputs, manager: str, step: dict) -> dict:
+    """The season pass's plan with the manager doing nothing at the horizon's
+    windows (hold_known), his earlier plan steps not applied (the activation
+    is priced at the plan's first stage only)."""
+    if inputs.prior.get(manager):
+        raise ValueError(f"{manager}: the activation is priced before the plan's steps, not after them")
+    return _plan(inputs, hold_known(inputs, manager, step))
+
+
+def price_activation(inputs: MondayInputs, manager: str, settings: Settings) -> Optional[ActivationPriced]:
+    """The activation step (activation_step) priced like a move (4c3): the
+    plan as it stands, where the plan's own rule activates the returners and
+    drops whom it drops, against doing nothing (the returners held in IL
+    through the horizon, nobody dropped, no other move: rule 3). The same
+    opponents, stakes, seed and CRN as every step. None without a step."""
+    step = activation_step(inputs, manager)
+    if step is None:
+        return None
+    b = _price_base(inputs, manager, settings, base_plan=_hold_plan(inputs, manager, step))
+    r = _measure(inputs, manager, settings, b, _plan(inputs))
+    return ActivationPriced(step, r["dwp"], b["wp_base"], r["dpts"], r["dstarts"], r["dT_horizon"],
+                            r["dT_later"], r["dpts_later"], b["lbar"], r["dT_rs"], r["dT_po"], r["by_week"])
+
+
+@dataclass(frozen=True)
 class PlanStep:
     step: int                      # 1, 2, ...
     priced: Priced                 # its own gain, given the earlier steps
@@ -1405,6 +1479,9 @@ class Plan:
     stages: tuple
     stop: str                      # why it ends: adds | cap | pat | bar | none
     total: Optional[PlanTotal] = None
+    # 4c3: the activation step priced (step 0), or None. With it, total is measured against
+    # doing nothing, so the activation's gains plus the steps' sum to it.
+    activation: Optional[ActivationPriced] = None
 
     @property
     def adds(self) -> list:
@@ -1413,8 +1490,11 @@ class Plan:
 
 def plan_total(inputs: MondayInputs, plan_steps: Sequence["PlanStep"], manager: str,
                settings: Settings) -> Optional[PlanTotal]:
-    """The plan priced directly against no move: the plan rebuilt with every
-    step as known moves (step 1 carrying the activation step)."""
+    """The plan priced directly: the plan rebuilt with every step as known
+    moves (step 1 carrying the activation step), against no move -- or, when
+    there is an activation step (4c3), against DOING NOTHING (hold_known), so
+    the total includes the activation and the activation's gains plus the
+    steps' sum to it."""
     if not plan_steps:
         return None
     w1, w2 = inputs.horizon
@@ -1422,7 +1502,8 @@ def plan_total(inputs: MondayInputs, plan_steps: Sequence["PlanStep"], manager: 
     known = merge_known(*[known_for(s.priced.move, w1, s.priced.followup_drop, w2,
                                     step=step if k == 0 else None)
                           for k, s in enumerate(plan_steps)])
-    b = _price_base(inputs, manager, settings)
+    b = _price_base(inputs, manager, settings,
+                    base_plan=None if step is None else _hold_plan(inputs, manager, step))
     r = _measure(inputs, manager, settings, b, _plan(inputs, known))
     return PlanTotal(r["dwp"], b["wp_base"], r["dpts"], r["dstarts"], r["dT_horizon"], r["dT_later"],
                      r["dpts_later"], b["lbar"], r["dT_rs"], r["dT_po"])
@@ -1446,6 +1527,9 @@ def plan_for(inputs: MondayInputs, manager: str, settings: Settings = Settings()
     limit = st.adds_left if max_steps is None else min(st.adds_left, int(max_steps))
     cur = inputs
     rec = rec if rec is not None else recommend(inputs, manager, settings, weighting)
+    t0 = _time.perf_counter()
+    act = price_activation(inputs, manager, settings)          # 4c3: step 0, priced
+    act_s = round(_time.perf_counter() - t0, 2) if act is not None else None
     steps, stages = [], [inputs]
     stop = "none"
     while True:
@@ -1468,7 +1552,9 @@ def plan_for(inputs: MondayInputs, manager: str, settings: Settings = Settings()
     total = plan_total(inputs, steps, manager, settings) if steps else None
     if timings is not None and steps:
         timings.append(round(_time.perf_counter() - t0, 2))
-    return Plan(manager, tuple(steps), tuple(stages), stop, total)
+    if timings is not None and act_s is not None:
+        timings.append(("activation", act_s))          # 4c3: read off by advise_all
+    return Plan(manager, tuple(steps), tuple(stages), stop, total, act)
 
 
 def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
@@ -1494,9 +1580,12 @@ def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
         tl = []
         plans[m] = plan_for(inputs, m, settings, weighting, max_steps, rec=recs[m], timings=tl)
         if timings is not None:
+            act_s = next((x[1] for x in tl if isinstance(x, tuple)), None)
+            tl = [x for x in tl if not isinstance(x, tuple)]
             n = len(plans[m].steps)
             later = tl[:-1] if n else tl
-            timings[m] = {"steps": (t.get(m) or [None]) + later, "total": tl[-1] if n else None}
+            timings[m] = {"steps": (t.get(m) or [None]) + later, "total": tl[-1] if n else None,
+                          "activation": act_s}
     adds = {m: set(pl.adds) for m, pl in plans.items()}
     out = {}
     for m in sorted(recs):

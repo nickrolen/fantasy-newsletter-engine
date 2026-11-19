@@ -77,8 +77,10 @@ def _flow(a, b):
 def synth_payload() -> dict:
     """The 4b synthetic payload, plus (4c1) its Players block by the real engine
     path, plus (4c2) the roster table's Detailed columns by the real engine path
-    (roster.build), the grids' tooltips and last week."""
-    return add_synth_teams(add_synth_players(_synth_payload_4b()))
+    (roster.build), the grids' tooltips and last week, plus (4c3) the Market
+    tab by the real engine path (market.build: tests/hub_v2_market_fixture.py)."""
+    import hub_v2_market_fixture as MF
+    return MF.add_market(add_synth_teams(add_synth_players(_synth_payload_4b())))
 
 
 def _synth_payload_4b() -> dict:
@@ -319,7 +321,7 @@ def dyn_route(href: str) -> str:
     return href
 
 
-ALL_CSS = page.LAYOUT_CSS + page.pp.CSS          # the renderer's own CSS (4c1: Players, the card, Compare)
+ALL_CSS = page.LAYOUT_CSS + page.pp.CSS + page.pm.CSS   # the renderer's own CSS (4c1: Players, the card, Compare; 4c3: Market)
 
 
 def visible_text(h: str) -> str:

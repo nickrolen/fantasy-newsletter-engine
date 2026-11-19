@@ -357,8 +357,9 @@ def test_the_switch_is_required_and_on_since_11_18():
 
 def test_the_hub_reads_advice_only_behind_the_switch():
     src = (ROOT / "modules" / "hub_state.py").read_text(encoding="utf-8")
-    assert ('advice = al.hub_view(al.read_latest(base), power["rows"]) if al.hub_switch() == "on" else None'
-            in src)
+    # 4c3: the file is read once, behind the switch; the v2 Market reads the same object
+    assert 'advice_raw = al.read_latest(base) if al.hub_switch() == "on" else None' in src
+    assert 'advice = al.hub_view(advice_raw, power["rows"]) if advice_raw is not None else None' in src
     assert '"advice": advice,' in src
 
 

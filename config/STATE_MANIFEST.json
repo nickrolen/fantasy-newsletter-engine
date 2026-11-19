@@ -51,7 +51,8 @@
     {"path": "config/snapshots", "what": "weekly PLAYERLIST snapshots and Step 6's point-in-time captures (the pinned durability prior is a public exception)"},
     {"path": "assets/headshots", "what": "the headshot library: one photo per player, <player-slug>.webp, supplied by Nick through scripts/headshots.py (never fetched from the web); used by the hub's player cards, the newsletter's Keeper Watch cards and the Player of the Week (modules/headshots; task 40a, 11-12)"},
     {"path": "archive", "what": "past seasons' state, archived by start_new_season at the reset"},
-    {"path": "output/hub_archive", "what": "the newsletter archive the hub publishes: each issue's plaintext bytes, written once by content hash, and its index (modules/hub_archive.py; step 1b)"}
+    {"path": "output/hub_archive", "what": "the newsletter archive the hub publishes: each issue's plaintext bytes, written once by content hash, and its index (modules/hub_archive.py; step 1b)"},
+    {"path": "output/team_pictures", "what": "each team's Yahoo picture, downscaled and cached by content, and its index.json (modules/team_pictures; fetched nightly, 4c3): the managers' own images, league state, never public"}
   ],
   "patterns": [
     {"dir": "data", "name": "waivers_week*.txt", "what": "each week's adds (sync_transactions)"},
