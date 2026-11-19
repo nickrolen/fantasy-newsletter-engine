@@ -49,6 +49,15 @@ the backup; or the one-sentence state. The strings are advice_live's
 functions (advice_live.v2_texts), and an activation with no numbers shows
 dashes, never an invented number.
 
+H54: when advice keeps a returner in IL this week (il_choice "hold"), the
+activation row's variant takes its place: the same shading, bar and win-%
+columns, the label "Keep in IL this week . no moves", the returner in bold,
+a plain sub-line "activate at week N's window" (nobody is dropped this
+window, so no red minus) and its numbers AGAINST ACTIVATING NOW (hold.texts.v2;
+the tap-open sentence says so). No step, no plan line and no backup follow
+(a hold blocks every move); with no adds left the card ends "No adds left.
+Resets Monday." as an activation's does. Otherwise nothing in the view changes.
+
 FAILS SOFTLY like the rest of v2 (data.market_soft): a failure leaves v2 out
 and says why; nothing is defaulted.
 """
@@ -66,6 +75,7 @@ POSITIONS = ("PG", "SG", "SF", "PF", "C")
 INTRO = ("Best moves for Monday\u2019s window, in order, with how much each one changes your chance to win "
          "this week and next. \u2691: another team wants him too. Tap a move for why.")
 IL_LABEL = "Activate from IL \u00b7 no add"
+HOLD_LABEL = "Keep in IL this week \u00b7 no moves"          # H54: the hold row (CSS upper-cases it)
 
 
 class MarketError(RuntimeError):
@@ -252,7 +262,15 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
                 "rows": [], "plan": None, "backup": None, "empty": ""}
         plan = e.get("plan") or ([e["move"]] if e.get("move") else [])
         act = e.get("activation")
-        if act:
+        hold = e.get("hold") if (e.get("il_choice") or {}).get("choice") == "hold" else None
+        if hold is not None:                                     # H54: keep him in IL this week
+            tx = hold["texts"]["v2"]
+            card["rows"].append({"kind": "act", "hold": True, "label": HOLD_LABEL,
+                                 "adds": [_who(n, key_of) for n in hold["back"]],
+                                 "lines": [{"sign": "", "kind": "note", "name": tx["sub"], "card": None}],
+                                 "weeks": tx["weeks"], "why": tx["why"], "tiles": tx["tiles"],
+                                 "followup": "", "also": [], "flag": False})
+        elif act:
             tx = (act.get("texts") or {}).get("v2")
             if tx is None:                                       # a file from before 4c3: not priced
                 tx = {"weeks": [{"label": f"Wk {w}", "value": DASH, "dir": "flat"} for w in opps],
@@ -289,7 +307,10 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
             card["backup"] = {"if": f"If {first} is gone:" if first else "If he\u2019s gone:",
                               "add": _who(b["add"], key_of), "lines": _move_lines(b, key_of),
                               "weeks": tx["weeks"], "tiles": tx["tiles"], "why": tx["why"]}
-        if not plan:                                             # the one-sentence state
+        if hold is not None:                                     # H54: no steps; the adds state only
+            if int(e["adds_left"]) <= 0:
+                card["empty"] = e.get("v2_empty") or al.EMPTY_V2["adds"]
+        elif not plan:                                           # the one-sentence state
             code = ("adds" if int(e["adds_left"]) <= 0 else
                     "bar" if (e.get("note") or "").startswith("nothing clears") else "pat")
             card["empty"] = e.get("v2_empty") or al.EMPTY_V2[code]

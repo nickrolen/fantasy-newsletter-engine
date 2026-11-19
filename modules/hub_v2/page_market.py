@@ -312,7 +312,9 @@ def _lines(lines: list) -> str:
     opens it (no link inside a button); the names' cards are in the opened part."""
     out = []
     for x in lines:
-        if x["kind"] == "il":
+        if x["kind"] == "note":           # H54: the hold row's sub-line, no sign
+            out.append(f'<span class="adv-drop"><span>{clean(x["name"])}</span></span>')
+        elif x["kind"] == "il":
             out.append(f'<span class="adv-drop"><span class="adv-sign adv-sign-il">IL</span>'
                        f'<span>{clean(x["name"])}</span></span>')
         else:

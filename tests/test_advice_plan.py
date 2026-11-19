@@ -430,7 +430,10 @@ def test_every_real_plan_is_legal_and_step_1_is_the_current_top_move():
     for m, a in adv.items():
         st = inp.managers[m]
         top = av.recommend(inp, m, settings).top
-        assert (a.top and a.top.move) == (top and top.move), m
+        if a.plan.held:                  # H54: the plan keeps a returner in IL: no move this window
+            assert a.top is None and a.backup is None, m
+        else:
+            assert (a.top and a.top.move) == (top and top.move), m
         pl = a.plan
         assert len(pl.steps) <= max(0, st.adds_left)
         _assert_never_undone(inp, pl, m, av.protected_for(inp, m, settings))

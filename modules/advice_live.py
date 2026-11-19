@@ -84,6 +84,22 @@ it includes the activation (plan_total.includes_activation), and each step's
 "cumulative" starts from the activation. A file from before 4c3 has no
 numbers on "activation": every reader shows the step as before.
 
+KEEPING HIM IN IL ONE WEEK (H54, advice_v2.price_hold / choose_il): for a
+manager with a returner, "hold" is option B -- the returners kept in IL at
+this window, activated by the plan's rule at the next -- priced against doing
+nothing like the activation, with "vs_activate" (B minus A: A is the plan's
+total when it has steps, else the activation) and its texts (the hold
+sentence, "numbers" against activating now, "reason", "v2"); null when there
+is no returner, and {"offered": false, "why_not"} when B is not offered.
+"il_choice" says which won ({"choice": "activate"|"hold", the two scores,
+the margin, the bar}). When A wins nothing else changes. When B wins the plan
+is the hold: "move", "plan", "plan_total" and "backup" are empty (a hold
+blocks every move this window), "plan_stop" is {"code": "hold"}, and A's
+steps and total move to "activate_plan" / "activate_total" (advice_show and
+the history row keep them). "activation" keeps A's step and numbers either
+way. A file from before 54 has none of these keys: every reader shows it as
+before.
+
 THE NEW HUB'S STRINGS (4c3, the Market tab's Advice view): every move, the
 activation carry text.v2 (the activation texts.v2) -- "weeks" ([{"label":
 "Wk 6", "value": "+4.6%", "dir"}] per horizon week), "tiles" (Starts, Points
@@ -778,6 +794,108 @@ def activation_dict(step, priced, *, inputs, hz, cfg, horizon: dict, opponents: 
     return d
 
 
+HOLD_LABEL_NOTE = "against activating now"
+
+
+def hold_text(h: dict) -> str:
+    """Option B in words (H54): "Keep Trey Murphy III in IL for week 6 and
+    activate him at week 7's window (Mon 11-30). It blocks your moves this
+    window." """
+    back = list(h["back"])
+    one = len(back) == 1
+    return (f"Keep {_and(back)} in IL for week {h['week']} and activate {'him' if one else 'them'} at "
+            f"week {h['next_week']}'s window ({_md(date.fromisoformat(h['next_day']))}). "
+            "It blocks your moves this window.")
+
+
+def hold_numbers_text(vs: dict, horizon: dict, opponents: dict, *, show_title: bool) -> str:
+    """"+1.1% vs Hayden next week, -0.4% vs Nick the week after, against
+    activating now" (and the title odds after it when shown)."""
+    bare = numbers_text(vs, horizon, opponents, show_title=False)
+    full = numbers_text(vs, horizon, opponents, show_title=show_title)
+    return f"{bare}, {HOLD_LABEL_NOTE}{full[len(bare):]}"
+
+
+def hold_why(h: dict, horizon: dict) -> str:
+    """The hold row's tap-open sentence: its numbers are against activating
+    now, the starts by week, and what happens at the next window."""
+    vs, ws = h["vs_activate"], horizon["weeks"]
+    st = vs["dstarts"]
+    tot = st[0] + st[1]
+    word = "start" if abs(round(tot, 1)) == 1.0 else "starts"
+    by = ", ".join(f"{st[k]:+.1f} in week {w}" for k, w in enumerate(ws) if w is not None)
+    him = "him" if len(h["back"]) == 1 else "them"
+    s = f"Against activating {him} now: {tot:+.1f} lineup {word} ({by}).".replace("-", "\u2212")
+    nxt = f"week {h['next_week']}\u2019s window ({_md(date.fromisoformat(h['next_day']))})"
+    who = "he comes" if len(h["back"]) == 1 else "they come"
+    if h["next_drops"]:
+        return s + f" At {nxt} {who} back and the plan drops {_and(h['next_drops'])}."
+    return s + f" At {nxt} {who} back, with room: nobody goes."
+
+
+def _vs_activate(hp, a, cfg, hz) -> dict:
+    """B minus A (both against doing nothing, the same base): exact."""
+    d = {"dwp": [round(x - y, 6) for x, y in zip(hp.dwp, a.dwp)],
+         "dpts": [round(x - y, 3) for x, y in zip(hp.dpts, a.dpts)],
+         "dstarts": [round(x - y, 3) for x, y in zip(hp.dstarts, a.dstarts)],
+         **{k: round(getattr(hp, k) - getattr(a, k), 6) for k in ("dT_horizon", "dT_later", "dT_rs", "dT_po")},
+         "dpts_later": round(hp.dpts_later - a.dpts_later, 3), "flat": False}
+    no_stakes = phase_of(hz.weeks[0]) == "cup"
+    regular = phase_of(hz.weeks[0]) == "regular_season"
+    d["title_odds"] = _cum_title(d, None, hz, cfg)
+    d["title_label"] = None if no_stakes else ("title odds" if regular else "playoff title odds")
+    return d
+
+
+def hold_dict(il, a, *, hz, cfg, horizon: dict, opponents: dict, show_title: bool) -> Optional[dict]:
+    """advice_latest.json's "hold" (H54): option B priced against doing
+    nothing, "vs_activate" (B minus A), "chosen", and the texts. il: the
+    plan's ILChoice; a: A's option (the plan total, else the activation)."""
+    if il is None:
+        return None
+    if il.hold is None:
+        return {"offered": False, "why_not": il.why_not}
+    hp = il.hold
+    regular = phase_of(hz.weeks[0]) == "regular_season"
+    no_stakes = phase_of(hz.weeks[0]) == "cup"
+    t = None if no_stakes else hp.title_odds(cfg, regular)
+    d = {"offered": True, "kind": "hold", "baseline": "hold", "week": int(hp.step["week"]),
+         "back": list(hp.step["back"]), "next_week": int(hp.next_week), "next_day": hp.next_day.isoformat(),
+         "next_drops": list(hp.next_drops), "next_standins": list(hp.next_standins),
+         "dwp": [round(x, 6) for x in hp.dwp],
+         "wp_base": [None if x is None else round(x, 6) for x in hp.wp_base],
+         "dpts": [round(x, 3) for x in hp.dpts], "dstarts": [round(x, 3) for x in hp.dstarts],
+         "dT_horizon": round(hp.dT_horizon, 6), "dT_later": round(hp.dT_later, 6),
+         "dT_rs": round(hp.dT_rs, 6), "dT_po": round(hp.dT_po, 6), "dpts_later": round(hp.dpts_later, 3),
+         "flat": False, "title_odds": None if t is None else round(t, 6),
+         "title_label": None if no_stakes else ("title odds" if regular else "playoff title odds"),
+         "score": round(float(il.b_score), 6), "chosen": il.choice == "hold"}
+    d["vs_activate"] = _vs_activate(hp, a, cfg, hz)
+    return with_hold_texts(d, horizon, opponents, show_title=show_title)
+
+
+def with_hold_texts(d: dict, horizon: dict, opponents: dict, *, show_title: bool) -> dict:
+    """The hold's "text" and "texts" from its numbers (and vs_activate)."""
+    vs = d["vs_activate"]
+    d["text"] = hold_text(d)
+    d["texts"] = {"numbers": hold_numbers_text(vs, horizon, opponents, show_title=show_title),
+                  "own_numbers": numbers_text(d, horizon, opponents, show_title=show_title),
+                  "reason": "Against activating now: " + reason_text(vs, horizon),
+                  "v2": {"weeks": v2_weeks(vs, horizon, opponents), "tiles": v2_tiles(vs, show_title=show_title),
+                         "why": hold_why(d, horizon), "sub": f"activate at week {d['next_week']}\u2019s window"}}
+    return d
+
+
+def il_choice_dict(il, against: str) -> Optional[dict]:
+    """advice_latest.json's "il_choice" (H54)."""
+    if il is None:
+        return None
+    return {"choice": il.choice, "offered": il.hold is not None, "why_not": il.why_not, "against": against,
+            "activate_score": round(float(il.a_score), 6),
+            "hold_score": None if il.b_score is None else round(float(il.b_score), 6),
+            "margin": None if il.margin is None else round(float(il.margin), 6), "bar": il.bar}
+
+
 def step_dict(step) -> Optional[dict]:
     """advice_latest.json's "activation" for one manager, or None."""
     if not step:
@@ -830,8 +948,11 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
              "activation": act,
              "move": None, "backup": None, "note": a.rec.note, "bar": a.rec.bar if a.rec.bar != float("inf") else None,
              "plan": [], "plan_total": None, "plan_stop": None}
-        if pl is not None and steps and steps[0].priced is not a.top:
+        held = bool(pl is not None and getattr(pl, "held", False))
+        if pl is not None and steps and not held and steps[0].priced is not a.top:
             raise AdviceInputError(f"{m}: the plan's first step is not the top move")
+        if held and (a.top is not None or a.backup is not None):
+            raise AdviceInputError(f"{m}: the plan keeps him in IL, yet advice has a move this window")
         # 4c3: the steps' running sums start from the priced activation (the total includes it)
         cum = _cumulate(None, act) if act is not None and "dwp" in act else None
         for k, ps in enumerate(steps, 1):
@@ -859,13 +980,31 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
             t["v2"] = {"weeks": v2_weeks(t, horizon, opps), "label": PLAN_LABELS.get(rows, f"All {rows}") if rows >= 2 else "",
                        "rows": rows, "title": title}
             e["plan_total"] = t
+        il = getattr(pl, "il", None) if pl is not None else None
+        if il is not None:                                  # H54: option B and the choice
+            if act is None or "dwp" not in act:
+                raise AdviceInputError(f"{m}: option B is priced, but the activation is not")
+            a_obj = pl.total if steps else pl.activation
+            e["hold"] = hold_dict(il, a_obj, hz=hz, cfg=cfg, horizon=horizon, opponents=opps, show_title=show)
+            e["il_choice"] = il_choice_dict(il, "plan_total" if steps else "activation")
+        else:
+            e["hold"], e["il_choice"] = None, None
+        if held:
+            # the plan is the hold: no move this window; A's steps and total kept beside it
+            e["activate_plan"], e["activate_total"] = e["plan"], e["plan_total"]
+            e["plan"], e["move"], e["plan_total"] = [], None, None
+            e["plan_stop"] = {"code": "hold", "text": "keeps him in IL this window: no move (rule 3)"}
         if a.backup is not None:
             d = _move_dict(a.backup, a.backup_score, inputs, hz, cfg)
             d["text"] = {"move": move_text(d), "numbers": numbers_text(d, horizon, opps, show_title=show),
                          "reason": reason_text(d, horizon), "followup": followup_text(d, horizon),
                          "v2": v2_texts(d, horizon, opps, show_title=show)}
             e["backup"] = d
-        if a.top is None:
+        if held:
+            e["empty"] = ("No adds left this week (week {}'s budget)".format(hz.budget_week)
+                          if st.adds_left <= 0 else "Keeping him in IL blocks every move this window")
+            e["v2_empty"] = EMPTY_V2["adds"] if st.adds_left <= 0 else ""
+        elif a.top is None:
             e["empty"] = ("No adds left this week (week {}'s budget)".format(hz.budget_week)
                           if st.adds_left <= 0 else
                           "No move clears the last add's bar" if a.rec.note.startswith("nothing clears")
@@ -949,6 +1088,23 @@ def _hist_activation(a: Optional[dict]) -> Optional[dict]:
     return {k: v for k, v in a.items() if k != "texts"}
 
 
+def _hist_hold(e: dict) -> dict:
+    """The history row's H54 keys: only when the latest file has them."""
+    if "il_choice" not in e:
+        return {}
+    h = e.get("hold")
+    out = {"hold": None if h is None else {k: v for k, v in h.items() if k not in ("texts", "text")},
+           "il_choice": e["il_choice"]}
+    if "activate_plan" in e:
+        out["activate_plan"] = [{**_hist_move(d), "step": d["step"], "also_wanted_by": d["also_wanted_by"]}
+                                for d in e["activate_plan"]]
+        t = e.get("activate_total")
+        out["activate_total"] = None if not t else {k: t[k] for k in (
+            "dwp", "wp_base", "dpts", "dstarts", "dT_horizon", "dT_later", "dT_rs", "dT_po", "dpts_later",
+            "title_odds", "includes_activation")}
+    return out
+
+
 def history_row(payload: dict, *, published: bool) -> dict:
     """One row per run (V4's scorecard): enough to score later -- the move,
     its predicted gains, the horizon, the as-of, the opponents."""
@@ -969,7 +1125,9 @@ def history_row(payload: dict, *, published: bool) -> dict:
                                                                 "title_odds")},
                               # 4c3: measured against doing nothing when there is a priced activation
                               "includes_activation": bool(e["plan_total"].get("includes_activation"))},
-                             "plan_stop": (e.get("plan_stop") or {}).get("code")}
+                             "plan_stop": (e.get("plan_stop") or {}).get("code"),
+                             # H54: option B's numbers (V4 scores it) and the choice; A's plan when B won
+                             **_hist_hold(e)}
                          for m, e in payload["managers"].items()},
             "error": payload["error"]}
 
@@ -1022,6 +1180,8 @@ def summary_lines(payload: dict) -> list:
     out = []
     for m, e in payload["managers"].items():
         st = e.get("activation")
+        if (e.get("il_choice") or {}).get("choice") == "hold":       # H54: the plan keeps him in IL
+            st = e["hold"]
         sn = ((st or {}).get("texts") or {}).get("numbers")           # 4c3: the step, priced
         head = f"ADVICE {m} ({hz['label']}): " + (f"Step: {st['text']}" + (f" ({sn})" if sn else "")
                                                   + " Then: " if st else "")
@@ -1075,6 +1235,8 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
             # 4c3: the activation step's own pricing (one more per manager with a returner)
             seconds["activation"] = {m: v.get("activation") for m, v in timings.items()
                                      if v.get("activation") is not None}
+            # H54: option B's own pricing (one more per manager with a returner, when offered)
+            seconds["hold"] = {m: v.get("hold") for m, v in timings.items() if v.get("hold") is not None}
             payload = latest_payload(run_id=run_id, mode=mode, cause=cause, now=now, inputs=inp, hz=hz,
                                      meta=meta, advice=advice, weighting=av.RECOMMENDED.name,
                                      settings=settings, seconds=seconds)
@@ -1099,7 +1261,9 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
         detail = payload["season_over"]
     else:
         act_s = seconds.get("activation") or {}
+        hold_s = seconds.get("hold") or {}
         per = "; ".join(f"{m} " + (f"act {act_s[m]:g}+" if m in act_s else "")
+                        + (f"hold {hold_s[m]:g}+" if m in hold_s else "")
                         + "+".join(f"{x:g}" for x in v if x is not None)
                         for m, v in (seconds.get("steps") or {}).items() if any(v) or m in act_s)
         detail = (f"{payload['horizon']['label']}, weeks {payload['horizon']['weeks']}, "
@@ -1141,7 +1305,12 @@ def hub_view(latest: dict, power_rows: list) -> dict:
             if e is None:
                 raise AdviceInputError(f"{LATEST_FILE.as_posix()} has no advice for {m}")
             st = e.get("activation")
-            if st:
+            if (e.get("il_choice") or {}).get("choice") == "hold":
+                st = e["hold"]                     # H54: keep him in IL this week, priced against activating
+                card["step"] = st["text"]
+                card["step_numbers"] = st["texts"]["numbers"]
+                card["players"]["step"] = list(st["back"])
+            elif st:
                 card["step"] = st["text"]
                 if (st.get("texts") or {}).get("numbers"):
                     # 4c3: the activation's "+x% vs Opp" line, only when priced (an older file: no key)

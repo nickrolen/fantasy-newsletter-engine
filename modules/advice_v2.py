@@ -131,7 +131,25 @@ opponents, horizon, seed and CRN as the steps. The steps' own numbers do not
 change (each is still measured after the step), and plan_total measures the
 whole plan against doing nothing, so the activation's gains plus the steps'
 sum to it (telescoping, as H53). A negative activation is reported as it is:
-holding him is then better for that window, and it blocks every add.
+holding him through the horizon then beats activating him; whether to hold him
+for this window only is option B (H54, below).
+
+HOLDING HIM ONE WEEK (H54, claude/HANDOFF_54_HOLD_IN_IL_2026-11-19.md): a
+third option beside "activate now" (A: the activation step and the plan's
+steps) and "do nothing" (C: held through the horizon, 4c3's baseline): B,
+keep the returners in IL at this window only (hold_one_known) and let the
+plan's own rule activate them -- and drop whom it drops -- at the horizon's
+second window. B makes no move at this window (rule 3: holding any healthy
+returner blocks every move, so B holds them all). price_hold measures B
+against C like the activation (same opponents, stakes, seed, CRN); A's
+total is the activation plus the steps (both against C), so A and B are on
+one scale, and B against A is B's numbers minus A's (exact: the same base).
+choose_il ranks the two with recommend()'s own key (option_key); B is the
+plan only when it beats A by more than settings.hold_bar. B is not offered
+with no second horizon week, when the plan has no window there, when the
+manager has a known (ledger) move at this window (a held healthy player
+would block his own claim), or when the plan would not activate every held
+returner at the next window.
 
 CONTESTED PLAYERS (decision 4): advise_all prices every manager's plan, then
 marks "also wanted by" on every step's add (another manager whose PLAN adds
@@ -317,6 +335,13 @@ class Settings:
     # beats Monday's race (four managers, a deep pool) = 0.008, rounded up.
     # It withheld no Monday pick in the replay; it binds on chat moves (V2 s.6.3).
     last_add_bar: float = 0.01
+    # H54: holding a returner in IL for one window (option B) is recommended only when its
+    # score beats activating now (option A: the activation and the plan's steps) by more than
+    # this, in the same score units. Activation is the default action, and a hold has a cost
+    # the pricing leaves out, the same kind as the last add's: while a healthy player sits in
+    # IL the team can make no move at all (rule 3), so a teammate newly O by the window can't
+    # go to IL or be replaced there. The same estimate as last_add_bar, so the same number.
+    hold_bar: float = 0.01
 
 
 @dataclass(frozen=True)
@@ -1443,6 +1468,125 @@ def price_activation(inputs: MondayInputs, manager: str, settings: Settings) -> 
                             r["dT_later"], r["dpts_later"], b["lbar"], r["dT_rs"], r["dT_po"], r["by_week"])
 
 
+def hold_one_known(inputs: MondayInputs, manager: str, step: dict) -> dict:
+    """Option B (H54) as known moves: the step's returners stay in their IL
+    slots at the horizon's FIRST window only (roster_plan's "il_hold": the
+    manager makes no move there, rule 3); the plan decides the next window as
+    it always does. Raises if the step is not the horizon's first week's."""
+    w1 = int(inputs.horizon[0])
+    if int(step["week"]) != w1:
+        raise ValueError(f"{manager}: the activation step is week {step['week']}'s, the horizon starts at {w1}")
+    return {w1: {manager: {"il_place": [], "drop": [], "add": [], "il_activate": [],
+                           "il_hold": list(step["back"])}}}
+
+
+@dataclass(frozen=True)
+class HoldPriced:
+    """Option B priced (H54): the returners kept in IL at this window and
+    activated by the plan's own rule at the next one, against doing nothing
+    (C, hold_known). next_drops: whom the plan drops for them there."""
+    step: dict                     # activation_step's dict (the returners: step["back"])
+    next_week: int                 # the horizon's second week: where the plan activates them
+    next_day: date                 # its window day
+    next_drops: tuple              # the plan's activation drops there (its own rule)
+    dwp: tuple
+    wp_base: tuple                 # the manager's win chance doing nothing (C)
+    dpts: tuple
+    dstarts: tuple
+    dT_horizon: float
+    dT_later: float
+    dpts_later: float
+    lbar: float
+    dT_rs: float = 0.0
+    dT_po: float = 0.0
+    dpts_later_by_week: tuple = ()
+    next_standins: tuple = ()      # next_drops that are plan stand-ins
+
+    def title_odds(self, config, regular_season: bool):
+        return Priced.title_odds(self, config, regular_season)
+
+
+def hold_offer(inputs: MondayInputs, manager: str, step: Optional[dict]) -> str:
+    """Why option B is NOT offered, or "" when it is (H54)."""
+    if not step:
+        return "no returner at this window"
+    w2 = inputs.horizon[1]
+    if w2 is None:
+        return "no next window in the horizon"
+    try:
+        window_day(inputs.plan, int(w2))
+    except KeyError:
+        return f"the roster plan has no window for week {w2}"
+    k = (inputs.plan.args.get("known") or {}).get(int(inputs.horizon[0])) or {}
+    if manager in k:
+        return (f"a known move of his at week {inputs.horizon[0]}'s window: a healthy player held in IL "
+                "would block it (rule 3)")
+    return ""
+
+
+def price_hold(inputs: MondayInputs, manager: str, settings: Settings) -> tuple:
+    """(HoldPriced or None, why not): option B against doing nothing (C),
+    the same opponents, stakes, seed and CRN as the activation and every
+    step. None with the reason when it is not offered (hold_offer), or when
+    the plan would not activate every held returner at the next window."""
+    step = activation_step(inputs, manager)
+    why = hold_offer(inputs, manager, step)
+    if why:
+        return None, why
+    w2 = int(inputs.horizon[1])
+    P = _plan(inputs, hold_one_known(inputs, manager, step))
+    v = P[w2][manager]
+    missing = [n for n in step["back"] if n not in (v.get("activated") or [])]
+    if missing:
+        return None, f"the plan does not activate {missing} at week {w2}'s window"
+    drops = tuple(v.get("activation_drops") or ())
+    stand = PlanSpec.standins(P)
+    b = _price_base(inputs, manager, settings, base_plan=_hold_plan(inputs, manager, step))
+    r = _measure(inputs, manager, settings, b, P)
+    return HoldPriced(step, w2, window_day(inputs.plan, w2), drops, r["dwp"], b["wp_base"], r["dpts"],
+                      r["dstarts"], r["dT_horizon"], r["dT_later"], r["dpts_later"], b["lbar"], r["dT_rs"],
+                      r["dT_po"], r["by_week"], tuple(n for n in drops if n in stand)), ""
+
+
+def option_key(weighting: Weighting, x) -> tuple:
+    """rank_key for a whole option (H54: A's plan total or activation, B's
+    hold), anything with Priced's numbers: the flat rule and the score are
+    recommend()'s own."""
+    pts = x.dpts[0] + x.dpts[1]
+    if abs(x.dwp[0]) + abs(x.dwp[1]) < FLAT_WIN:
+        return (weighting.score(replace(x, dwp=(0.0, 0.0), dT_horizon=0.0)), pts)
+    return (weighting.score(x), pts)
+
+
+@dataclass(frozen=True)
+class ILChoice:
+    """Activate now (A) or keep him in IL one week (B) (H54)."""
+    choice: str                    # "activate" | "hold"
+    hold: Optional[HoldPriced]     # B, priced; None when not offered
+    why_not: str                   # why B is not offered ("" when it is)
+    a_score: float                 # option_key's score: A (activation + steps) against C
+    b_score: Optional[float]       # B against C
+    bar: float                     # settings.hold_bar
+
+    @property
+    def margin(self) -> Optional[float]:
+        """B's score minus A's (positive: holding scores higher)."""
+        return None if self.b_score is None else self.b_score - self.a_score
+
+
+def choose_il(a, hold: Optional[HoldPriced], why_not: str, settings: Settings,
+              weighting: Weighting) -> ILChoice:
+    """B is the plan only when its score beats A's by more than hold_bar
+    (activation is the default action). a: A's whole option against C --
+    the plan's total when it has steps, else the activation."""
+    a_key = option_key(weighting, a)
+    if hold is None:
+        return ILChoice("activate", None, why_not, a_key[0], None, settings.hold_bar)
+    b_key = option_key(weighting, hold)
+    pick = "hold" if b_key[0] - a_key[0] > settings.hold_bar else "activate"
+    return ILChoice(pick, hold, "", a_key[0], b_key[0], settings.hold_bar)
+
+
 @dataclass(frozen=True)
 class PlanStep:
     step: int                      # 1, 2, ...
@@ -1482,10 +1626,19 @@ class Plan:
     # 4c3: the activation step priced (step 0), or None. With it, total is measured against
     # doing nothing, so the activation's gains plus the steps' sum to it.
     activation: Optional[ActivationPriced] = None
+    # H54: activate now (A) or keep him in IL one week (B); None without a returner. When
+    # il.choice is "hold" the plan makes no move this window: steps and total stay A's (the
+    # option B beat, for the history and advice_show), and adds/held say it.
+    il: Optional[ILChoice] = None
+
+    @property
+    def held(self) -> bool:
+        return self.il is not None and self.il.choice == "hold"
 
     @property
     def adds(self) -> list:
-        return [s.priced.move.add for s in self.steps]
+        """The players the plan adds this window: none when it holds him in IL."""
+        return [] if self.held else [s.priced.move.add for s in self.steps]
 
 
 def plan_total(inputs: MondayInputs, plan_steps: Sequence["PlanStep"], manager: str,
@@ -1554,7 +1707,14 @@ def plan_for(inputs: MondayInputs, manager: str, settings: Settings = Settings()
         timings.append(round(_time.perf_counter() - t0, 2))
     if timings is not None and act_s is not None:
         timings.append(("activation", act_s))          # 4c3: read off by advise_all
-    return Plan(manager, tuple(steps), tuple(stages), stop, total, act)
+    il = None
+    if act is not None:                                 # H54: option B, and the choice
+        t0 = _time.perf_counter()
+        hold, why = price_hold(inputs, manager, settings)
+        il = choose_il(total if total is not None else act, hold, why, settings, weighting)
+        if timings is not None:
+            timings.append(("hold", round(_time.perf_counter() - t0, 2) if hold is not None else None))
+    return Plan(manager, tuple(steps), tuple(stages), stop, total, act, il)
 
 
 def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
@@ -1564,9 +1724,12 @@ def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
     then the contest (decision 4). "Also wanted by", for every step's add:
     another manager whose PLAN adds the same player, in any step. The backup
     (step 1 only): his best qualifying first move whose add is in nobody's
-    plan, his own included. Free agents are never split. timings: a dict
-    filled with {manager: {"steps": [seconds of step 1's pricing, step 2's,
-    ...], "total": seconds of the direct total}} (the run log, Nick 11-18)."""
+    plan, his own included. Free agents are never split. A plan that keeps a
+    returner in IL (H54, Plan.held) makes no move this window: no top, no
+    backup, and its adds are nobody's ("also wanted by" reads the chosen
+    plans). timings: a dict filled with {manager: {"steps": [seconds of step
+    1's pricing, step 2's, ...], "total": seconds of the direct total,
+    "activation", "hold": seconds of option B's pricing}} (the run log)."""
     import time as _time
     t = {}
     if not recs:
@@ -1580,18 +1743,20 @@ def advise_all(inputs: MondayInputs, settings: Settings = Settings(),
         tl = []
         plans[m] = plan_for(inputs, m, settings, weighting, max_steps, rec=recs[m], timings=tl)
         if timings is not None:
-            act_s = next((x[1] for x in tl if isinstance(x, tuple)), None)
+            act_s = next((x[1] for x in tl if isinstance(x, tuple) and x[0] == "activation"), None)
+            hold_s = next((x[1] for x in tl if isinstance(x, tuple) and x[0] == "hold"), None)
             tl = [x for x in tl if not isinstance(x, tuple)]
             n = len(plans[m].steps)
             later = tl[:-1] if n else tl
             timings[m] = {"steps": (t.get(m) or [None]) + later, "total": tl[-1] if n else None,
-                          "activation": act_s}
+                          "activation": act_s, "hold": hold_s}
     adds = {m: set(pl.adds) for m, pl in plans.items()}
     out = {}
     for m in sorted(recs):
         r, pl = recs[m], plans[m]
         step = activation_step(inputs, m)
-        if r.top is None:
+        if r.top is None or pl.held:
+            # H54: a plan that keeps him in IL makes no move this window: no top, no backup
             out[m] = Advice(m, r, None, None, (), None, None, step, pl)
             continue
         wanted = tuple(sorted(o for o in adds if o != m and r.top.move.add in adds[o]))

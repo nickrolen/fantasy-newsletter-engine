@@ -15,6 +15,12 @@ The engine's plan for each team, as the Market tab's **Advice** segment shows it
   - the returner in bold, then "− <drop>" with the red minus;
   - the same Wk 6 / Wk 7 win-% columns.
   - It is priced against **doing nothing**: he stays in his IL slot through the two weeks, nobody is dropped, and no other move is made (LEAGUE_RULES rule 3: legal, and it blocks every move). A negative number shows as it is, in `down`.
+- **The hold variant** (H54, pending Nick's approval), in its place when advice keeps the returner in IL this week (`il_choice` "hold": holding beats activating now, his steps included, by more than `hold_bar`):
+  - the same shading, bar, ↺ circle and Wk 6 / Wk 7 columns as the activation row;
+  - the label **"KEEP IN IL THIS WEEK · NO MOVES"**;
+  - the returner in bold, then a plain sub-line **"activate at week 7's window"** (no sign: nobody is dropped this window);
+  - its numbers are **against activating now**, and the tap-open sentence says so ("Against activating him now: +0.8 lineup starts (…). At week 7's window (Mon 11-30) he comes back and the plan drops X.");
+  - nothing follows it but the adds state: no THEN, no step, no plan line, no backup (a hold blocks every move). With no adds left, "No adds left. Resets Monday." as after an activation.
 - **"THEN"** labels (`adv-then`) between rows.
 - **A step row** (`adv-row`):
   - a numbered circle (`adv-n`, 22 px);
