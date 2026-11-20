@@ -1,29 +1,36 @@
 """
-hub_v2/publish.py -- the new hub in publish mode: the same page, encrypted
-inside the EXISTING decrypt shell (hub_page.shell_html), built only to a
-scratch folder until the switch-over, to measure what a phone downloads.
+hub_v2/publish.py -- the new hub in publish mode: the page, gzipped, then
+encrypted, inside the new hub's decrypt shell (hub_page.shell_html(...,
+"v2")), and every lazy part encrypted by its content.
 
-    build(base, payload, passphrase, salt=..., out_dir=...) -> report
-        out_dir/index.html   the shell with the encrypted bundle
-                             {"page": the v2 page, "issues": {file: key}}
+    build(base, payload, passphrase, salt=..., out_dir=..., live=False) -> report
+        out_dir/index.html      the shell with the encrypted bundle
+                                {"page": the v2 page, "issues": {file: key},
+                                 "cards": the card index's {file, key}}
+        out_dir/issues/*.enc    the newsletter archive's files, byte for byte
+        out_dir/cards/*.enc     the new cards and their index (below)
+        out_dir/photos/*.enc    the headshots (the same files as the current hub's)
+        out_dir/parts/*.enc     League's History chips and Awards (below)
         Every file written is scanned (hub_publish.scan_dir) for every manager,
-        team and player name and every lore marker; a hit raises PlaintextLeak.
+        team and player name, every team picture and every lore marker; a hit
+        raises PlaintextLeak. A file in out_dir the build does not write is a
+        stray: PublishError (clear_superseded removes an earlier build's
+        content-named files first).
 
-REFUSES to write into output/hub_publish/ (the live hub's directory) or any
-league-state path: nothing new is published before the switch-over (step 5).
+LIVE OR SCRATCH (5a). live=False (the default) is a scratch build: it REFUSES
+output/hub_publish/ and any league-state path, as before the switch-over.
+live=True is the real publisher, called only by scripts/build_hub.run when
+config hub.version is "v2": it writes the live hub's directory, with the
+league passphrase and the hub's own salt (hub_publish.hub_salt), which that
+caller reads; nothing here reads either.
 
-THE SHELL'S TWO CHANGES, made here on hub_page.shell_html's string (each
-RAISES unless its anchor is found exactly once; hub_page.py is untouched):
-  1. its Content-Security-Policy gains "font-src data:", without which the
-     embedded fonts are blocked (default-src 'none'); the current page sets
-     no font, so its shell never needed it;
-  2. (gz=True, the default) the bundle is gzipped before encryption, as the
-     design README's budget assumes ("the page and its data are gzipped, then
-     encrypted"), and marked "z": "gzip"; the shell gunzips it after
-     decrypting (DecompressionStream, which the player cards already need).
-     Without it the page is ~470 KB as served, over the 300 KB budget, the
-     fonts alone ~133 KB of it. gz=False builds the shell as it is today,
-     for the comparison.
+THE SHELL (4b decision 1, built properly in 5a): hub_page.shell_html(bundle,
+"v2") -- the current shell's form, stored key and loader, plus "font-src
+data:" in its Content-Security-Policy and SHELL_JS_V2, which gunzips a bundle
+marked "z": "gzip" and tells a browser without DecompressionStream "This
+browser is too old to open the hub. Update iOS or Chrome." instead of "Wrong
+passphrase". gz=False (a size comparison only, never written) seals the page
+uncompressed in the current hub's shell.
 
 THE NEW CARD'S FILES (4c1; cards=, hub_cards.build's result for the payload):
     cards/<sha16>.enc   one per player: his new card, rendered at build time
@@ -57,32 +64,15 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-CSP_FROM = "img-src data: blob:\">"
-CSP_TO = "img-src data: blob:; font-src data:\">"
-
-
 class V2PublishError(RuntimeError):
     pass
 
 
-OPEN_FROM = ".then(function(pt){return JSON.parse(new TextDecoder().decode(pt));});"
-OPEN_TO = (".then(function(pt){if(B.z!=='gzip'){return JSON.parse(new TextDecoder().decode(pt));}"
-           "if(typeof DecompressionStream==='undefined'){throw new Error('old browser');}"
-           "return new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip')))"
-           ".text().then(JSON.parse);});")
-
-
 def shell(bundle_json: str, gz: bool = True) -> str:
+    """The new hub's index.html (gz=True), or, for the size comparison only,
+    the page sealed plain in the current shell (gz=False; never written)."""
     from .. import hub_page
-    s = hub_page.shell_html(bundle_json)
-    if s.count(CSP_FROM) != 1:
-        raise V2PublishError("the decrypt shell's Content-Security-Policy changed: cannot add font-src data:")
-    s = s.replace(CSP_FROM, CSP_TO)
-    if gz:
-        if s.count(OPEN_FROM) != 1:
-            raise V2PublishError("the decrypt shell's openWith changed: cannot add the gunzip step")
-        s = s.replace(OPEN_FROM, OPEN_TO)
-    return s
+    return hub_page.shell_html(bundle_json, "v2" if gz else "v1")
 
 
 def seal(passphrase: str, inner: bytes, gz: bool, **kw) -> dict:
@@ -192,30 +182,61 @@ def league_files(vm: dict, root_key: bytes, terms=()) -> tuple:
     return files, refs, {"parts": len(files), "bytes": sizes, "largest": max(sizes.values()) if sizes else 0}
 
 
-def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterations: int = None,
-          terms=None, now: datetime = None, gz: bool = True, cards: dict = None) -> dict:
+CONTENT_DIRS = ("cards", "photos", PART_DIR)
+LAZY_CAP_BYTES = 60_000                         # design/league-hub/README.md: each lazy file as served
+
+
+def budget_bytes(base=None) -> int:
+    """hub.first_load_budget_kb (1 KB = 1,000 bytes), the engine's config."""
+    from ..data_loader import _LEAGUE_CONFIG
+    return int(_LEAGUE_CONFIG["hub"]["first_load_budget_kb"]) * 1000
+
+
+def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, iterations: int = None,
+          terms=None, now: datetime = None, gz: bool = True, cards: dict = None, live: bool = False,
+          pictures=None, strict_issues: bool = None) -> dict:
+    """Write the new hub's publish directory and scan it (module doc).
+    out_dir: required for a scratch build; live=True writes
+    output/hub_publish/ (out_dir None) or out_dir. pictures: the team
+    pictures' data URIs (team_pictures.data_uris), read here when None.
+    strict_issues (default: live): every issue the payload lists must be in
+    the archive, as the current hub's build requires; a scratch measurement
+    of a made-up payload may list issues no archive holds."""
     from .. import hub_archive, hub_crypto, hub_publish
     from . import view, page
-    why = refusal(base, out_dir)
+    base = Path(base)
+    if out_dir is None:
+        if not live:
+            raise V2PublishError("a scratch build needs out_dir (live=False)")
+        out_dir = hub_publish.publish_dir(base)
+    why = hub_publish.scratch_refusal(base, Path(out_dir) / "index.html") if live else refusal(base, out_dir)
     if why:
         raise V2PublishError(why)
     if ((payload.get("v2") or {}).get("ratings") or {}).get("preview"):
         raise V2PublishError("this payload carries an archetype preview (--archetype-preview): a preview is "
                              "never built in publish mode")
-    base = Path(base)
     out = Path(out_dir)
     gen = datetime.fromisoformat(payload["generated_at"])
-    from .. import team_pictures
-    pics, _notes = team_pictures.data_uris(base, list((payload.get("v2") or {}).get("team_order") or []))
-    vm = view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo), pictures=pics)
+    if pictures is None:
+        from .. import team_pictures
+        pictures, _notes = team_pictures.data_uris(base, list((payload.get("v2") or {}).get("team_order") or []))
+    vm = view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo), pictures=pictures)
     idx = hub_archive.verify(base)
     by_file = {e["enc"]: e for e in idx["issues"]}
+    nl = payload["newsletter"]
+    for i in ([nl["current"]] if nl["current"] else []) + list(nl["archive"]):
+        if i["file"] not in by_file and (live if strict_issues is None else strict_issues):
+            raise V2PublishError(f"the payload lists issue {i['file']}, which the archive does not hold: "
+                                 "rebuild the payload (python scripts/build_hub_state.py)")
     terms = terms if terms is not None else hub_publish.scan_terms(base)
     kw = {"salt": salt} if iterations is None else {"salt": salt, "iterations": iterations}
     inner_obj = {"page": None, "issues": {f: e["key_b64"] for f, e in by_file.items()}}
-    cfiles, crep, lrep = {}, None, None
+    cfiles, crep = {}, None
     root = hub_crypto.derive_key(passphrase, salt, kw.get("iterations", hub_crypto.ITERATIONS))
-    lfiles, lrefs, lrep = league_files(vm, root, terms)
+    try:
+        lfiles, lrefs, lrep = league_files(vm, root, terms)
+    except hub_crypto.SealExhausted as e:
+        raise hub_publish.PlaintextLeak(str(e)) from None
     vm["league"]["parts"] = lrefs
     vm["league"]["history"] = None                # never in the page itself: only its encrypted files
     vm["league"]["awards_html"] = None            # 4c5: nor the Awards segment
@@ -223,7 +244,12 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterati
     inner_obj["page"] = html
     cfiles.update(lfiles)
     if cards is not None:
-        files2, cref, crep = card_files(base, payload, cards, root, terms)
+        try:
+            files2, cref, crep = card_files(base, payload, cards, root, terms)
+        except hub_crypto.SealExhausted as e:
+            raise hub_publish.PlaintextLeak(str(e)) from None
+        except Exception as e:                       # noqa: BLE001 -- the cards fail softly; nothing written yet
+            raise hub_publish.CardFilesError(f"{type(e).__name__}: {e}") from None
         cfiles.update(files2)
         inner_obj["cards"] = cref
     inner = json.dumps(inner_obj, separators=(",", ":")).encode("utf-8")
@@ -234,18 +260,42 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterati
             break
     else:
         raise hub_publish.PlaintextLeak("the v2 shell matched a scan term after every re-encryption")
+    issue_files = {f"issues/{f}": (hub_archive.archive_dir(base) / f).read_bytes() for f in by_file}
+    expected = {"index.html"} | set(issue_files) | set(cfiles)
+    if out.exists():
+        stray = sorted(str(q.relative_to(out)).replace("\\", "/") for q in out.rglob("*")
+                       if q.is_file() and str(q.relative_to(out)).replace("\\", "/") not in expected)
+        if stray:
+            raise hub_publish.PublishError(f"{out} holds files the build does not write: {stray}. Nothing but "
+                                           "the shell, the encrypted issues and the encrypted parts may be "
+                                           "published")
     out.mkdir(parents=True, exist_ok=True)
-    (out / "index.html").write_bytes(sh)
-    for f, b in cfiles.items():
-        (out / f).parent.mkdir(parents=True, exist_ok=True)
-        (out / f).write_bytes(b)
+    hub_publish._write_if_changed(out / "index.html", sh)
+    for f, b in list(issue_files.items()) + list(cfiles.items()):
+        hub_publish._write_if_changed(out / f, b)
     scan = hub_publish.scan_dir(out, terms)
     if scan["hits"]:
         raise hub_publish.PlaintextLeak(f"plaintext in {out}: {scan['hits']}")
+    sizes = {f: (out / f).stat().st_size for f in scan["files"]}
     # the other variant's size, for the comparison (never written)
     other = len(shell(hub_crypto.bundle_json(seal(passphrase, inner, not gz, **kw)), not gz).encode("utf-8"))
-    return {"dir": str(out), "files": scan["files"], "terms": len(terms), "reseals": attempt - 1, "gzip": gz,
-            "card_files": crep, "league_parts": lrep, **measure(html, len(sh), other if gz else len(sh), inner)}
+    budget = budget_bytes(base)
+    lazy = {f: n for f, n in sizes.items() if f != "index.html"}
+    over_cap = sorted(f for f, n in lazy.items() if n > LAZY_CAP_BYTES and not f.startswith("issues/"))
+    return {"dir": str(out), "files": scan["files"], "sizes": sizes, "terms": len(terms), "reseals": attempt - 1,
+            "gzip": gz, "live": live, "card_files": crep, "league_parts": lrep,
+            "iterations": bundle["iter"], "bundle_salt": bundle["salt"],
+            "budget_bytes": budget, "over_budget": len(sh) > budget, "lazy_cap_bytes": LAZY_CAP_BYTES,
+            "over_cap": over_cap,
+            **measure(html, len(sh), other if gz else len(sh), inner)}
+
+
+def clear_superseded(out) -> list:
+    """hub_publish.clear_superseded for the new hub's content folders too
+    (cards, photos, parts): an earlier build's files, each named by its own
+    bytes' hash, removed before a build into a directory that persists."""
+    from .. import hub_publish
+    return hub_publish.clear_superseded(out, dirs=CONTENT_DIRS)
 
 
 def measure(html: str, served: int, served_plain: int, inner: bytes) -> dict:

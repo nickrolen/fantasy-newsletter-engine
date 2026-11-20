@@ -6,7 +6,7 @@ Every screen, what's on it, and which components build it, in the order they app
 
 The big things, in this order:
 
-1. **AppHeader**: week, date, search, freshness (stale banner when stale), and the line's engine string: "Line priced Wed Nov 18, 3:30 PM Pacific", or, between the closing run and the next pricing, "Closing line priced Mon Nov 23, 6:55 PM Pacific" (4c2).
+1. **AppHeader**: week, date, search, freshness (stale banner when stale), and the line's engine string: "Line priced Wed Nov 18, 3:30 PM Pacific", or, between the closing run and the next pricing, "Closing line priced Mon Nov 23, 6:55 PM Pacific" (4c2). 5a: and the NBA injury report's line ("NBA injury report filed Thu 3:15 PM Pacific."), as the current header shows it; its flags show as notes under the header with the engine and H52 closing-line notes. **The current hub's links** (`#v-main`, `#v-roster-<manager>`, `#v-chart`, `#v-block`, `#v-advice`, `#v-last`, `#v-mu<week>-<n>-<sum|win|flow>`) land on Home, the team, League › Standings, Market (Block or Advice), Matchups, and the matchup page with that segment.
 2. **IssueBar**: "Latest issue · Week N: <headline>", which opens the newsletter.
 3. **This week's matchups**: one **MatchupCard** per matchup, in the engine's order. Eyebrow title on `canvas`, meta "Day N of 7".
 4. **Power rankings**: a Card of **RankingRow**s (title odds, 4-week sparkline, change).

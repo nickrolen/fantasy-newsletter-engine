@@ -374,6 +374,7 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "stale_text": STALE_TEXT % payload["generated_text"], "generated_text": payload["generated_text"],
         "mismatch": h.get("engine_mismatch"), "engine_note": h.get("engine_note"),
         "closing_note": h.get("closing_note"),
+        "nba": h.get("nba") or {"text": "", "flags": []},        # 5a: the current header's NBA-report note
         "week_label": h["week_label"], "lock": h["lock"]["text"], "issue": issue,
         "line_text": v2["line_text"], "last": last,
         "tabs": [{"key": k, "label": lab, "href": f"#/{k}"} for k, lab in TABS],

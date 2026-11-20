@@ -615,7 +615,9 @@ def test_cards_that_do_not_match_the_payload_are_refused(pubbase):
 
 def test_the_deploy_publishes_card_and_photo_files_and_nothing_else():
     src = (ROOT / "scripts" / "hub_deploy.py").read_text(encoding="utf-8")
-    assert '("issues", "cards", "photos")' in src and 'f.count("/") == 1' in src
+    # 5a: and parts/, the new hub's lazy parts (hub.version "v2"; the current hub writes none)
+    assert 'PUBLISHED_DIRS = ("issues", "cards", "photos", "parts")' in src and 'f.count("/") == 1' in src
+    assert 'f.split("/")[0] in PUBLISHED_DIRS' in src
 
 
 def test_the_preview_embeds_the_cards_and_publish_never_does():

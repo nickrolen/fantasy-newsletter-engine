@@ -96,6 +96,10 @@ s.2.4 and s.4 the design. The nightly run:
                    way (the "actuals" block's "minutes") and never stops the run
    9 hub           hub_state.build, then build_hub (encrypted when
                    HUB_PASSPHRASE is set, --preview-only otherwise).
+                   5a: config hub.version picks the hub that publishes
+                   ("v1" the current page, "v2" the new one, same place).
+                   Under "v2" the new keys' and the ratings' soft failures
+                   refuse the step (the run fails; nothing is pushed).
                    4c1: hub_state.build computes the ratings (OVR, POT, the
                    grades) on the run's own inputs, softly: an error is the
                    run's "ratings" block and RATINGS FAILED in the summary,
@@ -1079,6 +1083,18 @@ class Run:
                                   night_out=night_out, nba_report=self.ctx.get("nba_report"),
                                   cards_out=cards_out, ratings_out=ratings_out, players_out=players_out,
                                   awards_out=awards_out)
+        # 5a: config hub.version. Under "v2" the new hub is the hub, so its
+        # soft failures (the new keys, the ratings) are hard here, before
+        # anything is written: the run fails, the failure issue opens, nothing
+        # is pushed, and the last good page stays up. Under "v1" nothing
+        # changes: they stay soft (v2_error, the "ratings" block).
+        from . import hub_version
+        ver = hub_version.version(self.base)
+        if ver == "v2":
+            try:
+                hub_version.check_v2_whole(payload)
+            except hub_version.V2HubFailed as e:
+                raise StepRefused(str(e)) from None
         # task 40: the player cards, on every run that builds the hub, from this
         # build's own keepability; build_hub publishes them (output/hub_cards.json,
         # regenerable, not state). THEY FAIL SOFTLY (Nick, 11-12, like advice):
@@ -1135,9 +1151,15 @@ class Run:
             hs = self.ctx["headshots"]
             bits = (f"{len(cards['cards'])} player cards ({cards['seconds']} s), headshots: {hs['with']} of "
                     f"{hs['rostered']} rostered")
+        rep = res.get("report") or {}
         return ("encrypted publish directory" if enc else "preview only (no HUB_PASSPHRASE)") \
             + f"; {bits}" \
-            + (" -- ENGINE MISMATCH banner (dirty engine)" if payload["header"]["engine_mismatch"] else "")
+            + (" -- ENGINE MISMATCH banner (dirty engine)" if payload["header"]["engine_mismatch"] else "") \
+            + ("" if ver == "v1" else
+               f"; the new hub (hub.version v2)"
+               + (f", first load {rep['served_bytes']:,} of {rep['budget_bytes']:,} bytes" if rep else "")
+               + (" -- OVER BUDGET" if rep.get("over_budget") else "")
+               + (f" -- lazy files over the cap: {rep['over_cap']}" if rep.get("over_cap") else ""))
 
     def _ratings_record(self, rt: dict, published: bool) -> dict:
         """4c1: the ratings step's record (the run's "ratings" block), and the

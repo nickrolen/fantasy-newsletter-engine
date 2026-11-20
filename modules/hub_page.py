@@ -849,7 +849,14 @@ button:disabled{opacity:.6}
 .f{font-size:12px;color:#8F96A3;line-height:1.5}
 """ % {"font": FONT}
 
-SHELL_JS = r"""
+# The shell's script, in four parts (5a). SHELL_JS -- the live hub's, v1 -- is
+# the four joined exactly as before (a test pins its bytes). SHELL_JS_V2, the
+# new hub's (hub.version "v2"), swaps two: the open step gunzips a bundle
+# marked "z": "gzip" (4b decision 1), and the start tells a browser without
+# DecompressionStream (or WebCrypto) that it is too old, instead of "Wrong
+# passphrase". The middle -- the cards' loader, HUB, mount, the stored key --
+# is the same for both, but for mount's script loop (_SJ_MOUNT_V2, below).
+_SJ_HEAD = r"""
 (function(){
 var B=JSON.parse(document.getElementById('hub-bundle').textContent);
 var STORE='hub-key-v1';
@@ -863,12 +870,14 @@ function derive(pass){
   .then(function(k){return crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:unb64(B.salt),iterations:B.iter},k,256);})
   .then(function(bits){return new Uint8Array(bits);});
 }
-function openWith(raw){
+"""
+_SJ_OPEN_V1 = r"""function openWith(raw){
   return crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt'])
   .then(function(k){return crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(B.iv)},k,unb64(B.ct));})
   .then(function(pt){return JSON.parse(new TextDecoder().decode(pt));});
 }
-var RELOAD='hub-key-reload',cur=null;
+"""
+_SJ_BODY_A = r"""var RELOAD='hub-key-reload',cur=null;
 function sealed(file,k){
   return fetch(file).then(function(r){
     if(r.status===404){throw new Error('gone');}
@@ -910,8 +919,10 @@ function mount(inner){
   var old=document.getElementById('shell-style');if(old){old.remove();}
   document.body.innerHTML=doc.body.innerHTML;
   var ss=document.body.querySelectorAll('script');
-  for(var j=0;j<ss.length;j++){var n=document.createElement('script');n.textContent=ss[j].textContent;ss[j].replaceWith(n);}
-}
+"""
+_SJ_MOUNT_V1 = r"""  for(var j=0;j<ss.length;j++){var n=document.createElement('script');n.textContent=ss[j].textContent;ss[j].replaceWith(n);}
+"""
+_SJ_BODY_B = r"""}
 var form=document.getElementById('unlock'),msg=document.getElementById('msg'),btn=document.getElementById('go');
 function takeReload(){
   var v=null;try{v=JSON.parse(sessionStorage.getItem(RELOAD)||'null');sessionStorage.removeItem(RELOAD);}catch(e){v=null;}
@@ -930,7 +941,17 @@ function tryRemembered(){
   return openWith(unb64(s.key)).then(function(inner){cur=unb64(s.key);mount(inner);return true;},
     function(){clearStored();return false;});
 }
-tryStored().then(function(ok){if(!ok){form.hidden=false;document.getElementById('pass').focus();}});
+"""
+_SJ_BODY = _SJ_BODY_A + _SJ_MOUNT_V1 + _SJ_BODY_B
+# 5a: the new page carries a data block (<script type="application/json"
+# id="v2-cmp">, Compare's rows); innerHTML keeps it inert with its id, so
+# only the page's own scripts are re-created to run. The current loop would
+# turn it into a script (a SyntaxError, and Compare loses its data).
+_SJ_MOUNT_V2 = r"""  for(var j=0;j<ss.length;j++){if(ss[j].type&&ss[j].type!=='text/javascript'){continue;}
+    var n=document.createElement('script');n.textContent=ss[j].textContent;ss[j].replaceWith(n);}
+"""
+_SJ_BODY_V2 = _SJ_BODY_A + _SJ_MOUNT_V2 + _SJ_BODY_B
+_SJ_START_V1 = r"""tryStored().then(function(ok){if(!ok){form.hidden=false;document.getElementById('pass').focus();}});
 form.addEventListener('submit',function(e){
   e.preventDefault();msg.textContent='';btn.disabled=true;btn.textContent='Opening...';
   var pass=document.getElementById('pass').value;
@@ -943,11 +964,53 @@ form.addEventListener('submit',function(e){
 });
 })();
 """
+SHELL_JS = _SJ_HEAD + _SJ_OPEN_V1 + _SJ_BODY + _SJ_START_V1
+
+_SJ_OPEN_V2 = r"""function tooOld(){return !(window.crypto&&crypto.subtle)||(B.z==='gzip'&&typeof DecompressionStream==='undefined');}
+function openWith(raw){
+  return crypto.subtle.importKey('raw',raw,'AES-GCM',false,['decrypt'])
+  .then(function(k){return crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(B.iv)},k,unb64(B.ct));})
+  .then(function(pt){
+    if(B.z!=='gzip'){return JSON.parse(new TextDecoder().decode(pt));}
+    if(typeof DecompressionStream==='undefined'){throw new Error('old browser');}
+    return new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).text().then(JSON.parse);});
+}
+"""
+_SJ_START_V2 = r"""var OLD='This browser is too old to open the hub. Update iOS or Chrome.';
+function refuseOld(){form.hidden=false;msg.textContent=OLD;btn.disabled=true;document.getElementById('pass').disabled=true;}
+if(tooOld()){refuseOld();}
+else{tryStored().then(function(ok){if(!ok){form.hidden=false;document.getElementById('pass').focus();}});}
+form.addEventListener('submit',function(e){
+  e.preventDefault();
+  if(tooOld()){refuseOld();return;}
+  msg.textContent='';btn.disabled=true;btn.textContent='Opening...';
+  var pass=document.getElementById('pass').value;
+  derive(pass).then(function(raw){
+    return openWith(raw).then(function(inner){
+      if(document.getElementById('remember').checked){setStored({salt:B.salt,key:b64(raw)});}else{clearStored();}
+      cur=raw;mount(inner);
+    });
+  }).catch(function(err){msg.textContent=(err&&err.message==='old browser')?OLD:'Wrong passphrase.';btn.disabled=false;btn.textContent='Open the hub';});
+});
+})();
+"""
+SHELL_JS_V2 = _SJ_HEAD + _SJ_OPEN_V2 + _SJ_BODY_V2 + _SJ_START_V2
+OLD_BROWSER_TEXT = "This browser is too old to open the hub. Update iOS or Chrome."
 
 
-def shell_html(bundle_json: str) -> str:
+SHELL_VERSIONS = ("v1", "v2")
+
+
+def shell_html(bundle_json: str, version: str = "v1") -> str:
     """The published index.html: the unlock form, the encrypted bundle and
-    the WebCrypto decryptor. It holds no league content: no name, no number."""
+    the WebCrypto decryptor. It holds no league content: no name, no number.
+    version (5a, config hub.version): "v1" is the live hub's shell, byte for
+    byte as before; "v2" is the new hub's -- the same form and the same
+    stored key, plus "font-src data:" in its Content-Security-Policy (the new
+    page embeds its fonts) and SHELL_JS_V2 (a gzipped bundle; the old-browser
+    message)."""
+    if version not in SHELL_VERSIONS:
+        raise ValueError(f"shell version {version!r}: one of {SHELL_VERSIONS}")
     if "</" in bundle_json:
         raise ValueError("bundle JSON must not contain '</'")
     return "\n".join([
@@ -956,7 +1019,7 @@ def shell_html(bundle_json: str) -> str:
         '<meta name="robots" content="noindex">',
         "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; "
         "script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; "
-        "frame-src blob:; img-src data: blob:\">",
+        "frame-src blob:; img-src data: blob:" + ("; font-src data:" if version == "v2" else "") + "\">",
         "<title>League Hub</title>", f'<style id="shell-style">{SHELL_CSS}</style></head><body>',
         '<form class="u" id="unlock" hidden autocomplete="off">',
         '<div style="display:flex;flex-direction:column;gap:8px"><div class="t">League Hub</div>',
@@ -969,4 +1032,4 @@ def shell_html(bundle_json: str) -> str:
         '<div class="f">Everything on this page is encrypted. Without the passphrase, all the site holds '
         'is scrambled data.</div></form>',
         f'<script type="application/json" id="hub-bundle">{bundle_json}</script>',
-        f"<script>{SHELL_JS}</script></body></html>"])
+        f"<script>{SHELL_JS if version == 'v1' else SHELL_JS_V2}</script></body></html>"])

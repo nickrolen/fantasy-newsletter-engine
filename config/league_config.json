@@ -466,6 +466,8 @@
     },
     "hub": {
         "_comment": "The hub page (Step 1b, claude/HANDOFF_STEP1B_HUB_PAGE_2026-10-31.md; modules/hub_state.py). Every key required (stash_top_n added 11-05). free_agents_top_n: how many free agents the hub lists, by Yahoo projection. light_night_max: a day on the games grid with this many players or fewer playing is marked light (the approved mockup's legend: 4 or fewer).",
+        "version": "v1",
+        "_version": "5a: which hub publishes (modules/hub_version.py). \"v1\": the current page, byte for byte as before. \"v2\": the new hub (modules/hub_v2), to the same place, URL, passphrase and salt; its soft failures (the new keys, the ratings) become hard. Required: missing or anything else raises. Nick flips it on the day he picks (commit, push, state.py set-engine); flipping back is the same one-line change. claude/5A_RESULT_2026-11-19.md has the runbook.",
         "free_agents_top_n": 10,
         "light_night_max": 4,
         "stash_top_n": 5,

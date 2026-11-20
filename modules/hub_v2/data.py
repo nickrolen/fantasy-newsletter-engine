@@ -511,12 +511,21 @@ def league_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
 
 PLAYERS_SCHEMA = 1
 
+# 5a (4C5_DECISIONS 13, and the headroom under test_hub_polish3's 400 KB cap):
+# the payload keys that ride in the side file too, put back in memory by
+# attach_players for the page's builder. Each one grows through the season:
+# the awards' races (about 1 KB a week), the title-odds chart (one point per
+# pricing run) and Market's moves (one row per move). (v2 sub-block, key).
+SIDE_KEYS = (("league", "awards"), ("league", "chart"), ("market", "moves"))
+
 
 def players_file(payload: dict) -> dict:
     """Take v2.players OUT of the payload (4c1 decision 8: the payload's size)
     and return it as its own file's object, stamped with the payload's
     generated_at and engine key so a stale file is never shown with a newer
-    payload. The payload keeps a pointer: v2["players_file"]."""
+    payload. The payload keeps a pointer: v2["players_file"]. 4c4: League's
+    History rides along; 5a: so do SIDE_KEYS (v2["players_file"]["moved"]
+    names them)."""
     v2 = payload["v2"]
     block = v2.pop("players")
     v2["players_file"] = {"rows": len(block["rows"]), "generated_at": payload["generated_at"]}
@@ -525,6 +534,13 @@ def players_file(payload: dict) -> dict:
     if "league_history" in v2:                 # 4c4: League's History rides in the same side file
         obj["league_history"] = v2.pop("league_history")
         v2["players_file"]["league_history"] = True
+    moved = {}
+    for blk, key in SIDE_KEYS:
+        if isinstance(v2.get(blk), dict) and key in v2[blk]:
+            moved[f"{blk}.{key}"] = v2[blk].pop(key)
+    if moved:
+        obj["moved"] = moved
+        v2["players_file"]["moved"] = sorted(moved)
     return obj
 
 
@@ -547,6 +563,13 @@ def attach_players(payload: dict, obj: Optional[dict]) -> dict:
         if "league_history" not in obj:
             raise V2Error("the side file lacks League's History: rebuild both (python scripts/build_hub_state.py)")
         v2["league_history"] = obj["league_history"]
+    for name in (v2.get("players_file") or {}).get("moved") or []:       # 5a: SIDE_KEYS
+        if name not in (obj.get("moved") or {}):
+            raise V2Error(f"the side file lacks {name}: rebuild both (python scripts/build_hub_state.py)")
+        blk, key = name.split(".", 1)
+        if not isinstance(v2.get(blk), dict):
+            raise V2Error(f"the payload has no v2.{blk} to put {name} back into")
+        v2[blk][key] = obj["moved"][name]
     return payload
 
 

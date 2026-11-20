@@ -471,9 +471,12 @@ def test_the_publish_mode_file_holds_only_ciphertext_and_round_trips(tmp_path):
     p["v2"]["issue"]["file"] = e["enc"]
     out = tmp_path / "_to_delete" / "4b" / "publish"
     rep = v2pub.build(tmp_path, p, PASS, salt=b"\x01" * 16, out_dir=out, iterations=1000, terms=TERMS, now=GEN)
-    # 4c4: beside index.html, only League's History chips, each an encrypted part file (4c5: + Awards)
-    assert rep["files"][0] == "index.html" and len(rep["files"]) == 8
-    assert all(re.fullmatch(r"parts/[0-9a-f]{16}\.enc", f) for f in rep["files"][1:])
+    # 4c4: beside index.html, only League's History chips, each an encrypted part file (4c5: + Awards);
+    # 5a: and the archive's issues, byte for byte, as the current hub publishes them
+    assert rep["files"][0] == "index.html" and len(rep["files"]) == 9
+    assert rep["files"][1] == f"issues/{e['enc']}"
+    assert (out / "issues" / e["enc"]).read_bytes() == (tmp_path / "output" / "hub_archive" / e["enc"]).read_bytes()
+    assert all(re.fullmatch(r"parts/[0-9a-f]{16}\.enc", f) for f in rep["files"][2:])
     sh = (out / "index.html").read_text(encoding="utf-8")
     from modules import hub_publish
     assert hub_publish.scan_dir(out, TERMS)["hits"] == {}
@@ -493,10 +496,13 @@ def test_publish_refuses_the_live_publish_directory(tmp_path):
 
 
 def test_the_current_shell_is_untouched():
+    # 5a: the v2 shell is built in hub_page (SHELL_JS_V2), not patched; the
+    # current one is byte for byte as before (tests/test_hub_switch.py pins its hash)
     from modules import hub_page
     s = hub_page.shell_html('{"v":1}')
-    assert "font-src" not in s and v2pub.OPEN_TO not in s
-    assert s.count(v2pub.CSP_FROM) == 1 and s.count(v2pub.OPEN_FROM) == 1
+    assert "font-src" not in s and "B.z!=='gzip'" not in s and hub_page.OLD_BROWSER_TEXT not in s
+    s2 = hub_page.shell_html('{"v":1}', "v2")
+    assert "font-src data:" in s2 and "B.z!=='gzip'" in s2 and hub_page.OLD_BROWSER_TEXT in s2
 
 
 # =============================================================================

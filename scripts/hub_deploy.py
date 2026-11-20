@@ -12,6 +12,8 @@ After it, the target's files are exactly:
     cards/*.enc          the player cards (task 40): the card bundle and each
                          player's earlier seasons, encrypted
     photos/*.enc         the headshots, encrypted
+    parts/*.enc          the new hub's lazy parts (5a, hub.version "v2" only):
+                         League's History chips and Awards, encrypted
     .nojekyll            GitHub Pages: serve the files as they are
 and nothing else (the repo's first README included: it is removed). .git is
 never touched or scanned.
@@ -35,6 +37,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 NOJEKYLL = ".nojekyll"
+# 5a: parts/ holds the new hub's lazy parts (League's History chips, Awards),
+# encrypted by content like cards/ (hub.version "v2"; the current hub writes none)
+PUBLISHED_DIRS = ("issues", "cards", "photos", "parts")
 
 
 class DeployRefused(RuntimeError):
@@ -57,7 +62,7 @@ def stage(base, target, terms=None, out=print) -> dict:
         raise DeployRefused(f"--target {target} is not a git checkout of the hub repo")
     want = _files(src)
     bad = [f for f in want if f != "index.html"
-           and not (f.split("/")[0] in ("issues", "cards", "photos") and f.count("/") == 1
+           and not (f.split("/")[0] in PUBLISHED_DIRS and f.count("/") == 1
                     and f.endswith(".enc"))]
     if bad:
         raise DeployRefused(f"{hp.PUBLISH_RELDIR.as_posix()} holds files the hub never publishes: {bad}")

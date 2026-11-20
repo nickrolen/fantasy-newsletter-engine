@@ -249,18 +249,21 @@ def build(base_path, payload: dict, passphrase: str, *, terms: List[str] = None,
             "iterations": bundle["iter"], "cards": card_ref, "card_files": sorted(card_files)}
 
 
-CONTENT_DIRS = ("cards", "photos")
+CONTENT_DIRS = ("cards", "photos", "parts")
 
 
-def clear_superseded(out: Path) -> List[str]:
+def clear_superseded(out: Path, dirs=CONTENT_DIRS) -> List[str]:
     """Before a build into a publish directory that persists (Nick's desk):
     remove the card and headshot files an EARLIER build wrote -- each named by
     the hash of its own bytes. Anything else there (a name that is not its
     bytes' hash, a file in another folder) stays, and the build refuses it as
-    a stray. The cloud's directory starts empty every run."""
+    a stray. The cloud's directory starts empty every run. 5a: parts/ too,
+    the new hub's lazy parts (hub.version "v2"), so a desk build switched back
+    to v1 clears them instead of refusing them as strays; the current hub
+    never writes parts/."""
     import hashlib
     removed = []
-    for d in CONTENT_DIRS:
+    for d in dirs:
         for p in sorted((Path(out) / d).glob("*.enc")) if (Path(out) / d).is_dir() else []:
             if p.is_file() and p.name == hashlib.sha256(p.read_bytes()).hexdigest()[:16] + ".enc":
                 p.unlink()

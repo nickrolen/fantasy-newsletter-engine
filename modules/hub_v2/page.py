@@ -737,7 +737,9 @@ def render(vm: dict, *, cards: dict = None) -> str:
              f'<div class="lh-fresh"><span class="lh-fresh__dot" id="fresh-dot"{" hidden" if vm["stale"] else ""}></span>'
              f'<span>Updated <span class="v2-age">{clean(vm["age"])}</span> ({clean(vm["generated_text"])})</span></div>'
              f'<span class="v2-lock">{clean(vm["line_text"])}</span>'
-             f'<span class="v2-lock">{clean(vm["lock"])}</span></header>')
+             f'<span class="v2-lock">{clean(vm["lock"])}</span>'
+             + (f'<span class="v2-lock">{clean(vm["nba"]["text"])}</span>' if (vm.get("nba") or {}).get("text") else "")
+             + '</header>')
     o.append('<div class="v2-stale-wrap">')
     if vm["mismatch"]:
         o.append(f'<div class="v2-banner" role="status"><b>Do not price anything off this page.</b> '
@@ -746,6 +748,8 @@ def render(vm: dict, *, cards: dict = None) -> str:
         o.append(f'<div class="v2-calm">{clean(vm["engine_note"])}</div>')
     if vm.get("closing_note"):                     # H52: a refused closing line, the night went on
         o.append(f'<div class="v2-calm">{clean(vm["closing_note"])}</div>')
+    for f in (vm.get("nba") or {}).get("flags") or []:     # 5a: the NBA report's flags, as the current header shows them
+        o.append(f'<div class="v2-calm">{clean(f)}</div>')
     o.append(f'<div class="lh-stale" id="stale" role="status"{"" if vm["stale"] else " hidden"}>{WARN}'
              f'<span>{clean(vm["stale_text"])}</span></div></div>')
     o.append('<nav class="lh-tabbar" aria-label="Main">' + "".join(
@@ -848,7 +852,23 @@ var header=document.getElementById('app-header');
 var seen={};                       // segmented-tab choice per kind, for the session
 function screens(){return document.querySelectorAll('.v2-screen');}
 var depth=0,focusSearch=false;    // hash changes since the page opened (the back buttons), the header's search
+function legacy(){                // 5a: the current hub's #v-... links land on their new screens
+  var h=location.hash.replace(/^#/,'');if(!h||h.charAt(0)==='/'){return;}
+  var m,to=null,sg=null,pn=null;
+  if(h==='v-main'){to='home';}
+  else if(h==='v-last'){to='matchups';}
+  else if(h==='v-chart'){to='league/standings';}
+  else if(h==='v-block'||h==='v-advice'){to='market';sg='market';pn=(h==='v-block')?'block':'advice';}
+  else if((m=/^v-roster-(.+)$/.exec(h))){to='teams/'+m[1];}
+  else if((m=/^v-mu(\d+)-(\d+)-(sum|win|flow)$/.exec(h))){to='matchups/w'+m[1]+'-'+m[2];sg='matchup';
+    pn={sum:'summary',win:'win',flow:'flow'}[m[3]];}
+  if(to===null){return;}
+  if(sg&&document.querySelector('.lh-seg[data-seg="'+sg+'"] [data-pane="'+pn+'"]')){seen[sg]=pn;
+    if(sg==='matchup'){seen['lastmu']=pn;}}
+  try{history.replaceState(null,'','#/'+to);}catch(e){location.hash='#/'+to;}
+}
 function route(){
+  legacy();
   var r=location.hash.replace(/^#\/?/,'')||'home';
   var parts=r.split('/'),want=r,dyn='';
   if(parts[0]==='league'&&parts.length>1&&parts[1]){want='league';dyn='league';}

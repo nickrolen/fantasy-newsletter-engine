@@ -46,6 +46,26 @@ index.html. With --out-dir DIR the measurement goes to DIR/publish/.
 and in Compare, marked "Preview", in the PREVIEW only; the publish-mode
 measurement is skipped (publish mode refuses a preview).
 
+THE SWITCH (5a): config/league_config.json hub.version decides which hub
+this publishes. "v1": the current page (modules/hub_page), exactly as before.
+"v2": the new hub (modules/hub_v2) to the same output/hub_publish/ -- the
+same URL, passphrase and salt -- with output/hub_v2_preview.html as its
+plaintext preview; a payload whose new-hub keys or ratings failed is REFUSED
+(exit 1), so nothing is published and the last good page stays up. Missing
+or any other value: refused. --v2 (the scratch measurement) is unchanged by
+the switch.
+
+--v2 --publish-check (5a): the full published new hub, built with a
+THROWAWAY passphrase and a fresh salt into a scratch folder
+(_to_delete/publish_check/, or --out-dir DIR), then opened as the browser
+would: the shell's bundle decrypted and gunzipped, every route the page
+links resolved to its screen, every lazy part (cards, headshots, History,
+Awards, the issues) decrypted with the key the page or the card index gives
+it, every file reached by a key, the plaintext scan, and the sizes against
+the budget. Exit 0 only when every check passes. Run it on the real data
+before flipping hub.version to "v2". It never reads the league passphrase
+or the hub's salt, and never writes output/hub_publish/.
+
 Preview the published hub on this machine (fetching the issues needs a
 server, not a file:// page):
     python -m http.server 8000 --directory output/hub_publish
@@ -73,15 +93,25 @@ def main(argv=None) -> int:
                     help="build the NEW hub's preview and its publish-mode size measurement (4b); publishes nothing")
     ap.add_argument("--archetype-preview", action="store_true",
                     help="with --v2: show the archetype labels in the preview, marked; never in publish mode (4c1)")
+    ap.add_argument("--publish-check", action="store_true",
+                    help="with --v2: build the full published new hub with a throwaway key into a scratch folder, "
+                         "open every route and part as the browser would, scan it and size it (5a)")
     a = ap.parse_args(argv)
-    from modules import hub_state, hub_archive, hub_crypto, hub_publish
+    from modules import hub_state, hub_archive, hub_crypto, hub_publish, hub_version
+    from modules.hub_v2 import data as v2data
+    if a.publish_check and not a.v2:
+        print("REFUSED: --publish-check goes with --v2")
+        return 1
     if a.v2:
         from modules.hub_v2 import view, publish as v2pub, tokens
         try:
+            if a.publish_check:
+                return publish_check(a.base_path, state=a.state, out_dir=a.out_dir)["rc"]
             return run_v2(a.base_path, state=a.state, out_dir=a.out_dir,
                           archetype_preview=a.archetype_preview)["rc"]
         except (hub_state.HubInputError, hub_archive.ArchiveError, view.ViewError, v2pub.V2PublishError,
-                tokens.TokenError, hub_publish.PublishError, hub_publish.PlaintextLeak) as e:
+                tokens.TokenError, hub_publish.PublishError, hub_publish.PlaintextLeak, v2data.V2Error,
+                hub_version.V2HubFailed) as e:
             print(f"REFUSED: {e}")
             return 1
     if a.archetype_preview:
@@ -90,9 +120,16 @@ def main(argv=None) -> int:
     try:
         res = run(a.base_path, preview_only=a.preview_only, state=a.state, out_dir=a.out_dir)
     except (hub_state.HubInputError, hub_archive.ArchiveError, hub_crypto.PassphraseError,
-            hub_publish.PublishError, hub_publish.PlaintextLeak) as e:
+            hub_publish.PublishError, hub_publish.PlaintextLeak, hub_version.HubVersionError,
+            hub_version.V2HubFailed, v2data.V2Error) as e:
         print(f"REFUSED: {e}")
         return 1
+    except Exception as e:                           # noqa: BLE001 -- the new hub's renderer, named
+        from modules.hub_v2 import view, publish as v2pub, tokens
+        if isinstance(e, (view.ViewError, v2pub.V2PublishError, tokens.TokenError)):
+            print(f"REFUSED: {e}")
+            return 1
+        raise
     return res["rc"]
 
 
@@ -111,7 +148,14 @@ def run(base_path=".", *, preview_only: bool = False, state=None, out_dir=None, 
     earlier build's card files (clear_superseded runs first). What still
     stops it, as before: the page, the encryption, the archive, a stray file
     and the plaintext scan -- a card file that leaks plaintext is a
-    PlaintextLeak like any other file."""
+    PlaintextLeak like any other file.
+
+    5a: config hub.version "v2" hands the whole build to run_v2_publish (the
+    new hub, same directory, same return shape); "v1" goes on below,
+    unchanged; anything else raises HubVersionError."""
+    from modules import hub_version
+    if hub_version.version(base_path) == "v2":
+        return run_v2_publish(base_path, preview_only=preview_only, state=state, out_dir=out_dir, echo=echo)
     from modules import hub_state, hub_page, hub_archive, hub_crypto, hub_publish, hub_cards
     base = Path(base_path)
     if out_dir is not None:
@@ -276,6 +320,170 @@ def run_v2(base_path=".", *, state=None, out_dir=None, echo=print, archetype_pre
              + ", ".join(f"{k} {v:,}" for k, v in lp["bytes"].items()) + " bytes), loaded on tap")
     echo(f"Plaintext scan: {rep['terms']} terms, no hits.")
     return {"rc": 0, "preview": str(preview), "report": rep}
+
+
+
+def _load_payload(base: Path, state):
+    import json
+    from modules import hub_state
+    if state is not None:
+        payload = json.loads(Path(state).read_text(encoding="utf-8"))
+        if payload.get("schema") != hub_state.SCHEMA:
+            raise hub_state.HubInputError(f"{state} is schema {payload.get('schema')}, not {hub_state.SCHEMA}")
+        return payload, Path(state)
+    return hub_state.load(base), base / hub_state.PAYLOAD_RELPATH
+
+
+def _v2_cards(base: Path, payload: dict, pub_payload: dict, state, echo, fail):
+    """(cards, preview cards) for the new hub, softly: fail(stage, e) on any
+    error, as run() does."""
+    from modules import hub_cards
+    from modules.hub_v2 import publish as v2pub
+    cards, pv = None, None
+    if (payload.get("cards") or {}).get("players"):
+        try:
+            cards = hub_cards.load_for(base, payload) if state is None else None
+            if cards is None:
+                cards = hub_cards.build(base, payload, echo=lambda *a, **k: None)
+                echo(f"Built {len(cards['cards'])} player card(s) from this folder's data "
+                     f"({cards['seconds']} s); {len(cards['photos'])} with a headshot.")
+            hub_cards.check_against(payload, cards)
+            pv = v2pub.preview_cards(base, pub_payload, cards)
+        except Exception as e:                       # noqa: BLE001 -- the cards fail softly
+            fail("build", e)
+            cards, pv = None, None
+    return cards, pv
+
+
+def run_v2_publish(base_path=".", *, preview_only: bool = False, state=None, out_dir=None, echo=print) -> dict:
+    """hub.version "v2" (5a): the NEW hub is the hub. run()'s work and return
+    shape ({"rc", "cards", "cards_error", "payload", "report"}, plus
+    "version": "v2"), for the nightly's step 9 and a desk build:
+      - REFUSES (hub_version.V2HubFailed) a payload whose new-hub keys or
+        ratings failed: under v2 they are hard, like every hub failure;
+      - puts the side file back (output/hub_players.json: the Players rows,
+        League's History and the keys 5a moved out of the payload); missing or
+        stale refuses (hub_v2.data.V2Error);
+      - writes output/hub_v2_preview.html (plaintext, local only), or
+        DIR/hub_v2_preview.html with out_dir;
+      - unless preview_only: the passphrase from HUB_PASSPHRASE, the hub's own
+        salt (hub_publish.hub_salt), and the new hub's publish directory --
+        output/hub_publish/, or DIR/hub_publish/ -- every file scanned.
+    The player cards fail softly, as in run(): plain names, no card files,
+    "cards_error" set. The payload returned is the one to keep as state
+    (side-file keys not put back; card keys stripped after a card failure)."""
+    import copy
+    from datetime import datetime
+    from modules import hub_state, hub_archive, hub_cards, hub_crypto, hub_publish, hub_version, team_pictures
+    from modules.hub_v2 import view, page, publish as v2pub, data as v2data
+    base = Path(base_path)
+    out_dir = Path(out_dir) if out_dir is not None else None
+    if out_dir is not None:
+        refusal = hub_publish.scratch_refusal(base, out_dir / V2_PREVIEW.name)
+        if refusal:
+            echo(f"REFUSED: {refusal}")
+            return {"rc": 1, "cards": None, "cards_error": None, "payload": None, "report": None, "version": "v2"}
+    payload, spath = _load_payload(base, state)
+    hub_version.check_v2_whole(payload)
+    hub_archive.verify(base)
+    pub_payload = v2data.attach_players(copy.deepcopy(payload), hub_state.load_players(spath))
+    err = None
+
+    def fail(stage, e):
+        nonlocal err
+        err = hub_cards.failure(stage, e)
+        hub_cards.strip(payload)
+        hub_cards.strip(pub_payload)
+        echo(f"PLAYER CARDS FAILED ({stage}; the hub goes on with plain names): {err['error']}")
+
+    cards, preview_cards = _v2_cards(base, payload, pub_payload, state, echo, fail)
+    gen = datetime.fromisoformat(payload["generated_at"])
+    now = datetime.now(gen.tzinfo)
+    pics, notes = team_pictures.data_uris(base, list(pub_payload["v2"].get("team_order") or []))
+    for n in notes:
+        echo(f"Team picture left out (the monogram shows): {n}")
+    preview = (out_dir / V2_PREVIEW.name) if out_dir is not None else base / V2_PREVIEW
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    html = page.render(view.build(copy.deepcopy(pub_payload), mode="preview", now=now, pictures=pics),
+                       cards=preview_cards)
+    preview.write_text(html, encoding="utf-8")
+    echo(f"Wrote {preview} (the new hub, plaintext; local only).")
+    if preview_only:
+        return {"rc": 0, "cards": None if cards is None else len(cards["cards"]), "cards_error": err,
+                "payload": payload, "report": None, "version": "v2"}
+    passphrase = hub_crypto.passphrase_from_env()
+    pub = hub_publish.publish_dir(base) if out_dir is None else out_dir / "hub_publish"
+    gone = v2pub.clear_superseded(pub)
+    if gone:
+        echo(f"Removed {len(gone)} content-named file(s) an earlier build wrote.")
+    salt = hub_publish.hub_salt(base)
+    try:
+        r = v2pub.build(base, pub_payload, passphrase, salt=salt, out_dir=pub, cards=cards, live=True,
+                        pictures=pics, now=now)
+    except hub_publish.CardFilesError as e:          # nothing was written yet
+        fail("publish", e)
+        r = v2pub.build(base, pub_payload, passphrase, salt=salt, out_dir=pub, cards=None, live=True,
+                        pictures=pics, now=now)
+    echo(f"Wrote {r['dir']} (the new hub, hub.version v2): {len(r['files'])} file(s), "
+         f"PBKDF2-SHA256 x {r['iterations']:,}.")
+    echo(f"  index.html as served: {r['served_bytes']:,} bytes of the {r['budget_bytes']:,} budget"
+         + (" -- OVER BUDGET" if r["over_budget"] else ""))
+    if r["over_cap"]:
+        echo(f"  lazy files over {r['lazy_cap_bytes']:,} bytes: {r['over_cap']}")
+    echo(f"Plaintext scan: {r['terms']} terms, no hits"
+         + (f" (bundle re-encrypted {r['reseals']} time(s) after a chance match)" if r["reseals"] else "") + ".")
+    return {"rc": 0, "cards": None if cards is None else len(cards["cards"]), "cards_error": err,
+            "payload": payload, "report": r, "version": "v2"}
+
+
+PUBLISH_CHECK_DIR = Path("_to_delete") / "publish_check"
+
+
+def publish_check(base_path=".", *, state=None, out_dir=None, echo=print) -> dict:
+    """--v2 --publish-check (5a): the full published new hub with a
+    THROWAWAY passphrase and a fresh salt, into out_dir/publish/ (default
+    _to_delete/publish_check/), opened as the browser would
+    (modules/hub_v2/publish_check). The league passphrase and the hub's salt
+    are never read; output/hub_publish/ is never written. {"rc", "report"}."""
+    import copy
+    from datetime import datetime
+    from modules import hub_state, hub_archive, hub_crypto, hub_publish, hub_version, team_pictures
+    from modules.hub_v2 import publish as v2pub, data as v2data, publish_check as pc
+    base = Path(base_path)
+    od = Path(out_dir) if out_dir is not None else base / PUBLISH_CHECK_DIR
+    refusal = hub_publish.scratch_refusal(base, od / "publish" / "index.html")
+    if refusal:
+        echo(f"REFUSED: {refusal}")
+        return {"rc": 1, "report": None}
+    payload, spath = _load_payload(base, state)
+    fails = hub_version.v2_failures(payload)
+    if fails:
+        echo("FAIL: under hub.version \"v2\" this payload would be refused: " + "; ".join(fails))
+        return {"rc": 1, "report": {"v2_failures": fails}}
+    hub_archive.verify(base)
+    pub_payload = v2data.attach_players(copy.deepcopy(payload), hub_state.load_players(spath))
+    errs = []
+    cards, _pv = _v2_cards(base, payload, pub_payload, state, echo,
+                           lambda stage, e: errs.append(f"{stage}: {type(e).__name__}: {e}"))
+    if errs:
+        echo(f"FAIL: the player cards failed ({errs[0]}); the hub would publish with plain names")
+    gen = datetime.fromisoformat(payload["generated_at"])
+    now = datetime.now(gen.tzinfo)
+    pics, notes = team_pictures.data_uris(base, list(pub_payload["v2"].get("team_order") or []))
+    pub = od / "publish"
+    if pub.exists():
+        v2pub.clear_superseded(pub)
+        for f in ("index.html",):
+            if (pub / f).is_file():
+                (pub / f).unlink()
+        for q in sorted((pub / "issues").glob("*.enc")) if (pub / "issues").is_dir() else []:
+            q.unlink()
+    rep = pc.check(base, pub_payload, cards, pub, now=now, pictures=pics, echo=echo,
+                   picture_notes=notes, card_errors=errs)
+    for line in pc.summary(rep):
+        echo(line)
+    return {"rc": 0 if rep["ok"] else 1, "report": rep}
 
 
 if __name__ == "__main__":
