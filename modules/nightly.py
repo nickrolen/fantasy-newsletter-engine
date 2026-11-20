@@ -1117,6 +1117,10 @@ class Run:
                 hub_cards.strip(payload)
         if cards is None:
             hub_cards.discard(self.base)             # an earlier run's cards are never reused
+        # 5b: under "v2" the stored payload leaves out the current page's own keys
+        if ver == "v2":
+            from .hub_v2 import data as _v2data
+            _v2data.store_v2(payload)
         # 4c2: the new hub's Players rows go to output/hub_players.json (not state)
         hub_state.write(self.base, payload)
         if players_out:
@@ -1169,12 +1173,19 @@ class Run:
         recorded (RATINGS FAILED in the summary) and the run goes on."""
         from . import ratings
         res = rt.get("result")
+        lines = []
         rec = {"error": rt.get("error"), "seconds": rt.get("seconds"),
                "as_of": None if res is None else res["as_of"],
                "players": None if res is None else len(res["players"]),
                "weekly_change_from": (rt.get("previous_line") or {}).get("as_of"),
                "history": None}
-        lines = []
+        if "fa_error" in rt:                             # 5b: the free agents' ratings (soft)
+            fas = (res or {}).get("free_agents") or {}
+            rec["free_agents"] = sum(1 for f in fas.values() if f["ovr"] is not None)
+            rec["free_agents_error"] = rt.get("fa_error")
+            rec["free_agents_seconds"] = rt.get("fa_seconds")
+            if rt.get("fa_error"):
+                lines.append(f"FREE-AGENT RATINGS FAILED: {rt['fa_error']} -- free agents show no OVR/POT")
         if rt.get("error"):
             lines.append(f"RATINGS FAILED: {rt['error']} -- the new hub shows no OVR/POT; the current hub went out")
             rec["history"] = "not written: the ratings failed"

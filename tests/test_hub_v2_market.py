@@ -32,6 +32,7 @@ import base64
 import copy
 import hashlib
 import io
+import html as _html
 import json
 import re
 from datetime import date, datetime, timedelta, timezone
@@ -423,7 +424,7 @@ def test_teammark_draws_each_picture_once_and_the_monogram_stays_under_it(tmp_pa
 def test_no_picture_reaches_a_plaintext_published_file(tmp_path):
     pics = _pics(tmp_path)
     terms = TERMS + tp.scan_terms(tmp_path)
-    assert len(terms) == len(TERMS) + 4
+    assert len(set(tp.scan_terms(tmp_path))) >= 4                   # 5b: each picture's own slice, and its small copy's
     e = _archive(tmp_path)
     p = synth_payload()
     p["v2"]["issue"]["file"] = e["enc"]
@@ -433,9 +434,24 @@ def test_no_picture_reaches_a_plaintext_published_file(tmp_path):
     assert hub_publish.scan_dir(out, terms)["hits"] == {}
     inner = v2pub.open_inner(PASS, json.loads(re.search(r'id="hub-bundle">(.*?)</script>',
                                                        (out / "index.html").read_text(encoding="utf-8"), re.S).group(1)))
-    assert all(uri.split(",", 1)[1] in inner["page"] for uri in pics.values())   # inside: encrypted only
+    # 5b: the page carries each picture's SMALL copy (inside: encrypted only); the full one is a lazy
+    # part, referenced from its team page's 72 TeamMark (inside the team page's own lazy part)
+    small = tp.small_uris(pics)
+    assert all(small[m] != pics[m] and small[m].split(",", 1)[1] in inner["page"] for m in pics)
+    assert not any(uri.split(",", 1)[1] in inner["page"] for uri in pics.values())
+    from modules.hub_v2 import publish_check as pc
+    got = {}
+    for raw in re.findall(r"data-screen-part='([^']*)'", inner["page"]):
+        h = pc.open_part(out, json.loads(_html.unescape(raw)))["html"]
+        for r2 in re.findall(r"data-pic='([^']*)'", h):
+            got[re.search(r"v2-pic-(\w+)", h).group(1)] = pc.open_part(out, json.loads(_html.unescape(r2)))["pic"]
+    assert sorted(got.values()) == sorted(pics.values()) and len(rep["picture_parts"]) == 4
     assert hub_publish.hits(inner["page"].encode(), tp.scan_terms(tmp_path))     # the negative control
     assert rep["served_bytes"] <= budget_bytes()
+    # the negative control on the new picture part: a team picture planted there in plaintext trips the scan
+    first = sorted(out.glob("parts/*.enc"))[0]
+    first.write_bytes(json.dumps({"pic": next(iter(pics.values()))}).encode())
+    assert first.name in str(hub_publish.scan_dir(out, terms)["hits"])
 
 
 def test_the_nightly_step_is_soft(tmp_path, monkeypatch):

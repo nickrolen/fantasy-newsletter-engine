@@ -232,7 +232,6 @@ def view(card: dict, row: dict, ctx: dict) -> dict:
             "ovr_dir": (row["ovr_d"] or {}).get("dir", ""), "ring": (row["ring"] or {}).get("hero"),
             "pot": row["pot"], "pot_d": (row["pot_d"] or {}).get("long", ""),
             "pot_dir": (row["pot_d"] or {}).get("dir", ""),
-            "fa": None if rostered else {"fppg": row["fppg"], "pct": row["fa_pct"], "w": row["fa_pct_w"]},
             "ovr_note": row["ovr_note"], "arch": row.get("arch")}
 
     # ---------------------------------------------------------------- season

@@ -26,7 +26,9 @@ page never prints them.
           "moves": [{"w": week key, "j": item index}]}},
       "team_order": [manager...]       the power-rankings order
       "spark_scale": {"max": float, "top": str, "note": str}
-      "grid3": {"cols": [{"label", "sub"}], "rows": [{"m", "cells": [{"n", "b"}]}], "note"}
+      "grid3": {"cols": [{"label", "sub"}], "rows": [{"m", "cells": [{"n", "b"}], "idle"}], "note",
+                "idle_label"}   5b: Idle (this week's, the current grid's) and a dagger on a
+                                week with a player out on the NBA's injury report
       "sched_cols": [{"label", "sub"}], "sched_note"
       "matchups": [{"id", "a", "b", "fav", "note", "note_src", "views",
                     "win": {...}, "flow": {...}, "starts": {...}, "missing": [...],
@@ -68,6 +70,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 SLOTS = ("blue", "orange", "teal", "plum")
+DAGGER = "\u2020"
 MINUS = "\u2212"
 DASH = "\u2014"
 UP, DOWN = "\u25b2", "\u25bc"
@@ -517,6 +520,49 @@ PLAYERS_SCHEMA = 1
 # the awards' races (about 1 KB a week), the title-odds chart (one point per
 # pricing run) and Market's moves (one row per move). (v2 sub-block, key).
 SIDE_KEYS = (("league", "awards"), ("league", "chart"), ("market", "moves"))
+# 5b: each team's roster Detailed columns (v2.teams[m].roster.detail, ~9 KB a
+# team) ride in the side file too, under this name
+DETAIL_KEY = "teams.roster.detail"
+
+# 5b (5a decision 4): under hub.version "v2" the STORED payload keeps only
+# what the published page and the next run read. Measured (5b): the v2
+# publish is byte-identical without these, and hub_cards.shown_names (the next
+# night's free-agent lines) and headshots.missing never read them. Everything
+# else stays: the v2 page reads rosters, moves, cards, matchups, the header,
+# free_agents/stash/trade_block (the cards); shown_names reads advice too.
+V2_UNREAD = (("power", "chart"), ("power", "chart_title"), ("grid",), ("advice_empty",))
+
+
+def store_v2(payload: dict) -> dict:
+    """The payload as STORED under hub.version "v2" (output/hub_state.json):
+    the current page's keys no v2 reader reads (V2_UNREAD) dropped, and
+    matchup_views cut to the views v2 reads (each matchup's Summary, this
+    week's and last week's: v2.matchups[].views.sum, v2.last.cards[].views.sum). Marked payload["v2_store"] (what was dropped),
+    so the current page's builder refuses it (a rollback rebuilds the
+    payload first: python scripts/build_hub_state.py). In place; returns
+    {name: bytes dropped}."""
+    if payload.get("v2") is None:
+        return {}
+    dropped = {}
+    for path in V2_UNREAD:
+        node = payload
+        for k in path[:-1]:
+            node = node.get(k) if isinstance(node, dict) else None
+        if isinstance(node, dict) and path[-1] in node:
+            dropped[".".join(path)] = len(json.dumps(node.pop(path[-1])))
+    keep = {mv["views"]["sum"] for mv in payload["v2"].get("matchups") or []}
+    keep |= {c["views"]["sum"] for c in ((payload["v2"].get("last") or {}).get("cards") or [])}
+    views = payload.get("matchup_views")
+    if isinstance(views, list):
+        out = [v for v in views if v.get("id") in keep]
+        if len(out) != len(views):
+            dropped["matchup_views (all but the Summary views v2 reads)"] = \
+                len(json.dumps(views)) - len(json.dumps(out))
+            payload["matchup_views"] = out
+    payload["v2_store"] = {"dropped": sorted(dropped),
+                           "note": "stored under hub.version v2: the current page's own keys are left out; "
+                                   "the current page needs a rebuilt payload (python scripts/build_hub_state.py)"}
+    return dropped
 
 
 def players_file(payload: dict) -> dict:
@@ -538,6 +584,10 @@ def players_file(payload: dict) -> dict:
     for blk, key in SIDE_KEYS:
         if isinstance(v2.get(blk), dict) and key in v2[blk]:
             moved[f"{blk}.{key}"] = v2[blk].pop(key)
+    det = {m: t["roster"].pop("detail") for m, t in (v2.get("teams") or {}).items()
+           if isinstance(t.get("roster"), dict) and "detail" in t["roster"]}
+    if det:                                    # 5b: the roster's Detailed columns
+        moved[DETAIL_KEY] = det
     if moved:
         obj["moved"] = moved
         v2["players_file"]["moved"] = sorted(moved)
@@ -566,6 +616,12 @@ def attach_players(payload: dict, obj: Optional[dict]) -> dict:
     for name in (v2.get("players_file") or {}).get("moved") or []:       # 5a: SIDE_KEYS
         if name not in (obj.get("moved") or {}):
             raise V2Error(f"the side file lacks {name}: rebuild both (python scripts/build_hub_state.py)")
+        if name == DETAIL_KEY:                                             # 5b
+            for m, d in obj["moved"][name].items():
+                if m not in (v2.get("teams") or {}):
+                    raise V2Error(f"the side file's roster Detailed columns name {m}, not a team of the payload")
+                v2["teams"][m]["roster"]["detail"] = d
+            continue
         blk, key = name.split(".", 1)
         if not isinstance(v2.get(blk), dict):
             raise V2Error(f"the payload has no v2.{blk} to put {name} back into")
@@ -654,16 +710,28 @@ def build(base, ctx: dict) -> dict:
         ranked = sorted(set(vals.values()), reverse=True)
         for m in managers:
             # darkest for the most starts that week; ranks, so a short week compares fairly
-            per_day = [f"{day_name(d, sc['long'])} {cell['starts']}" for d, cell in zip(ds, grid_rows[k][m]["cells"])]
-            tip = {"h": week_head(sc["w"], sc["sub"]), "b": " \u00b7 ".join(per_day),
-                   "f": f"{grid_rows[k][m]['starts']} starts"}
-            grid_cells[m].append({"n": grid_rows[k][m]["starts"], "b": 4 - min(3, ranked.index(vals[m])), "tip": tip})
+            gr = grid_rows[k][m]
+            per_day = [f"{day_name(d, sc['long'])} {cell['starts']}{DAGGER if cell.get('nba') else ''}"
+                       for d, cell in zip(ds, gr["cells"])]
+            # 5b (5a decision 7): the old grid's Idle and its NBA-report mark
+            outs = [c["nba_names"] for c in gr["cells"] if c.get("nba") and c.get("nba_names")]
+            foot = f"{gr['starts']} starts \u00b7 {gr['idle']} idle"
+            if outs:
+                foot += f" \u00b7 {DAGGER} out tonight on the NBA's injury report: {', '.join(outs)}"
+            tip = {"h": week_head(sc["w"], sc["sub"]), "b": " \u00b7 ".join(per_day), "f": foot}
+            grid_cells[m].append({"n": gr["starts"] + (DAGGER if outs else ""),
+                                  "b": 4 - min(3, ranked.index(vals[m])), "tip": tip})
+    first_k = cols3[0][0] if cols3 else None
     grid3 = {"cols": [{"label": c["label"], "sub": c["sub"]} for c in sched_cols],
-             "rows": [{"m": m, "cells": grid_cells[m]} for m in order],
+             "rows": [{"m": m, "cells": grid_cells[m], "idle": grid_rows[first_k][m]["idle"] if first_k else DASH}
+                      for m in order],
+             "idle_label": {"label": "Idle", "sub": sched_cols[0]["sub"] if sched_cols else ""},
              "note": ("Starts: games that fit a starting lineup, for players who will play. Shaded by rank "
                       "within each week: darker = more starts than the other teams that week, so a short "
                       "week compares fairly. Weeks after this one count rosters as they will stand with the "
-                      "pending moves. Tap a cell for its starts by day.")}
+                      "pending moves. Idle: games by players who sit, this week (each week's is in its cell's "
+                      f"tap). {DAGGER} a player out tonight on the NBA's injury report. Tap a cell for its "
+                      "starts by day.")}
 
     # --- teams
     teams = {}

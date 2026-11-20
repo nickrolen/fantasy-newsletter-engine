@@ -185,8 +185,13 @@ def _minutes(t: str) -> int:
 def moves(mv: dict, managers: list, first: date) -> dict:
     """Every move of the season (hub_moves), newest first, each with the
     managers it involves (a trade: both sides) for the team chips."""
-    items = []
+    items, weeks = [], []
     for w in mv["weeks"]:
+        # 5b (5a decision 7): each budget week's adds used, over the budget marked (the old hub's line)
+        weeks.append({"key": str(w["key"]), "label": w["label"],
+                      "used": None if w.get("used") is None else
+                      [{"m": u["manager"], "text": u["text"], "over": bool(u["over"])} for u in w["used"]],
+                      "note": w.get("used_note") or ""})
         for it in w["items"]:
             if it["kind"] == "trade":
                 ms = [m for m in managers if any(p["text"].startswith(f"{m} gets ") for p in it["parts"])]
@@ -201,14 +206,15 @@ def moves(mv: dict, managers: list, first: date) -> dict:
                 raise MarketError(f"a move on {it['date']} ({it.get('what')}) names no manager of the league")
             d = _season_date(it["date"], first)
             items.append({"_k": (d, _minutes(it["time"])), "ms": ms, "when": f"{it['day']} {d:%m-%d}",
-                          "time": it["time"], "week": w["label"], "marker": marker, "mkind": mk, "head": head,
+                          "time": it["time"], "week": w["label"], "wk": str(w["key"]), "marker": marker, "mkind": mk, "head": head,
                           "parts": [{"marker": p["marker"], "kind": p["kind"], "segs": p.get("segs") or [{"t": p["text"]}]}
                                     for p in it["parts"]],
                           "note": it.get("note") or "", "state": it.get("state") or ""})
     items.sort(key=lambda x: x["_k"], reverse=True)               # stable: the feed's own order breaks ties
     for x in items:
         del x["_k"]
-    return {"items": items, "teams": list(managers),
+    weeks.reverse()                                              # newest first, as the items
+    return {"items": items, "teams": list(managers), "weeks": weeks,
             "empty": "No moves yet this season." if not items else "",
             "note": "Every add, drop, claim and trade this season, newest first. Yahoo logs no IL "
                     "slot changes; the chat's IL steps show while they are pending."}

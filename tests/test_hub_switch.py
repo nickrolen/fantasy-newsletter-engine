@@ -227,7 +227,10 @@ def test_every_lazy_part_decrypts_by_its_content_and_every_file_is_reached(tmp_p
     rep = pc.check(tmp_path, p, None, tmp_path / "_to_delete" / "c" / "publish", now=GEN + timedelta(hours=1),
                    pictures=[], terms=T2.TERMS)
     assert rep["ok"], rep["problems"]
-    assert len(rep["opened"]["parts"]) == 7 and rep["opened"]["issues"] == 1 and not rep["orphans"]
+    # 5b: + the title-odds chart and Moves' older weeks (data-part), and the lazy screens
+    assert len(rep["opened"]["parts"]) == 7 + 1 + len(rep["build"]["market_parts"])
+    assert rep["opened"]["screens"] == len(rep["build"]["screen_parts"]) > 0
+    assert rep["opened"]["issues"] == 1 and not rep["orphans"]
     assert rep["scan"]["control"] and rep["routes"]["unresolved"] == []
 
 
@@ -328,11 +331,16 @@ def test_the_growing_keys_ride_in_the_side_file_and_come_back(tmp_path):
     want = {f"{a}.{b}": copy.deepcopy(p["v2"][a][b]) for a, b in v2data.SIDE_KEYS}
     p["engine"] = {"key": "abc"}
     obj = v2data.players_file(p)
+    det = {m: copy.deepcopy(t["roster"]["detail"]) for m, t in T2.synth_payload()["v2"]["teams"].items()}
     for a, b in v2data.SIDE_KEYS:
         assert b not in p["v2"][a]
-    assert p["v2"]["players_file"]["moved"] == sorted(want) and obj["moved"] == want
+    assert all("detail" not in t["roster"] for t in p["v2"]["teams"].values())     # 5b: the Detailed columns too
+    assert p["v2"]["players_file"]["moved"] == sorted(list(want) + [v2data.DETAIL_KEY])
+    assert {k: v for k, v in obj["moved"].items() if k != v2data.DETAIL_KEY} == want
+    assert obj["moved"][v2data.DETAIL_KEY] == det
     v2data.attach_players(p, obj)
     assert {f"{a}.{b}": p["v2"][a][b] for a, b in v2data.SIDE_KEYS} == want
+    assert {m: t["roster"]["detail"] for m, t in p["v2"]["teams"].items()} == det
     p2 = T2.synth_payload()
     p2["engine"] = {"key": "abc"}
     obj2 = v2data.players_file(p2)
@@ -475,14 +483,17 @@ def test_real_payload_has_its_headroom_and_the_new_hub_publishes_whole(real, tmp
     p, po, pub, size = real
     assert hub_version.v2_failures(p) == [], hub_version.v2_failures(p)
     assert size <= 300_000, f"the payload is {size:,} bytes: under 25% headroom below the 400,000 cap"
-    assert sorted(po["moved"]) == sorted(f"{a}.{b}" for a, b in v2data.SIDE_KEYS)
+    assert sorted(po["moved"]) == sorted([f"{a}.{b}" for a, b in v2data.SIDE_KEYS] + [v2data.DETAIL_KEY])   # 5b
     assert pub["v2"]["line_text"] == p["header"]["line_text"]        # the "Closing line priced" header, one source
     cards = hub_cards.build(ROOT, p, echo=lambda *a, **k: None)
     pics, _n = team_pictures.data_uris(ROOT, list(pub["v2"]["team_order"]))
     out = tmp_path / "check" / "publish"
     rep = pc.check(ROOT, pub, cards, out, pictures=pics)
     assert rep["ok"], rep["problems"]
-    assert len(rep["opened"]["parts"]) == 7 and rep["opened"]["cards"] == len(cards["cards"])
+    # 5b: + the title-odds chart and Moves' older weeks; the lazy screens and the team pictures
+    assert len(rep["opened"]["parts"]) == 7 + 1 + len(rep["build"]["market_parts"])
+    assert rep["opened"]["screens"] >= 4 and rep["opened"]["pictures"] == len(pics)
+    assert rep["opened"]["cards"] == len(cards["cards"])
     idx = hub_archive.verify(ROOT)
     assert rep["opened"]["issues"] == len(idx["issues"])
     assert rep["first_load"] <= rep["budget"] and rep["scan"]["hits"] == {}

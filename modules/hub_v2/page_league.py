@@ -164,6 +164,13 @@ function lgDraft(season){
   var ps=document.querySelectorAll('[data-lhdraft-of]');
   for(var j=0;j<ps.length;j++){ps[j].hidden=ps[j].getAttribute('data-lhdraft-of')!==season;}
 }
+// 5b: the title-odds chart (an encrypted part when published), opened when
+// League > Standings is on screen
+function lgOdds(){
+  var p=document.querySelector('[data-lhpart-of="odds"]');
+  if(p&&!p.closest('[hidden]')){lgPart(p);}
+}
+window.lgOdds=lgOdds;
 // #/league/<segment>[/<chip>[/<a>/<b> | /<season>]]
 window.lgRoute=function(parts){
   var seg=document.querySelector('.lh-seg[data-seg="league"]');
@@ -181,6 +188,8 @@ window.lgRoute=function(parts){
 document.addEventListener('click',function(e){
   var t=e.target.closest('.lh-seg[data-seg="league"] button[data-pane="history"]');
   if(t){setTimeout(function(){lgChip(LG.chip);},0);}
+  t=e.target.closest('.lh-seg[data-seg="league"] button[data-pane="standings"]');
+  if(t){setTimeout(lgOdds,0);}
   t=e.target.closest('.lh-seg[data-seg="league"] button[data-pane="awards"]');
   if(t){setTimeout(function(){var ap=document.querySelector('[data-lhpart-of="awards"]');if(ap){lgPart(ap);}},0);}
   t=e.target.closest('[data-lhchip]');
@@ -242,6 +251,12 @@ def _why(text: str, who: str, reason: str) -> str:
 # Standings
 # =============================================================================
 
+def odds_html(lg: dict, chart) -> str:
+    """The title-odds chart and its note (5b: an encrypted part when
+    published, opened when Standings shows; inline in the preview)."""
+    return chart(lg["chart"], "lg-odds") + f'<span class="lh-sub">{clean(lg["chart_note"])}</span>'
+
+
 def _standings(lg: dict, ids, info, mono, chart) -> str:
     st = lg["standings"]
     o = ['<section class="lh-card lh-card--flush" data-section="standings"><div class="lh-sechead v2-pad">'
@@ -260,10 +275,12 @@ def _standings(lg: dict, ids, info, mono, chart) -> str:
     o.append("</tbody></table></div>")
     note = st["note"] + ("".join(" * " + x for x in st["ties"]) if st["ties"] else "")
     o.append(f'<div class="lh-table-note">{clean(note)}</div></section>')
+    ref = (lg.get("parts") or {}).get("odds")       # 5b: published, the chart is a lazy part
+    body = (f'<div class="v2-lg-hist" data-lhpart-of="odds" data-part=\'{clean(json.dumps(ref, separators=(",", ":")))}\'>'
+            '<p class="v2-lg-load">Loading the chart&hellip;</p></div>') if ref else odds_html(lg, chart)
     o.append('<section class="lh-card v2-gap8" data-section="title-odds"><div class="lh-sechead">'
              f'<h2 class="lh-eyebrow">{clean(st["odds_label"])} over the season</h2>'
-             f'{info(ids, "title_odds", "tap a point")}</div>' + chart(lg["chart"], "lg-odds")
-             + f'<span class="lh-sub">{clean(lg["chart_note"])}</span></section>')
+             f'{info(ids, "title_odds", "tap a point")}</div>' + body + '</section>')
     pw = lg["power"]
     o.append('<section class="lh-card v2-gap8" data-section="power-history"><div class="lh-sechead">'
              '<h2 class="lh-eyebrow">Power rankings by week</h2></div>')

@@ -69,6 +69,11 @@ INDEX = DIR / "index.json"
 SCHEMA = 1
 PX = 144                        # TeamMark's largest (72) at 2x
 QUALITY = 85
+# 5b (the first load): the published page carries a SMALL copy inline, sized
+# for the largest INLINE TeamMark (36, the matchup header) at 2x; the PX
+# picture is a lazy encrypted part opened with a team page (its 72 mark)
+SMALL_PX = 72
+SMALL_QUALITY = 85
 MAX_BYTES = 2_000_000           # a download larger than this is refused
 MIME_OF = ((b"\xff\xd8\xff", "image/jpeg"), (b"\x89PNG", "image/png"), (b"GIF8", "image/gif"))
 
@@ -278,10 +283,25 @@ def fetch(base, managers, teams_json: dict, *, now: datetime, get_bytes: Callabl
 # the hub's side
 # =============================================================================
 
+def _slices(data: bytes) -> list:
+    """Two 48-character slices of the picture's base64: one past the
+    format's common header (as before 5b), and (5b) one from the middle of
+    the picture's own data -- the header slice alone is the same for every
+    JPEG made with the same settings, so it would not tell one picture from
+    another (or from any such JPEG)."""
+    b64 = base64.b64encode(data).decode("ascii")
+    if len(b64) < 160:
+        return []
+    mid = (len(b64) // 2) // 4 * 4
+    return [b64[96:144], b64[mid:mid + 48]]
+
+
 def scan_terms(base) -> list:
     """The plaintext scan's terms for the stored pictures: a 48-character
     slice of each one's base64 (past the format's common header), the form a
-    page would carry it in. [] when none is stored."""
+    page would carry it in -- and (5b) the same slice of each one's small
+    copy (small_copy), the form the published page carries inline. [] when
+    none is stored."""
     out = []
     try:
         idx = load_index(base)
@@ -292,9 +312,58 @@ def scan_terms(base) -> list:
             data = (Path(base) / DIR / v["file"]).read_bytes()
         except OSError:
             continue
-        b64 = base64.b64encode(data).decode("ascii")
-        if len(b64) >= 160:
-            out.append(b64[96:144])
+        for d in (data, small_copy(data)):
+            if d:
+                out.extend(_slices(d))
+    return out
+
+
+def small_copy(data: bytes) -> Optional[bytes]:
+    """5b: the picture at SMALL_PX (JPEG, SMALL_QUALITY), for the published
+    page's first load; deterministic for the same bytes and Pillow. None
+    without Pillow, or for a picture that is not larger than SMALL_PX (it
+    is then used as it is)."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    try:
+        im = Image.open(io.BytesIO(data))
+        im.load()
+    except Exception:                                # noqa: BLE001 -- not readable: no small copy
+        return None
+    if min(im.size) <= SMALL_PX:
+        return None
+    im = im.convert("RGB").resize((SMALL_PX, SMALL_PX), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=SMALL_QUALITY, optimize=True)
+    return buf.getvalue()
+
+
+def small_uris(pictures: dict) -> Optional[dict]:
+    """{manager: the small copy's data URI} for every picture (a picture
+    already SMALL_PX or smaller stands as it is), or None when any cannot be
+    made (no Pillow): the page then carries the full pictures inline, as
+    before 5b. Never raises."""
+    out = {}
+    for m, uri in pictures.items():
+        head, _, b = uri.partition(",")
+        try:
+            data = base64.b64decode(b, validate=True)
+        except Exception:                            # noqa: BLE001
+            return None
+        small = small_copy(data)
+        if small is None:
+            try:
+                from PIL import Image
+                with Image.open(io.BytesIO(data)) as im:
+                    if min(im.size) > SMALL_PX:
+                        return None
+            except Exception:                        # noqa: BLE001 -- no Pillow, or unreadable
+                return None
+            out[m] = uri
+        else:
+            out[m] = "data:image/jpeg;base64," + base64.b64encode(small).decode("ascii")
     return out
 
 

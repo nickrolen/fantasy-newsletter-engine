@@ -1485,6 +1485,15 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         echo(f"PLAYER CARDS FAILED (annotate; the hub goes on with plain names): {err['error']}")
         if cards_out is not None:
             cards_out["error"] = err
+    # 5b: the free agents' OVR and POT (ratings.rate_free_agents), against
+    # today's rostered players, for every free agent the Players tab lists
+    # (after annotate: its universe is the cards' list). Soft: a failure
+    # leaves the free agents unrated, says why, and the history line keeps
+    # the rostered players only.
+    if payload["v2"] is not None and rt.get("result") is not None:
+        ratings_fa_step(base, rt, payload, live, actuals, player_info, proj, echo=echo)
+        if ratings_out is not None:
+            ratings_out.update(rt)
     # 4c1: the Players tab's rows and the ratings' strings (modules/hub_v2/
     # players.py), after annotate: they carry its card keys. New keys under
     # v2 only; a failure leaves v2 out, softly (v2_error), as v2's own does.
@@ -1571,6 +1580,36 @@ def awards_step(base, live, actuals: dict, echo=print, mvp_odds_blob: dict = Non
         echo(f"AWARDS FAILED (the new hub's Awards say why; the current hub goes on): {out['error']}")
     out["seconds"] = round(_time.perf_counter() - t0, 2)
     return out
+
+
+def ratings_fa_step(base, rt: dict, payload: dict, live, actuals: dict, info: dict, proj: dict,
+                    echo=print) -> dict:
+    """5b: rt["result"]["free_agents"] for the Players tab's free agents
+    (hub_v2.players.universe), and rt["line"] rebuilt with them. FAILS
+    SOFTLY: rt["fa_error"] says why, the free agents stay unrated and the
+    rostered ratings and their line are untouched. rt["fa_seconds"]: the
+    cost."""
+    import time as _time
+    from . import ratings, keeper_history as kh
+    from .hub_v2 import players as v2players
+    t0 = _time.perf_counter()
+    rt["fa_error"] = None
+    res = rt["result"]
+    try:
+        names = [u["name"] for u in v2players.universe(payload) if u["kind"] == "fa"]
+        team_of = {n: v2players.fa_team(n, info, proj) for n in names}
+        ages = kh.load_ages(kh.age_seasons(), base, fetch=ratings._nofetch)
+        specs = ratings.free_agent_specs(names, team_of, live[0], live[1], actuals,
+                                         res["basis"]["dates_by_team"], res["as_of"], ages)
+        res["free_agents"] = ratings.rate_free_agents(res, specs)
+        rt["line"] = ratings.history_line(res)
+    except Exception as e:                           # noqa: BLE001 -- soft: the free agents say why
+        res["free_agents"] = None
+        rt["fa_error"] = f"{type(e).__name__}: {e}".splitlines()[0][:500]
+        echo(f"FREE-AGENT RATINGS FAILED (free agents show no OVR/POT; the rostered ratings stand): "
+             f"{rt['fa_error']}")
+    rt["fa_seconds"] = round(_time.perf_counter() - t0, 2)
+    return rt
 
 
 def ratings_step(base, live, actuals: dict, echo=print) -> dict:

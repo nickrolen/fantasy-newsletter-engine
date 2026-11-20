@@ -69,6 +69,10 @@ def main(argv=None) -> int:
             live_lines_page.EngineMismatch) as e:
         print(f"REFUSED: {e}")
         return 1
+    from modules import hub_version
+    if hub_version.version(a.base_path) == "v2":   # 5b: stored as the nightly stores it under v2
+        from modules.hub_v2 import data as v2data
+        v2data.store_v2(payload)
     if a.out is None:
         p = hub_state.write(a.base_path, payload)
         if players:                    # 4c2: the Players rows, beside it (output/hub_players.json)

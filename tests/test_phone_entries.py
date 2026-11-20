@@ -51,6 +51,15 @@ from modules import phone_entries as pe                  # noqa: E402
 from modules import winprob_history as wh                # noqa: E402
 from test_refresh_service import svc                     # noqa: E402,F401  (B3's scratch-week fixture)
 
+
+@pytest.fixture(autouse=True)
+def _the_current_hub(monkeypatch):
+    """These tests cover the current page's (v1) paths; config says "v2" since
+    the switch-over (60ea53b, Nick 11-20). Pin the version they test."""
+    from modules import hub_version
+    monkeypatch.setattr(hub_version, "version", lambda base_path=None, cfg=None: "v1")
+
+
 LA = ZoneInfo("America/Los_Angeles")
 NOW = datetime(2026, 11, 11, 14, 14, tzinfo=LA)          # Wed, week 4 (11-09 .. 11-15)
 SCHEDULE = json.loads((ROOT / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))

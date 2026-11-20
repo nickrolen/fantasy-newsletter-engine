@@ -777,8 +777,10 @@ def real_builds():
 
 @pytest.mark.slow
 def test_real_every_min_cell_before_the_backfill_and_nothing_raises(real_builds):
-    _now, p0, _p1, _po0, _po1 = real_builds
+    _now, p0, _p1, po0, _po1 = real_builds
     assert p0["v2_error"] is None, p0["v2_error"]
+    from modules.hub_v2 import data as v2data
+    p0 = v2data.attach_players(json.loads(json.dumps(p0)), po0)     # 5b: the Detailed columns ride in the side file
     blob = pa.load(ROOT)
     none_yet = not any(rec.get("min_days") for rec in blob["players"].values())
     keys = p0["v2"]["roster_cols"]["keys"]
@@ -806,7 +808,9 @@ def test_real_the_live_hub_is_unchanged_by_the_minutes(real_builds, tmp_path):
             assert p0.get(k) == p1.get(k), k                   # every key of the current hub
     assert hub_page.render(p0, now=now) == hub_page.render(p1, now=now)
     keys = p1["v2"]["roster_cols"]["keys"]
-    cells = [r[keys.index("min")] for t in p1["v2"]["teams"].values() for r in t["roster"]["detail"]["rows"]]
+    from modules.hub_v2 import data as v2data
+    det = po1["moved"][v2data.DETAIL_KEY]                            # 5b: the Detailed columns ride in the side file
+    cells = [r[keys.index("min")] for t in det.values() for r in t["rows"]]
     assert sum(1 for c in cells if re.fullmatch(r"\d+\.\d", c)) >= 50        # the new hub does show them
     assert po0["players"]["rows"] != po1["players"]["rows"]                  # its Players rows too
     from modules.hub_v2 import data as v2data

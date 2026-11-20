@@ -577,7 +577,7 @@
         }
     },
     "ratings": {
-        "_comment": "OVR, POT and the attribute grades (modules/ratings.py; claude/4A_RESULT_2026-11-14.md). Every key is required: a missing or malformed one RAISES, naming it. These are the numbers 4a back-tested (_to_delete/4a/PREREG.md, gate_ovr.py, gate_pot.py): change one and the back-test no longer describes what ships, so a change is a new back-test first. Computed for the players on league rosters, the universe the back-test scored.",
+        "_comment": "OVR, POT and the attribute grades (modules/ratings.py; claude/4A_RESULT_2026-11-14.md). Every key is required: a missing or malformed one RAISES, naming it. These are the numbers 4a back-tested (_to_delete/4a/PREREG.md, gate_ovr.py, gate_pot.py): change one and the back-test no longer describes what ships, so a change is a new back-test first. Computed for the players on league rosters, the universe the back-test scored; 5b (Nick, 11-20): the free agents the hub lists are rated too, against the rostered players (never moving them), and unproven players follow \"unproven\" below.",
         "as_of": {
             "_comment": "The as-of conventions. The rating is as of the LIVE LOG's last logged day (keeper_history.live_inputs: LINEUPS.xlsx in the historical definitions), using only rows dated on or before it; games remaining count his NBA team's games from the next day through the season's last fantasy day (config/SCHEDULE.json, the last week's end_date), from the engine's NBA schedule (stand-ins included, Cup final excluded). The back-test did the same at week 2, mid-season and a trade-deadline point of each of nine seasons. This is OVR's G only: the schedule GRADE counts the next grades.schedule_weeks fantasy weeks instead (4a decision 5).",
             "games_remaining_through": "schedule_last_day"
@@ -604,6 +604,11 @@
             "next_year_weight": 1.0,
             "_next_year_weight": "Chosen leave-one-decision-out from {0, 0.5, 1}: 1 in all six folds.",
             "anchors": [[0, 60], [50, 78], [90, 90], [100, 99]]
+        },
+        "unproven": {
+            "_note": "5b (Nick, 11-20: \"These players should absolutely not get high OVR ratings. Even if they have a high average fppg, if its only been for a month... they haven't proved themselves yet.\"). UNPROVEN = no league-log seasons (his last three) and neither drafted nor kept this season, rostered or a free agent: the rule follows the player, not the roster. His level is his NBA-season FPPG shrunk toward prior_quantile of the proven rostered players' levels (0.0 = their replacement level) with k0 games: w = games / (games + k0). Drafted players with no history, and every player with league history, keep keepability v3's level (config/keepability_v3_params.json level_prior). No back-test covers this (no free agents in the league log): a judgment call, tighten or loosen here.",
+            "k0": 15,
+            "prior_quantile": 0.0
         },
         "scale_min": 40,
         "scale_max": 99,

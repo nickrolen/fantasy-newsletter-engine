@@ -420,7 +420,7 @@ def test_history_is_published_as_encrypted_parts_and_never_in_the_page(tmp_path)
     p["v2"]["issue"]["file"] = e["enc"]
     out = tmp_path / "_to_delete" / "4c4" / "publish"
     rep = v2pub.build(tmp_path, p, PASS, salt=b"\x02" * 16, out_dir=out, iterations=1000, terms=TERMS, now=GEN)
-    assert rep["league_parts"]["parts"] == 7 and rep["served_bytes"] <= budget_bytes()       # 4c5: + Awards
+    assert rep["league_parts"]["parts"] == 8 and rep["served_bytes"] <= budget_bytes()       # 4c5: + Awards; 5b: + the odds chart
     assert hub_publish.scan_dir(out, TERMS)["hits"] == {}
     inner = v2pub.open_inner(PASS, json.loads(re.search(r'id="hub-bundle">(.*?)</script>',
                                                         (out / "index.html").read_text(encoding="utf-8"), re.S).group(1)))
@@ -596,5 +596,5 @@ def test_real_league_in_every_segment_and_chip_the_preview_and_publish(tmp_path)
     rep = v2pub.build(ROOT, p, "throwaway " + os.urandom(8).hex(), salt=os.urandom(16), out_dir=out,
                       iterations=1000, terms=terms)
     assert rep["served_bytes"] <= budget_bytes()
-    assert rep["league_parts"]["parts"] == 7 and rep["league_parts"]["largest"] <= 60_000
+    assert rep["league_parts"]["parts"] == 8 and rep["league_parts"]["largest"] <= 60_000          # 5b: + the odds chart
     assert hub_publish.scan_dir(out, terms)["hits"] == {}

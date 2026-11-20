@@ -159,8 +159,10 @@ def _synth_payload_4b() -> dict:
     v2 = {"schema": 1, "teams": teams, "team_order": MGRS,
           "spark_scale": {"max": 50.0, "top": "50%", "note": "Title odds at the end of each week, and now; 0\u201350%."},
           "grid3": {"cols": [{"label": "Wk 9", "sub": "rest"}, {"label": "Wk 10", "sub": ""}, {"label": "Wk 11", "sub": ""}],
-                    "rows": [{"m": m, "cells": [{"n": "15", "b": 4 - j}, {"n": "45", "b": 2}, {"n": "44", "b": 3}]}
-                             for j, m in enumerate(MGRS)], "note": "Starts: games that fit a starting lineup."},
+                    "rows": [{"m": m, "cells": [{"n": "15" + ("\u2020" if j == 1 else ""), "b": 4 - j}, {"n": "45", "b": 2},
+                                                {"n": "44", "b": 3}], "idle": str(j)}
+                             for j, m in enumerate(MGRS)], "note": "Starts: games that fit a starting lineup.",
+                    "idle_label": {"label": "Idle", "sub": "rest"}},
           "sched_cols": [{"label": "Wk 9", "sub": "rest"}, {"label": "Wk 10", "sub": ""}, {"label": "Wk 11", "sub": ""}],
           "sched_note": "Games he will play each week.", "matchups": mus,
           "issue": {"text": "Week 8 issue", "week": "8", "file": "week08-aaaaaaaaaaaa.enc"}}
@@ -176,7 +178,16 @@ def _synth_payload_4b() -> dict:
         "matchup_views": views,
         "power": {"kind": "title", "label": "Title odds", "rows": power_rows, "as_of": "x", "note": "n"},
         "rosters": rosters,
-        "moves": {"weeks": [{"key": "9", "label": "Week 9 \u00b7 Nov 30\u2013Dec 6", "used": None, "used_note": "",
+        "moves": {"weeks": [{"key": "8", "label": "Week 8 \u00b7 Nov 23\u201329", "used_note": "Adds used.",
+                             "used": [{"manager": m, "text": f"{m} {4 if m == 'Tyler' else 1} of 3",
+                                       "over": m == "Tyler"} for m in MGRS],
+                             "items": [{"day": "Tue", "date": "11/24", "time": "9:00 AM", "who": "Tyler",
+                                        "what": "added Tyler Guard", "note": "", "state": "Applied", "kind": "add",
+                                        "parts": [{"kind": "add", "marker": "+", "text": "added Tyler Guard",
+                                                   "segs": [{"t": "added "}, {"t": "Tyler Guard"}]}]}]},
+                            {"key": "9", "label": "Week 9 \u00b7 Nov 30\u2013Dec 6", "used_note": "Adds used.",
+                             "used": [{"manager": m, "text": f"{m} {1 if m == 'Marcus' else 0} of 3", "over": False}
+                                      for m in MGRS],
                              "items": [{"day": "Mon", "date": "11/30", "time": "6:11 AM", "who": "Marcus",
                                         "what": "added Free Guy", "note": "", "state": "Applied", "kind": "add",
                                         "parts": [{"kind": "add", "marker": "+", "text": "added Free Guy",
@@ -258,7 +269,18 @@ def synth_ratings(rosters: dict, previous: bool) -> dict:
                 "components": {"level": 40.0 - k, "availability": 0.9 - k / 100.0, "games_remaining": 60 - k,
                                "game_sd": 10.0, "games": 10, "team_games": 12, "fppg": 40.0, "age": 25 + j},
                 "grades": grades, "archetype": None, "archetype_reason": "off"}
-    return {"as_of": SYN_YESTERDAY.isoformat(), "season": "2026-27", "players": players,
+    # 5b: the free agent is rated too (ratings.rate_free_agents' shape)
+    fa_grades = {g: ({"letter": "B", "percentile": 60.0, "value": 9.0 if g == "schedule" else 1.0, "reason": None}
+                     if gi % 2 == 0 else {"letter": None, "percentile": None, "value": None,
+                                          "reason": "9 games: shows after 10"})
+                 for gi, g in enumerate(GRADE_KEYS)}
+    fas = {FA_NAME: {"player": FA_NAME, "manager": "", "nba_team": "AAA", "free_agent": True, "ovr": 71,
+                     "ovr_change": 1 if previous else None, "ovr_reason": None, "ovr_composite": 400.0, "pot": 72,
+                     "pot_reason": None, "pot_value": 60.0,
+                     "components": {"level": 29.0, "availability": 0.9, "games_remaining": 55, "game_sd": 9.0,
+                                    "games": 9, "team_games": 10, "fppg": 31.5, "age": 24, "unproven": True},
+                     "grades": fa_grades, "archetype": None, "archetype_reason": "off"}}
+    return {"as_of": SYN_YESTERDAY.isoformat(), "season": "2026-27", "players": players, "free_agents": fas,
             "schedule_horizon": [GEN.date().isoformat(), (GEN.date() + timedelta(days=20)).isoformat()]}
 
 
@@ -284,13 +306,15 @@ def add_synth_players(p: dict, previous: bool = True) -> dict:
     res = synth_ratings(p["rosters"], previous)
     prev = None
     if previous:
+        both = {**res["players"], **res["free_agents"]}
         prev = {"as_of": (SYN_YESTERDAY - timedelta(days=7)).isoformat(), "season": "2026-27",
-                "ovr": {n: r["ovr"] - (r["ovr_change"] or 0) for n, r in res["players"].items()},
-                "pot": {n: r["pot"] - 1 for n, r in res["players"].items()},
+                "ovr": {n: r["ovr"] - (r["ovr_change"] or 0) for n, r in both.items()},
+                "pot": {n: r["pot"] - 1 for n, r in both.items()},
                 "terms": {n: [r["components"]["level"] - (2.0 if i % 3 == 0 else 0.0),
                               r["components"]["availability"] - (0.1 if i % 3 == 1 else 0.0),
                               r["components"]["games_remaining"] + 3]
-                          for i, (n, r) in enumerate(sorted(res["players"].items()))}}
+                          for i, (n, r) in enumerate(sorted(both.items()))},
+                "fa": [FA_NAME]}
     av = _FakeAv()
     ctx = {"ratings": {"result": res, "error": None, "previous_line": prev},
            "actuals": blob, "yesterday": SYN_YESTERDAY, "av": av,
@@ -472,8 +496,12 @@ def test_the_publish_mode_file_holds_only_ciphertext_and_round_trips(tmp_path):
     out = tmp_path / "_to_delete" / "4b" / "publish"
     rep = v2pub.build(tmp_path, p, PASS, salt=b"\x01" * 16, out_dir=out, iterations=1000, terms=TERMS, now=GEN)
     # 4c4: beside index.html, only League's History chips, each an encrypted part file (4c5: + Awards);
-    # 5a: and the archive's issues, byte for byte, as the current hub publishes them
-    assert rep["files"][0] == "index.html" and len(rep["files"]) == 9
+    # 5a: and the archive's issues, byte for byte, as the current hub publishes them; 5b: + the
+    # title-odds chart, Moves' older weeks, and the lazy screens (team pages, last week's matchups)
+    n_screens = len(p["v2"]["teams"]) + len((p["v2"].get("last") or {}).get("cards") or [])
+    assert len(rep["screen_parts"]) == n_screens and "odds" in rep["league_parts"]["bytes"]
+    assert rep["files"][0] == "index.html" and len(rep["files"]) == (
+        9 + 1 + n_screens + len(rep["market_parts"]) + len(rep["picture_parts"]))
     assert rep["files"][1] == f"issues/{e['enc']}"
     assert (out / "issues" / e["enc"]).read_bytes() == (tmp_path / "output" / "hub_archive" / e["enc"]).read_bytes()
     assert all(re.fullmatch(r"parts/[0-9a-f]{16}\.enc", f) for f in rep["files"][2:])
@@ -962,7 +990,8 @@ def add_synth_teams(p: dict) -> dict:
                     c["n"], c["b"] = "2", 2
     for r in v2["grid3"]["rows"]:
         for k, c in enumerate(r["cells"]):
-            c["tip"] = {"h": f"Wk {9 + k}", "b": "Mon 8 \u00b7 Tue 7", "f": f"{c['n']} starts"}
+            c["tip"] = {"h": f"Wk {9 + k}", "b": "Mon 8 \u00b7 Tue 7", "f": f"{c['n']} starts \u00b7 {r['idle']} idle"
+                        + (" \u00b7 \u2020 out tonight on the NBA's injury report: Tyler Guard" if c["n"].endswith("\u2020") else "")}
     for mu in v2["matchups"]:
         for r in mu["starts"]["rows"]:
             for k, c in enumerate(r["cells"]):

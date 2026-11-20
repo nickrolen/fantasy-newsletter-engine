@@ -74,6 +74,10 @@ def _rows(p):
     return p["v2"]["players"]["rows"]
 
 
+def pl_name(p, riser):
+    return p["v2"]["players"]["rows"][riser["i"]]["name"]
+
+
 def _row(p, name):
     return next(z for z in _rows(p) if z["name"] == name)
 
@@ -82,16 +86,17 @@ def _row(p, name):
 # s.1 ratings in the payload
 # =============================================================================
 
-def test_free_agents_get_no_ovr_and_no_pot_but_fppg_and_its_percentile(syn):
+def test_free_agents_get_ovr_pot_and_the_grades_5b(syn):
+    """5b (Nick, 11-20): a rated free agent shows OVR, POT, its change, the ring
+    and the eight tiles, like a rostered player; the FPPG-percentile line is gone."""
     p, _ = syn
     fa = _row(p, FA_NAME)
-    assert fa["kind"] == "fa" and fa["ovr"] == DASH and fa["pot"] == DASH and fa["ring"] is None
-    assert fa["ovr_k"] is None and fa["pot_k"] is None and fa["grades"] is None
-    assert fa["fppg"] == "31.5" and fa["fa_pct"].endswith("percentile of rostered players")
-    assert p["v2"]["ratings"]["fa_note"] == P.FA_PCT_NOTE
+    assert fa["kind"] == "fa" and fa["ovr"] == "71" and fa["pot"] == "72" and fa["ring"] is not None
+    assert fa["ovr_k"] == 71 and fa["pot_k"] == 72 and len(fa["grades"]) == 8 and fa["avail"] == "90%"
+    assert fa["ovr_d"]["t"] == "\u25b21" and fa["fppg"] == "31.5"
+    assert "fa_pct" not in fa and "fa_note" not in p["v2"]["ratings"] and not hasattr(P, "FA_PCT_NOTE")
     for z in _rows(p):
-        if z["kind"] == "rostered":
-            assert z["ovr"] != DASH and len(z["grades"]) == 8 and z["fa_pct"] == ""
+        assert z["ovr"] != DASH and len(z["grades"]) == 8 and "fa_pct" not in z
 
 
 def test_the_weekly_change_needs_a_line_at_least_7_days_back():
@@ -280,8 +285,13 @@ def test_every_row_carries_its_search_key_and_filter_values_from_the_payload(syn
         assert got == want
 
 
-def test_the_orders_put_missing_values_last_both_ways(syn):
-    p, _ = syn
+def test_the_orders_put_missing_values_last_both_ways(monkeypatch):
+    # 5b: free agents are rated; one without a rating (none here) sorts last both ways
+    import test_hub_v2 as T
+    real = T.synth_ratings
+    monkeypatch.setattr(T, "synth_ratings", lambda r, prev: dict(real(r, prev), free_agents={}))
+    p = T.synth_payload()
+    assert _row(p, FA_NAME)["ovr"] == DASH and _row(p, FA_NAME)["ovr_note"] == "not rated"
     pl = p["v2"]["players"]
     rows = pl["rows"]
     fa = next(i for i, z in enumerate(rows) if z["kind"] == "fa")
@@ -299,7 +309,8 @@ def test_the_table_and_the_risers(syn):
     assert re.findall(r'data-psort="(\w+)"', sec) == ["name", "ovr", "pot", "fppg", "next"]
     assert 'id="pl-search"' in sec and 'data-filter="k"' in sec and 'data-filter="h"' in sec
     risers = p["v2"]["players"]["risers"]
-    assert risers and [r["d"] for r in risers] == ["\u25b23", "\u25b22"]
+    assert risers and [r["d"] for r in risers] == ["\u25b23", "\u25b22", "\u25b21"]     # 5b: + the free agent
+    assert risers[2]["reason"].startswith("FA \u00b7 ") and pl_name(p, risers[2]) == FA_NAME
     for r in risers:
         assert r["reason"] in visible_text(sec)
     # a free agent's OVR/POT cells say the dash, and the OVR column carries the InfoTip
@@ -408,12 +419,13 @@ def test_the_card_obeys_the_page_rules(syn):
             assert f'data-pane-of="{tab}"' in h
 
 
-def test_the_free_agent_card_shows_fppg_and_its_percentile_not_ovr(syn):
+def test_the_free_agent_card_shows_his_ovr_ring_and_grades_5b(syn):
     p, cards = syn
     h = v2pub.card_html_all(p, cards)[FA_KEY]
     t = visible_text(h)
-    assert "No OVR or POT for free agents." in t and "percentile of rostered players" in t
-    assert "lh-ring" not in h and "Free agents get no grades" in t and "Free agents have no keep chance." in t
+    assert "No OVR or POT for free agents." not in t and "percentile of rostered players" not in t
+    assert "lh-ring" in h and 'aria-label="Overall rating 71 of 99"' in h and "lh-grades" in h
+    assert "Free agents have no keep chance." in t
     assert "On a league roster: 27.5 FPPG in 8 games" in t                     # the secondary line
 
 
@@ -444,9 +456,11 @@ def test_the_renderer_does_no_arithmetic_on_the_new_screens():
 def test_the_infotips_are_written_once_and_the_ovr_and_efficiency_words_are_the_decisions():
     assert infotips.tip("ovr")[1] == ("Rest-of-season fantasy value above a replacement player: his scoring level, "
                                       "how often he plays, and his team's games left. It doesn't know injury return "
-                                      "dates yet.")
+                                      "dates yet. Free agents are rated the same way. A player new to the league is "
+                                      "held back until he's proved himself.")   # Nick, 11-20: shortened
+    assert "fa_pct" not in infotips.TIPS                                       # 5b: the free agents' tile is gone
     assert infotips.tip("grade_efficiency") == ("FG% & TOs", "Fantasy points from his makes, misses and turnovers.")
-    for k in ("pot", "fppg", "grades", "fa_pct", "age_curve", "grade_scoring", "grade_playmaking",
+    for k in ("pot", "fppg", "grades", "age_curve", "grade_scoring", "grade_playmaking",
               "grade_rebounding", "grade_stocks", "grade_durability", "grade_consistency", "grade_schedule"):
         assert infotips.tip(k)[1]
 
@@ -455,7 +469,7 @@ def test_the_infotips_are_written_once_and_the_ovr_and_efficiency_words_are_the_
 # s.4 Compare
 # =============================================================================
 
-def test_compare_keys_are_integers_age_has_none_and_a_free_agent_wins_nothing(syn):
+def test_compare_keys_are_integers_age_has_none_and_a_free_agent_has_no_keep(syn):
     p, _ = syn
     pl = p["v2"]["players"]
     labels = [r["label"] for r in pl["cmp_rows"]]
@@ -469,9 +483,11 @@ def test_compare_keys_are_integers_age_has_none_and_a_free_agent_wins_nothing(sy
             assert c["k"] is None or type(c["k"]) is int
             if c["k"] is None:
                 continue
-    fa = _row(p, FA_NAME)
-    for lab in ("POT", "Avail %", "Keep %", "Scoring", "FG% & TOs"):
-        assert fa["cmp"][labels.index(lab)] == {"t": DASH, "k": None}
+    fa = _row(p, FA_NAME)                    # 5b: rated, so he competes on POT, Avail % and the grades
+    assert fa["cmp"][labels.index("Keep %")] == {"t": DASH, "k": None}
+    assert fa["cmp"][labels.index("POT")] == {"t": "72", "k": 72}
+    assert fa["cmp"][labels.index("Avail %")] == {"t": "90%", "k": 90}
+    assert fa["cmp"][labels.index("Scoring")]["t"] == "B" and fa["cmp"][labels.index("Playmaking")]["k"] is None
 
 
 def test_compare_keys_follow_what_is_printed(syn):
@@ -619,8 +635,10 @@ def test_real_ratings_players_cards_compare_and_publish(real, tmp_path):
             r = fresh["players"][z["name"]]
             assert z["ovr"] == (DASH if r["ovr"] is None else str(r["ovr"])), z["name"]
             assert z["pot"] == (DASH if r["pot"] is None else str(r["pot"])), z["name"]
-        else:
-            assert z["ovr"] == DASH and z["pot"] == DASH
+        else:                                # 5b: the free agents are rated (hub_state.ratings_fa_step)
+            r = rt["result"]["free_agents"][z["name"]]
+            assert z["ovr"] == (DASH if r["ovr"] is None else str(r["ovr"])), z["name"]
+            assert z["pot"] == (DASH if r["pot"] is None else str(r["pot"])), z["name"]
     assert len(pl["rows"]) == len(p["cards"]["players"])
     # the preview: Players, three cards (a star, a rookie, a free agent) and a Compare
     now = datetime.fromisoformat(p["generated_at"]) + timedelta(minutes=5)
@@ -637,7 +655,7 @@ def test_real_ratings_players_cards_compare_and_publish(real, tmp_path):
     star = rows[pl["orders"]["ovr"]["d"][0]]
     rookies = [z for z in rows if z["kind"] == "rostered" and len(cards["cards"][z["key"]]["career"].get(
         "season_breakdown") or []) <= 1]
-    fa = next(z for z in rows if z["kind"] == "fa")
+    fa = next(z for z in rows if z["kind"] == "fa" and z["ovr"] != DASH)
     views = C.views(p, cards)
     for z in [star, fa] + rookies[:1]:
         v = views[z["key"]]
@@ -646,7 +664,7 @@ def test_real_ratings_players_cards_compare_and_publish(real, tmp_path):
         kk = known + " " + " ".join(strings(v))
         for n in re.findall(r"\d+(?:[.,]\d+)*", visible_text(ch)):
             assert n in kk, (z["name"], n)
-    assert views[fa["key"]]["hero"]["ring"] is None
+    assert views[fa["key"]]["hero"]["ring"] is not None                 # 5b: rated, so his ring shows
     d = json.loads(re.search(r'<script type="application/json" id="v2-cmp">(.*?)</script>', h, re.S).group(1))
     assert star["key"] in d["rows"] and fa["key"] in d["rows"]
     # publish mode to a temp folder: the budget and the plaintext scan (a throwaway key)

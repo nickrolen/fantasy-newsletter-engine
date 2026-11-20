@@ -214,6 +214,17 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
     # 4c3: pictures {manager: data URI} (team_pictures.data_uris, given by the page's builder):
     # a team with one shows it in its TeamMark, over the monogram
     pictures = pictures or {}
+    # 5b (the first load): published, the page carries each picture's SMALL
+    # copy inline (team_pictures.small_uris) and the full one as a lazy part
+    # (publish.picture_files), opened with a team page; the preview, or a
+    # build that cannot make the small copies (no Pillow), carries the full
+    # pictures inline, as before
+    inline_pics, big_pics = pictures, {}
+    if mode == "publish" and pictures:
+        from .. import team_pictures as _tp
+        small = _tp.small_uris(pictures)
+        if small is not None:
+            inline_pics, big_pics = small, {m: u for m, u in pictures.items() if small.get(m) != u}
     teams = {m: {"cls": team_cls(t["slot"]), "slot": t["slot"], "mono": t["mono"], "team": t["team"],
                  "manager": m, "href": f"#/teams/{m}", "pic": m in pictures} for m, t in teams_v2.items()}
     rosters = payload["rosters"]
@@ -354,7 +365,9 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
                            "flow": flow_chart(c["flow"], a, b, teams)})
         last = {"title": lw["title"], "note": lw["note"], "cards": lcards}
     grid3 = {"cols": v2["grid3"]["cols"], "note": v2["grid3"]["note"],
-             "rows": [{"team": teams[r["m"]], "cells": r["cells"]} for r in v2["grid3"]["rows"]]}
+             "idle_label": v2["grid3"].get("idle_label"),                      # 5b: the Idle column
+             "rows": [{"team": teams[r["m"]], "cells": r["cells"], "total": r.get("idle", "")}
+                      for r in v2["grid3"]["rows"]]}
 
     # ------------------------------------------------------------------ the issue bar
     iss = v2["issue"]
@@ -388,8 +401,10 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "market": market(payload, teams),
         "league": dict(league(payload, teams, mode, archive_href),
                        history=league_history(payload, teams) if "league_history" in v2 else None),
-        "pictures": [{"slot": teams_v2[m]["slot"], "uri": uri} for m, uri in sorted(pictures.items())
+        "pictures": [{"slot": teams_v2[m]["slot"], "uri": uri} for m, uri in sorted(inline_pics.items())
                      if m in teams_v2],
+        "pictures_big": [{"slot": teams_v2[m]["slot"], "m": m, "uri": uri} for m, uri in sorted(big_pics.items())
+                         if m in teams_v2],
         "footer": (f"Engine {payload['engine']['key']} \u00b7 actual points through "
                    f"{payload['sources']['actuals_through']}")}
 
@@ -487,7 +502,7 @@ def players(payload: dict, teams: dict) -> dict:
             "default": pl["default"], "count": pl["count"], "who": pl["who"], "risers": risers,
             "filters": {"pos": [{"v": x, "t": x} for x in f["pos"]], "nba": [{"v": x, "t": x} for x in f["nba"]],
                         "age": [{"v": a["key"], "t": a["label"]} for a in f["age"]]},
-            "error": rt["error"], "as_of": rt["as_of"], "change_note": rt["change_note"], "fa_note": rt["fa_note"],
+            "error": rt["error"], "as_of": rt["as_of"], "change_note": rt["change_note"],
             "preview_arch": bool(rt.get("preview")),
             "cmp_json": _json.dumps(cmp, separators=(",", ":"), ensure_ascii=True),
             "pick": [r for r in rows if r["key"]]}

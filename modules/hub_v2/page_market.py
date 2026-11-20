@@ -20,6 +20,8 @@ rule for LAYOUT_CSS holds here too).
 
 from __future__ import annotations
 
+import json
+
 from ..live_lines_page import clean
 
 TAP_CLASSES = ("adv-row", "adv-bk", "v2-mkcell", "v2-mvchip")
@@ -45,6 +47,11 @@ CSS = """
 .v2-mv-part{font-size:var(--type-body-size);overflow-wrap:anywhere}
 .v2-mv-part b{font-size:var(--type-row-size)}
 .v2-mv-add{color:var(--up)}
+.v2-mv-wk{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-8) 0 var(--space-4);border-top:var(--hairline) solid var(--line)}
+.v2-mv-wk:first-child{border-top:0}
+.v2-mv-used{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-10);font-size:var(--type-meta-size);font-weight:600;color:var(--ink-2)}
+.v2-mv-over{color:var(--down);font-weight:800}
+.v2-mv-older{padding-top:var(--space-8)}
 .v2-mv-drop{color:var(--down)}
 .v2-mv-il{color:var(--status-il)}
 .v2-mv-trade{color:var(--ink-2)}
@@ -107,7 +114,21 @@ JS = r"""
 // 4c3: the Market tab -- the free agents' filters and sort, the moves' team
 // chips, the advice rows (closed at first; a tap opens and closes). Nothing
 // computed: the orders are the payload's.
-var MK={pos:'',h:''};
+var MK={pos:'',h:'',mv:''};
+// 5b: Market > Moves' older budget weeks: an encrypted part when published
+// (a template in the preview), opened on "Show older weeks"
+function mvOlder(btn){
+  var box=btn.closest('[data-mvolder-of]');if(!box||box.getAttribute('data-loaded')){return;}
+  var put=function(html){box.innerHTML=html;box.setAttribute('data-loaded','1');mvFilter(MK.mv);};
+  var tpl=document.getElementById('v2-mk-older');
+  if(tpl){put(tpl.innerHTML);return;}
+  var ref=box.getAttribute('data-part');
+  if(!ref||!window.HUB||!window.HUB.part){return;}
+  btn.disabled=true;btn.textContent='Opening\u2026';
+  window.HUB.part(JSON.parse(ref)).then(function(p){put(p.html);},function(err){
+    if(err&&err.message==='gone'){movedBox();}
+    btn.disabled=false;btn.textContent='The older weeks could not be opened. Try again';});
+}
 function mkFilter(){
   var tb=document.getElementById('mk-fa');if(!tb){return;}
   var trs=tb.querySelectorAll('tbody tr[data-i]'),any=false;
@@ -118,6 +139,7 @@ function mkFilter(){
   var n=document.getElementById('mk-fa-none');if(n){n.hidden=any;}
 }
 function mvFilter(m){
+  MK.mv=m;
   var bs=document.querySelectorAll('[data-mvf]');
   for(var i=0;i<bs.length;i++){bs[i].setAttribute('aria-pressed',String(bs[i].getAttribute('data-mvf')===m));}
   var it=document.querySelectorAll('#mk-moves [data-ms]');
@@ -132,6 +154,8 @@ document.addEventListener('click',function(e){
   if(t){var on=t.getAttribute('aria-pressed')!=='true';t.setAttribute('aria-pressed',String(on));MK.h=on?'1':'';mkFilter();return;}
   t=e.target.closest('[data-mvf]');
   if(t){mvFilter(t.getAttribute('data-mvf'));return;}
+  t=e.target.closest('[data-mvolder]');
+  if(t){mvOlder(t);return;}
 });
 document.addEventListener('change',function(e){
   var t=e.target;
@@ -248,7 +272,37 @@ def _block(b: dict) -> str:
     return "".join(o)
 
 
-def _moves(mv: dict) -> str:
+def _week_head(w: dict) -> str:
+    """5b (5a decision 7): a budget week's label and its adds used, each
+    manager's (data-ms: the team chips filter it), over the budget in red."""
+    if w["used"] is None:
+        used = f'<span class="lh-sub">{clean(w["note"])}</span>' if w["note"] else ""
+    else:
+        used = ('<span class="v2-mv-used"><span>Adds used:</span>' + "".join(
+            f'<span data-ms="{clean(u["m"])}"{" class=" + chr(34) + "v2-mv-over" + chr(34) if u["over"] else ""}>'
+            f'{clean(u["text"])}{" (over)" if u["over"] else ""}</span>' for u in w["used"]) + "</span>")
+    return f'<div class="v2-mv-wk"><b class="v2-name14">{clean(w["label"])}</b>{used}</div>'
+
+
+def _week_items(mv: dict, weeks: list) -> str:
+    o = []
+    for w in weeks:
+        mine = [it for it in mv["items"] if it.get("wk") == w["key"]]
+        if not mine and w["used"] is None:
+            continue
+        o.append(_week_head(w))
+        o.extend(_move_row(it) for it in mine)
+    return "".join(o)
+
+
+def moves_older_html(mv: dict) -> str:
+    """Every budget week but the latest (5b: Market > Moves' lazy part), or
+    "" when there is none."""
+    weeks = mv.get("weeks") or []
+    return _week_items(mv, weeks[1:]) if len(weeks) > 1 else ""
+
+
+def _moves(mv: dict, parts: dict = None, mode: str = "preview") -> str:
     o = ['<div class="v2-fchips" role="group" aria-label="Team">'
          '<button type="button" class="v2-fchip v2-mvchip" data-mvf="" aria-pressed="true">All teams</button>']
     for t in mv["teams"]:
@@ -258,20 +312,37 @@ def _moves(mv: dict) -> str:
              '<h2 class="lh-eyebrow">Moves</h2></div>')
     if not mv["items"]:
         o.append(f'<p class="v2-p">{clean(mv["empty"])}</p>')
+    weeks = mv.get("weeks") or []
     o.append('<div class="v2-mk-list">')
-    for it in mv["items"]:
-        head = " &middot; ".join(_team_link(t) for t in it["teams"]) if it["mkind"] != "trade" else (
-            "Trade &middot; " + f" {chr(8644)} ".join(_team_link(t) for t in it["teams"]))
-        parts = "".join(f'<span class="v2-mv-part"><span class="v2-mv-{clean(p["kind"])}">{clean(p["marker"])}</span> '
-                        + "".join(_seg(x) for x in p["segs"]) + "</span>" for p in it["parts"])
-        meta = " &middot; ".join(clean(x) for x in (it["note"], it["state"] if it["state"] != "Applied" else "") if x)
-        o.append(f'<div class="v2-mv" data-ms="{clean(" ".join(it["ms"]))}"><span class="v2-mv-mark v2-mv-{it["mkind"]}" '
-                 f'aria-hidden="true">{clean(it["marker"])}</span><span class="v2-mv-body"><span class="lh-sub">{head}</span>'
-                 f'{parts}{"<span class=" + chr(34) + "lh-sub" + chr(34) + ">" + meta + "</span>" if meta else ""}</span>'
-                 f'<span class="v2-mk-right"><span class="lh-sub">{clean(it["when"])}</span>'
-                 f'<span class="lh-sub">{clean(it["time"])}</span></span></div>')
+    o.append(_week_items(mv, weeks[:1]))
+    older = moves_older_html(mv)
+    if older:
+        # published: an encrypted part (publish.market_files); the preview: a template. A page
+        # rendered in publish mode without the part (a test's) carries them inline.
+        ref = (parts or {}).get("moves_older")
+        if ref or mode != "publish":
+            attr = f" data-part='{clean(json.dumps(ref, separators=(',', ':')))}'" if ref else ""
+            o.append(f'<div class="v2-mv-older" data-mvolder-of="1"{attr}><button type="button" class="lh-btn v2-btn" '
+                     'data-mvolder="1">Show older weeks</button></div>')
+            if not ref:
+                o.append(f'<template id="v2-mk-older">{older}</template>')
+        else:
+            o.append(older)
     o.append(f'</div><span class="lh-sub">{clean(mv["note"])}</span></section>')
     return "".join(o)
+
+
+def _move_row(it: dict) -> str:
+    head = " &middot; ".join(_team_link(t) for t in it["teams"]) if it["mkind"] != "trade" else (
+        "Trade &middot; " + f" {chr(8644)} ".join(_team_link(t) for t in it["teams"]))
+    parts = "".join(f'<span class="v2-mv-part"><span class="v2-mv-{clean(p["kind"])}">{clean(p["marker"])}</span> '
+                    + "".join(_seg(x) for x in p["segs"]) + "</span>" for p in it["parts"])
+    meta = " &middot; ".join(clean(x) for x in (it["note"], it["state"] if it["state"] != "Applied" else "") if x)
+    return (f'<div class="v2-mv" data-ms="{clean(" ".join(it["ms"]))}"><span class="v2-mv-mark v2-mv-{it["mkind"]}" '
+            f'aria-hidden="true">{clean(it["marker"])}</span><span class="v2-mv-body"><span class="lh-sub">{head}</span>'
+            f'{parts}{"<span class=" + chr(34) + "lh-sub" + chr(34) + ">" + meta + "</span>" if meta else ""}</span>'
+            f'<span class="v2-mk-right"><span class="lh-sub">{clean(it["when"])}</span>'
+            f'<span class="lh-sub">{clean(it["time"])}</span></span></div>')
 
 
 def _seg(x: dict) -> str:
@@ -417,7 +488,7 @@ def market_screen(vm: dict, ids, info_of, mark_of) -> str:
         elif k == "block":
             o.append(_block(mk["block"]))
         elif k == "moves":
-            o.append(_moves(mk["moves"]))
+            o.append(_moves(mk["moves"], mk.get("parts"), vm.get("mode", "preview")))
         o.append("</div>")
     o.append("</div></section>")
     return "".join(o)

@@ -95,6 +95,9 @@ button.lh-name{all:unset;position:relative;cursor:pointer;font-size:var(--type-r
 .v2-mono-28{--s:var(--mono-28)}
 .v2-pic{position:relative}
 .v2-pic::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent center/cover no-repeat}
+.v2-bigpic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;opacity:0}
+.v2-bigpic-on .v2-bigpic{opacity:1}
+.v2-bigpic-on::after{content:none}
 .v2-mcard{text-decoration:none;color:var(--ink);gap:var(--space-12)}
 .v2-mpts{display:flex;flex-direction:column;align-items:flex-end}
 .v2-mcard .lh-mrow__name,.v2-mside .lh-mrow__name{white-space:normal;overflow-wrap:anywhere}
@@ -268,7 +271,9 @@ def _mono(team: dict, size: str = "") -> str:
     over it when the page has one (4c3; v2-pic-<slot>, defined once in the
     page's pictures style). A picture that fails to draw leaves the monogram."""
     pic = f' v2-pic v2-pic-{team["slot"]}' if team.get("pic") else ""
-    return f'<span class="lh-mono {team["cls"]}{" v2-mono-" + size if size else ""}{pic}" aria-hidden="true">' \
+    ref = team.get("pic_ref") if size == "72" else None      # 5b: the full picture, a lazy part
+    big = f" data-pic='{clean(json.dumps(ref, separators=(',', ':')))}'" if ref else ""
+    return f'<span class="lh-mono {team["cls"]}{" v2-mono-" + size if size else ""}{pic}"{big} aria-hidden="true">' \
            f'{clean(team["mono"])}</span>'
 
 
@@ -293,6 +298,34 @@ def _segs(segs) -> str:
             lead, trail = t[:len(t) - len(t.lstrip())], t[len(t.rstrip()):]
             out.append((lead + clean(t) + trail) if t.strip() else t.replace("<", "").replace(">", ""))
     return "".join(out)
+
+
+LAZY_TOKEN = "@@v2-screen-part-{n}@@"
+
+
+def _lazy(html: str, vm: dict) -> str:
+    """5b (the first load): published, a screen whose route is in
+    vm["lazy_screens"] (the team pages and last week's matchup pages,
+    publish.LAZY_SCREENS) leaves the page: its content is kept in
+    vm["_screen_html"] (publish.build seals each as a part) and the page
+    keeps the screen's own tag, its top bar and "Opening...", with
+    data-screen-part (LAZY_TOKEN, filled with the part's ref by
+    publish.build). route() opens the part on the screen's first show and
+    routes again. Anywhere else (the preview), the screen as it is."""
+    import re as _re
+    import html as _h
+    lz = vm.get("lazy_screens")
+    if not lz:
+        return html
+    m = _re.match(r'(<section class="v2-screen" data-route="([^"]+)"[^>]*>)(.*)</section>\Z', html, _re.S)
+    if not m or _h.unescape(m.group(2)) not in lz:
+        return html
+    store = vm.setdefault("_screen_html", [])
+    n = len(store)
+    store.append({"route": _h.unescape(m.group(2)), "html": m.group(3)})
+    top = _re.match(r'<div class="v2-topbar">.*?</div>', m.group(3), _re.S)
+    return (m.group(1)[:-1] + f" data-screen-part='{LAZY_TOKEN.format(n=n)}'>" + (top.group(0) if top else "")
+            + '<p class="v2-card-load v2-screen-load">Opening&hellip;</p></section>')
 
 
 def _topbar(href: str, label: str, age: str) -> str:
@@ -358,12 +391,14 @@ def _cell(c: dict) -> str:
             f'aria-label="{_tip_label(c["tip"], c["n"])}">{clean(c["n"])}</button>')
 
 
-def _heat(rows: list, cols: list, *, total: bool, label_of) -> str:
+def _heat(rows: list, cols: list, *, total: bool, label_of, total_head: dict = None) -> str:
     n = len(cols)
     cls = "v2-heat--tot" if total else "v2-heat"
     o = [f'<div class="v2-heat-rows"><div class="lh-heat {cls} v2-heat-h" style="--n:{n}"><span></span>']
     o += [f'<span><span>{clean(c["label"])}</span><span>{clean(c.get("sub", ""))}</span></span>' for c in cols]
-    if total:
+    if total and total_head:                       # 5b: the games grid's Idle
+        o.append(f'<span><span>{clean(total_head["label"])}</span><span>{clean(total_head.get("sub", ""))}</span></span>')
+    elif total:
         o.append('<span>Total</span>')
     o.append("</div>")
     for r in rows:
@@ -781,7 +816,7 @@ def render(vm: dict, *, cards: dict = None) -> str:
              + "".join(_matchup_card(mu) for mu in vm["matchups"]) + "</section>"
              '<section class="lh-card v2-gap8" data-section="grid"><div class="lh-sechead"><h2 class="lh-eyebrow">Games grid</h2>'
              '<span class="lh-meta">starts per week</span></div>'
-             + _heat(g["rows"], g["cols"], total=False,
+             + _heat(g["rows"], g["cols"], total=bool(g.get("idle_label")), total_head=g.get("idle_label"),
                      label_of=lambda r: f'<a class="v2-heat-a v2-tap {r["team"]["cls"]}" href="{r["team"]["href"]}">'
                                         f'<span class="lh-swatch"></span>{clean(r["team"]["team"])}</a>')
              + f'<span class="lh-sub">{clean(g["note"])}</span></section>'
@@ -789,14 +824,14 @@ def render(vm: dict, *, cards: dict = None) -> str:
     for mu in vm["matchups"]:
         o.append(_matchup_page(mu, vm, ids))
     for lc in (vm["last"] or {}).get("cards", []):
-        o.append(_last_page(lc, vm, ids))
+        o.append(_lazy(_last_page(lc, vm, ids), vm))
 
     # ---------------------------------------------------------------- teams
     o.append('<section class="v2-screen" data-route="teams" hidden><div class="v2-stack"><section class="v2-sec">'
              '<div class="lh-sechead"><h2 class="lh-eyebrow">Teams</h2></div><div class="v2-teamgrid">'
              + "".join(_team_card(tp, vm["odds_label"]) for tp in vm["team_pages"]) + "</div></section></div></section>")
     for tp in vm["team_pages"]:
-        o.append(_team_page(tp, vm, ids))
+        o.append(_lazy(_team_page(tp, vm, ids), vm))
 
     # ---------------------------------------------------------------- players (4c1)
     o.append(pp.players_screen(vm, ids))
@@ -886,14 +921,17 @@ function route(){
   for(var t=0;t<ts.length;t++){if(ts[t].getAttribute('data-tab')===tab){ts[t].setAttribute('aria-current','page');}
     else{ts[t].removeAttribute('aria-current');}}
   hideTip();
+  if(lazyScreen(target)){window.scrollTo(0,0);return;}
   if(seen['dgroup']){dgroup(seen['dgroup']);}
   var segs=target.querySelectorAll('.lh-seg[data-seg]');
   for(var s=0;s<segs.length;s++){var kind=segs[s].getAttribute('data-seg');if(seen[kind]){pick(segs[s],seen[kind]);}}
   window.scrollTo(0,0);
+  bigPic(target);
   if(dyn==='player'){showCard(parts[1]);}
   else if(dyn==='compare-pick'){showPick(parts[2]);}
   else if(dyn==='compare'){showCompare(parts[2],parts[3]);}
   else if(dyn==='league'&&window.lgRoute){window.lgRoute(parts.slice(1));}
+  if(window.lgOdds){window.lgOdds();}
   if(r==='players'&&focusSearch){focusSearch=false;var sf=document.getElementById('pl-search');if(sf){sf.focus();}}
 }
 window.addEventListener('hashchange',function(){depth++;route();});
@@ -1143,6 +1181,42 @@ function pickFilter(){
 }
 function alertBox(msg){var d=document.createElement('div');d.className='lh-stale';d.setAttribute('role','status');
   d.textContent=msg;hub.insertBefore(d,hub.firstChild);}
+// 5b: a lazy screen (a team page, last week's matchup page): published, its
+// content is an encrypted part, opened on its first show; then route() runs
+// again, so the screen is set up as if it had been there all along. True
+// while it is opening.
+function lazyScreen(scr){
+  var ref=scr.getAttribute('data-screen-part');
+  if(!ref||scr.getAttribute('data-loaded')){return false;}
+  if(scr.getAttribute('data-loading')){return true;}
+  if(!window.HUB||!window.HUB.part){return true;}
+  scr.setAttribute('data-loading','1');
+  window.HUB.part(JSON.parse(ref)).then(function(p){
+    scr.innerHTML=p.html;scr.setAttribute('data-loaded','1');scr.removeAttribute('data-loading');
+    if(!scr.hidden){route();}
+  },function(err){
+    scr.removeAttribute('data-loading');if(err&&err.message==='gone'){movedBox();}
+    var e=scr.querySelector('.v2-screen-load');if(e){e.textContent=(err&&err.message==='old browser')?
+      'This browser is too old to open this page.':'This page could not be opened. Go back and try again.';}
+  });
+  return true;
+}
+// 5b: a team page's full-size picture (its 72 TeamMark): an encrypted part
+// opened with the page; the small copy (inline) shows until it arrives, and
+// stays if it cannot be opened. Only a base64 image data URI is drawn.
+function bigPic(scr){
+  var el=scr.querySelector('[data-pic]');
+  if(!el||el.getAttribute('data-pic-on')||!window.HUB||!window.HUB.part){return;}
+  el.setAttribute('data-pic-on','1');
+  window.HUB.part(JSON.parse(el.getAttribute('data-pic'))).then(function(p){
+    var u=String((p&&p.pic)||'');
+    if(!/^data:image\/(jpeg|png|gif|webp);base64,[A-Za-z0-9+\/=]+$/.test(u)){return;}
+    var img=document.createElement('img');img.alt='';img.className='v2-bigpic';
+    img.addEventListener('load',function(){el.classList.add('v2-bigpic-on');el.setAttribute('data-pic-on','2');});
+    img.addEventListener('error',function(){img.remove();});      // the small copy stays
+    img.src=u;el.appendChild(img);
+  },function(){el.removeAttribute('data-pic-on');});
+}
 function movedBox(){
   if(document.getElementById('hub-moved')){return;}
   var d=document.createElement('div');d.className='lh-stale';d.id='hub-moved';d.setAttribute('role','status');

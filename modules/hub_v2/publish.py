@@ -52,6 +52,18 @@ parts/<sha16>.enc. Each chip's file and key ride inside the ENCRYPTED page
 payload without the History (no side file) builds the page with the chips'
 panes empty, saying why: never a plaintext copy.
 
+THE FIRST LOAD (5b): beside History and Awards, these leave index.html as
+encrypted parts too (parts/<sha16>.enc, content-keyed, opened by HUB.part):
+    the team pages and last week's matchup pages (LAZY_SCREENS; screen_files):
+        the page keeps each screen's tag, top bar and "Opening...", with
+        data-screen-part; page.lazyScreen opens it on its first show
+    each team's full picture (picture_files): the page carries a SMALL copy
+        (team_pictures.SMALL_PX, 72: the largest inline TeamMark at 2x); the
+        team page's 72 mark carries data-pic, opened with the page
+    the title-odds chart (League > Standings: league_files "odds")
+    Market > Moves' older budget weeks (market_files; "Show older weeks")
+The plaintext preview keeps all of them inline.
+
 An ARCHETYPE PREVIEW (build_hub.py --v2 --archetype-preview) is never built in
 publish mode: build() refuses a payload that carries one.
 """
@@ -167,6 +179,8 @@ def league_files(vm: dict, root_key: bytes, terms=()) -> tuple:
     htmls = {}
     if lg.get("awards") is not None:                 # 4c5: the Awards segment, one more part
         htmls["awards"] = page_league.awards_html(lg["awards"], _page._mono, _page._chart, _page.INFO)
+    if lg.get("chart") is not None:                  # 5b: the title-odds chart, one more
+        htmls["odds"] = page_league.odds_html(lg, _page._chart)
     for chip, _lab in (h["chips"] if h else []):
         htmls[chip] = page_league.chip_html(h, chip, _page._mono)
     if not htmls:
@@ -180,6 +194,75 @@ def league_files(vm: dict, root_key: bytes, terms=()) -> tuple:
         refs[key] = {"file": rel, "key": hub_crypto.b64(k)}
         sizes[key] = len(blob)
     return files, refs, {"parts": len(files), "bytes": sizes, "largest": max(sizes.values()) if sizes else 0}
+
+
+def picture_files(vm: dict, root_key: bytes, terms=()) -> tuple:
+    """5b: ({relative path: bytes}, {manager: {"file", "key"}}) -- each team's
+    full picture (vm["pictures_big"]: the page carries its small copy
+    inline) as one encrypted part, gzipped JSON {"pic": its data URI},
+    opened when that team's page opens (page.bigPic). The refs ride inside
+    the ENCRYPTED page, on the team page's 72 TeamMark (data-pic)."""
+    import hashlib
+    from .. import hub_crypto, hub_cards
+    big = vm.get("pictures_big") or []
+    if not big:
+        return {}, {}
+    K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
+    files, refs = {}, {}
+    for p in big:
+        k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"pic": p["uri"]}), terms)
+        rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+        files[rel] = blob
+        refs[p["m"]] = {"file": rel, "key": hub_crypto.b64(k)}
+    return files, refs
+
+
+def market_files(vm: dict, root_key: bytes, terms=()) -> tuple:
+    """5b: ({relative path: bytes}, {"moves_older": ref}) -- Market > Moves'
+    older budget weeks (page_market.moves_older_html), one encrypted part
+    opened on "Show older weeks"; the latest week stays in the page."""
+    import hashlib
+    from .. import hub_crypto, hub_cards
+    from . import page_market
+    html = page_market.moves_older_html(((vm.get("market") or {}).get("moves")) or {})
+    if not html:
+        return {}, {}
+    K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
+    k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": html}), terms)
+    rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+    return {rel: blob}, {"moves_older": {"file": rel, "key": hub_crypto.b64(k)}}
+
+
+LAZY_SCREENS = ("team pages", "last week's matchup pages")
+
+
+def lazy_routes(vm: dict) -> set:
+    """5b: the screens that leave the published first load (LAZY_SCREENS):
+    every team page and last week's matchup pages."""
+    return ({tp["route"] for tp in vm.get("team_pages") or []}
+            | {lc["route"] for lc in ((vm.get("last") or {}).get("cards") or [])})
+
+
+def screen_files(vm: dict, html: str, root_key: bytes, terms=()) -> tuple:
+    """5b: (the page with each lazy screen's ref filled in, {relative path:
+    bytes}, {route: bytes}) -- each screen page.render left out
+    (vm["_screen_html"]) sealed as one part, gzipped JSON {"html"}."""
+    import hashlib
+    from .. import hub_crypto, hub_cards
+    from ..live_lines_page import clean
+    from . import page as _page
+    K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
+    files, sizes = {}, {}
+    for n, sc in enumerate(vm.get("_screen_html") or []):
+        k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": sc["html"]}), terms)
+        rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+        files[rel] = blob
+        sizes[sc["route"]] = len(blob)
+        tok = _page.LAZY_TOKEN.format(n=n)
+        if html.count(tok) != 1:
+            raise V2PublishError(f"the lazy screen {sc['route']}: its placeholder is not in the page once")
+        html = html.replace(tok, clean(json.dumps({"file": rel, "key": hub_crypto.b64(k)}, separators=(",", ":"))))
+    return html, files, sizes
 
 
 CONTENT_DIRS = ("cards", "photos", PART_DIR)
@@ -237,12 +320,30 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, it
         lfiles, lrefs, lrep = league_files(vm, root, terms)
     except hub_crypto.SealExhausted as e:
         raise hub_publish.PlaintextLeak(str(e)) from None
+    try:
+        pfiles, prefs = picture_files(vm, root, terms)
+        mfiles, mrefs = market_files(vm, root, terms)
+    except hub_crypto.SealExhausted as e:
+        raise hub_publish.PlaintextLeak(str(e)) from None
+    for tp in vm.get("team_pages") or []:          # 5b: the full picture rides on the 72 TeamMark
+        if tp["m"] in prefs:
+            tp["team"]["pic_ref"] = prefs[tp["m"]]
+    if vm.get("market") is not None:
+        vm["market"]["parts"] = mrefs
     vm["league"]["parts"] = lrefs
     vm["league"]["history"] = None                # never in the page itself: only its encrypted files
     vm["league"]["awards_html"] = None            # 4c5: nor the Awards segment
+    vm["lazy_screens"] = lazy_routes(vm)
     html = page.render(vm)
+    try:
+        html, sfiles, ssizes = screen_files(vm, html, root, terms)
+    except hub_crypto.SealExhausted as e:
+        raise hub_publish.PlaintextLeak(str(e)) from None
     inner_obj["page"] = html
+    cfiles.update(sfiles)
     cfiles.update(lfiles)
+    cfiles.update(pfiles)
+    cfiles.update(mfiles)
     if cards is not None:
         try:
             files2, cref, crep = card_files(base, payload, cards, root, terms)
@@ -284,6 +385,9 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, it
     over_cap = sorted(f for f, n in lazy.items() if n > LAZY_CAP_BYTES and not f.startswith("issues/"))
     return {"dir": str(out), "files": scan["files"], "sizes": sizes, "terms": len(terms), "reseals": attempt - 1,
             "gzip": gz, "live": live, "card_files": crep, "league_parts": lrep,
+            "picture_parts": {m: (out / r["file"]).stat().st_size for m, r in prefs.items()},
+            "market_parts": {k: (out / r["file"]).stat().st_size for k, r in mrefs.items()},
+            "screen_parts": ssizes,
             "iterations": bundle["iter"], "bundle_salt": bundle["salt"],
             "budget_bytes": budget, "over_budget": len(sh) > budget, "lazy_cap_bytes": LAZY_CAP_BYTES,
             "over_cap": over_cap,

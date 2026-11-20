@@ -172,6 +172,9 @@ def run(base_path=".", *, preview_only: bool = False, state=None, out_dir=None, 
     else:
         payload = hub_state.load(base)
     hub_archive.verify(base)
+    if payload.get("v2_store"):                   # 5b: stored under v2, without the current page's keys
+        raise hub_state.HubInputError("this payload was stored under hub.version v2, without the current "
+                                      "page's own keys: rebuild it (python scripts/build_hub_state.py)")
     out_dir = Path(out_dir) if out_dir is not None else None
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)

@@ -87,7 +87,7 @@ def test_a_higher_composite_never_gets_a_lower_ovr():
     xs = [x / 2.0 for x in range(-1000, 1200)]
     ys = [ratings.scale(x, kn, 40, 99) for x in xs]
     assert all(a <= b for a, b in zip(ys, ys[1:]))
-    assert ys[0] == 40 and ys[-1] == 99
+    assert 40 <= ys[0] < 60 and ys[-1] == 99            # 5b s.1b: below the knots it nears 40, never clamps
     assert ratings.scale(0.0, kn, 40, 99) == 60 and ratings.scale(max(universe), kn, 40, 99) == 99
 
 

@@ -595,8 +595,10 @@ def test_real_teams_matchups_preview_and_publish(real, tmp_path):
     v2 = p["v2"]
     assert "players" not in v2 and len(json.dumps(p)) < 400_000          # test_hub_polish3's cap, with the move
     rc = v2["roster_cols"]
+    from modules.hub_v2 import data as v2data
+    assert all("detail" not in t["roster"] for t in v2["teams"].values())   # 5b: in the side file
     for m, t in v2["teams"].items():
-        det = t["roster"]["detail"]
+        det = po["moved"][v2data.DETAIL_KEY][m]
         assert len(det["rows"]) == len(p["rosters"][m]["players"])
         for i, (row, pl) in enumerate(zip(det["rows"], p["rosters"][m]["players"])):
             c = dict(zip(rc["keys"], row))

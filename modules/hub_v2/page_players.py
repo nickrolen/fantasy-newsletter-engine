@@ -189,7 +189,7 @@ def players_screen(vm: dict, ids) -> str:
                  f'<td>{clean(r["next"])}</td></tr>')
     o.append('</tbody></table></div><p class="v2-p v2-empty" id="pl-none" hidden>No player matches.</p>'
              f'<div class="lh-table-note">{clean(pv["who"])} Ratings as of {clean(pv["as_of"])}. '
-             f'{clean(pv["change_note"])} {clean(pv["fa_note"])} Next is next week\'s games he will play. '
+             f'{clean(pv["change_note"])} Next is next week\'s games he will play. '
              'Tap a column to sort; tap again to reverse. Open any player and tap Compare to put two side by side.'
              '</div></section>')
     if pv["risers"] is not None:
@@ -340,13 +340,6 @@ def card_html(cv: dict) -> str:
                  + (f'<span class="lh-delta lh-delta--{clean(h["pot_dir"])}">POT {clean(h["pot_d"])}</span>' if h["pot_d"] else "")
                  + (f'<span class="lh-delta lh-delta--{clean(h["ovr_dir"])}">OVR {clean(h["ovr_d"])}</span>' if h["ovr_d"] else "")
                  + f'</div>{_info(ids, "ovr")}</div>')
-    elif h["fa"] is not None:
-        o.append(f'<div class="v2-fa-tile"><span class="v2-kpi-head"><span class="lh-label">FPPG</span>{_info(ids, "fa_pct")}</span>'
-                 f'<span class="lh-pot__value">{clean(h["fa"]["fppg"])}</span>'
-                 f'<span class="lh-sub">{clean(h["fa"]["pct"] or "No games this season yet")}</span>'
-                 + (f'<span class="lh-bar-h" aria-hidden="true"><span style="width:{clean(h["fa"]["w"])}"></span></span>'
-                    if h["fa"]["w"] else "")
-                 + '<span class="lh-sub">No OVR or POT for free agents.</span></div>')
     else:
         o.append(f'<div class="v2-fa-tile"><span class="lh-label">OVR</span><span class="lh-pot__value">&mdash;</span>'
                  f'<span class="lh-sub">{clean(h["ovr_note"])}</span></div>')
@@ -381,7 +374,7 @@ def card_html(cv: dict) -> str:
         o.append('<div class="lh-grades">' + "".join(_grade(t, gid) for t in s["grades"]) + "</div>"
                  f'<div class="lh-readout" aria-live="polite" data-readout="{gid}">Tap a grade for what it measures.</div>')
     else:
-        o.append('<p class="v2-p">Free agents get no grades: the grades rank the rostered players.</p>')
+        o.append('<p class="v2-p">No grades: he has no rating on this run (the reason is under OVR).</p>')
     o.append("</section>")
     b = s["bars"]
     o.append('<section class="lh-card v2-gap8"><div class="lh-sechead"><h2 class="lh-eyebrow">Fantasy points by game'

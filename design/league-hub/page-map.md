@@ -35,7 +35,8 @@ The big things, in this order:
 - **List:** four team cards (as on Home, larger).
 - **Team page:**
   - a white top bar;
-  - **TeamMark** 72 (Yahoo picture or monogram), name `display-lg`, "manager · record · Power #2 · PF" (the power ranking, labelled so it is not read as the standings place; 4b decision 5);
+  - 5b: published, the whole team page is a lazy encrypted part, opened ("Opening…") on its first show, as is each of last week's matchup pages;
+  - **TeamMark** 72 (Yahoo picture or monogram; 5b: the page carries a 72 px copy of each picture, and the team page opens the full 144 px one as its own part, the small copy showing until it arrives), name `display-lg`, "manager · record · Power #2 · PF" (the power ranking, labelled so it is not read as the standings place; 4b decision 5);
   - **SegmentedTabs**: Roster / Schedule / Moves / Keepers.
   - **Roster** tab:
     - 2×2 **KpiTile**s: title odds with sparkline, this week's win chance, points for vs the league average, adds left with reset day.
@@ -54,14 +55,14 @@ Built in 4c1 (mockups `mockups/Players.html`, `mockups/Players-Compare.html`).
   - a search field over every player the hub has a card for (the rostered players and the free agents it names). The engine gives each player a folded search key ("jokic" finds "Jokić"); the page folds what is typed the same way and only matches strings;
   - **SegmentedTabs**-style **All / Rostered / Free agents**;
   - filter chips: **Position**, **Team** (NBA), **Age** (24 and under, 25–29, 30 and over), each a native picker inside a pill, and a **Healthy only** toggle. The engine assigns every player's values;
-  - a sortable table: player (name, team chip in the manager's colour or "FA", positions · NBA team, status chips), **OVR** with its weekly change, **POT**, **FPPG**, **Next** (next week's games he will play). Sorting uses the engine's orders (best first, then reversed); a missing value sorts last both ways. A free agent's OVR and POT cells are "—", explained by the OVR column's InfoTip;
+  - a sortable table: player (name, team chip in the manager's colour or "FA", positions · NBA team, status chips), **OVR** with its weekly change, **POT**, **FPPG**, **Next** (next week's games he will play). Sorting uses the engine's orders (best first, then reversed); a missing value sorts last both ways. 5b: free agents are rated too (against the rostered players), so a "—" means no rating this run (no NBA team, no lines), the reason on his card; equal OVRs sort by the composite underneath;
   - **Risers this week**: the biggest OVR gains against the ratings at least 7 days old, each with the engine's one-line reason (which of OVR's terms moved most). The section is absent, not empty, until such a line exists.
 - **Player card** (`#/players/<key>`), opened by every player name in the hub:
-  - **PlayerHero**: a white top bar with Back and **Compare**; square headshot (initials in `ink-3` when there is no photo); OVR ring and POT with their weekly changes (a free agent: FPPG and its percentile among the rostered players instead, with an InfoTip); team chip or "Free agent"; name; positions · NBA team · age; status chips ("Healthy" when none); the archetype only when enabled (or marked "Preview" in a local preview);
+  - **PlayerHero**: a white top bar with Back and **Compare**; square headshot (initials in `ink-3` when there is no photo); OVR ring and POT with their weekly changes (5b: a free agent's too); team chip or "Free agent"; name; positions · NBA team · age; status chips ("Healthy" when none); the archetype only when enabled (or marked "Preview" in a local preview);
   - **SegmentedTabs**:
     - **Season:**
       - 2×2 **KpiTile**s: FPPG vs last season, games of team games, total FP with its rank among the rostered players, last 14 days vs season. NBA numbers lead, with the league-roster figure as one secondary line where it differs.
-      - **Attributes:** 8 **GradeTile**s (the five categories, durability, consistency, schedule with its 3-week game count); tap a tile for what it measures. Free agents get a line instead: the grades rank the rostered players.
+      - **Attributes:** 8 **GradeTile**s (the five categories, durability, consistency, schedule with its 3-week game count); tap a tile for what it measures. 5b: a free agent's grades are his percentiles among the rostered players; a player with no rating gets a line instead.
       - **Fantasy points by game:** a **BarChart** with his average; tap a bar for the game.
       - **Keeper outlook:** keep chance and rank on his team.
       - **Last 5 games:** a small table: Day, Opp, FP, **MIN** (4a3: a game's minutes as soon as its day has them, "loading" before, — on an injured day).
@@ -79,7 +80,7 @@ SegmentedTabs, in this order (4c3, the Advice mockup's): **Available · Stash ·
 - **Stash:** players worth holding (OFS, or O with an injury entry), with their return dates as status chips, the open IL slots, and the rule note.
 - **Advice:** the **Advice** component (one card per team, in the page's team order). See `components/Advice/README.md`.
 - **Block (TradeBlock):** the trade block in full, one row per team: the team chip, its stance (Buying / Selling / Neutral, with "since MM-DD"), then **On the block** and **Untouchable**, each player with positions · NBA team · since. No "what they want" anywhere (4b decision 6). The foot: how to change it, and the deadline.
-- **Moves:** every add, drop, claim and trade of the season, newest first, with team filter chips (All teams + one per team). Each move: its marker (**+** add, **−** drop, **⇄** trade, **IL** a chat IL step), the team chip(s), each part with its own marker, and the day and time. Yahoo logs no IL slot changes, so IL steps show only while a chat entry is pending.
+- **Moves:** every add, drop, claim and trade of the season, newest first, by budget week, each week headed by its label and each team's adds used (over the budget in red, "(over)"; 5b, the current hub's line); the latest week is in the page and "Show older weeks" opens the rest (an encrypted part, 5b); with team filter chips (All teams + one per team). Each move: its marker (**+** add, **−** drop, **⇄** trade, **IL** a chat IL step), the team chip(s), each part with its own marker, and the day and time. Yahoo logs no IL slot changes, so IL steps show only while a chat entry is pending.
 - Every player name opens his card; every team chip opens the team.
 
 ## League

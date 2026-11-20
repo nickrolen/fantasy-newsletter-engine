@@ -35,6 +35,15 @@ from modules import player_card_builder as pcb  # noqa: E402
 import league_state  # noqa: E402
 from league_state import needs_state  # noqa: E402
 
+
+@pytest.fixture(autouse=True)
+def _the_current_hub(monkeypatch):
+    """These tests cover the current page's (v1) paths; config says "v2" since
+    the switch-over (60ea53b, Nick 11-20). Pin the version they test."""
+    from modules import hub_version
+    monkeypatch.setattr(hub_version, "version", lambda base_path=None, cfg=None: "v1")
+
+
 TEST_PASS = "a test passphrase, never the real one"
 CUR = pcb.CURRENT_SEASON
 

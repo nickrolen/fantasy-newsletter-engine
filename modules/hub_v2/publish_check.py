@@ -32,6 +32,7 @@ does, before Nick flips hub.version to "v2" (5a; scripts/build_hub.py --v2
 
 from __future__ import annotations
 
+import base64
 import gzip
 import html as _html
 import json
@@ -116,14 +117,28 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
     problems += [f"the shell lacks {k}" for k, v in sh.items() if not v]
     inner = open_page(shell, THROWAWAY_PASSPHRASE)
     page = inner["page"]
+    reached = {"index.html"}
+    # 5b: the lazy screens (team pages, last week's matchups): each opened, and
+    # its HTML checked with the page's own (links, cards, parts, pictures)
+    screens_opened = {}
+    for raw in re.findall(r"data-screen-part='([^']*)'", page):
+        ref = json.loads(_html.unescape(raw))
+        try:
+            h = str(open_part(out, ref).get("html") or "")
+            if not h.strip():
+                problems.append(f"{ref['file']}: an empty screen part")
+            screens_opened[ref["file"]] = h
+            reached.add(ref["file"])
+        except Exception as e:                       # noqa: BLE001 -- named
+            problems.append(f"{ref.get('file')}: {type(e).__name__}: {e}")
+    page = page + "".join(screens_opened.values())
     rt = routes(page)
     if rt["unresolved"]:
         problems.append(f"links with no screen: {rt['unresolved']}")
     for tab in ("home", "matchups", "teams", "players", "market", "league"):
         if tab not in rt["screens"]:
             problems.append(f"no {tab} screen")
-    reached = {"index.html"}
-    opened = {"parts": {}, "cards": 0, "photos": 0, "issues": 0}
+    opened = {"screens": len(screens_opened), "parts": {}, "cards": 0, "photos": 0, "issues": 0, "pictures": 0}
     # League's History chips and Awards
     for raw in re.findall(r"data-part='([^']*)'", page):
         ref = json.loads(_html.unescape(raw))
@@ -137,6 +152,18 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
             problems.append(f"{ref.get('file')}: {type(e).__name__}: {e}")
     if not opened["parts"]:
         problems.append("no lazy part found in the page (League's History and Awards)")
+    # 5b: the team pages' full pictures (data-pic on the 72 TeamMark): each an image
+    for raw in re.findall(r"data-pic='([^']*)'", page):
+        ref = json.loads(_html.unescape(raw))
+        try:
+            uri = str(open_part(out, ref).get("pic") or "")
+            m = re.fullmatch(r"data:image/(jpeg|png|gif|webp);base64,([A-Za-z0-9+/=]+)", uri)
+            if not m or not _image_kind(base64.b64decode(m.group(2))):
+                problems.append(f"{ref['file']}: a team picture part that is not an image")
+            reached.add(ref["file"])
+            opened["pictures"] += 1
+        except Exception as e:                       # noqa: BLE001 -- named
+            problems.append(f"{ref.get('file')}: {type(e).__name__}: {e}")
     # the cards: the index, every card, every headshot
     if inner.get("cards"):
         try:
@@ -180,7 +207,7 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
     scan = hub_publish.scan_dir(out, terms)
     if scan["hits"]:
         problems.append(f"PLAINTEXT: {scan['hits']}")
-    control = bool(hub_publish.hits(page.encode("utf-8"), terms))
+    control = bool(hub_publish.hits(inner["page"].encode("utf-8"), terms))
     if not control:
         problems.append("the negative control did not trip: the decrypted page matched no scan term")
     banners = {"stale_banner": 'id="stale"' in page, "stale_shown": bool(re.search(r'id="stale" role="status">', page)),
@@ -225,7 +252,7 @@ def summary(rep: dict) -> list:
              f"  routes: {len(rep['routes']['links'])} links, {len(rep['routes']['screens'])} screens, "
              f"{len(rep['routes']['unresolved'])} unresolved",
              f"  opened: {len(rep['opened']['parts'])} History/Awards parts (largest {g['parts']['largest']:,} B), "
-             f"{rep['opened']['cards']} cards (largest {g['cards']['largest']:,} B), {rep['opened']['photos']} "
+             f"{rep['opened']['screens']} lazy screens, {rep['opened']['pictures']} team pictures, {rep['opened']['cards']} cards (largest {g['cards']['largest']:,} B), {rep['opened']['photos']} "
              f"headshots (largest {g['photos']['largest']:,} B), {rep['opened']['issues']} issues "
              f"(largest {g['issues']['largest']:,} B, whole newsletters: exempt from the 60 KB cap)",
              f"  plaintext scan: {rep['scan']['terms']} terms over {rep['scan']['files']} files, "

@@ -26,7 +26,8 @@ TIPS = {
     # decision 5's; the rest are for Nick's approval.
     "ovr": ("OVR",
             "Rest-of-season fantasy value above a replacement player: his scoring level, how often he plays, "
-            "and his team's games left. It doesn't know injury return dates yet."),
+            "and his team's games left. It doesn't know injury return dates yet. Free agents are rated the "
+            "same way. A player new to the league is held back until he's proved himself."),
     "pot": ("POT",
             "His value as a keeper: his scoring level projected over the next two seasons with this league's "
             "age curve. Keep chance is shown beside it, not inside it."),
@@ -55,9 +56,6 @@ TIPS = {
             "Minutes per game in his NBA games this season. MIN \u0394: his minutes per game over the last "
             "14 days against his season, a sign of a bigger or smaller role. It shows from 4 games in the "
             "last 14 days."),
-    "fa_pct": ("Free agents",
-               "Free agents get no OVR or POT: the ratings were tested on rostered players only. Instead, his "
-               "FPPG and its percentile among the rostered players."),
     # 4c3: the Market tab's Advice view
     "advice": ("Advice",
                "The engine's plan for each team, up to its adds left. Each move is priced after the one before it, "
