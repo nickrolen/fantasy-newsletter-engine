@@ -267,7 +267,7 @@ def test_a_missing_config_key_raises():
 def test_best_pickup_is_free_agent_adds_only_and_each_stint_counts(res):
     a = res["awards"]["pickup"]
     players = {r["player"] for r in a["rows"]}
-    assert players == {"Quinn Rookie", "Pat Journey", "Marcus Role"}
+    assert players == {"Quinn Rookie", "Pat Journey"}           # Marcus Role was a preseason add (rule 14)
     assert "Tyler Star" not in players and "Marcus Star" not in players        # trades
     assert not any(n.endswith(("Wing", "Bench")) for n in players)              # the draft
     pat = [s for s in a["stints"] if s["player"] == "Pat Journey"]
@@ -276,8 +276,7 @@ def test_best_pickup_is_free_agent_adds_only_and_each_stint_counts(res):
     best = next(r for r in a["rows"] if r["player"] == "Pat Journey")
     assert best["value"] == max(s["value"] for s in pat)
     assert next(r for r in a["rows"] if r["player"] == "Quinn Rookie")["shown"] == "dropped Jordan Role on 10-12"
-    mr = next(r for r in a["rows"] if r["player"] == "Marcus Role")
-    assert mr["preseason"] and "preseason add" in mr["sub"]
+    assert any(x["who"] == "Marcus Role" and x["kind"] == "preseason add" for x in a["excluded"])   # Nick, 11-19
 
 
 def test_an_unpairable_drop_is_said_not_guessed(inp):

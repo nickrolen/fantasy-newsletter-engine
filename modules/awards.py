@@ -58,7 +58,7 @@ INFO = {
            "played for. Wins swung: the matchups his team would have lost had his started games been "
            "replacement-level games (a tie counts half).",
     "pickup": "Most PAR for the manager who added him from free agency, from the add through week 15. "
-              "Free-agent adds only; each add counts on its own.",
+              "In-season free-agent adds only (preseason adds aren't moves); each add counts on its own.",
     "improved": "This season's fantasy points per game minus his usual level: his last three seasons in "
                 "this league, games-weighted. 20+ games this season and 20+ in those seasons.",
     "roy": "Most PAR in his starts among first-year NBA players, weeks 1\u201315.",
@@ -540,8 +540,12 @@ def _pickups(inp, res, rows, starts, par, names, cut) -> None:
             day, _m, _n, t = max(hits, key=lambda x: (x[0], int(x[3].get("timestamp") or 0)))
             v = sum(p for d, p in par_of.get((n, m), []) if s <= d <= e)
             g = sum(1 for d, _p in par_of.get((n, m), []) if s <= d <= e)
-            drops, note = _dropped(inp, t, m, n, day, names)
             pre = day < first_day
+            if pre:     # Nick, 11-19: preseason adds are not moves (LEAGUE_RULES rule 14), so not pickups
+                _excl(a["excluded"], n, "preseason add",
+                      f"added {_md(day)}, before the season's first game: preseason adds are not moves (rule 14)")
+                continue
+            drops, note = _dropped(inp, t, m, n, day, names)
             shown = (f"dropped {' and '.join(drops)} on {_md(day)}" if drops else
                      f"added {_md(day)}; {note}" if note else f"added {_md(day)}, no drop")
             row = {"key": f"{n}|{m}|{day}", "player": n, "label": n, "m": m, "value": v, "shown": shown,
