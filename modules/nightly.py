@@ -57,7 +57,11 @@ s.2.4 and s.4 the design. The nightly run:
                    with step 5's tags
    7 title_odds    title_odds_run.price at the week's seed: the history row,
                    output/title_odds_latest.json, output/stakes.json. Skipped
-                   (nothing priced) when the line step found prices locked
+                   (nothing priced) when the line step found prices locked.
+                   4c6: the NIGHTLY run's pass also tallies started points,
+                   and the MVP odds (modules/mvp_odds) go to output/mvp_odds.json;
+                   softly (the run's "mvp" block, MVP ODDS FAILED). Pre-tip,
+                   refresh, poll and afternoon runs never compute them
   7b advice       advice v2 (modules/advice_live): every manager's plan (H53) --
                    the Monday move before this week's window close, the chat
                    move after it -- with its backup, on the live rosters, the
@@ -885,13 +889,53 @@ class Run:
         seed = int(json.loads(sp_.read_text(encoding="utf-8"))["seed"])
         sims = self.title_sims or SEASON_SIMS
         data = load_all_data(self.base, current_week=None)
+        # 4c6: the nightly's pass also tallies started points for the MVP odds
+        # (a read of the same arrays: the title odds are bit-identical with it)
+        mvp = self.mode == "nightly"
         out = tor.price(self.base, data, seed=seed, sims=sims, statuses=self.ctx["tags"],
                         run_id=self.run_id, produced_by=f"nightly.py ({self.mode})", kind=self.mode,
-                        week=self.week, now=self.now)
+                        week=self.week, now=self.now, **({"mvp": True} if mvp else {}))
         odds = out["row"]["title_odds"]
+        tail = ""
+        if mvp:
+            self.ctx["mvp"] = self._mvp_record(out["pass"])
+            tail = f"; MVP odds: {self.ctx['mvp']['detail']}"
         return (f"seed {seed}, {sims:,} sims: "
                 + ", ".join(f"{m} {v:.1f}" for m, v in sorted(odds.items(), key=lambda kv: -kv[1]))
-                + f"; {self._capture_pretip_stakes()}")
+                + f"; {self._capture_pretip_stakes()}" + tail)
+
+    def _mvp_record(self, sp) -> dict:
+        """4c6: the MVP odds from the nightly's own pass (modules/mvp_odds):
+        the awards as of the live log's last day, the odds, output/mvp_odds.json.
+        FAILS SOFTLY, like the awards: a failure is the run's "mvp" block and
+        MVP ODDS FAILED in the summary; the title odds are already written and
+        the file keeps the last good night's odds (the page prints their day)."""
+        from . import awards, keeper_history as kh, mvp_odds
+        t0 = time.perf_counter()
+        rec = {"error": None, "seconds": None, "through": None, "favourite": None, "p": None,
+               "file": None, "detail": ""}
+        lines = []
+        try:
+            inp = awards.gather(self.base, live=kh.live_inputs(self.base, kh.Inputs.load(self.base)))
+            if not inp["days"]:
+                raise mvp_odds.MvpOddsError("the live log has no day yet")
+            res = awards.compute(inp, inp["days"][-1])
+            blob = mvp_odds.compute(sp, res)
+            blob["run_id"] = self.run_id
+            p = mvp_odds.write(self.base, blob)
+            top = blob["contenders"][0] if blob["contenders"] else None
+            rec.update(through=blob["through"], file=p.relative_to(self.base).as_posix(),
+                       favourite=top["label"] if top else None, p=top["p"] if top else None)
+            rec["detail"] = (f"{top['label']} {mvp_odds.short_pct(top['p'])} (through {blob['through']})"
+                             if top else "no contender")
+        except Exception as e:                       # noqa: BLE001 -- recorded loudly, never stops the run
+            msg = f"{type(e).__name__}: {e}".splitlines()[0][:300]
+            rec["error"] = msg
+            rec["detail"] = "FAILED (recorded; the title odds are written)"
+            lines.append(f"MVP ODDS FAILED: {msg} -- the page keeps the last good night's odds, with their day")
+        rec["seconds"] = round(time.perf_counter() - t0, 2)
+        self.ctx["mvp_lines"] = lines
+        return rec
 
     def _capture_pretip_stakes(self) -> str:
         """H52: after title odds rewrote output/stakes.json, the closing line's
@@ -1270,6 +1314,8 @@ class Run:
             row["ratings"] = self.ctx["ratings"]
         if self.ctx.get("awards") is not None:                   # 4c5
             row["awards"] = self.ctx["awards"]
+        if self.ctx.get("mvp") is not None:                      # 4c6
+            row["mvp"] = self.ctx["mvp"]
         if self.ctx.get("actuals") is not None:
             row["actuals"] = self.ctx["actuals"]
         if self.ctx.get("keeper_watch") is not None:
@@ -1595,6 +1641,8 @@ def main(argv=None) -> int:
     for line in run.ctx.get("ratings_lines") or []:               # 4c1: so do the ratings
         print(line)
     for line in run.ctx.get("awards_lines") or []:                # 4c5: so do the awards
+        print(line)
+    for line in run.ctx.get("mvp_lines") or []:                   # 4c6: so do the MVP odds
         print(line)
     for line in run.ctx.get("actuals_lines") or []:               # 40b: so do their free agents' numbers
         print(line)

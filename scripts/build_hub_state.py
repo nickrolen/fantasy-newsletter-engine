@@ -19,6 +19,8 @@ line page does.
 --out PATH writes the payload there instead of output/hub_state.json (a
 scratch build that leaves the league state alone; refused if PATH is a state
 path in config/STATE_MANIFEST.json).
+--mvp-odds FILE (4c6, with --out only): the MVP odds from FILE (an
+mvp_odds blob a scratch run wrote) instead of output/mvp_odds.json.
 
 4c2: the new hub's Players rows are written beside the payload, not in it:
 output/hub_players.json (regenerable, not state), or <stem>_players.json
@@ -41,7 +43,16 @@ def main(argv=None) -> int:
     ap.add_argument("--allow-engine-mismatch", action="store_true")
     ap.add_argument("--out", default=None,
                     help="write the payload here instead of output/hub_state.json (never a state path)")
+    ap.add_argument("--mvp-odds", default=None,
+                    help="with --out only: read the MVP odds from this file (a scratch preview)")
     a = ap.parse_args(argv)
+    odds = None
+    if a.mvp_odds is not None:
+        if a.out is None:
+            print("REFUSED: --mvp-odds is for a scratch build (--out) only")
+            return 1
+        import json
+        odds = json.loads(Path(a.mvp_odds).read_text(encoding="utf-8"))
     from modules import hub_state, player_actuals, hub_archive, live_lines_page
     t0 = time.time()
     if a.out is not None:
@@ -52,7 +63,8 @@ def main(argv=None) -> int:
             return 1
     try:
         players = {}
-        payload = hub_state.build(a.base_path, allow_engine_mismatch=a.allow_engine_mismatch, players_out=players)
+        payload = hub_state.build(a.base_path, allow_engine_mismatch=a.allow_engine_mismatch, players_out=players,
+                                  **({"mvp_odds_blob": odds} if odds is not None else {}))
     except (hub_state.HubInputError, player_actuals.ActualsError, hub_archive.ArchiveError,
             live_lines_page.EngineMismatch) as e:
         print(f"REFUSED: {e}")

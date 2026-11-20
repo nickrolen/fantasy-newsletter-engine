@@ -109,6 +109,12 @@ CSS = """
 .v2-aw-side{font-size:var(--type-meta-size);color:var(--ink-2);overflow-wrap:anywhere}
 .v2-aw-side b{color:var(--ink);font-weight:800}
 .v2-aw-err{font-size:var(--type-body-size);color:var(--ink-2)}
+.v2-aw-odds{font-size:var(--type-meta-size);font-weight:800;color:var(--ink)}
+.v2-aw-oddsh{display:flex;align-items:center;justify-content:space-between;gap:var(--space-8);border-top:var(--hairline) solid var(--line-soft);padding-top:var(--space-8)}
+.v2-aw-oth{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-6);font-size:var(--type-meta-size);color:var(--ink-2)}
+.v2-aw-oth b{color:var(--ink);font-weight:800}
+.v2-aw-past{display:grid;grid-template-columns:max-content minmax(0,1fr) auto;column-gap:var(--space-10);align-items:center;min-height:var(--row-min);border-top:var(--hairline) solid var(--line-soft);padding:var(--space-6) 0}
+.v2-aw-past:first-of-type{border-top:0}
 """
 
 JS = r"""
@@ -147,6 +153,12 @@ function lgPair(key){
   var ps=document.querySelectorAll('[data-lhpair-of]');
   for(var j=0;j<ps.length;j++){ps[j].hidden=ps[j].getAttribute('data-lhpair-of')!==key;}
 }
+function lgAwView(key,v){
+  var bs=document.querySelectorAll('[data-awview^="'+key+'|"]');
+  for(var i=0;i<bs.length;i++){bs[i].setAttribute('aria-pressed',String(bs[i].getAttribute('data-awview')===key+'|'+v));}
+  var gs=document.querySelectorAll('[data-awview-of^="'+key+'|"]');
+  for(var j=0;j<gs.length;j++){gs[j].hidden=gs[j].getAttribute('data-awview-of')!==key+'|'+v;}
+}
 function lgDraft(season){
   var sel=document.querySelector('[data-lhdraft]');if(sel){sel.value=season;}
   var ps=document.querySelectorAll('[data-lhdraft-of]');
@@ -175,6 +187,8 @@ document.addEventListener('click',function(e){
   if(t){lgChip(t.getAttribute('data-lhchip'));return;}
   t=e.target.closest('[data-lhphase]');
   if(t){lgPhase(t.getAttribute('data-lhphase'));return;}
+  t=e.target.closest('[data-awview]');
+  if(t){var av=t.getAttribute('data-awview').split('|');lgAwView(av[0],av[1]);return;}
   t=e.target.closest('[data-lhpair]');
   if(t){var k=t.getAttribute('data-lhpair');lgPair(t.getAttribute('aria-expanded')==='true'?'':k);return;}
 });
@@ -283,6 +297,77 @@ def _aw_info(a: dict, icon: str) -> str:
             f'{clean(a["info"])}</span></span>')
 
 
+def _odds_block(a: dict, icon: str) -> str:
+    """4c6: MVP's odds under its rows -- "Odds to win" with its InfoTip and
+    day, anyone else at 1% or more, everyone else, the odds' history note
+    (no backfill), or why there are none. Engine strings only."""
+    od = a.get("odds")
+    if not od:
+        return ""
+    pid = f"awtip-{clean(a['key'])}-odds"
+    o = [f'<div class="v2-aw-oddsh"><span class="lh-label">Odds to win</span><span class="lh-info">'
+         f'<span class="lh-meta v2-info-meta">{clean(od["as_of"])}</span>'
+         f'<button type="button" aria-expanded="false" aria-controls="{pid}" aria-label="What the MVP odds mean">'
+         f'{icon}</button><span class="lh-info__pop" id="{pid}" role="note" hidden><b>MVP odds</b>'
+         f'{clean(od["info"])}</span></span></div>']
+    if od["error"]:
+        o.append(f'<p class="v2-aw-err">{clean(od["error"])}</p>')
+    else:
+        if od["others"]:
+            o.append('<span class="v2-aw-oth"><span>Also in the running:</span>'
+                     + DOT.join(f'{_name(x["label"], x["href"])} <b>{clean(x["odds"])}</b>' for x in od["others"])
+                     + "</span>")
+        o.append(f'<span class="lh-sub">{clean(od["field"])}</span>')
+    o.append(f'<span class="lh-sub">{clean(od["history"])}</span>')
+    return "".join(o)
+
+
+def _charts(a: dict, chart) -> str:
+    """The race chart; for MVP with two weeks of odds (4c6), a PAR / Odds
+    toggle over the race chart and the odds-over-weeks chart."""
+    og = (a.get("odds") or {}).get("geom")
+    if not a.get("geom") and not og:
+        return ""
+    if not og:
+        return chart(a["geom"], "aw-" + a["key"])
+    if not a.get("geom"):
+        return chart(og, "aw-" + a["key"] + "-odds")
+    k = clean(a["key"])
+    return (f'<div class="v2-fchips" role="group" aria-label="{clean(a["name"])} chart">'
+            f'<button type="button" class="v2-fchip" data-awview="{k}|par" aria-pressed="true">{clean(a["unit"])}</button>'
+            f'<button type="button" class="v2-fchip" data-awview="{k}|odds" aria-pressed="false">Odds</button></div>'
+            f'<div data-awview-of="{k}|par">' + chart(a["geom"], "aw-" + a["key"]) + "</div>"
+            f'<div data-awview-of="{k}|odds" hidden>' + chart(og, "aw-" + a["key"] + "-odds") + "</div>")
+
+
+def _past(a: dict) -> str:
+    """4c6: the award's Past winners, collapsed (a <details>): season,
+    winner (his card), the manager and his team that season, the value and
+    the shown-with figure; a season without one says why."""
+    p = a.get("past")
+    if not p or not p.get("rows"):
+        return ""
+    o = [f'<details class="v2-lg-group"><summary class="v2-lg-sum"><span>Past winners</span>'
+         f'<span>{clean(p["rows"][0]["season"])} back to {clean(p["rows"][-1]["season"])}</span></summary>']
+    for r in p["rows"]:
+        if r["none"]:
+            o.append(f'<div class="v2-aw-past"><span class="v2-lg-wkn">{clean(r["season"])}</span>'
+                     f'<span class="lh-sub">{clean(r["none"])}</span><span></span></div>')
+            continue
+        who = _name(r["label"], r["href"], True) if r["player"] else f'<b class="v2-name14">{clean(r["label"])}</b>'
+        t = r["team"]
+        then = "" if t and r["team_name"] == t["team"] else r["team_name"]     # that season's name, when it differs
+        o.append(f'<div class="v2-aw-past"><span class="v2-lg-wkn">{clean(r["season"])}</span>'
+                 f'<span class="v2-minw">{who}<span class="lh-sub">{(_chip(t) + " ") if t else ""}'
+                 + (f'then {clean(then)}' if then else "") + '</span>'
+                 f'<span class="v2-aw-shown">{clean(r["shown"])}</span>'
+                 + (f'<span class="lh-sub">{clean(r["sub"])}</span>' if r["sub"] else "") + "</span>"
+                 f'<span class="v2-lg-right"><span class="v2-lg-val">{clean(r["value"])}</span>'
+                 f'<span class="lh-sub">{clean(r["unit"])}</span></span></div>')
+    o.append("</details>")
+    return "".join(o)
+
+
 def _race(a: dict, mono, chart, icon: str) -> str:
     st = "neutral"
     o = [f'<section class="lh-card v2-gap8" data-section="award" data-award="{clean(a["key"])}">'
@@ -310,12 +395,15 @@ def _race(a: dict, mono, chart, icon: str) -> str:
         move = (f'<span class="lh-delta lh-delta--{d}">{clean(r["move"])}</span>' if r["move"] else "")
         o.append(f'<div class="v2-lg-row{cls}"><span class="lh-rank__n">{clean(r["rank"])}</span>'
                  f'<span class="v2-minw">{who}<span class="lh-sub">{_chip(t) if t and r["player"] else ""}</span>'
-                 f'<span class="v2-aw-shown">{clean(r["shown"])}</span>{sides}'
+                 f'<span class="v2-aw-shown">{clean(r["shown"])}</span>'
+                 + (f'<span class="v2-aw-odds">{clean(r["odds"])}</span>' if r.get("odds") else "")
+                 + f'{sides}'
                  + (f'<span class="lh-sub">{clean(r["sub"])}</span>' if r["sub"] else "") + '</span>'
                  f'<span class="v2-lg-right"><span class="v2-lg-val">{clean(r["value"])}</span>'
                  f'<span class="lh-sub">{clean(r["unit"])}</span>{move}</span></div>')
-    if a.get("geom"):
-        o.append(chart(a["geom"], "aw-" + a["key"]))
+    o.append(_odds_block(a, icon))
+    o.append(_charts(a, chart))
+    o.append(_past(a))
     for x in (a["excluded"], a["source"]):
         if x:
             o.append(f'<span class="lh-sub">{clean(x)}</span>')
@@ -336,6 +424,9 @@ def awards_html(aw: dict, mono, chart, icon: str) -> str:
         o.append(_race(a, mono, chart, icon))
     if aw.get("races"):
         o.append(f'<span class="lh-sub">{clean(aw["par_note"])} {clean(aw["races_note"])}</span>')
+    past = aw.get("past") or {}
+    if past.get("note") or past.get("error"):
+        o.append(f'<span class="lh-sub">{clean(past.get("error") or past["note"])}</span>')
     o.append('<section class="lh-card v2-gap8" data-section="potw"><div class="lh-sechead">'
              '<h2 class="lh-eyebrow">Player of the Week</h2></div>')
     for s in aw["potw"]:
@@ -447,6 +538,18 @@ def _h2h(h: dict, mono) -> str:
     return "".join(o)
 
 
+def _tiles(tiles: list) -> str:
+    o = ['<div class="lh-kpis v2-lg-tiles">']
+    for t in tiles:
+        inner = (f'<span class="lh-label">{clean(t["label"])}</span><span class="lh-kpi__value">{clean(t["value"])}</span>'
+                 f'<span class="lh-kpi__ctx">{clean(t["who"])} &middot; {clean(t["ctx"])}</span>')
+        o.append(f'<div class="lh-kpi"><button type="button" class="v2-lg-tile"{_tip(t["tip"])} '
+                 f'aria-label="{clean(t["label"])}: {clean(t["value"])}, {clean(t["who"])}, {clean(t["ctx"])}. '
+                 f'Tap for more.">{inner}</button></div>')
+    o.append("</div>")
+    return "".join(o)
+
+
 def _records(r: dict) -> str:
     o = ['<div class="lh-kpis v2-lg-tiles">']
     for t in r["tiles"]:
@@ -476,6 +579,10 @@ def _records(r: dict) -> str:
                          f'{who}<span class="lh-sub">{clean(x["ctx"])}</span></span>{val}</div>')
             o.append("</details>")
         o.append("</section>")
+    if r.get("award_tiles") or r.get("award_note"):          # 4c6: the awards' best seasons
+        o.append('<section class="lh-card v2-gap8" data-section="award-records"><h2 class="lh-eyebrow">Awards</h2>'
+                 + (_tiles(r["award_tiles"]) if r.get("award_tiles") else "")
+                 + f'<span class="lh-sub">{clean(r.get("award_note") or "")}</span></section>')
     o.append(f'<span class="lh-sub">{clean(r["note"])}</span>')
     return "".join(o)
 

@@ -286,6 +286,7 @@ output/hub_publish/
 output/nightly_runs.jsonl
 data/transaction_log.jsonl
 output/title_odds_latest.json
+output/mvp_odds.json
 output/stakes.json
 output/tag_records.jsonl
 output/closing_line_week*.json

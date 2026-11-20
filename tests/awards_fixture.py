@@ -230,12 +230,74 @@ def inp(last: str = LAST, *, rows: list = None, rookies: dict = None, extra_trad
             "actuals_first": act["first_day"], "act_by_id": by_id, "act_by_name": by_name, "tie_value": 0.5}
 
 
-def races(last: str = LAST) -> dict:
+def odds_blob(res: dict, through: str = None) -> dict:
+    """4c6: a made-up mvp_odds blob for the synthetic season: today's MVP
+    rows with made-up odds that sum to 1 (the first 0.55, then halves)."""
+    rows = res["awards"]["mvp"]["rows"]
+    ps, left = [], 1.0
+    for i, _r in enumerate(rows[:6]):
+        p = round(left * (0.55 if i == 0 else 0.5), 6) if i < 5 else round(left, 6)
+        ps.append(p)
+        left -= p
+    cont = [{"key": r["key"], "label": r["label"], "m": r["m"], "p": p, "banked": round(r["value"], 2),
+             "sim_par": 100.0, "sim_starts": 20.0, "sim_points": 600.0, "rostered": True}
+            for r, p in zip(rows, ps)]
+    return {"schema": 1, "season": SEASON, "through": through or res["through"], "week": res["week"], "final": False,
+            "seed": 1, "num_simulations": 1000, "sim_from": None, "weeks": list(range(res["week"], 16)),
+            "replacement": {"rule": "current", "R": 20.0, "words": "made up"}, "contenders": cont,
+            "everyone_else": round(max(0.0, 1.0 - sum(ps)), 6), "in_race": len(rows), "run_id": "synthetic"}
+
+
+def races(last: str = LAST, odds: bool = False) -> dict:
     """The hub's awards record (hub_state.awards_step's shape) for the
-    synthetic League: the real engine on the made-up season."""
-    from modules import awards as A
+    synthetic League: the real engine on the made-up season. odds (4c6):
+    with made-up MVP odds, and the two latest finished weeks' MVP lines
+    carrying odds (as mvp_odds.attach stamps them), so the odds chart and
+    its PAR / Odds toggle show."""
+    from modules import awards as A, mvp_odds as MO
     i = inp(last)
     res = A.compute(i, last)
     lines = A.pending(i, [])
-    return {"races": A.races(res, lines, i["cfg"]), "pending": lines, "through": last, "week": res["week"],
-            "on_file": 0, "error": None, "seconds": 0.0}
+    blob = None
+    if odds:
+        blob = odds_blob(res)
+        fin = sorted({int(x["week"]) for x in lines})[-2:]
+        out = []
+        for ln in lines:
+            if ln["award"] == "mvp" and int(ln["week"]) in fin:
+                wk = A.compute(i, ln["through"])
+                ln = MO.attach([ln], odds_blob(wk))[0]
+            out.append(ln)
+        lines = out
+    return {"races": A.races(res, lines, i["cfg"], mvp_odds=blob), "pending": lines, "through": last,
+            "week": res["week"], "on_file": 0, "error": None, "seconds": 0.0}
+
+
+def past_blob() -> dict:
+    """4c6: a made-up AWARDS_PAST.json (two past seasons; one has no trade),
+    valid by modules/awards_past.validate. No real name."""
+    from modules import awards_past as P
+
+    def season(s, mvp, imp, trade):
+        aw = {"mvp": {"winner": mvp, "top": [mvp], "none": "", "excluded": {}, "eligible": 30},
+              "improved": {"winner": imp, "top": [imp], "none": "", "excluded": {}, "eligible": 4},
+              "trade": ({"winner": trade, "top": [trade], "none": "", "excluded": {}, "eligible": 1} if trade else
+                        {"winner": None, "top": [], "none": "no regular-season trade", "excluded": {}, "eligible": 0})}
+        return {"season": s, "regular_weeks": 21, "through": f"{s[:2]}{s[5:]}-03-30", "R": {"1": 25.0},
+                "checks": {"team_weeks": 84, "off": 0, "max_off": 0.0, "short_weeks": [], "flips": 0}, "awards": aw}
+    mv1 = {"label": "Marcus Star", "player": "Marcus Star", "m": "Marcus", "value": 1700.5, "shown": "wins swung: 3",
+           "sub": "60 starts", "ms": ["Marcus"], "swung": 3.0, "starts": 60}
+    mv2 = dict(mv1, label="Tyler Star", player="Tyler Star", m="Tyler", value=1810.25, shown="wins swung: 2.5",
+               ms=["Tyler"], swung=2.5)
+    im1 = {"label": "Dana Wing", "player": "Dana Wing", "m": "Dana", "value": 9.5, "shown": "44.0 vs 34.5 usual",
+           "sub": "60 games", "fppg": 44.0, "usual": 34.5, "games": 60}
+    im2 = dict(im1, label="Jordan Big", player="Jordan Big", m="Jordan", value=7.25, shown="40.0 vs 32.8 usual")
+    tr = {"label": "Marcus \u21c4 Jordan, 12-01", "player": None, "m": "Jordan", "value": 300.0,
+          "shown": "won by Jordan", "sub": "", "date": "2024-12-01",
+          "sides": {"Marcus": {"par": 100.0, "got": ["Jordan Wing"]}, "Jordan": {"par": 400.0, "got": ["Marcus Big"]}},
+          "picks": {"Marcus": ["2025 3rd (Marcus)"]}}
+    blob = {"schema": P.SCHEMA, "awards": list(P.PAST), "not_built": P.NOT_BUILT, "notes": {},
+            "seasons": {"2024-25": season("2024-25", mv1, im1, tr), "2025-26": season("2025-26", mv2, im2, None)}}
+    blob["best"] = P.best(blob)
+    P.validate(blob)
+    return blob

@@ -493,7 +493,8 @@ def test_the_race_chart_has_no_text_but_its_axes_and_end_labels():
     h = PL.awards_html(vm["league"]["awards"], page._mono, page._chart, page.INFO)
     for svg in re.findall(r'<svg class="lh-chart".*?</svg>', h, re.S):
         for t in re.findall(r"<text[^>]*>([^<]*)</text>", svg):
-            assert re.fullmatch(r"\u2212?[\d,]+(?:\.\d)?|W\d+|[A-Za-z' .\u21c4-]+|\d\d-\d\d", t), t
+            # 4c6: the MVP odds chart's axis reads 0%..100%
+            assert re.fullmatch(r"\u2212?[\d,]+(?:\.\d)?|W\d+|[A-Za-z' .\u21c4-]+|\d\d-\d\d|\d+%", t), t
         assert "<rect class=\"lh-c-hit\"" in svg and "legend" not in svg.lower()
 
 

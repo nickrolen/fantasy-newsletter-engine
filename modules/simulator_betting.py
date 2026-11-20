@@ -882,9 +882,20 @@ def simulate_week_matrix(
     day_means: dict = None,
     nba_outs: dict = None,
     tag_chain: TagChain = None,
+    started: dict = None,
 ) -> dict[str, dict]:
     """
     Simulate one fantasy week, all `draws.n` simulations at once.
+
+    started (4c6, the MVP odds): when a dict is given, it is filled with
+    {roster key: [points[n], games[n], manager]} -- each player's STARTED fantasy
+    points and started games this week, per simulation, summed into
+    whatever the dict already holds (so one dict spans several weeks, and a
+    player traded across rosters sums across them, as MVP's PAR does). Read
+    off the same arrays the team score is summed from, before the team
+    noise: no draw is added or moved, so every price is unchanged. A started
+    game is always a played game here (starters are filled from the
+    available players only), so a started DNP never arises.
 
     tag_chain (s.3, TagChain): a later week of a mid-week season pass. The
     tags' blocks are the week in progress's (its anchors, tag week, observed
@@ -984,6 +995,14 @@ def simulate_week_matrix(
             col += width
             starters = legal_starters(avail, entries, fills)
             day_pts = starters * fp
+            if started is not None:
+                for j, e in enumerate(entries):
+                    acc = started.get(e[8])
+                    if acc is None:
+                        acc = started[e[8]] = [np.zeros(n), np.zeros(n, dtype=np.int16), manager]
+                    acc[0] += day_pts[:, j]
+                    acc[1] += starters[:, j]
+                    acc[2] = manager
             if day_means is not None:
                 day_means.setdefault(manager, {})[game_date] = float(day_pts.sum(axis=1).mean())
             res["score"] += day_pts.sum(axis=1)
@@ -1055,8 +1074,14 @@ def week_score_matrices(
     tag_anchor: date = None,
     plan=None,
     tag_chain: TagChain = None,
+    started: dict = None,
+    started_weeks=(),
 ) -> dict[int, dict[str, np.ndarray]]:
     """{week: {manager: scores[n]}} -- one keyed simulation of each week.
+
+    started / started_weeks (4c6): each week in started_weeks fills
+    `started` with every player's started points and games (simulate_week_
+    matrix's `started`). Nothing returned or drawn changes.
 
     tag_chain: a mid-week season pass's one chain per tag (TagChain), passed
     to every week; None: tags anchored at tag_anchor (default: next week's
@@ -1089,7 +1114,9 @@ def week_score_matrices(
             tp, mask = week_rosters(plan, team_projections, w)
         res = simulate_week_matrix(data, tp, wd, injury_statuses, draws,
                                    tag_anchor, managers=MANAGERS, il_mask=mask,
-                                   **({"tag_chain": tag_chain} if tag_chain is not None else {}))
+                                   **({"tag_chain": tag_chain} if tag_chain is not None else {}),
+                                   **({"started": started} if started is not None and int(w) in
+                                      {int(x) for x in started_weeks} else {}))
         out[int(w)] = {m: res[m]["score"] for m in MANAGERS}
     return out
 
@@ -1265,6 +1292,7 @@ def simulate_week_remainder(
     anchors: dict = None,
     il_mask: dict = None,
     nba_outs: dict = None,
+    started: dict = None,
 ) -> RemainderResult:
     """B2: the as-of line. Banked from the logs, the rest simulated.
 
@@ -1294,7 +1322,7 @@ def simulate_week_remainder(
     rem = simulate_week_matrix(data, team_projections, week_data, injury_statuses, draws,
                                from_date=state.as_of, anchors=anchors, tag_week_info=tw,
                                observed=state.observed, il_mask=il_mask, day_means=day_means,
-                               nba_outs=nba_outs)
+                               nba_outs=nba_outs, **({"started": started} if started is not None else {}))
     blocks = tag_blocks(data, team_projections, injury_statuses, draws, None, anchors, tw,
                         state.observed, state.as_of, nba_outs)
     lines = []

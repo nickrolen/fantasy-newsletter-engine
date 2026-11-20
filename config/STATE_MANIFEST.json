@@ -32,6 +32,7 @@
     {"path": "output/hub_state.json", "what": "the hub's payload: names, rosters, lines, title odds (scripts/build_hub_state.py; step 1b)"},
     {"path": "output/nightly_runs.jsonl", "what": "the run record: one row per nightly / pre-tip / closing run, each step's outcome and time (modules/nightly.py; step 1c)"},
     {"path": "data/transaction_log.jsonl", "what": "every Yahoo transaction with its Pacific time and the rulings that apply, append-only (modules/transaction_log.py; step 1c)"},
+    {"path": "output/mvp_odds.json", "what": "the MVP race's odds: each contender's chance to finish the regular season with the most PAR, from the nightly's own title-odds pass (modules/mvp_odds.py; 4c6). Replaced by every nightly run that prices (nightly._mvp_record); read by every hub build and stamped onto that week's awards history line when priced on the week's last day"},
     {"path": "output/title_odds_latest.json", "what": "the latest title-odds run's whole result, read by the hub's power rankings (modules/title_odds_run.py; step 1c)"},
     {"path": "output/stakes.json", "what": "each team's leverage in each remaining week, from the latest season pass, for task 18b (modules/title_odds_run.py; step 1c)"},
     {"path": "output/tag_records.jsonl", "what": "every Yahoo injury-tag fetch, append-only: the hub's statuses and the closing line's pre-tip tags (modules/tag_records.py; step 1c)"},

@@ -1,0 +1,2753 @@
+{
+ "schema": 1,
+ "awards": [
+  "mvp",
+  "trade",
+  "improved"
+ ],
+ "not_built": {
+  "pickup": "no transaction log before 2026-27: no add dates and no drops",
+  "roy": "config/ROOKIE_SEASONS.json is too thin after 2022-23 to name every season's rookies",
+  "bust": "no preseason projection was stored before 2026-27"
+ },
+ "seasons": {
+  "2017-18": {
+   "season": "2017-18",
+   "regular_weeks": 21,
+   "through": "2018-03-18",
+   "R": {
+    "1": 30.114,
+    "2": 28.626,
+    "3": 28.962,
+    "4": 26.751,
+    "5": 25.593,
+    "6": 27.277,
+    "7": 28.053,
+    "8": 28.157,
+    "9": 27.536,
+    "10": 27.144,
+    "11": 27.226,
+    "12": 26.943,
+    "13": 27.033,
+    "14": 27.079,
+    "15": 25.561,
+    "16": 24.639,
+    "17": 25.126,
+    "18": 28.043,
+    "19": 28.044,
+    "20": 27.884,
+    "21": 27.742
+   },
+   "checks": {
+    "team_weeks": 84,
+    "off": 62,
+    "max_off": 655.6,
+    "short_weeks": [
+     1,
+     3,
+     5,
+     6,
+     18,
+     20
+    ],
+    "flips": 2
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "James Harden",
+      "player": "James Harden",
+      "m": "Garrett",
+      "value": 1477.94,
+      "shown": "wins swung: 3",
+      "sub": "58 starts",
+      "ms": [
+       "Garrett"
+      ],
+      "swung": 3.0,
+      "starts": 58
+     },
+     "top": [
+      {
+       "label": "James Harden",
+       "player": "James Harden",
+       "m": "Garrett",
+       "value": 1477.94,
+       "shown": "wins swung: 3",
+       "sub": "58 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 3.0,
+       "starts": 58
+      },
+      {
+       "label": "Russell Westbrook",
+       "player": "Russell Westbrook",
+       "m": "Benton",
+       "value": 1343.14,
+       "shown": "wins swung: 3",
+       "sub": "64 starts",
+       "ms": [
+        "Benton"
+       ],
+       "swung": 3.0,
+       "starts": 64
+      },
+      {
+       "label": "LeBron James",
+       "player": "LeBron James",
+       "m": "Garrett",
+       "value": 1308.19,
+       "shown": "wins swung: 3",
+       "sub": "59 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 3.0,
+       "starts": 59
+      },
+      {
+       "label": "Anthony Davis",
+       "player": "Anthony Davis",
+       "m": "Hayden",
+       "value": 1223.81,
+       "shown": "wins swung: 4",
+       "sub": "61 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 4.0,
+       "starts": 61
+      },
+      {
+       "label": "Kevin Durant",
+       "player": "Kevin Durant",
+       "m": "Hayden",
+       "value": 1134.77,
+       "shown": "wins swung: 2",
+       "sub": "56 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 2.0,
+       "starts": 56
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 95
+    },
+    "trade": {
+     "winner": {
+      "label": "Nick \u21c4 Benton, 10-31",
+      "player": null,
+      "m": "Nick",
+      "value": 202.0,
+      "shown": "won by Nick",
+      "sub": "",
+      "date": "2017-10-31",
+      "sides": {
+       "Nick": {
+        "par": 481.01,
+        "got": [
+         "Kyrie Irving"
+        ]
+       },
+       "Benton": {
+        "par": 279.01,
+        "got": [
+         "John Wall"
+        ]
+       }
+      },
+      "picks": {}
+     },
+     "top": [
+      {
+       "label": "Nick \u21c4 Benton, 10-31",
+       "player": null,
+       "m": "Nick",
+       "value": 202.0,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2017-10-31",
+       "sides": {
+        "Nick": {
+         "par": 481.01,
+         "got": [
+          "Kyrie Irving"
+         ]
+        },
+        "Benton": {
+         "par": 279.01,
+         "got": [
+          "John Wall"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Nick \u21c4 Garrett, 10-31",
+       "player": null,
+       "m": "Nick",
+       "value": 191.43,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2017-10-31",
+       "sides": {
+        "Nick": {
+         "par": 710.68,
+         "got": [
+          "Trevor Ariza",
+          "Draymond Green"
+         ]
+        },
+        "Garrett": {
+         "par": 519.25,
+         "got": [
+          "Kevin Love",
+          "LaMarcus Aldridge"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Nick \u21c4 Hayden, 02-27",
+       "player": null,
+       "m": "Nick",
+       "value": 101.98,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2018-02-27",
+       "sides": {
+        "Nick": {
+         "par": 129.63,
+         "got": [
+          "Rudy Gobert"
+         ]
+        },
+        "Hayden": {
+         "par": 27.65,
+         "got": [
+          "Hassan Whiteside"
+         ]
+        }
+       },
+       "picks": {}
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3
+    },
+    "improved": {
+     "winner": null,
+     "top": [],
+     "none": "the first season in the league log: no earlier season to measure against",
+     "excluded": {
+      "no prior league seasons": 59,
+      "under 20 games this season": 37,
+      "no games in the log": 3
+     },
+     "eligible": 0
+    }
+   }
+  },
+  "2018-19": {
+   "season": "2018-19",
+   "regular_weeks": 21,
+   "through": "2019-03-17",
+   "R": {
+    "1": 6.458,
+    "2": 8.997,
+    "3": 22.373,
+    "4": 22.72,
+    "5": 25.064,
+    "6": 25.231,
+    "7": 25.429,
+    "8": 21.973,
+    "9": 22.98,
+    "10": 23.39,
+    "11": 27.497,
+    "12": 27.737,
+    "13": 26.372,
+    "14": 27.229,
+    "15": 24.868,
+    "16": 27.194,
+    "17": 22.486,
+    "18": 26.813,
+    "19": 27.361,
+    "20": 25.476,
+    "21": 25.116
+   },
+   "checks": {
+    "team_weeks": 84,
+    "off": 52,
+    "max_off": 11.0,
+    "short_weeks": [],
+    "flips": 0
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "James Harden",
+      "player": "James Harden",
+      "m": "Nick",
+      "value": 2162.61,
+      "shown": "wins swung: 9",
+      "sub": "65 starts \u00b7 Garrett 1,336.2 + Nick 826.5",
+      "ms": [
+       "Garrett",
+       "Nick"
+      ],
+      "swung": 9.0,
+      "starts": 65
+     },
+     "top": [
+      {
+       "label": "James Harden",
+       "player": "James Harden",
+       "m": "Nick",
+       "value": 2162.61,
+       "shown": "wins swung: 9",
+       "sub": "65 starts \u00b7 Garrett 1,336.2 + Nick 826.5",
+       "ms": [
+        "Garrett",
+        "Nick"
+       ],
+       "swung": 9.0,
+       "starts": 65
+      },
+      {
+       "label": "Paul George",
+       "player": "Paul George",
+       "m": "Benton",
+       "value": 1719.77,
+       "shown": "wins swung: 3",
+       "sub": "65 starts \u00b7 Benton 1,609.4 + Nick 110.4",
+       "ms": [
+        "Benton",
+        "Nick"
+       ],
+       "swung": 3.0,
+       "starts": 65
+      },
+      {
+       "label": "Russell Westbrook",
+       "player": "Russell Westbrook",
+       "m": "Nick",
+       "value": 1694.76,
+       "shown": "wins swung: 6",
+       "sub": "61 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 6.0,
+       "starts": 61
+      },
+      {
+       "label": "Giannis Antetokounmpo",
+       "player": "Giannis Antetokounmpo",
+       "m": "Garrett",
+       "value": 1648.19,
+       "shown": "wins swung: 5",
+       "sub": "63 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 5.0,
+       "starts": 63
+      },
+      {
+       "label": "Karl-Anthony Towns",
+       "player": "Karl-Anthony Towns",
+       "m": "Nick",
+       "value": 1598.72,
+       "shown": "wins swung: 3",
+       "sub": "67 starts \u00b7 Hayden 1,003.7 + Nick 595.0",
+       "ms": [
+        "Hayden",
+        "Nick"
+       ],
+       "swung": 3.0,
+       "starts": 67
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 95
+    },
+    "trade": {
+     "winner": {
+      "label": "Nick \u21c4 Benton, 10-26",
+      "player": null,
+      "m": "Benton",
+      "value": 1197.27,
+      "shown": "won by Benton",
+      "sub": "",
+      "date": "2018-10-26",
+      "sides": {
+       "Nick": {
+        "par": 719.81,
+        "got": [
+         "Kyle Lowry",
+         "Eric Bledsoe"
+        ]
+       },
+       "Benton": {
+        "par": 1917.08,
+        "got": [
+         "Victor Oladipo",
+         "Paul George"
+        ]
+       }
+      },
+      "picks": {}
+     },
+     "top": [
+      {
+       "label": "Nick \u21c4 Benton, 10-26",
+       "player": null,
+       "m": "Benton",
+       "value": 1197.27,
+       "shown": "won by Benton",
+       "sub": "",
+       "date": "2018-10-26",
+       "sides": {
+        "Nick": {
+         "par": 719.81,
+         "got": [
+          "Kyle Lowry",
+          "Eric Bledsoe"
+         ]
+        },
+        "Benton": {
+         "par": 1917.08,
+         "got": [
+          "Victor Oladipo",
+          "Paul George"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Garrett \u21c4 Nick, 01-15",
+       "player": null,
+       "m": "Nick",
+       "value": 528.14,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2019-01-15",
+       "sides": {
+        "Garrett": {
+         "par": 298.31,
+         "got": [
+          "Mike Conley"
+         ]
+        },
+        "Nick": {
+         "par": 826.45,
+         "got": [
+          "James Harden"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Benton \u21c4 Garrett, 12-24",
+       "player": null,
+       "m": "Garrett",
+       "value": 504.47,
+       "shown": "won by Garrett",
+       "sub": "",
+       "date": "2018-12-24",
+       "sides": {
+        "Benton": {
+         "par": 182.97,
+         "got": [
+          "Nikola Vucevic"
+         ]
+        },
+        "Garrett": {
+         "par": 687.44,
+         "got": [
+          "Jimmy Butler III",
+          "Rudy Gobert"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Nick \u21c4 Hayden, 12-14",
+       "player": null,
+       "m": "Nick",
+       "value": 351.55,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2018-12-14",
+       "sides": {
+        "Nick": {
+         "par": 758.38,
+         "got": [
+          "Jrue Holiday",
+          "DeMar DeRozan"
+         ]
+        },
+        "Hayden": {
+         "par": 406.84,
+         "got": [
+          "Hassan Whiteside",
+          "Kyle Lowry"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Benton \u21c4 Hayden, 01-15",
+       "player": null,
+       "m": "Hayden",
+       "value": 329.58,
+       "shown": "won by Hayden",
+       "sub": "",
+       "date": "2019-01-15",
+       "sides": {
+        "Benton": {
+         "par": 202.07,
+         "got": [
+          "Kawhi Leonard"
+         ]
+        },
+        "Hayden": {
+         "par": 531.65,
+         "got": [
+          "Nikola Vucevic"
+         ]
+        }
+       },
+       "picks": {}
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 15
+    },
+    "improved": {
+     "winner": {
+      "label": "Paul George",
+      "player": "Paul George",
+      "m": "Benton",
+      "value": 11.76,
+      "shown": "49.8 vs 38.1 usual",
+      "sub": "66 games \u00b7 usual over 2017-18",
+      "fppg": 49.82,
+      "usual": 38.06,
+      "games": 66
+     },
+     "top": [
+      {
+       "label": "Paul George",
+       "player": "Paul George",
+       "m": "Benton",
+       "value": 11.76,
+       "shown": "49.8 vs 38.1 usual",
+       "sub": "66 games \u00b7 usual over 2017-18",
+       "fppg": 49.82,
+       "usual": 38.06,
+       "games": 66
+      },
+      {
+       "label": "Joel Embiid",
+       "player": "Joel Embiid",
+       "m": "Benton",
+       "value": 10.52,
+       "shown": "47.7 vs 37.2 usual",
+       "sub": "58 games \u00b7 usual over 2017-18",
+       "fppg": 47.73,
+       "usual": 37.21,
+       "games": 58
+      },
+      {
+       "label": "Bradley Beal",
+       "player": "Bradley Beal",
+       "m": "Garrett",
+       "value": 8.3,
+       "shown": "42.8 vs 34.5 usual",
+       "sub": "70 games \u00b7 usual over 2017-18",
+       "fppg": 42.79,
+       "usual": 34.49,
+       "games": 70
+      },
+      {
+       "label": "Nikola Vucevic",
+       "player": "Nikola Vucevic",
+       "m": "Hayden",
+       "value": 7.38,
+       "shown": "43.7 vs 36.3 usual",
+       "sub": "70 games \u00b7 usual over 2017-18",
+       "fppg": 43.67,
+       "usual": 36.29,
+       "games": 70
+      },
+      {
+       "label": "Kyrie Irving",
+       "player": "Kyrie Irving",
+       "m": "Nick",
+       "value": 6.66,
+       "shown": "43.7 vs 37.0 usual",
+       "sub": "58 games \u00b7 usual over 2017-18",
+       "fppg": 43.67,
+       "usual": 37.01,
+       "games": 58
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "under 20 games this season": 34,
+      "no prior league seasons": 10,
+      "under 20 games in his prior league seasons": 6,
+      "no games in the log": 2
+     },
+     "eligible": 32
+    }
+   }
+  },
+  "2019-20": {
+   "season": "2019-20",
+   "regular_weeks": 19,
+   "through": "2020-03-08",
+   "R": {
+    "1": 14.423,
+    "2": 18.564,
+    "3": 22.774,
+    "4": 19.167,
+    "5": 21.106,
+    "6": 23.252,
+    "7": 25.48,
+    "8": 27.328,
+    "9": 28.239,
+    "10": 27.791,
+    "11": 22.037,
+    "12": 23.201,
+    "13": 24.212,
+    "14": 25.407,
+    "15": 28.473,
+    "16": 30.356,
+    "17": 27.085,
+    "18": 26.931,
+    "19": 27.358
+   },
+   "checks": {
+    "team_weeks": 76,
+    "off": 34,
+    "max_off": 210.6,
+    "short_weeks": [
+     17
+    ],
+    "flips": 0
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "James Harden",
+      "player": "James Harden",
+      "m": "Benton",
+      "value": 1794.57,
+      "shown": "wins swung: 2",
+      "sub": "59 starts",
+      "ms": [
+       "Benton"
+      ],
+      "swung": 2.0,
+      "starts": 59
+     },
+     "top": [
+      {
+       "label": "James Harden",
+       "player": "James Harden",
+       "m": "Benton",
+       "value": 1794.57,
+       "shown": "wins swung: 2",
+       "sub": "59 starts",
+       "ms": [
+        "Benton"
+       ],
+       "swung": 2.0,
+       "starts": 59
+      },
+      {
+       "label": "Giannis Antetokounmpo",
+       "player": "Giannis Antetokounmpo",
+       "m": "Hayden",
+       "value": 1515.71,
+       "shown": "wins swung: 2",
+       "sub": "56 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 2.0,
+       "starts": 56
+      },
+      {
+       "label": "LeBron James",
+       "player": "LeBron James",
+       "m": "Garrett",
+       "value": 1478.73,
+       "shown": "wins swung: 5",
+       "sub": "56 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 5.0,
+       "starts": 56
+      },
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Hayden",
+       "value": 1411.88,
+       "shown": "wins swung: 3",
+       "sub": "52 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 3.0,
+       "starts": 52
+      },
+      {
+       "label": "Damian Lillard",
+       "player": "Damian Lillard",
+       "m": "Nick",
+       "value": 1294.89,
+       "shown": "wins swung: 2",
+       "sub": "55 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 2.0,
+       "starts": 55
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 88
+    },
+    "trade": {
+     "winner": null,
+     "top": [],
+     "none": "no regular-season trade",
+     "excluded": {},
+     "eligible": 0
+    },
+    "improved": {
+     "winner": {
+      "label": "Hassan Whiteside",
+      "player": "Hassan Whiteside",
+      "m": "Nick",
+      "value": 12.85,
+      "shown": "44.5 vs 31.7 usual",
+      "sub": "43 games \u00b7 usual over 2018-19, 2017-18",
+      "fppg": 44.55,
+      "usual": 31.69,
+      "games": 43
+     },
+     "top": [
+      {
+       "label": "Hassan Whiteside",
+       "player": "Hassan Whiteside",
+       "m": "Nick",
+       "value": 12.85,
+       "shown": "44.5 vs 31.7 usual",
+       "sub": "43 games \u00b7 usual over 2018-19, 2017-18",
+       "fppg": 44.55,
+       "usual": 31.69,
+       "games": 43
+      },
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Hayden",
+       "value": 11.77,
+       "shown": "50.8 vs 39.0 usual",
+       "sub": "52 games \u00b7 usual over 2018-19",
+       "fppg": 50.77,
+       "usual": 39.0,
+       "games": 52
+      },
+      {
+       "label": "John Collins",
+       "player": "John Collins",
+       "m": "Garrett",
+       "value": 8.25,
+       "shown": "38.4 vs 30.2 usual",
+       "sub": "38 games \u00b7 usual over 2018-19",
+       "fppg": 38.41,
+       "usual": 30.16,
+       "games": 38
+      },
+      {
+       "label": "Zach LaVine",
+       "player": "Zach LaVine",
+       "m": "Nick",
+       "value": 7.91,
+       "shown": "37.5 vs 29.6 usual",
+       "sub": "50 games \u00b7 usual over 2018-19",
+       "fppg": 37.48,
+       "usual": 29.57,
+       "games": 50
+      },
+      {
+       "label": "Lonzo Ball",
+       "player": "Lonzo Ball",
+       "m": "Benton",
+       "value": 7.61,
+       "shown": "41.4 vs 33.8 usual",
+       "sub": "31 games \u00b7 usual over 2018-19, 2017-18",
+       "fppg": 41.37,
+       "usual": 33.76,
+       "games": 31
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "under 20 games this season": 27,
+      "no prior league seasons": 7,
+      "under 20 games in his prior league seasons": 6
+     },
+     "eligible": 32
+    }
+   }
+  },
+  "2020-21": {
+   "season": "2020-21",
+   "regular_weeks": 16,
+   "through": "2021-04-18",
+   "R": {
+    "1": 21.45,
+    "2": 20.115,
+    "3": 20.115,
+    "4": 19.979,
+    "5": 21.147,
+    "6": 21.634,
+    "7": 22.265,
+    "8": 23.516,
+    "9": 24.72,
+    "10": 25.376,
+    "11": 26.951,
+    "12": 25.815,
+    "13": 26.445,
+    "14": 26.891,
+    "15": 26.748,
+    "16": 23.55
+   },
+   "checks": {
+    "team_weeks": 64,
+    "off": 46,
+    "max_off": 7.55,
+    "short_weeks": [],
+    "flips": 0
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "Nikola Jokic",
+      "player": "Nikola Jokic",
+      "m": "Hayden",
+      "value": 1701.35,
+      "shown": "wins swung: 5",
+      "sub": "56 starts",
+      "ms": [
+       "Hayden"
+      ],
+      "swung": 5.0,
+      "starts": 56
+     },
+     "top": [
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 1701.35,
+       "shown": "wins swung: 5",
+       "sub": "56 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 5.0,
+       "starts": 56
+      },
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Nick",
+       "value": 1320.47,
+       "shown": "wins swung: 4",
+       "sub": "51 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 4.0,
+       "starts": 51
+      },
+      {
+       "label": "Nikola Vucevic",
+       "player": "Nikola Vucevic",
+       "m": "Nick",
+       "value": 1312.28,
+       "shown": "wins swung: 4",
+       "sub": "56 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 4.0,
+       "starts": 56
+      },
+      {
+       "label": "Stephen Curry",
+       "player": "Stephen Curry",
+       "m": "Nick",
+       "value": 1294.72,
+       "shown": "wins swung: 3",
+       "sub": "47 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 3.0,
+       "starts": 47
+      },
+      {
+       "label": "James Harden",
+       "player": "James Harden",
+       "m": "Garrett",
+       "value": 1248.67,
+       "shown": "wins swung: 3",
+       "sub": "42 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 3.0,
+       "starts": 42
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 85
+    },
+    "trade": {
+     "winner": {
+      "label": "Garrett \u21c4 Benton, 01-05",
+      "player": null,
+      "m": "Garrett",
+      "value": 997.76,
+      "shown": "won by Garrett",
+      "sub": "",
+      "date": "2021-01-05",
+      "sides": {
+       "Garrett": {
+        "par": 1642.83,
+        "got": [
+         "Julius Randle",
+         "De'Aaron Fox"
+        ]
+       },
+       "Benton": {
+        "par": 645.06,
+        "got": [
+         "Malcolm Brogdon",
+         "Deandre Ayton"
+        ]
+       }
+      },
+      "picks": {}
+     },
+     "top": [
+      {
+       "label": "Garrett \u21c4 Benton, 01-05",
+       "player": null,
+       "m": "Garrett",
+       "value": 997.76,
+       "shown": "won by Garrett",
+       "sub": "",
+       "date": "2021-01-05",
+       "sides": {
+        "Garrett": {
+         "par": 1642.83,
+         "got": [
+          "Julius Randle",
+          "De'Aaron Fox"
+         ]
+        },
+        "Benton": {
+         "par": 645.06,
+         "got": [
+          "Malcolm Brogdon",
+          "Deandre Ayton"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Hayden \u21c4 Benton, 01-20",
+       "player": null,
+       "m": "Hayden",
+       "value": 251.61,
+       "shown": "won by Hayden",
+       "sub": "",
+       "date": "2021-01-20",
+       "sides": {
+        "Hayden": {
+         "par": 901.14,
+         "got": [
+          "Shai Gilgeous-Alexander",
+          "Kyrie Irving"
+         ]
+        },
+        "Benton": {
+         "par": 649.53,
+         "got": [
+          "Trae Young"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Benton \u21c4 Garrett, 02-26",
+       "player": null,
+       "m": "Garrett",
+       "value": 160.77,
+       "shown": "won by Garrett",
+       "sub": "",
+       "date": "2021-02-26",
+       "sides": {
+        "Benton": {
+         "par": 128.21,
+         "got": [
+          "Christian Wood"
+         ]
+        },
+        "Garrett": {
+         "par": 288.97,
+         "got": [
+          "Paul George"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Nick \u21c4 Benton, 03-19",
+       "player": null,
+       "m": "Nick",
+       "value": 137.68,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2021-03-19",
+       "sides": {
+        "Nick": {
+         "par": 285.39,
+         "got": [
+          "Pascal Siakam",
+          "Bam Adebayo"
+         ]
+        },
+        "Benton": {
+         "par": 147.71,
+         "got": [
+          "Zion Williamson",
+          "Terry Rozier",
+          "Jerami Grant"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Benton \u21c4 Garrett, 03-02",
+       "player": null,
+       "m": "Garrett",
+       "value": 127.8,
+       "shown": "won by Garrett",
+       "sub": "",
+       "date": "2021-03-02",
+       "sides": {
+        "Benton": {
+         "par": 0,
+         "got": [
+          "Pascal Siakam"
+         ]
+        },
+        "Garrett": {
+         "par": 127.8,
+         "got": [
+          "Jamal Murray"
+         ]
+        }
+       },
+       "picks": {}
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 6
+    },
+    "improved": {
+     "winner": {
+      "label": "Julius Randle",
+      "player": "Julius Randle",
+      "m": "Garrett",
+      "value": 14.76,
+      "shown": "43.6 vs 28.8 usual",
+      "sub": "52 games \u00b7 usual over 2019-20, 2018-19, 2017-18",
+      "fppg": 43.56,
+      "usual": 28.79,
+      "games": 52
+     },
+     "top": [
+      {
+       "label": "Julius Randle",
+       "player": "Julius Randle",
+       "m": "Garrett",
+       "value": 14.76,
+       "shown": "43.6 vs 28.8 usual",
+       "sub": "52 games \u00b7 usual over 2019-20, 2018-19, 2017-18",
+       "fppg": 43.56,
+       "usual": 28.79,
+       "games": 52
+      },
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 9.36,
+       "shown": "54.1 vs 44.8 usual",
+       "sub": "56 games \u00b7 usual over 2019-20, 2018-19, 2017-18",
+       "fppg": 54.12,
+       "usual": 44.76,
+       "games": 56
+      },
+      {
+       "label": "CJ McCollum",
+       "player": "CJ McCollum",
+       "m": "Garrett",
+       "value": 7.92,
+       "shown": "40.6 vs 32.7 usual",
+       "sub": "31 games \u00b7 usual over 2019-20, 2018-19, 2017-18",
+       "fppg": 40.61,
+       "usual": 32.7,
+       "games": 31
+      },
+      {
+       "label": "Jamal Murray",
+       "player": "Jamal Murray",
+       "m": "Garrett",
+       "value": 7.7,
+       "shown": "35.6 vs 27.9 usual",
+       "sub": "34 games \u00b7 usual over 2019-20, 2018-19, 2017-18",
+       "fppg": 35.64,
+       "usual": 27.94,
+       "games": 34
+      },
+      {
+       "label": "Malcolm Brogdon",
+       "player": "Malcolm Brogdon",
+       "m": "Nick",
+       "value": 6.83,
+       "shown": "37.6 vs 30.8 usual",
+       "sub": "44 games \u00b7 usual over 2019-20",
+       "fppg": 37.63,
+       "usual": 30.81,
+       "games": 44
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "under 20 games this season": 26,
+      "under 20 games in his prior league seasons": 6,
+      "no games in the log": 2,
+      "no prior league seasons": 3
+     },
+     "eligible": 30
+    }
+   }
+  },
+  "2021-22": {
+   "season": "2021-22",
+   "regular_weeks": 20,
+   "through": "2022-03-13",
+   "R": {
+    "1": 21.188,
+    "2": 28.987,
+    "3": 27.757,
+    "4": 28.706,
+    "5": 28.706,
+    "6": 28.67,
+    "7": 27.637,
+    "8": 29.172,
+    "9": 30.902,
+    "10": 28.94,
+    "11": 28.021,
+    "12": 28.178,
+    "13": 26.693,
+    "14": 21.843,
+    "15": 29.347,
+    "16": 29.291,
+    "17": 28.782,
+    "18": 28.394,
+    "19": 29.216,
+    "20": 28.838
+   },
+   "checks": {
+    "team_weeks": 80,
+    "off": 51,
+    "max_off": 5.4,
+    "short_weeks": [],
+    "flips": 0
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "Nikola Jokic",
+      "player": "Nikola Jokic",
+      "m": "Hayden",
+      "value": 1681.88,
+      "shown": "wins swung: 1",
+      "sub": "61 starts",
+      "ms": [
+       "Hayden"
+      ],
+      "swung": 1.0,
+      "starts": 61
+     },
+     "top": [
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 1681.88,
+       "shown": "wins swung: 1",
+       "sub": "61 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 1.0,
+       "starts": 61
+      },
+      {
+       "label": "Giannis Antetokounmpo",
+       "player": "Giannis Antetokounmpo",
+       "m": "Garrett",
+       "value": 1228.92,
+       "shown": "wins swung: 4",
+       "sub": "56 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 4.0,
+       "starts": 56
+      },
+      {
+       "label": "Dejounte Murray",
+       "player": "Dejounte Murray",
+       "m": "Benton",
+       "value": 1165.86,
+       "shown": "wins swung: 1",
+       "sub": "58 starts \u00b7 Benton 1,012.6 + Nick 153.2",
+       "ms": [
+        "Benton",
+        "Nick"
+       ],
+       "swung": 1.0,
+       "starts": 58
+      },
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Nick",
+       "value": 1134.86,
+       "shown": "wins swung: 1",
+       "sub": "51 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 1.0,
+       "starts": 51
+      },
+      {
+       "label": "Stephen Curry",
+       "player": "Stephen Curry",
+       "m": "Nick",
+       "value": 1089.37,
+       "shown": "wins swung: 2",
+       "sub": "61 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 2.0,
+       "starts": 61
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 97
+    },
+    "trade": {
+     "winner": {
+      "label": "Nick \u21c4 Benton, 11-05",
+      "player": null,
+      "m": "Benton",
+      "value": 1212.79,
+      "shown": "won by Benton",
+      "sub": "",
+      "date": "2021-11-05",
+      "sides": {
+       "Nick": {
+        "par": 656.11,
+        "got": [
+         "Anthony Davis",
+         "CJ McCollum"
+        ]
+       },
+       "Benton": {
+        "par": 1868.9,
+        "got": [
+         "Dejounte Murray",
+         "Jayson Tatum"
+        ]
+       }
+      },
+      "picks": {}
+     },
+     "top": [
+      {
+       "label": "Nick \u21c4 Benton, 11-05",
+       "player": null,
+       "m": "Benton",
+       "value": 1212.79,
+       "shown": "won by Benton",
+       "sub": "",
+       "date": "2021-11-05",
+       "sides": {
+        "Nick": {
+         "par": 656.11,
+         "got": [
+          "Anthony Davis",
+          "CJ McCollum"
+         ]
+        },
+        "Benton": {
+         "par": 1868.9,
+         "got": [
+          "Dejounte Murray",
+          "Jayson Tatum"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Hayden \u21c4 Benton, 12-07",
+       "player": null,
+       "m": "Hayden",
+       "value": 492.32,
+       "shown": "won by Hayden",
+       "sub": "",
+       "date": "2021-12-07",
+       "sides": {
+        "Hayden": {
+         "par": 511.88,
+         "got": [
+          "Evan Mobley",
+          "Zion Williamson",
+          "Pascal Siakam"
+         ]
+        },
+        "Benton": {
+         "par": 19.56,
+         "got": [
+          "Russell Westbrook"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Hayden \u21c4 Nick, 11-20",
+       "player": null,
+       "m": "Nick",
+       "value": 39.86,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2021-11-20",
+       "sides": {
+        "Hayden": {
+         "par": 128.41,
+         "got": [
+          "Cole Anthony",
+          "Jerami Grant"
+         ]
+        },
+        "Nick": {
+         "par": 168.26,
+         "got": [
+          "Damian Lillard"
+         ]
+        }
+       },
+       "picks": {}
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3
+    },
+    "improved": {
+     "winner": {
+      "label": "Dejounte Murray",
+      "player": "Dejounte Murray",
+      "m": "Benton",
+      "value": 12.83,
+      "shown": "47.8 vs 35.0 usual",
+      "sub": "59 games \u00b7 usual over 2020-21, 2019-20",
+      "fppg": 47.79,
+      "usual": 34.96,
+      "games": 59
+     },
+     "top": [
+      {
+       "label": "Dejounte Murray",
+       "player": "Dejounte Murray",
+       "m": "Benton",
+       "value": 12.83,
+       "shown": "47.8 vs 35.0 usual",
+       "sub": "59 games \u00b7 usual over 2020-21, 2019-20",
+       "fppg": 47.79,
+       "usual": 34.96,
+       "games": 59
+      },
+      {
+       "label": "Ja Morant",
+       "player": "Ja Morant",
+       "m": "Nick",
+       "value": 9.3,
+       "shown": "39.6 vs 30.3 usual",
+       "sub": "55 games \u00b7 usual over 2020-21, 2019-20",
+       "fppg": 39.58,
+       "usual": 30.28,
+       "games": 55
+      },
+      {
+       "label": "LaMelo Ball",
+       "player": "LaMelo Ball",
+       "m": "Hayden",
+       "value": 7.86,
+       "shown": "41.9 vs 34.0 usual",
+       "sub": "61 games \u00b7 usual over 2020-21",
+       "fppg": 41.88,
+       "usual": 34.02,
+       "games": 61
+      },
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 7.66,
+       "shown": "55.6 vs 48.0 usual",
+       "sub": "61 games \u00b7 usual over 2020-21, 2019-20, 2018-19",
+       "fppg": 55.65,
+       "usual": 47.99,
+       "games": 61
+      },
+      {
+       "label": "Terry Rozier",
+       "player": "Terry Rozier",
+       "m": "Garrett",
+       "value": 6.76,
+       "shown": "40.8 vs 34.1 usual",
+       "sub": "27 games \u00b7 usual over 2020-21, 2019-20",
+       "fppg": 40.82,
+       "usual": 34.06,
+       "games": 27
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "under 20 games this season": 36,
+      "under 20 games in his prior league seasons": 4,
+      "no games in the log": 4,
+      "no prior league seasons": 5
+     },
+     "eligible": 24
+    }
+   }
+  },
+  "2022-23": {
+   "season": "2022-23",
+   "regular_weeks": 21,
+   "through": "2023-03-19",
+   "R": {
+    "1": 27.481,
+    "2": 27.395,
+    "3": 24.697,
+    "4": 27.201,
+    "5": 22.023,
+    "6": 26.15,
+    "7": 27.779,
+    "8": 28.835,
+    "9": 29.389,
+    "10": 29.209,
+    "11": 29.246,
+    "12": 28.736,
+    "13": 29.429,
+    "14": 26.658,
+    "15": 27.807,
+    "16": 24.652,
+    "17": 30.009,
+    "18": 28.056,
+    "19": 29.353,
+    "20": 28.92,
+    "21": 29.391
+   },
+   "checks": {
+    "team_weeks": 84,
+    "off": 20,
+    "max_off": 5.0,
+    "short_weeks": [],
+    "flips": 0
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "Nikola Jokic",
+      "player": "Nikola Jokic",
+      "m": "Hayden",
+      "value": 1677.39,
+      "shown": "wins swung: 7",
+      "sub": "64 starts",
+      "ms": [
+       "Hayden"
+      ],
+      "swung": 7.0,
+      "starts": 64
+     },
+     "top": [
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 1677.39,
+       "shown": "wins swung: 7",
+       "sub": "64 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 7.0,
+       "starts": 64
+      },
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Nick",
+       "value": 1425.26,
+       "shown": "wins swung: 1",
+       "sub": "54 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 1.0,
+       "starts": 54
+      },
+      {
+       "label": "Jayson Tatum",
+       "player": "Jayson Tatum",
+       "m": "Benton",
+       "value": 1297.27,
+       "shown": "wins swung: 4",
+       "sub": "65 starts",
+       "ms": [
+        "Benton"
+       ],
+       "swung": 4.0,
+       "starts": 65
+      },
+      {
+       "label": "Damian Lillard",
+       "player": "Damian Lillard",
+       "m": "Nick",
+       "value": 1179.71,
+       "shown": "wins swung: 1",
+       "sub": "56 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 1.0,
+       "starts": 56
+      },
+      {
+       "label": "James Harden",
+       "player": "James Harden",
+       "m": "Garrett",
+       "value": 1095.19,
+       "shown": "wins swung: 2",
+       "sub": "50 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 2.0,
+       "starts": 50
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 99
+    },
+    "trade": {
+     "winner": null,
+     "top": [],
+     "none": "no regular-season trade",
+     "excluded": {},
+     "eligible": 0
+    },
+    "improved": {
+     "winner": {
+      "label": "Tyrese Haliburton",
+      "player": "Tyrese Haliburton",
+      "m": "Hayden",
+      "value": 9.6,
+      "shown": "47.8 vs 38.2 usual",
+      "sub": "54 games \u00b7 usual over 2021-22, 2020-21",
+      "fppg": 47.79,
+      "usual": 38.19,
+      "games": 54
+     },
+     "top": [
+      {
+       "label": "Tyrese Haliburton",
+       "player": "Tyrese Haliburton",
+       "m": "Hayden",
+       "value": 9.6,
+       "shown": "47.8 vs 38.2 usual",
+       "sub": "54 games \u00b7 usual over 2021-22, 2020-21",
+       "fppg": 47.79,
+       "usual": 38.19,
+       "games": 54
+      },
+      {
+       "label": "Jamal Murray",
+       "player": "Jamal Murray",
+       "m": "Hayden",
+       "value": 7.05,
+       "shown": "40.2 vs 33.1 usual",
+       "sub": "29 games \u00b7 usual over 2020-21, 2019-20",
+       "fppg": 40.16,
+       "usual": 33.12,
+       "games": 29
+      },
+      {
+       "label": "LaMelo Ball",
+       "player": "LaMelo Ball",
+       "m": "Hayden",
+       "value": 6.75,
+       "shown": "47.2 vs 40.5 usual",
+       "sub": "36 games \u00b7 usual over 2021-22, 2020-21",
+       "fppg": 47.24,
+       "usual": 40.49,
+       "games": 36
+      },
+      {
+       "label": "Ja Morant",
+       "player": "Ja Morant",
+       "m": "Benton",
+       "value": 6.5,
+       "shown": "41.2 vs 34.7 usual",
+       "sub": "53 games \u00b7 usual over 2021-22, 2020-21, 2019-20",
+       "fppg": 41.22,
+       "usual": 34.72,
+       "games": 53
+      },
+      {
+       "label": "Jayson Tatum",
+       "player": "Jayson Tatum",
+       "m": "Benton",
+       "value": 6.18,
+       "shown": "48.0 vs 41.8 usual",
+       "sub": "67 games \u00b7 usual over 2021-22, 2020-21, 2019-20",
+       "fppg": 48.03,
+       "usual": 41.84,
+       "games": 67
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "under 20 games this season": 33,
+      "under 20 games in his prior league seasons": 5,
+      "no prior league seasons": 3,
+      "no games in the log": 1
+     },
+     "eligible": 32
+    }
+   }
+  },
+  "2023-24": {
+   "season": "2023-24",
+   "regular_weeks": 21,
+   "through": "2024-03-24",
+   "R": {
+    "1": 28.796,
+    "2": 29.442,
+    "3": 27.352,
+    "4": 27.078,
+    "5": 28.757,
+    "6": 28.526,
+    "7": 28.903,
+    "8": 29.973,
+    "9": 28.462,
+    "10": 28.531,
+    "11": 28.25,
+    "12": 30.088,
+    "13": 29.959,
+    "14": 29.304,
+    "15": 27.771,
+    "16": 30.788,
+    "17": 29.321,
+    "18": 28.456,
+    "19": 28.439,
+    "20": 28.944,
+    "21": 19.51
+   },
+   "checks": {
+    "team_weeks": 84,
+    "off": 11,
+    "max_off": 5.0,
+    "short_weeks": [],
+    "flips": 0
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "Luka Doncic",
+      "player": "Luka Doncic",
+      "m": "Nick",
+      "value": 1876.1,
+      "shown": "wins swung: 2",
+      "sub": "58 starts",
+      "ms": [
+       "Nick"
+      ],
+      "swung": 2.0,
+      "starts": 58
+     },
+     "top": [
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Nick",
+       "value": 1876.1,
+       "shown": "wins swung: 2",
+       "sub": "58 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 2.0,
+       "starts": 58
+      },
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 1757.67,
+       "shown": "wins swung: 4",
+       "sub": "66 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 4.0,
+       "starts": 66
+      },
+      {
+       "label": "Domantas Sabonis",
+       "player": "Domantas Sabonis",
+       "m": "Garrett",
+       "value": 1339.61,
+       "shown": "wins swung: 2",
+       "sub": "67 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 2.0,
+       "starts": 67
+      },
+      {
+       "label": "Shai Gilgeous-Alexander",
+       "player": "Shai Gilgeous-Alexander",
+       "m": "Hayden",
+       "value": 1333.3,
+       "shown": "wins swung: 3",
+       "sub": "69 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 3.0,
+       "starts": 69
+      },
+      {
+       "label": "Anthony Davis",
+       "player": "Anthony Davis",
+       "m": "Nick",
+       "value": 1252.48,
+       "shown": "wins swung: 2",
+       "sub": "65 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 2.0,
+       "starts": 65
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 99
+    },
+    "trade": {
+     "winner": {
+      "label": "Nick \u21c4 Benton, 01-15",
+      "player": null,
+      "m": "Benton",
+      "value": 71.56,
+      "shown": "won by Benton",
+      "sub": "",
+      "date": "2024-01-15",
+      "sides": {
+       "Nick": {
+        "par": 393.75,
+        "got": [
+         "CJ McCollum",
+         "Kawhi Leonard"
+        ]
+       },
+       "Benton": {
+        "par": 465.3,
+        "got": [
+         "Stephen Curry"
+        ]
+       }
+      },
+      "picks": {}
+     },
+     "top": [
+      {
+       "label": "Nick \u21c4 Benton, 01-15",
+       "player": null,
+       "m": "Benton",
+       "value": 71.56,
+       "shown": "won by Benton",
+       "sub": "",
+       "date": "2024-01-15",
+       "sides": {
+        "Nick": {
+         "par": 393.75,
+         "got": [
+          "CJ McCollum",
+          "Kawhi Leonard"
+         ]
+        },
+        "Benton": {
+         "par": 465.3,
+         "got": [
+          "Stephen Curry"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Nick \u21c4 Garrett, 03-07",
+       "player": null,
+       "m": "Nick",
+       "value": 9.08,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2024-03-07",
+       "sides": {
+        "Nick": {
+         "par": 70.27,
+         "got": [
+          "Miles Bridges"
+         ]
+        },
+        "Garrett": {
+         "par": 61.2,
+         "got": [
+          "CJ McCollum"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Benton \u21c4 Nick, 02-26",
+       "player": null,
+       "m": "Nick",
+       "value": 4.33,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2024-02-26",
+       "sides": {
+        "Benton": {
+         "par": 57.76,
+         "got": [
+          "Brandon Ingram"
+         ]
+        },
+        "Nick": {
+         "par": 62.09,
+         "got": [
+          "Jarrett Allen"
+         ]
+        }
+       },
+       "picks": {}
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3
+    },
+    "improved": {
+     "winner": {
+      "label": "Scottie Barnes",
+      "player": "Scottie Barnes",
+      "m": "Nick",
+      "value": 11.34,
+      "shown": "42.6 vs 31.3 usual",
+      "sub": "60 games \u00b7 usual over 2022-23, 2021-22",
+      "fppg": 42.59,
+      "usual": 31.25,
+      "games": 60
+     },
+     "top": [
+      {
+       "label": "Scottie Barnes",
+       "player": "Scottie Barnes",
+       "m": "Nick",
+       "value": 11.34,
+       "shown": "42.6 vs 31.3 usual",
+       "sub": "60 games \u00b7 usual over 2022-23, 2021-22",
+       "fppg": 42.59,
+       "usual": 31.25,
+       "games": 60
+      },
+      {
+       "label": "Tyrese Maxey",
+       "player": "Tyrese Maxey",
+       "m": "Benton",
+       "value": 10.61,
+       "shown": "41.1 vs 30.5 usual",
+       "sub": "61 games \u00b7 usual over 2022-23, 2021-22",
+       "fppg": 41.14,
+       "usual": 30.53,
+       "games": 61
+      },
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Nick",
+       "value": 10.19,
+       "shown": "61.2 vs 51.0 usual",
+       "sub": "61 games \u00b7 usual over 2022-23, 2021-22, 2020-21",
+       "fppg": 61.22,
+       "usual": 51.02,
+       "games": 61
+      },
+      {
+       "label": "Shai Gilgeous-Alexander",
+       "player": "Shai Gilgeous-Alexander",
+       "m": "Hayden",
+       "value": 8.76,
+       "shown": "47.7 vs 39.0 usual",
+       "sub": "69 games \u00b7 usual over 2022-23, 2021-22, 2020-21",
+       "fppg": 47.74,
+       "usual": 38.98,
+       "games": 69
+      },
+      {
+       "label": "Joel Embiid",
+       "player": "Joel Embiid",
+       "m": "Nick",
+       "value": 7.77,
+       "shown": "54.3 vs 46.6 usual",
+       "sub": "34 games \u00b7 usual over 2022-23, 2021-22, 2020-21",
+       "fppg": 54.32,
+       "usual": 46.55,
+       "games": 34
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "under 20 games in his prior league seasons": 3,
+      "under 20 games this season": 32,
+      "no games in the log": 3,
+      "no prior league seasons": 5
+     },
+     "eligible": 32
+    }
+   }
+  },
+  "2024-25": {
+   "season": "2024-25",
+   "regular_weeks": 21,
+   "through": "2025-03-30",
+   "R": {
+    "1": 27.619,
+    "2": 26.13,
+    "3": 25.49,
+    "4": 25.342,
+    "5": 25.493,
+    "6": 30.799,
+    "7": 28.199,
+    "8": 29.017,
+    "9": 29.39,
+    "10": 28.158,
+    "11": 28.516,
+    "12": 26.677,
+    "13": 28.06,
+    "14": 27.423,
+    "15": 28.926,
+    "16": 32.725,
+    "17": 31.97,
+    "18": 26.554,
+    "19": 26.472,
+    "20": 30.232,
+    "21": 29.079
+   },
+   "checks": {
+    "team_weeks": 84,
+    "off": 10,
+    "max_off": 3.0,
+    "short_weeks": [],
+    "flips": 0
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "Nikola Jokic",
+      "player": "Nikola Jokic",
+      "m": "Hayden",
+      "value": 2146.78,
+      "shown": "wins swung: 3",
+      "sub": "61 starts",
+      "ms": [
+       "Hayden"
+      ],
+      "swung": 3.0,
+      "starts": 61
+     },
+     "top": [
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 2146.78,
+       "shown": "wins swung: 3",
+       "sub": "61 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 3.0,
+       "starts": 61
+      },
+      {
+       "label": "Shai Gilgeous-Alexander",
+       "player": "Shai Gilgeous-Alexander",
+       "m": "Hayden",
+       "value": 1441.01,
+       "shown": "wins swung: 0",
+       "sub": "70 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 0.0,
+       "starts": 70
+      },
+      {
+       "label": "Jayson Tatum",
+       "player": "Jayson Tatum",
+       "m": "Benton",
+       "value": 1321.78,
+       "shown": "wins swung: 2",
+       "sub": "64 starts",
+       "ms": [
+        "Benton"
+       ],
+       "swung": 2.0,
+       "starts": 64
+      },
+      {
+       "label": "Victor Wembanyama",
+       "player": "Victor Wembanyama",
+       "m": "Garrett",
+       "value": 1172.08,
+       "shown": "wins swung: 2",
+       "sub": "44 starts",
+       "ms": [
+        "Garrett"
+       ],
+       "swung": 2.0,
+       "starts": 44
+      },
+      {
+       "label": "LeBron James",
+       "player": "LeBron James",
+       "m": "Nick",
+       "value": 1105.81,
+       "shown": "wins swung: 4",
+       "sub": "62 starts \u00b7 Nick 1,057.3 + Garrett 48.5",
+       "ms": [
+        "Nick",
+        "Garrett"
+       ],
+       "swung": 4.0,
+       "starts": 62
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 103
+    },
+    "trade": {
+     "winner": {
+      "label": "Nick \u21c4 Garrett, 10-30",
+      "player": null,
+      "m": "Nick",
+      "value": 770.42,
+      "shown": "won by Nick",
+      "sub": "",
+      "date": "2024-10-30",
+      "sides": {
+       "Nick": {
+        "par": 1665.12,
+        "got": [
+         "LeBron James",
+         "Donovan Mitchell"
+        ]
+       },
+       "Garrett": {
+        "par": 894.7,
+        "got": [
+         "Scottie Barnes",
+         "Fred VanVleet"
+        ]
+       }
+      },
+      "picks": {}
+     },
+     "top": [
+      {
+       "label": "Nick \u21c4 Garrett, 10-30",
+       "player": null,
+       "m": "Nick",
+       "value": 770.42,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2024-10-30",
+       "sides": {
+        "Nick": {
+         "par": 1665.12,
+         "got": [
+          "LeBron James",
+          "Donovan Mitchell"
+         ]
+        },
+        "Garrett": {
+         "par": 894.7,
+         "got": [
+          "Scottie Barnes",
+          "Fred VanVleet"
+         ]
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Nick \u21c4 Benton, 02-12",
+       "player": null,
+       "m": "Nick",
+       "value": 560.71,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2025-02-12",
+       "sides": {
+        "Nick": {
+         "par": 672.07,
+         "got": [
+          "James Harden",
+          "Stephen Curry"
+         ]
+        },
+        "Benton": {
+         "par": 111.36,
+         "got": [
+          "Donovan Mitchell"
+         ]
+        }
+       },
+       "picks": {}
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 2
+    },
+    "improved": {
+     "winner": {
+      "label": "Cade Cunningham",
+      "player": "Cade Cunningham",
+      "m": "Benton",
+      "value": 9.85,
+      "shown": "44.1 vs 34.3 usual",
+      "sub": "66 games \u00b7 usual over 2023-24, 2022-23, 2021-22",
+      "fppg": 44.11,
+      "usual": 34.26,
+      "games": 66
+     },
+     "top": [
+      {
+       "label": "Cade Cunningham",
+       "player": "Cade Cunningham",
+       "m": "Benton",
+       "value": 9.85,
+       "shown": "44.1 vs 34.3 usual",
+       "sub": "66 games \u00b7 usual over 2023-24, 2022-23, 2021-22",
+       "fppg": 44.11,
+       "usual": 34.26,
+       "games": 66
+      },
+      {
+       "label": "Austin Reaves",
+       "player": "Austin Reaves",
+       "m": "Hayden",
+       "value": 9.72,
+       "shown": "39.6 vs 29.9 usual",
+       "sub": "32 games \u00b7 usual over 2023-24",
+       "fppg": 39.57,
+       "usual": 29.85,
+       "games": 32
+      },
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 8.02,
+       "shown": "63.4 vs 55.4 usual",
+       "sub": "64 games \u00b7 usual over 2023-24, 2022-23, 2021-22",
+       "fppg": 63.45,
+       "usual": 55.42,
+       "games": 64
+      },
+      {
+       "label": "Victor Wembanyama",
+       "player": "Victor Wembanyama",
+       "m": "Garrett",
+       "value": 7.18,
+       "shown": "54.4 vs 47.2 usual",
+       "sub": "46 games \u00b7 usual over 2023-24",
+       "fppg": 54.43,
+       "usual": 47.25,
+       "games": 46
+      },
+      {
+       "label": "Shai Gilgeous-Alexander",
+       "player": "Shai Gilgeous-Alexander",
+       "m": "Hayden",
+       "value": 6.73,
+       "shown": "49.2 vs 42.5 usual",
+       "sub": "71 games \u00b7 usual over 2023-24, 2022-23, 2021-22",
+       "fppg": 49.24,
+       "usual": 42.51,
+       "games": 71
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no prior league seasons": 6,
+      "under 20 games this season": 27,
+      "under 20 games in his prior league seasons": 8
+     },
+     "eligible": 30
+    }
+   }
+  },
+  "2025-26": {
+   "season": "2025-26",
+   "regular_weeks": 21,
+   "through": "2026-03-22",
+   "R": {
+    "1": 23.954,
+    "2": 23.954,
+    "3": 27.613,
+    "4": 29.203,
+    "5": 30.107,
+    "6": 30.007,
+    "7": 29.633,
+    "8": 24.383,
+    "9": 28.412,
+    "10": 30.19,
+    "11": 28.751,
+    "12": 27.011,
+    "13": 30.528,
+    "14": 25.944,
+    "15": 28.984,
+    "16": 28.822,
+    "17": 29.472,
+    "18": 27.326,
+    "19": 27.959,
+    "20": 27.927,
+    "21": 25.612
+   },
+   "checks": {
+    "team_weeks": 84,
+    "off": 0,
+    "max_off": 0.0,
+    "short_weeks": [],
+    "flips": 0
+   },
+   "awards": {
+    "mvp": {
+     "winner": {
+      "label": "Nikola Jokic",
+      "player": "Nikola Jokic",
+      "m": "Hayden",
+      "value": 1861.76,
+      "shown": "wins swung: 2",
+      "sub": "56 starts",
+      "ms": [
+       "Hayden"
+      ],
+      "swung": 2.0,
+      "starts": 56
+     },
+     "top": [
+      {
+       "label": "Nikola Jokic",
+       "player": "Nikola Jokic",
+       "m": "Hayden",
+       "value": 1861.76,
+       "shown": "wins swung: 2",
+       "sub": "56 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 2.0,
+       "starts": 56
+      },
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Nick",
+       "value": 1687.16,
+       "shown": "wins swung: 5",
+       "sub": "59 starts",
+       "ms": [
+        "Nick"
+       ],
+       "swung": 5.0,
+       "starts": 59
+      },
+      {
+       "label": "Tyrese Maxey",
+       "player": "Tyrese Maxey",
+       "m": "Benton",
+       "value": 1144.31,
+       "shown": "wins swung: 2",
+       "sub": "56 starts",
+       "ms": [
+        "Benton"
+       ],
+       "swung": 2.0,
+       "starts": 56
+      },
+      {
+       "label": "Cade Cunningham",
+       "player": "Cade Cunningham",
+       "m": "Benton",
+       "value": 1129.43,
+       "shown": "wins swung: 1",
+       "sub": "61 starts",
+       "ms": [
+        "Benton"
+       ],
+       "swung": 1.0,
+       "starts": 61
+      },
+      {
+       "label": "Shai Gilgeous-Alexander",
+       "player": "Shai Gilgeous-Alexander",
+       "m": "Hayden",
+       "value": 1106.24,
+       "shown": "wins swung: 3",
+       "sub": "59 starts",
+       "ms": [
+        "Hayden"
+       ],
+       "swung": 3.0,
+       "starts": 59
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 109
+    },
+    "trade": {
+     "winner": {
+      "label": "Nick \u21c4 Benton, 12-15",
+      "player": null,
+      "m": "Benton",
+      "value": 406.74,
+      "shown": "won by Benton \u00b7 draft picks listed, not valued",
+      "sub": "",
+      "date": "2025-12-15",
+      "sides": {
+       "Nick": {
+        "par": 59.08,
+        "got": [
+         "Devin Booker"
+        ]
+       },
+       "Benton": {
+        "par": 465.82,
+        "got": [
+         "Trey Murphy III"
+        ]
+       }
+      },
+      "picks": {
+       "Nick": [
+        "2026 1st (Nick)"
+       ],
+       "Benton": [
+        "2026 2nd (Benton)"
+       ]
+      }
+     },
+     "top": [
+      {
+       "label": "Nick \u21c4 Benton, 12-15",
+       "player": null,
+       "m": "Benton",
+       "value": 406.74,
+       "shown": "won by Benton \u00b7 draft picks listed, not valued",
+       "sub": "",
+       "date": "2025-12-15",
+       "sides": {
+        "Nick": {
+         "par": 59.08,
+         "got": [
+          "Devin Booker"
+         ]
+        },
+        "Benton": {
+         "par": 465.82,
+         "got": [
+          "Trey Murphy III"
+         ]
+        }
+       },
+       "picks": {
+        "Nick": [
+         "2026 1st (Nick)"
+        ],
+        "Benton": [
+         "2026 2nd (Benton)"
+        ]
+       }
+      },
+      {
+       "label": "Nick \u21c4 Garrett, 12-08",
+       "player": null,
+       "m": "Nick",
+       "value": 314.52,
+       "shown": "won by Nick \u00b7 draft picks listed, not valued",
+       "sub": "",
+       "date": "2025-12-08",
+       "sides": {
+        "Nick": {
+         "par": 425.99,
+         "got": [
+          "Karl-Anthony Towns"
+         ]
+        },
+        "Garrett": {
+         "par": 111.46,
+         "got": [
+          "Austin Reaves"
+         ]
+        }
+       },
+       "picks": {
+        "Nick": [
+         "2026 2nd (Nick)"
+        ],
+        "Garrett": [
+         "2026 7th (Garrett)"
+        ]
+       }
+      },
+      {
+       "label": "Hayden \u21c4 Benton, 01-27",
+       "player": null,
+       "m": "Benton",
+       "value": 78.18,
+       "shown": "won by Benton \u00b7 draft picks listed, not valued",
+       "sub": "",
+       "date": "2026-01-27",
+       "sides": {
+        "Hayden": {
+         "par": 38.06,
+         "got": [
+          "Lauri Markkanen"
+         ]
+        },
+        "Benton": {
+         "par": 116.24,
+         "got": [
+          "Michael Porter Jr."
+         ]
+        }
+       },
+       "picks": {
+        "Hayden": [
+         "2026 9th (Hayden)",
+         "2027 2nd (Hayden)"
+        ],
+        "Benton": [
+         "2026 5th (Benton)",
+         "2027 5th (Benton)"
+        ]
+       }
+      },
+      {
+       "label": "Hayden \u21c4 Garrett, 01-23",
+       "player": null,
+       "m": "Garrett",
+       "value": 19.11,
+       "shown": "won by Garrett \u00b7 draft picks listed, not valued",
+       "sub": "",
+       "date": "2026-01-23",
+       "sides": {
+        "Hayden": {
+         "par": -0.62,
+         "got": [
+          "VJ Edgecombe"
+         ]
+        },
+        "Garrett": {
+         "par": 18.49,
+         "got": [
+          "Stephen Curry"
+         ]
+        }
+       },
+       "picks": {
+        "Hayden": [
+         "2026 7th (Hayden)",
+         "2026 8th (Hayden)"
+        ],
+        "Garrett": [
+         "2026 1st (Garrett)",
+         "2026 5th (Garrett)"
+        ]
+       }
+      },
+      {
+       "label": "Hayden \u21c4 Garrett, 02-02",
+       "player": null,
+       "m": "Garrett",
+       "value": 3.15,
+       "shown": "won by Garrett \u00b7 draft picks listed, not valued",
+       "sub": "",
+       "date": "2026-02-02",
+       "sides": {
+        "Hayden": {
+         "par": 106.71,
+         "got": [
+          "Scottie Barnes"
+         ]
+        },
+        "Garrett": {
+         "par": 109.86,
+         "got": [
+          "Alperen Sengun"
+         ]
+        }
+       },
+       "picks": {
+        "Hayden": [
+         "2026 4th (Hayden)",
+         "2027 3rd (Hayden)"
+        ],
+        "Garrett": [
+         "2026 8th (Garrett)",
+         "2027 8th (Garrett)"
+        ]
+       }
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 5
+    },
+    "improved": {
+     "winner": {
+      "label": "Michael Porter Jr.",
+      "player": "Michael Porter Jr.",
+      "m": "Benton",
+      "value": 8.97,
+      "shown": "39.3 vs 30.3 usual",
+      "sub": "46 games \u00b7 usual over 2024-25, 2023-24, 2022-23",
+      "fppg": 39.3,
+      "usual": 30.33,
+      "games": 46
+     },
+     "top": [
+      {
+       "label": "Michael Porter Jr.",
+       "player": "Michael Porter Jr.",
+       "m": "Benton",
+       "value": 8.97,
+       "shown": "39.3 vs 30.3 usual",
+       "sub": "46 games \u00b7 usual over 2024-25, 2023-24, 2022-23",
+       "fppg": 39.3,
+       "usual": 30.33,
+       "games": 46
+      },
+      {
+       "label": "Jalen Johnson",
+       "player": "Jalen Johnson",
+       "m": "Nick",
+       "value": 8.05,
+       "shown": "47.4 vs 39.3 usual",
+       "sub": "63 games \u00b7 usual over 2024-25, 2023-24",
+       "fppg": 47.39,
+       "usual": 39.34,
+       "games": 63
+      },
+      {
+       "label": "Jalen Duren",
+       "player": "Jalen Duren",
+       "m": "Nick",
+       "value": 7.63,
+       "shown": "34.0 vs 26.3 usual",
+       "sub": "38 games \u00b7 usual over 2024-25, 2023-24",
+       "fppg": 33.95,
+       "usual": 26.32,
+       "games": 38
+      },
+      {
+       "label": "Tyrese Maxey",
+       "player": "Tyrese Maxey",
+       "m": "Benton",
+       "value": 7.45,
+       "shown": "48.7 vs 41.2 usual",
+       "sub": "61 games \u00b7 usual over 2024-25, 2023-24, 2022-23",
+       "fppg": 48.7,
+       "usual": 41.25,
+       "games": 61
+      },
+      {
+       "label": "Cade Cunningham",
+       "player": "Cade Cunningham",
+       "m": "Benton",
+       "value": 6.92,
+       "shown": "46.6 vs 39.7 usual",
+       "sub": "61 games \u00b7 usual over 2024-25, 2023-24, 2022-23",
+       "fppg": 46.64,
+       "usual": 39.71,
+       "games": 61
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no prior league seasons": 9,
+      "under 20 games this season": 42,
+      "under 20 games in his prior league seasons": 2,
+      "no games in the log": 3
+     },
+     "eligible": 24
+    }
+   }
+  }
+ },
+ "notes": {
+  "measure": "Each award as defined in claude/AWARDS_DEFINITIONS_2026-11-14.md (modules/awards), through each season's own regular season (season_structure regular_through).",
+  "wins_swung": "Counted against the official weekly scores (all_matchups); his own started points from the league log.",
+  "missing_days": "The league log misses whole days in some weeks (checks.short_weeks): no PAR is counted on them.",
+  "most_improved": "League-log FPPG (games on a league roster) for this season and the usual level; there are no daily NBA lines before 2026-27.",
+  "trades": "data/historical/all_trades.json; draft picks listed, not valued."
+ },
+ "best": {
+  "mvp": {
+   "season": "2018-19",
+   "label": "James Harden",
+   "player": "James Harden",
+   "m": "Nick",
+   "value": 2162.61,
+   "shown": "wins swung: 9",
+   "sub": "65 starts \u00b7 Garrett 1,336.2 + Nick 826.5",
+   "ms": [
+    "Garrett",
+    "Nick"
+   ],
+   "swung": 9.0,
+   "starts": 65,
+   "regular_weeks": 21
+  },
+  "trade": {
+   "season": "2021-22",
+   "label": "Nick \u21c4 Benton, 11-05",
+   "player": null,
+   "m": "Benton",
+   "value": 1212.79,
+   "shown": "won by Benton",
+   "sub": "",
+   "date": "2021-11-05",
+   "sides": {
+    "Nick": {
+     "par": 656.11,
+     "got": [
+      "Anthony Davis",
+      "CJ McCollum"
+     ]
+    },
+    "Benton": {
+     "par": 1868.9,
+     "got": [
+      "Dejounte Murray",
+      "Jayson Tatum"
+     ]
+    }
+   },
+   "picks": {},
+   "regular_weeks": 20
+  },
+  "improved": {
+   "season": "2020-21",
+   "label": "Julius Randle",
+   "player": "Julius Randle",
+   "m": "Garrett",
+   "value": 14.76,
+   "shown": "43.6 vs 28.8 usual",
+   "sub": "52 games \u00b7 usual over 2019-20, 2018-19, 2017-18",
+   "fppg": 43.56,
+   "usual": 28.79,
+   "games": 52,
+   "regular_weeks": 16
+  }
+ }
+}

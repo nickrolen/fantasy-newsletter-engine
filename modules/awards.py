@@ -301,7 +301,12 @@ def wins_swung(his: dict, totals: dict, inp: dict, R: dict, finished: list) -> t
 
 def _actual(inp: dict, name: str, pid, through: str) -> tuple:
     """(games, points) in his NBA games through `through` (player_actuals:
-    every NBA game, on a league roster or not), or (None, reason)."""
+    every NBA game, on a league roster or not), or (None, reason).
+    A PAST season (inp["fppg_source"] == "log", modules/awards_past) has no
+    daily NBA lines: his games and points in the league log instead (every
+    game he played on a league roster, started or not)."""
+    if inp.get("fppg_source") == "log":
+        return _log_line(inp, name, through)
     rec = inp["act_by_id"].get(int(pid)) if pid not in (None, "") else None
     if rec is None:
         rec = inp["act_by_name"].get(name)
@@ -319,6 +324,25 @@ def _actual(inp: dict, name: str, pid, through: str) -> tuple:
         p += float(v[0])
         g += int(v[1])
     return (g, p), None
+
+
+def _log_line(inp: dict, name: str, through: str) -> tuple:
+    """(games, points) in the league log through `through`: every row he
+    played (keeper_history.appeared) on a league roster. Cached per day."""
+    from . import keeper_history as kh
+    cache = inp.setdefault("_logline", {})
+    if through not in cache:
+        tot: dict = {}
+        for r in inp["rows"]:
+            if r["date"] <= through and kh.appeared(r):
+                x = tot.setdefault(r["player_name"], [0, 0.0])
+                x[0] += 1
+                x[1] += float(r["fantasy_points"])
+        cache[through] = tot
+    x = cache[through].get(name)
+    if x is None:
+        return None, "no game on a league roster in the log"
+    return (x[0], x[1]), None
 
 
 def _excl(out: list, who: str, kind: str, reason: str) -> None:
@@ -357,10 +381,18 @@ def finished_weeks(inp: dict, through: Optional[str] = None) -> list:
             if int(w["week"]) <= inp["reg"] and str(w["end_date"])[:10] <= through]
 
 
-def compute(inp: dict, through: str) -> dict:
+def compute(inp: dict, through: str, only=KEYS) -> dict:
     """Every award as of `through` (an ISO day on or before the log's last).
     RAISES AwardsInputError on missing inputs; an award that cannot be
-    computed carries its error instead of rows."""
+    computed carries its error instead of rows. only: the awards to compute
+    (the others stay empty); a past season (modules/awards_past) asks for
+    the ones its data supports. inp["official_totals"] ({week: {manager:
+    score}}), when given, are the team totals wins swung is counted against
+    (a past season's all_matchups: its log misses days, 4c6); otherwise the
+    log's started totals (this season's equal RECORDS)."""
+    bad = [k for k in only if k not in KEYS]
+    if bad:
+        raise AwardsInputError(f"unknown awards {bad}")
     from . import keeper_history as kh
     season, reg = inp["season"], inp["reg"]
     if inp["days"] and through > inp["days"][-1]:
@@ -396,6 +428,8 @@ def compute(inp: dict, through: str) -> dict:
             totals[w][r["manager"]] += float(r["fantasy_points"])
             if kh.appeared(r):
                 starts.append(r)
+    if inp.get("official_totals") is not None:
+        totals = inp["official_totals"]
 
     def par(r):
         return float(r["fantasy_points"]) - R[int(r["week"])]["R"]
@@ -415,7 +449,7 @@ def compute(inp: dict, through: str) -> dict:
             d["last"] = (r["date"], r["manager"])
 
     a = res["awards"]["mvp"]
-    for n, d in per.items():
+    for n, d in (per.items() if "mvp" in only else ()):
         up, down = wins_swung(d["wk"], totals, inp, R, finished)
         teams = sorted(d["teams"], key=lambda m: -d["teams"][m])
         sub = f"{d['starts']} starts" + (DOT + " + ".join(f"{m} {_d1(d['teams'][m])}" for m in teams)
@@ -425,11 +459,16 @@ def compute(inp: dict, through: str) -> dict:
                           "swung": up, "cost": down, "starts": d["starts"]})
     a["rows"] = _rank(a["rows"])
 
-    _pickups(inp, res, rows, starts, par, names, cut)
-    _improved(inp, res, rows, pid_of, cut)
-    _rookies(inp, res, per, pid_of, cut)
-    _trades(inp, res, starts, par, names, cut, reg_end)
-    _busts(inp, res, names, pid_of, cut)
+    if "pickup" in only:
+        _pickups(inp, res, rows, starts, par, names, cut)
+    if "improved" in only:
+        _improved(inp, res, rows, pid_of, cut)
+    if "roy" in only:
+        _rookies(inp, res, per, pid_of, cut)
+    if "trade" in only:
+        _trades(inp, res, starts, par, names, cut, reg_end)
+    if "bust" in only:
+        _busts(inp, res, names, pid_of, cut)
     return res
 
 
@@ -569,7 +608,8 @@ def _improved(inp, res, rows, pid_of, cut) -> None:
     for n in sorted({r["player_name"] for r in rows}):
         line, why = _actual(inp, n, pid_of.get(n), cut)
         if line is None:
-            _excl(a["excluded"], n, "no daily lines", why)
+            _excl(a["excluded"], n, "no games in the log" if inp.get("fppg_source") == "log" else "no daily lines",
+                  why)
             continue
         g, p = line
         if g < need:
@@ -854,11 +894,93 @@ def race_chart(award: str, rows: list, lines: list, season: str) -> Optional[dic
             "points": points, "aria": f"{NAMES[award]} race: today's top {len(series)}, {UNITS[award]} week by week"}
 
 
-def races(res: dict, lines: list, cfg: dict) -> dict:
+def odds_chart(rows: list, lines: list, season: str) -> Optional[dict]:
+    """The MVP odds over weeks (4c6): race_chart's model, from the weekly
+    lines' "odds" (mvp_odds.attach) only, 0-100%. Under two weeks with odds:
+    None. A player outside a week's stored odds has no point that week."""
+    from .mvp_odds import short_pct
+    by = _by(lines, season)
+    wks = sorted(w for (w, k) in by if k == "mvp" and isinstance(by[(w, k)].get("odds"), dict))
+    if len(wks) < 2:
+        return None
+    shorts = {r["key"]: _short(r["label"]) for r in rows}
+    dup = {v for v in shorts.values() if list(shorts.values()).count(v) > 1}
+    name = {k: (next(r["label"] for r in rows if r["key"] == k).split()[0] if v in dup else v)
+            for k, v in shorts.items()}               # race_chart's rule: two alike last names show first names
+    series = []
+    for r in rows:
+        vals, texts = [], []
+        for w in wks:
+            hit = next((e for e in by[(w, "mvp")]["odds"]["p"] if e["key"] == r["key"]), None)
+            vals.append(None if hit is None else round(100 * float(hit["p"]), 2))
+            texts.append(None if hit is None else short_pct(hit["p"]))
+        if all(v is None for v in vals):
+            continue
+        series.append({"key": r["key"], "m": r["m"], "vals": vals, "texts": texts, "end": name[r["key"]]})
+    if not series:
+        return None
+    points = []
+    for i, w in enumerate(wks):
+        bits = [f"{s['end']} {s['texts'][i]}" for s in series if s["texts"][i] is not None]
+        points.append({"head": f"Week {w}", "body": DOT.join(bits) if bits else "none of today's contenders priced"})
+    return {"weeks": [str(w) for w in wks], "ticks": [{"x": i / (len(wks) - 1), "t": f"W{w}"} for i, w in enumerate(wks)],
+            "yticks": [{"v": v, "t": f"{v}%"} for v in (0, 25, 50, 75, 100)], "ymin": 0, "ymax": 100,
+            "series": series, "points": points,
+            "aria": f"MVP odds: today's contenders' chance to win, week by week ({len(wks)} weeks)"}
+
+
+def _weekday(day: str) -> str:
+    return date.fromisoformat(day).strftime("%a") + " " + _md(day)
+
+
+def _mvp_odds(res: dict, rows: list, lines: list, blob: Optional[dict], cfg: dict, err: Optional[str]) -> tuple:
+    """(each row's odds string, the odds block) for the MVP card (4c6).
+    blob: mvp_odds.load's latest odds (None: not priced yet). The odds are
+    printed with their day; a player missing from a stale blob gets none."""
+    from .headshots import player_slug
+    from . import mvp_odds as MO
+    have = [int(w) for (w, k), ln in _by(lines, res["season"]).items() if k == "mvp" and isinstance(ln.get("odds"), dict)]
+    hist = (f"Odds history: from week {min(have)} on; no earlier week has odds (they began in week {min(have)})."
+            if have else "Odds history: none yet. It starts with the first week priced at its end; no earlier "
+            "week has odds.")
+    block = {"info": MO.INFO, "as_of": "", "others": [], "field": "", "error": "", "history": hist, "chart": None}
+    if res["final"]:
+        return {}, None
+    if err:
+        return {}, dict(block, error=f"The MVP odds could not be read: {err}")
+    if blob is None or blob.get("season") != res["season"]:
+        return {}, dict(block, error="No MVP odds yet: the nightly run prices them with the title odds.")
+    c = MO.config()
+    fresh = blob["through"] == res["through"]
+    p = {x["key"]: float(x["p"]) for x in blob["contenders"]}
+    team = {x["key"]: x["m"] for x in blob["contenders"]}
+    out = {}
+    for r in rows:
+        if r["key"] in p:
+            out[r["key"]] = MO.pct(p[r["key"]])
+        elif fresh:
+            out[r["key"]] = MO.pct(0.0)
+    shown = {r["key"] for r in rows}
+    others = [{"key": k, "label": k, "card": player_slug(k), "m": team.get(k) or "", "odds": MO.pct(v)}
+              for k, v in sorted(p.items(), key=lambda kv: (-kv[1], kv[0]))
+              if k not in shown and v >= float(c["show_min"])]
+    rest = max(0.0, 1.0 - sum(p[r["key"]] for r in rows if r["key"] in p) - sum(p[o["key"]] for o in others))
+    block.update(as_of=(f"as of {_weekday(blob['through'])}" + ("" if fresh else
+                        f" (the awards are through {_weekday(res['through'])})")),
+                 others=others, field=f"Everyone else: {MO.short_pct(rest)} combined.")
+    return out, block
+
+
+def races(res: dict, lines: list, cfg: dict, mvp_odds: Optional[dict] = None,
+          mvp_odds_error: Optional[str] = None) -> dict:
     """The awards' display model, every value an engine string: per award
     its top `shown` rows with the shown-with figures, the move against the
     week before (from the history lines), "new leader", the race chart, its
-    status (Live / Final), exclusions summed up with reasons, or its error."""
+    status (Live / Final), exclusions summed up with reasons, or its error.
+    4c6: MVP also gets each row's odds ("61% to win"), the odds block (its
+    InfoTip, day, the others at show_min or more, everyone else, the odds'
+    history note) and the odds-over-weeks chart: mvp_odds is mvp_odds.load's
+    blob (None: not priced yet), mvp_odds_error why it could not be read."""
     from .headshots import player_slug
     show = int(cfg["shown"])
     season, wk = res["season"], res["week"]
@@ -899,7 +1021,14 @@ def races(res: dict, lines: list, cfg: dict) -> dict:
             empty = {"trade": "No regular-season trade yet.", "bust": "No drafted or kept player is short of "
                      "his projection with 10+ games yet."}.get(k, "No eligible player yet.") if wk else \
                 "The season has not started."
-        out.append({"key": k, "name": a["name"], "info": a["info"],
+        odds_rows, odds = ({}, None)
+        if k == "mvp" and a["error"] is None:
+            odds_rows, odds = _mvp_odds(res, rows, lines, mvp_odds, cfg, mvp_odds_error)
+            if odds is not None:
+                odds["chart"] = odds_chart(rows, lines, season)
+        for r in rows:
+            r["odds"] = odds_rows.get(r["key"], "")
+        out.append({"key": k, "name": a["name"], "info": a["info"], "odds": odds,
                     "status": "Final" if res["final"] else "Live",
                     "meta": (f"weeks 1{NDASH}{res['reg']}" if res["final"] else
                              f"through week {wk}" + ("" if wk in res["finished"] else " (in progress)")) if wk else "",
@@ -909,6 +1038,19 @@ def races(res: dict, lines: list, cfg: dict) -> dict:
     return {"awards": out, "par_note": PAR_INFO,
             "note": ("The arrows compare with the week before. Each race chart draws today's top 5 from the "
                      "weekly lines (the top 10 is kept each week).")}
+
+
+def _favourite(ln: dict) -> dict:
+    """MVP's favourite on the week's line (4c6): the contender with the best
+    odds as priced at the week's end, or None with why."""
+    from .mvp_odds import short_pct
+    o = ln.get("odds")
+    if not isinstance(o, dict) or not o.get("p"):
+        return {"favourite": None, "favourite_team": None, "favourite_odds": None, "favourite_odds_text": None,
+                "favourite_why": ln.get("odds_why") or "this week's line has no odds (before 4c6)"}
+    f = max(o["p"], key=lambda e: (float(e["p"]), e["key"]))
+    return {"favourite": f["label"], "favourite_team": f["m"], "favourite_odds": float(f["p"]),
+            "favourite_odds_text": short_pct(f["p"]), "favourite_why": None}
 
 
 def newsletter_facts(lines: list, season: str, week: int) -> dict:
@@ -930,6 +1072,7 @@ def newsletter_facts(lines: list, season: str, week: int) -> dict:
             "second": top[1]["label"] if len(top) > 1 else None,
             "gap": round(top[0]["value"] - top[1]["value"], 2) if len(top) > 1 else None,
             "new_leader": bool(prev and prev["top"] and top and prev["top"][0]["key"] != top[0]["key"]),
+            **(_favourite(ln) if k == "mvp" else {}),
             "previous_leader": prev["top"][0]["label"] if prev and prev["top"] else None,
             "moves": [{"label": e["label"], "rank": int(e["rank"]),
                        "change": (pr[e["key"]] - int(e["rank"])) if e["key"] in pr else None}

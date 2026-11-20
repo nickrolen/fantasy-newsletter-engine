@@ -650,6 +650,15 @@
         "most_improved_min_games": 20,
         "most_improved_min_prior_games": 20,
         "most_improved_prior_spec": "P3",
-        "bust_min_games": 10
+        "bust_min_games": 10,
+        "mvp_odds": {
+            "_comment": "4c6 (modules/mvp_odds.py): each player's chance to finish weeks 1-15 with the most PAR, from the title odds' own season pass (the nightly only). Every player is in every simulation; ties at the top split evenly.",
+            "future_replacement": "current",
+            "_future_replacement": "The replacement level charged for every remaining simulated start: 'current' holds the latest week's R (as of the log's last day); 'season_mean' uses the mean of the weeks' R so far. 4c6 measured the odds moving under 0.5 points between the two (11-18).",
+            "contenders_n": 10,
+            "store_min": 0.001,
+            "show_min": 0.01,
+            "_store_min": "Kept in output/mvp_odds.json and the weekly history line: the top contenders_n by banked PAR, plus anyone at store_min or more. The page prints the five rows' odds, plus anyone else at show_min or more."
+        }
     }
 }

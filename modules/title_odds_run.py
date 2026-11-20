@@ -137,12 +137,16 @@ def line_anchors(base_path):
     return read
 
 
-def run_pass(data, *, seed: int, sims: int, statuses, through: str = None, tag_anchors=None):
+def run_pass(data, *, seed: int, sims: int, statuses, through: str = None, tag_anchors=None,
+             mvp: bool = False):
     """The season pass the weekly build and the nightly run both price from.
-    tag_anchors: season_sim.run_season's (line_anchors(base) in production)."""
+    tag_anchors: season_sim.run_season's (line_anchors(base) in production).
+    mvp (4c6): the pass also tallies started points for the MVP odds (the
+    nightly only); nothing it prices changes."""
     from .season_sim import run_season
     return run_season(data, num_simulations=sims, seed=seed, injury_statuses=statuses,
-                      through=through or through_for(), tag_anchors=tag_anchors)
+                      through=through or through_for(), tag_anchors=tag_anchors,
+                      **({"mvp": True} if mvp else {}))
 
 
 # =============================================================================
@@ -433,9 +437,11 @@ def record(base_path, sp, *, run_id: str, produced_by: str, kind: str, week: int
 
 
 def price(base_path, data, *, seed: int, sims: int, statuses, run_id: str, produced_by: str,
-          kind: str, week: int, now: datetime = None, tag_anchors=None) -> dict:
+          kind: str, week: int, now: datetime = None, tag_anchors=None, mvp: bool = False) -> dict:
     """Price title odds now, unless games are on: then TitleOddsLocked is
-    raised and nothing is computed or written (design s.4.1, as the line)."""
+    raised and nothing is computed or written (design s.4.1, as the line).
+    mvp (4c6): the pass also carries the MVP tally (out["pass"].mvp); the
+    caller computes and writes the odds (nightly._mvp_record)."""
     from . import price_lock
     from .league_clock import league_now
     now = now or league_now()
@@ -445,7 +451,7 @@ def price(base_path, data, *, seed: int, sims: int, statuses, run_id: str, produ
                               "priced after tonight's games")
     data.plan_now = now                      # 44b s.2: the plan's open window is judged at the run's clock
     sp = run_pass(data, seed=seed, sims=sims, statuses=statuses,
-                  tag_anchors=tag_anchors if tag_anchors is not None else line_anchors(base_path))
+                  tag_anchors=tag_anchors if tag_anchors is not None else line_anchors(base_path), mvp=mvp)
     out = record(base_path, sp, run_id=run_id, produced_by=produced_by, kind=kind, week=week,
                  as_of=now)
     out["pass"] = sp

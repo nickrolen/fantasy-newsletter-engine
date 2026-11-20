@@ -1022,7 +1022,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
           previous_engine_ok: bool = False,
           archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None,
           nba_report: dict = None, cards_out: dict = None, ratings_out: dict = None,
-          players_out: dict = None, awards_out: dict = None) -> dict:
+          players_out: dict = None, awards_out: dict = None, mvp_odds_blob: dict = None) -> dict:
     """The hub's payload. night (Step 3a): "build" builds the matchup
     paragraph (the nightly run, and a desk build); "reuse" shows the nightly
     run's stored one (a refresh, a pre-tip run). night_out, when given, gets
@@ -1037,6 +1037,8 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     awards_out (4c5), when given, gets the awards step's record
     (awards_step): the nightly appends its pending history lines (every
     finished week not on file) once the hub is published.
+    mvp_odds_blob (4c6), when given, replaces output/mvp_odds.json for the
+    MVP odds (a scratch preview: build_hub_state.py --mvp-odds).
     players_out (4c2), when given, gets the new hub's Players file
     (hub_v2.data.players_file: v2.players, stamped with this payload): the
     payload itself never holds v2.players. Write it with write_players(base,
@@ -1454,7 +1456,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         ratings_out.update(rt)
     # 4c5: the awards and their races (modules/awards), on the same live log;
     # soft like the ratings: the League's Awards say why, the hub goes on.
-    aw = awards_step(base, live, actuals, echo=echo)
+    aw = awards_step(base, live, actuals, echo=echo, mvp_odds_blob=mvp_odds_blob)
     if awards_out is not None:
         awards_out.update(aw)
     # 4b: the new hub's keys, beside the current page's (modules/hub_v2/data.py):
@@ -1525,7 +1527,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     return payload
 
 
-def awards_step(base, live, actuals: dict, echo=print) -> dict:
+def awards_step(base, live, actuals: dict, echo=print, mvp_odds_blob: dict = None) -> dict:
     """The awards on this build's inputs (4c5, modules/awards): every award
     as of the live log's last day, the history lines of every finished week
     not yet on file (`pending`: the nightly appends them when it publishes;
@@ -1533,9 +1535,16 @@ def awards_step(base, live, actuals: dict, echo=print) -> dict:
     display model over the file's lines plus the pending ones. FAILS SOFTLY
     until the switch-over: {"races", "pending", "through", "week",
     "on_file", "error", "seconds"}; on any exception races is None, pending
-    [], and AWARDS FAILED is echoed."""
+    [], and AWARDS FAILED is echoed.
+
+    4c6: the MVP odds (modules/mvp_odds) come from output/mvp_odds.json,
+    the nightly's file (mvp_odds_blob, when given, replaces it: a preview).
+    The pending MVP lines carry them (mvp_odds.attach: only when priced on
+    that week's last day). A file that cannot be read is the MVP card's
+    note, never the awards' failure."""
     import time as _time
     from . import awards
+    from . import mvp_odds as _mo
     t0 = _time.perf_counter()
     out = {"races": None, "pending": [], "through": None, "week": None, "on_file": 0, "error": None,
            "seconds": None}
@@ -1548,9 +1557,15 @@ def awards_step(base, live, actuals: dict, echo=print) -> dict:
         through = inp["days"][-1]
         res = awards.compute(inp, through)
         lines = awards.read_history(base)
-        pend = awards.pending(inp, lines)
-        out.update(races=awards.races(res, lines + pend, inp["cfg"]), pending=pend, through=through,
-                   week=res["week"], on_file=len(lines))
+        odds_err = None
+        try:
+            blob = mvp_odds_blob if mvp_odds_blob is not None else _mo.load(base)
+        except Exception as e:                       # noqa: BLE001 -- the MVP card says why
+            blob, odds_err = None, f"{type(e).__name__}: {e}".splitlines()[0][:300]
+        pend = _mo.attach(awards.pending(inp, lines), blob)
+        out.update(races=awards.races(res, lines + pend, inp["cfg"], mvp_odds=blob, mvp_odds_error=odds_err),
+                   pending=pend, through=through, week=res["week"], on_file=len(lines),
+                   mvp_odds=None if blob is None else blob["through"])
     except Exception as e:                           # noqa: BLE001 -- the awards fail softly (4c5)
         out.update(races=None, pending=[], error=f"{type(e).__name__}: {e}".splitlines()[0][:500])
         echo(f"AWARDS FAILED (the new hub's Awards say why; the current hub goes on): {out['error']}")

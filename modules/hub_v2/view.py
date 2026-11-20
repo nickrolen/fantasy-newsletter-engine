@@ -18,7 +18,7 @@ whose hex strokes, 340-wide frame and five-tick axes are the current page's).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 TABS = [("home", "Home"), ("matchups", "Matchups"), ("teams", "Teams"), ("players", "Players"),
         ("market", "Market"), ("league", "League")]
@@ -602,10 +602,12 @@ def race_chart(c: dict, teams: dict) -> dict:
     return out
 
 
-def awards_view(aw: dict, teams: dict, href) -> dict:
+def awards_view(aw: dict, teams: dict, href, past: Optional[dict] = None) -> dict:
     """League > Awards (4c5): the races and Player of the Week with their
     joins (a manager to his team mark, a card key to its route) and each
-    race chart's geometry. Every printed value is the engine's string."""
+    race chart's geometry. Every printed value is the engine's string.
+    past (4c6): the side file's Past winners (v2.league_history.awards_past),
+    joined into each award's card."""
     races = []
     for a in aw.get("races") or []:
         rows = [dict(r, team=teams.get(r["m"]), href=href(r["card"]) if r.get("card") else "",
@@ -613,10 +615,20 @@ def awards_view(aw: dict, teams: dict, href) -> dict:
                                  players=[dict(x, href=href(x["card"])) for x in sd["players"]])
                             for sd in r.get("sides") or []])
                 for r in a["rows"]]
-        races.append(dict(a, rows=rows, geom=race_chart(a["chart"], teams) if a.get("chart") else None))
+        odds = a.get("odds")
+        if odds:                                     # 4c6: MVP's odds block, its others and its chart
+            odds = dict(odds, others=[dict(o, team=teams.get(o["m"]), href=href(o["card"]))
+                                      for o in odds.get("others") or []],
+                        geom=race_chart(odds["chart"], teams) if odds.get("chart") else None)
+        pa = ((past or {}).get("by_award") or {}).get(a["key"])
+        if pa:                                       # 4c6: Past winners, with their team marks
+            pa = dict(pa, rows=[dict(r, team=teams.get(r["m"]) if r["m"] else None,
+                                     href=href(r["card"]) if r["card"] else "") for r in pa["rows"]])
+        races.append(dict(a, rows=rows, odds=odds, past=pa,
+                          geom=race_chart(a["chart"], teams) if a.get("chart") else None))
     potw = [dict(s, rows=[dict(r, team=teams.get(r["m"]), href=href(r["card"])) for r in s["rows"]])
             for s in aw["potw"]]
-    return dict(aw, races=races, potw=potw)
+    return dict(aw, races=races, potw=potw, past=past or {})
 
 
 def league(payload: dict, teams: dict, mode: str, archive_href: str) -> dict:
@@ -638,7 +650,7 @@ def league(payload: dict, teams: dict, mode: str, archive_href: str) -> dict:
     st = dict(lg["standings"], rows=[dict(r, team=teams[r["m"]]) for r in lg["standings"]["rows"]])
     pw = dict(lg["power"], weeks=[dict(w, rows=[dict(r, team=teams[r["m"]]) for r in w["rows"]])
                                   for w in lg["power"]["weeks"]])
-    aw = awards_view(lg["awards"], teams, href)
+    aw = awards_view(lg["awards"], teams, href, past=(v2.get("league_history") or {}).get("awards_past"))
     issues = []
     for i in lg["archive"]["issues"]:
         attr = ("data-issue", i["file"]) if mode == "publish" else ("data-href", archive_href + i["plain"])

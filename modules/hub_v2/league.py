@@ -189,6 +189,7 @@ def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: 
         "potw_fill": potw_from_log(potw_seasons, live[0].log if live is not None else {}),
         "banked": banked, "cup_weeks": cup_weeks,
         "awards_rec": awards,
+        **_awards_past_input(base),
         "records_alltime": data.records.get("all_time") or {},
         "draft_current": cur_draft, "draft_ovr": draft_ovr.load(base),
         "live_then": live_then, "live_error": live_error, "now_ovr": now_ovr, "ratings_error": ratings_error,
@@ -517,6 +518,92 @@ def potw_from_log(potw: dict, log: dict) -> dict:
                 tot = sum(float(r["fantasy_points"]) for r in mine)
                 out[(s, int(e["week"]))] = {"total_fp": round(tot, 2), "games": len(mine),
                                             "fppg": round(tot / len(mine), 2)}
+    return out
+
+
+def _awards_past_input(base) -> dict:
+    """4c6: data/historical/AWARDS_PAST.json (public history, modules/
+    awards_past), or why it cannot be shown. Never fails the League."""
+    from .. import awards_past
+    try:
+        blob = awards_past.load(base)
+        return {"awards_past": blob, "awards_past_error": None if blob is not None else
+                "Past seasons' awards are not built yet (python scripts\\build_awards_past.py)."}
+    except Exception as e:                           # noqa: BLE001 -- the Awards and Records say why
+        return {"awards_past": None,
+                "awards_past_error": f"Past seasons' awards cannot be read: {type(e).__name__}: {e}"[:300]}
+
+
+PAST_UNITS = {"mvp": "PAR", "trade": "PAR gap", "improved": "FPPG"}
+PAST_TILES = {"mvp": "Best MVP season", "trade": "Most lopsided trade", "improved": "Most improved season"}
+
+
+def _past_value(k: str, v: float) -> str:
+    return _signed1(v) if k == "improved" else _d1(v)
+
+
+def _past_sub(k: str, w: dict) -> str:
+    if k == "trade":
+        return DOT.join(f"{m} got {', '.join(sd['got']) or 'no player'} ({_d1(sd['par'])} PAR)"
+                        + (" + picks" if (w.get("picks") or {}).get(m) else "")
+                        for m, sd in w["sides"].items())
+    return w["sub"]
+
+
+def awards_past(inp: dict) -> dict:
+    """League > Awards' "Past winners" (4c6): per award, every past season's
+    winner (season, winner, team, the shown-with figure), newest first, or
+    why a season has none. Engine strings only."""
+    from ..awards import NAMES
+    blob = inp.get("awards_past")
+    if blob is None:
+        return {"error": inp.get("awards_past_error") or "", "by_award": {}, "note": ""}
+    by = {}
+    for k in blob["awards"]:
+        rows = []
+        for s in sorted(blob["seasons"], reverse=True):
+            v = blob["seasons"][s]
+            a = v["awards"][k]
+            w = a["winner"]
+            if w is None:
+                rows.append({"season": s, "none": a["none"], "label": "", "player": None, "card": "", "m": "",
+                             "team_name": "", "value": "", "unit": "", "shown": "", "sub": ""})
+                continue
+            rows.append({"season": s, "none": "", "label": w["label"], "player": w.get("player"),
+                         "card": _slug(w["player"]) if w.get("player") else "", "m": w["m"],
+                         "team_name": _season_team(inp, s, w["m"]), "value": _past_value(k, w["value"]),
+                         "unit": PAST_UNITS[k], "shown": w["shown"], "sub": _past_sub(k, w)})
+        by[k] = {"name": NAMES[k], "rows": rows}
+    lens = sorted({v["regular_weeks"] for v in blob["seasons"].values()})
+    short = [s for s, v in sorted(blob["seasons"].items()) if v["checks"]["short_weeks"]]
+    note = (f"Past winners, {min(blob['seasons'])} to {max(blob['seasons'])}: each season through its own regular "
+            f"season ({lens[0]} to {lens[-1]} weeks; this season 15), so totals are not like for like. Wins swung "
+            "count against the official scores. "
+            + (f"The league log misses some days in {', '.join(short)}: no PAR is counted on them. " if short else "")
+            + "Most improved uses FPPG on a league roster before 2026-27. Best pickup, Rookie of the Year and "
+              "Bust aren't kept for past seasons: the old data can't support them.")
+    return {"error": "", "by_award": by, "note": note}
+
+
+def award_tiles(inp: dict) -> list:
+    """League > History > Records (4c6): one tile per past award, its
+    all-time best season (AWARDS_PAST best: the largest measure)."""
+    blob = inp.get("awards_past")
+    if blob is None:
+        return []
+    out = []
+    for k in blob["awards"]:
+        b = blob["best"].get(k)
+        if b is None:
+            continue
+        who = (f"{b['label']}{DOT}{b['m']}" if b.get("player") else b["label"])
+        out.append({"key": f"award_{k}", "label": PAST_TILES[k],
+                    "value": f"{_past_value(k, b['value'])} {PAST_UNITS[k]}", "who": who,
+                    "ctx": f"{b['season']}{DOT}{b['regular_weeks']}-week season",
+                    "tip": {"h": f"{PAST_TILES[k]}, {b['season']}", "b": f"{b['shown']}{DOT}{_past_sub(k, b)}"
+                            if _past_sub(k, b) else b["shown"],
+                            "f": f"{b['regular_weeks']}-week regular season; the best of {len(blob['seasons'])} "
+                                 f"past seasons by the award's own measure"}})
     return out
 
 
@@ -914,7 +1001,10 @@ def records(inp: dict, results: dict) -> dict:
                           "ctx": rows[0]["ctx"], "tip": rows[0]["tip"]})
     tiles.sort(key=lambda t: TILES.index(t["key"]))
     wk = inp.get("records_week")
-    return {"tiles": tiles, "groups": groups,
+    return {"tiles": tiles, "groups": groups, "award_tiles": award_tiles(inp),
+            "award_note": ("The awards' best seasons, 2017-18 to 2025-26 (data/historical/AWARDS_PAST.json): each "
+                           "season through its own regular season, so a longer season has more games. Tap a tile."
+                           if inp.get("awards_past") is not None else (inp.get("awards_past_error") or "")),
             "note": ("The record book (config/RECORDS.json), the top ten of each record, 2017-18 on and this "
                      f"season through week {wk}, the last week the weekly build recorded. Tap a game for its "
                      "final." if wk else "The record book (config/RECORDS.json).")}
@@ -1072,5 +1162,8 @@ def build(inp: dict) -> tuple:
               "standings": standings(inp, res), "chart": chart(inp, res, tz), "power": power_history(inp),
               "awards": awards(inp), "archive": archive(inp)}
     history = {"chips": [list(x) for x in CHIPS], "champions": champions(inp), "alltime": alltime(inp, res),
-               "h2h": h2h(inp, res), "records": records(inp, res), "draft": draft(inp), "trades": trades(inp)}
+               "h2h": h2h(inp, res), "records": records(inp, res), "draft": draft(inp), "trades": trades(inp),
+               # 4c6: Awards' Past winners ride in the side file with the rest of the history
+               # (static public history: off the payload's 400 KB); the Awards part reads them
+               "awards_past": awards_past(inp)}
     return league, history

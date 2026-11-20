@@ -251,6 +251,14 @@ class SeasonPass:
     # moves a week's result -- INJURED_DROP_DESIGN s.3.1, modules/
     # injured_drop). Read off the same matrices and series; never drawn.
     week_margins: dict = field(default_factory=dict)
+    # 4c6, the MVP odds (run_season(mvp=True) only; None otherwise):
+    # {"players": {roster key: [started points[n], started games[n]]} over
+    # every regular-season day the pass simulates (the week in progress's
+    # remainder and every later regular week; never a bracket or Cup week),
+    # "weeks": those weeks, "standins": the roster plan's stand-ins (not
+    # players: never MVP contenders), "as_of": the first simulated day}.
+    # Read off the same arrays as the scores; never drawn (modules/mvp_odds).
+    mvp: Optional[dict] = None
 
     # ---- readouts --------------------------------------------------------
     def title_result(self):
@@ -345,7 +353,8 @@ def _tag_chain(states: dict, entries: dict, injury_statuses, team_projections, t
 
 def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int = None,
                injury_statuses: dict = None, team_projections: dict = None,
-               through: str = "cup", no_standins=frozenset(), tag_anchors=None) -> SeasonPass:
+               through: str = "cup", no_standins=frozenset(), tag_anchors=None,
+               mvp: bool = False) -> SeasonPass:
     """One pass over the season. seed is required: one seed per run, the same
     the betting lines get, so a week is one simulated truth.
 
@@ -360,7 +369,12 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
     anchors each chain tag where the live line did and spends that one chain
     across the week boundary (_tag_chain). {player: (tag, anchor)} or a
     callable week -> that; needed only mid-week with chain tags (raises
-    without), never read otherwise."""
+    without), never read otherwise.
+
+    mvp (4c6): also tally every player's started points and games on each
+    regular-season day the pass simulates (SeasonPass.mvp), for the MVP
+    odds. A read of the same arrays: the title odds and every other number
+    are bit-identical with it on or off (tests/test_mvp_odds.py holds it)."""
     from .projections import load_all_team_projections
     from .simulator_playoff_odds import (
         SEMIFINAL_ROUND, _decided_weeks, _seeded_pairs, bracket_rounds, bracket_weeks,
@@ -429,8 +443,10 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         states[w] = (as_of, tp_w, mask_w, week_state(data, w, as_of, tp_w))
     chain, chain_anchors = _tag_chain(states, reg_entries, injury_statuses, team_projections,
                                       tag_anchors)
+    started = {} if mvp else None
     mats = (week_score_matrices(data, team_projections, to_sim, injury_statuses, seed, n, plan=plan,
-                                **({"tag_chain": chain} if chain is not None else {}))
+                                **({"tag_chain": chain} if chain is not None else {}),
+                                **({"started": started, "started_weeks": tuple(future)} if mvp else {}))
             if to_sim else {})
 
     # --- in-progress regular weeks: B2, banked + the remainder ---------------
@@ -445,6 +461,8 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         extra = {"nba_outs": outs} if outs else {}
         if chain is not None and w == chain.week_info[0]:
             extra["anchors"] = chain_anchors
+        if mvp:
+            extra["started"] = started
         rem = simulate_week_remainder(data, tp_w, reg_entries[w], state, seed, n,
                                       injury_statuses, il_mask=mask_w, **extra)
         mats[w] = {m: float(state.banked.get(m, 0.0)) + np.asarray(rem.remaining[m]["score"], float)
@@ -585,6 +603,10 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         standins=_standins_played(plan, managers),
         week_results=week_results,
         week_margins=week_margins,
+        mvp=({"players": started, "weeks": sorted(pending + future), "standins": sorted(plan.standins),
+              "as_of": (min(date.fromisoformat(v["as_of"]) for v in in_progress.values()).isoformat()
+                        if in_progress else None)}
+             if mvp else None),
     )
 
 
