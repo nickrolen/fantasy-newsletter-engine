@@ -1022,7 +1022,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
           previous_engine_ok: bool = False,
           archive_index: dict = None, echo=print, night: str = "build", night_out: dict = None,
           nba_report: dict = None, cards_out: dict = None, ratings_out: dict = None,
-          players_out: dict = None) -> dict:
+          players_out: dict = None, awards_out: dict = None) -> dict:
     """The hub's payload. night (Step 3a): "build" builds the matchup
     paragraph (the nightly run, and a desk build); "reuse" shows the nightly
     run's stored one (a refresh, a pre-tip run). night_out, when given, gets
@@ -1034,6 +1034,9 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     ratings_out (4c1), when given, gets the ratings step's record
     (ratings_step): the nightly appends its history line once the hub is
     published, and records its error and seconds.
+    awards_out (4c5), when given, gets the awards step's record
+    (awards_step): the nightly appends its pending history lines (every
+    finished week not on file) once the hub is published.
     players_out (4c2), when given, gets the new hub's Players file
     (hub_v2.data.players_file: v2.players, stamped with this payload): the
     payload itself never holds v2.players. Write it with write_players(base,
@@ -1449,6 +1452,11 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     rt = ratings_step(base, live, actuals, echo=echo)
     if ratings_out is not None:
         ratings_out.update(rt)
+    # 4c5: the awards and their races (modules/awards), on the same live log;
+    # soft like the ratings: the League's Awards say why, the hub goes on.
+    aw = awards_step(base, live, actuals, echo=echo)
+    if awards_out is not None:
+        awards_out.update(aw)
     # 4b: the new hub's keys, beside the current page's (modules/hub_v2/data.py):
     # new keys only. They fail softly until the switch-over (the current page is
     # the hub): payload["v2"] is None and payload["v2_error"] says why.
@@ -1507,7 +1515,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     if payload["v2"] is not None:
         payload["v2"], payload["v2_error"] = v2data.league_soft(base, payload, {
             "data": data, "now": now, "ratings": rt.get("result"), "ratings_error": rt.get("error"),
-            "live": live}, echo=echo)
+            "live": live, "awards": aw}, echo=echo)
     if payload["v2"] is not None:
         obj = v2data.players_file(payload)
         if players_out is not None:
@@ -1515,6 +1523,39 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     if cards_out is not None:
         cards_out.update(keeper_watch=kw, data=data)
     return payload
+
+
+def awards_step(base, live, actuals: dict, echo=print) -> dict:
+    """The awards on this build's inputs (4c5, modules/awards): every award
+    as of the live log's last day, the history lines of every finished week
+    not yet on file (`pending`: the nightly appends them when it publishes;
+    on the first run that is the backfill, weeks 1..now), and the races'
+    display model over the file's lines plus the pending ones. FAILS SOFTLY
+    until the switch-over: {"races", "pending", "through", "week",
+    "on_file", "error", "seconds"}; on any exception races is None, pending
+    [], and AWARDS FAILED is echoed."""
+    import time as _time
+    from . import awards
+    t0 = _time.perf_counter()
+    out = {"races": None, "pending": [], "through": None, "week": None, "on_file": 0, "error": None,
+           "seconds": None}
+    try:
+        if live is None:
+            raise awards.AwardsInputError("the live log could not be built (the keep chances say why)")
+        inp = awards.gather(base, live=live, actuals=actuals)
+        if not inp["days"]:
+            raise awards.AwardsInputError("the live log has no day yet")
+        through = inp["days"][-1]
+        res = awards.compute(inp, through)
+        lines = awards.read_history(base)
+        pend = awards.pending(inp, lines)
+        out.update(races=awards.races(res, lines + pend, inp["cfg"]), pending=pend, through=through,
+                   week=res["week"], on_file=len(lines))
+    except Exception as e:                           # noqa: BLE001 -- the awards fail softly (4c5)
+        out.update(races=None, pending=[], error=f"{type(e).__name__}: {e}".splitlines()[0][:500])
+        echo(f"AWARDS FAILED (the new hub's Awards say why; the current hub goes on): {out['error']}")
+    out["seconds"] = round(_time.perf_counter() - t0, 2)
+    return out
 
 
 def ratings_step(base, live, actuals: dict, echo=print) -> dict:

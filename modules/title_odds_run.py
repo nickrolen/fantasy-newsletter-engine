@@ -296,6 +296,22 @@ def stakes(sp, rules: dict = None) -> dict:
 # the outputs
 # =============================================================================
 
+def banked_results(latest: dict, weeks: list) -> dict:
+    """{week: {manager: banked score}} from a run's payload (title_odds_latest):
+    the in-progress weeks it banked WHOLE from the logs (as-of past the week's
+    last day, _decided_by_banking's rule) -- the weeks records_after_banked
+    adds. The one source Home's record column (its shown_record) and
+    League's Standings both count a finished week from, so the two never
+    disagree on a Monday (4c5, 4c4 decision 9). weeks: SCHEDULE's weeks."""
+    end = {int(w["week"]): str(w["end_date"])[:10] for w in weeks}
+    out = {}
+    for wk, v in (latest.get("in_progress") or {}).items():
+        w = int(wk)
+        if w in end and date.fromisoformat(str(v["as_of"])[:10]) > date.fromisoformat(end[w]):
+            out[w] = {m: float(x) for m, x in (v.get("banked") or {}).items()}
+    return out
+
+
 def _records_after_banked(sp) -> dict:
     """The league's records with every fully banked in-progress week's result
     added: what the standings will read once the weekly build records that

@@ -168,22 +168,27 @@ PART_DIR = "parts"
 
 def league_files(vm: dict, root_key: bytes, terms=()) -> tuple:
     """({relative path: bytes}, {chip: {"file", "key"}}, a size report) for
-    League's History chips (4c4), from the view model's history."""
+    League's History chips (4c4) and its Awards segment (4c5), from the view model."""
     import hashlib
     from .. import hub_crypto, hub_cards
     from . import page as _page, page_league
-    h = (vm.get("league") or {}).get("history")
-    if not h:
+    lg = vm.get("league") or {}
+    h = lg.get("history")
+    htmls = {}
+    if lg.get("awards") is not None:                 # 4c5: the Awards segment, one more part
+        htmls["awards"] = page_league.awards_html(lg["awards"], _page._mono, _page._chart, _page.INFO)
+    for chip, _lab in (h["chips"] if h else []):
+        htmls[chip] = page_league.chip_html(h, chip, _page._mono)
+    if not htmls:
         return {}, {}, None
     K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
     files, refs, sizes = {}, {}, {}
-    for chip, _lab in h["chips"]:
-        html = page_league.chip_html(h, chip, _page._mono)
+    for key, html in htmls.items():
         k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": html}), terms)
         rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
         files[rel] = blob
-        refs[chip] = {"file": rel, "key": hub_crypto.b64(k)}
-        sizes[chip] = len(blob)
+        refs[key] = {"file": rel, "key": hub_crypto.b64(k)}
+        sizes[key] = len(blob)
     return files, refs, {"parts": len(files), "bytes": sizes, "largest": max(sizes.values()) if sizes else 0}
 
 
@@ -213,6 +218,7 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir, iterati
     lfiles, lrefs, lrep = league_files(vm, root, terms)
     vm["league"]["parts"] = lrefs
     vm["league"]["history"] = None                # never in the page itself: only its encrypted files
+    vm["league"]["awards_html"] = None            # 4c5: nor the Awards segment
     html = page.render(vm)
     inner_obj["page"] = html
     cfiles.update(lfiles)

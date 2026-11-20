@@ -12,7 +12,7 @@ League > History > Draft (4c4): each season's draft, every pick with how the pla
 
 ## What the numbers are
 
-- **Then:** OVR on the season's opening day, `ratings.rate` on that day's snapshot (4a's call).
+- **Then:** OVR on the season's opening day, `ratings.rate` on that day's snapshot (4a's call). Where opening day has none because the player has no earlier season in the league log (his level there is the league average: all of 2017-18, a few a season after), **Then is his OVR at 4a's week-2 point, printed "71 (wk 2)"** (4c5, 4c4 decision 2); with no OVR there either, the dash gives both reasons.
 - **Deadline:** OVR at the trade-deadline point (the same place in the season as this season's deadline; 4a's "deadline" cell). Not the season's end: OVR is rest-of-season value, and no games remain on the last day.
 - **Now:** today's OVR.
 - Past seasons come from `data/historical/DRAFT_OVR.json` (`scripts/build_draft_ovr.py`, once a season, where basketball-reference's pages are cached).

@@ -120,8 +120,30 @@ def all_matchups() -> list:
     return out
 
 
+def potw_log() -> dict:
+    """2025-26 week 1 in the league log for its Player of the Week (made up):
+    two started games and a bench game that must not count."""
+    rows = []
+    for d, st, pts in (("2025-10-21", True, 61.5), ("2025-10-23", False, 99.0), ("2025-10-25", True, 48.0)):
+        rows.append({"season_key": "2025-26", "week": 1, "date": d, "manager": "Marcus", "player_name": "Marcus Big",
+                     "fantasy_points": pts, "started": st, "had_game": True, "is_injured": False})
+    return {"2025-26": rows}
+
+
 def inputs(p: dict) -> dict:
+    import awards_fixture as AF
+    from modules.data_loader import results_from
+    from modules.hub_v2 import league
     teams = {m: {k: p["v2"]["teams"][m][k] for k in ("slot", "mono", "team")} for m in MGRS}
+    # Home's records (the power rows) and the Standings count the same weeks (4c5)
+    recs = results_from(SCORES, {w["week"]: w["matchups"] for w in weeks()}, 15)[0]
+    power = copy.deepcopy(p["power"])
+    for r in power["rows"]:
+        r["record"] = str(recs[r["manager"]])
+    potw = {"2026-27": [{"week": w, "player": f"{MGRS[w % 4]} Guard", "manager": MGRS[w % 4],
+                         "total_fp": 210.5 + w, "games": 4, "fppg": 52.6} for w in range(1, 9)],
+            "2025-26": [{"week": 1, "player": "Marcus Big", "manager": "Marcus"},
+                        {"week": 2, "player": "Tyler Big", "manager": "Tyler"}]}
     nl = p["newsletter"]
     files = ([nl["current"]] if nl.get("current") else []) + list(nl.get("archive") or [])
     plain = {i["file"]: i["file"].replace(".enc", ".html") for i in files}
@@ -168,7 +190,7 @@ def inputs(p: dict) -> dict:
     return {
         "managers": list(MGRS), "teams": teams, "season": "2026-27",
         "now": datetime.fromisoformat(p["generated_at"]), "reg_weeks": 15, "weeks": weeks(),
-        "weekly_scores": _scores_by_manager(), "records_week": 8, "power": copy.deepcopy(p["power"]),
+        "weekly_scores": _scores_by_manager(), "records_week": 8, "power": power,
         "history_rows": history_rows(), "reports": reports(),
         "season_structure": {"2023-24": {"regular_through": 19, "bracket": False, "note": "a made-up stoppage"},
                              "2024-25": {"regular_through": 21, "bracket": True},
@@ -200,14 +222,29 @@ def inputs(p: dict) -> dict:
                         "tradee_team": "Fast Break Bros", "trader_manager": "Dana", "tradee_manager": "Jordan",
                         "players": [{"player_name": "Dana Wing", "from_manager": "Dana", "to_manager": "Jordan",
                                      "from_team": "Pick & Roll Call", "to_team": "Fast Break Bros"}]}],
-        "potw": {"2026-27": [{"week": w, "player": f"{MGRS[w % 4]} Guard", "manager": MGRS[w % 4],
-                              "total_fp": 210.5 + w, "games": 4, "fppg": 52.6} for w in range(1, 9)],
-                 "2025-26": [{"week": 1, "player": "Marcus Big", "manager": "Marcus"}]},
+        "potw": potw, "potw_fill": league.potw_from_log(potw, potw_log()),
+        "banked": {}, "cup_weeks": {"2024-25": [], "2025-26": [], "2026-27": [22, 23]},
+        "awards_rec": AF.races(),
         "records_alltime": records_alltime(),
         "draft_current": {"season": "2026-27", "picks": picks_cur}, "draft_ovr": cache,
         "live_then": live_then, "live_error": None, "now_ovr": now_ovr, "ratings_error": None,
         "newsletter": nl, "issue_plain": plain, "issue_heads": {f: "A made-up headline" for f in plain},
     }
+
+
+def sync_power(inp: dict) -> dict:
+    """After a test changes the weekly scores: Home's records (the power rows)
+    follow them, as the real build's one source makes them (4c5)."""
+    from modules.data_loader import results_from
+    sc = {}
+    for m, es in inp["weekly_scores"].items():
+        for e in es:
+            sc.setdefault(int(e["week"]), {})[m] = float(e["score"])
+    recs = results_from(sc, {w["week"]: w["matchups"] for w in inp["weeks"]}, inp["reg_weeks"])[0]
+    inp["power"] = copy.deepcopy(inp["power"])
+    for r in inp["power"]["rows"]:
+        r["record"] = str(recs[r["manager"]])
+    return inp
 
 
 def add_league(p: dict) -> dict:

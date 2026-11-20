@@ -641,5 +641,15 @@
                 "depth": {"label": "Role Player", "keywords": ["Situational", "Fills a need"]}
             }
         }
+    },
+    "awards": {
+        "_comment": "The league awards and their races (modules/awards.py; claude/AWARDS_DEFINITIONS_2026-11-14.md, fixed for the season: a change is announced and applies from the next one). PAR = each started game's fantasy points minus that week's replacement level (OVR's R: the lowest level L among the players rostered on the week's last logged day). The Bust expectation is Yahoo's preseason projection from durability_prior.snapshot (the newest pre-season PLAYERLIST). A missing key RAISES.",
+        "history_top_n": 10,
+        "_history_top_n": "Entries kept per award per finished week in output/awards_history.jsonl (state, append-only, one line per award per week). 10, not 5, so a player who climbs into today's top 5 already has some of his race-chart line.",
+        "shown": 5,
+        "most_improved_min_games": 20,
+        "most_improved_min_prior_games": 20,
+        "most_improved_prior_spec": "P3",
+        "bust_min_games": 10
     }
 }

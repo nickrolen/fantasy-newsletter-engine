@@ -497,7 +497,8 @@ def league_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
     try:
         inp = league.gather(base, data=ctx["data"], power=payload["power"], managers=list(v2["team_order"]),
                             teams=v2["teams"], newsletter=payload["newsletter"], now=ctx["now"],
-                            ratings=ctx.get("ratings"), ratings_error=ctx.get("ratings_error"), live=ctx.get("live"))
+                            ratings=ctx.get("ratings"), ratings_error=ctx.get("ratings_error"), live=ctx.get("live"),
+                            awards=ctx.get("awards"))
         v2["league"], v2["league_history"] = league.build(inp)
     except Exception as e:                       # noqa: BLE001 -- v2 fails softly until the switch-over
         err = {"stage": "league", "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}

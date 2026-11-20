@@ -803,6 +803,8 @@ def render(vm: dict, *, cards: dict = None) -> str:
     o.append(pm.market_screen(vm, ids, _info, lambda t: _mono(t)))
 
     # ---------------------------------------------------------------- league (4c4)
+    if vm["mode"] == "preview" and vm["league"].get("awards") is not None:    # 4c5: Awards, a template
+        vm["league"]["awards_html"] = pl.awards_html(vm["league"]["awards"], _mono, _chart, INFO)
     o.append(pl.league_screen(vm, ids, _info, _mono, _chart, DOC, CHEV))
 
     # ---------------------------------------------------------------- placeholders

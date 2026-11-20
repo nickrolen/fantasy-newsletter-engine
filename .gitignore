@@ -254,6 +254,8 @@ output/WEEK*_NEWSLETTER*.html
 output/title_odds_history.jsonl
 # 4c1: each published run's OVR and POT (modules/ratings), league state in the private repo
 output/ratings_history.jsonl
+# 4c5: the awards races (modules/awards), one line per award per finished week, league state
+output/awards_history.jsonl
 # Nick's weekly context input in config/ (format_stats_report reads it there
 # too), and an optional legacy league-history file data_loader reads if present.
 config/weeklycontextinput_week*.json

@@ -559,6 +559,66 @@ def title_chart(c: dict, teams: dict, order: list) -> dict:
     return out
 
 
+def race_chart(c: dict, teams: dict) -> dict:
+    """An awards race (4c5): today's top 5's running measure by finished week,
+    one line per player in his team's colour (a gap where he was outside a
+    week's stored top 10), y from the engine's ticks, direct end labels, one
+    tap strip per week (the readout: the week and every value). Layout only:
+    every printed string is the engine's."""
+    n = len(c["weeks"])
+    lo, hi = float(c["ymin"]), float(c["ymax"])
+
+    def Y(v):
+        return Y1 - (Y1 - Y0) * (float(v) - lo) / ((hi - lo) or 1.0)
+    xs = [X0 + (X1 - X0) * t["x"] for t in c["ticks"]]
+    grid = [{"cls": "lh-c-base" if t["v"] == lo else "lh-c-grid", "x1": _f(X0), "y1": _f(Y(t["v"])), "x2": _f(X1),
+             "y2": _f(Y(t["v"]))} for t in c["yticks"]]
+    ylab = [{"x": _f(X0 - 4), "y": _f(Y(t["v"]) + 3), "t": t["t"], "anchor": "end"} for t in c["yticks"]]
+    xlab = [{"x": _f(x), "y": _f(Y1 + 16), "t": t["t"], "anchor": "middle" if 0 < i < n - 1 else
+             ("start" if i == 0 else "end")} for i, (x, t) in enumerate(zip(xs, c["ticks"]))]
+    out = {"vb": f"0 0 {W} {H}", "aria": c["aria"], "grid": grid, "labels": ylab + xlab, "lines": [],
+           "events": [], "ends": [], "hits": [], "empty": "", "dot": None,
+           "readout0": {"head": "Tap a week for its values.", "body": ""}}
+    ends = []
+    for sr in c["series"]:
+        cls = team_cls(teams[sr["m"]]["slot"])
+        run = []
+        for x, v in zip(xs, sr["vals"]):
+            if v is None:
+                if run:
+                    out["lines"].append({"cls": cls, "points": " ".join(run), "proj": False})
+                run = []
+                continue
+            run.append(f"{_f(x)},{_f(Y(v))}")
+        if run:
+            out["lines"].append({"cls": cls, "points": " ".join(run), "proj": False})
+        last = max(i for i, v in enumerate(sr["vals"]) if v is not None)
+        ends.append((cls, xs[last], Y(sr["vals"][last]), sr["end"]))
+    ys = _spread_n([e[2] for e in ends])
+    out["ends"] = [{"cls": cls, "x": _f(x + 6), "y": _f(y + 4), "t": t} for (cls, x, _y, t), y in zip(ends, ys)]
+    for (a, b), pt, x in zip(_strips(xs), c["points"], xs):
+        out["hits"].append({"x": _f(a), "y": _f(Y0 - 6), "w": _f(b - a), "h": _f(Y1 - Y0 + 12), "cx": _f(x),
+                            "cy": "", "head": pt["head"], "body": pt["body"], "label": f"{pt['head']}: {pt['body']}"})
+    return out
+
+
+def awards_view(aw: dict, teams: dict, href) -> dict:
+    """League > Awards (4c5): the races and Player of the Week with their
+    joins (a manager to his team mark, a card key to its route) and each
+    race chart's geometry. Every printed value is the engine's string."""
+    races = []
+    for a in aw.get("races") or []:
+        rows = [dict(r, team=teams.get(r["m"]), href=href(r["card"]) if r.get("card") else "",
+                     sides=[dict(sd, team=teams.get(sd["m"]),
+                                 players=[dict(x, href=href(x["card"])) for x in sd["players"]])
+                            for sd in r.get("sides") or []])
+                for r in a["rows"]]
+        races.append(dict(a, rows=rows, geom=race_chart(a["chart"], teams) if a.get("chart") else None))
+    potw = [dict(s, rows=[dict(r, team=teams.get(r["m"]), href=href(r["card"])) for r in s["rows"]])
+            for s in aw["potw"]]
+    return dict(aw, races=races, potw=potw)
+
+
 def league(payload: dict, teams: dict, mode: str, archive_href: str) -> dict:
     """The League tab from payload v2.league (modules/hub_v2/league.py): joins
     (a manager to his team mark, a card key to its route, an issue to how it
@@ -578,8 +638,7 @@ def league(payload: dict, teams: dict, mode: str, archive_href: str) -> dict:
     st = dict(lg["standings"], rows=[dict(r, team=teams[r["m"]]) for r in lg["standings"]["rows"]])
     pw = dict(lg["power"], weeks=[dict(w, rows=[dict(r, team=teams[r["m"]]) for r in w["rows"]])
                                   for w in lg["power"]["weeks"]])
-    aw = dict(lg["awards"], potw=[dict(s, rows=[dict(r, team=teams.get(r["m"]), href=href(r["card"]))
-                                                 for r in s["rows"]]) for s in lg["awards"]["potw"]])
+    aw = awards_view(lg["awards"], teams, href)
     issues = []
     for i in lg["archive"]["issues"]:
         attr = ("data-issue", i["file"]) if mode == "publish" else ("data-href", archive_href + i["plain"])

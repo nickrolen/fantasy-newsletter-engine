@@ -177,7 +177,7 @@ def test_the_keys_are_named_after_the_file_they_reconcile_against():
     """They used to be first_place_finishes and titles, where "titles" meant
     PLAYOFF championships -- the opposite of titles_won one file over."""
     pre = _config()["pre_data_era"]
-    assert set(pre) - {"_note"} == {"titles_won", "playoff_championships"}
+    assert set(pre) - {"_note", "_seasons", "seasons"} == {"titles_won", "playoff_championships"}   # seasons: eb13467
     assert "first_place_finishes" not in pre
     assert "titles" not in pre
 

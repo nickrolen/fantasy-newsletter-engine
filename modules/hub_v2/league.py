@@ -27,8 +27,12 @@ league (payload v2.league, the first load):
              tooltip {h, b, f}
   power      the published power rankings at each week's end (output/
              stats_report_weekN.json), newest first, with the change in rank
-  awards     Player of the Week history (config/POTW_HISTORY.json), newest
-             first; the rest waits for 4c5 (AWARDS_SOON)
+  awards     4c5: the awards races (modules/awards: the hub build's awards
+             step, every string made there) and Player of the Week history
+             (config/POTW_HISTORY.json), newest first; a week whose points
+             were not recorded (2025-26 weeks 1-13) gets them from the league
+             log: his started games that week (potw_from_log). The whole
+             segment is lazy (its own encrypted part, publish.league_files)
   archive    every archived issue, newest first (payload newsletter): the week,
              the dates, the headline when an issue has one (from 4d)
 
@@ -50,7 +54,6 @@ DASH = "\u2014"
 NDASH = "\u2013"
 DOT = " \u00b7 "
 UP, DOWN = "\u25b2", "\u25bc"
-AWARDS_SOON = "The season's awards races arrive here soon."
 CHIPS = [("champions", "Champions"), ("alltime", "All-time"), ("h2h", "Head to head"), ("records", "Records"),
          ("draft", "Draft"), ("trades", "Trades")]
 SEGS = [("standings", "Standings"), ("history", "History"), ("awards", "Awards"), ("archive", "Archive")]
@@ -109,12 +112,15 @@ def _json(p: Path):
 
 
 def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: dict, now: datetime,
-           ratings: Optional[dict] = None, ratings_error: Optional[str] = None, live=None) -> dict:
+           ratings: Optional[dict] = None, ratings_error: Optional[str] = None, live=None,
+           awards: Optional[dict] = None) -> dict:
     """Every input build() reads, from the files and the run's own objects.
     teams: v2.teams ({manager: {slot, mono, team}}); ratings: ratings.for_today's
     result (draft "now"); live: the run's shared keeper_history live inputs
-    (this season's opening-day OVR)."""
-    from .. import title_odds_history as toh, draft_ovr
+    (this season's opening-day OVR, Player of the Week's missing points);
+    awards: the hub build's awards step record (hub_state.awards_step)."""
+    from .. import title_odds_history as toh, draft_ovr, title_odds_run as tor
+    from ..data_loader import stage_weeks
     from ..data_loader import (CURRENT_SEASON, SEASON_STRUCTURE, regular_season_weeks_for,
                                keeper_rules_for, _LEAGUE_CONFIG)
     from ..hub_archive import load_index
@@ -154,6 +160,18 @@ def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: 
     now_ovr = None
     if ratings is not None:
         now_ovr = {n: p["ovr"] for n, p in ratings["players"].items()}
+    # 4c5 (4c4 decision 9): a week the latest title-odds run banked whole from
+    # the logs counts here exactly as Home's record column counts it
+    try:
+        banked = tor.banked_results(tor.load_latest(base), data.schedule.get("weeks") or [])
+    except (FileNotFoundError, ValueError) as e:
+        raise LeagueError(f"the latest title-odds run cannot be read: {e}") from None
+    seasons = sorted({r["season"] for r in _json(hist / "all_matchups.json")} | {CURRENT_SEASON})
+    cup_weeks = {}
+    for s in seasons:
+        span = stage_weeks(s, "cup")
+        cup_weeks[s] = list(range(span[0], span[1] + 1)) if span else []
+    potw_seasons = potw.get("seasons") or {}
     return {
         "managers": list(managers), "teams": {m: dict(teams[m]) for m in managers},
         "season": CURRENT_SEASON, "now": now, "reg_weeks": int(regular_season_weeks_for(CURRENT_SEASON)),
@@ -167,7 +185,10 @@ def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: 
         "all_drafts": _json(hist / "all_drafts.json"), "all_trades": _json(hist / "all_trades.json"),
         "all_teams": _json(hist / "all_teams.json"),
         "season_teams": (data.records.get("team_name_history") or {}).get(CURRENT_SEASON) or {},
-        "trades_now": trades_cfg["trades"], "potw": potw.get("seasons") or {},
+        "trades_now": trades_cfg["trades"], "potw": potw_seasons,
+        "potw_fill": potw_from_log(potw_seasons, live[0].log if live is not None else {}),
+        "banked": banked, "cup_weeks": cup_weeks,
+        "awards_rec": awards,
         "records_alltime": data.records.get("all_time") or {},
         "draft_current": cur_draft, "draft_ovr": draft_ovr.load(base),
         "live_then": live_then, "live_error": live_error, "now_ovr": now_ovr, "ratings_error": ratings_error,
@@ -189,6 +210,11 @@ def week_results(inp: dict) -> Dict[int, list]:
         for e in entries if isinstance(entries, list) else []:
             if e.get("week") is not None:
                 scores.setdefault(int(e["week"]), {})[m] = float(e["score"])
+    # 4c5: a week banked whole overnight, not yet recorded by the weekly build
+    # (title_odds_run.banked_results: the rule Home's record column counts by)
+    for w, sc in (inp.get("banked") or {}).items():
+        if int(w) not in scores:
+            scores[int(w)] = {m: float(v) for m, v in sc.items()}
     out = {}
     pairs = {int(w["week"]): w.get("matchups") or [] for w in inp["weeks"]}
     for w in sorted(scores):
@@ -241,6 +267,12 @@ def standings(inp: dict, results: dict) -> dict:
     pairs = {int(w["week"]): w.get("matchups") or [] for w in inp["weeks"]}
     records, h2h, points = results_from({w: s for w, s in scores.items() if w <= reg}, pairs, reg)
     order = standings_order(records, h2h, points, managers)
+    # PF as Home shows it: the weeks the weekly build has recorded (a week
+    # banked overnight counts in the record at once, in PF after the build)
+    banked = sorted(int(w) for w in (inp.get("banked") or {}) if int(w) <= reg
+                    and not any(int(e.get("week", -1)) == int(w) for es in (inp["weekly_scores"] or {}).values()
+                                for e in (es if isinstance(es, list) else [])))
+    pf = results_from({w: s for w, s in scores.items() if w <= reg and w not in banked}, pairs, reg)[2]
     # the ties the rules had to break: their groups and how
     rec = {m: records.get(m, Record()) for m in managers}
     groups: dict = {}
@@ -269,18 +301,22 @@ def standings(inp: dict, results: dict) -> dict:
         pr = power.get(m)
         if pr is None:
             raise LeagueError(f"the power rows have no {m}")
-        rows.append({"rank": str(i), "m": m, "record": str(rec[m]), "pf": _int(points.get(m, 0.0)),
+        rows.append({"rank": str(i), "m": m, "record": str(rec[m]), "pf": _int(pf.get(m, 0.0)),
                      "streak": st[m], "odds": pr["odds"], "delta": pr["delta"], "dir": pr["delta_dir"],
                      "tie": m in tied})
-    note = (f"Through week {through}, the weeks the weekly build has recorded. "
-            if through else "No week recorded yet. ")
+    note = (f"Through week {through}. " if through else "No week recorded yet. ")
     note += (f"{inp['power']['label']} = the chance of finishing first in weeks 1{NDASH}{reg}; the change is "
              "since the run before. Order: winning percentage (a T counts half), then head-to-head, then points. "
              "Streaks count every week; a T ends one.")
+    if banked:
+        note += (f" Week {', '.join(str(w) for w in banked)} is counted from the logs, banked overnight, as on "
+                 "Home; its points join PF after the weekly build records the week.")
+    # one source (4c4 decision 9): Standings and Home never disagree
     shown = {r["manager"]: r["record"] for r in inp["power"]["rows"]}
-    if any(shown.get(m) != str(rec[m]) for m in managers):
-        note += (" The Home page's records already count the week banked overnight; it joins this table "
-                 "after the weekly build records it.")
+    off = [m for m in managers if shown.get(m) != str(rec[m])]
+    if off:
+        raise LeagueError("Standings and Home disagree on " + ", ".join(f"{m} ({rec[m]} vs {shown.get(m)})"
+                                                                     for m in off))
     return {"title": "Regular season", "meta": f"weeks 1{NDASH}{reg}", "odds_label": inp["power"]["label"],
             "rows": rows, "note": note, "ties": notes}
 
@@ -452,11 +488,41 @@ def power_history(inp: dict) -> dict:
 
 
 # =============================================================================
-# Awards: Player of the Week (the races are 4c5's)
+# Awards: the races (modules/awards, 4c5) and Player of the Week
 # =============================================================================
+
+def potw_from_log(potw: dict, log: dict) -> dict:
+    """{(season, week): {"total_fp", "games", "fppg"}} for each Player of the
+    Week entry without recorded points (2025-26 weeks 1-13, 4c4 decision 14):
+    the credited player's STARTED games that week for the credited manager
+    (in the starting lineup, and played: keeper_history.appeared) -- the
+    newsletter's own measure (report_builder.build_player_of_week: total FP
+    over games started). Checked 4c5 against 2025-26 weeks 14-23, where both
+    exist: 10 of 10 equal. A winner not found in the log stays unrecorded."""
+    from ..data_loader import PlayerIndex
+    from ..keeper_history import appeared
+    out = {}
+    for s, entries in (potw or {}).items():
+        rows = (log or {}).get(s) or []
+        if not rows:
+            continue
+        idx = PlayerIndex({r["player_name"]: r["player_name"] for r in rows})
+        for e in entries:
+            if all(e.get(k) is not None for k in ("total_fp", "games", "fppg")):
+                continue
+            n = idx.canonical(e["player"])
+            mine = [r for r in rows if n is not None and int(r["week"]) == int(e["week"]) and r["player_name"] == n
+                    and r["manager"] == e["manager"] and r["started"] and appeared(r)]
+            if mine:
+                tot = sum(float(r["fantasy_points"]) for r in mine)
+                out[(s, int(e["week"]))] = {"total_fp": round(tot, 2), "games": len(mine),
+                                            "fppg": round(tot / len(mine), 2)}
+    return out
+
 
 def awards(inp: dict) -> dict:
     seasons = []
+    fill = inp.get("potw_fill") or {}
     for s in sorted(inp["potw"], reverse=True):
         rows = []
         for e in sorted(inp["potw"][s], key=lambda x: -int(x["week"])):
@@ -464,13 +530,25 @@ def awards(inp: dict) -> dict:
                 if e.get(k) is None:
                     raise LeagueError(f"POTW_HISTORY {s} lacks {k}: {e}")
             have = all(e.get(k) is not None for k in ("total_fp", "games", "fppg"))
+            f = None if have else fill.get((s, int(e["week"])))
+            src = e if have else f
             rows.append({"week": f"Wk {int(e['week'])}", "player": e["player"], "card": _slug(e["player"]),
-                         "m": e["manager"], "pts": _d1(e["total_fp"]) if have else DASH,
-                         "sub": (f"{int(e['games'])} games{DOT}{_d1(e['fppg'])} FPPG" if have else
+                         "m": e["manager"], "pts": _d1(src["total_fp"]) if src else DASH,
+                         "sub": (f"{int(src['games'])} games{DOT}{_d1(src['fppg'])} FPPG"
+                                 + ("" if have else f"{DOT}from the league log") if src else
                                  "points not recorded for this week")})
         seasons.append({"season": s, "rows": rows})
-    return {"potw": seasons, "potw_note": "The week's best player by fantasy points, among rostered players.",
-            "soon": AWARDS_SOON}
+    rec = inp.get("awards_rec")
+    if rec is None:
+        races, err, par_note, note = [], "The awards were not computed in this build.", "", ""
+    elif rec.get("error") or not rec.get("races"):
+        races, err, par_note, note = [], f"The awards could not be computed: {rec.get('error')}", "", ""
+    else:
+        races, err = rec["races"]["awards"], ""
+        par_note, note = rec["races"]["par_note"], rec["races"]["note"]
+    return {"potw": seasons, "potw_note": ("The week's best player by fantasy points in his starts, among rostered "
+                                           "players (the newsletter's pick)."),
+            "races": races, "races_error": err, "par_note": par_note, "races_note": note}
 
 
 # =============================================================================
@@ -650,19 +728,21 @@ def _reg_through(inp: dict, season: str) -> int:
 
 
 def h2h(inp: dict, results: dict) -> dict:
-    """{a: {b: per season [reg W, L, T, post W, L, T]}} over the data era (all_
-    matchups, 2017-18 on) and this season live; the grid cells, both phases,
-    and each pair's season-by-season breakdown."""
+    """{a: {b: per season [reg W, L, T, post W, L, T, cup W, L, T]}} over the
+    data era (all_matchups, 2017-18 on) and this season live; the grid cells
+    for each phase, and each pair's season-by-season breakdown. The Cup
+    (data_loader.stage_weeks "cup": from 2026-27) is its own phase, not
+    inside Postseason (4c4 decision 7)."""
     ms = inp["managers"]
     tally: dict = {}
+    cups = inp.get("cup_weeks") or {}
 
     def add(season, w, a, b, sa, sb):
-        post = w > _reg_through(inp, season)
+        k0 = 6 if w in (cups.get(season) or []) else 3 if w > _reg_through(inp, season) else 0
         oa = "a" if sa > sb else "b" if sb > sa else "tie"
         for x, y, res in ((a, b, oa), (b, a, {"a": "b", "b": "a", "tie": "tie"}[oa])):
-            v = tally.setdefault(x, {}).setdefault(y, {}).setdefault(season, [0, 0, 0, 0, 0, 0])
-            k = (3 if post else 0) + {"a": 0, "b": 1, "tie": 2}[res]
-            v[k] += 1
+            v = tally.setdefault(x, {}).setdefault(y, {}).setdefault(season, [0] * 9)
+            v[k0 + {"a": 0, "b": 1, "tie": 2}[res]] += 1
     for r in inp["all_matchups"]:
         if r["score_a"] == 0 and r["score_b"] == 0:
             continue
@@ -671,37 +751,44 @@ def h2h(inp: dict, results: dict) -> dict:
         for a, b, sa, sb, _o in rows:
             add(inp["season"], w, a, b, sa, sb)
     seasons = sorted({s for x in tally.values() for y in x.values() for s in y}, reverse=True)
-    grid = {"reg": [], "post": []}
+    phases = [("reg", "Regular season", 0), ("post", "Postseason", 3), ("cup", "Cup", 6)]
+    grid = {k: [] for k, _l, _o in phases}
     pairs = {}
     for a in ms:
-        cells_r, cells_p = [], []
+        cells = {k: [] for k, _l, _o in phases}
         for b in ms:
             if a == b:
-                cells_r.append(None)
-                cells_p.append(None)
+                for k in cells:
+                    cells[k].append(None)
                 continue
             per = (tally.get(a) or {}).get(b) or {}
-            tot = [sum(v[i] for v in per.values()) for i in range(6)]
+            tot = [sum(v[i] for v in per.values()) for i in range(9)]
             key = f"{a}|{b}"
-            cells_r.append({"t": _rec(*tot[:3]), "key": key})
-            cells_p.append({"t": _rec(*tot[3:]), "key": key})
+            for k, _l, o in phases:
+                cells[k].append({"t": _rec(*tot[o:o + 3]), "key": key})
             lines = []
             for s in seasons:
                 v = per.get(s)
                 if not v:
                     continue
-                txt = _rec(*v[:3]) + (f"{DOT}postseason {_rec(*v[3:])}" if any(v[3:]) else "")
+                txt = (_rec(*v[:3]) + (f"{DOT}postseason {_rec(*v[3:6])}" if any(v[3:6]) else "")
+                       + (f"{DOT}Cup {_rec(*v[6:])}" if any(v[6:]) else ""))
                 lines.append({"season": s, "t": txt})
             pairs[key] = {"a": a, "b": b, "title": f"{a} vs {b}",
-                          "total": f"Regular season {_rec(*tot[:3])}{DOT}postseason {_rec(*tot[3:])}",
+                          "total": (f"Regular season {_rec(*tot[:3])}{DOT}postseason {_rec(*tot[3:6])}"
+                                    f"{DOT}Cup {_rec(*tot[6:])}"),
                           "lines": lines}
-        grid["reg"].append({"m": a, "cells": cells_r})
-        grid["post"].append({"m": a, "cells": cells_p})
+        for k in grid:
+            grid[k].append({"m": a, "cells": cells[k]})
+    with_cup = sorted(s for s, ws in cups.items() if ws)
+    played = any(any(v[6:]) for x in tally.values() for y in x.values() for v in y.values())
+    cw = cups.get(with_cup[0]) if with_cup else []
+    cup_note = ((f" The Cup (weeks {cw[0]}{NDASH}{cw[-1]}, from {with_cup[0]}" + ("" if played else "; none played yet")
+                 + ") is its own phase.") if with_cup else " No season has had a Cup yet.")
     return {"order": ms, "grid": grid, "pairs": pairs,
-            "phases": [("reg", "Regular season"), ("post", "Postseason")],
+            "phases": [(k, lab) for k, lab, _o in phases],
             "note": ("Each row's record against each column, 2017-18 on (the Yahoo data) and this season live. "
-                     "Postseason = every week after the regular season: the bracket, the third-place series and "
-                     "(from this season) the Cup. Tap a cell for its seasons.")}
+                     "Postseason = the bracket and the third-place series." + cup_note + " Tap a cell for its seasons.")}
 
 
 # =============================================================================
@@ -854,9 +941,9 @@ def draft(inp: dict) -> dict:
         rows = []
         if s == cur:
             lt = inp["live_then"]
-            then_of = (lambda name: (lt["players"].get(name) or (None, "not in the draft"))) if lt else \
-                (lambda name: (None, "this season's opening-day OVR could not be computed: "
-                                     + (inp["live_error"] or "unknown")))
+            then_of = (lambda name: (tuple(lt["players"].get(name) or (None, "not in the draft")) + ("open",))[:3]) \
+                if lt else (lambda name: (None, "this season's opening-day OVR could not be computed: "
+                                                + (inp["live_error"] or "unknown"), "open"))
             now = inp["now_ovr"]
 
             def later_of(name):
@@ -871,14 +958,16 @@ def draft(inp: dict) -> dict:
         else:
             ent = ((cache or {}).get("seasons") or {}).get(s)
             if ent is None:
-                then_of = later_of = (lambda name, s=s: (None, f"not computed: data/historical/DRAFT_OVR.json has "
-                                                               f"no {s} (python scripts/build_draft_ovr.py)"))
+                later_of = (lambda name, s=s: (None, f"not computed: data/historical/DRAFT_OVR.json has "
+                                                     f"no {s} (python scripts/build_draft_ovr.py)"))
+                then_of = (lambda name, f=later_of: f(name) + ("open",))
             else:
                 look = {(int(x["pick_number"])): x for x in ent["picks"]}
 
                 def then_of(name, look=look, picks=picks):
                     x = next((look.get(int(p["pick_number"])) for p in picks if p["player_name"] == name), None)
-                    return (x["then"], x["then_reason"]) if x else (None, "not in the cache")
+                    return (x["then"], x["then_reason"], x.get("then_point", "open")) if x else \
+                        (None, "not in the cache", "open")
 
                 def later_of(name, look=look, picks=picks):
                     x = next((look.get(int(p["pick_number"])) for p in picks if p["player_name"] == name), None)
@@ -889,7 +978,7 @@ def draft(inp: dict) -> dict:
             rd = int(p["round"])
             in_round[rd] = in_round.get(rd, 0) + 1
             name = p["player_name"]
-            t, tr = then_of(name)
+            t, tr, tp = then_of(name)
             n, nr = later_of(name)
             if t is not None and n is not None:
                 k = int(n) - int(t)
@@ -898,7 +987,8 @@ def draft(inp: dict) -> dict:
                 chg, d = "", "none"
             rows.append({"pick": f"{rd}.{in_round[rd]:02d}", "overall": str(int(p["pick_number"])),
                          "m": p["manager"], "player": name, "card": _slug(name), "keeper": bool(p.get("is_keeper")),
-                         "then": str(t) if t is not None else DASH, "then_why": tr or "",
+                         "then": (str(t) + (" (wk 2)" if tp == "week2" else "")) if t is not None else DASH,
+                         "then_why": tr or "",
                          "later": str(n) if n is not None else DASH, "later_why": nr or "",
                          "chg": chg, "dir": d})
         counts: dict = {}
@@ -914,9 +1004,10 @@ def draft(inp: dict) -> dict:
     return {"seasons": seasons, "default": cur,
             "note": ("OVR then = his OVR on the season's opening day, from that day's rosters and log. Later = "
                      "his OVR at the trade-deadline point for a past season (OVR is rest-of-season value, so "
-                     "none exists on a season's last day), or today's for this season. \u2014 says why there is "
-                     "none: a player with no earlier season in the league log is rated at the league average "
-                     "on opening day, so none is shown. K = a keeper.")}
+                     "none exists on a season's last day), or today's for this season. A player with no earlier "
+                     "season in the league log is rated at the league average on opening day, so his then is "
+                     "his OVR at the week-2 point instead, marked (wk 2). \u2014 says why there is none. "
+                     "K = a keeper.")}
 
 
 # =============================================================================

@@ -98,6 +98,12 @@ s.2.4 and s.4 the design. The nightly run:
                    and the current hub goes out unchanged. A PUBLISHED run
                    appends their line to output/ratings_history.jsonl,
                    one line per as_of (a later run the same day skips).
+                   4c5: it computes the awards too (modules/awards), as
+                   softly (the "awards" block, AWARDS FAILED). A PUBLISHED
+                   run appends output/awards_history.jsonl's lines for every
+                   finished regular-season week not on file: one line per
+                   award per week, never per run; the first such run, with
+                   no file, backfills weeks 1..now.
                    Publishing is step 1c-ii. The player cards fail softly
                    (11-12, like advice): a card failure publishes the hub
                    with plain names and no card files, and is recorded (the
@@ -1021,13 +1027,14 @@ class Run:
             return "skipped: nothing changed since the last line (nothing published)"
         # decisions 2-3: only the nightly run builds the matchup paragraph; a
         # refresh or a pre-tip run shows last night's, byte for byte
-        night_out, cards_out, ratings_out, players_out = {}, {}, {}, {}
+        night_out, cards_out, ratings_out, players_out, awards_out = {}, {}, {}, {}, {}
         payload = hub_state.build(self.base, now=self.now, allow_engine_mismatch=self.allow_dirty,
                                   previous_engine_ok=self.mode in REFRESH_MODES,
                                   echo=lambda *a: None,
                                   night="build" if self.mode == "nightly" else "reuse",
                                   night_out=night_out, nba_report=self.ctx.get("nba_report"),
-                                  cards_out=cards_out, ratings_out=ratings_out, players_out=players_out)
+                                  cards_out=cards_out, ratings_out=ratings_out, players_out=players_out,
+                                  awards_out=awards_out)
         # task 40: the player cards, on every run that builds the hub, from this
         # build's own keepability; build_hub publishes them (output/hub_cards.json,
         # regenerable, not state). THEY FAIL SOFTLY (Nick, 11-12, like advice):
@@ -1070,6 +1077,7 @@ class Run:
             hub_cards.discard(self.base)
             self.ctx["headshots"] = None
         self.ctx["ratings"] = self._ratings_record(ratings_out, published=enc)
+        self.ctx["awards"] = self._awards_record(awards_out, published=enc)
         self.ctx["cards"] = {"error": None if err is None else err["error"],
                              "stage": None if err is None else err["stage"],
                              "cards": None if cards is None else len(cards["cards"]),
@@ -1116,6 +1124,38 @@ class Run:
                 rec["history"] = f"FAILED: {msg}"
                 lines.append(f"RATINGS HISTORY FAILED: {msg} -- next week's change reads an older line")
         self.ctx["ratings_lines"] = lines
+        return rec
+
+    def _awards_record(self, aw: dict, published: bool) -> dict:
+        """4c5: the awards step's record (the run's "awards" block), and the
+        races' history: output/awards_history.jsonl gets the pending lines
+        (every finished regular-season week not on file, oldest first) on a
+        PUBLISHED run only; none on a preview build or when the awards
+        failed. Append-only, one line per award per week. Soft until the
+        switch-over: a failure is recorded (AWARDS FAILED in the summary) and
+        the run goes on."""
+        from . import awards
+        pend = aw.get("pending") or []
+        weeks = sorted({int(x["week"]) for x in pend})
+        rec = {"error": aw.get("error"), "seconds": aw.get("seconds"), "through": aw.get("through"),
+               "week": aw.get("week"), "on_file": aw.get("on_file"), "pending_weeks": weeks, "history": None}
+        lines = []
+        if aw.get("error"):
+            lines.append(f"AWARDS FAILED: {aw['error']} -- the new hub's Awards say why; the current hub went out")
+            rec["history"] = "not written: the awards failed"
+        elif not pend:
+            rec["history"] = "nothing to append: every finished week is on file"
+        elif not published:
+            rec["history"] = f"not written: a preview build (weeks {weeks} pending)"
+        else:
+            try:
+                awards.append_history(self.base, pend)
+                rec["history"] = f"appended weeks {weeks} ({len(pend)} lines, {awards.HISTORY_RELPATH.as_posix()})"
+            except Exception as e:                   # noqa: BLE001 -- recorded loudly, never stops the run
+                msg = f"{type(e).__name__}: {e}".splitlines()[0][:300]
+                rec["history"] = f"FAILED: {msg}"
+                lines.append(f"AWARDS HISTORY FAILED: {msg} -- the races miss those weeks until a run appends them")
+        self.ctx["awards_lines"] = lines
         return rec
 
     # -- (nightly, last; step 3b s.3): the O-past-3-games nudge
@@ -1228,6 +1268,8 @@ class Run:
             row["team_pictures"] = self.ctx["team_pictures"]
         if self.ctx.get("ratings") is not None:
             row["ratings"] = self.ctx["ratings"]
+        if self.ctx.get("awards") is not None:                   # 4c5
+            row["awards"] = self.ctx["awards"]
         if self.ctx.get("actuals") is not None:
             row["actuals"] = self.ctx["actuals"]
         if self.ctx.get("keeper_watch") is not None:
@@ -1551,6 +1593,8 @@ def main(argv=None) -> int:
     for line in run.ctx.get("team_pictures_lines") or []:         # 4c3: so do the team pictures
         print(line)
     for line in run.ctx.get("ratings_lines") or []:               # 4c1: so do the ratings
+        print(line)
+    for line in run.ctx.get("awards_lines") or []:                # 4c5: so do the awards
         print(line)
     for line in run.ctx.get("actuals_lines") or []:               # 40b: so do their free agents' numbers
         print(line)

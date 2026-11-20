@@ -70,7 +70,8 @@ def test_segments_and_chips_in_order():
 
 
 def test_the_league_renderer_does_no_arithmetic():
-    src = "".join(inspect.getsource(f) for f in (PL._standings, PL._awards, PL._archive, PL._champions,
+    src = "".join(inspect.getsource(f) for f in (PL._standings, PL.awards_html, PL._race, PL._aw_info,
+                                                 PL._awards_pane, PL._archive, PL._champions,
                                                  PL._alltime, PL._h2h, PL._records, PL._draft, PL._trades,
                                                  PL.chip_html, PL._history, PL.league_screen, PL.templates))
     for banned in ("round", "float", "sum", "sorted", "max", "min", "int"):
@@ -159,6 +160,7 @@ def test_a_tie_head_to_head_breaks_is_said_so():
     for m, v in (("Tyler", 1290.0), ("Jordan", 1300.0)):
         next(e for e in inp["weekly_scores"][m] if e["week"] == 5)["score"] = v
     # Tyler then 3-4-1, Jordan 5-2-1: level no more; make Marcus and Jordan level instead
+    LF.sync_power(inp)
     lg, _ = L.build(inp)
     st = lg["standings"]
     assert all("head-to-head" in t for t in st["ties"])
@@ -383,14 +385,18 @@ def test_trades_equal_the_trade_files_with_picks_to_the_receiver():
 # E. Awards and the Archive
 # =============================================================================
 
-def test_awards_show_player_of_the_week_and_build_no_award_measure():
+def test_awards_show_the_races_and_player_of_the_week_with_its_backfilled_points():
     lg, _ = L.build(_inputs())
     aw = lg["awards"]
     assert [s["season"] for s in aw["potw"]] == ["2026-27", "2025-26"]
     assert aw["potw"][0]["rows"][0]["week"] == "Wk 8"
-    assert aw["potw"][1]["rows"][0]["pts"] == "\u2014" and "not recorded" in aw["potw"][1]["rows"][0]["sub"]
-    assert aw["soon"] == "The season's awards races arrive here soon."
-    assert set(aw) == {"potw", "potw_note", "soon"}
+    # 4c5 (4c4 decision 14): week 1's points from the league log, his started games only (61.5 + 48.0)
+    wk2, wk1 = aw["potw"][1]["rows"]
+    assert wk1["pts"] == "109.5" and wk1["sub"].startswith("2 games") and "from the league log" in wk1["sub"]
+    assert wk2["pts"] == "\u2014" and "not recorded" in wk2["sub"]          # not in the log: never guessed
+    assert set(aw) == {"potw", "potw_note", "races", "races_error", "par_note", "races_note"}
+    assert [a["key"] for a in aw["races"]] == ["mvp", "pickup", "improved", "roy", "trade", "bust"]
+    assert aw["races_error"] == ""
 
 
 def test_the_archive_lists_every_issue_newest_first_each_opening_its_file():
@@ -414,7 +420,7 @@ def test_history_is_published_as_encrypted_parts_and_never_in_the_page(tmp_path)
     p["v2"]["issue"]["file"] = e["enc"]
     out = tmp_path / "_to_delete" / "4c4" / "publish"
     rep = v2pub.build(tmp_path, p, PASS, salt=b"\x02" * 16, out_dir=out, iterations=1000, terms=TERMS, now=GEN)
-    assert rep["league_parts"]["parts"] == 6 and rep["served_bytes"] <= budget_bytes()
+    assert rep["league_parts"]["parts"] == 7 and rep["served_bytes"] <= budget_bytes()       # 4c5: + Awards
     assert hub_publish.scan_dir(out, TERMS)["hits"] == {}
     inner = v2pub.open_inner(PASS, json.loads(re.search(r'id="hub-bundle">(.*?)</script>',
                                                         (out / "index.html").read_text(encoding="utf-8"), re.S).group(1)))
@@ -528,7 +534,10 @@ def test_the_cache_is_ratings_rate_on_the_right_days():
     s = cache["seasons"]["2017-18"]
     assert all(p["then"] is None and p["then_reason"] == draft_ovr.THEN_NO_PRIOR or p["then_reason"] != draft_ovr.THEN_NO_PRIOR
                for p in s["picks"])
-    assert all(p["then"] is None for p in s["picks"])            # the log's first season: no earlier season
+    # the log's first season: no earlier season, so no opening-day OVR; 4c5 (4c4 decision 2): the
+    # week-2 point stands in, labelled
+    assert all(p["then"] is None or p["then_point"] == "week2" for p in s["picks"])
+    assert sum(p["then_point"] == "week2" for p in s["picks"]) >= 40
 
 
 # =============================================================================
@@ -587,5 +596,5 @@ def test_real_league_in_every_segment_and_chip_the_preview_and_publish(tmp_path)
     rep = v2pub.build(ROOT, p, "throwaway " + os.urandom(8).hex(), salt=os.urandom(16), out_dir=out,
                       iterations=1000, terms=terms)
     assert rep["served_bytes"] <= budget_bytes()
-    assert rep["league_parts"]["parts"] == 6 and rep["league_parts"]["largest"] <= 60_000
+    assert rep["league_parts"]["parts"] == 7 and rep["league_parts"]["largest"] <= 60_000
     assert hub_publish.scan_dir(out, terms)["hits"] == {}

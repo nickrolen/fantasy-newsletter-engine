@@ -471,8 +471,8 @@ def test_the_publish_mode_file_holds_only_ciphertext_and_round_trips(tmp_path):
     p["v2"]["issue"]["file"] = e["enc"]
     out = tmp_path / "_to_delete" / "4b" / "publish"
     rep = v2pub.build(tmp_path, p, PASS, salt=b"\x01" * 16, out_dir=out, iterations=1000, terms=TERMS, now=GEN)
-    # 4c4: beside index.html, only League's History chips, each an encrypted part file
-    assert rep["files"][0] == "index.html" and len(rep["files"]) == 7
+    # 4c4: beside index.html, only League's History chips, each an encrypted part file (4c5: + Awards)
+    assert rep["files"][0] == "index.html" and len(rep["files"]) == 8
     assert all(re.fullmatch(r"parts/[0-9a-f]{16}\.enc", f) for f in rep["files"][1:])
     sh = (out / "index.html").read_text(encoding="utf-8")
     from modules import hub_publish

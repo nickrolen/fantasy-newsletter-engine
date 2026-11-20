@@ -15,10 +15,14 @@ the hub joins that live, it is not in this file.
 
 A pick whose opening-day level has no earlier season to stand on (a rookie,
 a player new to the league's rosters, and every player of 2017-18, the log's
-first season) shows no THEN: the formula's level is then the league mean of
-that first day, the same for all of them, so the number would say nothing
-about him (THEN_NO_PRIOR). A pick not rostered on the day has no OVR that day
-(the universe is the rostered players, as 4a's was).
+first season) has no opening-day THEN: the formula's level is then the league
+mean of that first day, the same for all of them, so the number would say
+nothing about him (THEN_NO_PRIOR). 4c5 (4c4 decision 2): such a pick's THEN
+falls back to 4a's WEEK-2 POINT (the season's last logged day of fantasy week
+2, 4a's first validated cell), marked then_point "week2" and labelled
+"(wk 2)" on the page; with no OVR there either, it stays blank with both
+reasons. A pick not rostered on the day has no OVR that day (the universe is
+the rostered players, as 4a's was).
 
 THE CACHE: past seasons never change, but their schedules (games remaining,
 OVR's G) come from basketball-reference's month pages cached in data/.cache/
@@ -43,9 +47,10 @@ from typing import Callable, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_RELPATH = Path("data") / "historical" / "DRAFT_OVR.json"
-SCHEMA = 1
+SCHEMA = 2                    # 2 (4c5): then_point, and each season's week-2 day
 THEN_NO_PRIOR = "no earlier season of his in the league log: his opening-day level is the league average"
 NOT_ROSTERED = "not on a roster that day"
+OPEN, WEEK2 = "open", "week2"
 
 
 class DraftOvrError(RuntimeError):
@@ -111,17 +116,41 @@ def season_entry(inputs, season: str, dates_by_team: dict, frac: float) -> dict:
     open_day, dl_day = points_of(rows, frac)
     then = rate_day(inputs, season, open_day, dates_by_team, last, opening=True)
     later = rate_day(inputs, season, dl_day, dates_by_team, last, opening=False)
+    wk2_day, wk2 = week2_ratings(inputs, season, rows, dates_by_team, last)
     names = kh.Names(rows)
     out = []
     for p in sorted(picks, key=lambda x: int(x["pick_number"])):
         n = names.canon(p["player_name"], p.get("player_key"))
-        t = then.get(n) if n else None
+        t, point = then_with_fallback(then.get(n) if n else None,
+                                      wk2.get(n, (None, NOT_ROSTERED)) if (n and wk2_day) else None)
         lt = later.get(n) if n else None
         out.append({"pick_number": int(p["pick_number"]), "round": int(p["round"]), "manager": p["manager"],
                     "player": p["player_name"], "is_keeper": bool(p.get("is_keeper")),
-                    "then": t[0] if t else None, "then_reason": t[1] if t else NOT_ROSTERED,
+                    "then": t[0] if t else None, "then_reason": t[1] if t else NOT_ROSTERED, "then_point": point,
                     "later": lt[0] if lt else None, "later_reason": lt[1] if lt else NOT_ROSTERED})
-    return {"season": season, "open": open_day, "deadline": dl_day, "picks": out}
+    return {"season": season, "open": open_day, "week2": wk2_day, "deadline": dl_day, "picks": out}
+
+
+def week2_ratings(inputs, season: str, rows: list, dates_by_team: dict, last_day: str) -> tuple:
+    """(week-2 day or None, {name: (ovr, reason)}): 4a's week-2 point, the last
+    logged day of fantasy week 2 (keeper_history.as_of_point), rated as any
+    day. None and {} when the log has no week 2 yet."""
+    from . import keeper_history as kh
+    try:
+        day = kh.as_of_point(rows, season, "week2")[1]
+    except KeyError:
+        return None, {}
+    return day, rate_day(inputs, season, day, dates_by_team, last_day, opening=False)
+
+
+def then_with_fallback(t, w) -> tuple:
+    """((ovr, reason) or None, point): the opening day's, unless it is blank
+    for THEN_NO_PRIOR and the week-2 point has an OVR (4c4 decision 2)."""
+    if t is not None and t[0] is None and t[1] == THEN_NO_PRIOR and w is not None:
+        if w[0] is not None:
+            return (w[0], None), WEEK2
+        return (None, f"{THEN_NO_PRIOR}; none at week 2 either ({w[1]})"), OPEN
+    return t, OPEN
 
 
 def bbref_dates(season: str, last_day: str, root=ROOT) -> dict:
@@ -176,8 +205,9 @@ def build_cache(root=ROOT, inputs=None, seasons=None, schedule: Callable = None)
             continue
         out[s] = season_entry(inputs, s, schedule(s, inputs.log[s][-1]["date"]), frac)
     return {"schema": SCHEMA, "deadline_fraction": round(frac, 6), "seasons": out,
-            "note": ("THEN: his OVR on the season's opening day; LATER: his OVR at the trade-deadline "
-                     "point (modules/draft_ovr). Built by scripts/build_draft_ovr.py.")}
+            "note": ("THEN: his OVR on the season's opening day, or at the week-2 point where opening day "
+                     "has none (then_point week2); LATER: his OVR at the trade-deadline point "
+                     "(modules/draft_ovr). Built by scripts/build_draft_ovr.py.")}
 
 
 def load(root=ROOT) -> Optional[dict]:
@@ -193,7 +223,7 @@ def load(root=ROOT) -> Optional[dict]:
 
 
 def live_then(live: tuple, dates_by_team: dict, last_day: str) -> dict:
-    """This season's opening-day OVR: {pick name: (ovr or None, reason)} over
+    """This season's opening-day OVR: {pick name: (ovr or None, reason, point)} over
     the current season's picks, from the live log (hub_state's shared
     keeper_history.live_inputs) and the engine's NBA schedule
     (ratings.team_dates). Point in time: only the first logged day's rows."""
@@ -204,10 +234,12 @@ def live_then(live: tuple, dates_by_team: dict, last_day: str) -> dict:
         raise DraftOvrError(f"the live log has no rows for {season}")
     open_day = rows[0]["date"]
     then = rate_day(inputs, season, open_day, dates_by_team, last_day, opening=True)
+    wk2_day, wk2 = week2_ratings(inputs, season, rows, dates_by_team, last_day)
     names = kh.Names(rows)
     out = {}
     for p in inputs.picks.get(season) or []:
         n = names.canon(p["player_name"], p.get("player_key"))
-        t = then.get(n) if n else None
-        out[p["player_name"]] = t if t else (None, NOT_ROSTERED)
-    return {"open": open_day, "players": out}
+        t, point = then_with_fallback(then.get(n) if n else None,
+                                      wk2.get(n, (None, NOT_ROSTERED)) if (n and wk2_day) else None)
+        out[p["player_name"]] = (t[0], t[1], point) if t else (None, NOT_ROSTERED, OPEN)
+    return {"open": open_day, "week2": wk2_day, "players": out}
