@@ -2693,20 +2693,20 @@
  },
  "best": {
   "mvp": {
-   "season": "2018-19",
-   "label": "James Harden",
-   "player": "James Harden",
-   "m": "Nick",
-   "value": 2162.61,
-   "shown": "wins swung: 9",
-   "sub": "65 starts \u00b7 Garrett 1,336.2 + Nick 826.5",
+   "season": "2020-21",
+   "label": "Nikola Jokic",
+   "player": "Nikola Jokic",
+   "m": "Hayden",
+   "value": 1701.35,
+   "shown": "wins swung: 5",
+   "sub": "56 starts",
    "ms": [
-    "Garrett",
-    "Nick"
+    "Hayden"
    ],
-   "swung": 9.0,
-   "starts": 65,
-   "regular_weeks": 21
+   "swung": 5.0,
+   "starts": 56,
+   "regular_weeks": 16,
+   "per_week": 106.334
   },
   "trade": {
    "season": "2021-22",

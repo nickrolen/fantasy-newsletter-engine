@@ -210,14 +210,20 @@ def build(root=ROOT, inputs=None, cfg: Optional[dict] = None, only_seasons: Opti
 
 def best(blob: dict) -> dict:
     """Each award's all-time best season (the Records tiles): the winner with
-    the largest measure; ties to the earlier season."""
+    the largest measure; ties to the earlier season. MVP ranks by PAR PER
+    REGULAR-SEASON WEEK (Nick, 11-19: past regular seasons ran 16 to 21
+    weeks, so a total favours the long ones); its entry carries "per_week"."""
     out = {}
     for k in PAST:
         cand = [(s, v["awards"][k]["winner"]) for s, v in sorted(blob["seasons"].items())
                 if v["awards"][k]["winner"] is not None]
         if cand:
-            s, w = max(cand, key=lambda x: (x[1]["value"], [-ord(c) for c in x[0]]))
+            def measure(x):
+                return x[1]["value"] / blob["seasons"][x[0]]["regular_weeks"] if k == "mvp" else x[1]["value"]
+            s, w = max(cand, key=lambda x: (measure(x), [-ord(c) for c in x[0]]))
             out[k] = {"season": s, **w, "regular_weeks": blob["seasons"][s]["regular_weeks"]}
+            if k == "mvp":
+                out[k]["per_week"] = round(w["value"] / blob["seasons"][s]["regular_weeks"], 3)
         else:
             out[k] = None
     return out

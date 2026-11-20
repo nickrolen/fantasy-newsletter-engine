@@ -598,12 +598,15 @@ def award_tiles(inp: dict) -> list:
             continue
         who = (f"{b['label']}{DOT}{b['m']}" if b.get("player") else b["label"])
         out.append({"key": f"award_{k}", "label": PAST_TILES[k],
-                    "value": f"{_past_value(k, b['value'])} {PAST_UNITS[k]}", "who": who,
-                    "ctx": f"{b['season']}{DOT}{b['regular_weeks']}-week season",
+                    "value": (f"{_d1(b['per_week'])} PAR a week" if k == "mvp" else
+                              f"{_past_value(k, b['value'])} {PAST_UNITS[k]}"), "who": who,
+                    "ctx": (f"{b['season']}{DOT}{_d1(b['value'])} PAR over {b['regular_weeks']} weeks" if k == "mvp"
+                            else f"{b['season']}{DOT}{b['regular_weeks']}-week season"),
                     "tip": {"h": f"{PAST_TILES[k]}, {b['season']}", "b": f"{b['shown']}{DOT}{_past_sub(k, b)}"
                             if _past_sub(k, b) else b["shown"],
                             "f": f"{b['regular_weeks']}-week regular season; the best of {len(blob['seasons'])} "
-                                 f"past seasons by the award's own measure"}})
+                                 f"past seasons by the award's own measure"
+                                 + (" per regular-season week" if k == "mvp" else "")}})
     return out
 
 

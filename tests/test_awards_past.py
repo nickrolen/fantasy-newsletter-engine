@@ -209,7 +209,9 @@ def test_records_get_one_tile_per_award_with_its_tooltip():
     rec = p["v2"]["league_history"]["records"]
     assert [t["key"] for t in rec["award_tiles"]] == ["award_mvp", "award_trade", "award_improved"]
     t = rec["award_tiles"][0]
-    assert t["value"] == "1,810.2 PAR" and t["ctx"].endswith("21-week season") and t["tip"]["f"]
+    # MVP ranks per regular-season week (Nick, 11-19): 1,810.2 PAR over 21 weeks
+    assert t["value"] == "86.2 PAR a week" and t["ctx"].endswith("1,810.2 PAR over 21 weeks") \
+        and t["tip"]["f"].endswith("per regular-season week")
     from modules.hub_v2 import view
     h = PL.chip_html(view.league_history(p, {m: dict(v) for m, v in p["v2"]["teams"].items()}), "records", None)
     sec = re.search(r'data-section="award-records".*?</section>', h, re.S).group(0)
