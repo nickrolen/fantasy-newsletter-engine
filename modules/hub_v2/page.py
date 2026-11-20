@@ -87,8 +87,8 @@ LAYOUT_CSS = """
 .lh-seg button{min-height:var(--tap-min)}
 .v2-tap{position:relative;cursor:pointer}
 .v2-tap::after{content:"";position:absolute;left:0;right:0;top:50%;height:var(--tap-min);min-width:var(--tap-min);transform:translateY(-50%)}
-button.v2-pl{all:unset;cursor:pointer;color:var(--ink);font-weight:var(--type-row-weight);text-decoration:underline dotted var(--axis-strong);text-underline-offset:var(--space-2)}
-button.lh-name{all:unset;cursor:pointer;font-size:var(--type-row-size);font-weight:var(--type-row-weight);display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+button.v2-pl{all:unset;position:relative;cursor:pointer;color:var(--ink);font-weight:var(--type-row-weight);text-decoration:underline dotted var(--axis-strong);text-underline-offset:var(--space-2)}
+button.lh-name{all:unset;position:relative;cursor:pointer;font-size:var(--type-row-size);font-weight:var(--type-row-weight);display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
 .v2-topbar{background:var(--surface);border-bottom:var(--hairline) solid var(--line);padding:0 var(--space-16);display:flex;align-items:center;justify-content:space-between;gap:var(--space-8)}
 .v2-mono-72{--s:var(--mono-72)}
 .v2-mono-36{--s:var(--mono-36)}
@@ -157,7 +157,7 @@ button.lh-issuebar{width:100%;border:0;border-bottom:var(--hairline) solid var(-
 .v2-issue{position:fixed;inset:0;background:var(--surface);z-index:10;display:flex;flex-direction:column}
 .v2-issue iframe{flex:1;border:0;width:100%}
 .v2-foot{padding:var(--space-16);font-size:var(--type-small-size);color:var(--ink-2);text-align:center}
-.v2-forget{all:unset;cursor:pointer;color:var(--accent);font-weight:700}
+.v2-forget{all:unset;position:relative;cursor:pointer;color:var(--accent);font-weight:700}
 .v2-banner{background:var(--status-out-tint);color:var(--status-out);padding:var(--space-10) var(--space-16);font-size:var(--type-body-size);font-weight:700}
 .v2-calm{background:var(--surface-sunken);color:var(--ink-2);padding:var(--space-10) var(--space-16);font-size:var(--type-body-size)}
 .v2-check{background:var(--dark);color:var(--ink-on-dark);padding:var(--space-10) var(--space-16);font-size:var(--type-meta-size);white-space:pre-wrap}
