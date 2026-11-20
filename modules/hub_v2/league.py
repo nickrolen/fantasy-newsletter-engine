@@ -160,6 +160,10 @@ def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: 
     now_ovr = None
     if ratings is not None:
         now_ovr = {n: p["ovr"] for n, p in ratings["players"].items()}
+        # 5c: free agents are rated since 5b (the Players tab's); the draft's
+        # "Now" showed them as "free agents have no OVR" (the text audit)
+        for n, p in (ratings.get("free_agents") or {}).items():
+            now_ovr.setdefault(n, p["ovr"])
     # 4c5 (4c4 decision 9): a week the latest title-odds run banked whole from
     # the logs counts here exactly as Home's record column counts it
     try:
@@ -1045,7 +1049,7 @@ def draft(inp: dict) -> dict:
                 if name in now:
                     v = now[name]
                     return v, None if v is not None else "no OVR today"
-                return None, "not on a roster today: free agents have no OVR"
+                return None, "not rated today: on no roster and not on the Players tab"
             later_label, later_note = "Now", "today"
             open_day = lt["open"] if lt else None
         else:

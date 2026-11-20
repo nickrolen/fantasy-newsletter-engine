@@ -386,7 +386,7 @@ def test_the_tooltip_script_opens_closes_and_computes_nothing():
         assert banned not in block, banned
     assert "if(tipFor===t){hideTip();}else{showTip(t);}" in js                   # a tap opens, a second closes
     assert "hideTip();\n  t=e.target.closest('[data-card]');" in js              # a tap elsewhere closes
-    assert "if(e.key==='Escape'){closeTips(null);hideTip();return;}" in js
+    assert "if(e.key==='Escape'){closeTips(null);hideTip();" in js                # 5c: and the Forget question
     assert "getAttribute('data-tip-h')!==null&&!ptrFocus){showTip(t);}" in js     # keyboard focus opens
     assert ".lh-c-label" in block and "vw-pad-w" in block                         # end labels, the screen
 
@@ -452,6 +452,10 @@ def test_the_current_hub_page_changes_only_by_the_line_text():
     p = hs.load(ROOT) if (ROOT / "output" / "hub_state.json").is_file() else None
     if p is None:
         pytest.skip("no league state on this machine")
+    if p.get("v2_store"):
+        # 5c: since the switch-over (5b) the stored payload is v2's: the v1 page
+        # cannot render it (scripts/build_hub.py refuses it), so this pins nothing
+        pytest.skip("the stored payload is v2's (5b store_v2): the current page is not built from it")
     now = datetime.fromisoformat(p["generated_at"]) + timedelta(minutes=5)
     q = copy.deepcopy(p)
     q["header"]["line_text"] = "Closing line priced Mon Nov 16, 6:55 PM Pacific"

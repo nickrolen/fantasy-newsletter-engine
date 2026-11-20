@@ -533,13 +533,23 @@ class Availability:
         dates = sorted(x for x in self.team_dates.get(self.info[name]["nba_team"], ()) if x >= self.today)
         return set(dates[:self.absence.MAX_TAG_GAMES])
 
-    def for_free_agents(self, names, tags: dict) -> "Availability":
+    def for_free_agents(self, names, tags: dict, extra_info: dict = None) -> "Availability":
         """The same rule for the listed free agents (task 39): this instance's
         schedule, weeks, overrides, player info and today, with the free
         agents' own tags, as one "roster" (FREE_AGENTS) with no IL slots.
-        Raises, as the constructor does, for a free agent with no NBA team."""
+        Raises, as the constructor does, for a free agent with no NBA team.
+        extra_info (5c): player-info entries for free agents the info lacks
+        (their team from the reference fallback, hub_v2.players.fa_team); an
+        entry the info already has is never replaced."""
+        info = self.info
+        if extra_info:
+            from .data_loader import PlayerIndex
+            info = PlayerIndex(dict(self.info))
+            for n, v in extra_info.items():
+                if (info.get(n) or {}).get("nba_team") is None:
+                    info[n] = v
         return Availability({FREE_AGENTS: list(names)}, {}, tags, self.overrides, self.this_week,
-                            self.info, self.team_dates, self.weeks, self.today)
+                            info, self.team_dates, self.weeks, self.today)
 
     def with_rosters(self, rosters: dict, il_slots: dict, tags: dict) -> "Availability":
         """The same rule for other rosters (task 43a: next week's, with the
@@ -1597,7 +1607,8 @@ def ratings_fa_step(base, rt: dict, payload: dict, live, actuals: dict, info: di
     res = rt["result"]
     try:
         names = [u["name"] for u in v2players.universe(payload) if u["kind"] == "fa"]
-        team_of = {n: v2players.fa_team(n, info, proj) for n in names}
+        ref = v2players.reference_teams(base)                       # 5c: the fallback team
+        team_of = {n: v2players.fa_team(n, info, proj, ref) for n in names}
         ages = kh.load_ages(kh.age_seasons(), base, fetch=ratings._nofetch)
         specs = ratings.free_agent_specs(names, team_of, live[0], live[1], actuals,
                                          res["basis"]["dates_by_team"], res["as_of"], ages)

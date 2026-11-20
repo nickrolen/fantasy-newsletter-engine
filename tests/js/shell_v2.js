@@ -7,7 +7,9 @@
 //   node shell_v2.js <publish dir> <passphrase> <scenario JSON>
 //
 // scenario: {"old": true (no DecompressionStream), "hash": "#v-roster-X" (the
-// URL's hash at load), "part": true (open the first data-part pane's file)}
+// URL's hash at load), "part": true (open the first data-part pane's file),
+// "forget": true (5c: "Forget this phone" asks first, in the page: HUB.forget
+// and window.confirm recorded, never run)}
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -71,6 +73,28 @@ async function until(fn, ms = 15000) {
     out.selected = sel;
     out.cmp_rows = d.querySelectorAll('.v2-cmp-row').length;
     out.cmp_text = ((d.getElementById('cmp-rows') || {}).textContent || '').slice(0, 200);
+    if (sc.forget) {
+      const calls = [];
+      const realForget = w.HUB.forget;
+      w.HUB.forget = () => { calls.push('forget'); };
+      w.confirm = () => { calls.push('confirm'); return true; };
+      const shown = () => !d.getElementById('forget-ask').hidden;
+      const click = (id) => d.getElementById(id).dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
+      const f = {};
+      f.stored_before = w.localStorage.getItem('hub-key-v1') !== null;
+      click('forget'); f.asked = shown(); f.question = d.getElementById('forget-q').textContent;
+      f.buttons = [...d.querySelectorAll('#forget-ask button')].map((b) => b.textContent);
+      f.focus = (d.activeElement || {}).id || '';
+      f.calls_on_ask = calls.slice();
+      click('forget-no'); f.after_cancel = [shown(), calls.slice()];
+      click('forget'); d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      f.after_escape = [shown(), calls.slice()];
+      click('forget'); click('forget-yes'); f.after_yes = [shown(), calls.slice()];
+      f.stored_after_stub = w.localStorage.getItem('hub-key-v1') !== null;
+      try { realForget(); } catch (e) { /* jsdom: location.reload is not implemented */ }
+      f.stored_after_real = w.localStorage.getItem('hub-key-v1') !== null;
+      out.forget = f;
+    }
     if (sc.part) {
       const pane = d.querySelector('[data-part]');
       const ref = JSON.parse(pane.getAttribute('data-part'));

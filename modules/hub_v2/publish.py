@@ -249,7 +249,7 @@ def screen_files(vm: dict, html: str, root_key: bytes, terms=()) -> tuple:
     (vm["_screen_html"]) sealed as one part, gzipped JSON {"html"}."""
     import hashlib
     from .. import hub_crypto, hub_cards
-    from ..live_lines_page import clean
+    from .text import clean
     from . import page as _page
     K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
     files, sizes = {}, {}

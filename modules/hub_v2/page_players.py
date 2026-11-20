@@ -21,7 +21,7 @@ OVR ring's arc is the engine's dash string.
 
 from __future__ import annotations
 
-from ..live_lines_page import clean
+from .text import clean
 from .infotips import tip
 
 SEARCH = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '

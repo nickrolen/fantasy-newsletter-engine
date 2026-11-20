@@ -22,11 +22,17 @@ does, before Nick flips hub.version to "v2" (5a; scripts/build_hub.py --v2
              every key's file exists;
           6. the plaintext scan of every file, and its negative control (the
              decrypted page trips it: the scan would catch a leak);
+          6b. (5c) the text audit: the VISIBLE text of the page, every lazy
+             screen, every lazy part and every card (text, the attributes a
+             reader sees -- tooltips, labels -- and Compare's data) holds no
+             object text ("{'", "'cls':", "True}", "False}", "None",
+             "[object", "undefined", "NaN") and no empty value ("( )",
+             "\u00b7  \u00b7", two middle dots with nothing between). Empty cells and lone dashes are counted for the report;
           7. the banners the page carries (stale, engine mismatch, the H52
              closing-line note, the line header) and the sizes: the first
              load against hub.first_load_budget_kb, each lazy file against
              the 60 KB cap (the issues, whole newsletters, are exempt).
-        report["ok"] is True only when 1-6 pass and the first load is within
+        report["ok"] is True only when 1-6b pass and the first load is within
         the budget.
 """
 
@@ -90,6 +96,65 @@ def routes(page: str) -> dict:
     return {"screens": sorted(screens), "links": links, "unresolved": bad}
 
 
+# 5c: the text audit (s.3, s.5 of HANDOFF_5C). History printed a team's dict as
+# its name on the live hub, and every check missed it: History is a lazy
+# part, and the tests read its template, not the published part. So the
+# check reads what a reader sees in every published piece.
+SHOWN_ATTRS = ("aria-label", "title", "placeholder", "alt", "data-tip-h", "data-tip-b", "data-tip-f",
+               "data-head", "data-body", "data-label", "data-tip")
+OBJECT_TEXT = re.compile(r"\{'|'cls':|True\}|False\}|\bNone\b|\[object|\bundefined\b|\bNaN\b")
+EMPTY_TEXT = re.compile(r"\(\s*\)|\u00b7\s*\u00b7")
+_JSON_BLOCK = re.compile(r'<script type="application/json"[^>]*>(.*?)</script>', re.S)
+
+
+def _strings(obj):
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _strings(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _strings(v)
+
+
+def visible_text(html: str) -> str:
+    """What a reader can see of an HTML string: its text (tags as spaces,
+    entities unescaped), the attributes shown as text (SHOWN_ATTRS), and the
+    strings of its JSON data blocks (Compare's rows, drawn by the script).
+    Scripts and styles are left out."""
+    data = []
+    for m in _JSON_BLOCK.finditer(html):
+        try:
+            data.extend(_strings(json.loads(m.group(1).replace("<\\/", "</"))))
+        except ValueError:
+            data.append(m.group(1))
+    body = _JSON_BLOCK.sub(" ", html)
+    body = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", body, flags=re.S | re.I)
+    attrs = [_html.unescape(m.group(2)) for m in
+             re.finditer(r'\s(' + "|".join(SHOWN_ATTRS) + r')="([^"]*)"', body)]
+    text = _html.unescape(re.sub(r"<[^>]*>", " ", body))
+    return "\n".join([text] + attrs + data)
+
+
+def text_audit(pieces: dict) -> dict:
+    """{"pieces", "chars", "object_hits", "empty_hits", "empty_cells", "dash_cells"} over
+    {where: html}. A hit is (where, the match with 30 characters either side)."""
+    obj, emp, cells, dashes, chars = [], [], 0, 0, 0
+    for where, html in pieces.items():
+        t = visible_text(html)
+        chars += len(t)
+        for rx, out in ((OBJECT_TEXT, obj), (EMPTY_TEXT, emp)):
+            for m in rx.finditer(t):
+                out.append((where, " ".join(t[max(0, m.start() - 30):m.end() + 30].split())))
+        for c in re.findall(r"<td\b[^>]*>(.*?)</td>", html, re.S):
+            v = _html.unescape(re.sub(r"<[^>]*>", "", c)).strip()
+            cells += (v == "")
+            dashes += (v == "\u2014")
+    return {"pieces": len(pieces), "chars": chars, "object_hits": obj, "empty_hits": emp,
+            "empty_cells": cells, "dash_cells": dashes}
+
+
 def _image_kind(b: bytes) -> str:
     if b[:3] == b"\xff\xd8\xff":
         return "jpeg"
@@ -118,6 +183,7 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
     inner = open_page(shell, THROWAWAY_PASSPHRASE)
     page = inner["page"]
     reached = {"index.html"}
+    shown = {"page": page}                           # 5c: every published piece's HTML, for the text audit
     # 5b: the lazy screens (team pages, last week's matchups): each opened, and
     # its HTML checked with the page's own (links, cards, parts, pictures)
     screens_opened = {}
@@ -128,6 +194,7 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
             if not h.strip():
                 problems.append(f"{ref['file']}: an empty screen part")
             screens_opened[ref["file"]] = h
+            shown[f"screen {ref['file']}"] = h
             reached.add(ref["file"])
         except Exception as e:                       # noqa: BLE001 -- named
             problems.append(f"{ref.get('file')}: {type(e).__name__}: {e}")
@@ -147,6 +214,7 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
             if not str(obj.get("html") or "").strip():
                 problems.append(f"{ref['file']}: an empty part")
             opened["parts"][ref["file"]] = len(obj["html"])
+            shown[f"part {ref['file']}"] = str(obj["html"])
             reached.add(ref["file"])
         except Exception as e:                       # noqa: BLE001 -- named
             problems.append(f"{ref.get('file')}: {type(e).__name__}: {e}")
@@ -173,6 +241,7 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
                 c = open_part(out, ent["card"])
                 if not str(c.get("html") or "").strip():
                     problems.append(f"card {key}: empty")
+                shown[f"card {key}"] = str(c.get("html") or "")
                 reached.add(ent["card"]["file"])
                 opened["cards"] += 1
                 if ent.get("photo"):
@@ -201,6 +270,11 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
     for f in re.findall(r'data-issue="([^"]+)"', page):
         if f not in inner["issues"]:
             problems.append(f"the page opens issue {f}, which the bundle has no key for")
+    audit = text_audit(shown)
+    if audit["object_hits"]:
+        problems.append(f"object text on the page ({len(audit['object_hits'])}): {audit['object_hits'][:5]}")
+    if audit["empty_hits"]:
+        problems.append(f"empty values on the page ({len(audit['empty_hits'])}): {audit['empty_hits'][:5]}")
     orphans = sorted(set(rep["files"]) - reached)
     if orphans:
         problems.append(f"published files no key reaches: {orphans}")
@@ -235,7 +309,7 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
     return {"ok": not problems, "problems": problems, "dir": str(out), "shell": sh, "routes": rt,
             "opened": opened, "orphans": orphans, "scan": {"terms": len(terms), "files": len(scan["files"]),
                                                            "hits": scan["hits"], "control": control},
-            "banners": banners, "first_load": rep["served_bytes"], "budget": rep["budget_bytes"],
+            "banners": banners, "text_audit": audit, "first_load": rep["served_bytes"], "budget": rep["budget_bytes"],
             "headroom": rep["budget_bytes"] - rep["served_bytes"], "fonts": rep["fonts_served_bytes"],
             "pictures": len(pictures or []), "picture_notes": list(picture_notes),
             "card_errors": list(card_errors),
@@ -257,6 +331,10 @@ def summary(rep: dict) -> list:
              f"(largest {g['issues']['largest']:,} B, whole newsletters: exempt from the 60 KB cap)",
              f"  plaintext scan: {rep['scan']['terms']} terms over {rep['scan']['files']} files, "
              f"{len(rep['scan']['hits'])} hit(s); negative control {'tripped' if rep['scan']['control'] else 'DID NOT TRIP'}",
+             f"  text audit: {rep['text_audit']['pieces']} pieces, {rep['text_audit']['chars']:,} characters "
+             f"of visible text: {len(rep['text_audit']['object_hits'])} object text, "
+             f"{len(rep['text_audit']['empty_hits'])} empty value(s); {rep['text_audit']['empty_cells']} empty "
+             f"cell(s), {rep['text_audit']['dash_cells']} dash cell(s) (counted, not failed)",
              f"  banners: stale {'present' if rep['banners']['stale_banner'] else 'MISSING'}"
              f" ({'shown' if rep['banners']['stale_shown'] else 'hidden'}), engine mismatch "
              f"{'shown' if rep['banners']['engine_mismatch'] else 'not shown'}, closing-line note "

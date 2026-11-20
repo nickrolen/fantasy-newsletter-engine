@@ -1052,9 +1052,14 @@ class Run:
                 mins["error"] = err
                 detail += f"; minutes' backfill FAILED (recorded, the run goes on): {err}"
             else:
-                mins["backfill"] = {k: bm[k] for k in ("days_done", "days_left", "calls", "cap", "stopped")}
+                mins["backfill"] = {k: bm[k] for k in ("days_done", "days_left", "calls", "cap", "corrections",
+                                                       "stopped")}
                 detail += (f"; minutes backfilled {len(bm['days_done'])} day(s), {bm['calls']} call(s), "
                            f"{bm['days_left']} day(s) left")
+                if bm["corrections"]:                # 5c: phantom games rewritten as no game
+                    detail += f"; {len(bm['corrections'])} phantom game(s) corrected"
+                    for c in bm["corrections"]:
+                        lines.append(f"PHANTOM GAME CORRECTED: {c}")
             mins["seconds"] = round(time.perf_counter() - t2, 2)
         for e in min_errors:
             lines.append(f"MINUTES FAILED: {e} -- that day's points and categories are written; the backfill retries it")

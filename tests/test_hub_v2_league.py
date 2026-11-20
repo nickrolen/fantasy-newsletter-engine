@@ -350,7 +350,7 @@ def test_the_draft_equals_the_draft_files_with_ovr_from_the_right_days():
     big = next(r for r in cur["rows"] if r["player"] == "Marcus Big")
     assert big["keeper"] and big["then"] == "\u2014" and "league average" in big["then_why"]
     fg = next(r for r in cur["rows"] if r["player"] == "Free Guy")
-    assert fg["later"] == "\u2014" and "free agents have no OVR" in fg["later_why"]
+    assert fg["later"] == "\u2014" and "on no roster and not on the Players tab" in fg["later_why"]
     past = {r["player"]: r for r in by["2025-26"]["rows"]}
     assert (past["Marcus Guard"]["then"], past["Marcus Guard"]["later"]) == ("74", "81")
     assert past["Dana Guard"]["later"] == "\u2014" and past["Dana Guard"]["later_why"] == "not on a roster that day"

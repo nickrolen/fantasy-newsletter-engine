@@ -116,6 +116,22 @@ THE MINUTES (4a3, 11-19: the roster's MIN and MIN delta, the card's last
         who played that day); a player who did not play gets 0 with no call.
         A day is written only when every player asked for on it came back,
         still with games played 1. Its failure is soft and loud.
+      - A PHANTOM GAME (5c, 11-20): Yahoo's line for a day can say games
+        played 1 with every stat empty when the day is fetched, and games
+        played 0 later (Donovan Mitchell and Evan Mobley on 2026-11-14, Austin
+        Reaves on 2026-11-18: each game was final hours before the 12:05 AM
+        fetch, so it was Yahoo's line, not an early fetch). When the backfill
+        reads games played 0 for a day the cache holds as EXACTLY a phantom
+        -- 0 points, 1 game, its categories cached and every one 0 --
+        it is Yahoo's correction: the day is rewritten as a day he did not
+        play (0 points, 0 games; categories eleven zeros and minutes 0, the
+        cache's shape for such a day, so neither backfill asks for it again),
+        recorded in the run's "corrections", and the backfill goes on (is_phantom,
+        correct_phantom). Any other disagreement (points, a category, or no
+        categories cached yet) still RAISES, as before. This is the only
+        place the cache's games count is read back from Yahoo: the daily
+        passes fetch a day once, and the category backfill's league-scoped
+        line carries no games played.
 
 THE OTHER PLAYERS THE HUB NAMES (40b, 11-13: update_extras)
     The player cards show every carded player's NBA season (ONE FPPG
@@ -583,12 +599,16 @@ class YahooSource:
             return out, None, mr
         return out, ({"cats": None, "error": cat_err} if cat_err else {"cats": cats, "error": None}), mr
 
-    def minutes_day(self, pids: List[int], d: date, names: Dict[int, str]) -> Dict[int, int]:
+    def minutes_day(self, pids: List[int], d: date, names: Dict[int, str],
+                    now_zero: Optional[set] = None) -> Dict[int, int]:
         """The minutes backfill's request (4a3): {pid: whole minutes} for
         players who PLAYED on day d (the cache says games 1), from the
         game-scoped line only (1 call per BATCH). Yahoo must still say games
         played 1, and the minutes must parse, or MinutesError naming him and
-        the day; any missing player or failed request raises too."""
+        the day; any missing player or failed request raises too.
+        now_zero (5c): a set the caller passes to judge a "games played 0
+        now" itself (a phantom game, backfill_minutes): such a pid is added
+        to it and left out of the result instead of raising here."""
         out = {}
         for i in range(0, len(pids), BATCH):
             chunk = pids[i:i + BATCH]
@@ -602,6 +622,9 @@ class YahooSource:
                 if pid not in gst or gst[pid][GP_STAT] is None:
                     raise ActualsError(f"Yahoo returned no {d} games-played stat for {names[pid]}")
                 g = games_value(gst[pid][GP_STAT], names[pid], d)
+                if g == 0 and now_zero is not None:
+                    now_zero.add(pid)
+                    continue
                 if g != 1:
                     raise MinutesError(f"Yahoo's {d} line for {names[pid]} now says games played "
                                        f"{gst[pid][GP_STAT]!r}, but the cache has him playing: the day's minutes "
@@ -1064,6 +1087,26 @@ def backfill_categories(base_path=".", *, source=None, today: date = None, cap: 
 # the minutes' backfill (4a3, 11-19)
 # =============================================================================
 
+def is_phantom(rec: dict, iso: str) -> bool:
+    """5c: the day is cached as a phantom game -- 0 points, 1 game, and its
+    categories cached with every one 0. Nothing else is (a day with no
+    categories cached yet is not: nothing says the stats were empty)."""
+    v = (rec.get("days") or {}).get(iso)
+    c = (rec.get("cat_days") or {}).get(iso)
+    return (v is not None and int(v[1]) == 1 and float(v[0]) == 0.0
+            and c is not None and len(c) > 0 and all(int(x) == 0 for x in c)
+            and iso not in (rec.get("cat_corrections") or {}))
+
+
+def correct_phantom(rec: dict, iso: str, n_cats: int) -> None:
+    """5c: rewrite a phantom day (is_phantom) as a day he did not play, the
+    cache's shape for one: [0.0, 0], eleven zeros, 0 minutes."""
+    if not is_phantom(rec, iso):
+        raise ActualsError(f"{rec.get('name')} {iso} is not a phantom game: it is not rewritten")
+    rec["days"][iso] = [0.0, 0]
+    rec.setdefault("cat_days", {})[iso] = [0] * n_cats
+    rec.setdefault("min_days", {})[iso] = 0
+
 def backfill_minutes(base_path=".", *, source=None, today: date = None, cap: int = None,
                      dry_run: bool = False) -> dict:
     """Fill minutes for days cached without them, oldest first, at most `cap`
@@ -1084,11 +1127,12 @@ def backfill_minutes(base_path=".", *, source=None, today: date = None, cap: int
     names = tracked_ids(blob)
     todo = backfill_plan(blob, last, key="min_days")
     out = {"days_missing": len(todo), "calls_needed": backfill_calls(todo), "cap": cap,
-           "days_done": [], "calls": 0, "stopped": None, "seconds": 0.0}
+           "days_done": [], "calls": 0, "corrections": [], "stopped": None, "seconds": 0.0}
     if dry_run:
         out["days_left"] = len(todo)
         return out
     t0 = time.time()
+    n_cats = len(((blob.get("cats") or {}).get("order")) or [])
     for d, want in todo.items():
         need = math.ceil(len(want["played"]) / BATCH)
         if need > cap:
@@ -1099,12 +1143,26 @@ def backfill_minutes(base_path=".", *, source=None, today: date = None, cap: int
             out["stopped"] = f"the cap ({cap} calls) before {d.isoformat()}"
             break
         calls0 = getattr(source, "calls", 0)
-        got = source.minutes_day(want["played"], d, names) if want["played"] else {}
+        zero: set = set()
+        got = source.minutes_day(want["played"], d, names, now_zero=zero) if want["played"] else {}
         out["calls"] += getattr(source, "calls", 0) - calls0
         iso = d.isoformat()
+        # 5c: games played 0 now. A phantom game (is_phantom) is Yahoo's
+        # correction; anything else is the disagreement it always was
+        for pid in sorted(zero):
+            rec = blob["players"][str(pid)]
+            if not n_cats or not is_phantom(rec, iso):
+                v = rec["days"][iso]
+                raise MinutesError(f"Yahoo's {d} line for {names[pid]} now says games played '0', but the "
+                                   f"cache has him playing ({v[0]} points, categories "
+                                   f"{(rec.get('cat_days') or {}).get(iso)}): the day's minutes are not written")
         for pid in want["played"]:
-            if pid not in got:
+            if pid not in got and pid not in zero:
                 raise ActualsError(f"Yahoo returned no {d} minutes for {names[pid]}")
+        for pid in sorted(zero):
+            correct_phantom(blob["players"][str(pid)], iso, n_cats)
+            out["corrections"].append(f"{names[pid]} {iso}: a phantom game (games played 1 with no stats when "
+                                      "fetched; Yahoo now says 0): rewritten as no game")
         for pid, m in got.items():
             blob["players"][str(pid)].setdefault("min_days", {})[iso] = m
         for pid in want["idle"]:

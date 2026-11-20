@@ -688,7 +688,11 @@ def league_history(payload: dict, teams: dict) -> dict:
 
     def href(key):
         return f"#/players/{key}" if key and key in reg else ""
-    ch = dict(h["champions"], rows=[dict(r, team=teams.get(r["m"]) if r["m"] else None)
+    # 5c: the row's "team" is the season's team NAME (league._season_team: the
+    # name that team had that season); it stays a string under "season_team",
+    # and "team" becomes the current team's dict (its mark). Printing "team"
+    # printed the dict (Nick's phone, 11-20).
+    ch = dict(h["champions"], rows=[dict(r, season_team=r["team"], team=teams.get(r["m"]) if r["m"] else None)
                                     for r in h["champions"]["rows"]])
     at = dict(h["alltime"], rows=[dict(r, team=teams[r["m"]]) for r in h["alltime"]["rows"]])
     hh = h["h2h"]

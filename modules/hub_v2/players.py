@@ -246,14 +246,37 @@ def riser_reason(name: str, now: Dict[str, list], then: Dict[str, list], pool=No
 # the build
 # =============================================================================
 
-def fa_team(name: str, info: dict, proj) -> Optional[str]:
-    """A free agent's NBA team: the player info's, else PLAYERLIST's (the
-    rule the Players rows, Next and the free agents' ratings share)."""
+def fa_team(name: str, info: dict, proj, ref=None) -> Optional[str]:
+    """A free agent's NBA team: the player info's, else PLAYERLIST's, else
+    (5c, 5b decision 14) basketball-reference's THIS season's list (ref:
+    reference_teams()) -- the rule the Players rows, Next and the free
+    agents' ratings share. The reference is only a fallback: it never
+    overrides a current source (it is fetched by hand and can be weeks old;
+    a player traded since would carry his old team)."""
     t = (info.get(name) or {}).get("nba_team")
     if t is None:
         prow = proj.get(name)
         t = None if prow is None else str(prow.get("player_nba_team") or "") or None
+    if t is None and ref:
+        t = ref.get(name) or None
     return t
+
+
+def reference_teams(base) -> dict:
+    """5c: {name: schedule team code} from data/NBA_PLAYER_REFERENCE.json's
+    this-season list (basketball-reference; a PlayerIndex, so names compare
+    as everywhere else), only players with one team this season. Last
+    season's list is never used (an off-season move makes it wrong). No
+    cache file: {} -- the fallback reaches nobody and those free agents stay
+    "no NBA team on record", as before; nothing is made up."""
+    from ..data_loader import PlayerIndex
+    from .. import nba_reference
+    try:
+        cache = nba_reference.load_cache(base)
+    except nba_reference.ReferenceMissing:
+        return PlayerIndex({})
+    players = ((cache.get("seasons") or {}).get("this_season") or {}).get("players") or {}
+    return PlayerIndex({n: str(t).upper() for n, t in players.items() if t})
 
 
 def universe(payload: dict) -> List[dict]:
@@ -289,7 +312,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
     (or the readers' own errors) on an inconsistent input."""
     from .. import player_actuals as pa
     from ..ratings import config as rcfg, letter as _letter
-    from ..hub_state import free_agent_tags
+    from ..hub_state import free_agent_tags, HubInputError
     v2 = payload["v2"]
     teams_v2 = v2["teams"]
     rt = ctx["ratings"]
@@ -325,14 +348,36 @@ def build(base, payload: dict, ctx: dict) -> tuple:
         for i, p in enumerate(rb["players"]):
             row_of[p["name"]] = (m, p)
             idx_of[p["name"]] = i
-    fa_team_of = {n: fa_team(n, info, proj) for n in fa_names}
+    ref = ctx["ref_teams"] if "ref_teams" in ctx else reference_teams(base)
+    fa_team_of = {n: fa_team(n, info, proj, ref) for n in fa_names}
     fa_ok = [n for n in fa_names if fa_team_of[n] and fa_team_of[n] in av.team_dates and n in info]
+    # 5c: a free agent whose team is the reference's fallback is in neither
+    # the player info nor PLAYERLIST, so the tag record (PLAYERLIST's free
+    # agents) may have no tag for him. With a tag, Next counts his games with
+    # that team; without one his Next stays a dash -- an untagged free agent
+    # is never read as healthy, and he must not make the whole build fail
+    # (free_agent_tags raises for the rest, as before).
+    fa_info, fa_untagged = {}, set()
+    for n in fa_names:
+        t = fa_team_of[n]
+        if n in fa_ok or (info.get(n) or {}).get("nba_team") is not None:
+            continue
+        if "fa_av" not in ctx:
+            try:
+                free_agent_tags(ctx["tag_row"], [n])
+            except HubInputError:
+                fa_untagged.add(n)
+                continue
+        if not t or t not in av.team_dates:
+            continue
+        fa_info[n] = {"nba_team": t, "positions": set(), "proj_fppg": None}
+        fa_ok.append(n)
     if not fa_ok:
         fa_av = None
     elif "fa_av" in ctx:                                 # tests: a stand-in Availability
         fa_av = ctx["fa_av"](fa_ok)
     else:
-        fa_av = av.for_free_agents(fa_ok, free_agent_tags(ctx["tag_row"], fa_ok))
+        fa_av = av.for_free_agents(fa_ok, free_agent_tags(ctx["tag_row"], fa_ok), extra_info=fa_info)
 
     # the ratings, and last week's line
     rp = (res or {}).get("players") or {}
@@ -391,7 +436,9 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             age = int(age) if float(age).is_integer() else age
         r = rp.get(n) if u["kind"] == "rostered" else fp.get(n)
         chips = [c for c in u["status"] if c.get("kind") in ("out", "q", "il")]
-        healthy = not chips
+        # 5c: a free agent the tag record has no tag for (the fallback team's,
+        # outside PLAYERLIST) is never read as healthy ("Healthy only" leaves him out)
+        healthy = not chips and n not in fa_untagged
         positions = [s for s in pos.split(",") if s in BASE_POS]
         # team games through yesterday (the card's "games of team games")
         team = nba if u["kind"] == "rostered" else fa_team_of.get(n)

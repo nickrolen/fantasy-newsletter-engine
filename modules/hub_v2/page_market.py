@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 
-from ..live_lines_page import clean
+from .text import clean
 
 TAP_CLASSES = ("adv-row", "adv-bk", "v2-mkcell", "v2-mvchip")
 DOT = " \u00b7 "

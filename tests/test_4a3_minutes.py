@@ -445,7 +445,7 @@ def test_the_nightly_records_a_minutes_failure_loudly_and_goes_on(tmp_path, monk
 
 
 def test_a_good_nights_minutes_backfill_is_recorded(tmp_path, monkeypatch):
-    ok = {"days_done": [iso(0)], "days_left": 3, "calls": 4, "cap": 20, "stopped": None}
+    ok = {"days_done": [iso(0)], "days_left": 3, "calls": 4, "cap": 20, "corrections": [], "stopped": None}
     run, detail, called = _step(tmp_path, monkeypatch, "nightly", lambda: dict(ok, seconds=0.1, days_missing=4))
     assert run.ctx["actuals"]["minutes"]["backfill"] == ok
     assert "minutes backfilled 1 day(s), 4 call(s), 3 day(s) left" in detail and run.ctx["actuals_lines"] == []

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 
-from ..live_lines_page import clean
+from .text import clean
 
 TAP_CLASSES = ("v2-lg-cell", "v2-lg-why", "v2-lg-game", "v2-lg-issue", "v2-lg-sum", "v2-lg-tile")
 PARTS = ("awards",)                     # League's lazy segments beside History's chips (4c5)
@@ -498,8 +498,11 @@ def _champions(c: dict, mono) -> str:
     for r in c["rows"]:
         t = r["team"]
         head = (f'{mono(t, "28")}' if t else '<span></span>')
-        title = (f'<b class="v2-name14">{clean(r["team"])}</b><span class="lh-sub">{clean(r["who"])}</span>'
-                 if t else "")
+        # 5c: the season's team name (a string); a season before the Yahoo
+        # data has no team name on record, so the manager is the title alone
+        title = ("" if not t else
+                 f'<b class="v2-name14">{clean(r["season_team"])}</b><span class="lh-sub">{clean(r["who"])}</span>'
+                 if r["season_team"] else f'<b class="v2-name14">{clean(r["who"])}</b>')
         lines = "".join(f'<span class="v2-lg-line"><b>{clean(x["k"])}:</b> {clean(x["t"])}</span>' for x in r["lines"])
         o.append(f'<div class="v2-lg-champ">{head}<span class="v2-minw"><span class="v2-lg-season">'
                  f'{clean(r["season"])}</span>{title}{lines}</span></div>')

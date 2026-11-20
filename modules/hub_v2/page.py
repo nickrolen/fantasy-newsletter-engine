@@ -42,7 +42,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from ..live_lines_page import clean
+from .text import clean
 from .infotips import tip
 from . import page_players as pp
 from . import page_market as pm
@@ -59,6 +59,15 @@ TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-ic
 # CSS shows a column when the table's data-group is one of its groups
 DETAIL_GROUPS = ("value", "form", "schedule", "health", "keeper", "profile", "all")
 TAP_PARENTS = ("lh-tabbar", "lh-seg", "lh-toggle", "lh-info")
+# 5c (the tap sweep): a .v2-tap's 44-point area (its ::after) is centred on
+# it, so where two tap targets sit one above the other (a player's name over
+# his team chip: the draft, awards, Market's lists, trades) the later one's
+# area lay over the bottom or top of the other: a tap on the drawn name
+# opened the team. CSS cannot order every area under every target (the areas
+# would fall under the rows' boxes), so the page's first click listener does
+# it (PAGE_JS, "a tap reaches what is drawn"): a tap that reached a .v2-tap
+# through its area, on a point where another tap target is drawn, goes to
+# that target instead.
 
 ICONS = {
     "home": 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
@@ -161,6 +170,10 @@ button.lh-issuebar{width:100%;border:0;border-bottom:var(--hairline) solid var(-
 .v2-issue iframe{flex:1;border:0;width:100%}
 .v2-foot{padding:var(--space-16);font-size:var(--type-small-size);color:var(--ink-2);text-align:center}
 .v2-forget{all:unset;position:relative;cursor:pointer;color:var(--accent);font-weight:700}
+.v2-ask{position:fixed;left:0;right:0;bottom:var(--tabbar-height);z-index:12;display:flex;justify-content:center;padding:var(--space-16)}
+.v2-ask-box{width:100%;max-width:var(--reading-max);background:var(--dark);color:var(--ink-on-dark);border-radius:var(--radius-14);padding:var(--space-14) var(--space-16);display:flex;flex-direction:column;gap:var(--space-12);font-size:var(--type-body-size);line-height:var(--type-body-lh);text-align:left}
+.v2-ask-row{display:flex;gap:var(--space-8);justify-content:flex-end}
+.lh-info__pop{max-width:calc(100vw - 2 * var(--space-16))}
 .v2-banner{background:var(--status-out-tint);color:var(--status-out);padding:var(--space-10) var(--space-16);font-size:var(--type-body-size);font-weight:700}
 .v2-calm{background:var(--surface-sunken);color:var(--ink-2);padding:var(--space-10) var(--space-16);font-size:var(--type-body-size)}
 .v2-check{background:var(--dark);color:var(--ink-on-dark);padding:var(--space-10) var(--space-16);font-size:var(--type-meta-size);white-space:pre-wrap}
@@ -190,6 +203,7 @@ button.v2-dchip[aria-selected="true"]{background:var(--dark);color:var(--ink-on-
 }
 @media (min-width:{{bp-wide}}){
  .v2-app{padding-bottom:0}
+ .v2-ask{bottom:0}
  .v2-hdr{order:-3}
  .v2-stale-wrap{order:-2}
  .lh-tabbar{order:-1;position:sticky;top:0;bottom:auto;height:auto;border-top:0;border-bottom:var(--hairline) solid var(--line);display:flex;justify-content:center;gap:var(--space-24);padding:var(--space-4) var(--space-16)}
@@ -854,8 +868,12 @@ def render(vm: dict, *, cards: dict = None) -> str:
                            for x in ph["links"]) + "</section></div></section>")
     o.append("</main>")
     o.append(f'<footer class="v2-foot">{clean(vm["footer"])}'
-             + (' &middot; <button type="button" class="v2-forget v2-tap" id="forget">Forget this phone</button>'
+             + (' &middot; <button type="button" class="v2-forget v2-tap" id="forget" aria-haspopup="dialog" '
+                'aria-controls="forget-ask">Forget this phone</button>'
                 if vm["mode"] == "publish" else " &middot; local preview, not published") + "</footer>")
+    if vm["mode"] == "publish":
+        # 5c (Nick, 11-20): Forget asks first, in the page (no browser confirm())
+        o.append(FORGET_ASK)
     o.append('<div class="v2-issue" id="issue-view" hidden><div class="v2-topbar"><button type="button" class="lh-back" '
              f'id="issue-close">{BACK}Back to the hub</button></div><iframe id="issue-frame" title="Newsletter"></iframe></div>')
     o.append("</div>")
@@ -866,6 +884,15 @@ def render(vm: dict, *, cards: dict = None) -> str:
         o.append(f'<script type="application/json" id="v2-cards">{blob}</script>')
     o.append(f"<script>{script()}</script></body></html>")
     return "\n".join(o)
+
+
+# 5c: "Forget this phone" asks first (Nick, 11-20; the reviewer's call): an
+# in-page confirm, never the browser's confirm() dialog
+FORGET_ASK = ('<div class="v2-ask" id="forget-ask" role="alertdialog" aria-modal="true" aria-labelledby="forget-q" '
+              'hidden><div class="v2-ask-box"><span id="forget-q">Forget this phone? You\'ll need the passphrase '
+              'again.</span><span class="v2-ask-row"><button type="button" class="lh-btn v2-btn" id="forget-no">'
+              'Cancel</button><button type="button" class="lh-btn v2-btn" id="forget-yes">Forget</button></span>'
+              '</div></div>')
 
 
 def script() -> str:
@@ -885,6 +912,28 @@ PAGE_JS = r"""
 var hub=document.getElementById('hub');
 var header=document.getElementById('app-header');
 var seen={};                       // segmented-tab choice per kind, for the session
+// 5c: A TAP REACHES WHAT IS DRAWN. A tap that reached a .v2-tap through its
+// 44-point area (outside its own box), on a point where another tap target
+// is drawn (its own box), goes to that one: the areas fill blank space only.
+// Pointer taps only (a keyboard click has no point). Layout only.
+var TAPSEL='a[href],button,select,input,label,[role="button"],[data-tip-h],[data-card],.lh-c-hit';
+function inBox(el,x,y){var b=el.getBoundingClientRect();return x>=b.left&&x<=b.right&&y>=b.top&&y<=b.bottom;}
+function drawnTap(t,x,y){
+  if(inBox(t,x,y)){return null;}
+  var st=document.elementsFromPoint(x,y);
+  for(var i=0;i<st.length;i++){var el=st[i];
+    if(el===t||t.contains(el)||el.contains(t)||!inBox(el,x,y)){continue;}
+    var I=el.closest(TAPSEL);
+    return (I&&I!==t&&!I.contains(t)&&!t.contains(I))?I:null;}
+  return null;
+}
+document.addEventListener('click',function(e){
+  if(!e.detail||(!e.clientX&&!e.clientY)){return;}
+  var t=e.target&&e.target.closest?e.target.closest('.v2-tap'):null;if(!t){return;}
+  var I=drawnTap(t,e.clientX,e.clientY);if(!I){return;}
+  e.preventDefault();e.stopImmediatePropagation();
+  if(typeof I.click==='function'){I.click();}else{I.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));}
+},true);
 function screens(){return document.querySelectorAll('.v2-screen');}
 var depth=0,focusSearch=false;    // hash changes since the page opened (the back buttons), the header's search
 function legacy(){                // 5a: the current hub's #v-... links land on their new screens
@@ -986,6 +1035,26 @@ function closeTips(except){
   for(var i=0;i<bs.length;i++){if(bs[i]!==except){bs[i].setAttribute('aria-expanded','false');
     document.getElementById(bs[i].getAttribute('aria-controls')).hidden=true;}}
 }
+// 5c: an open InfoTip popover is placed by the page, inside the screen (Nick's
+// phone, 11-20: the left KPI tile's ran off the left edge), and fixed, so no
+// scrolling table clips it: below its button, above when there is no room,
+// its right edge on the button's as the design has it, then moved in from
+// either edge. Layout only.
+function placePop(btn,pop){
+  var pad=8,vw=document.documentElement.clientWidth,vh=document.documentElement.clientHeight;
+  pop.style.position='fixed';pop.style.right='auto';pop.style.left='0px';pop.style.top='0px';
+  var a=btn.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight;
+  var left=a.right+pad-w,top=a.bottom+4;
+  if(top+h>vh-pad){top=a.top-4-h;}
+  if(top<pad){top=pad;}
+  if(left+w>vw-pad){left=vw-pad-w;}
+  if(left<pad){left=pad;}
+  pop.style.left=left+'px';pop.style.top=top+'px';
+}
+function placePops(){
+  var bs=document.querySelectorAll('.lh-info > button[aria-expanded="true"]');
+  for(var i=0;i<bs.length;i++){placePop(bs[i],document.getElementById(bs[i].getAttribute('aria-controls')));}
+}
 // THE ONE TOOLTIP (4c2; design/league-hub/components/Tooltip): a small dark
 // box with the engine's three strings (data-tip-h / -b / -f). A tap opens it
 // (a second tap or a tap elsewhere closes it), keyboard focus opens it, Escape
@@ -999,6 +1068,9 @@ function tipBox(){
   return TIP;
 }
 function placeTip(el,box){
+  // 5c: measured at the screen's left edge, so its width is its own, not what
+  // was left of the screen where the last tip stood (it grew past the edge)
+  box.style.left='0px';box.style.top='0px';
   var a=el.getBoundingClientRect(),w=box.offsetWidth,h=box.offsetHeight;
   var vw=document.documentElement.clientWidth,vh=document.documentElement.clientHeight,pad=8;
   var left=a.left+a.width/2-w/2,top=a.top-h-pad;
@@ -1012,6 +1084,11 @@ function placeTip(el,box){
     for(var i=0;i<labs.length;i++){var r=labs[i].getBoundingClientRect();
       if(left+w>r.left&&left<r.right&&top<r.bottom&&top+h>r.top){left=r.left-pad-w;}}
     if(left<pad){left=pad;var s=svg.getBoundingClientRect();top=s.bottom+pad;}
+    // 5c (the sweep, 360 px): an end label past the screen's edge moved the
+    // tip right, off the screen: back inside, below the chart
+    else if(left+w>vw-pad){left=vw-pad-w;var s2=svg.getBoundingClientRect();top=s2.bottom+pad;}
+    if(top+h>vh-pad){top=vh-pad-h;}
+    if(top<pad){top=pad;}
   }
   box.style.left=left+'px';box.style.top=top+'px';
 }
@@ -1031,8 +1108,8 @@ function hideTip(){
 }
 document.addEventListener('pointerdown',function(){ptrFocus=true;},true);
 document.addEventListener('keydown',function(){ptrFocus=false;},true);
-window.addEventListener('scroll',function(){hideTip();},true);
-window.addEventListener('resize',function(){hideTip();});
+window.addEventListener('scroll',function(){hideTip();placePops();},true);
+window.addEventListener('resize',function(){hideTip();placePops();});
 // the roster's Detailed chip row: the group of columns shown, kept for the session
 function dgroup(key){
   seen['dgroup']=key;
@@ -1225,6 +1302,11 @@ function movedBox(){
   b.addEventListener('click',function(){if(window.HUB&&window.HUB.reload){window.HUB.reload();}else{location.reload();}});
   d.appendChild(b);hub.insertBefore(d,hub.firstChild);
 }
+// 5c: "Forget this phone" asks first, in the page; only its Forget button forgets
+function askForget(on){
+  var a=document.getElementById('forget-ask');if(!a){return;}
+  a.hidden=!on;var f=document.getElementById(on?'forget-no':'forget');if(f){f.focus();}
+}
 function openFrame(url){document.getElementById('issue-frame').src=url;document.getElementById('issue-view').hidden=false;}
 document.addEventListener('click',function(e){
   var t=e.target.closest('[data-tip-h]');
@@ -1254,7 +1336,8 @@ document.addEventListener('click',function(e){
     var gr=document.querySelector('[data-readout="'+t.getAttribute('data-grid')+'"]');if(gr){gr.textContent=t.getAttribute('data-tip');}return;}
   t=e.target.closest('.lh-info > button');
   if(t){var open=t.getAttribute('aria-expanded')==='true';closeTips(t);
-    t.setAttribute('aria-expanded',String(!open));document.getElementById(t.getAttribute('aria-controls')).hidden=open;return;}
+    var pp=document.getElementById(t.getAttribute('aria-controls'));
+    t.setAttribute('aria-expanded',String(!open));pp.hidden=open;if(!open){placePop(t,pp);}return;}
   if(!e.target.closest('.lh-info__pop')){closeTips(null);}
   t=e.target.closest('.lh-seg[data-seg] button');
   if(t){var seg=t.closest('.lh-seg');seen[seg.getAttribute('data-seg')]=t.getAttribute('data-pane');pick(seg,t.getAttribute('data-pane'));return;}
@@ -1283,7 +1366,9 @@ document.addEventListener('click',function(e){
       function(){t.disabled=false;alertBox('That issue could not be opened.');});return;}
   if(e.target.closest('#issue-close')){document.getElementById('issue-view').hidden=true;
     document.getElementById('issue-frame').removeAttribute('src');return;}
-  if(e.target.closest('#forget')){if(window.HUB){window.HUB.forget();}return;}
+  if(e.target.closest('#forget')){askForget(true);return;}
+  if(e.target.closest('#forget-no')){askForget(false);return;}
+  if(e.target.closest('#forget-yes')){askForget(false);if(window.HUB){window.HUB.forget();}return;}
 });
 // keyboard focus on a chart point reads it (its ring marks the focus)
 document.addEventListener('focusin',function(e){
@@ -1291,7 +1376,8 @@ document.addEventListener('focusin',function(e){
   if(t.getAttribute&&t.getAttribute('data-tip-h')!==null&&!ptrFocus){showTip(t);}
 });
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){closeTips(null);hideTip();return;}
+  if(e.key==='Escape'){closeTips(null);hideTip();var fa=document.getElementById('forget-ask');
+    if(fa&&!fa.hidden){askForget(false);}return;}
   var t=e.target;
   if(t.classList&&t.classList.contains('lh-c-hit')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();readout(t);}
 });
