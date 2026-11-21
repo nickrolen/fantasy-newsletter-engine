@@ -187,7 +187,8 @@ def build(root=ROOT, inputs=None, cfg: Optional[dict] = None, only_seasons: Opti
     inputs = inputs or kh.Inputs.load(root)
     mat = json.loads((root / "data" / "historical" / "all_matchups.json").read_text(encoding="utf-8"))
     lp = M.level_config(M.load_params())
-    q = float(ratings.config(cfg.get("ratings"))["ovr"]["replacement_quantile"])
+    from .awards import replacement_quantile
+    q = replacement_quantile(cfg)
     tie = float(regular_season_tie_value())
     out = {"schema": SCHEMA, "awards": list(PAST), "not_built": NOT_BUILT, "seasons": {},
            "notes": {

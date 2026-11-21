@@ -18,21 +18,25 @@ the free-agent and stash rows, with no card keys.
 RATINGS (s.1): ratings.for_today on the same run's inputs (hub_state.build
 computes it, failing softly: ctx["ratings"]["error"]). Every player gets
 OVR, POT, the weekly changes (only with a published line at least 7 days
-back: no marker otherwise, never a zero) and the eight grade tiles. 5b
+back: no marker otherwise, never a zero) and the grade tiles (4a4 s.4:
+nine, config ratings.grades.order). 5b
 (Nick, 11-20): FREE AGENTS TOO (hub_state.ratings_fa_step:
 ratings.rate_free_agents, rated against today's rostered players, which
 they never move; rt["fa_error"] when that failed). A player still without
 an OVR (no NBA team, no lines, a failed rating) sorts last both ways; equal
 OVRs sort by the composite underneath (s.1b).
 
-THE ARCHETYPE appears only when ratings.archetype.enabled is true (it is off
-today). archetype_preview() adds it to a PREVIEW build only (build_hub.py
---v2 --archetype-preview), marked as a preview.
+THE ARCHETYPE (4a4 s.3, archetypes v2) appears only when
+ratings.archetype.enabled is true (off until Nick approves the real table):
+then each row carries "arch" {label, kw (the tags, joined), st (the
+standouts), preview}. Off, the same dict rides as "arch_off", which no page
+reads and publish never prints; archetype_preview() (build_hub.py --v2
+--archetype-preview, a PREVIEW build only) moves it to "arch", marked.
 
     v2["players"] = {
       "rows": [{key, name, q (folded search key), kind ("rostered"|"fa"), m,
                 chip {text, slot}, team, meta, pos, nba, age, ovr, ovr_d, pot,
-                pot_d, fppg, l14, next, keep, keep_rank, avail, g3,
+                pot_d, dur, dur_k, dur_d, prov (4a4: OVR provisional), fppg, l14, next, keep, keep_rank, avail, g3,
                 chips [{text, kind}], healthy, f {pos, nba, age, h, k},
                 cmp [{t, k}] (CMP_ROWS order), grades [8 tiles] or None,
                 ring {hero, cmp} or None, ini, team_gp, gp, total, total_rank,
@@ -69,15 +73,15 @@ UP, DOWN = "\u25b2", "\u25bc"
 BASE_POS = ("PG", "SG", "SF", "PF", "C")
 AGE_BANDS = (("u25", "24 and under", None, 24), ("25-29", "25\u201329", 25, 29), ("30+", "30 and over", 30, None))
 RISERS_MAX = 5
-# Compare's rows, in order (s.4): the five category grades follow these
-CMP_ROWS = (("pot", "POT"), ("fppg", "FPPG"), ("l14", "L14"), ("min", "MIN"), ("avail", "Avail %"),
+# Compare's rows, in order (s.4): the grade tiles (config order, 4a4: nine) follow these
+CMP_ROWS = (("pot", "POT"), ("dur", "DUR"), ("fppg", "FPPG"), ("l14", "L14"), ("min", "MIN"), ("avail", "Avail %"),
             ("g3", "Games, next 3 wks"), ("keep", "Keep %"), ("age", "Age"))
 # 4a3: MIN delta shows from this many games in the last 14 days; the card's
 # last-5 table reads his last MIN_LAST games' minutes
 MIN_DELTA_GAMES = 4
 MIN_LAST = 10
 MIN_LOADING = "loading"
-CATEGORY_GRADES = ("scoring", "playmaking", "rebounding", "stocks", "efficiency")
+from ..ratings import CATEGORY_GRADES                     # noqa: E402 -- 4a4: the seven, one source
 # the rings' circumferences (bundle.css .lh-ring: r 34 in an 80 box; Compare: r 22 in a 56 box)
 RING_HERO_R, RING_CMP_R = 34.0, 22.0
 FOLD = {"\u00f8": "o", "\u0111": "d", "\u0142": "l", "\u00df": "ss", "\u00e6": "ae", "\u0153": "oe",
@@ -211,7 +215,10 @@ def _pcts(vals: Dict[str, float]) -> Dict[str, float]:
     return percentiles(vals)
 
 
-def riser_reason(name: str, now: Dict[str, list], then: Dict[str, list], pool=None) -> str:
+SKILL_TERMS = ("estimate", "fppg", "games")
+
+
+def riser_reason(name: str, now: Dict[str, list], then: Dict[str, list], pool=None, kind: str = "4a") -> str:
     """The one-line reason for an OVR rise (proposed rule, 4c1): OVR is
     availability x games left x (level - replacement), ranked against the
     league. For each of the three terms, his percentile among the players in
@@ -221,20 +228,32 @@ def riser_reason(name: str, now: Dict[str, list], then: Dict[str, list], pool=No
         availability     "playing more: 82% \u2192 90% of games"
         games_remaining  "more games left than most: 62"
     now, then: {player: [level, availability, games remaining]}. pool (5b):
-    the players to rank among (default: everyone in both lines)."""
+    the players to rank among (default: everyone in both lines).
+    kind "skill" (4a4: the skill OVR, history line version 2): the terms are
+    [estimate, FPPG this season, games this season]:
+        estimate  "skill estimate 40.0 \u2192 43.0 FPPG"
+        fppg      "this season 35.2 \u2192 38.0 FPPG"
+        games     "more games on his record: 12 \u2192 15"
+    """
     both = sorted(set(now) & set(then) & (set(pool) if pool is not None else set(now)))
     if name not in both:
         raise PlayersError(f"riser {name}: not in both history lines")
+    names = SKILL_TERMS if kind == "skill" else ("level", "availability", "games_remaining")
     gains = {}
-    for j, term in enumerate(("level", "availability", "games_remaining")):
+    for j, term in enumerate(names):
         pn = _pcts({n: float(now[n][j]) for n in both})
         pt = _pcts({n: float(then[n][j]) for n in both})
         gains[term] = pn[name] - pt[name]
-    term = max(("level", "availability", "games_remaining"), key=lambda t: (gains[t], -("level", "availability",
-                                                                                     "games_remaining").index(t)))
+    term = max(names, key=lambda t: (gains[t], -names.index(t)))
     if gains[term] <= 0:
         return "held steady while the league around him slipped"
     a, b = then[name], now[name]
+    if kind == "skill":
+        if term == "estimate":
+            return f"skill estimate {float(a[0]):.1f} \u2192 {float(b[0]):.1f} FPPG"
+        if term == "fppg":
+            return f"this season {float(a[1]):.1f} \u2192 {float(b[1]):.1f} FPPG"
+        return f"more games on his record: {int(a[2])} \u2192 {int(b[2])}"
     if term == "level":
         return f"scoring level {float(a[0]):.1f} \u2192 {float(b[0]):.1f}"
     if term == "availability":
@@ -384,7 +403,9 @@ def build(base, payload: dict, ctx: dict) -> tuple:
     fp = (res or {}).get("free_agents") or {}                 # 5b
     fa_err = rt.get("fa_error")
     prev_line = rt.get("previous_line")
-    prev_pot = dict(prev_line.get("pot") or {}) if prev_line else None
+    from ..ratings import history_values                      # 4a4: only a line of the same version
+    prev_pot = history_values(prev_line, "pot")
+    prev_dur = history_values(prev_line, "dur")
     horizon = (res or {}).get("schedule_horizon")
 
     # the numbers, per player (engine side)
@@ -484,12 +505,12 @@ def build(base, payload: dict, ctx: dict) -> tuple:
         if r is not None and r["ovr"] is not None:
             row.update(ovr=str(r["ovr"]), ovr_k=int(r["ovr"]), ovr_d=change(r["ovr_change"]),
                        ring={"hero": ring(r["ovr"], RING_HERO_R), "cmp": ring(r["ovr"], RING_CMP_R)},
-                       ovr_note="")
+                       ovr_note="", prov=bool(r.get("ovr_provisional")))   # 4a4: a thin record
         else:
             why = ("ratings failed on this run" if rerr else
                    f"free agents' ratings failed on this run" if (u["kind"] == "fa" and fa_err) else
                    (r or {}).get("ovr_reason") or "not rated")
-            row.update(ovr=DASH, ovr_k=None, ovr_d=None, ring=None, ovr_note=why)
+            row.update(ovr=DASH, ovr_k=None, ovr_d=None, ring=None, ovr_note=why, prov=False)
         if r is not None and r["pot"] is not None:
             pd_ = None
             if prev_pot is not None and n in prev_pot:
@@ -497,10 +518,18 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             row.update(pot=str(r["pot"]), pot_k=int(r["pot"]), pot_d=change(pd_))
         else:
             row.update(pot=DASH, pot_k=None, pot_d=None)
+        # 4a4 s.2.4: DUR, its own rating, with its weekly change
+        if r is not None and r.get("dur") is not None:
+            dd = None
+            if prev_dur is not None and n in prev_dur:
+                dd = int(r["dur"]) - int(prev_dur[n])
+            row.update(dur=str(r["dur"]), dur_k=int(r["dur"]), dur_d=change(dd))
+        else:
+            row.update(dur=DASH, dur_k=None, dur_d=None)
         comps = (r or {}).get("components") or {}
         row["avail"] = (f"{float(comps['availability']) * 100:.0f}%" if r is not None
                         and comps.get("availability") is not None else DASH)
-        # the eight grade tiles (every rated player; 5b: free agents too)
+        # the grade tiles (every rated player; 5b: free agents too; 4a4: nine)
         if r is not None:
             tiles = []
             for attr in order:
@@ -522,6 +551,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             row["grades"] = None
         # Compare's cells: the printed text and its integer order key (None: wins nothing)
         cells = [{"t": row["pot"], "k": row["pot_k"]},
+                 {"t": row["dur"], "k": row["dur_k"]},
                  {"t": fppg, "k": _int_or_none(fppg, 10)},
                  {"t": l14, "k": _int_or_none(l14, 10)},
                  {"t": row["min"], "k": row["min_k"]},                    # 4a3: more is better
@@ -529,13 +559,19 @@ def build(base, payload: dict, ctx: dict) -> tuple:
                  {"t": g3, "k": _int_or_none(g3)},
                  {"t": keep, "k": _int_or_none(keep) if u["kind"] == "rostered" else None},
                  {"t": row["age"], "k": None}]                          # age has no winner
-        for attr in CATEGORY_GRADES:
+        for attr in order:                                  # 4a4 s.4: Compare follows the tiles
             if row["grades"] is None:
                 cells.append({"t": DASH, "k": None})
             else:
                 g = r["grades"][attr]
                 cells.append({"t": g["letter"] or DASH, "k": letter_rank(g["letter"], bands)})
         row["cmp"] = cells
+        # 4a4 s.3: the archetype ("arch" only when enabled; else "arch_off", never printed)
+        a = (r or {}).get("archetype")
+        if a is not None:
+            row["arch" if cfg["archetype"]["enabled"] else "arch_off"] = {
+                "label": a["label"], "kw": " \u00b7 ".join(a["tags"]),
+                "st": ", ".join(labels[x] for x in a["standouts"]), "preview": False}
         rows.append(row)
 
     rows.sort(key=lambda z: (z["name"].lower(), z["name"]))
@@ -554,7 +590,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             return None
         c = comp.get(z["name"])
         return (z["ovr_k"], float(c) if c is not None else float("-inf"))
-    orders = {"ovr": order_by(ovr_key), "pot": order_by(lambda z: z["pot_k"]),
+    orders = {"ovr": order_by(ovr_key), "pot": order_by(lambda z: z["pot_k"]), "dur": order_by(lambda z: z["dur_k"]),
               "fppg": order_by(lambda z: _int_or_none(z["fppg"], 10)),
               "next": order_by(lambda z: _int_or_none(z["next"]))}
     by_name = sorted(range(len(rows)), key=lambda i: (rows[i]["name"].lower(), rows[i]["name"]))
@@ -567,11 +603,18 @@ def build(base, payload: dict, ctx: dict) -> tuple:
 
     # risers: the biggest OVR gains a week back, each with its reason
     risers = None
-    if prev_line is not None and res is not None:
+    # 4a4: only a line of the same OVR version (history_values): a week after the switch
+    if prev_line is not None and res is not None and history_values(prev_line, "ovr") is not None:
+        rkind = "4a"
         now_terms = {}
         for n, pr in list(rp.items()) + list(fp.items()):
             c = pr["components"]
-            if pr["ovr"] is not None and all(c.get(t) is not None for t in ("level", "availability", "games_remaining")):
+            sk = pr.get("skill")
+            if sk is not None:
+                rkind = "skill"
+                if pr["ovr"] is not None and sk.get("estimate") is not None:
+                    now_terms[n] = [float(sk["estimate"]), float(sk["fppg"] or 0.0), int(sk["games"] or 0)]
+            elif pr["ovr"] is not None and all(c.get(t) is not None for t in ("level", "availability", "games_remaining")):
                 now_terms[n] = [float(c["level"]), float(c["availability"]), int(c["games_remaining"])]
         then_terms = dict(prev_line.get("terms") or {})
         pos_of = {z["name"]: i for i, z in enumerate(rows)}
@@ -590,7 +633,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             pool = league | {n}
             mark = z["chip"]["team"] if z["kind"] == "rostered" else "FA"
             risers.append({"i": pos_of[n], "ovr": z["ovr"], "d": change(d)["t"],
-                           "reason": f"{mark} \u00b7 {riser_reason(n, now_terms, then_terms, pool)}"})
+                           "reason": f"{mark} \u00b7 {riser_reason(n, now_terms, then_terms, pool, rkind)}"})
 
     n_r = sum(1 for z in rows if z["kind"] == "rostered")
     block = {"rows": rows, "orders": orders, "default": "ovr", "filters": filters, "risers": risers,
@@ -598,7 +641,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
              "who": (f"Every player the hub has a card for: {n_r} rostered and {len(rows) - n_r} free agents "
                      "it names (the free-agent and stash lists, the moves feed, the trade block)."),
              "cmp_rows": [{"key": k, "label": lab} for k, lab in CMP_ROWS]
-             + [{"key": g, "label": labels[g]} for g in CATEGORY_GRADES],
+             + [{"key": g, "label": labels[g]} for g in order],
              "grade_labels": [labels[g] for g in order]}
     if prev_line is None:
         change_note = ("No weekly change yet: it appears once a published rating is at least 7 days old "
@@ -608,8 +651,6 @@ def build(base, payload: dict, ctx: dict) -> tuple:
     ratings_block = {"as_of": _md(res["as_of"]) if res else DASH,
                      "error": rerr, "change_note": change_note,
                      "archetype": bool(cfg["archetype"]["enabled"]), "preview": False}
-    if res is not None and cfg["archetype"]["enabled"]:
-        _attach_archetype(rows, {**rp, **fp}, preview=False)
     return block, ratings_block
 
 
@@ -621,14 +662,6 @@ def _neg(k):
 def _md(iso: str) -> str:
     d = date.fromisoformat(str(iso)[:10])
     return f"{d:%a} {d.month:02d}-{d.day:02d}"
-
-
-def _attach_archetype(rows: list, rp: dict, preview: bool) -> None:
-    for z in rows:
-        r = rp.get(z["name"])
-        a = (r or {}).get("archetype")
-        z["arch"] = ({"label": a["label"], "kw": " \u00b7 ".join(a["keywords"]), "preview": preview}
-                     if a else None)
 
 
 def tiles(grades: Optional[list]) -> Optional[list]:
@@ -644,45 +677,34 @@ def tiles(grades: Optional[list]) -> Optional[list]:
             for t in grades]
 
 
-def archetype_table(payload: dict) -> list:
-    """The archetype review's table (4c1 s.5), from a payload archetype_preview
-    labelled: [(label, [(player, manager, the five letters)])] largest group
-    first, then ("(no label)", [(player, manager, the first category reason)])."""
+def archetype_table(payload: dict, kind: str = "rostered") -> list:
+    """The archetype review's table (4a4 s.3): [(label, [(player, manager,
+    standouts, tags)])], largest group first, then ("(no label)", ...) for rows
+    without one. kind: "rostered" or "fa". Reads "arch" or "arch_off"."""
     groups, none = {}, []
     for z in payload["v2"]["players"]["rows"]:
-        if z["kind"] != "rostered":
+        if z["kind"] != kind:
             continue
-        g = {t["key"]: t for t in tiles(z["grades"]) or []}
-        if z.get("arch"):
-            groups.setdefault(z["arch"]["label"], []).append(
-                (z["name"], z["m"], " ".join(g[c]["letter"] for c in CATEGORY_GRADES)))
+        a = z.get("arch") or z.get("arch_off")
+        if a:
+            groups.setdefault(a["label"], []).append((z["name"], z["m"] or "FA", a["st"] or DASH, a["kw"] or DASH))
         else:
-            why = next((g[c]["reason"] for c in CATEGORY_GRADES if c in g and g[c]["p"] is None), "no grades")
-            none.append((z["name"], z["m"], why))
+            none.append((z["name"], z["m"] or "FA", DASH, DASH))
     out = sorted(groups.items(), key=lambda t: (-len(t[1]), t[0]))
     return out + ([("(no label)", none)] if none else [])
 
 
 def archetype_preview(payload: dict) -> int:
-    """PREVIEW ONLY (build_hub.py --v2 --archetype-preview): the archetype on
-    every rostered row with all five category grades, from the payload's own
-    percentiles through ratings.archetype -- marked "preview". Publish mode
-    refuses a payload this touched. Returns how many rows got a label."""
-    from ..ratings import config as rcfg, archetype
-    cfg = rcfg()
-    arch = cfg["archetype"]
+    """PREVIEW ONLY (build_hub.py --v2 --archetype-preview): every row's
+    computed archetype ("arch_off", ratings' own: the blend with his NBA
+    history) shown, marked "preview". Publish mode refuses a payload this
+    touched. Returns how many rostered rows got a label."""
     v2 = payload["v2"]
     n = 0
     for z in v2["players"]["rows"]:
-        z["arch"] = None
-        if not z.get("grades"):
-            continue
-        p = {t["key"]: t.get("p") for t in z["grades"] if t["key"] in CATEGORY_GRADES}
-        if any(p.get(g) is None for g in CATEGORY_GRADES):
-            continue
-        key = archetype(p, arch)
-        lab = arch["labels"][key]
-        z["arch"] = {"label": lab["label"], "kw": " \u00b7 ".join(lab["keywords"]), "preview": True}
-        n += 1
+        a = z.pop("arch_off", None) or z.get("arch")
+        z["arch"] = None if a is None else dict(a, preview=True)
+        if a is not None and z["kind"] == "rostered":
+            n += 1
     v2["ratings"]["preview"] = True
     return n

@@ -50,7 +50,8 @@ def _result(R: float = 24.0, prior: float = 24.0, previous: dict = None) -> dict
     basis = {"cfg": cfg, "lp": lp, "R": R, "unproven_prior": prior, "mean_av": 0.9, "sd_med": 10.0,
              "league_mean": 35.0, "season_over": False, "dates_by_team": dbt,
              "horizon": ("2026-11-20", "2026-12-13"), "values": None, "actuals": None,
-             "previous": dict(previous or {}), "raw": raw}
+             "previous": dict(previous or {}), "raw": raw,
+             "history": None, "arch_ref": None, "skill_ctx": None, "unproven_rule": False}   # 4a's OVR, no 5b rule
     return {"as_of": AS_OF, "season": "2026-27", "last_day": LAST, "players": {"R0": {"ovr": 60}},
             "knots": {"ovr": ratings.knots(universe, cfg["ovr"]["anchors"]),
                       "pot": ratings.knots([float(30 + i) for i in range(40)], cfg["pot"]["anchors"])},
@@ -156,45 +157,17 @@ def test_who_is_unproven():
     assert not ratings.is_unproven(SimpleNamespace(prev_lines=[("2025-26", 30, 25.0)], undrafted=True))
 
 
-def test_a_hot_unproven_player_rates_below_a_proven_one_with_the_same_fppg_games_and_schedule():
-    res = _result()
-    out = ratings.rate_free_agents(res, [_spec("Hot New", fppg=40.0),
-                                         _spec("Proven", fppg=40.0, prev_lines=[("2025-26", 70, 40.0)])])
-    hot, pro = out["Hot New"], out["Proven"]
-    assert hot["components"]["unproven"] and not pro["components"]["unproven"]
-    assert hot["components"]["availability"] == pro["components"]["availability"]
-    assert hot["components"]["games_remaining"] == pro["components"]["games_remaining"]
-    assert hot["ovr"] < pro["ovr"] - 3 and hot["ovr"] > 60          # well, but clearly below; above replacement
-    k0 = ratings.config()["unproven"]["k0"]
-    assert hot["components"]["level"] == pytest.approx((15 * 40.0 + k0 * 24.0) / (15 + k0))
-
-
-def test_the_prior_and_its_source_are_the_ones_stated():
-    out = ratings.rate_free_agents(_result(prior=23.5), [_spec("Hot New"), _spec("Proven", prev_lines=[("2025-26", 70, 40.0)]),
-                                                         _spec("Rookie Pick", drafted=True)])
-    q = ratings.config()["unproven"]["prior_quantile"]
-    assert out["Hot New"]["components"]["prior"] == 23.5
-    assert out["Hot New"]["components"]["prior_kind"] == ratings.UNPROVEN_PRIOR.format(q=q)
-    assert out["Hot New"]["components"]["k0"] == ratings.config()["unproven"]["k0"]
-    assert out["Proven"]["components"]["prior_kind"] == "P3" and out["Proven"]["components"]["prior"] == 40.0
-    # a drafted player with no history keeps today's rule: the league mean, k0 4.7
-    rk = out["Rookie Pick"]["components"]
-    assert not rk["unproven"] and rk["prior_kind"] == "league mean" and rk["prior"] == 35.0 and rk["k0"] == 4.7
-
-
-def test_the_unproven_settings_are_required_config():
-    cfg = copy.deepcopy(ratings.config())
-    for key in ("k0", "prior_quantile"):
-        c = copy.deepcopy(cfg)
-        del c["unproven"][key]
-        with pytest.raises(ratings.RatingsInputError, match=f"ratings.unproven.{key}"):
-            ratings.config(c)
-    for key, bad in (("k0", 0), ("prior_quantile", 1.5)):
-        c = copy.deepcopy(cfg)
-        c["unproven"][key] = bad
-        with pytest.raises(ratings.RatingsInputError, match="unproven"):
-            ratings.config(c)
-    assert "Nick, 11-20" in cfg["unproven"]["_note"]
+def test_the_unproven_rule_is_retired_by_the_skill_ovr():
+    """4a4 s.2: the skill OVR rates a player with no NBA record from his draft
+    slot (undrafted: pick 60), so 5b's unproven prior is retired: the config
+    block is gone and asking for the rule raises, naming why."""
+    cfg = ratings.config()
+    assert "unproven" not in cfg
+    with pytest.raises(ratings.RatingsInputError, match="retired by 4a4"):
+        ratings.rate(SimpleNamespace(), None, {}, "2027-04-11", cfg=cfg, unproven_rule=True)
+    out = ratings.rate_free_agents(_result(), [_spec("Hot New", fppg=40.0)])
+    assert not out["Hot New"]["components"]["unproven"]            # 4a's OVR without the rule: the league mean
+    assert out["Hot New"]["components"]["prior_kind"] == "league mean"
 
 
 def test_shrink_is_keepability_v3s_rule():
@@ -397,7 +370,7 @@ def real():
 
 
 @pytest.mark.slow
-def test_real_free_agents_are_rated_and_unproven_players_held_back(real):
+def test_real_free_agents_are_rated_on_the_rostered_players_scale(real):
     p, po, ro = real
     res = ro["result"]
     assert ro.get("fa_error") is None and res["free_agents"]
@@ -410,23 +383,19 @@ def test_real_free_agents_are_rated_and_unproven_players_held_back(real):
     ys = [f["components"]["fppg"] or 0.0 for f in rated]
     rk = lambda v: [sorted(v).index(x) for x in v]
     assert statistics.correlation(rk(xs), rk(ys)) > 0.2                   # OVR follows FPPG, loosely
-    med = statistics.median(r["ovr"] for r in res["players"].values() if r["ovr"] is not None)
-    assert not [f for f in rated if f["components"]["unproven"] and f["ovr"] > med]
-    # the rule follows the player: an unproven rostered player rated as a free agent gets the same terms
-    unp = [n for n, r in res["players"].items() if r["components"]["unproven"] and r["ovr"] is not None]
-    if unp:
-        from modules import keeper_history as kh
-        live = kh.live_inputs(ROOT)
-        n = unp[0]
-        r = res["players"][n]
-        ages = kh.load_ages(kh.age_seasons(), ROOT, fetch=ratings._nofetch)
-        sp = ratings.free_agent_specs([n], {n: r["nba_team"]}, live[0], live[1], res["basis"]["actuals"],
-                                      res["basis"]["dates_by_team"], res["as_of"], ages)
-        sp[0]["drafted"] = False
-        f = ratings.rate_free_agents(res, sp)[n]
-        for t in ("level", "availability", "games_remaining", "games", "fppg"):
-            assert f["components"][t] == pytest.approx(r["components"][t]), t
-        assert f["ovr"] == r["ovr"] and f["pot"] == r["pot"]
+    # 4a4: the skill OVR is the same rule for both: a rostered player rated as a free agent
+    # (his NBA season in place of the league log) lands within a point of his rostered OVR
+    from modules import keeper_history as kh
+    live = kh.live_inputs(ROOT)
+    ages = kh.load_ages(kh.age_seasons(), ROOT, fetch=ratings._nofetch)
+    ros = sorted((n for n, r in res["players"].items() if r["ovr"] is not None and r["nba_team"]),
+                 key=lambda n: -res["players"][n]["ovr"])[:8]
+    sp = ratings.free_agent_specs(ros, {n: res["players"][n]["nba_team"] for n in ros}, live[0], live[1],
+                                  res["basis"]["actuals"], res["basis"]["dates_by_team"], res["as_of"], ages)
+    got = ratings.rate_free_agents(res, sp)
+    off = {n: (got[n]["ovr"], res["players"][n]["ovr"]) for n in ros
+           if got[n]["ovr"] is None or abs(got[n]["ovr"] - res["players"][n]["ovr"]) > 1}
+    assert not off, off
     # the history line carries them, named
     assert set(ro["line"]["fa"]) <= set(fas) and set(ro["line"]["ovr"]) >= set(res["players"]) - {
         n for n, r in res["players"].items() if r["ovr"] is None}

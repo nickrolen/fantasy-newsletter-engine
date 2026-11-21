@@ -588,7 +588,7 @@ def test_then_falls_back_to_the_week_2_point_labelled():
 def test_the_draft_cache_carries_the_week_2_fallback():
     from modules import draft_ovr as D
     c = D.load(ROOT)
-    assert c["schema"] == 2
+    assert c["schema"] == D.SCHEMA == 3                          # 4a4: the skill OVR
     picks = [p for s in c["seasons"].values() for p in s["picks"]]
     assert all(p["then_point"] in ("open", "week2") for p in picks)
     assert all(p["then"] is not None for p in picks if p["then_point"] == "week2")

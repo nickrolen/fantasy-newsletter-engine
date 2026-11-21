@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "deadline_fraction": 0.780347,
  "seasons": {
   "2017-18": {
@@ -14,10 +14,10 @@
      "manager": "Hayden",
      "player": "Kevin Durant",
      "is_keeper": false,
-     "then": 94,
+     "then": 85,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 90,
+     "then_point": "open",
+     "later": 89,
      "later_reason": null
     },
     {
@@ -26,10 +26,10 @@
      "manager": "Garrett",
      "player": "James Harden",
      "is_keeper": false,
-     "then": 90,
+     "then": 89,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 99,
+     "then_point": "open",
+     "later": 93,
      "later_reason": null
     },
     {
@@ -38,10 +38,10 @@
      "manager": "Nick",
      "player": "Stephen Curry",
      "is_keeper": false,
-     "then": 92,
+     "then": 88,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 88,
+     "then_point": "open",
+     "later": 90,
      "later_reason": null
     },
     {
@@ -50,10 +50,10 @@
      "manager": "Benton",
      "player": "Russell Westbrook",
      "is_keeper": false,
-     "then": 91,
+     "then": 90,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 94,
+     "then_point": "open",
+     "later": 91,
      "later_reason": null
     },
     {
@@ -62,10 +62,10 @@
      "manager": "Benton",
      "player": "Giannis Antetokounmpo",
      "is_keeper": false,
-     "then": 95,
+     "then": 79,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 92,
+     "then_point": "open",
+     "later": 86,
      "later_reason": null
     },
     {
@@ -74,9 +74,9 @@
      "manager": "Nick",
      "player": "Karl-Anthony Towns",
      "is_keeper": false,
-     "then": 84,
+     "then": 81,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": 85,
      "later_reason": null
     },
@@ -86,10 +86,10 @@
      "manager": "Garrett",
      "player": "LeBron James",
      "is_keeper": false,
-     "then": 90,
+     "then": 86,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 98,
+     "then_point": "open",
+     "later": 90,
      "later_reason": null
     },
     {
@@ -98,10 +98,10 @@
      "manager": "Hayden",
      "player": "Anthony Davis",
      "is_keeper": false,
-     "then": 88,
+     "then": 84,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 93,
+     "then_point": "open",
+     "later": 88,
      "later_reason": null
     },
     {
@@ -110,10 +110,10 @@
      "manager": "Hayden",
      "player": "Kawhi Leonard",
      "is_keeper": false,
-     "then": 68,
+     "then": 80,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 63,
+     "then_point": "open",
+     "later": 78,
      "later_reason": null
     },
     {
@@ -122,10 +122,10 @@
      "manager": "Garrett",
      "player": "Jimmy Butler III",
      "is_keeper": false,
-     "then": 69,
+     "then": 79,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 79,
+     "then_point": "open",
+     "later": 81,
      "later_reason": null
     },
     {
@@ -134,10 +134,10 @@
      "manager": "Nick",
      "player": "John Wall",
      "is_keeper": false,
-     "then": 81,
+     "then": 83,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 77,
+     "then_point": "open",
+     "later": 82,
      "later_reason": null
     },
     {
@@ -146,10 +146,10 @@
      "manager": "Benton",
      "player": "Nikola Jokic",
      "is_keeper": false,
-     "then": 79,
+     "then": 75,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 86,
+     "then_point": "open",
+     "later": 84,
      "later_reason": null
     },
     {
@@ -158,10 +158,10 @@
      "manager": "Benton",
      "player": "Kyrie Irving",
      "is_keeper": false,
-     "then": 79,
+     "then": 78,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 79,
+     "then_point": "open",
+     "later": 80,
      "later_reason": null
     },
     {
@@ -170,9 +170,9 @@
      "manager": "Nick",
      "player": "Damian Lillard",
      "is_keeper": false,
-     "then": 83,
+     "then": 81,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": 84,
      "later_reason": null
     },
@@ -182,10 +182,10 @@
      "manager": "Garrett",
      "player": "Paul George",
      "is_keeper": false,
-     "then": 78,
+     "then": 79,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 83,
+     "then_point": "open",
+     "later": 82,
      "later_reason": null
     },
     {
@@ -194,10 +194,10 @@
      "manager": "Hayden",
      "player": "Chris Paul",
      "is_keeper": false,
-     "then": 70,
+     "then": 84,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 86,
+     "then_point": "open",
+     "later": 87,
      "later_reason": null
     },
     {
@@ -206,10 +206,10 @@
      "manager": "Hayden",
      "player": "Rudy Gobert",
      "is_keeper": false,
-     "then": 70,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 67,
+     "then_point": "open",
+     "later": 75,
      "later_reason": null
     },
     {
@@ -218,9 +218,9 @@
      "manager": "Garrett",
      "player": "Kristaps Porzingis",
      "is_keeper": false,
-     "then": 79,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -230,10 +230,10 @@
      "manager": "Nick",
      "player": "Hassan Whiteside",
      "is_keeper": false,
-     "then": 77,
+     "then": 78,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 70,
+     "then_point": "open",
+     "later": 77,
      "later_reason": null
     },
     {
@@ -242,9 +242,9 @@
      "manager": "Benton",
      "player": "DeMarcus Cousins",
      "is_keeper": false,
-     "then": 99,
+     "then": 84,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -254,10 +254,10 @@
      "manager": "Benton",
      "player": "Kyle Lowry",
      "is_keeper": false,
-     "then": 79,
+     "then": 81,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 84,
+     "then_point": "open",
+     "later": 82,
      "later_reason": null
     },
     {
@@ -266,10 +266,10 @@
      "manager": "Nick",
      "player": "CJ McCollum",
      "is_keeper": false,
-     "then": 79,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 73,
+     "then_point": "open",
+     "later": 75,
      "later_reason": null
     },
     {
@@ -278,10 +278,10 @@
      "manager": "Garrett",
      "player": "Kemba Walker",
      "is_keeper": false,
-     "then": 81,
+     "then": 79,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 84,
+     "then_point": "open",
+     "later": 81,
      "later_reason": null
     },
     {
@@ -290,10 +290,10 @@
      "manager": "Hayden",
      "player": "Bradley Beal",
      "is_keeper": false,
-     "then": 73,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 81,
+     "then_point": "open",
+     "later": 79,
      "later_reason": null
     },
     {
@@ -302,9 +302,9 @@
      "manager": "Hayden",
      "player": "Joel Embiid",
      "is_keeper": false,
-     "then": 71,
+     "then": 73,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": 81,
      "later_reason": null
     },
@@ -314,10 +314,10 @@
      "manager": "Garrett",
      "player": "Draymond Green",
      "is_keeper": false,
-     "then": 75,
+     "then": 82,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 81,
+     "then_point": "open",
+     "later": 82,
      "later_reason": null
     },
     {
@@ -326,8 +326,8 @@
      "manager": "Nick",
      "player": "Gordon Hayward",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no earlier season of his in the league log: his opening-day level is the league average; none at week 2 either (not on a roster that day)",
+     "then": 74,
+     "then_reason": null,
      "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
@@ -338,9 +338,9 @@
      "manager": "Benton",
      "player": "DeAndre Jordan",
      "is_keeper": false,
-     "then": 75,
+     "then": 77,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": 78,
      "later_reason": null
     },
@@ -350,10 +350,10 @@
      "manager": "Benton",
      "player": "Andre Drummond",
      "is_keeper": false,
-     "then": 82,
+     "then": 77,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 90,
+     "then_point": "open",
+     "later": 84,
      "later_reason": null
     },
     {
@@ -362,10 +362,10 @@
      "manager": "Nick",
      "player": "Klay Thompson",
      "is_keeper": false,
-     "then": 79,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 74,
+     "then_point": "open",
+     "later": 76,
      "later_reason": null
     },
     {
@@ -374,10 +374,10 @@
      "manager": "Garrett",
      "player": "Myles Turner",
      "is_keeper": false,
-     "then": 74,
+     "then": 72,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 66,
+     "then_point": "open",
+     "later": 73,
      "later_reason": null
     },
     {
@@ -386,10 +386,10 @@
      "manager": "Hayden",
      "player": "Blake Griffin",
      "is_keeper": false,
-     "then": 84,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 79,
+     "then_point": "open",
+     "later": 80,
      "later_reason": null
     },
     {
@@ -398,10 +398,10 @@
      "manager": "Hayden",
      "player": "Marc Gasol",
      "is_keeper": false,
-     "then": 82,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 79,
+     "then_point": "open",
+     "later": 78,
      "later_reason": null
     },
     {
@@ -410,9 +410,9 @@
      "manager": "Garrett",
      "player": "DeMar DeRozan",
      "is_keeper": false,
-     "then": 72,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": 76,
      "later_reason": null
     },
@@ -422,10 +422,10 @@
      "manager": "Nick",
      "player": "Kevin Love",
      "is_keeper": false,
-     "then": 74,
+     "then": 77,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 78,
+     "then_point": "open",
+     "later": 79,
      "later_reason": null
     },
     {
@@ -434,10 +434,10 @@
      "manager": "Benton",
      "player": "Eric Bledsoe",
      "is_keeper": false,
-     "then": 62,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 72,
+     "then_point": "open",
+     "later": 75,
      "later_reason": null
     },
     {
@@ -446,9 +446,9 @@
      "manager": "Benton",
      "player": "Mike Conley",
      "is_keeper": false,
-     "then": 67,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -458,10 +458,10 @@
      "manager": "Nick",
      "player": "Khris Middleton",
      "is_keeper": false,
-     "then": 76,
+     "then": 73,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 78,
+     "then_point": "open",
+     "later": 77,
      "later_reason": null
     },
     {
@@ -470,10 +470,10 @@
      "manager": "Garrett",
      "player": "Lonzo Ball",
      "is_keeper": false,
-     "then": 74,
+     "then": 70,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 72,
+     "then_point": "open",
+     "later": 78,
      "later_reason": null
     },
     {
@@ -482,9 +482,9 @@
      "manager": "Hayden",
      "player": "Paul Millsap",
      "is_keeper": false,
-     "then": 62,
+     "then": 77,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -494,10 +494,10 @@
      "manager": "Hayden",
      "player": "Goran Dragic",
      "is_keeper": false,
-     "then": 70,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 67,
+     "then_point": "open",
+     "later": 74,
      "later_reason": null
     },
     {
@@ -506,10 +506,10 @@
      "manager": "Garrett",
      "player": "Al Horford",
      "is_keeper": false,
-     "then": 77,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 76,
+     "then_point": "open",
+     "later": 78,
      "later_reason": null
     },
     {
@@ -518,10 +518,10 @@
      "manager": "Nick",
      "player": "LaMarcus Aldridge",
      "is_keeper": false,
-     "then": 80,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 76,
+     "then_point": "open",
+     "later": 77,
      "later_reason": null
     },
     {
@@ -530,8 +530,8 @@
      "manager": "Benton",
      "player": "Brook Lopez",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no earlier season of his in the league log: his opening-day level is the league average; none at week 2 either (not on a roster that day)",
+     "then": 74,
+     "then_reason": null,
      "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
@@ -542,10 +542,10 @@
      "manager": "Benton",
      "player": "Devin Booker",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no earlier season of his in the league log: his opening-day level is the league average; none at week 2 either (not on a roster that day)",
+     "then": 71,
+     "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 75,
      "later_reason": null
     },
     {
@@ -554,10 +554,10 @@
      "manager": "Nick",
      "player": "Ricky Rubio",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no earlier season of his in the league log: his opening-day level is the league average; none at week 2 either (not on a roster that day)",
+     "then": 76,
+     "then_reason": null,
      "then_point": "open",
-     "later": 70,
+     "later": 75,
      "later_reason": null
     },
     {
@@ -566,9 +566,9 @@
      "manager": "Garrett",
      "player": "Trevor Ariza",
      "is_keeper": false,
-     "then": 60,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -578,9 +578,9 @@
      "manager": "Hayden",
      "player": "D'Angelo Russell",
      "is_keeper": false,
-     "then": 64,
+     "then": 72,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -590,10 +590,10 @@
      "manager": "Hayden",
      "player": "Ben Simmons",
      "is_keeper": false,
-     "then": 82,
+     "then": 71,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 82,
+     "then_point": "open",
+     "later": 80,
      "later_reason": null
     },
     {
@@ -602,10 +602,10 @@
      "manager": "Garrett",
      "player": "Otto Porter Jr.",
      "is_keeper": false,
-     "then": 87,
+     "then": 72,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 73,
+     "then_point": "open",
+     "later": 75,
      "later_reason": null
     },
     {
@@ -614,9 +614,9 @@
      "manager": "Nick",
      "player": "Carmelo Anthony",
      "is_keeper": false,
-     "then": 75,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -626,8 +626,8 @@
      "manager": "Benton",
      "player": "Andrew Wiggins",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no earlier season of his in the league log: his opening-day level is the league average; none at week 2 either (not on a roster that day)",
+     "then": 72,
+     "then_reason": null,
      "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
@@ -646,10 +646,10 @@
      "manager": "Garrett",
      "player": "James Harden",
      "is_keeper": false,
-     "then": 95,
+     "then": 90,
      "then_reason": null,
      "then_point": "open",
-     "later": 99,
+     "later": 96,
      "later_reason": null
     },
     {
@@ -658,10 +658,10 @@
      "manager": "Nick",
      "player": "Russell Westbrook",
      "is_keeper": false,
-     "then": 88,
+     "then": 90,
      "then_reason": null,
      "then_point": "open",
-     "later": 94,
+     "later": 93,
      "later_reason": null
     },
     {
@@ -670,10 +670,10 @@
      "manager": "Benton",
      "player": "Anthony Davis",
      "is_keeper": false,
-     "then": 93,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 93,
      "later_reason": null
     },
     {
@@ -682,10 +682,10 @@
      "manager": "Hayden",
      "player": "LeBron James",
      "is_keeper": false,
-     "then": 99,
+     "then": 88,
      "then_reason": null,
      "then_point": "open",
-     "later": 87,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -694,10 +694,10 @@
      "manager": "Hayden",
      "player": "Giannis Antetokounmpo",
      "is_keeper": false,
-     "then": 91,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -706,10 +706,10 @@
      "manager": "Benton",
      "player": "Karl-Anthony Towns",
      "is_keeper": false,
-     "then": 91,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -718,10 +718,10 @@
      "manager": "Nick",
      "player": "Kevin Durant",
      "is_keeper": false,
-     "then": 89,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -730,10 +730,10 @@
      "manager": "Garrett",
      "player": "Nikola Jokic",
      "is_keeper": false,
-     "then": 87,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -742,10 +742,10 @@
      "manager": "Garrett",
      "player": "Stephen Curry",
      "is_keeper": false,
-     "then": 85,
+     "then": 88,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 91,
      "later_reason": null
     },
     {
@@ -754,7 +754,7 @@
      "manager": "Nick",
      "player": "Damian Lillard",
      "is_keeper": false,
-     "then": 85,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
      "later": 85,
@@ -766,10 +766,10 @@
      "manager": "Benton",
      "player": "Ben Simmons",
      "is_keeper": false,
-     "then": 86,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -778,10 +778,10 @@
      "manager": "Hayden",
      "player": "Andre Drummond",
      "is_keeper": false,
-     "then": 90,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -790,10 +790,10 @@
      "manager": "Hayden",
      "player": "Kawhi Leonard",
      "is_keeper": false,
-     "then": 69,
+     "then": 79,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 79,
+     "then_point": "open",
+     "later": 84,
      "later_reason": null
     },
     {
@@ -802,10 +802,10 @@
      "manager": "Benton",
      "player": "Chris Paul",
      "is_keeper": false,
-     "then": 79,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -814,10 +814,10 @@
      "manager": "Nick",
      "player": "Joel Embiid",
      "is_keeper": false,
-     "then": 79,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 87,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -826,10 +826,10 @@
      "manager": "Nick",
      "player": "Paul George",
      "is_keeper": false,
-     "then": 85,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -838,10 +838,10 @@
      "manager": "Garrett",
      "player": "Kevin Love",
      "is_keeper": false,
-     "then": 74,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 63,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -850,7 +850,7 @@
      "manager": "Nick",
      "player": "Victor Oladipo",
      "is_keeper": false,
-     "then": 84,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -862,10 +862,10 @@
      "manager": "Benton",
      "player": "Kyrie Irving",
      "is_keeper": false,
-     "then": 78,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -874,10 +874,10 @@
      "manager": "Hayden",
      "player": "Kyle Lowry",
      "is_keeper": false,
-     "then": 86,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -886,7 +886,7 @@
      "manager": "Hayden",
      "player": "John Wall",
      "is_keeper": false,
-     "then": 72,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -898,10 +898,10 @@
      "manager": "Benton",
      "player": "Draymond Green",
      "is_keeper": false,
-     "then": 81,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -910,7 +910,7 @@
      "manager": "Garrett",
      "player": "Kemba Walker",
      "is_keeper": false,
-     "then": 83,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": 84,
@@ -922,10 +922,10 @@
      "manager": "Garrett",
      "player": "Aaron Gordon",
      "is_keeper": false,
-     "then": 74,
+     "then": 73,
      "then_reason": null,
      "then_point": "open",
-     "later": 69,
+     "later": 75,
      "later_reason": null
     },
     {
@@ -934,10 +934,10 @@
      "manager": "Garrett",
      "player": "Jimmy Butler III",
      "is_keeper": false,
-     "then": 76,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -946,10 +946,10 @@
      "manager": "Nick",
      "player": "Donovan Mitchell",
      "is_keeper": false,
-     "then": 77,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -958,10 +958,10 @@
      "manager": "Benton",
      "player": "Devin Booker",
      "is_keeper": false,
-     "then": 75,
+     "then": 73,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -970,10 +970,10 @@
      "manager": "Hayden",
      "player": "DeAndre Jordan",
      "is_keeper": false,
-     "then": 79,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -982,10 +982,10 @@
      "manager": "Hayden",
      "player": "Bradley Beal",
      "is_keeper": false,
-     "then": 83,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -994,10 +994,10 @@
      "manager": "Benton",
      "player": "Jrue Holiday",
      "is_keeper": false,
-     "then": 84,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -1006,10 +1006,10 @@
      "manager": "Nick",
      "player": "Marc Gasol",
      "is_keeper": false,
-     "then": 79,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -1018,7 +1018,7 @@
      "manager": "Garrett",
      "player": "Rudy Gobert",
      "is_keeper": false,
-     "then": 73,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": 82,
@@ -1030,10 +1030,10 @@
      "manager": "Garrett",
      "player": "Khris Middleton",
      "is_keeper": false,
-     "then": 81,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -1042,10 +1042,10 @@
      "manager": "Nick",
      "player": "Clint Capela",
      "is_keeper": false,
-     "then": 76,
+     "then": 73,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -1054,10 +1054,10 @@
      "manager": "Benton",
      "player": "CJ McCollum",
      "is_keeper": false,
-     "then": 78,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 68,
+     "later": 75,
      "later_reason": null
     },
     {
@@ -1066,7 +1066,7 @@
      "manager": "Hayden",
      "player": "Otto Porter Jr.",
      "is_keeper": false,
-     "then": 78,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1078,7 +1078,7 @@
      "manager": "Hayden",
      "player": "Blake Griffin",
      "is_keeper": false,
-     "then": 77,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
      "later": 84,
@@ -1090,10 +1090,10 @@
      "manager": "Benton",
      "player": "Tobias Harris",
      "is_keeper": false,
-     "then": 77,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -1102,7 +1102,7 @@
      "manager": "Nick",
      "player": "Lonzo Ball",
      "is_keeper": false,
-     "then": 74,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1114,7 +1114,7 @@
      "manager": "Garrett",
      "player": "DeMar DeRozan",
      "is_keeper": false,
-     "then": 79,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1126,10 +1126,10 @@
      "manager": "Garrett",
      "player": "Klay Thompson",
      "is_keeper": false,
-     "then": 76,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 70,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -1138,7 +1138,7 @@
      "manager": "Nick",
      "player": "Nikola Vucevic",
      "is_keeper": false,
-     "then": 75,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": 85,
@@ -1150,10 +1150,10 @@
      "manager": "Benton",
      "player": "Myles Turner",
      "is_keeper": false,
-     "then": 72,
+     "then": 73,
      "then_reason": null,
      "then_point": "open",
-     "later": 67,
+     "later": 75,
      "later_reason": null
     },
     {
@@ -1162,10 +1162,10 @@
      "manager": "Hayden",
      "player": "Eric Bledsoe",
      "is_keeper": false,
-     "then": 78,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -1174,10 +1174,10 @@
      "manager": "Hayden",
      "player": "Mike Conley",
      "is_keeper": false,
-     "then": 68,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -1186,10 +1186,10 @@
      "manager": "Benton",
      "player": "John Collins",
      "is_keeper": false,
-     "then": 69,
+     "then": 71,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 66,
+     "then_point": "open",
+     "later": 74,
      "later_reason": null
     },
     {
@@ -1198,9 +1198,9 @@
      "manager": "Nick",
      "player": "Gordon Hayward",
      "is_keeper": false,
-     "then": 60,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -1210,10 +1210,10 @@
      "manager": "Garrett",
      "player": "Al Horford",
      "is_keeper": false,
-     "then": 77,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -1222,10 +1222,10 @@
      "manager": "Garrett",
      "player": "LaMarcus Aldridge",
      "is_keeper": false,
-     "then": 78,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -1234,7 +1234,7 @@
      "manager": "Nick",
      "player": "Tyreke Evans",
      "is_keeper": false,
-     "then": 72,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1246,7 +1246,7 @@
      "manager": "Benton",
      "player": "Paul Millsap",
      "is_keeper": false,
-     "then": 70,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1258,9 +1258,9 @@
      "manager": "Hayden",
      "player": "Deandre Ayton",
      "is_keeper": false,
-     "then": 80,
+     "then": 72,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     }
@@ -1278,10 +1278,10 @@
      "manager": "Hayden",
      "player": "Giannis Antetokounmpo",
      "is_keeper": false,
-     "then": 92,
+     "then": 91,
      "then_reason": null,
      "then_point": "open",
-     "later": 97,
+     "later": 93,
      "later_reason": null
     },
     {
@@ -1290,7 +1290,7 @@
      "manager": "Garrett",
      "player": "Anthony Davis",
      "is_keeper": false,
-     "then": 89,
+     "then": 90,
      "then_reason": null,
      "then_point": "open",
      "later": 89,
@@ -1302,10 +1302,10 @@
      "manager": "Benton",
      "player": "James Harden",
      "is_keeper": false,
-     "then": 99,
+     "then": 90,
      "then_reason": null,
      "then_point": "open",
-     "later": 99,
+     "later": 95,
      "later_reason": null
     },
     {
@@ -1329,7 +1329,7 @@
      "then": 91,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 92,
      "later_reason": null
     },
     {
@@ -1338,10 +1338,10 @@
      "manager": "Benton",
      "player": "Stephen Curry",
      "is_keeper": false,
-     "then": 88,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 66,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -1350,10 +1350,10 @@
      "manager": "Garrett",
      "player": "LeBron James",
      "is_keeper": false,
-     "then": 91,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 95,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -1362,10 +1362,10 @@
      "manager": "Nick",
      "player": "Joel Embiid",
      "is_keeper": false,
-     "then": 85,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -1374,10 +1374,10 @@
      "manager": "Nick",
      "player": "Damian Lillard",
      "is_keeper": false,
-     "then": 88,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 94,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -1386,10 +1386,10 @@
      "manager": "Garrett",
      "player": "Russell Westbrook",
      "is_keeper": false,
-     "then": 95,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -1398,10 +1398,10 @@
      "manager": "Garrett",
      "player": "Paul George",
      "is_keeper": false,
-     "then": 84,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -1410,7 +1410,7 @@
      "manager": "Garrett",
      "player": "Bradley Beal",
      "is_keeper": false,
-     "then": 84,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
      "later": 84,
@@ -1422,10 +1422,10 @@
      "manager": "Hayden",
      "player": "Kyrie Irving",
      "is_keeper": false,
-     "then": 82,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -1434,10 +1434,10 @@
      "manager": "Benton",
      "player": "Andre Drummond",
      "is_keeper": false,
-     "then": 88,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 88,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -1446,10 +1446,10 @@
      "manager": "Hayden",
      "player": "Jimmy Butler III",
      "is_keeper": false,
-     "then": 77,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -1458,10 +1458,10 @@
      "manager": "Hayden",
      "player": "Luka Doncic",
      "is_keeper": false,
-     "then": 83,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 92,
      "later_reason": null
     },
     {
@@ -1470,10 +1470,10 @@
      "manager": "Hayden",
      "player": "Nikola Vucevic",
      "is_keeper": false,
-     "then": 83,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -1482,10 +1482,10 @@
      "manager": "Hayden",
      "player": "Kawhi Leonard",
      "is_keeper": false,
-     "then": 73,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -1494,10 +1494,10 @@
      "manager": "Benton",
      "player": "Jrue Holiday",
      "is_keeper": false,
-     "then": 81,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -1506,10 +1506,10 @@
      "manager": "Benton",
      "player": "Kemba Walker",
      "is_keeper": false,
-     "then": 84,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -1518,10 +1518,10 @@
      "manager": "Benton",
      "player": "Rudy Gobert",
      "is_keeper": false,
-     "then": 78,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -1530,10 +1530,10 @@
      "manager": "Benton",
      "player": "Ben Simmons",
      "is_keeper": false,
-     "then": 83,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -1542,10 +1542,10 @@
      "manager": "Garrett",
      "player": "Trae Young",
      "is_keeper": false,
-     "then": 84,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 88,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -1554,10 +1554,10 @@
      "manager": "Nick",
      "player": "Deandre Ayton",
      "is_keeper": false,
-     "then": 73,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 65,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -1566,10 +1566,10 @@
      "manager": "Hayden",
      "player": "Pascal Siakam",
      "is_keeper": false,
-     "then": 74,
+     "then": 73,
      "then_reason": null,
      "then_point": "open",
-     "later": 74,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -1578,10 +1578,10 @@
      "manager": "Garrett",
      "player": "John Collins",
      "is_keeper": false,
-     "then": 70,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 68,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -1590,10 +1590,10 @@
      "manager": "Nick",
      "player": "Devin Booker",
      "is_keeper": false,
-     "then": 76,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -1602,10 +1602,10 @@
      "manager": "Nick",
      "player": "Donovan Mitchell",
      "is_keeper": false,
-     "then": 76,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -1614,10 +1614,10 @@
      "manager": "Nick",
      "player": "D'Angelo Russell",
      "is_keeper": false,
-     "then": 79,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -1626,7 +1626,7 @@
      "manager": "Benton",
      "player": "Myles Turner",
      "is_keeper": false,
-     "then": 70,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1638,10 +1638,10 @@
      "manager": "Garrett",
      "player": "Khris Middleton",
      "is_keeper": false,
-     "then": 77,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -1650,10 +1650,10 @@
      "manager": "Hayden",
      "player": "Kristaps Porzingis",
      "is_keeper": false,
-     "then": 80,
+     "then": 82,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 75,
+     "then_point": "open",
+     "later": 81,
      "later_reason": null
     },
     {
@@ -1662,10 +1662,10 @@
      "manager": "Hayden",
      "player": "De'Aaron Fox",
      "is_keeper": false,
-     "then": 78,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 69,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -1674,10 +1674,10 @@
      "manager": "Garrett",
      "player": "Draymond Green",
      "is_keeper": false,
-     "then": 78,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 67,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -1686,10 +1686,10 @@
      "manager": "Garrett",
      "player": "Jayson Tatum",
      "is_keeper": false,
-     "then": 68,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -1698,10 +1698,10 @@
      "manager": "Garrett",
      "player": "CJ McCollum",
      "is_keeper": false,
-     "then": 74,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 67,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -1710,9 +1710,9 @@
      "manager": "Nick",
      "player": "Zion Williamson",
      "is_keeper": false,
-     "then": 69,
+     "then": 73,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -1722,10 +1722,10 @@
      "manager": "Benton",
      "player": "Chris Paul",
      "is_keeper": false,
-     "then": 79,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -1734,10 +1734,10 @@
      "manager": "Nick",
      "player": "Tobias Harris",
      "is_keeper": false,
-     "then": 77,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 63,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -1746,10 +1746,10 @@
      "manager": "Garrett",
      "player": "Buddy Hield",
      "is_keeper": false,
-     "then": 80,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
-     "later": 67,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -1758,7 +1758,7 @@
      "manager": "Hayden",
      "player": "Blake Griffin",
      "is_keeper": false,
-     "then": 81,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1770,7 +1770,7 @@
      "manager": "Nick",
      "player": "Julius Randle",
      "is_keeper": false,
-     "then": 71,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1782,7 +1782,7 @@
      "manager": "Hayden",
      "player": "Aaron Gordon",
      "is_keeper": false,
-     "then": 73,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1794,10 +1794,10 @@
      "manager": "Nick",
      "player": "Clint Capela",
      "is_keeper": false,
-     "then": 75,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -1806,10 +1806,10 @@
      "manager": "Nick",
      "player": "DeMar DeRozan",
      "is_keeper": false,
-     "then": 76,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
-     "later": 64,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -1818,7 +1818,7 @@
      "manager": "Benton",
      "player": "Lauri Markkanen",
      "is_keeper": false,
-     "then": 77,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -1830,10 +1830,10 @@
      "manager": "Benton",
      "player": "Kevin Love",
      "is_keeper": false,
-     "then": 69,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -1842,10 +1842,10 @@
      "manager": "Hayden",
      "player": "Bam Adebayo",
      "is_keeper": false,
-     "then": 79,
+     "then": 72,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 79,
+     "then_point": "open",
+     "later": 78,
      "later_reason": null
     },
     {
@@ -1869,7 +1869,7 @@
      "then": 73,
      "then_reason": null,
      "then_point": "open",
-     "later": 60,
+     "later": 74,
      "later_reason": null
     },
     {
@@ -1910,10 +1910,10 @@
      "manager": "Nick",
      "player": "Luka Doncic",
      "is_keeper": false,
-     "then": 87,
+     "then": 93,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 92,
      "later_reason": null
     },
     {
@@ -1922,10 +1922,10 @@
      "manager": "Garrett",
      "player": "Giannis Antetokounmpo",
      "is_keeper": false,
-     "then": 93,
+     "then": 91,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 91,
      "later_reason": null
     },
     {
@@ -1934,10 +1934,10 @@
      "manager": "Benton",
      "player": "Karl-Anthony Towns",
      "is_keeper": false,
-     "then": 90,
+     "then": 91,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -1946,10 +1946,10 @@
      "manager": "Hayden",
      "player": "Nikola Jokic",
      "is_keeper": false,
-     "then": 91,
+     "then": 89,
      "then_reason": null,
      "then_point": "open",
-     "later": 99,
+     "later": 94,
      "later_reason": null
     },
     {
@@ -1958,7 +1958,7 @@
      "manager": "Hayden",
      "player": "Trae Young",
      "is_keeper": false,
-     "then": 88,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
      "later": 85,
@@ -1970,10 +1970,10 @@
      "manager": "Benton",
      "player": "Anthony Davis",
      "is_keeper": false,
-     "then": 88,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -1982,10 +1982,10 @@
      "manager": "Garrett",
      "player": "James Harden",
      "is_keeper": false,
-     "then": 99,
+     "then": 89,
      "then_reason": null,
      "then_point": "open",
-     "later": 98,
+     "later": 93,
      "later_reason": null
     },
     {
@@ -1994,7 +1994,7 @@
      "manager": "Nick",
      "player": "Jayson Tatum",
      "is_keeper": false,
-     "then": 82,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
      "later": 84,
@@ -2006,10 +2006,10 @@
      "manager": "Nick",
      "player": "Joel Embiid",
      "is_keeper": false,
-     "then": 82,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -2018,10 +2018,10 @@
      "manager": "Garrett",
      "player": "Kawhi Leonard",
      "is_keeper": false,
-     "then": 74,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -2030,10 +2030,10 @@
      "manager": "Benton",
      "player": "Bam Adebayo",
      "is_keeper": false,
-     "then": 83,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2042,10 +2042,10 @@
      "manager": "Hayden",
      "player": "Devin Booker",
      "is_keeper": false,
-     "then": 76,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2054,10 +2054,10 @@
      "manager": "Hayden",
      "player": "Damian Lillard",
      "is_keeper": false,
-     "then": 89,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -2066,10 +2066,10 @@
      "manager": "Benton",
      "player": "Ben Simmons",
      "is_keeper": false,
-     "then": 82,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -2078,10 +2078,10 @@
      "manager": "Garrett",
      "player": "Donovan Mitchell",
      "is_keeper": false,
-     "then": 77,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2090,10 +2090,10 @@
      "manager": "Nick",
      "player": "Bradley Beal",
      "is_keeper": false,
-     "then": 85,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2102,10 +2102,10 @@
      "manager": "Nick",
      "player": "Zion Williamson",
      "is_keeper": false,
-     "then": 63,
+     "then": 72,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 70,
+     "then_point": "open",
+     "later": 77,
      "later_reason": null
     },
     {
@@ -2114,10 +2114,10 @@
      "manager": "Garrett",
      "player": "Deandre Ayton",
      "is_keeper": false,
-     "then": 71,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 67,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -2126,10 +2126,10 @@
      "manager": "Benton",
      "player": "Shai Gilgeous-Alexander",
      "is_keeper": false,
-     "then": 78,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2138,10 +2138,10 @@
      "manager": "Hayden",
      "player": "Ja Morant",
      "is_keeper": false,
-     "then": 60,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 60,
+     "then_point": "open",
+     "later": 75,
      "later_reason": null
     },
     {
@@ -2150,10 +2150,10 @@
      "manager": "Hayden",
      "player": "Zach LaVine",
      "is_keeper": false,
-     "then": 76,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -2165,7 +2165,7 @@
      "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2174,10 +2174,10 @@
      "manager": "Garrett",
      "player": "Pascal Siakam",
      "is_keeper": false,
-     "then": 78,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2186,10 +2186,10 @@
      "manager": "Nick",
      "player": "Stephen Curry",
      "is_keeper": false,
-     "then": 90,
+     "then": 80,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 90,
+     "then_point": "open",
+     "later": 89,
      "later_reason": null
     },
     {
@@ -2198,10 +2198,10 @@
      "manager": "Nick",
      "player": "LeBron James",
      "is_keeper": false,
-     "then": 92,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -2210,10 +2210,10 @@
      "manager": "Garrett",
      "player": "Kevin Durant",
      "is_keeper": false,
-     "then": 89,
+     "then": 78,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 78,
+     "then_point": "open",
+     "later": 85,
      "later_reason": null
     },
     {
@@ -2222,10 +2222,10 @@
      "manager": "Benton",
      "player": "Kyrie Irving",
      "is_keeper": false,
-     "then": 79,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -2234,10 +2234,10 @@
      "manager": "Hayden",
      "player": "Russell Westbrook",
      "is_keeper": false,
-     "then": 92,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -2246,10 +2246,10 @@
      "manager": "Hayden",
      "player": "Brandon Ingram",
      "is_keeper": false,
-     "then": 74,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2258,10 +2258,10 @@
      "manager": "Benton",
      "player": "Paul George",
      "is_keeper": false,
-     "then": 86,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2270,10 +2270,10 @@
      "manager": "Garrett",
      "player": "Domantas Sabonis",
      "is_keeper": false,
-     "then": 80,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2282,10 +2282,10 @@
      "manager": "Nick",
      "player": "John Collins",
      "is_keeper": false,
-     "then": 72,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 70,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -2294,10 +2294,10 @@
      "manager": "Nick",
      "player": "Nikola Vucevic",
      "is_keeper": false,
-     "then": 82,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -2306,10 +2306,10 @@
      "manager": "Garrett",
      "player": "Jamal Murray",
      "is_keeper": false,
-     "then": 71,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2318,10 +2318,10 @@
      "manager": "Benton",
      "player": "Kristaps Porzingis",
      "is_keeper": false,
-     "then": 77,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -2330,10 +2330,10 @@
      "manager": "Hayden",
      "player": "Andre Drummond",
      "is_keeper": false,
-     "then": 88,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -2342,7 +2342,7 @@
      "manager": "Hayden",
      "player": "D'Angelo Russell",
      "is_keeper": false,
-     "then": 77,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -2354,10 +2354,10 @@
      "manager": "Benton",
      "player": "De'Aaron Fox",
      "is_keeper": false,
-     "then": 76,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -2369,7 +2369,7 @@
      "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2378,7 +2378,7 @@
      "manager": "Nick",
      "player": "Rudy Gobert",
      "is_keeper": false,
-     "then": 78,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": 81,
@@ -2390,7 +2390,7 @@
      "manager": "Nick",
      "player": "Kyle Lowry",
      "is_keeper": false,
-     "then": 82,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -2405,7 +2405,7 @@
      "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 74,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -2414,9 +2414,9 @@
      "manager": "Benton",
      "player": "Jusuf Nurkic",
      "is_keeper": false,
-     "then": 72,
+     "then": 77,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -2426,10 +2426,10 @@
      "manager": "Hayden",
      "player": "Clint Capela",
      "is_keeper": false,
-     "then": 74,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -2441,7 +2441,7 @@
      "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2450,10 +2450,10 @@
      "manager": "Benton",
      "player": "Lonzo Ball",
      "is_keeper": false,
-     "then": 76,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 74,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2462,10 +2462,10 @@
      "manager": "Garrett",
      "player": "Jaylen Brown",
      "is_keeper": false,
-     "then": 74,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2477,7 +2477,7 @@
      "then": null,
      "then_reason": "not on a roster that day",
      "then_point": "open",
-     "later": 79,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2486,10 +2486,10 @@
      "manager": "Nick",
      "player": "Chris Paul",
      "is_keeper": false,
-     "then": 78,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2498,10 +2498,10 @@
      "manager": "Garrett",
      "player": "Christian Wood",
      "is_keeper": false,
-     "then": 85,
+     "then": 71,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 74,
+     "then_point": "open",
+     "later": 78,
      "later_reason": null
     },
     {
@@ -2510,7 +2510,7 @@
      "manager": "Benton",
      "player": "Gordon Hayward",
      "is_keeper": false,
-     "then": 71,
+     "then": 73,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -2522,10 +2522,10 @@
      "manager": "Hayden",
      "player": "Michael Porter Jr.",
      "is_keeper": false,
-     "then": 77,
+     "then": 70,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 72,
+     "then_point": "open",
+     "later": 75,
      "later_reason": null
     }
    ]
@@ -2542,10 +2542,10 @@
      "manager": "Benton",
      "player": "Paul George",
      "is_keeper": false,
-     "then": 85,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 74,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2554,10 +2554,10 @@
      "manager": "Hayden",
      "player": "Bam Adebayo",
      "is_keeper": false,
-     "then": 78,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 69,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2566,10 +2566,10 @@
      "manager": "Garrett",
      "player": "LeBron James",
      "is_keeper": false,
-     "then": 91,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -2581,7 +2581,7 @@
      "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -2590,7 +2590,7 @@
      "manager": "Benton",
      "player": "De'Aaron Fox",
      "is_keeper": false,
-     "then": 73,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -2602,10 +2602,10 @@
      "manager": "Hayden",
      "player": "Jaylen Brown",
      "is_keeper": false,
-     "then": 74,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2614,10 +2614,10 @@
      "manager": "Garrett",
      "player": "Rudy Gobert",
      "is_keeper": false,
-     "then": 81,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -2626,10 +2626,10 @@
      "manager": "Nick",
      "player": "Khris Middleton",
      "is_keeper": false,
-     "then": 72,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -2638,10 +2638,10 @@
      "manager": "Benton",
      "player": "CJ McCollum",
      "is_keeper": false,
-     "then": 72,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2650,10 +2650,10 @@
      "manager": "Hayden",
      "player": "Deandre Ayton",
      "is_keeper": false,
-     "then": 62,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 63,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -2662,10 +2662,10 @@
      "manager": "Garrett",
      "player": "Kyrie Irving",
      "is_keeper": false,
-     "then": 80,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 69,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2674,10 +2674,10 @@
      "manager": "Nick",
      "player": "Ja Morant",
      "is_keeper": false,
-     "then": 60,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -2686,10 +2686,10 @@
      "manager": "Benton",
      "player": "Kristaps Porzingis",
      "is_keeper": false,
-     "then": 77,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2698,10 +2698,10 @@
      "manager": "Garrett",
      "player": "Brandon Ingram",
      "is_keeper": false,
-     "then": 74,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 70,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2710,10 +2710,10 @@
      "manager": "Garrett",
      "player": "Chris Paul",
      "is_keeper": false,
-     "then": 79,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 87,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -2722,10 +2722,10 @@
      "manager": "Nick",
      "player": "Tobias Harris",
      "is_keeper": false,
-     "then": 70,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -2734,10 +2734,10 @@
      "manager": "Nick",
      "player": "Dejounte Murray",
      "is_keeper": false,
-     "then": 72,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -2746,10 +2746,10 @@
      "manager": "Hayden",
      "player": "Devin Booker",
      "is_keeper": false,
-     "then": 73,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -2758,10 +2758,10 @@
      "manager": "Benton",
      "player": "Christian Wood",
      "is_keeper": false,
-     "then": 72,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2770,7 +2770,7 @@
      "manager": "Nick",
      "player": "Clint Capela",
      "is_keeper": false,
-     "then": 74,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -2782,10 +2782,10 @@
      "manager": "Hayden",
      "player": "John Collins",
      "is_keeper": false,
-     "then": 65,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 68,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -2794,11 +2794,11 @@
      "manager": "Hayden",
      "player": "Ben Simmons",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no NBA team in the log",
+     "then": 78,
+     "then_reason": null,
      "then_point": "open",
-     "later": null,
-     "later_reason": "no NBA team in the log"
+     "later": 78,
+     "later_reason": null
     },
     {
      "pick_number": 23,
@@ -2806,7 +2806,7 @@
      "manager": "Garrett",
      "player": "Malcolm Brogdon",
      "is_keeper": false,
-     "then": 69,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -2821,7 +2821,7 @@
      "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2830,10 +2830,10 @@
      "manager": "Benton",
      "player": "Pascal Siakam",
      "is_keeper": false,
-     "then": 75,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -2842,10 +2842,10 @@
      "manager": "Hayden",
      "player": "OG Anunoby",
      "is_keeper": false,
-     "then": 80,
+     "then": 74,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 70,
+     "then_point": "open",
+     "later": 76,
      "later_reason": null
     },
     {
@@ -2854,11 +2854,11 @@
      "manager": "Garrett",
      "player": "Kawhi Leonard",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no NBA team in the log",
+     "then": 83,
+     "then_reason": null,
      "then_point": "open",
-     "later": null,
-     "later_reason": "no NBA team in the log"
+     "later": 83,
+     "later_reason": null
     },
     {
      "pick_number": 28,
@@ -2866,10 +2866,10 @@
      "manager": "Nick",
      "player": "Anthony Edwards",
      "is_keeper": false,
-     "then": 67,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -2878,10 +2878,10 @@
      "manager": "Nick",
      "player": "Nikola Vucevic",
      "is_keeper": true,
-     "then": 88,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -2890,7 +2890,7 @@
      "manager": "Garrett",
      "player": "Julius Randle",
      "is_keeper": true,
-     "then": 80,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
      "later": 81,
@@ -2902,10 +2902,10 @@
      "manager": "Hayden",
      "player": "LaMelo Ball",
      "is_keeper": true,
-     "then": 66,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -2914,11 +2914,11 @@
      "manager": "Benton",
      "player": "Zion Williamson",
      "is_keeper": true,
-     "then": null,
-     "then_reason": "no NBA team in the log",
+     "then": 75,
+     "then_reason": null,
      "then_point": "open",
-     "later": null,
-     "later_reason": "no NBA team in the log"
+     "later": 75,
+     "later_reason": null
     },
     {
      "pick_number": 33,
@@ -2926,7 +2926,7 @@
      "manager": "Benton",
      "player": "Michael Porter Jr.",
      "is_keeper": true,
-     "then": 72,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -2938,10 +2938,10 @@
      "manager": "Hayden",
      "player": "Shai Gilgeous-Alexander",
      "is_keeper": true,
-     "then": 70,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -2950,10 +2950,10 @@
      "manager": "Garrett",
      "player": "Donovan Mitchell",
      "is_keeper": true,
-     "then": 74,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -2962,7 +2962,7 @@
      "manager": "Nick",
      "player": "Bradley Beal",
      "is_keeper": true,
-     "then": 84,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -2974,10 +2974,10 @@
      "manager": "Nick",
      "player": "Jayson Tatum",
      "is_keeper": true,
-     "then": 82,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -2986,10 +2986,10 @@
      "manager": "Garrett",
      "player": "Domantas Sabonis",
      "is_keeper": true,
-     "then": 81,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -2998,10 +2998,10 @@
      "manager": "Hayden",
      "player": "Zach LaVine",
      "is_keeper": true,
-     "then": 74,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -3010,10 +3010,10 @@
      "manager": "Benton",
      "player": "Anthony Davis",
      "is_keeper": true,
-     "then": 86,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -3022,10 +3022,10 @@
      "manager": "Benton",
      "player": "Trae Young",
      "is_keeper": true,
-     "then": 84,
+     "then": 88,
      "then_reason": null,
      "then_point": "open",
-     "later": 88,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -3034,10 +3034,10 @@
      "manager": "Hayden",
      "player": "Damian Lillard",
      "is_keeper": true,
-     "then": 90,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -3046,10 +3046,10 @@
      "manager": "Garrett",
      "player": "Kevin Durant",
      "is_keeper": true,
-     "then": 84,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -3061,7 +3061,7 @@
      "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -3070,10 +3070,10 @@
      "manager": "Nick",
      "player": "Stephen Curry",
      "is_keeper": true,
-     "then": 88,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -3082,10 +3082,10 @@
      "manager": "Garrett",
      "player": "James Harden",
      "is_keeper": true,
-     "then": 99,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -3094,10 +3094,10 @@
      "manager": "Hayden",
      "player": "Russell Westbrook",
      "is_keeper": true,
-     "then": 88,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3106,10 +3106,10 @@
      "manager": "Benton",
      "player": "Fred VanVleet",
      "is_keeper": true,
-     "then": 79,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -3121,7 +3121,7 @@
      "then": 89,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -3130,10 +3130,10 @@
      "manager": "Hayden",
      "player": "Nikola Jokic",
      "is_keeper": true,
-     "then": 94,
+     "then": 91,
      "then_reason": null,
      "then_point": "open",
-     "later": 99,
+     "later": 95,
      "later_reason": null
     },
     {
@@ -3142,10 +3142,10 @@
      "manager": "Garrett",
      "player": "Giannis Antetokounmpo",
      "is_keeper": true,
-     "then": 94,
+     "then": 90,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 91,
      "later_reason": null
     },
     {
@@ -3154,10 +3154,10 @@
      "manager": "Nick",
      "player": "Luka Doncic",
      "is_keeper": true,
-     "then": 90,
+     "then": 96,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 93,
      "later_reason": null
     }
    ]
@@ -3174,10 +3174,10 @@
      "manager": "Hayden",
      "player": "Kyrie Irving",
      "is_keeper": false,
-     "then": 76,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -3186,10 +3186,10 @@
      "manager": "Nick",
      "player": "Paul George",
      "is_keeper": false,
-     "then": 74,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -3198,10 +3198,10 @@
      "manager": "Garrett",
      "player": "Devin Booker",
      "is_keeper": false,
-     "then": 75,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -3210,10 +3210,10 @@
      "manager": "Benton",
      "player": "Ja Morant",
      "is_keeper": false,
-     "then": 71,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -3222,10 +3222,10 @@
      "manager": "Hayden",
      "player": "Pascal Siakam",
      "is_keeper": false,
-     "then": 76,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -3234,7 +3234,7 @@
      "manager": "Nick",
      "player": "Cade Cunningham",
      "is_keeper": false,
-     "then": 64,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -3246,10 +3246,10 @@
      "manager": "Garrett",
      "player": "Kawhi Leonard",
      "is_keeper": false,
-     "then": 74,
+     "then": 78,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 76,
+     "then_point": "open",
+     "later": 82,
      "later_reason": null
     },
     {
@@ -3258,10 +3258,10 @@
      "manager": "Benton",
      "player": "Nikola Vucevic",
      "is_keeper": false,
-     "then": 86,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -3270,10 +3270,10 @@
      "manager": "Hayden",
      "player": "Bam Adebayo",
      "is_keeper": false,
-     "then": 74,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3282,10 +3282,10 @@
      "manager": "Nick",
      "player": "Rudy Gobert",
      "is_keeper": false,
-     "then": 79,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 66,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -3294,10 +3294,10 @@
      "manager": "Garrett",
      "player": "Jimmy Butler III",
      "is_keeper": false,
-     "then": 76,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3306,10 +3306,10 @@
      "manager": "Benton",
      "player": "Chris Paul",
      "is_keeper": false,
-     "then": 80,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3318,10 +3318,10 @@
      "manager": "Hayden",
      "player": "Zach LaVine",
      "is_keeper": false,
-     "then": 78,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3330,10 +3330,10 @@
      "manager": "Nick",
      "player": "Bradley Beal",
      "is_keeper": false,
-     "then": 79,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -3342,10 +3342,10 @@
      "manager": "Garrett",
      "player": "Jaylen Brown",
      "is_keeper": false,
-     "then": 73,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -3354,10 +3354,10 @@
      "manager": "Benton",
      "player": "DeMar DeRozan",
      "is_keeper": false,
-     "then": 71,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -3366,10 +3366,10 @@
      "manager": "Hayden",
      "player": "CJ McCollum",
      "is_keeper": false,
-     "then": 75,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3378,10 +3378,10 @@
      "manager": "Hayden",
      "player": "De'Aaron Fox",
      "is_keeper": false,
-     "then": 72,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -3402,10 +3402,10 @@
      "manager": "Benton",
      "player": "Julius Randle",
      "is_keeper": false,
-     "then": 81,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 87,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -3414,10 +3414,10 @@
      "manager": "Hayden",
      "player": "Scottie Barnes",
      "is_keeper": false,
-     "then": 60,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 69,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -3426,10 +3426,10 @@
      "manager": "Nick",
      "player": "Desmond Bane",
      "is_keeper": false,
-     "then": 78,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 74,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -3438,10 +3438,10 @@
      "manager": "Garrett",
      "player": "Kristaps Porzingis",
      "is_keeper": false,
-     "then": 73,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -3450,10 +3450,10 @@
      "manager": "Benton",
      "player": "Deandre Ayton",
      "is_keeper": false,
-     "then": 64,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 65,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -3465,7 +3465,7 @@
      "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 69,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -3474,7 +3474,7 @@
      "manager": "Nick",
      "player": "Khris Middleton",
      "is_keeper": false,
-     "then": 74,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -3486,10 +3486,10 @@
      "manager": "Garrett",
      "player": "Paolo Banchero",
      "is_keeper": false,
-     "then": 76,
+     "then": 75,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 63,
+     "then_point": "open",
+     "later": 74,
      "later_reason": null
     },
     {
@@ -3498,9 +3498,9 @@
      "manager": "Benton",
      "player": "Michael Porter Jr.",
      "is_keeper": false,
-     "then": 71,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
     },
@@ -3510,10 +3510,10 @@
      "manager": "Hayden",
      "player": "Nikola Jokic",
      "is_keeper": true,
-     "then": 99,
+     "then": 92,
      "then_reason": null,
      "then_point": "open",
-     "later": 99,
+     "later": 94,
      "later_reason": null
     },
     {
@@ -3522,10 +3522,10 @@
      "manager": "Nick",
      "player": "Joel Embiid",
      "is_keeper": true,
-     "then": 86,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -3534,10 +3534,10 @@
      "manager": "Garrett",
      "player": "Kevin Durant",
      "is_keeper": true,
-     "then": 79,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -3546,10 +3546,10 @@
      "manager": "Benton",
      "player": "Jayson Tatum",
      "is_keeper": true,
-     "then": 88,
+     "then": 89,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -3558,10 +3558,10 @@
      "manager": "Hayden",
      "player": "LaMelo Ball",
      "is_keeper": true,
-     "then": 80,
+     "then": 89,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -3570,10 +3570,10 @@
      "manager": "Nick",
      "player": "Luka Doncic",
      "is_keeper": true,
-     "then": 94,
+     "then": 97,
      "then_reason": null,
      "then_point": "open",
-     "later": 99,
+     "later": 95,
      "later_reason": null
     },
     {
@@ -3582,10 +3582,10 @@
      "manager": "Garrett",
      "player": "Giannis Antetokounmpo",
      "is_keeper": true,
-     "then": 94,
+     "then": 88,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -3594,10 +3594,10 @@
      "manager": "Benton",
      "player": "Karl-Anthony Towns",
      "is_keeper": true,
-     "then": 86,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -3606,10 +3606,10 @@
      "manager": "Hayden",
      "player": "Tyrese Haliburton",
      "is_keeper": true,
-     "then": 79,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 87,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -3618,7 +3618,7 @@
      "manager": "Nick",
      "player": "Stephen Curry",
      "is_keeper": true,
-     "then": 88,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
      "later": 90,
@@ -3630,10 +3630,10 @@
      "manager": "Garrett",
      "player": "James Harden",
      "is_keeper": true,
-     "then": 97,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -3642,10 +3642,10 @@
      "manager": "Benton",
      "player": "Trae Young",
      "is_keeper": true,
-     "then": 88,
+     "then": 90,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -3654,10 +3654,10 @@
      "manager": "Hayden",
      "player": "Zion Williamson",
      "is_keeper": true,
-     "then": 67,
+     "then": 82,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 66,
+     "then_point": "open",
+     "later": 79,
      "later_reason": null
     },
     {
@@ -3666,10 +3666,10 @@
      "manager": "Nick",
      "player": "Anthony Davis",
      "is_keeper": true,
-     "then": 78,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -3678,10 +3678,10 @@
      "manager": "Garrett",
      "player": "LeBron James",
      "is_keeper": true,
-     "then": 93,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -3690,10 +3690,10 @@
      "manager": "Benton",
      "player": "Fred VanVleet",
      "is_keeper": true,
-     "then": 81,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -3702,10 +3702,10 @@
      "manager": "Hayden",
      "player": "Evan Mobley",
      "is_keeper": true,
-     "then": 61,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 66,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -3714,10 +3714,10 @@
      "manager": "Nick",
      "player": "Damian Lillard",
      "is_keeper": true,
-     "then": 86,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -3726,10 +3726,10 @@
      "manager": "Garrett",
      "player": "Domantas Sabonis",
      "is_keeper": true,
-     "then": 81,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -3738,7 +3738,7 @@
      "manager": "Benton",
      "player": "Dejounte Murray",
      "is_keeper": true,
-     "then": 87,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
      "later": 83,
@@ -3750,10 +3750,10 @@
      "manager": "Hayden",
      "player": "Shai Gilgeous-Alexander",
      "is_keeper": true,
-     "then": 73,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 87,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -3762,10 +3762,10 @@
      "manager": "Nick",
      "player": "Anthony Edwards",
      "is_keeper": true,
-     "then": 72,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -3774,10 +3774,10 @@
      "manager": "Garrett",
      "player": "Donovan Mitchell",
      "is_keeper": true,
-     "then": 78,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -3786,10 +3786,10 @@
      "manager": "Benton",
      "player": "Darius Garland",
      "is_keeper": true,
-     "then": 78,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 81,
      "later_reason": null
     }
    ]
@@ -3806,10 +3806,10 @@
      "manager": "Nick",
      "player": "Mikal Bridges",
      "is_keeper": false,
-     "then": 73,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 69,
+     "later": 77,
      "later_reason": null
     },
     {
@@ -3818,7 +3818,7 @@
      "manager": "Garrett",
      "player": "Jaren Jackson Jr.",
      "is_keeper": false,
-     "then": 74,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -3830,10 +3830,10 @@
      "manager": "Hayden",
      "player": "Pascal Siakam",
      "is_keeper": false,
-     "then": 79,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -3842,10 +3842,10 @@
      "manager": "Benton",
      "player": "Lauri Markkanen",
      "is_keeper": false,
-     "then": 81,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -3854,10 +3854,10 @@
      "manager": "Nick",
      "player": "Bam Adebayo",
      "is_keeper": false,
-     "then": 73,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3869,7 +3869,7 @@
      "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -3878,7 +3878,7 @@
      "manager": "Hayden",
      "player": "LeBron James",
      "is_keeper": false,
-     "then": 88,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": 87,
@@ -3890,10 +3890,10 @@
      "manager": "Benton",
      "player": "Kristaps Porzingis",
      "is_keeper": false,
-     "then": 76,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3902,7 +3902,7 @@
      "manager": "Nick",
      "player": "Darius Garland",
      "is_keeper": false,
-     "then": 79,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -3914,9 +3914,9 @@
      "manager": "Garrett",
      "player": "Victor Wembanyama",
      "is_keeper": false,
-     "then": 77,
+     "then": 76,
      "then_reason": null,
-     "then_point": "week2",
+     "then_point": "open",
      "later": 87,
      "later_reason": null
     },
@@ -3926,10 +3926,10 @@
      "manager": "Hayden",
      "player": "Cade Cunningham",
      "is_keeper": false,
-     "then": 67,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -3938,10 +3938,10 @@
      "manager": "Benton",
      "player": "Dejounte Murray",
      "is_keeper": false,
-     "then": 84,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -3950,10 +3950,10 @@
      "manager": "Nick",
      "player": "Jamal Murray",
      "is_keeper": false,
-     "then": 79,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -3965,7 +3965,7 @@
      "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -3974,7 +3974,7 @@
      "manager": "Hayden",
      "player": "Jrue Holiday",
      "is_keeper": false,
-     "then": 77,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -3986,7 +3986,7 @@
      "manager": "Benton",
      "player": "Zach LaVine",
      "is_keeper": false,
-     "then": 78,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -3998,10 +3998,10 @@
      "manager": "Nick",
      "player": "Scottie Barnes",
      "is_keeper": false,
-     "then": 68,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -4010,10 +4010,10 @@
      "manager": "Garrett",
      "player": "Brandon Ingram",
      "is_keeper": false,
-     "then": 74,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -4022,10 +4022,10 @@
      "manager": "Hayden",
      "player": "Alperen Sengun",
      "is_keeper": false,
-     "then": 61,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 74,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -4034,7 +4034,7 @@
      "manager": "Benton",
      "player": "Josh Giddey",
      "is_keeper": false,
-     "then": 72,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4046,10 +4046,10 @@
      "manager": "Nick",
      "player": "Nikola Vucevic",
      "is_keeper": false,
-     "then": 87,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -4058,7 +4058,7 @@
      "manager": "Garrett",
      "player": "Bradley Beal",
      "is_keeper": false,
-     "then": 71,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4070,7 +4070,7 @@
      "manager": "Hayden",
      "player": "Kyle Kuzma",
      "is_keeper": false,
-     "then": 71,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4082,8 +4082,8 @@
      "manager": "Benton",
      "player": "Scoot Henderson",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no earlier season of his in the league log: his opening-day level is the league average; none at week 2 either (not on a roster that day)",
+     "then": 72,
+     "then_reason": null,
      "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
@@ -4094,7 +4094,7 @@
      "manager": "Nick",
      "player": "Anfernee Simons",
      "is_keeper": false,
-     "then": 68,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4106,7 +4106,7 @@
      "manager": "Garrett",
      "player": "Jaylen Brown",
      "is_keeper": false,
-     "then": 76,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4118,10 +4118,10 @@
      "manager": "Hayden",
      "player": "Jimmy Butler III",
      "is_keeper": false,
-     "then": 77,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -4130,8 +4130,8 @@
      "manager": "Benton",
      "player": "Nic Claxton",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no earlier season of his in the league log: his opening-day level is the league average; none at week 2 either (not on a roster that day)",
+     "then": 75,
+     "then_reason": null,
      "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
@@ -4142,7 +4142,7 @@
      "manager": "Nick",
      "player": "Luka Doncic",
      "is_keeper": true,
-     "then": 93,
+     "then": 96,
      "then_reason": null,
      "then_point": "open",
      "later": 99,
@@ -4154,10 +4154,10 @@
      "manager": "Garrett",
      "player": "Giannis Antetokounmpo",
      "is_keeper": true,
-     "then": 91,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -4166,10 +4166,10 @@
      "manager": "Hayden",
      "player": "Nikola Jokic",
      "is_keeper": true,
-     "then": 99,
+     "then": 93,
      "then_reason": null,
      "then_point": "open",
-     "later": 97,
+     "later": 95,
      "later_reason": null
     },
     {
@@ -4181,7 +4181,7 @@
      "then": 90,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -4190,10 +4190,10 @@
      "manager": "Nick",
      "player": "Joel Embiid",
      "is_keeper": true,
-     "then": 90,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 92,
      "later_reason": null
     },
     {
@@ -4202,10 +4202,10 @@
      "manager": "Garrett",
      "player": "Kevin Durant",
      "is_keeper": true,
-     "then": 80,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -4214,10 +4214,10 @@
      "manager": "Hayden",
      "player": "Shai Gilgeous-Alexander",
      "is_keeper": true,
-     "then": 78,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -4226,10 +4226,10 @@
      "manager": "Benton",
      "player": "Trae Young",
      "is_keeper": true,
-     "then": 86,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 86,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -4238,10 +4238,10 @@
      "manager": "Nick",
      "player": "Stephen Curry",
      "is_keeper": true,
-     "then": 91,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -4253,7 +4253,7 @@
      "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -4262,10 +4262,10 @@
      "manager": "Hayden",
      "player": "Tyrese Haliburton",
      "is_keeper": true,
-     "then": 85,
+     "then": 89,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 91,
      "later_reason": null
     },
     {
@@ -4274,10 +4274,10 @@
      "manager": "Benton",
      "player": "Desmond Bane",
      "is_keeper": true,
-     "then": 75,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -4286,10 +4286,10 @@
      "manager": "Nick",
      "player": "Damian Lillard",
      "is_keeper": true,
-     "then": 85,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -4298,10 +4298,10 @@
      "manager": "Garrett",
      "player": "Devin Booker",
      "is_keeper": true,
-     "then": 78,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -4310,10 +4310,10 @@
      "manager": "Hayden",
      "player": "Kyrie Irving",
      "is_keeper": true,
-     "then": 80,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -4322,10 +4322,10 @@
      "manager": "Benton",
      "player": "Fred VanVleet",
      "is_keeper": true,
-     "then": 84,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -4334,10 +4334,10 @@
      "manager": "Nick",
      "player": "Anthony Davis",
      "is_keeper": true,
-     "then": 78,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -4346,10 +4346,10 @@
      "manager": "Garrett",
      "player": "Donovan Mitchell",
      "is_keeper": true,
-     "then": 82,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -4358,10 +4358,10 @@
      "manager": "Hayden",
      "player": "LaMelo Ball",
      "is_keeper": true,
-     "then": 80,
+     "then": 93,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -4370,10 +4370,10 @@
      "manager": "Benton",
      "player": "Karl-Anthony Towns",
      "is_keeper": true,
-     "then": 80,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -4382,10 +4382,10 @@
      "manager": "Nick",
      "player": "Anthony Edwards",
      "is_keeper": true,
-     "then": 78,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -4394,10 +4394,10 @@
      "manager": "Garrett",
      "player": "James Harden",
      "is_keeper": true,
-     "then": 91,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -4406,10 +4406,10 @@
      "manager": "Hayden",
      "player": "De'Aaron Fox",
      "is_keeper": true,
-     "then": 76,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -4418,10 +4418,10 @@
      "manager": "Benton",
      "player": "Julius Randle",
      "is_keeper": true,
-     "then": 86,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 81,
      "later_reason": null
     }
    ]
@@ -4438,10 +4438,10 @@
      "manager": "Benton",
      "player": "James Harden",
      "is_keeper": false,
-     "then": 89,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 87,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -4450,7 +4450,7 @@
      "manager": "Garrett",
      "player": "Karl-Anthony Towns",
      "is_keeper": false,
-     "then": 75,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
      "later": 87,
@@ -4462,10 +4462,10 @@
      "manager": "Hayden",
      "player": "Paolo Banchero",
      "is_keeper": false,
-     "then": 60,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 67,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -4474,10 +4474,10 @@
      "manager": "Benton",
      "player": "Kevin Durant",
      "is_keeper": false,
-     "then": 84,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -4486,10 +4486,10 @@
      "manager": "Benton",
      "player": "Cade Cunningham",
      "is_keeper": false,
-     "then": 68,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -4498,10 +4498,10 @@
      "manager": "Garrett",
      "player": "LeBron James",
      "is_keeper": false,
-     "then": 89,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -4510,10 +4510,10 @@
      "manager": "Hayden",
      "player": "Jalen Williams",
      "is_keeper": false,
-     "then": 67,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 79,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -4522,7 +4522,7 @@
      "manager": "Nick",
      "player": "Damian Lillard",
      "is_keeper": false,
-     "then": 84,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": 86,
@@ -4534,10 +4534,10 @@
      "manager": "Nick",
      "player": "Fred VanVleet",
      "is_keeper": false,
-     "then": 85,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -4546,10 +4546,10 @@
      "manager": "Garrett",
      "player": "Ja Morant",
      "is_keeper": false,
-     "then": 76,
+     "then": 85,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 69,
+     "then_point": "open",
+     "later": 79,
      "later_reason": null
     },
     {
@@ -4558,7 +4558,7 @@
      "manager": "Hayden",
      "player": "Kyrie Irving",
      "is_keeper": false,
-     "then": 81,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4570,7 +4570,7 @@
      "manager": "Nick",
      "player": "Nikola Vucevic",
      "is_keeper": false,
-     "then": 80,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4582,10 +4582,10 @@
      "manager": "Benton",
      "player": "Desmond Bane",
      "is_keeper": false,
-     "then": 73,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 74,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -4594,10 +4594,10 @@
      "manager": "Garrett",
      "player": "Paul George",
      "is_keeper": false,
-     "then": 78,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 70,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -4606,7 +4606,7 @@
      "manager": "Hayden",
      "player": "Jalen Johnson",
      "is_keeper": false,
-     "then": 76,
+     "then": 74,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4618,7 +4618,7 @@
      "manager": "Nick",
      "player": "Mikal Bridges",
      "is_keeper": false,
-     "then": 60,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4630,10 +4630,10 @@
      "manager": "Benton",
      "player": "Evan Mobley",
      "is_keeper": false,
-     "then": 62,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -4642,10 +4642,10 @@
      "manager": "Garrett",
      "player": "Jamal Murray",
      "is_keeper": false,
-     "then": 79,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -4654,10 +4654,10 @@
      "manager": "Hayden",
      "player": "Franz Wagner",
      "is_keeper": false,
-     "then": 62,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 71,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -4669,7 +4669,7 @@
      "then": null,
      "then_reason": "not on a roster that day",
      "then_point": "open",
-     "later": 68,
+     "later": 76,
      "later_reason": null
     },
     {
@@ -4678,10 +4678,10 @@
      "manager": "Benton",
      "player": "Bam Adebayo",
      "is_keeper": false,
-     "then": 70,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -4690,10 +4690,10 @@
      "manager": "Garrett",
      "player": "Miles Bridges",
      "is_keeper": false,
-     "then": 75,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -4702,10 +4702,10 @@
      "manager": "Hayden",
      "player": "Jaren Jackson Jr.",
      "is_keeper": false,
-     "then": 69,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -4714,7 +4714,7 @@
      "manager": "Nick",
      "player": "Rudy Gobert",
      "is_keeper": false,
-     "then": 69,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4726,7 +4726,7 @@
      "manager": "Benton",
      "player": "Jaylen Brown",
      "is_keeper": false,
-     "then": 72,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4738,7 +4738,7 @@
      "manager": "Garrett",
      "player": "Anfernee Simons",
      "is_keeper": false,
-     "then": 65,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4750,7 +4750,7 @@
      "manager": "Hayden",
      "player": "Immanuel Quickley",
      "is_keeper": false,
-     "then": 75,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4762,8 +4762,8 @@
      "manager": "Nick",
      "player": "Jabari Smith Jr.",
      "is_keeper": false,
-     "then": null,
-     "then_reason": "no earlier season of his in the league log: his opening-day level is the league average; none at week 2 either (not on a roster that day)",
+     "then": 78,
+     "then_reason": null,
      "then_point": "open",
      "later": null,
      "later_reason": "not on a roster that day"
@@ -4774,7 +4774,7 @@
      "manager": "Benton",
      "player": "Dejounte Murray",
      "is_keeper": true,
-     "then": 85,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4786,10 +4786,10 @@
      "manager": "Garrett",
      "player": "Jalen Brunson",
      "is_keeper": true,
-     "then": 75,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -4798,10 +4798,10 @@
      "manager": "Hayden",
      "player": "Alperen Sengun",
      "is_keeper": true,
-     "then": 71,
+     "then": 83,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -4810,10 +4810,10 @@
      "manager": "Nick",
      "player": "Chet Holmgren",
      "is_keeper": true,
-     "then": 77,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 66,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -4822,7 +4822,7 @@
      "manager": "Benton",
      "player": "Lauri Markkanen",
      "is_keeper": true,
-     "then": 80,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -4834,10 +4834,10 @@
      "manager": "Garrett",
      "player": "Domantas Sabonis",
      "is_keeper": true,
-     "then": 89,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -4846,10 +4846,10 @@
      "manager": "Hayden",
      "player": "De'Aaron Fox",
      "is_keeper": true,
-     "then": 78,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -4858,10 +4858,10 @@
      "manager": "Nick",
      "player": "Scottie Barnes",
      "is_keeper": true,
-     "then": 72,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -4870,10 +4870,10 @@
      "manager": "Benton",
      "player": "Tyrese Maxey",
      "is_keeper": true,
-     "then": 80,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -4882,10 +4882,10 @@
      "manager": "Garrett",
      "player": "Devin Booker",
      "is_keeper": true,
-     "then": 80,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 81,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -4894,10 +4894,10 @@
      "manager": "Hayden",
      "player": "LaMelo Ball",
      "is_keeper": true,
-     "then": 81,
+     "then": 93,
      "then_reason": null,
      "then_point": "open",
-     "later": 80,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -4906,10 +4906,10 @@
      "manager": "Nick",
      "player": "Joel Embiid",
      "is_keeper": true,
-     "then": 90,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 68,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -4918,10 +4918,10 @@
      "manager": "Benton",
      "player": "Stephen Curry",
      "is_keeper": true,
-     "then": 89,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -4930,10 +4930,10 @@
      "manager": "Garrett",
      "player": "Donovan Mitchell",
      "is_keeper": true,
-     "then": 83,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -4942,10 +4942,10 @@
      "manager": "Hayden",
      "player": "Tyrese Haliburton",
      "is_keeper": true,
-     "then": 89,
+     "then": 92,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -4954,10 +4954,10 @@
      "manager": "Nick",
      "player": "Anthony Edwards",
      "is_keeper": true,
-     "then": 78,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -4966,10 +4966,10 @@
      "manager": "Benton",
      "player": "Trae Young",
      "is_keeper": true,
-     "then": 86,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -4978,10 +4978,10 @@
      "manager": "Garrett",
      "player": "Giannis Antetokounmpo",
      "is_keeper": true,
-     "then": 92,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 89,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -4990,10 +4990,10 @@
      "manager": "Hayden",
      "player": "Shai Gilgeous-Alexander",
      "is_keeper": true,
-     "then": 85,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 91,
      "later_reason": null
     },
     {
@@ -5002,10 +5002,10 @@
      "manager": "Nick",
      "player": "Anthony Davis",
      "is_keeper": true,
-     "then": 90,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -5014,10 +5014,10 @@
      "manager": "Benton",
      "player": "Jayson Tatum",
      "is_keeper": true,
-     "then": 94,
+     "then": 90,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -5026,10 +5026,10 @@
      "manager": "Garrett",
      "player": "Victor Wembanyama",
      "is_keeper": true,
-     "then": 92,
+     "then": 90,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 94,
      "later_reason": null
     },
     {
@@ -5038,7 +5038,7 @@
      "manager": "Hayden",
      "player": "Nikola Jokic",
      "is_keeper": true,
-     "then": 99,
+     "then": 92,
      "then_reason": null,
      "then_point": "open",
      "later": 99,
@@ -5050,10 +5050,10 @@
      "manager": "Nick",
      "player": "Luka Doncic",
      "is_keeper": true,
-     "then": 97,
+     "then": 98,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 95,
      "later_reason": null
     }
    ]
@@ -5070,10 +5070,10 @@
      "manager": "Garrett",
      "player": "Cooper Flagg",
      "is_keeper": false,
-     "then": 70,
+     "then": 75,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 74,
+     "then_point": "open",
+     "later": 78,
      "later_reason": null
     },
     {
@@ -5082,7 +5082,7 @@
      "manager": "Benton",
      "player": "Devin Booker",
      "is_keeper": false,
-     "then": 79,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -5094,10 +5094,10 @@
      "manager": "Hayden",
      "player": "Stephen Curry",
      "is_keeper": false,
-     "then": 87,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -5106,10 +5106,10 @@
      "manager": "Benton",
      "player": "James Harden",
      "is_keeper": false,
-     "then": 88,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 88,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -5118,10 +5118,10 @@
      "manager": "Garrett",
      "player": "Kevin Durant",
      "is_keeper": false,
-     "then": 80,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -5130,10 +5130,10 @@
      "manager": "Benton",
      "player": "Josh Giddey",
      "is_keeper": false,
-     "then": 77,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -5142,7 +5142,7 @@
      "manager": "Hayden",
      "player": "Alperen Sengun",
      "is_keeper": false,
-     "then": 81,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
      "later": 84,
@@ -5154,10 +5154,10 @@
      "manager": "Benton",
      "player": "Jaylen Brown",
      "is_keeper": false,
-     "then": 75,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 84,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -5166,10 +5166,10 @@
      "manager": "Garrett",
      "player": "Tyler Herro",
      "is_keeper": false,
-     "then": 75,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 64,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -5178,7 +5178,7 @@
      "manager": "Benton",
      "player": "LeBron James",
      "is_keeper": false,
-     "then": 81,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
      "later": 80,
@@ -5190,10 +5190,10 @@
      "manager": "Hayden",
      "player": "Pascal Siakam",
      "is_keeper": false,
-     "then": 78,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -5202,10 +5202,10 @@
      "manager": "Garrett",
      "player": "Josh Hart",
      "is_keeper": false,
-     "then": 82,
+     "then": 75,
      "then_reason": null,
      "then_point": "open",
-     "later": 70,
+     "later": 75,
      "later_reason": null
     },
     {
@@ -5214,10 +5214,10 @@
      "manager": "Garrett",
      "player": "Jamal Murray",
      "is_keeper": false,
-     "then": 77,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -5226,10 +5226,10 @@
      "manager": "Benton",
      "player": "Bam Adebayo",
      "is_keeper": false,
-     "then": 77,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -5241,7 +5241,7 @@
      "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 76,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -5250,7 +5250,7 @@
      "manager": "Nick",
      "player": "Trey Murphy III",
      "is_keeper": false,
-     "then": 78,
+     "then": 79,
      "then_reason": null,
      "then_point": "open",
      "later": 83,
@@ -5262,10 +5262,10 @@
      "manager": "Nick",
      "player": "Brandon Miller",
      "is_keeper": false,
-     "then": 74,
+     "then": 78,
      "then_reason": null,
      "then_point": "open",
-     "later": 72,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -5274,10 +5274,10 @@
      "manager": "Benton",
      "player": "Derrick White",
      "is_keeper": false,
-     "then": 79,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -5286,7 +5286,7 @@
      "manager": "Hayden",
      "player": "Ja Morant",
      "is_keeper": false,
-     "then": 73,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -5298,7 +5298,7 @@
      "manager": "Nick",
      "player": "Ivica Zubac",
      "is_keeper": false,
-     "then": 79,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -5310,10 +5310,10 @@
      "manager": "Garrett",
      "player": "Desmond Bane",
      "is_keeper": false,
-     "then": 74,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -5322,10 +5322,10 @@
      "manager": "Nick",
      "player": "Joel Embiid",
      "is_keeper": false,
-     "then": 77,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -5334,10 +5334,10 @@
      "manager": "Hayden",
      "player": "Franz Wagner",
      "is_keeper": false,
-     "then": 74,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 68,
+     "later": 79,
      "later_reason": null
     },
     {
@@ -5346,10 +5346,10 @@
      "manager": "Nick",
      "player": "Austin Reaves",
      "is_keeper": false,
-     "then": 78,
+     "then": 77,
      "then_reason": null,
      "then_point": "open",
-     "later": 74,
+     "later": 80,
      "later_reason": null
     },
     {
@@ -5358,7 +5358,7 @@
      "manager": "Garrett",
      "player": "Darius Garland",
      "is_keeper": false,
-     "then": 77,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
      "later": null,
@@ -5382,10 +5382,10 @@
      "manager": "Hayden",
      "player": "Zion Williamson",
      "is_keeper": false,
-     "then": 68,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 65,
+     "later": 75,
      "later_reason": null
     },
     {
@@ -5394,10 +5394,10 @@
      "manager": "Nick",
      "player": "Deni Avdija",
      "is_keeper": false,
-     "then": 91,
+     "then": 77,
      "then_reason": null,
-     "then_point": "week2",
-     "later": 85,
+     "then_point": "open",
+     "later": 82,
      "later_reason": null
     },
     {
@@ -5406,10 +5406,10 @@
      "manager": "Garrett",
      "player": "Victor Wembanyama",
      "is_keeper": true,
-     "then": 89,
+     "then": 96,
      "then_reason": null,
      "then_point": "open",
-     "later": 92,
+     "later": 91,
      "later_reason": null
     },
     {
@@ -5418,10 +5418,10 @@
      "manager": "Benton",
      "player": "Cade Cunningham",
      "is_keeper": true,
-     "then": 80,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 93,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -5430,10 +5430,10 @@
      "manager": "Hayden",
      "player": "Nikola Jokic",
      "is_keeper": true,
-     "then": 99,
+     "then": 93,
      "then_reason": null,
      "then_point": "open",
-     "later": 99,
+     "later": 98,
      "later_reason": null
     },
     {
@@ -5442,10 +5442,10 @@
      "manager": "Nick",
      "player": "Luka Doncic",
      "is_keeper": true,
-     "then": 95,
+     "then": 96,
      "then_reason": null,
      "then_point": "open",
-     "later": 97,
+     "later": 95,
      "later_reason": null
     },
     {
@@ -5454,10 +5454,10 @@
      "manager": "Garrett",
      "player": "Giannis Antetokounmpo",
      "is_keeper": true,
-     "then": 90,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 82,
+     "later": 85,
      "later_reason": null
     },
     {
@@ -5466,10 +5466,10 @@
      "manager": "Benton",
      "player": "Trae Young",
      "is_keeper": true,
-     "then": 84,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 66,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -5478,10 +5478,10 @@
      "manager": "Hayden",
      "player": "Shai Gilgeous-Alexander",
      "is_keeper": true,
-     "then": 90,
+     "then": 88,
      "then_reason": null,
      "then_point": "open",
-     "later": 90,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -5490,10 +5490,10 @@
      "manager": "Nick",
      "player": "Anthony Davis",
      "is_keeper": true,
-     "then": 86,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 73,
+     "later": 83,
      "later_reason": null
     },
     {
@@ -5502,10 +5502,10 @@
      "manager": "Garrett",
      "player": "Karl-Anthony Towns",
      "is_keeper": true,
-     "then": 76,
+     "then": 81,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -5514,10 +5514,10 @@
      "manager": "Benton",
      "player": "Tyrese Maxey",
      "is_keeper": true,
-     "then": 80,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 95,
+     "later": 90,
      "later_reason": null
     },
     {
@@ -5526,10 +5526,10 @@
      "manager": "Hayden",
      "player": "LaMelo Ball",
      "is_keeper": true,
-     "then": 73,
+     "then": 88,
      "then_reason": null,
      "then_point": "open",
-     "later": 83,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -5538,7 +5538,7 @@
      "manager": "Nick",
      "player": "Anthony Edwards",
      "is_keeper": true,
-     "then": 85,
+     "then": 88,
      "then_reason": null,
      "then_point": "open",
      "later": 86,
@@ -5550,7 +5550,7 @@
      "manager": "Garrett",
      "player": "Jalen Brunson",
      "is_keeper": true,
-     "then": 79,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
      "later": 82,
@@ -5565,7 +5565,7 @@
      "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 88,
+     "later": 86,
      "later_reason": null
     },
     {
@@ -5574,10 +5574,10 @@
      "manager": "Hayden",
      "player": "Jalen Williams",
      "is_keeper": true,
-     "then": 73,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 65,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -5586,10 +5586,10 @@
      "manager": "Nick",
      "player": "Amen Thompson",
      "is_keeper": true,
-     "then": 78,
+     "then": 76,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 78,
      "later_reason": null
     },
     {
@@ -5598,10 +5598,10 @@
      "manager": "Garrett",
      "player": "Domantas Sabonis",
      "is_keeper": true,
-     "then": 91,
+     "then": 85,
      "then_reason": null,
      "then_point": "open",
-     "later": 69,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -5610,10 +5610,10 @@
      "manager": "Benton",
      "player": "Evan Mobley",
      "is_keeper": true,
-     "then": 76,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 77,
+     "later": 82,
      "later_reason": null
     },
     {
@@ -5622,10 +5622,10 @@
      "manager": "Hayden",
      "player": "Tyrese Haliburton",
      "is_keeper": true,
-     "then": 89,
+     "then": 87,
      "then_reason": null,
      "then_point": "open",
-     "later": 63,
+     "later": 87,
      "later_reason": null
     },
     {
@@ -5634,10 +5634,10 @@
      "manager": "Nick",
      "player": "Jalen Johnson",
      "is_keeper": true,
-     "then": 75,
+     "then": 80,
      "then_reason": null,
      "then_point": "open",
-     "later": 91,
+     "later": 88,
      "later_reason": null
     },
     {
@@ -5646,10 +5646,10 @@
      "manager": "Garrett",
      "player": "Scottie Barnes",
      "is_keeper": true,
-     "then": 77,
+     "then": 86,
      "then_reason": null,
      "then_point": "open",
-     "later": 85,
+     "later": 84,
      "later_reason": null
     },
     {
@@ -5658,10 +5658,10 @@
      "manager": "Benton",
      "player": "Jayson Tatum",
      "is_keeper": true,
-     "then": 92,
+     "then": 89,
      "then_reason": null,
      "then_point": "open",
-     "later": 64,
+     "later": 89,
      "later_reason": null
     },
     {
@@ -5670,10 +5670,10 @@
      "manager": "Hayden",
      "player": "Paolo Banchero",
      "is_keeper": true,
-     "then": 72,
+     "then": 84,
      "then_reason": null,
      "then_point": "open",
-     "later": 78,
+     "later": 81,
      "later_reason": null
     },
     {
@@ -5682,14 +5682,14 @@
      "manager": "Nick",
      "player": "Chet Holmgren",
      "is_keeper": true,
-     "then": 73,
+     "then": 82,
      "then_reason": null,
      "then_point": "open",
-     "later": 75,
+     "later": 80,
      "later_reason": null
     }
    ]
   }
  },
- "note": "THEN: his OVR on the season's opening day, or at the week-2 point where opening day has none (then_point week2); LATER: his OVR at the trade-deadline point (modules/draft_ovr). Built by scripts/build_draft_ovr.py."
+ "note": "4a4: the skill OVR, point in time. THEN: his OVR on the season's opening day; LATER: his OVR at the trade-deadline point (modules/draft_ovr). Built by scripts/build_draft_ovr.py."
 }

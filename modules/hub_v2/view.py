@@ -480,7 +480,9 @@ def players(payload: dict, teams: dict) -> dict:
                      "chip": {"text": z["chip"]["text"], "cls": team_cls(slot) if slot else "",
                               "team": z["chip"]["team"], "m": z["m"]},
                      "meta": z["meta"], "ovr": z["ovr"], "ovr_d": z["ovr_d"], "pot": z["pot"], "fppg": z["fppg"],
+                     "dur": z.get("dur", "\u2014"), "prov": bool(z.get("prov")),
                      "next": z["next"], "chips": z["chips"], "kind": z["kind"],
+                     "arch": (z.get("arch") or {}).get("label") or "",             # 4a4 s.3: only when on
                      "data": {"q": z["q"], "k": z["f"]["k"], "pos": " ".join(z["f"]["pos"]), "nba": z["f"]["nba"],
                               "age": z["f"]["age"], "h": z["f"]["h"]}})
     risers = None
@@ -494,6 +496,7 @@ def players(payload: dict, teams: dict) -> dict:
         cmp["rows"][r["key"]] = {"name": z["name"], "team": z["chip"]["team"], "chip": z["chip"]["text"],
                                  "cls": r["chip"]["cls"], "ovr": z["ovr"], "ring": (z["ring"] or {}).get("cmp") or "",
                                  "ini": z["ini"], "cmp": z["cmp"], "fa": z["kind"] == "fa",
+                                 "prov": bool(z.get("prov")),
                                  "arch": (z.get("arch") or {}).get("label") or "",
                                  "arch_preview": bool((z.get("arch") or {}).get("preview"))}
     f = pl["filters"]

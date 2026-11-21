@@ -159,11 +159,12 @@ def test_a_team_missing_from_the_schedule_raises_naming_the_player(history):
 def test_too_few_games_gives_none_with_a_reason(history):
     res, _ = rate_at(history, "2024-25", "week2")              # nobody has 16 games at week 2
     for p in res["players"].values():
-        for attr in ("durability", "consistency"):
+        for attr in ("consistency",):                          # 4a4: durability left the tiles
             g = p["grades"][attr]
             assert g["letter"] is None and g["percentile"] is None
             assert "shows after 16" in g["reason"]
-        for attr in ("scoring", "playmaking", "rebounding", "stocks", "efficiency"):
+        assert "durability" not in p["grades"]
+        for attr in ratings.CATEGORY_GRADES:
             # 4a2: a historical day has no per-category stats (rate() is given no actuals)
             assert p["grades"][attr]["letter"] is None
             assert p["grades"][attr]["reason"] == "no per-category stats for this day"
@@ -171,10 +172,13 @@ def test_too_few_games_gives_none_with_a_reason(history):
 
 
 def test_the_weekly_change_comes_from_the_line_a_week_back():
-    lines = [{"as_of": "2026-11-01", "ovr": {"A": 80}}, {"as_of": "2026-11-05", "ovr": {"A": 82}},
-             {"as_of": "2026-11-11", "ovr": {"A": 85}}]
+    v = {"versions": dict(ratings.HISTORY_VERSIONS)}
+    lines = [dict(v, as_of="2026-11-01", ovr={"A": 80}), dict(v, as_of="2026-11-05", ovr={"A": 82}),
+             dict(v, as_of="2026-11-11", ovr={"A": 85})]
     assert ratings.previous_from_history(lines, "2026-11-12") == {"A": 82}
     assert ratings.previous_from_history(lines, "2026-11-04") is None
+    # 4a4: a line of 4a's OVR (no versions) is never compared with the skill OVR
+    assert ratings.previous_from_history([{"as_of": "2026-11-05", "ovr": {"A": 82}}], "2026-11-12") is None
 
 
 # ---------------------------------------------------------------------------
@@ -187,10 +191,10 @@ REAL = [ROOT / "config" / "ROSTERS.json", ROOT / "data" / "LINEUPS.xlsx"]
 @pytest.mark.slow
 @pytest.mark.skipif(not all(p.is_file() for p in REAL), reason="needs the league's real state")
 def test_todays_ratings_on_the_real_state(history):
-    """Sanity ranges (4a, seen on 11-13's state and explained there): the anchors put the
-    best at 99 and the lowest rostered composite at 60, so the checks that carry
-    information are WHO is on top and at the bottom: the top three OVR are all
-    top-ten by level, and the bottom three by level are all under 70."""
+    """4a4: the skill OVR on the fixed scale (config ratings.skill.scale): every
+    rating is 40..99 and is the scale of the estimate underneath (no pool
+    knots); the top three by OVR are top-ten by this season's FPPG or by POT
+    (a star is a star on both); free agents and rostered players share it."""
     res = ratings.for_today(ROOT, history=history)
     P = res["players"]
     assert res["universe"] >= 60
@@ -201,14 +205,13 @@ def test_todays_ratings_on_the_real_state(history):
     # they leave the denominator: the 90% check is about broken ratings, not churn.
     settled = [p for p in P.values() if "not on the league log's last day yet" not in (p["ovr_reason"] or "")]
     assert len(rated) >= 0.9 * len(settled)
-    assert max(p["ovr"] for p in rated) == 99 and min(p["ovr"] for p in rated) == 60
-    by_level = sorted(P.values(), key=lambda p: -p["components"]["level"])
-    top10 = {p["player"] for p in by_level[:10]}
-    top3 = sorted(rated, key=lambda p: -p["ovr_composite"])[:3]
+    from modules import skill as SK
+    anchors = ratings.config()["skill"]["scale"]["anchors"]
+    assert all(40 <= p["ovr"] <= 99 and p["ovr"] == SK.to_rating(p["ovr_composite"], anchors) for p in rated)
+    top10 = {p["player"] for p in sorted(rated, key=lambda p: -(p["pot"] or 0))[:10]}
+    top3 = sorted(rated, key=lambda p: (-p["ovr"], -p["ovr_composite"]))[:3]
     assert all(p["player"] in top10 for p in top3), [p["player"] for p in top3]
-    # "under 70" became "70 or under" on 11-17: Day'Ron Sharpe, the third-lowest by level,
-    # rated exactly 70. The check is that the lowest levels rate at the bottom of the scale.
-    assert all(p["ovr"] <= 70 for p in by_level[-3:] if p["ovr"] is not None)
+    assert sum(1 for p in P.values() if (p.get("archetype") or {}).get("key") == "star") == 4
     for p in P.values():
         assert (p["ovr"] is None) == bool(p["ovr_reason"])
         assert p["pot"] is None or 40 <= p["pot"] <= 99

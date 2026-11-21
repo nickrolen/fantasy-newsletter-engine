@@ -31,7 +31,7 @@ INFO = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="cur
 BACK = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
         'aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>')
 
-PLAYER_COLS = [("name", "Player"), ("ovr", "OVR"), ("pot", "POT"), ("fppg", "FPPG"), ("next", "Next")]
+PLAYER_COLS = [("name", "Player"), ("ovr", "OVR"), ("pot", "POT"), ("dur", "DUR"), ("fppg", "FPPG"), ("next", "Next")]
 
 CSS = """
 .v2-search{display:flex;align-items:center;gap:var(--space-8);background:var(--surface);border:var(--hairline) solid var(--line);border-radius:var(--radius-12);padding:0 var(--space-12);min-height:var(--tap-min);color:var(--ink-3)}
@@ -61,6 +61,9 @@ button.lh-back{background:none;border:0;padding:0;cursor:pointer;font-family:inh
 .v2-fa-tile{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
 .v2-chiprow{display:flex;flex-wrap:wrap;gap:var(--space-6);align-items:center}
 .v2-arch-k{font-size:var(--type-meta-size);color:var(--ink-2)}
+.lh-grades.v2-g9{grid-template-columns:repeat(3,minmax(0,1fr))}
+.v2-prov{font-size:var(--type-small-size);font-weight:700;color:var(--ink-3);margin-left:var(--space-4)}
+.v2-kpi-head>.v2-prov{margin-left:0}
 .v2-arch-h{font-size:var(--type-heading-size);font-weight:800}
 .v2-preview{font-size:var(--type-label-size);font-weight:800;letter-spacing:var(--type-label-ls);text-transform:uppercase;color:var(--status-q);background:var(--status-q-tint);border-radius:var(--radius-pill);padding:var(--space-2) var(--space-8)}
 .v2-gnote{font-size:var(--type-small-size);color:var(--ink-3);text-align:center}
@@ -180,12 +183,15 @@ def players_screen(vm: dict, ids) -> str:
     for r in pv["rows_default"]:                 # the engine's default order (OVR, best first)
         d = r["data"]
         sub = (_chip(r["chip"]) + f'<span>{clean(r["meta"])}</span>'
+               + (f'<span class="v2-arch-k">{clean(r["arch"])}</span>' if r.get("arch") else "")
                + "".join(_status(c) for c in r["chips"]))
         o.append(f'<tr data-i="{r["i"]}" data-q="{clean(d["q"])}" data-k="{clean(d["k"])}" data-pos="{clean(d["pos"])}" '
                  f'data-nba="{clean(d["nba"])}" data-age="{clean(d["age"])}" data-h="{clean(d["h"])}">'
                  f'<td class="v2-sticky">{_name(r)}<span class="lh-sub">{sub}</span></td>'
-                 f'<td class="v2-ovrcell"><span class="lh-ovr">{clean(r["ovr"])}</span>{_delta(r["ovr_d"])}</td>'
-                 f'<td><span class="lh-pot">{clean(r["pot"])}</span></td><td>{clean(r["fppg"])}</td>'
+                 f'<td class="v2-ovrcell"><span class="lh-ovr">{clean(r["ovr"])}</span>'
+                 + ('<span class="v2-prov">Prov.</span>' if r.get("prov") else "") + f'{_delta(r["ovr_d"])}</td>'
+                 f'<td><span class="lh-pot">{clean(r["pot"])}</span></td><td>{clean(r["dur"])}</td>'
+                 f'<td>{clean(r["fppg"])}</td>'
                  f'<td>{clean(r["next"])}</td></tr>')
     o.append('</tbody></table></div><p class="v2-p v2-empty" id="pl-none" hidden>No player matches.</p>'
              f'<div class="lh-table-note">{clean(pv["who"])} Ratings as of {clean(pv["as_of"])}. '
@@ -267,7 +273,7 @@ def _kpi(k: dict, ids, tipkey: str = "") -> str:
 
 def _grade(t: dict, gid: str) -> str:
     """A GradeTile; a tap shows its explanation under the grid (one InfoTip
-    per section, so the eight tiles carry their words on the tap)."""
+    per section, so the nine tiles carry their words on the tap)."""
     title, body = tip("grade_" + t["key"])
     head = (f'<button type="button" class="lh-grade v2-gtile {t["cls"]}" aria-pressed="false" data-grid="{gid}" '
             f'data-tip="{clean(title)}: {clean(body)}" ')
@@ -338,8 +344,20 @@ def card_html(cv: dict) -> str:
                  f'<div class="v2-potcol"><span class="v2-kpi-head"><span class="lh-pot__label">POT</span>{_info(ids, "pot")}</span>'
                  f'<span class="lh-pot__value">{clean(h["pot"])}</span>'
                  + (f'<span class="lh-delta lh-delta--{clean(h["pot_dir"])}">POT {clean(h["pot_d"])}</span>' if h["pot_d"] else "")
-                 + (f'<span class="lh-delta lh-delta--{clean(h["ovr_dir"])}">OVR {clean(h["ovr_d"])}</span>' if h["ovr_d"] else "")
-                 + f'</div>{_info(ids, "ovr")}</div>')
+                 # 4a4: the OVR's own line (its change, or the word OVR) carries OVR's InfoTip, so the
+                 # tip sits by OVR's words, not after DUR; a thin record adds "OVR Prov." with its own
+                 + '<span class="v2-kpi-head">'
+                 + (f'<span class="lh-delta lh-delta--{clean(h["ovr_dir"])}">OVR {clean(h["ovr_d"])}</span>' if h["ovr_d"]
+                    else '<span class="lh-pot__label">OVR</span>')
+                 + f'{_info(ids, "ovr")}</span>'
+                 + (f'<span class="v2-kpi-head"><span class="v2-prov">OVR Prov.</span>{_info(ids, "prov")}</span>'
+                    if h.get("prov") else "")
+                 + '</div>'
+                 # 4a4 s.2.4: DUR beside OVR and POT (Nick: "more prominent", separate from OVR)
+                 + '<div class="v2-potcol"><span class="v2-kpi-head"><span class="lh-pot__label">DUR</span>'
+                 + f'{_info(ids, "dur")}</span><span class="lh-pot__value">{clean(h["dur"])}</span>'
+                 + (f'<span class="lh-delta lh-delta--{clean(h["dur_dir"])}">DUR {clean(h["dur_d"])}</span>' if h["dur_d"] else "")
+                 + '</div></div>')
     else:
         o.append(f'<div class="v2-fa-tile"><span class="lh-label">OVR</span><span class="lh-pot__value">&mdash;</span>'
                  f'<span class="lh-sub">{clean(h["ovr_note"])}</span></div>')
@@ -352,7 +370,8 @@ def card_html(cv: dict) -> str:
         a = h["arch"]
         o.append('<div class="lh-hero__arch"><span class="v2-chiprow"><span class="v2-arch-h">'
                  f'{clean(a["label"])}</span>' + ('<span class="v2-preview">Preview</span>' if a["preview"] else "")
-                 + f'</span><span class="v2-arch-k">{clean(a["kw"])}</span></div>')
+                 + f'{_info(ids, "archetype")}</span>'
+                 + (f'<span class="v2-arch-k">{clean(a["kw"])}</span>' if a["kw"] else "") + '</div>')
     o.append('</section><div class="v2-stack"><div class="v2-pane-host">')
     o.append('<div class="lh-seg" role="tablist" data-seg="card">'
              + "".join(f'<button type="button" role="tab" data-pane="{k}" aria-selected="{"true" if i == 0 else "false"}">'
@@ -371,7 +390,7 @@ def card_html(cv: dict) -> str:
              f'{_info(ids, "grades", "vs rostered players")}</div>')
     if s["grades"]:
         gid = ids.next("g")
-        o.append('<div class="lh-grades">' + "".join(_grade(t, gid) for t in s["grades"]) + "</div>"
+        o.append('<div class="lh-grades v2-g9">' + "".join(_grade(t, gid) for t in s["grades"]) + "</div>"
                  f'<div class="lh-readout" aria-live="polite" data-readout="{gid}">Tap a grade for what it measures.</div>')
     else:
         o.append('<p class="v2-p">No grades: he has no rating on this run (the reason is under OVR).</p>')

@@ -1,16 +1,20 @@
 """draft_ovr.py -- each draft pick's OVR then and later (4c4: League > History >
 Draft; claude/HANDOFF_4C4_LEAGUE_2026-11-19.md s.1).
 
-THEN is his OVR on that season's OPENING DAY (its first logged day): ratings.
-rate() on keeper_history's point-in-time snapshot of that day, the same call
-4a's back-test made at its as-of points (_to_delete/4a/bin/verify_module.py).
+4a4 (Nick 11-20): THE NUMBERS ARE THE SKILL OVR (modules/skill.py), point in
+time: ratings.rate() with the NBA history (history_for: NBA_SEASONS.json and
+NBA_DRAFTS.json; the estimate reads only seasons and drafts before the one
+rated) on keeper_history's snapshot of the day, this season's games from the
+league log to that day (the back-test's source; the live OVR's is the whole NBA
+season). Ages: data/historical/BBREF_AGES.json (2019-20 on); a season without
+ages (2017-18, 2018-19) has no age move, and no POT. Every pick has an
+opening-day OVR now (his NBA record, or the rookie curve by his draft pick), so
+THEN_NO_PRIOR and the week-2 fallback no longer arise (kept for 4a's numbers).
+THEN is his OVR on that season's OPENING DAY (its first logged day).
 LATER is, for a past season, his OVR at that season's TRADE-DEADLINE POINT:
 the same position in the season as this season's deadline (2027-03-04 is
-78.0% of the way from the first to the last fantasy day), 4a's "deadline"
-cell. Not the season's end: OVR is rest-of-season value above replacement,
-and on the last day no games remain, so rate() gives every player None there
-("no games remain this season"). The deadline point is the last point 4a
-validated. For THIS season, LATER is today's OVR (hub_state's ratings step);
+78.0% of the way from the first to the last fantasy day), kept as it was
+(H56 redesigns the Draft tab next). For THIS season, LATER is today's OVR (hub_state's ratings step);
 the hub joins that live, it is not in this file.
 
 A pick whose opening-day level has no earlier season to stand on (a rookie,
@@ -47,7 +51,7 @@ from typing import Callable, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_RELPATH = Path("data") / "historical" / "DRAFT_OVR.json"
-SCHEMA = 2                    # 2 (4c5): then_point, and each season's week-2 day
+SCHEMA = 3                    # 2 (4c5): then_point, and each season's week-2 day; 3 (4a4): the skill OVR
 THEN_NO_PRIOR = "no earlier season of his in the league log: his opening-day level is the league average"
 NOT_ROSTERED = "not on a roster that day"
 OPEN, WEEK2 = "open", "week2"
@@ -85,21 +89,51 @@ def points_of(rows: list, frac: float) -> tuple:
     return days[0], max(d for d in days if d <= target)
 
 
+def history_for(inputs, season: str, root=ROOT):
+    """nba_prior.History for a season of the league log (4a4): who is who from
+    that season's rows, NBA_SEASONS.json and NBA_DRAFTS.json (read once; point
+    in time inside the estimate)."""
+    from . import ratings, nba_prior as NP
+    key = (str(Path(root).resolve()), season)
+    if key not in _HIST:
+        base = _HIST.get(("files", key[0]))
+        if base is None:
+            base = ratings.load_history(root, [], {})
+            _HIST[("files", key[0])] = base
+        h = NP.History(base.blob, base.values, NP.ids_from_rows(inputs.log.get(season, [])))
+        h.drafts = base.drafts
+        _HIST[key] = h
+    return _HIST[key]
+
+
+_HIST: dict = {}
+
+
+def ages_for(season: str, root=ROOT) -> Optional[dict]:
+    """keeper_history ages for the season when BBREF_AGES.json holds it, else None (no fetch)."""
+    from . import keeper_history as kh
+    held = json.loads((Path(root) / kh.AGES_FILE).read_text(encoding="utf-8")).get("seasons", {})
+    if season not in held:
+        return None
+    return kh.load_ages([season], root)
+
+
 def rate_day(inputs, season: str, as_of: str, dates_by_team: dict, last_day: str, *,
-             opening: bool) -> dict:
+             opening: bool, history=None, root=ROOT) -> dict:
     """{log name: (ovr or None, reason or None)} for every player rostered on
-    as_of. opening: THEN_NO_PRIOR replaces a league-mean level."""
+    as_of: the skill OVR (4a4; history: history_for's, built when not given)."""
     from . import keeper_history as kh, ratings
     snap = kh.snapshot(inputs, kh.next_season(season), "end", ages=None, check=False, labels=False, as_of=as_of)
-    res = ratings.rate(snap, inputs, dates_by_team, last_day)
-    kind = {c.player: c.level_prior_kind for c in snap.candidates}
-    out = {}
-    for name, p in res["players"].items():
-        if opening and kind.get(name) == "league mean":
-            out[name] = (None, THEN_NO_PRIOR)
-        else:
-            out[name] = (p["ovr"], None if p["ovr"] is not None else p["ovr_reason"])
-    return out
+    ages = ages_for(season, root)
+    if ages is not None:                              # an age not found: None (no age move), never guessed
+        for c in snap.candidates:
+            try:
+                c.age = kh.age_for(ages, season, c.player)[0]
+            except kh.AgeNotFound:
+                c.age = None
+    h = history if history is not None else history_for(inputs, season, root)
+    res = ratings.rate(snap, inputs, dates_by_team, last_day, history=h)
+    return {name: (p["ovr"], None if p["ovr"] is not None else p["ovr_reason"]) for name, p in res["players"].items()}
 
 
 def season_entry(inputs, season: str, dates_by_team: dict, frac: float) -> dict:
@@ -131,7 +165,7 @@ def season_entry(inputs, season: str, dates_by_team: dict, frac: float) -> dict:
     return {"season": season, "open": open_day, "week2": wk2_day, "deadline": dl_day, "picks": out}
 
 
-def week2_ratings(inputs, season: str, rows: list, dates_by_team: dict, last_day: str) -> tuple:
+def week2_ratings(inputs, season: str, rows: list, dates_by_team: dict, last_day: str, history=None) -> tuple:
     """(week-2 day or None, {name: (ovr, reason)}): 4a's week-2 point, the last
     logged day of fantasy week 2 (keeper_history.as_of_point), rated as any
     day. None and {} when the log has no week 2 yet."""
@@ -140,7 +174,7 @@ def week2_ratings(inputs, season: str, rows: list, dates_by_team: dict, last_day
         day = kh.as_of_point(rows, season, "week2")[1]
     except KeyError:
         return None, {}
-    return day, rate_day(inputs, season, day, dates_by_team, last_day, opening=False)
+    return day, rate_day(inputs, season, day, dates_by_team, last_day, opening=False, history=history)
 
 
 def then_with_fallback(t, w) -> tuple:
@@ -205,9 +239,8 @@ def build_cache(root=ROOT, inputs=None, seasons=None, schedule: Callable = None)
             continue
         out[s] = season_entry(inputs, s, schedule(s, inputs.log[s][-1]["date"]), frac)
     return {"schema": SCHEMA, "deadline_fraction": round(frac, 6), "seasons": out,
-            "note": ("THEN: his OVR on the season's opening day, or at the week-2 point where opening day "
-                     "has none (then_point week2); LATER: his OVR at the trade-deadline point "
-                     "(modules/draft_ovr). Built by scripts/build_draft_ovr.py.")}
+            "note": ("4a4: the skill OVR, point in time. THEN: his OVR on the season's opening day; LATER: his "
+                     "OVR at the trade-deadline point (modules/draft_ovr). Built by scripts/build_draft_ovr.py.")}
 
 
 def load(root=ROOT) -> Optional[dict]:
@@ -222,7 +255,7 @@ def load(root=ROOT) -> Optional[dict]:
     return obj
 
 
-def live_then(live: tuple, dates_by_team: dict, last_day: str) -> dict:
+def live_then(live: tuple, dates_by_team: dict, last_day: str, history=None) -> dict:
     """This season's opening-day OVR: {pick name: (ovr or None, reason, point)} over
     the current season's picks, from the live log (hub_state's shared
     keeper_history.live_inputs) and the engine's NBA schedule
@@ -233,8 +266,10 @@ def live_then(live: tuple, dates_by_team: dict, last_day: str) -> dict:
     if not rows:
         raise DraftOvrError(f"the live log has no rows for {season}")
     open_day = rows[0]["date"]
-    then = rate_day(inputs, season, open_day, dates_by_team, last_day, opening=True)
-    wk2_day, wk2 = week2_ratings(inputs, season, rows, dates_by_team, last_day)
+    if history is None:
+        raise DraftOvrError("this season's opening-day OVR needs the NBA history (the ratings' own)")
+    then = rate_day(inputs, season, open_day, dates_by_team, last_day, opening=True, history=history)
+    wk2_day, wk2 = week2_ratings(inputs, season, rows, dates_by_team, last_day, history)
     names = kh.Names(rows)
     out = {}
     for p in inputs.picks.get(season) or []:

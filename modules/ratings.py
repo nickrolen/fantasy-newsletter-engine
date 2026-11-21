@@ -30,12 +30,20 @@ points beat FPPG so far in 7 of 9 seasons, pooled +0.038 [+0.009, +0.063];
 against FPPG x games remaining +0.024 [-0.004, +0.051] (not shown to add
 beyond games remaining). The daily fill ("startable" points) is NOT in it.
 
-POT, "his value as a keeper": a monotone map of
-    V = L x m(age) x (1 + w x m(age + 1)),  m(a) = exp(age curve)
-next season's projected level from this league's age curve plus the season
-after. It predicts who is kept better than FPPG (held out, six decisions,
-+34.9 log-likelihood [+10.8, +64.4]) but worse than keepability v3's keep
-chance, which also knows reputation (kept, draft round). It is not "upside".
+POT, "his value as a keeper" (4a4 s.2, with `history`; modules/skill.py):
+next season's projected fantasy points per game -- the NBA-history estimate
+(his NBA seasons, rostered or not, age-moved, regressed for a thin record,
+rookies from the rookie curve by draft pick, this season blended in with
+config ratings.skill.pot's weights) times m(age), the NBA aging curve's next
+step -- on the FIXED scale (ratings.skill.scale: the same every year, whoever
+is rostered). Its gate (_to_delete/4a4/s2/PREREG_s2.md): held-out keeper
+log-likelihood -92.8 vs 4a's POT -113.5, +20.8 [+4.5, +37.9]; the NBA curve
+beat the league's own (-98.4). Leave-one-decision-out chose next season alone
+(next_year_weight 0). Without `history` (the draft's "then"), 4a's POT:
+    V = L x m(age) x (1 + w x m(age + 1)), the league's age curve, scaled on
+    today's rostered players.
+DUR (4a4 s.2.4, with `history`): skill.durability on its own fixed scale;
+nothing in OVR reads it.
 
 GRADES: mid-rank percentiles among today's rostered players, letter bands
 from config. Durability (A), consistency (-sd/FPPG). Schedule (4a decision
@@ -43,24 +51,28 @@ from config. Durability (A), consistency (-sd/FPPG). Schedule (4a decision
 games grid's horizon: the rest of the week holding the next day, and the two
 after), the count beside the letter; OVR's G stays rest-of-season.
 
-THE FIVE CATEGORY GRADES (4a2): per-game fantasy points from the league's
-own categories (data/player_actuals.json cat_days, category_season), over
-every game he played from the season's first day through as_of, each count
-times its yahoo_settings value. Which categories make which grade is config
-grades.categories; together they are every scoring category exactly once,
-so the five per-game values add up to his FPPG:
-    scoring     PTS + 3PTM              playmaking  AST
-    rebounding  REB                     stocks      ST + BLK
-    efficiency  FGM + FGA + FTM + FTA + TO (the shooting terms and turnovers)
+THE SEVEN CATEGORY GRADES (4a2; 4a4 s.4: the tiles match the skills): per-game
+fantasy points from the league's own categories (data/player_actuals.json
+cat_days, category_season), over every game he played from the season's
+first day through as_of, each count times its yahoo_settings value. THIS
+SEASON ONLY (the archetype carries the history). Which categories make which
+grade is config grades.categories; together they are every scoring category
+exactly once, so the seven per-game values add up to his FPPG:
+    scoring PTS   shooting 3PTM   playmaking AST   rebounding REB
+    steals ST     blocks BLK      efficiency FGM + FGA + FTM + FTA + TO
 None with a reason: "stats still loading" (the cache has no categories for
 a day he played: version 1, or the backfill has not reached it), "N games:
-shows after M" (grades.min_games), or a cache gap.
+shows after M" (grades.min_games), or a cache gap. THE TILES (config
+grades.order, 4a4: nine): the seven, Consistency and Schedule. Durability
+is still computed (grades["durability"] is not in the order) until 4a4 s.2.4
+gives it its own rating (DUR) in the card's top section.
 
-THE ARCHETYPE (4a decision 7; 4a2): one label from the five category
-percentiles by a rule table (archetype(); ARCHETYPE_RULES). Exactly one rule
-matches any combination (tested over every letter combination). Ships with
-archetype.enabled false: Nick approves the names (config archetype.labels)
-first.
+THE ARCHETYPE (4a4 s.3, archetypes v2; modules/archetypes.py, Nick approved
+the design 11-20): a label and up to three tags from six skills blended over
+his last three NBA seasons (data/historical/NBA_SEASONS.json) and this one,
+standouts by percentile among today's rostered players. Computed for every
+rated player when `history` is given (for_today gives it); SHOWN only when
+archetype.enabled (off until Nick approves the real table).
 
 FREE AGENTS (5b; Nick 11-20): rate_free_agents rates the Players tab's free
 agents against today's rostered players (their R, scale knots and grade
@@ -127,13 +139,9 @@ REQUIRED = {
     ("grades", "categories"): dict,
     ("grades", "schedule_weeks"): int,
     ("archetype", "enabled"): bool,
-    ("archetype", "high"): (int, float),
-    ("archetype", "middle"): (int, float),
-    ("archetype", "labels"): dict,
-    ("unproven", "k0"): (int, float),
-    ("unproven", "prior_quantile"): (int, float),
+    ("skill",): dict,
 }
-CATEGORY_GRADES = ("scoring", "playmaking", "rebounding", "stocks", "efficiency")
+CATEGORY_GRADES = ("scoring", "shooting", "playmaking", "rebounding", "steals", "blocks", "efficiency")
 COMPUTED_GRADES = CATEGORY_GRADES + ("durability", "consistency", "schedule")
 LOADING = "stats still loading"
 
@@ -188,31 +196,33 @@ def config(cfg: Optional[dict] = None) -> dict:
         raise RatingsInputError(f"ratings.grades.min_games has no whole number of at least 1 for {missing}")
     if cfg["grades"]["schedule_weeks"] < 1:
         raise RatingsInputError("ratings.grades.schedule_weeks must be at least 1")
-    _check_archetype(cfg["archetype"])
-    u = cfg["unproven"]
-    if not u["k0"] > 0:
-        raise RatingsInputError("ratings.unproven.k0 must be a positive number of games")
-    if not 0.0 <= u["prior_quantile"] <= 1.0:
-        raise RatingsInputError("ratings.unproven.prior_quantile must be between 0 and 1")
+    from . import archetypes as AR, skill as SK
+    try:
+        AR.check(cfg["archetype"], cats)
+        sp = SK.check(skill_config(cfg, "pot"))
+        w = sp.get("next_year_weight")
+        if not isinstance(w, (int, float)) or isinstance(w, bool) or not 0 <= w <= 1:
+            raise SK.SkillError("missing or malformed config: ['ratings.skill.pot.next_year_weight']")
+    except (AR.ArchetypeError, SK.SkillError) as e:
+        raise RatingsInputError(str(e)) from None
+    sk = cfg["skill"]
+    pg = sk.get("provisional_games")
+    if not isinstance(pg, int) or isinstance(pg, bool) or pg < 0:
+        raise RatingsInputError("missing or malformed config: ['ratings.skill.provisional_games']")
+    try:
+        SK.check(skill_config(cfg, "ovr"))
+    except SK.SkillError as e:
+        raise RatingsInputError(str(e)) from None
     return cfg
 
 
-def _check_archetype(a: dict) -> None:
-    keys = [k for k, _f in ARCHETYPE_RULES]
-    if set(a["labels"]) != set(keys):
-        raise RatingsInputError(f"ratings.archetype.labels must name exactly the rules {keys}, "
-                                f"not {sorted(a['labels'])}")
-    for k, v in a["labels"].items():
-        kw = v.get("keywords") if isinstance(v, dict) else None
-        if (not isinstance(v, dict) or not isinstance(v.get("label"), str) or not v["label"]
-                or not isinstance(kw, list) or not 2 <= len(kw) <= 3 or not all(isinstance(x, str) and x for x in kw)):
-            raise RatingsInputError(f"ratings.archetype.labels.{k} must be {{\"label\": text, "
-                                    "\"keywords\": [two or three texts]}")
-    if not 0 < a["middle"] < a["high"] < 100:
-        raise RatingsInputError("ratings.archetype needs 0 < middle < high < 100")
-    names = [v["label"] for v in a["labels"].values()]
-    if len(set(names)) != len(names):
-        raise RatingsInputError("ratings.archetype.labels repeat a label")
+def skill_config(cfg: dict, use: str) -> dict:
+    """ratings.skill with one use's weights on top (4a4 s.2): "pot" (the POT
+    gate's validated weights) or "ovr" (only once a skill OVR is approved)."""
+    sk = cfg.get("skill")
+    if not isinstance(sk, dict) or not isinstance(sk.get(use), dict):
+        raise RatingsInputError(f"ratings.skill.{use} is missing (4a4 s.2: the estimate's weights for {use})")
+    return dict({k: v for k, v in sk.items() if k not in ("pot", "ovr")}, **sk[use])
 
 
 def _check_anchors(anchors, name):
@@ -325,66 +335,6 @@ def letter(p: float, bands) -> str:
         if p >= low:
             return name
     raise RatingsInputError(f"percentile {p} below every grade band")
-
-
-# ---------------------------------------------------------------------------
-# the archetype (4a2): one label from the five category percentiles
-# ---------------------------------------------------------------------------
-
-VOLUME_GRADES = ("scoring", "playmaking", "rebounding", "stocks")
-
-
-def _arch_ctx(pcts: dict, high: float, middle: float) -> dict:
-    """prim / sec: his best two VOLUME grades (efficiency is a modifier, not a
-    role: a rim protector who also grades A+ in efficiency is still a rim
-    protector), ties by the grades' order."""
-    ranked = sorted(VOLUME_GRADES, key=lambda g: (-pcts[g], VOLUME_GRADES.index(g)))
-    hi = [g for g in CATEGORY_GRADES if pcts[g] >= high]
-    return {"n_high": len(hi), "only_eff": hi == ["efficiency"], "prim": ranked[0], "sec": ranked[1],
-            "sec_high": ranked[1] in hi, "top": max(pcts.values()), "middle": middle}
-
-
-def _some(c):                     # one to three strengths, at least one of them a volume grade
-    return 1 <= c["n_high"] <= 3 and not c["only_eff"]
-
-
-def _pair(c, a, b):               # his best two are a and b (either order), the second high too
-    return c["sec_high"] and {c["prim"], c["sec"]} == {a, b}
-
-
-# Ordered by nothing: the predicates partition every combination (exactly one
-# matches; archetype() raises otherwise, and a test enumerates every letter
-# combination). prim / sec: his best and second-best volume grade (ties by
-# the grades' order); "high": config archetype.high (a percentile; 70 = B+);
-# a strength is any of the five at high or better.
-ARCHETYPE_RULES = (
-    ("star",          lambda c: c["n_high"] >= 4),
-    ("rotation",      lambda c: c["n_high"] == 0 and c["top"] >= c["middle"]),
-    ("depth",         lambda c: c["n_high"] == 0 and c["top"] < c["middle"]),
-    ("creator",       lambda c: _some(c) and _pair(c, "scoring", "playmaking")),
-    ("scorer",        lambda c: _some(c) and c["prim"] == "scoring" and not _pair(c, "scoring", "playmaking")),
-    ("floor_general", lambda c: _some(c) and c["prim"] == "playmaking"
-                      and not _pair(c, "scoring", "playmaking") and not _pair(c, "playmaking", "rebounding")),
-    ("point_forward", lambda c: _some(c) and _pair(c, "playmaking", "rebounding")),
-    ("glass",         lambda c: _some(c) and c["prim"] == "rebounding"
-                      and not _pair(c, "playmaking", "rebounding") and not _pair(c, "rebounding", "stocks")),
-    ("anchor",        lambda c: _some(c) and _pair(c, "rebounding", "stocks")),
-    ("disruptor",     lambda c: _some(c) and c["prim"] == "stocks" and not _pair(c, "rebounding", "stocks")),
-    ("finisher",      lambda c: c["only_eff"]),
-)
-
-
-def archetype(pcts: dict, arch_cfg: dict) -> str:
-    """The rule key for five category percentiles ({grade: 0..100}). RAISES
-    unless exactly one rule matches."""
-    missing = [g for g in CATEGORY_GRADES if pcts.get(g) is None]
-    if missing:
-        raise RatingsInputError(f"the archetype needs all five category grades; missing {missing}")
-    c = _arch_ctx(pcts, float(arch_cfg["high"]), float(arch_cfg["middle"]))
-    hits = [k for k, f in ARCHETYPE_RULES if f(c)]
-    if len(hits) != 1:
-        raise RatingsInputError(f"the archetype rules matched {hits} for {pcts}: they must partition")
-    return hits[0]
 
 
 # ---------------------------------------------------------------------------
@@ -525,7 +475,7 @@ UNPROVEN_PRIOR = "replacement level (the proven rostered players' level, quantil
 def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] = None,
          level_prior: Optional[dict] = None, previous: Optional[dict] = None,
          actuals: Optional[dict] = None, weeks: Optional[list] = None,
-         unproven_rule: bool = False, nba: Optional[Callable] = None) -> dict:
+         unproven_rule: bool = False, nba: Optional[Callable] = None, history=None) -> dict:
     """Ratings for every candidate of a keeper_history Snapshot (point in time:
     only log rows dated on or before snap.as_of are read). dates_by_team: the
     season's NBA games by team; last_day: the last day games remaining count.
@@ -540,11 +490,17 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
     his whole NBA season's, as a free agent's are, so his OVR does not jump
     when he is picked up. result["basis"] (in memory only) is what
     rate_free_agents rates free agents against.
+    history (4a4 s.3; nba_prior.History): the NBA seasons the archetype
+    blends with this season (None: no archetype, its reason says so).
     Returns {"as_of", "season", "universe", "replacement_level", "knots": {...},
-    "players": {name: {...}}}."""
+    "players": {name: {...}}, "history_unmatched": [names the file could not place]}."""
     from . import keeper_history as kh
     from . import keepability_v3 as M
     cfg = config(cfg)
+    uc = cfg.get("unproven")                  # 5b's rule: retired by 4a4 (config removed); history=None only
+    if unproven_rule and uc is None:
+        raise RatingsInputError("unproven_rule needs ratings.unproven, retired by 4a4: the skill OVR (history) "
+                                "rates every player from his NBA record or the rookie curve")
     lp = level_prior or M.level_config(M.load_params())
     as_of = snap.as_of
     season = snap.candidates[0].season if snap.candidates else None
@@ -561,7 +517,6 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
         raise RatingsInputError("a player appears twice in the snapshot")
     avs = [c.availability for c in cands if c.availability is not None]
     mean_av = sum(avs) / len(avs) if avs else 1.0
-    uc = cfg["unproven"]
 
     base = {}
     for c in cands:
@@ -599,7 +554,7 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
 
     # 5b s.1a: the unproven players' prior, from the proven rostered players only
     proven = [b["L"] for b in base.values() if not b["unproven"]]
-    u_prior = quantile(proven, uc["prior_quantile"]) if proven else None
+    u_prior = quantile(proven, uc["prior_quantile"]) if (proven and uc is not None) else None
     for b in base.values():
         if b["unproven"]:
             if u_prior is None:
@@ -619,15 +574,28 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
     season_over = bool(rated) and max(rated) <= 0 and all(b["G"] == 0 for b in base.values() if b["G"] is not None)
     ovr_knots = knots(rated, oc["anchors"]) if rated and not season_over else None
 
-    # POT
-    for b in base.values():
-        c = b["c"]
-        if c.age is None:
-            b["V"], b["v_reason"] = None, "no age on record"
-        else:
-            b["V"], b["v_reason"] = pot_value(b["L"], c.age, pc["age_curve"], pc["next_year_weight"]), None
-    vals = [b["V"] for b in base.values() if b["V"] is not None]
-    pot_knots = knots(vals, pc["anchors"]) if vals else None
+    # POT: 4a4 (history given) the NBA-history estimate moved one season along
+    # the NBA aging curve, on the fixed scale; without history, 4a's
+    skill_on = history is not None
+    if skill_on:
+        sx = _skill_ctx(history, season, cfg)
+        for b in base.values():
+            c = b["c"]
+            st = nba(c.player, b["team"]) if nba is not None else None
+            g_, f_, tg_ = ((st["games"], st["fppg"], st["team_games"]) if st is not None
+                           else (b["games"], b["fppg"], b["team_games"]))
+            b["skill"] = _skill_of(c.player, season, c.age, g_, f_, tg_, history, sx)
+            b["V"], b["v_reason"] = b["skill"]["V"], b["skill"]["v_reason"]
+        pot_knots = None
+    else:
+        for b in base.values():
+            c = b["c"]
+            if c.age is None:
+                b["V"], b["v_reason"] = None, "no age on record"
+            else:
+                b["V"], b["v_reason"] = pot_value(b["L"], c.age, pc["age_curve"], pc["next_year_weight"]), None
+        vals = [b["V"] for b in base.values() if b["V"] is not None]
+        pot_knots = knots(vals, pc["anchors"]) if vals else None
 
     # grades
     g = cfg["grades"]
@@ -639,8 +607,9 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
         from . import player_actuals as pa
         cat_first = date.fromisoformat(actuals["first_day"])
         cat_through = date.fromisoformat(as_of)
+    cat_season = {}
     for name, b in base.items():
-        # the five category grades (4a2)
+        # the seven category grades (4a2; 4a4 s.4)
         if actuals is None:
             reason = "no per-category stats for this day"
             cs = None
@@ -649,6 +618,7 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
             reason = {"loading": LOADING,
                       "not_cached": "no daily lines cached for him",
                       "gap": f"his daily lines are not fetched for {cs['day']}"}.get(cs["status"])
+        cat_season[name] = cs if reason is None else None
         for attr in CATEGORY_GRADES:
             need = g["min_games"][attr]
             if reason is None and cs["games"] < need:
@@ -680,10 +650,17 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
             raw["schedule"][name] = sum(1 for d in dates_by_team[b["team"]] if horizon[0] <= d <= horizon[1])
     pcts = {k: percentiles(v) for k, v in raw.items()}
 
+    # the archetype (4a4 s.3): every rostered player's blend, then percentiles among them
+    arch_in = ({name: _arch_input(name, season, cat_season.get(name), history, values, cfg) for name in base}
+               if history is not None else {})
+    arch_ref = _arch_reference(arch_in)
+
     players = {}
     for name, b in sorted(base.items()):
         c = b["c"]
-        if b["C"] is None:
+        if skill_on:                                  # 4a4: the skill OVR on the fixed scale
+            ovr, ovr_reason = b["skill"]["ovr"], (None if b["skill"]["ovr"] is not None else UNMATCHED)
+        elif b["C"] is None:
             ovr, ovr_reason = None, b["g_reason"]
         elif season_over:
             ovr, ovr_reason = None, "no games remain this season"
@@ -691,7 +668,10 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
             ovr, ovr_reason = scale(b["C"], ovr_knots, cfg["scale_min"], cfg["scale_max"]), None
         prev = (previous or {}).get(name)
         change = (ovr - int(prev)) if (ovr is not None and prev is not None) else None
-        pot = None if b["V"] is None else scale(b["V"], pot_knots, cfg["scale_min"], cfg["scale_max"])
+        if skill_on:
+            pot = b["skill"]["pot"]
+        else:
+            pot = None if b["V"] is None else scale(b["V"], pot_knots, cfg["scale_min"], cfg["scale_max"])
         grades = {}
         for attr in g["order"]:
             if attr in COMPUTED_GRADES and attr not in g["unavailable"]:
@@ -706,23 +686,31 @@ def rate(snap, inputs, dates_by_team: dict, last_day: str, cfg: Optional[dict] =
         players[name] = {
             "player": name, "manager": c.manager, "nba_team": b["team"],
             "ovr": ovr, "ovr_reason": ovr_reason, "ovr_change": change,
-            "ovr_composite": b["C"], "pot": pot, "pot_reason": b["v_reason"], "pot_value": b["V"],
+            "ovr_composite": b["skill"]["E_ovr"] if skill_on else b["C"],
+            "pot": pot, "pot_reason": b["v_reason"], "pot_value": b["V"],
             "components": {"level": b["L"], "availability": b["A"], "games_remaining": b["G"],
                            "game_sd": b["S"], "games": b["games"], "team_games": b["team_games"],
                            "fppg": b["fppg"], "age": c.age, "unproven": b["unproven"], "prior": b["prior"],
                            "prior_kind": b["prior_kind"], "k0": b["k0"], "source": b["source"]},
             "grades": grades,
         }
-        players[name].update(_archetype_of(grades, cfg["archetype"]))
+        if skill_on:
+            players[name].update(_skill_fields(b["skill"]))
+        players[name].update(_archetype_result(arch_in.get(name), arch_ref, cfg, history is not None, name))
+    if skill_on:
+        assign_stars(players, None, cfg)
     basis = {"cfg": cfg, "lp": lp, "R": R, "unproven_prior": u_prior, "mean_av": mean_av, "sd_med": sd_med,
              "league_mean": cands[0].league_mean if cands else None, "season_over": season_over,
              "dates_by_team": dates_by_team, "horizon": horizon, "values": values, "actuals": actuals,
              "previous": dict(previous or {}), "raw": {k: {n: v for n, v in raw[k].items() if v is not None}
-                                                      for k in COMPUTED_GRADES}}
+                                                      for k in COMPUTED_GRADES},
+             "history": history, "arch_ref": arch_ref, "skill_ctx": sx if skill_on else None,
+             "unproven_rule": bool(unproven_rule)}
     return {"as_of": as_of, "season": season, "last_day": last_day, "universe": len(players),
             "replacement_level": R, "knots": {"ovr": ovr_knots, "pot": pot_knots},
             "schedule_horizon": list(horizon) if horizon else None, "players": players,
-            "free_agents": None, "basis": basis}
+            "free_agents": None, "basis": basis,
+            "history_unmatched": history.unmatched() if history is not None else []}
 
 
 # ---------------------------------------------------------------------------
@@ -759,7 +747,7 @@ def rate_free_agents(result: dict, specs: list) -> dict:
     from . import keepability_v3 as M
     bs = result["basis"]
     cfg = bs["cfg"]
-    oc, pc, g, uc = cfg["ovr"], cfg["pot"], cfg["grades"], cfg["unproven"]
+    oc, pc, g, uc = cfg["ovr"], cfg["pot"], cfg["grades"], cfg.get("unproven")
     as_of, last_day = result["as_of"], result["last_day"]
     dbt = bs["dates_by_team"]
     kn_o, kn_p = result["knots"]["ovr"], result["knots"]["pot"]
@@ -776,7 +764,9 @@ def rate_free_agents(result: dict, specs: list) -> dict:
             out[name] = _unrated_fa(name, team, sp.get("age"), reason, g, cfg)
             continue
         games, fppg, tg, scores = sp["games"], sp["fppg"], sp["team_games"], list(sp["scores"])
-        unp = not sp["prev_lines"] and not sp["drafted"]
+        # 5b's rule, only where rate() applied it to the rostered players (4a's OVR with
+        # unproven_rule; retired by 4a4, whose skill OVR rates rookies from the draft slot)
+        unp = bs["unproven_rule"] and (not sp["prev_lines"] and not sp["drafted"]) and bs["skill_ctx"] is None
         if unp:
             if bs["unproven_prior"] is None:
                 raise RatingsInputError("no unproven prior: rate() found no proven rostered player")
@@ -795,14 +785,22 @@ def rate_free_agents(result: dict, specs: list) -> dict:
         S = ((len(scores) * sd + oc["sd_k0_games"] * bs["sd_med"]) / (len(scores) + oc["sd_k0_games"])
              if sd is not None else bs["sd_med"])
         C = composite(A, G, L, R, oc["consistency_penalty"], S)
-        if bs["season_over"]:
+        if bs["season_over"] and bs.get("skill_ctx") is None:
             ovr, ovr_reason = None, "no games remain this season"
-        elif kn_o is None:
+        elif bs.get("skill_ctx") is None and kn_o is None:
             ovr, ovr_reason = None, "no rostered player is rated"
-        else:
+        elif bs.get("skill_ctx") is None:
             ovr, ovr_reason = scale(C, kn_o, cfg["scale_min"], cfg["scale_max"]), None
+        else:
+            ovr, ovr_reason = None, None                     # 4a4: set below from the skill estimate
         age = sp.get("age")
-        if age is None:
+        sk_fa = None
+        if bs.get("skill_ctx") is not None:                       # 4a4: the skill OVR and the NBA-history POT
+            sk_fa = _skill_of(name, result["season"], age, games, fppg, tg, bs["history"], bs["skill_ctx"])
+            V, pot, v_reason = sk_fa["V"], sk_fa["pot"], sk_fa["v_reason"]
+            ovr, ovr_reason = sk_fa["ovr"], (None if sk_fa["ovr"] is not None else UNMATCHED)
+            C = sk_fa["E_ovr"]
+        elif age is None:
             V, pot, v_reason = None, None, "no age on record"
         else:
             V = pot_value(L, age, pc["age_curve"], pc["next_year_weight"])
@@ -864,7 +862,16 @@ def rate_free_agents(result: dict, specs: list) -> dict:
                            "games": games, "team_games": tg, "fppg": fppg, "age": age, "unproven": unp,
                            "prior": prior, "prior_kind": kind, "k0": k0, "source": "NBA season"},
             "grades": grades}
-        out[name].update(_archetype_of(grades, cfg["archetype"]))
+        if sk_fa is not None:
+            out[name].update(_skill_fields(sk_fa))
+        hist = bs["history"]
+        arch = (_arch_input(name, result["season"], cs if creason is None else None, hist, bs["values"], cfg)
+                if hist is not None else None)
+        out[name].update(_archetype_result(arch, bs["arch_ref"], cfg, hist is not None))
+    if bs["history"] is not None:
+        result["history_unmatched"] = bs["history"].unmatched()
+    if bs.get("skill_ctx") is not None:
+        assign_stars(result["players"], out, cfg)            # rostered and free agents together
     return out
 
 
@@ -875,7 +882,7 @@ def _unrated_fa(name, team, age, reason, g, cfg) -> dict:
     out = {"player": name, "manager": "", "nba_team": team, "free_agent": True,
            "ovr": None, "ovr_reason": reason, "ovr_change": None, "ovr_composite": None,
            "pot": None, "pot_reason": reason, "pot_value": None, "components": {"age": age}, "grades": grades}
-    out.update(_archetype_of(grades, cfg["archetype"]))
+    out.update({"archetype": None, "archetype_reason": reason, "archetype_enabled": bool(cfg["archetype"]["enabled"])})
     return out
 
 
@@ -927,18 +934,196 @@ def free_agent_specs(names, team_of: dict, inputs, season: str, actuals: dict, d
     return out
 
 
-def _archetype_of(grades: dict, arch: dict) -> dict:
-    """{"archetype": {"key", "label", "keywords"} or None, "archetype_reason"}.
-    Off (archetype.enabled false): None, the names await Nick's approval."""
-    if not arch["enabled"]:
-        return {"archetype": None, "archetype_reason": "off: the names await Nick's approval (4a2)"}
-    lacking = [a for a in CATEGORY_GRADES if grades[a]["percentile"] is None]
-    if lacking:
-        return {"archetype": None, "archetype_reason": grades[lacking[0]]["reason"]}
-    key = archetype({a: grades[a]["percentile"] for a in CATEGORY_GRADES}, arch)
-    lab = arch["labels"][key]
-    return {"archetype": {"key": key, "label": lab["label"], "keywords": list(lab["keywords"])},
-            "archetype_reason": None}
+# ---------------------------------------------------------------------------
+# the NBA-history estimate: POT and DUR (4a4 s.2; modules/skill.py)
+# ---------------------------------------------------------------------------
+
+def _skill_ctx(history, season: str, cfg: dict) -> dict:
+    """What every player's estimate this season shares: the POT weights, the
+    baselines by experience and the rookie curve (point in time: seasons and
+    drafts before `season`). Cached on the history object."""
+    from . import skill as SK
+    key = ("skill_ctx", season)
+    cache = history.__dict__.setdefault("_ctx", {})
+    if key not in cache:
+        sc = skill_config(cfg, "pot")
+        if getattr(history, "drafts", None) is None:
+            raise RatingsInputError("POT needs data/historical/NBA_DRAFTS.json (the rookie curve): run python "
+                                    "scripts/fetch_nba_seasons.py --drafts")
+        P = history.blob["players"]
+        try:
+            cache[key] = {"sc": sc, "sco": skill_config(cfg, "ovr"), "prov": int(cfg["skill"]["provisional_games"]),
+                          "base": SK.baseline_table(P, history.values, season, sc),
+                          "rc": SK.fit_rookie_curve(SK.rookie_rows(P, history.drafts, history.values), season, sc),
+                          "scale": sc["scale"]["anchors"], "dur": sc["durability"]["anchors"]}
+        except SK.SkillError as e:
+            raise RatingsInputError(f"the NBA-history estimate: {e}") from None
+    return cache[key]
+
+
+def _skill_of(name: str, season: str, age, g, f, tg, history, sx: dict) -> dict:
+    """One player's POT and DUR: {"E", "V", "pot", "v_reason", "dur", "dur_value", "kind", "share", "pick"}.
+    g, f, tg: his games, FPPG and team games this season (his NBA season)."""
+    from . import skill as SK
+    sc = sx["sc"]
+    pid, how = history.index.resolve(name)
+    if how == "unmatched":
+        history._unmatched.add(name)
+        return {"E": None, "V": None, "pot": None, "v_reason": UNMATCHED, "dur": None, "dur_value": None,
+                "kind": None, "share": None, "pick": None, "E_ovr": None, "ovr": None, "share_ovr": None,
+                "provisional": None, "career_games": None, "g": g, "f": f}
+    entry = history.blob["players"].get(pid) if pid else None
+    d = (history.drafts.get("players") or {}).get(pid) if pid else None
+    pick = None if d is None else int(d["pick"])
+    est = SK.estimate(entry, season, age, g, f, history.values, sc, sx["base"], sx["rc"], pick)
+    eo = SK.estimate(entry, season, age, g, f, history.values, sx["sco"], sx["base"], sx["rc"], pick)
+    du = SK.durability(entry, season, g, tg, sc)
+    career = sum(int((entry or {})["seasons"][s]["gp"]) for s in SK.played(entry, season)) if entry else 0
+    out = {"E": est["E"], "kind": est["kind"], "share": est["share"], "pick": pick,
+           "dur_value": du["A"], "dur": SK.to_rating(du["A"], sx["dur"]),
+           "E_ovr": eo["E"], "ovr": SK.to_rating(eo["E"], sx["scale"]), "share_ovr": eo["share"],
+           "career_games": career, "provisional": (career + int(g or 0)) < sx["prov"], "g": int(g or 0), "f": f}
+    if age is None:
+        out.update(V=None, pot=None, v_reason="no age on record")
+    else:
+        w = float(sc["next_year_weight"])
+        m1 = SK.age_step(age, sc["age_curve"])
+        V = est["E"] * m1 * (1.0 + w * SK.age_step(age + 1, sc["age_curve"])) / (1.0 + w)
+        out.update(V=V, pot=SK.to_rating(V, sx["scale"]), v_reason=None)
+    return out
+
+
+def _skill_fields(sk: dict) -> dict:
+    return {"dur": sk["dur"], "dur_value": sk["dur_value"], "ovr_provisional": sk["provisional"],
+            "skill": {"estimate": sk["E_ovr"], "estimate_pot": sk["E"], "kind": sk["kind"],
+                      "share": sk["share_ovr"], "share_pot": sk["share"], "pick": sk["pick"],
+                      "career_games": sk["career_games"], "games": sk["g"], "fppg": sk["f"]}}
+
+
+def assign_stars(players: dict, fas: Optional[dict], cfg: dict) -> list:
+    """The archetype's two QUALITY rules (Nick, 11-20), on top of the style
+    labels:
+    - Franchise Star: the star_count highest OVRs in the league, rostered or
+      free agent (ties by the estimate underneath), among players who have
+      played this season: at least min(star_min_games, ceil(star_min_share x
+      the most games anyone in the pool has played)). The star's style label
+      becomes his first tag.
+    - No standout skill: All-Around when his OVR is at or above the rostered
+      players' median OVR, else Role Player.
+    Idempotent: each archetype keeps its style ("style") and is rebuilt from
+    it. Returns the stars' names."""
+    ac = cfg["archetype"]
+    pool = dict(players)
+    pool.update(fas or {})
+    for p in pool.values():
+        a = p.get("archetype")
+        if a is not None and "style" in a:
+            p["archetype"] = dict(a["style"])
+    roster_ovr = sorted(p["ovr"] for p in players.values() if p.get("ovr") is not None)
+    if roster_ovr:
+        median = statistics.median(roster_ovr)
+        for p in pool.values():
+            a = p.get("archetype")
+            if a is None or p.get("ovr") is None or a.get("key") not in ("role", "all_around"):
+                continue
+            key = "all_around" if p["ovr"] >= median else "role"
+            if key != a["key"]:
+                p["archetype"] = dict(a, key=key, label=ac["labels"][key], style=dict(a))
+    def games(p):
+        return int(((p.get("skill") or {}).get("games")) or 0)
+    most = max((games(p) for p in pool.values()), default=0)
+    need = min(int(ac["star_min_games"]), int(math.ceil(float(ac["star_min_share"]) * most)))
+    rated = [(n, p) for n, p in pool.items()
+             if p.get("archetype") is not None and p.get("ovr") is not None and games(p) >= need]
+    rated.sort(key=lambda t: (-t[1]["ovr"], -(t[1].get("ovr_composite") or 0.0), t[0]))
+    stars = [n for n, _p in rated[:int(ac["star_count"])]]
+    for n in stars:
+        p = pool[n]
+        a = p["archetype"]
+        cur = {k: v for k, v in a.items() if k != "style"}      # his style label, after the All-Around rule
+        orig = dict(a.get("style") or cur)                      # what the next call resets to
+        tags = [cur["label"]] + [t for t in cur["tags"]]
+        p["archetype"] = dict(cur, key="star", label=ac["labels"]["star"], tags=tags[:3], style=orig)
+    return stars
+
+
+# ---------------------------------------------------------------------------
+# the archetype (4a4 s.3; modules/archetypes.py)
+# ---------------------------------------------------------------------------
+
+ARCH_OFF = "off: the labels await Nick's approval of the real table (4a4)"
+ARCH_NO_HISTORY = "no NBA history given (the archetype needs data/historical/NBA_SEASONS.json)"
+
+
+def _arch_input(name: str, season: str, cs: Optional[dict], history, values: Optional[dict], cfg: dict) -> dict:
+    """{"feat": the blended skills, efficiency and turnover share, or None; "reason";
+    "trend"; "rookie"; "basis"} for one player."""
+    from . import archetypes as AR
+    ac = cfg["archetype"]
+    cats = cfg["grades"]["categories"]
+    if values is None:
+        return {"feat": None, "reason": "no per-category stats for this day", "trend": None, "rookie": False}
+    hist = history.per_game(name, season, list(ac["history_weights"]))
+    g = int(cs["games"]) if cs is not None else 0
+    this = AR.per_stat_this_season(cs["totals"], g, values) if (cs is not None and g > 0) else None
+    if cs is None and hist is None:
+        return {"feat": None, "reason": "his daily lines are not all cached, and no NBA history", "trend": None,
+                "rookie": True}
+    bl = AR.blend(this, g, None if hist is None else hist["per_stat"], ac)
+    if bl is None:
+        return {"feat": None, "reason": f"{g} games: labelled after {int(ac['min_games_rookie'])} (no NBA history)",
+                "trend": None, "rookie": True}
+    trend = AR.trend_of(None if this is None else sum(this.values()), g,
+                        None if hist is None else hist["fppg"], ac)
+    return {"feat": AR.features(bl["per_stat"], cats), "reason": None, "trend": trend, "rookie": hist is None,
+            "basis": bl["basis"], "games": g, "hist_games": 0 if hist is None else hist["games"]}
+
+
+def _arch_reference(arch_in: dict) -> dict:
+    """{"vals": {feature: {name: value}}, "pcts": {feature: {name: percentile}}} over
+    the rostered players with a blend: the pool every percentile (rostered and
+    free agents') is taken in."""
+    from . import archetypes as AR
+    vals: dict = {k: {} for k in AR.SKILLS + (AR.EFFICIENCY, "to_share")}
+    for name, a in arch_in.items():
+        if a["feat"] is None:
+            continue
+        for k in vals:
+            if a["feat"].get(k) is not None:
+                vals[k][name] = a["feat"][k]
+    return {"vals": vals, "pcts": {k: percentiles(v) for k, v in vals.items()}}
+
+
+def _archetype_result(a: Optional[dict], ref: dict, cfg: dict, have_history: bool,
+                      name: Optional[str] = None) -> dict:
+    """{"archetype": {"key", "label", "standouts", "tags", "skills": {skill: percentile}, "basis"} or None,
+    "archetype_reason", "archetype_enabled"}. name: a rostered player (his own
+    percentile in the pool); None: a free agent (pct_among the pool)."""
+    from . import archetypes as AR
+    ac = cfg["archetype"]
+    out = {"archetype": None, "archetype_reason": None, "archetype_enabled": bool(ac["enabled"])}
+    if not have_history:
+        out["archetype_reason"] = ARCH_NO_HISTORY
+        return out
+    if a is None or a["feat"] is None:
+        out["archetype_reason"] = (a or {}).get("reason") or "no value"
+        return out
+    pcts = {}
+    for k, vals in ref["vals"].items():
+        v = a["feat"].get(k)
+        if v is None or not vals:
+            pcts[k] = None
+        elif name is not None and name in ref["pcts"][k]:
+            pcts[k] = ref["pcts"][k][name]
+        else:
+            pcts[k] = pct_among(vals.values(), v)
+    names = cfg["grades"]["labels"]
+    res = AR.classify({s: pcts[s] for s in AR.SKILLS}, pcts[AR.EFFICIENCY], pcts["to_share"], a["trend"],
+                      a["rookie"], ac, {s: names[s] for s in AR.SKILLS})
+    res["skills"] = {s: (None if pcts[s] is None else round(pcts[s], 1)) for s in AR.SKILLS}
+    res["basis"] = a.get("basis")
+    out["archetype"] = res
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -988,7 +1173,35 @@ def for_today(root=ROOT, previous: Optional[dict] = None, today: Optional[date] 
     weeks = json.loads((root / "config" / "SCHEDULE.json").read_text(encoding="utf-8")).get("weeks") or []
     dbt = team_dates(sched)
     return rate(snap, li, dbt, schedule_last_day(root), cfg=cfg, previous=previous,
-                actuals=actuals, weeks=weeks, unproven_rule=True, nba=nba_season(actuals, dbt, snap.as_of))
+                actuals=actuals, weeks=weeks, unproven_rule=False, nba=nba_season(actuals, dbt, snap.as_of),
+                history=load_history(root, li.log.get(season, []), actuals))
+
+
+def load_history(root, rows, actuals: dict):
+    """nba_prior.History for today: data/historical/NBA_SEASONS.json and
+    data/historical/NBA_DRAFTS.json (4a4),
+    who is who from the live log's rows and data/player_actuals.json's name
+    maps (roster_names, extra_names). A missing, unreadable or incomplete
+    file RAISES (RatingsInputError naming the file and the fix): under v2 a
+    ratings failure is hard, so the nightly says so instead of publishing
+    cards without it."""
+    from . import nba_seasons as NS, nba_prior as NP
+    try:
+        blob = NS.load(str(root))
+    except NS.SeasonsError as e:
+        raise RatingsInputError(f"the NBA history: {e}") from None
+    ids = NP.ids_from_rows(rows)
+    for k in ("roster_names", "extra_names"):
+        for n, pid in ((actuals or {}).get(k) or {}).items():
+            ids.setdefault(n, pid)
+    from . import nba_drafts as ND
+    try:
+        drafts = ND.load(str(root))
+    except ND.DraftsError as e:
+        raise RatingsInputError(f"the NBA drafts: {e}") from None
+    h = NP.History(blob, NS.stat_values(str(root)), ids)
+    h.drafts = drafts
+    return h
 
 
 # ---------------------------------------------------------------------------
@@ -997,6 +1210,24 @@ def for_today(root=ROOT, previous: Optional[dict] = None, today: Optional[date] 
 
 HISTORY_RELPATH = Path("output") / "ratings_history.jsonl"
 TERMS = ("level", "availability", "games_remaining")
+# 4a4 (s.5): each rating's definition version. A line written before 4a4 has no
+# "versions" and is {"ovr": 1, "pot": 1}. OVR 2 is the skill OVR and its
+# "terms" are [estimate, FPPG this season, games this season]. The weekly change only compares a
+# value with a line of the SAME version (history_values), so the switch to the
+# NBA-history POT starts its weekly change afresh a week later, never a
+# comparison of the old meaning with the new.
+HISTORY_VERSIONS = {"ovr": 2, "pot": 2, "dur": 1}
+OLD_VERSIONS = {"ovr": 1, "pot": 1}
+
+
+def history_values(line: Optional[dict], key: str) -> Optional[dict]:
+    """{player: value} for one rating from a history line, or None when the
+    line is missing, lacks it, or holds another version of it."""
+    if not line or key not in line:
+        return None
+    if (line.get("versions") or OLD_VERSIONS).get(key) != HISTORY_VERSIONS.get(key):
+        return None
+    return dict(line[key] or {})
 
 
 def history_line(result: dict) -> dict:
@@ -1012,12 +1243,19 @@ def history_line(result: dict) -> dict:
     terms = {}
     for n, p in everyone.items():
         c = p["components"]
-        if p["ovr"] is not None and all(c.get(t) is not None for t in TERMS):
+        sk = p.get("skill")
+        if sk is not None:                    # 4a4 (ovr version 2): [estimate, his FPPG this season, his games]
+            if p["ovr"] is not None and sk.get("estimate") is not None:
+                terms[n] = [round(float(sk["estimate"]), 3), round(float(sk["fppg"] or 0.0), 3), int(sk["games"] or 0)]
+        elif p["ovr"] is not None and all(c.get(t) is not None for t in TERMS):
             terms[n] = [round(float(c["level"]), 3), round(float(c["availability"]), 4), int(c["games_remaining"])]
     line = {"as_of": result["as_of"], "season": result["season"],
             "ovr": {n: p["ovr"] for n, p in everyone.items() if p["ovr"] is not None},
             "pot": {n: p["pot"] for n, p in everyone.items() if p["pot"] is not None},
-            "terms": terms}
+            "terms": terms, "versions": dict(HISTORY_VERSIONS)}
+    dur = {n: p["dur"] for n, p in everyone.items() if p.get("dur") is not None}
+    if dur:
+        line["dur"] = dur
     if fas:
         line["fa"] = sorted(n for n, p in fas.items() if p["ovr"] is not None or p["pot"] is not None)
     return line
@@ -1037,7 +1275,7 @@ def previous_from_history(lines: list, as_of: str, days: int = 7, key: str = "ov
     """{player: OVR} (key="pot": POT) from the latest published line at least
     `days` before as_of, or None."""
     line = line_from_history(lines, as_of, days)
-    return None if line is None else dict(line.get(key) or {})
+    return history_values(line, key)
 
 
 def read_history(root=ROOT) -> list:

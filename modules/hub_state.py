@@ -1643,7 +1643,7 @@ def ratings_step(base, live, actuals: dict, echo=print) -> dict:
         as_of = max(r["date"] for r in live[0].log[live[1]])
         prev = ratings.line_from_history(lines, as_of)
         out["previous_line"] = prev
-        res0 = ratings.for_today(base, previous=None if prev is None else dict(prev["ovr"]), live=live,
+        res0 = ratings.for_today(base, previous=ratings.history_values(prev, "ovr"), live=live,
                                  actuals=actuals, cfg=cfg)
         if res0["as_of"] != as_of:
             raise ratings.RatingsInputError(f"the ratings are as of {res0['as_of']}, the live log's last day "

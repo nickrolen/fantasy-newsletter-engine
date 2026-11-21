@@ -534,10 +534,10 @@ def test_the_cache_is_ratings_rate_on_the_right_days():
     s = cache["seasons"]["2017-18"]
     assert all(p["then"] is None and p["then_reason"] == draft_ovr.THEN_NO_PRIOR or p["then_reason"] != draft_ovr.THEN_NO_PRIOR
                for p in s["picks"])
-    # the log's first season: no earlier season, so no opening-day OVR; 4c5 (4c4 decision 2): the
-    # week-2 point stands in, labelled
-    assert all(p["then"] is None or p["then_point"] == "week2" for p in s["picks"])
-    assert sum(p["then_point"] == "week2" for p in s["picks"]) >= 40
+    # 4a4: the skill OVR rates from NBA history (and the draft slot), so even the log's first
+    # season has an opening-day OVR for every pick; the week-2 stand-in (4c5) is no longer needed
+    assert all(p["then"] is not None and p["then_point"] == "open" for p in s["picks"])
+    assert sum(p["then"] is None for s2 in cache["seasons"].values() for p in s2["picks"]) <= 10
 
 
 # =============================================================================

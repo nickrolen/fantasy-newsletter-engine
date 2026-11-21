@@ -275,10 +275,12 @@ def run_v2(base_path=".", *, state=None, out_dir=None, echo=print, archetype_pre
                              "engine (python scripts/build_hub_state.py)")
     if archetype_preview:
         n = v2players.archetype_preview(payload)
-        echo(f"Archetype PREVIEW: {n} rostered player(s) labelled (the rest lack a category grade); "
+        echo(f"Archetype PREVIEW: {n} rostered player(s) labelled (the rest: a rookie under 5 games, or no ratings); "
              "the preview is marked, and publish mode is not measured.")
-        for label, who in v2players.archetype_table(payload):
-            echo(f"  {label} ({len(who)}): " + "; ".join(f"{n_} ({m_}, {x_})" for n_, m_, x_ in who))
+        for kind in ("rostered", "fa"):
+            echo(f" {kind}:")
+            for label, who in v2players.archetype_table(payload, kind):
+                echo(f"  {label} ({len(who)}): " + "; ".join(f"{n_} ({m_}; {st_}; {tg_})" for n_, m_, st_, tg_ in who))
     cards, preview_cards = None, None
     if (payload.get("cards") or {}).get("players"):
         try:

@@ -219,14 +219,16 @@ def test_min_columns_close_the_form_group_and_the_archetype_needs_its_switch(tmp
     shared, _d, _c = built
     form = next(g for g in shared["groups"] if g["key"] == "form")["cols"]
     assert tuple(form[-2:]) == R.FORM_MINUTES == ("min", "mind")          # 4a3: after Bust %
-    assert "arch" not in shared["keys"]
+    assert "arch" in shared["keys"]                       # Nick, 11-20: the archetype is on
     from modules import ratings
     real = ratings.config()
-    monkeypatch.setattr(ratings, "config", lambda *a, **k: dict(real, archetype=dict(real["archetype"], enabled=True)))
     payload, ctx = team_world(tmp_path, archetype=True)
     shared2, out2 = R.build(tmp_path, payload, ctx)
     assert "arch" in shared2["keys"] and "arch" in next(g for g in shared2["groups"] if g["key"] == "profile")["cols"]
     assert dict(zip(shared2["keys"], out2["M"]["rows"][0]))["arch"] == "Slasher"
+    monkeypatch.setattr(ratings, "config", lambda *a, **k: dict(real, archetype=dict(real["archetype"], enabled=False)))
+    shared3, _out3 = R.build(tmp_path, payload, ctx)
+    assert "arch" not in shared3["keys"]                  # switched off, the column goes
 
 
 def test_the_groups_are_nicks_and_all_is_every_column(built):
@@ -238,7 +240,7 @@ def test_the_groups_are_nicks_and_all_is_every_column(built):
     assert by["schedule"] == ["next", "nstarts", "gl", "b2b"]
     assert by["health"] == ["gp", "avail", "missed", "back"]
     assert by["keeper"] == ["keep", "keeprank", "age", "acq", "since"]
-    assert by["profile"] == ["share", "best", "worst"]
+    assert by["profile"] == ["arch", "share", "best", "worst"]          # the archetype is on (Nick, 11-20)
     assert by["all"] == [k for g in shared["groups"][:-1] for k in g["cols"]] == shared["keys"]
 
 

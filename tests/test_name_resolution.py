@@ -105,6 +105,10 @@ NORMALISE_ALLOWED = {
     "scripts/check_playerlist.py": "duplicate detection within one file, and "
                                    "the week-over-week join (renames are "
                                    "reported separately)",
+    "modules/nba_seasons_bbref.py": "4a4: only groups the league's Yahoo names into one "
+                                    "PlayerIndex key each (two ids that spell alike stay "
+                                    "together and come back ambiguous); the match itself is "
+                                    "PlayerIndex's",
 }
 
 

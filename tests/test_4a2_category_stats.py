@@ -11,7 +11,7 @@ modules/ratings; claude/HANDOFF_4A2_CATEGORY_STATS_2026-11-14.md).
 5. the category grades: per-game points, percentiles over the rostered players,
    None below the minimum and before the backfill, with reasons
 6. the schedule grade's 3-week horizon
-7. the archetype: exactly one label for every grade combination
+7. (the archetype moved to tests/test_4a4_archetypes.py: archetypes v2)
 8. the real thing, unstubbed, on today's cache
 No network: fake Yahoo sources and leagues only.
 """
@@ -474,10 +474,11 @@ def test_category_grades_are_per_game_points_as_percentiles_over_the_rostered(hi
         elif i % 5 == 0:
             assert g["letter"] is None and g["reason"] == "3 games: shows after 5"
         else:
-            want = (cs["totals"]["PTS"] * 0.5 + cs["totals"]["3PTM"] * 3) / cs["games"]
+            want = cs["totals"]["PTS"] * 0.5 / cs["games"]           # 4a4: scoring is PTS alone
             assert g["value"] == pytest.approx(want)
+            assert P[n]["grades"]["shooting"]["value"] == pytest.approx(cs["totals"]["3PTM"] * 3 / cs["games"])
             vals[n] = want
-            # the five grades add up to his FPPG
+            # the seven grades add up to his FPPG
             total = sum(P[n]["grades"][a]["value"] for a in ratings.CATEGORY_GRADES)
             pts = sum(v[0] for v in blob["players"][str(1000 + i)]["days"].values())
             assert total == pytest.approx(pts / cs["games"])
@@ -487,7 +488,7 @@ def test_category_grades_are_per_game_points_as_percentiles_over_the_rostered(hi
 @pytest.mark.slow
 def test_no_actuals_and_a_cache_gap_give_reasons(history):
     snap, res, _s = _rate_with(history, None)
-    assert all(p["grades"]["stocks"]["reason"] == "no per-category stats for this day" for p in res["players"].values())
+    assert all(p["grades"]["steals"]["reason"] == "no per-category stats for this day" for p in res["players"].values())
     gone = snap.candidates[0].player
     blob, _ = _actuals_for(snap, skip={gone})
     _snap, res, _s = _rate_with(history, blob)
@@ -509,7 +510,7 @@ def test_a_category_in_no_grade_or_two_raises(history):
     with pytest.raises(ratings.RatingsInputError, match="exactly one grade"):
         _rate_with(history, blob)
     cfg = copy.deepcopy(ratings.config())
-    cfg["grades"]["categories"]["stocks"] = ["ST", "BLK", "TO"]
+    cfg["grades"]["categories"]["steals"] = ["ST", "TO"]
     with pytest.raises(ratings.RatingsInputError, match="TO is in both"):
         ratings.config(cfg)
 
@@ -556,61 +557,6 @@ def test_the_schedule_grade_counts_the_horizons_games(history):
 
 
 # =============================================================================
-# 7. the archetype
-# =============================================================================
-
-@pytest.mark.slow
-def test_exactly_one_archetype_for_every_grade_combination():
-    """Every letter for each of the five grades (8^5 combinations), each at the
-    band's floor and just under the next band, plus every all-tied case: one
-    rule matches (archetype() raises otherwise), and every rule is reachable."""
-    cfg = ratings.config()
-    arch = cfg["archetype"]
-    bands = cfg["grade_bands"]
-    reps = []
-    for i, (low, _name) in enumerate(bands):
-        top = 100.0 if i == 0 else bands[i - 1][0]
-        reps.append(sorted({float(low), float(low) + 0.5, top - 0.01}))
-    seen = set()
-    n = 0
-    for letters in itertools.product(range(len(bands)), repeat=5):
-        for pick in (0, -1):
-            pct = {g: reps[li][pick] for g, li in zip(ratings.CATEGORY_GRADES, letters)}
-            seen.add(ratings.archetype(pct, arch))
-            n += 1
-    for v in (0.0, 50.0, 70.0, 99.0):
-        seen.add(ratings.archetype({g: v for g in ratings.CATEGORY_GRADES}, arch))
-    assert n == 2 * 8 ** 5
-    assert seen == {k for k, _f in ratings.ARCHETYPE_RULES} == set(arch["labels"])
-
-
-def test_the_archetype_ships_off_and_its_table_is_checked():
-    cfg = ratings.config()
-    assert cfg["archetype"]["enabled"] is False
-    for v in cfg["archetype"]["labels"].values():
-        assert 2 <= len(v["keywords"]) <= 3
-    bad = copy.deepcopy(cfg)
-    del bad["archetype"]["labels"]["depth"]
-    with pytest.raises(ratings.RatingsInputError, match="labels must name exactly"):
-        ratings.config(bad)
-
-
-@pytest.mark.slow
-def test_the_archetype_when_enabled_needs_every_category_grade(history):
-    cfg = copy.deepcopy(ratings.config())
-    cfg["archetype"]["enabled"] = True
-    snap, _r, sched = _rate_with(history, None)
-    blob, names = _actuals_for(snap, games_of=lambda i: 2 if i == 0 else 9)
-    res = ratings.rate(snap, history, sched, history.log["2024-25"][-1]["date"], cfg=cfg, actuals=blob)
-    P = res["players"]
-    assert P[names[0]]["archetype"] is None and P[names[0]]["archetype_reason"] == "2 games: shows after 5"
-    p = P[names[1]]
-    key = ratings.archetype({a: p["grades"][a]["percentile"] for a in ratings.CATEGORY_GRADES}, cfg["archetype"])
-    assert p["archetype"] == {"key": key, "label": cfg["archetype"]["labels"][key]["label"],
-                              "keywords": cfg["archetype"]["labels"][key]["keywords"]}
-
-
-# =============================================================================
 # 8. the real thing, unstubbed
 # =============================================================================
 
@@ -634,7 +580,7 @@ def test_todays_cache_rates_without_raising(history):
                 assert g["letter"] is None and g["reason"] == "stats still loading", (p["player"], g)
             else:
                 assert g["letter"] is not None or any(k in g["reason"] for k in KNOWN), (p["player"], g)
-        assert p["archetype"] is None and p["archetype_reason"].startswith("off:")
+        assert p["archetype_enabled"] is False                 # 4a4: computed, shown only when enabled
         s = p["grades"]["schedule"]
         assert (s["letter"] is not None and isinstance(s["value"], int)) or s["reason"]
     assert res["schedule_horizon"] is not None

@@ -152,7 +152,10 @@ def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: 
             from ..ratings import team_dates, schedule_last_day
             from ..data_loader import load_nba_schedule, _schedule_path
             sched = load_nba_schedule(_schedule_path(base), today=now.date())
-            live_then = draft_ovr.live_then(live, team_dates(sched), schedule_last_day(base))
+            if ratings is None or not (ratings.get("basis") or {}).get("history"):
+                raise draft_ovr.DraftOvrError("the ratings failed on this run, so the NBA history is not loaded")
+            live_then = draft_ovr.live_then(live, team_dates(sched), schedule_last_day(base),
+                                            history=ratings["basis"]["history"])
         except Exception as e:                       # noqa: BLE001 -- the column says why
             live_error = f"{type(e).__name__}: {e}".splitlines()[0][:300]
     else:
@@ -1099,12 +1102,9 @@ def draft(inp: dict) -> dict:
                         "picks": str(len(picks)),
                         "drafted": DOT.join(f"{m} {counts[m]}" for m in sorted(counts)), "rows": rows})
     return {"seasons": seasons, "default": cur,
-            "note": ("OVR then = his OVR on the season's opening day, from that day's rosters and log. Later = "
-                     "his OVR at the trade-deadline point for a past season (OVR is rest-of-season value, so "
-                     "none exists on a season's last day), or today's for this season. A player with no earlier "
-                     "season in the league log is rated at the league average on opening day, so his then is "
-                     "his OVR at the week-2 point instead, marked (wk 2). \u2014 says why there is none. "
-                     "K = a keeper.")}
+            "note": ("OVR then = his OVR on the season's opening day, judged on his NBA record before that "
+                     "season (a rookie: his draft slot). Later = his OVR at the trade-deadline point for a past "
+                     "season, or today's for this season. \u2014 says why there is none. K = a keeper.")}
 
 
 # =============================================================================

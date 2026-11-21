@@ -25,23 +25,37 @@ TIPS = {
     # 4c1: the ratings. OVR's words are 4a decision 1's; FG% & TOs' are 4a2
     # decision 5's; the rest are for Nick's approval.
     "ovr": ("OVR",
-            "Rest-of-season fantasy value above a replacement player: his scoring level, how often he plays, "
-            "and his team's games left. It doesn't know injury return dates yet. Free agents are rated the "
-            "same way. A player new to the league is held back until he's proved himself."),
+            "How good he is per game when he plays: his fantasy production judged on his whole NBA record "
+            "(rostered or not), this season, and his age, on a fixed 40-99 scale that means the same every year. "
+            "It isn't about games left or how often he plays: that's DUR."),
+    "prov": ("Prov.",
+             "Small sample: this rating will settle as he plays more."),
     "pot": ("POT",
-            "His value as a keeper: his scoring level projected over the next two seasons with this league's "
-            "age curve. Keep chance is shown beside it, not inside it."),
+            "His keeper value: next season's projected fantasy points per game, from his whole NBA record "
+            "(rostered or not) and this season, moved a year along the NBA's age curve, on the fixed 40-99 "
+            "scale. Keep chance is shown beside it, not inside it."),
+    "dur": ("DUR",
+            "Durability: how often he plays when his team does, over his last three NBA seasons and this one, "
+            "on its own 40-99 scale. A current injury is not in it: the injury tag says that."),
     "fppg": ("FPPG",
              "Fantasy points per game in his NBA games this season, on a league roster or not. Where his "
              "league-roster figure differs, it is the line under the tiles."),
     "grades": ("Grades",
-               "Each grade ranks him among the players on league rosters: A+ is the top 5%, D the bottom 5%. "
-               "Tap a grade for what it measures."),
-    "grade_scoring": ("Scoring", "Fantasy points per game from his points and threes."),
-    "grade_playmaking": ("Playmaking", "Fantasy points per game from his assists."),
-    "grade_rebounding": ("Rebounding", "Fantasy points per game from his rebounds."),
-    "grade_stocks": ("Stocks", "Fantasy points per game from his steals and blocks."),
-    "grade_efficiency": ("FG% & TOs", "Fantasy points from his makes, misses and turnovers."),
+               "Each grade ranks him among the players on league rosters, this season only: A+ is the top 5%, "
+               "D the bottom 5%. Tap a grade for what it measures."),
+    # 4a4 s.4: the nine tiles (this season only; the archetype and OVR carry the history)
+    "grade_scoring": ("Scoring", "Fantasy points per game from his points, this season."),
+    "grade_shooting": ("Shooting", "Fantasy points per game from his made threes, this season."),
+    "grade_playmaking": ("Playmaking", "Fantasy points per game from his assists, this season."),
+    "grade_rebounding": ("Rebounding", "Fantasy points per game from his rebounds, this season."),
+    "grade_steals": ("Steals", "Fantasy points per game from his steals, this season."),
+    "grade_blocks": ("Blocks", "Fantasy points per game from his blocks, this season."),
+    "grade_efficiency": ("Efficiency",
+                         "Fantasy points per game from his makes, misses and turnovers, this season: high means "
+                         "he shoots well and rarely turns it over."),
+    "archetype": ("Archetype",
+                  "What kind of player he is over his last three seasons and this one. The grades below are "
+                  "this season only."),
     "grade_durability": ("Durability",
                          "How often he plays when his team does, this season and his last three in the league. "
                          "It shows after 16 team games."),
@@ -62,8 +76,8 @@ TIPS = {
                "as the change in your chance to win each week; an IL activation is priced against leaving him in "
                "IL, which blocks every move. Advice, not a rule."),
     "age_curve": ("The age curve",
-                  "How a player's scoring changes from one season to the next at each age, fitted on this "
-                  "league's own history. POT uses it."),
+                  "How a player's fantasy scoring changes from one season to the next at each age, fitted on "
+                  "every NBA player's seasons since 2014-15. POT uses it."),
 }
 
 

@@ -6,6 +6,7 @@ unstubbed test on today's state (slow; it skips without the state)."""
 
 import html as _html
 import inspect
+import copy
 import json
 import re
 from datetime import date, datetime, timedelta
@@ -88,23 +89,27 @@ def _row(p, name):
 
 def test_free_agents_get_ovr_pot_and_the_grades_5b(syn):
     """5b (Nick, 11-20): a rated free agent shows OVR, POT, its change, the ring
-    and the eight tiles, like a rostered player; the FPPG-percentile line is gone."""
+    and the nine tiles (4a4), like a rostered player; the FPPG-percentile line is gone."""
     p, _ = syn
     fa = _row(p, FA_NAME)
     assert fa["kind"] == "fa" and fa["ovr"] == "71" and fa["pot"] == "72" and fa["ring"] is not None
-    assert fa["ovr_k"] == 71 and fa["pot_k"] == 72 and len(fa["grades"]) == 8 and fa["avail"] == "90%"
+    assert fa["ovr_k"] == 71 and fa["pot_k"] == 72 and len(fa["grades"]) == 9 and fa["avail"] == "90%"
     assert fa["ovr_d"]["t"] == "\u25b21" and fa["fppg"] == "31.5"
     assert "fa_pct" not in fa and "fa_note" not in p["v2"]["ratings"] and not hasattr(P, "FA_PCT_NOTE")
     for z in _rows(p):
-        assert z["ovr"] != DASH and len(z["grades"]) == 8 and "fa_pct" not in z
+        assert z["ovr"] != DASH and len(z["grades"]) == 9 and "fa_pct" not in z
 
 
 def test_the_weekly_change_needs_a_line_at_least_7_days_back():
     lines = [{"as_of": "2026-11-12", "ovr": {"A": 82}, "pot": {"A": 86}},
              {"as_of": "2026-11-14", "ovr": {"A": 84}, "pot": {"A": 87}}]
     assert ratings.previous_from_history(lines, "2026-11-18") is None                 # 6 and 4 days back only
-    assert ratings.previous_from_history(lines, "2026-11-19") == {"A": 82}            # exactly 7
-    assert ratings.previous_from_history(lines, "2026-11-19", key="pot") == {"A": 86}
+    assert ratings.previous_from_history(lines, "2026-11-19") is None                 # 4a4: 4a's OVR (no versions)
+    assert ratings.previous_from_history(lines, "2026-11-19", key="pot") is None      # 4a4: an old POT (version 1)
+    v = [dict(l, versions=dict(ratings.HISTORY_VERSIONS)) for l in lines]
+    assert ratings.previous_from_history(v, "2026-11-18") is None                     # 6 and 4 days back only
+    assert ratings.previous_from_history(v, "2026-11-19") == {"A": 82}                # exactly 7
+    assert ratings.previous_from_history(v, "2026-11-19", key="pot") == {"A": 86}
     assert ratings.line_from_history(lines, "2026-11-22")["as_of"] == "2026-11-14"   # the latest a week back
     # no line a week back: no marker on anyone, never a zero, and no Risers section
     import hub_v2_market_fixture as MF
@@ -132,7 +137,7 @@ def test_the_history_line_carries_ovr_pot_and_the_terms_and_appends(tmp_path):
         "B": {"ovr": None, "pot": 70, "components": {"level": 20.0, "availability": None, "games_remaining": None}}}}
     line = ratings.history_line(res)
     assert line == {"as_of": "2026-11-17", "season": "2026-27", "ovr": {"A": 90}, "pot": {"A": 91, "B": 70},
-                    "terms": {"A": [40.123, 0.9123, 60]}}
+                    "terms": {"A": [40.123, 0.9123, 60]}, "versions": ratings.HISTORY_VERSIONS}
     assert ratings.read_history(tmp_path) == []                                       # not there yet
     assert ratings.append_history(tmp_path, line) is not None
     assert ratings.append_history(tmp_path, dict(line, ovr={"A": 89})) is None      # same as_of: skipped
@@ -306,7 +311,7 @@ def test_the_table_and_the_risers(syn):
     p, _ = syn
     h = render(p)
     sec = re.search(r'data-route="players"(.*?)</section></div></section>', h, re.S).group(1)
-    assert re.findall(r'data-psort="(\w+)"', sec) == ["name", "ovr", "pot", "fppg", "next"]
+    assert re.findall(r'data-psort="(\w+)"', sec) == ["name", "ovr", "pot", "dur", "fppg", "next"]   # 4a4: DUR
     assert 'id="pl-search"' in sec and 'data-filter="k"' in sec and 'data-filter="h"' in sec
     risers = p["v2"]["players"]["risers"]
     assert risers and [r["d"] for r in risers] == ["\u25b23", "\u25b22", "\u25b21"]     # 5b: + the free agent
@@ -381,7 +386,7 @@ def test_the_card_is_the_one_builders_data_plus_the_ratings(syn):
 def test_the_old_archetype_never_appears(syn):
     p, cards = syn
     for k, h in v2pub.card_html_all(p, cards).items():
-        assert "Generational Big" not in h and "lh-hero__arch" not in h
+        assert "Generational Big" not in h          # 4a4: the old 4a2 label is gone (the new one may show)
     assert "Generational Big" not in render(p)
 
 
@@ -454,14 +459,16 @@ def test_the_renderer_does_no_arithmetic_on_the_new_screens():
 
 
 def test_the_infotips_are_written_once_and_the_ovr_and_efficiency_words_are_the_decisions():
-    assert infotips.tip("ovr")[1] == ("Rest-of-season fantasy value above a replacement player: his scoring level, "
-                                      "how often he plays, and his team's games left. It doesn't know injury return "
-                                      "dates yet. Free agents are rated the same way. A player new to the league is "
-                                      "held back until he's proved himself.")   # Nick, 11-20: shortened
+    assert infotips.tip("ovr")[1] == ("How good he is per game when he plays: his fantasy production judged on his "
+                                      "whole NBA record (rostered or not), this season, and his age, on a fixed 40-99 "
+                                      "scale that means the same every year. It isn't about games left or how often "
+                                      "he plays: that's DUR.")   # 4a4 s.2: the skill OVR
+    assert infotips.tip("prov")[1] == "Small sample: this rating will settle as he plays more."   # Nick, 11-20
     assert "fa_pct" not in infotips.TIPS                                       # 5b: the free agents' tile is gone
-    assert infotips.tip("grade_efficiency") == ("FG% & TOs", "Fantasy points from his makes, misses and turnovers.")
-    for k in ("pot", "fppg", "grades", "age_curve", "grade_scoring", "grade_playmaking",
-              "grade_rebounding", "grade_stocks", "grade_durability", "grade_consistency", "grade_schedule"):
+    assert infotips.tip("grade_efficiency")[0] == "Efficiency"                  # 4a4 s.4
+    for k in ("pot", "fppg", "grades", "age_curve", "archetype", "grade_scoring", "grade_shooting",
+              "grade_playmaking", "grade_rebounding", "grade_steals", "grade_blocks", "grade_efficiency",
+              "grade_consistency", "grade_schedule"):
         assert infotips.tip(k)[1]
 
 
@@ -473,8 +480,9 @@ def test_compare_keys_are_integers_age_has_none_and_a_free_agent_has_no_keep(syn
     p, _ = syn
     pl = p["v2"]["players"]
     labels = [r["label"] for r in pl["cmp_rows"]]
-    assert labels == ["POT", "FPPG", "L14", "MIN", "Avail %", "Games, next 3 wks", "Keep %", "Age", "Scoring",
-                      "Playmaking", "Rebounding", "Stocks", "FG% & TOs"]
+    assert labels == ["POT", "DUR", "FPPG", "L14", "MIN", "Avail %", "Games, next 3 wks", "Keep %", "Age", "Scoring",
+                      "Shooting", "Playmaking", "Rebounding", "Steals", "Blocks", "Efficiency", "Consistency",
+                      "Schedule"]                                             # 4a4 s.4: the tiles
     age = labels.index("Age")
     for z in pl["rows"]:
         assert len(z["cmp"]) == len(labels)
@@ -487,7 +495,7 @@ def test_compare_keys_are_integers_age_has_none_and_a_free_agent_has_no_keep(syn
     assert fa["cmp"][labels.index("Keep %")] == {"t": DASH, "k": None}
     assert fa["cmp"][labels.index("POT")] == {"t": "72", "k": 72}
     assert fa["cmp"][labels.index("Avail %")] == {"t": "90%", "k": 90}
-    assert fa["cmp"][labels.index("Scoring")]["t"] == "B" and fa["cmp"][labels.index("Playmaking")]["k"] is None
+    assert fa["cmp"][labels.index("Scoring")]["t"] == "B" and fa["cmp"][labels.index("Shooting")]["k"] is None
 
 
 def test_compare_keys_follow_what_is_printed(syn):
@@ -531,11 +539,27 @@ def test_compare_data_is_the_payloads(syn):
 # s.5 the archetype
 # =============================================================================
 
-def test_the_archetype_is_absent_unless_enabled(syn):
+def test_the_archetype_shows_now_it_is_enabled(syn):
     p, cards = syn
-    assert ratings.config()["archetype"]["enabled"] is False
+    assert ratings.config()["archetype"]["enabled"] is True          # Nick, 11-20: turn them on
+    assert any(z.get("arch") for z in _rows(p)) and not any(z.get("arch_off") for z in _rows(p))
+    assert any("lh-hero__arch" in h for h in v2pub.card_html_all(p, cards).values())
+
+
+def test_the_archetype_is_absent_when_switched_off(monkeypatch):
+    real = ratings.config
+
+    def off(*a, **k):
+        c = copy.deepcopy(real(*a, **k))
+        c["archetype"]["enabled"] = False
+        return c
+    monkeypatch.setattr(ratings, "config", off)
+    p = synth_payload()
+    cards = synth_cards(p)
     assert not any(z.get("arch") for z in _rows(p))
-    assert not any("lh-hero__arch" in h for h in v2pub.card_html_all(p, cards).values())
+    assert any(z.get("arch_off") for z in _rows(p))                           # computed, never printed
+    assert not any("lh-hero__arch" in h or "v2-arch" in h for h in v2pub.card_html_all(p, cards).values())
+    assert 'class="v2-arch-k"' not in render(p)
 
 
 def test_the_archetype_preview_is_marked_and_refused_in_publish_mode(tmp_path, syn):
@@ -543,12 +567,13 @@ def test_the_archetype_preview_is_marked_and_refused_in_publish_mode(tmp_path, s
     p = json.loads(json.dumps(p))
     n = P.archetype_preview(p)
     labelled = [z for z in _rows(p) if z.get("arch")]
-    assert n == len(labelled) > 0
+    assert n == sum(1 for z in labelled if z["kind"] == "rostered") > 0
     assert all(z["arch"]["preview"] for z in labelled)
     table = P.archetype_table(p)
     assert sum(len(w) for lab, w in table if lab != "(no label)") == n
     assert sum(len(w) for _lab, w in table) == sum(1 for z in _rows(p) if z["kind"] == "rostered")
-    assert not any(z.get("arch") for z in _rows(p) if not z["grades"] or any(t.get("p") is None for t in z["grades"][:5]))
+    assert all(len(row) == 4 for _lab, w in table for row in w)              # name, manager, standouts, tags
+    assert not any(z.get("arch_off") for z in _rows(p))                       # moved to "arch", marked
     h = v2pub.card_html_all(p, cards)[labelled[0]["key"]]
     assert '<span class="v2-preview">Preview</span>' in h and labelled[0]["arch"]["label"] in h
     assert "Archetype preview" in visible_text(render(p))

@@ -1229,6 +1229,7 @@ function cmpSide(p,key,right){
     ring.querySelector('svg').setAttribute('aria-label','Overall rating '+p.ovr+' of 99');
     ring.querySelector('.lh-ring__arc').setAttribute('stroke-dasharray',p.ring);
     ring.querySelector('.lh-ring__value').textContent=p.ovr;s.appendChild(ring);
+    if(p.prov){s.appendChild(mk('span','v2-prov','Prov.'));}
   }else{s.appendChild(mk('span','lh-sub',p.fa?'Free agent: no OVR':'No OVR on this run'));}
   if(p.arch){var a=mk('span','v2-chiprow');a.appendChild(mk('span','v2-arch-h',p.arch));
     if(p.arch_preview){a.appendChild(mk('span','v2-preview','Preview'));}s.appendChild(a);}

@@ -218,7 +218,8 @@ def _synth_payload_4b() -> dict:
 SYN_YESTERDAY = (GEN - timedelta(days=1)).date()
 SYN_FIRST = SYN_YESTERDAY - timedelta(days=29)
 FA_NAME, FA_KEY = "Free Guy", "free-guy"
-GRADE_KEYS = ["scoring", "playmaking", "rebounding", "stocks", "efficiency", "durability", "consistency", "schedule"]
+GRADE_KEYS = ["scoring", "shooting", "playmaking", "rebounding", "steals", "blocks", "efficiency", "consistency",
+              "schedule"]                                   # 4a4 s.4: nine tiles
 LETTERS = ["A+", "A", "B+", "B", "C+", "C", "D+", "D"]
 
 
@@ -255,7 +256,7 @@ def synth_ratings(rosters: dict, previous: bool) -> dict:
             ovr = 95 - k * 2
             grades = {}
             for gi, g in enumerate(GRADE_KEYS):
-                if j == 3 and g in GRADE_KEYS[:5]:
+                if j == 3 and g in GRADE_KEYS[:7]:
                     grades[g] = {"letter": None, "percentile": None, "value": None, "reason": "stats still loading"}
                 else:
                     li = (k + gi) % 8
@@ -268,7 +269,11 @@ def synth_ratings(rosters: dict, previous: bool) -> dict:
                 "ovr_composite": 1000.0 - k, "pot": ovr + 1, "pot_reason": None, "pot_value": 80.0 - k,
                 "components": {"level": 40.0 - k, "availability": 0.9 - k / 100.0, "games_remaining": 60 - k,
                                "game_sd": 10.0, "games": 10, "team_games": 12, "fppg": 40.0, "age": 25 + j},
-                "grades": grades, "archetype": None, "archetype_reason": "off"}
+                "grades": grades, "archetype_enabled": False, "dur": 70 + k, "dur_value": 0.7 + k / 100.0,
+                # 4a4 s.3: ratings computes the archetype whatever the switch (a rookie under 5 games: none)
+                "archetype": (None if j == 3 else {"key": "engine", "label": "Engine", "standouts": ["scoring", "playmaking"],
+                                                   "tags": ["Efficient"], "skills": {}, "basis": "blend"}),
+                "archetype_reason": ("2 games: labelled after 5 (no NBA history)" if j == 3 else None)}
     # 5b: the free agent is rated too (ratings.rate_free_agents' shape)
     fa_grades = {g: ({"letter": "B", "percentile": 60.0, "value": 9.0 if g == "schedule" else 1.0, "reason": None}
                      if gi % 2 == 0 else {"letter": None, "percentile": None, "value": None,
@@ -279,7 +284,9 @@ def synth_ratings(rosters: dict, previous: bool) -> dict:
                      "pot_reason": None, "pot_value": 60.0,
                      "components": {"level": 29.0, "availability": 0.9, "games_remaining": 55, "game_sd": 9.0,
                                     "games": 9, "team_games": 10, "fppg": 31.5, "age": 24, "unproven": True},
-                     "grades": fa_grades, "archetype": None, "archetype_reason": "off"}}
+                     "grades": fa_grades, "archetype_enabled": False, "dur": 64, "dur_value": 0.6,
+                     "archetype": {"key": "hawk", "label": "Ball Hawk", "standouts": ["steals"], "tags": [],
+                                   "skills": {}, "basis": "blend"}, "archetype_reason": None}}
     return {"as_of": SYN_YESTERDAY.isoformat(), "season": "2026-27", "players": players, "free_agents": fas,
             "schedule_horizon": [GEN.date().isoformat(), (GEN.date() + timedelta(days=20)).isoformat()]}
 
@@ -310,6 +317,8 @@ def add_synth_players(p: dict, previous: bool = True) -> dict:
         prev = {"as_of": (SYN_YESTERDAY - timedelta(days=7)).isoformat(), "season": "2026-27",
                 "ovr": {n: r["ovr"] - (r["ovr_change"] or 0) for n, r in both.items()},
                 "pot": {n: r["pot"] - 1 for n, r in both.items()},
+                "versions": {"ovr": 2, "pot": 2, "dur": 1},       # 4a4: a line written after the switch
+                "dur": {n: r["dur"] + (1 if i % 2 else 0) for i, (n, r) in enumerate(both.items())},
                 "terms": {n: [r["components"]["level"] - (2.0 if i % 3 == 0 else 0.0),
                               r["components"]["availability"] - (0.1 if i % 3 == 1 else 0.0),
                               r["components"]["games_remaining"] + 3]

@@ -15,8 +15,10 @@ THE SHARED RULES
   replacement points (4c5 decision).
 - PAR (points above replacement in starts): for every such game, his fantasy
   points minus that game week's replacement level R, summed.
-- R, PER GAME WEEK, POINT IN TIME: OVR's R (ratings.rate): the replacement
-  quantile (config ratings.ovr.replacement_quantile, 0 = the lowest) of the
+- R, PER GAME WEEK, POINT IN TIME: 4a's replacement level (what OVR's R was
+  until 4a4 made OVR a skill rating; the awards' definitions are fixed for the
+  season, so R keeps 4a's meaning): the replacement quantile (config
+  awards.replacement_quantile, 0 = the lowest) of the
   level L (keepability v3's level_of) over the players rostered on the week's
   last logged day, from keeper_history.snapshot cut at that day. A week still
   in progress uses its last logged day so far. Later rows never reach an
@@ -204,7 +206,7 @@ def gather(root=ROOT, *, live=None, actuals: Optional[dict] = None, cfg: Optiona
     return {
         "root": root, "season": season, "inputs": inputs, "rows": rows, "weeks": weeks, "reg": reg,
         "week_of": week_of, "days": sorted({r["date"] for r in rows}), "cfg": acfg,
-        "quantile": float(ratings.config(cfg.get("ratings"))["ovr"]["replacement_quantile"]),
+        "quantile": replacement_quantile(cfg),
         "lp": M.level_config(params),
         "transactions": tl.transactions(root),
         "ledger": json.loads(ledger_p.read_text(encoding="utf-8")).get("rows") or [],
@@ -221,6 +223,15 @@ def gather(root=ROOT, *, live=None, actuals: Optional[dict] = None, cfg: Optiona
 
 def _week(inp: dict, w: int) -> dict:
     return inp["weeks"][[int(x["week"]) for x in inp["weeks"]].index(int(w))]
+
+
+def replacement_quantile(cfg: dict) -> float:
+    """config awards.replacement_quantile (4a4: the awards' own, no longer
+    OVR's): RAISES when missing."""
+    q = (cfg.get("awards") or {}).get("replacement_quantile")
+    if not isinstance(q, (int, float)) or isinstance(q, bool) or not 0 <= q <= 1:
+        raise AwardsInputError("config awards.replacement_quantile is missing or not 0..1 (4a4)")
+    return float(q)
 
 
 def replacement_levels(inp: dict, cut: str) -> Dict[int, dict]:

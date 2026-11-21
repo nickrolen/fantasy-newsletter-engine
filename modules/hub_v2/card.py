@@ -176,9 +176,9 @@ def line(points: list, ylab, aria: str, mark: Optional[int] = None, ref: Optiona
 
 
 def age_curve(age, curve: dict) -> dict:
-    """The Keeper tab's age curve: this league's expected change in scoring
-    from one season to the next, by age (ratings.age_multiplier, the curve POT
-    uses), his age marked."""
+    """The Keeper tab's age curve: the NBA's expected change in fantasy scoring
+    from one season to the next, by age (ratings.age_multiplier on config
+    ratings.skill.age_curve, the curve POT uses since 4a4), his age marked."""
     from ..ratings import age_multiplier
     pts = []
     for a in range(AGE_LO, AGE_HI + 1):
@@ -191,8 +191,8 @@ def age_curve(age, curve: dict) -> dict:
         if AGE_LO <= a <= AGE_HI:
             mark = a - AGE_LO
         ch = 100.0 * (age_multiplier(a, curve) - 1.0)
-        text = f"At {a}, this league's age curve expects {_signed1(ch)}% scoring next season."
-    ch = line(pts, lambda v: f"{_signed1(v)}%", "This league's age curve: the expected change in a player's "
+        text = f"At {a}, the NBA age curve expects {_signed1(ch)}% fantasy scoring next season."
+    ch = line(pts, lambda v: f"{_signed1(v)}%", "The NBA age curve: the expected change in a player's "
               "scoring from one season to the next, by age" + (f", with him at {int(age)}" if age is not None else ""),
               mark=mark)
     if mark is None:
@@ -232,6 +232,9 @@ def view(card: dict, row: dict, ctx: dict) -> dict:
             "ovr_dir": (row["ovr_d"] or {}).get("dir", ""), "ring": (row["ring"] or {}).get("hero"),
             "pot": row["pot"], "pot_d": (row["pot_d"] or {}).get("long", ""),
             "pot_dir": (row["pot_d"] or {}).get("dir", ""),
+            "dur": row.get("dur", DASH), "dur_d": (row.get("dur_d") or {}).get("long", ""),
+            "prov": bool(row.get("prov")),
+            "dur_dir": (row.get("dur_d") or {}).get("dir", ""),
             "ovr_note": row["ovr_note"], "arch": row.get("arch")}
 
     # ---------------------------------------------------------------- season
@@ -344,6 +347,7 @@ def views(payload: dict, cards_obj: dict) -> dict:
     missing = sorted(set(rows) - set(cards_obj["cards"]))
     if missing:
         raise CardError(f"no card built for {missing[:5]}")
-    ctx = {"season": CURRENT_SEASON, "curve": rcfg()["pot"]["age_curve"],
+    from ..ratings import skill_config
+    ctx = {"season": CURRENT_SEASON, "curve": skill_config(rcfg(), "pot")["age_curve"],   # 4a4: POT's NBA curve
            "team_size": {m: str(len(rb["players"])) for m, rb in payload["rosters"].items()}}
     return {k: view(cards_obj["cards"][k], rows[k], ctx) for k in sorted(rows)}

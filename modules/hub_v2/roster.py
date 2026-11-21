@@ -69,7 +69,7 @@ GROUPS = (
     ("profile", "Profile", ("arch", "share", "best", "worst")),
 )
 COLS = {
-    "ovr": ("OVR", True, "4a's OVR, with its change this week."),
+    "ovr": ("OVR", True, "4a4's OVR (skill, fixed scale), with its change this week; Prov. while his record is thin."),
     "pot": ("POT", True, "4a's POT: his value as a keeper."),
     "tv": ("Team value", True, "Points he adds to this team's best daily lineups over the next two weeks, "
                                "against the best free agent in his place. A gap of a few points between two "
@@ -100,7 +100,7 @@ COLS = {
     "age": ("Age", True, "Age."),
     "acq": ("Acquired", False, "How and when he joined this team."),
     "since": ("Since acq.", True, "FPPG since he joined this team."),
-    "arch": ("Archetype", False, "4a2's label."),
+    "arch": ("Archetype", False, "4a4's label: what kind of player he is."),
     "share": ("Share", True, "His share of this team's fantasy points this season."),
     "best": ("Best", False, "His best game this season."),
     "worst": ("Worst", False, "His worst game this season."),
@@ -329,7 +329,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             r, v = {}, {}
 
             # --- Value
-            r["ovr"], v["ovr"] = z["ovr"], z.get("ovr_k")
+            r["ovr"], v["ovr"] = z["ovr"] + (" Prov." if z.get("prov") else ""), z.get("ovr_k")
             ovr_d.append(z.get("ovr_d"))
             r["pot"], v["pot"] = z["pot"], z.get("pot_k")
             t = (tv.get("values") or {}).get(m, {}).get(n)
