@@ -506,7 +506,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
              f"stands, against the best free agent in his place ({tv.get('sims')} simulations)."
              if wk else "Team value: no window is left this season.",
              ("Title \u0394 prices a point at this week's stakes: the regular-season title through week 15, "
-              "the championship after." if prices else f"Title \u0394: no stakes on this run ({price_note})."),
+              "the playoff title after." if prices else f"Title \u0394: no stakes on this run ({price_note})."),
              f"Floor, Ceil, Boom % and Bust % show from {MIN_GAMES_SPREAD} games."]
     shared = {"keys": allc, "groups": groups,
               "cols": {c: {"label": COLS[c][0], "num": COLS[c][1], "tip": COLS[c][2]} for c in allc},

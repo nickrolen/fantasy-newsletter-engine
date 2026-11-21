@@ -90,10 +90,10 @@
             "Nick": 1,
             "Benton": 1
         },
-        "_seasons": "Who won each pre-data-era season (Nick, 11-19). The two seasons are 2014-15 and 2016-17; 2015-16 was not played. Their winners must sum to titles_won (regular_season) and playoff_championships (champion); the hub's League > History > Champions reads them (modules/hub_v2/league.champions).",
+        "_seasons": "Who won each pre-data-era season (Nick, 11-19). The two seasons are 2014-15 and 2016-17; 2015-16 was not played. Their winners must sum to titles_won (league_champion) and playoff_championships (playoff_champion); the hub's League > History > Champions reads them (modules/hub_v2/league.champions). Keys renamed 11-20: the League Champion is the regular-season winner, the league's champion; the bracket's winner is the Playoff Champion. No key here says 'champion' for the bracket alone (the old 'champion' key did, and the hub headlined the wrong winner).",
         "seasons": {
-            "2014-15": {"regular_season": "Nick", "regular_season_runner_up": "Benton", "champion": "Nick", "runner_up": "Benton"},
-            "2016-17": {"regular_season": "Hayden", "regular_season_runner_up": "Nick", "champion": "Benton", "runner_up": "Garrett"}
+            "2014-15": {"league_champion": "Nick", "league_runner_up": "Benton", "playoff_champion": "Nick", "playoff_runner_up": "Benton"},
+            "2016-17": {"league_champion": "Hayden", "league_runner_up": "Nick", "playoff_champion": "Benton", "playoff_runner_up": "Garrett"}
         }
     },
     "season": {

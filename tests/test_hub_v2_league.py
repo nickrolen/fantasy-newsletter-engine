@@ -258,25 +258,63 @@ def test_an_unpublished_report_raises():
 
 def test_champions_per_season_with_2015_16_named_and_the_records_only_seasons():
     """Nick, 11-19: the record-only seasons are 2014-15 and 2016-17; 2015-16 was
-    not played (the earlier record had them the other way round)."""
-    _, h = L.build(_inputs())
+    not played (the earlier record had them the other way round).
+    Nick, 11-20: each season's CHAMPION is the regular-season winner (the
+    League Champion); the bracket's winner is the Playoff Champion, a line."""
+    inp = _inputs()
+    _, h = L.build(inp)
     rows = {r["season"]: r for r in h["champions"]["rows"]}
     assert list(rows)[0] == "2026-27" and rows["2026-27"]["kind"] == "live"
-    assert rows["2025-26"]["who"] == "Jordan" and "Tyler" in rows["2025-26"]["lines"][0]["t"]
-    assert rows["2024-25"]["who"] == "Marcus"
-    assert rows["2023-24"]["kind"] == "nobracket" and "a made-up stoppage" in rows["2023-24"]["lines"][0]["t"]
+    assert rows["2026-27"]["lines"][0]["k"] == "League champion" and "in progress" in rows["2026-27"]["lines"][0]["t"]
+    r = rows["2025-26"]
+    assert r["who"] == r["m"] == "Tyler" and r["lines"][0]["k"] == "Runner-up"
+    assert r["lines"][1]["k"] == "Playoff champion" and r["lines"][1]["t"].startswith("Jordan") and "over Tyler" in r["lines"][1]["t"]
+    assert rows["2024-25"]["who"] == "Marcus" and rows["2024-25"]["lines"][1]["t"].startswith("Marcus")
+    nb = rows["2023-24"]
+    rank1 = next(x["manager"] for x in inp["all_standings"] if x["season"] == "2023-24" and x["regular_season_rank"] == 1)
+    assert nb["kind"] == "nobracket" and nb["who"] == rank1
+    assert nb["lines"][1]["k"] == "Playoffs" and "a made-up stoppage" in nb["lines"][1]["t"]
     assert rows["2015-16"]["kind"] == "off" and rows["2015-16"]["lines"][0]["k"] == "Not played"
-    assert rows["2016-17"]["kind"] == "records" and rows["2016-17"]["who"] == "Jordan"
-    assert rows["2016-17"]["lines"][0]["t"] == "Tyler" and "Tyler (runner-up Marcus)" in rows["2016-17"]["lines"][1]["t"]
-    assert rows["2014-15"]["kind"] == "records" and rows["2014-15"]["who"] == "Dana"
+    assert rows["2016-17"]["kind"] == "records" and rows["2016-17"]["who"] == "Tyler"
+    assert rows["2016-17"]["lines"][0]["t"] == "Marcus" and rows["2016-17"]["lines"][1]["t"] == "Jordan, over Tyler"
+    assert rows["2014-15"]["kind"] == "records" and rows["2014-15"]["who"] == "Marcus"
     seasons = [r["season"] for r in h["champions"]["rows"]]
     assert seasons.index("2017-18") < seasons.index("2016-17") < seasons.index("2015-16") < seasons.index("2014-15")
 
 
+def test_every_seasons_headline_is_the_league_champion_never_the_bracket():
+    """The error 4c4 shipped (Nick, 11-20): the bracket's winner headlined each
+    season and the real champion sat on a "Regular season" sub-line."""
+    from modules.season_outcomes import league_champion
+    inp = _inputs()
+    _, h = L.build(inp)
+    by = {}
+    for x in inp["all_standings"]:
+        by.setdefault(x["season"], []).append(x)
+    rows = {r["season"]: r for r in h["champions"]["rows"]}
+    for s, rs in by.items():
+        assert rows[s]["m"] == rows[s]["who"] == league_champion(rs), s
+        assert not any(x["k"] == "Regular season" for x in rows[s]["lines"]), s
+    for s, v in inp["pre_data_era"]["seasons"].items():
+        assert rows[s]["who"] == v["league_champion"], s
+    note = h["champions"]["note"]
+    assert note.startswith("The champion is the League Champion: first in the regular season")
+    assert "bracket's winner" not in note
+
+
 def test_pre_data_era_seasons_must_agree_with_the_totals():
     inp = _inputs()
-    inp["pre_data_era"]["seasons"]["2016-17"]["champion"] = "Marcus"
+    inp["pre_data_era"]["seasons"]["2016-17"]["playoff_champion"] = "Marcus"
     with pytest.raises(L.LeagueError, match="disagree"):
+        L.build(inp)
+
+
+def test_pre_data_era_old_key_names_raise():
+    """"champion" meant the bracket's winner in the config; renamed 11-20."""
+    inp = _inputs()
+    v = inp["pre_data_era"]["seasons"]["2016-17"]
+    v["champion"] = v.pop("playoff_champion")
+    with pytest.raises(L.LeagueError, match="old key"):
         L.build(inp)
 
 
@@ -294,8 +332,9 @@ def test_alltime_is_leaguehistory_plus_the_live_season():
         done = float(lh["total_points_scored_to_date"]) - float(lh["total_points_current_season"])
         live = sum(e["score"] for e in inp["weekly_scores"][r["m"]])
         assert r["pf"] == f"{done + live:,.0f}"
-        assert r["champs"] == str(lh["playoff_championships"]) and r["firsts"] == str(lh["titles_won"])
+        assert r["titles"] == str(lh["titles_won"]) and r["playoff_titles"] == str(lh["playoff_championships"])
     assert "every season with records" in h["alltime"]["note"] and "2015-16 was not played" in h["alltime"]["note"]
+    assert "Titles = League Championships" in h["alltime"]["note"]
 
 
 def test_head_to_head_is_symmetric_and_splits_the_postseason():

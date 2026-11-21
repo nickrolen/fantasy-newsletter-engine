@@ -678,6 +678,17 @@ def _season_team(inp: dict, season: str, m: str) -> str:
 
 
 def champions(inp: dict) -> dict:
+    """Each season's LEAGUE CHAMPION, then its Playoff Champion (and from
+    2026-27 its Cup winner).
+
+    Nick, 11-20 (and before): the league's champion is the REGULAR-SEASON
+    winner (weeks 1-15; $180), the League Champion of modules/season_outcomes.
+    The bracket (weeks 16-21; $90) crowns the Playoff Champion, a lesser title;
+    the Cup (weeks 22-23) earns a 6th keeper. 4c4 built this page with the
+    bracket's winner as "Champion" and the real champion on a sub-line; that
+    is the error this function exists not to repeat. The headline (m, who,
+    team) is ALWAYS season_outcomes.league_champion; a test pins it."""
+    from ..season_outcomes import league_champion, playoff_champion
     by_season: dict = {}
     for r in inp["all_standings"]:
         by_season.setdefault(r["season"], []).append(r)
@@ -686,49 +697,62 @@ def champions(inp: dict) -> dict:
     cur = inp["season"]
     cw = (inp["cup_winners"] or {}).get(cur)
     rows.append({"season": cur, "kind": "live", "lines": [
-        {"k": "Regular season", "t": "in progress"},
-        {"k": "Playoffs", "t": "weeks 16" + NDASH + "21"},
+        {"k": "League champion", "t": "the regular season, weeks 1" + NDASH + str(inp["reg_weeks"]) + ": in progress"},
+        {"k": "Playoff champion", "t": "weeks 16" + NDASH + "21"},
         {"k": "Cup", "t": (cw if cw else "the first Cup, weeks 22" + NDASH + "23: not played yet")}],
         "m": None, "team": "", "who": ""})
     for s in sorted(by_season, reverse=True):
         rs = by_season[s]
-        champ = [r for r in rs if r.get("playoff_rank") == 1]
-        ru = [r for r in rs if r.get("playoff_rank") == 2]
         first = [r for r in rs if r.get("regular_season_rank") == 1]
-        if len(first) != 1:
-            raise LeagueError(f"all_standings {s}: {len(first)} regular-season winners")
+        second = [r for r in rs if r.get("regular_season_rank") == 2]
+        if len(first) != 1 or len(second) != 1:
+            raise LeagueError(f"all_standings {s}: {len(first)} regular-season winners and {len(second)} runners-up")
+        f1, f2 = league_champion(rs), second[0]["manager"]
+        if f1 != first[0]["manager"]:
+            raise LeagueError(f"all_standings {s}: season_outcomes' League Champion {f1} is not rank 1")
+        lines = [{"k": "Runner-up", "t": f"{f2} ({_season_team(inp, s, f2)})"}]
         bracket = (ss.get(s) or {}).get("bracket")
         if bracket is False:
             note = (ss.get(s) or {}).get("note") or "no bracket played"
-            f1 = first[0]["manager"]
-            rows.append({"season": s, "kind": "nobracket", "m": None, "team": "", "who": "",
-                         "lines": [{"k": "No champion", "t": note},
-                                   {"k": "Regular season", "t": f"{f1} ({_season_team(inp, s, f1)})"}]})
-            continue
-        if len(champ) != 1 or len(ru) != 1:
-            raise LeagueError(f"all_standings {s}: {len(champ)} champions and {len(ru)} runners-up")
-        c, r2, f1 = champ[0]["manager"], ru[0]["manager"], first[0]["manager"]
-        rows.append({"season": s, "kind": "played", "m": c, "team": _season_team(inp, s, c), "who": c,
-                     "lines": [{"k": "Runner-up", "t": f"{r2} ({_season_team(inp, s, r2)})"},
-                               {"k": "Regular season", "t": f1}]})
+            lines.append({"k": "Playoffs", "t": f"not played: {note}"})
+            kind = "nobracket"
+        else:
+            champ = [r for r in rs if r.get("playoff_rank") == 1]
+            ru = [r for r in rs if r.get("playoff_rank") == 2]
+            if len(champ) != 1 or len(ru) != 1:
+                raise LeagueError(f"all_standings {s}: {len(champ)} playoff champions and {len(ru)} runners-up")
+            c, r2 = playoff_champion(rs), ru[0]["manager"]
+            lines.append({"k": "Playoff champion", "t": f"{c} ({_season_team(inp, s, c)}), over {r2}"})
+            kind = "played"
+        rows.append({"season": s, "kind": kind, "m": f1, "team": _season_team(inp, s, f1), "who": f1,
+                     "lines": lines})
     # The two seasons before the Yahoo data, season by season (Nick, 11-19):
     # 2014-15 and 2016-17 were played; 2015-16 was not. pre_data_era.seasons
     # must agree with its titles_won / playoff_championships totals, or RAISE.
+    # Keys renamed 11-20 so none of them says "champion" for the bracket alone:
+    # league_champion / league_runner_up (regular season), playoff_champion /
+    # playoff_runner_up. The old names RAISE rather than being read.
     pre = inp["pre_data_era"] or {}
     pc = pre.get("playoff_championships") or {}
     tw = pre.get("titles_won") or {}
     ps = pre.get("seasons") or {}
     if not pc or not tw or not ps:
         raise LeagueError("league_config pre_data_era lacks playoff_championships, titles_won or seasons")
-    for key, total, field in (("champion", pc, "playoff_championships"), ("regular_season", tw, "titles_won")):
+    keys = ("league_champion", "league_runner_up", "playoff_champion", "playoff_runner_up")
+    for s, v in ps.items():
+        old = sorted(set(v) & {"champion", "runner_up", "regular_season", "regular_season_runner_up"})
+        if old or any(k not in v for k in keys):
+            raise LeagueError(f"league_config pre_data_era.seasons {s} needs exactly {keys}"
+                              + (f"; it uses the old key(s) {old}" if old else ""))
+    for key, total, field in (("playoff_champion", pc, "playoff_championships"), ("league_champion", tw, "titles_won")):
         counted: dict = {}
         for s, v in ps.items():
             counted[v[key]] = counted.get(v[key], 0) + 1
         if {m: n for m, n in counted.items() if n} != {m: n for m, n in total.items() if n}:
             raise LeagueError(f"league_config pre_data_era.seasons' {key}s {counted} disagree with its {field} {total}")
-    pre_rows = {s: {"season": s, "kind": "records", "m": v["champion"], "team": "", "who": v["champion"],
-                    "lines": [{"k": "Runner-up", "t": v["runner_up"]},
-                              {"k": "Regular season", "t": f"{v['regular_season']} (runner-up {v['regular_season_runner_up']})"},
+    pre_rows = {s: {"season": s, "kind": "records", "m": v["league_champion"], "team": "", "who": v["league_champion"],
+                    "lines": [{"k": "Runner-up", "t": v["league_runner_up"]},
+                              {"k": "Playoff champion", "t": f"{v['playoff_champion']}, over {v['playoff_runner_up']}"},
                               {"k": "Records only", "t": "before the Yahoo data: no scores or stats"}]}
                 for s, v in ps.items()}
     # newest first: every season from the first data-era one back to the first
@@ -741,9 +765,11 @@ def champions(inp: dict) -> dict:
                      "lines": [{"k": "Not played", "t": "the league took the season off"}]})
     n_played = len([r for r in rows if r["kind"] in ("played", "nobracket", "records")])
     return {"rows": rows, "meta": f"{n_played} seasons with results",
-            "note": ("Champion = the playoff bracket's winner; regular season = first in the standings. "
+            "note": ("The champion is the League Champion: first in the regular season (weeks 1" + NDASH + "15 this "
+                     "season, $180). The playoff bracket (weeks 16" + NDASH + "21) crowns the Playoff Champion ($90); "
+                     "the Cup (weeks 22" + NDASH + "23, from 2026-27) earns a 6th keeper. "
                      "2014-15 and 2016-17 predate the Yahoo data: records only, from LEAGUEHISTORY and the "
-                     "league's own account. 2015-16 was not played. The Cup starts this season.")}
+                     "league's own account. 2015-16 was not played.")}
 
 
 # =============================================================================
@@ -792,8 +818,8 @@ def alltime(inp: dict, results: dict) -> dict:
         g = W + L + T
         pct = (W + 0.5 * T) / g if g else 0.0
         rows.append({"m": m, "record": _rec(W, L, T), "pct": f"{pct * 100:.1f}%", "_pct": pct,
-                     "pf": _int(pf), "champs": str(int(r["playoff_championships"])),
-                     "firsts": str(int(r["titles_won"])), "post": _rec(PW, PL, PT),
+                     "pf": _int(pf), "titles": str(int(r["titles_won"])),
+                     "playoff_titles": str(int(r["playoff_championships"])), "post": _rec(PW, PL, PT),
                      "seasons": str(int(r["seasons_completed"]) + 1)})
     rows.sort(key=lambda x: (-x["_pct"], x["m"]))
     order = {}
@@ -807,7 +833,8 @@ def alltime(inp: dict, results: dict) -> dict:
             "note": (f"Scope: every season with records: 2014-15 and 2016-17 (records only, from LEAGUEHISTORY), "
                      f"2017-18 to 2025-26, and this season live through week {cur_through}. 2015-16 was not "
                      "played. W-L-T and win % are the regular season (a T counts half); the playoffs are the "
-                     "second line. Champ = playoff titles; 1st = regular-season titles."),
+                     "second line. Titles = League Championships (first in the regular season, the league's "
+                     "champion); Playoff = playoff titles (the bracket)."),
             "seasons_note": "12 seasons"}
 
 

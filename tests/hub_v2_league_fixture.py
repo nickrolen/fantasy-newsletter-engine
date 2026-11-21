@@ -181,7 +181,7 @@ def inputs(p: dict) -> dict:
         for i, m in enumerate(MGRS):
             standings_rows.append({"season": s, "manager": m, "rank": i + 1, "wins": 12, "losses": 11, "ties": 0,
                                    "points_for": 36000.0, "reg_wins": 11, "reg_losses": 10,
-                                   "regular_season_rank": 1 if m == f1 else 2 + (i % 3) if m != f1 else 1,
+                                   "regular_season_rank": ([f1] + [x for x in MGRS if x != f1]).index(m) + 1,
                                    "playoff_rank": 1 if m == c else 2 if m == r else 3 + (i % 2)})
     for i, m in enumerate(MGRS):                         # a season with no bracket played
         standings_rows.append({"season": "2023-24", "manager": m, "rank": i + 1, "wins": 10, "losses": 9, "ties": 0,
@@ -196,10 +196,10 @@ def inputs(p: dict) -> dict:
                              "2024-25": {"regular_through": 21, "bracket": True},
                              "2025-26": {"regular_through": 21, "bracket": True}},
         "pre_data_era": {"titles_won": {"Marcus": 1, "Tyler": 1}, "playoff_championships": {"Dana": 1, "Jordan": 1},
-                         "seasons": {"2014-15": {"regular_season": "Marcus", "regular_season_runner_up": "Dana",
-                                                 "champion": "Dana", "runner_up": "Marcus"},
-                                     "2016-17": {"regular_season": "Tyler", "regular_season_runner_up": "Marcus",
-                                                 "champion": "Jordan", "runner_up": "Tyler"}}},
+                         "seasons": {"2014-15": {"league_champion": "Marcus", "league_runner_up": "Dana",
+                                                 "playoff_champion": "Dana", "playoff_runner_up": "Marcus"},
+                                     "2016-17": {"league_champion": "Tyler", "league_runner_up": "Marcus",
+                                                 "playoff_champion": "Jordan", "playoff_runner_up": "Tyler"}}},
         "cup_winners": {"2026-27": None},
         "leaguehistory": [{"manager_name": m, "seasons_completed": 11,
                            "regular_season_record": f"({100 + 3 * i}-{90 - 2 * i})", "playoff_record": f"({8 + i}-{9 - i})",

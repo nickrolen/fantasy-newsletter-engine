@@ -513,13 +513,13 @@ def _champions(c: dict, mono) -> str:
 def _alltime(a: dict, mono) -> str:
     o = ['<section class="lh-card lh-card--flush"><div class="lh-sechead v2-pad"><h2 class="lh-eyebrow">All-time standings'
          f'</h2><span class="lh-meta">{clean(a["meta"])}</span></div><div class="v2-scroll"><table class="lh-table v2-lg-st">'
-         "<thead><tr><th>Team</th><th>W-L</th><th>PF</th><th>Champ</th><th>1st</th></tr></thead><tbody>"]
+         "<thead><tr><th>Team</th><th>W-L</th><th>PF</th><th>Titles</th><th>Playoff</th></tr></thead><tbody>"]
     for r in a["rows"]:
         o.append(f'<tr><td><span class="v2-lg-team"><span class="v2-lg-rank">{clean(r["rank"])}</span>'
                  + _mgr(r["team"], mono, "Playoffs " + r["post"]) + "</span></td>"
                  f'<td class="lh-num">{clean(r["record"])}<span class="lh-sub v2-lg-blk">{clean(r["pct"])}</span></td>'
-                 f'<td class="lh-num">{clean(r["pf"])}</td><td class="lh-num">{clean(r["champs"])}</td>'
-                 f'<td class="lh-num">{clean(r["firsts"])}</td></tr>')
+                 f'<td class="lh-num">{clean(r["pf"])}</td><td class="lh-num">{clean(r["titles"])}</td>'
+                 f'<td class="lh-num">{clean(r["playoff_titles"])}</td></tr>')
     o.append(f'</tbody></table></div><div class="lh-table-note">{clean(a["note"])}</div></section>')
     return "".join(o)
 
