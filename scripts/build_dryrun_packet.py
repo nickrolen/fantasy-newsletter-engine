@@ -61,7 +61,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "output" / "dryrun"
 
 CODE_DIRS = ("modules", "scripts", "templates")
-REPO_CONFIG_FILES = ("LEAGUE_LORE.json", "PLAYER_AGES.json", "DRAFT_PICK_VALUES.json",
+REPO_CONFIG_FILES = ("LEAGUE_LORE.json", "PLAYER_AGES.json",
                      "ROOKIE_SEASONS.json")
 HISTORY_LISTS = ("all_matchups.json", "all_standings.json", "all_drafts.json",
                  "all_trades.json")

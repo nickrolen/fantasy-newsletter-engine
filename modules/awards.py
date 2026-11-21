@@ -65,7 +65,9 @@ INFO = {
                 "this league, games-weighted. 20+ games this season and 20+ in those seasons.",
     "roy": "Most PAR in his starts among first-year NBA players, weeks 1\u201315.",
     "trade": "For each regular-season trade, the PAR each side has had from the players it got, in its own "
-             "starts, through week 15. The biggest gap wins; draft picks are listed, not valued.",
+             "starts, through week 15, plus the draft picks it got. A draft pick counts as the average value "
+             "of players taken in that round (est.); a pick for a 2020 or earlier draft is listed, not valued. "
+             "The biggest gap wins.",
     "bust": "The biggest shortfall against Yahoo's preseason projection, in points (FPPG short \u00d7 games), "
             "among players drafted or kept. 10+ games: an injured-out season is not a bust.",
 }
@@ -674,8 +676,9 @@ def _rookies(inp, res, per, pid_of, cut) -> None:
 
 
 def _trades(inp, res, starts, par, names, cut, reg_end) -> None:
-    from . import keeper_history as kh
+    from . import keeper_history as kh, draft_values as DV, draft_history as DH, trade_picks as TP
     a = res["awards"]["trade"]
+    table = inp.get("pick_values") or DV.load(ROOT)          # H56: one curve, by round (raises if missing)
     season = inp["season"]
     for t in inp["inputs"].trades:
         if t.get("season") != season:
@@ -697,14 +700,29 @@ def _trades(inp, res, starts, par, names, cut, reg_end) -> None:
             mine = set(got.get(m) or [])
             side[m] = sum(par(r) for r in starts if r["manager"] == m and r["player_name"] in mine
                           and r["date"] >= first)
-        picks = {m: list(v or []) for m, v in (t.get("picks") or {}).items() if v}
-        win, lose = (ma, mb) if side[ma] >= side[mb] else (mb, ma)
+        # H56 s.4.4: each pick a side got, at its round's expected PAR (est.)
+        plist = t["draft_picks"] if "draft_picks" in t else TP.label_picks(t, season)
+        est = {ma: 0.0, mb: 0.0}
+        picks = {ma: [], mb: []}
+        for p in plist:
+            if p["to_manager"] not in est:
+                raise AwardsInputError(f"{label}: a pick goes to {p['to_manager']}, not one of the two managers")
+            if DH.keeper_era(p["draft"]):
+                v = float(DV.value(table, "par", int(p["round"]))["value"])
+                est[p["to_manager"]] += v
+                picks[p["to_manager"]].append(f"{TP.pick_label(p)} (est. {_d1(v)})")
+            else:
+                picks[p["to_manager"]].append(f"{TP.pick_label(p)} (not valued)")
+        total = {m: side[m] + est[m] for m in (ma, mb)}
+        win, lose = (ma, mb) if total[ma] >= total[mb] else (mb, ma)
+        valued = any(est.values())
         a["rows"].append({"key": f"{first}|{ma}|{mb}|" + ",".join(sorted(sum(got.values(), []))),
-                          "player": None, "label": label, "m": win, "value": abs(side[ma] - side[mb]),
-                          "shown": f"won by {win}" + (DOT + "draft picks listed, not valued" if picks else ""),
+                          "player": None, "label": label, "m": win, "value": abs(total[ma] - total[mb]),
+                          "shown": f"won by {win}" + (DOT + "picks est." if valued else ""),
                           "sub": "",
-                          "sides": {m: {"par": side[m], "got": got.get(m) or []} for m in (ma, mb)},
-                          "picks": picks, "date": first})
+                          "sides": {m: {"par": total[m], "players_par": side[m], "picks_est": est[m],
+                                        "got": got.get(m) or [], "picks": picks[m]} for m in (ma, mb)},
+                          "picks": {m: v for m, v in picks.items() if v}, "date": first})
     a["rows"] = _rank(a["rows"])
 
 
@@ -720,7 +738,8 @@ def _busts(inp, res, names, pid_of, cut) -> None:
     need = int(inp["cfg"]["bust_min_games"])
     for p in inp["inputs"].picks.get(inp["season"]) or []:
         n = names.canon(p["player_name"], p.get("player_key")) or p["player_name"]
-        how = "keeper" if p.get("is_keeper") else f"pick {int(p['pick_number'])}"
+        how = ("keeper" if p.get("is_keeper") else
+               f"pick {int(p['pick_number'])}" if p.get("pick_number") is not None else "drafted")  # H56
         hit = pre["by_name"].canonical(n) or pre["by_name"].canonical(p["player_name"])
         if hit is None:
             _excl(a["excluded"], n, "not in Yahoo's preseason projections",
@@ -1013,7 +1032,7 @@ def races(res: dict, lines: list, cfg: dict, mvp_odds: Optional[dict] = None,
             v = r["value"]
             sides = [{"m": m, "par": f"{_d1(sd['par'])} PAR",
                       "players": [{"name": n, "card": player_slug(n)} for n in sd["got"]],
-                      "picks": bool((r.get("picks") or {}).get(_other(m, *list(r["sides"])))) }
+                      "picks": ", ".join(sd.get("picks") or [])}            # H56: what it got, est.
                      for m, sd in (r.get("sides") or {}).items()]
             rows.append({"rank": str(i), "key": r["key"], "label": r["label"], "player": r.get("player"),
                          "card": player_slug(r["player"]) if r.get("player") else "", "m": r["m"],

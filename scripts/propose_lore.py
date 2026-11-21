@@ -44,7 +44,12 @@ def build_cells(base: Path, perms: int = L.PERMUTATIONS):
     hist = base / "data" / "historical"
     matchups = _json(hist / "all_matchups.json", [])
     playerlog = _json(hist / "HISTORICAL_PLAYERLOG.json", [])
-    drafts = _json(hist / "all_drafts.json", [])
+    # H56: past drafts through modules/draft_history (a punted season's picks
+    # carry no round, so the "first center in round N" cells use trusted
+    # orders only); 2018-19's dropped list is replaced, for the draft-day
+    # loyalty counts, by its opening-day rosters
+    from modules import draft_history as DH
+    drafts = DH.read(base) + DH.opening_day_stand_ins(playerlog)
     # all_drafts.json holds COMPLETED seasons only (the pull_current_draft
     # trap); the season in progress has its draft in DRAFT_PICKS_CURRENT.json.
     # Without it every loyalty fact was a draft behind from draft day to the

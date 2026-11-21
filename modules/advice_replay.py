@@ -237,7 +237,7 @@ class Season:
         """prior_rows: 2024-25 per-game (FPPG and games); prev_rows: 2023-24
         per-game (games only: the durability prior is the mean of the two
         seasons' games, capped at 82); draft_rows: the league's 2025-26 draft
-        (all_drafts.json), pre-season information -- a drafted player with no
+        (modules/draft_history.read; its order is trusted), pre-season information -- a drafted player with no
         2024-25 line gets the median 2024-25 FPPG of the veterans picked
         within DRAFT_WINDOW picks of him."""
         log = [r for r in log_rows if r["season_key"] == "2025-26"]
@@ -267,8 +267,10 @@ class Season:
             g = [float(r["games"])] + ([prev_gp[n]] if n in prev_gp else [])
             prior[n] = (fantasy_points(r), yahoo_like_gp(float(np.mean(g))))
             gps.append(prior[n][1])
-        picks = sorted((int(r["pick_number"]), names.of_log(r["player_name"])) for r in draft_rows
-                       if r.get("season") == "2025-26" and not r.get("is_keeper"))
+        rows25 = [r for r in draft_rows if r.get("season") == "2025-26" and not r.get("is_keeper")]
+        if any(r.get("pick_number") is None for r in rows25):      # H56: 2025-26's order is trusted
+            raise ValueError("the 2025-26 draft has no pick order (modules/draft_history)")
+        picks = sorted((int(r["pick_number"]), names.of_log(r["player_name"])) for r in rows25)
         draft_prior = {}
         for pk, n in picks:
             if n in prior:

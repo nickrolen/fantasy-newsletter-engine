@@ -1,0 +1,850 @@
+{
+ "schema": 1,
+ "drafts": [
+  "2024-25",
+  "2025-26"
+ ],
+ "picks": 56,
+ "min_gp_fppg": 5,
+ "measures": {
+  "par": {
+   "curve": {
+    "a": 650.6227,
+    "b": -239.6709,
+    "form": "a + b * ln(round)"
+   },
+   "s2": 71991.556,
+   "tau2": -3408.968,
+   "k": null,
+   "rounds": {
+    "1": {
+     "value": 650.62,
+     "n": 8,
+     "mean": 586.05,
+     "sd": 307.7,
+     "curve": 650.62,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "2": {
+     "value": 484.5,
+     "n": 8,
+     "mean": 612.27,
+     "sd": 291.62,
+     "curve": 484.5,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "3": {
+     "value": 387.32,
+     "n": 8,
+     "mean": 300.27,
+     "sd": 240.53,
+     "curve": 387.32,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "4": {
+     "value": 318.37,
+     "n": 8,
+     "mean": 347.1,
+     "sd": 313.25,
+     "curve": 318.37,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "5": {
+     "value": 264.89,
+     "n": 8,
+     "mean": 338.51,
+     "sd": 267.65,
+     "curve": 264.89,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "6": {
+     "value": 221.19,
+     "n": 8,
+     "mean": 211.35,
+     "sd": 209.61,
+     "curve": 221.19,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "7": {
+     "value": 184.24,
+     "n": 8,
+     "mean": 115.57,
+     "sd": 229.5,
+     "curve": 184.24,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "8": {
+     "value": 152.24,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 152.24,
+     "basis": "curve (no data)"
+    },
+    "9": {
+     "value": 124.01,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 124.01,
+     "basis": "curve (no data)"
+    },
+    "10": {
+     "value": 98.76,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 98.76,
+     "basis": "curve (no data)"
+    }
+   }
+  },
+  "fppg": {
+   "curve": {
+    "a": 40.8759,
+    "b": -3.6392,
+    "form": "a + b * ln(round)"
+   },
+   "s2": 21.486,
+   "tau2": -1.332,
+   "k": null,
+   "rounds": {
+    "1": {
+     "value": 40.88,
+     "n": 8,
+     "mean": 39.85,
+     "sd": 4.28,
+     "curve": 40.88,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "2": {
+     "value": 38.35,
+     "n": 7,
+     "mean": 40.86,
+     "sd": 2.85,
+     "curve": 38.35,
+     "basis": "data (7 picks), shrunk toward the curve"
+    },
+    "3": {
+     "value": 36.88,
+     "n": 7,
+     "mean": 35.42,
+     "sd": 4.32,
+     "curve": 36.88,
+     "basis": "data (7 picks), shrunk toward the curve"
+    },
+    "4": {
+     "value": 35.83,
+     "n": 7,
+     "mean": 36.68,
+     "sd": 5.1,
+     "curve": 35.83,
+     "basis": "data (7 picks), shrunk toward the curve"
+    },
+    "5": {
+     "value": 35.02,
+     "n": 8,
+     "mean": 34.43,
+     "sd": 4.22,
+     "curve": 35.02,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "6": {
+     "value": 34.36,
+     "n": 7,
+     "mean": 35.2,
+     "sd": 4.67,
+     "curve": 34.36,
+     "basis": "data (7 picks), shrunk toward the curve"
+    },
+    "7": {
+     "value": 33.79,
+     "n": 4,
+     "mean": 32.22,
+     "sd": 7.76,
+     "curve": 33.79,
+     "basis": "data (4 picks), shrunk toward the curve"
+    },
+    "8": {
+     "value": 33.31,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 33.31,
+     "basis": "curve (no data)"
+    },
+    "9": {
+     "value": 32.88,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 32.88,
+     "basis": "curve (no data)"
+    },
+    "10": {
+     "value": 32.5,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 32.5,
+     "basis": "curve (no data)"
+    }
+   }
+  },
+  "total_fp": {
+   "curve": {
+    "a": 2140.333,
+    "b": -638.8647,
+    "form": "a + b * ln(round)"
+   },
+   "s2": 653202.03,
+   "tau2": -18452.286,
+   "k": null,
+   "rounds": {
+    "1": {
+     "value": 2140.33,
+     "n": 8,
+     "mean": 1929.43,
+     "sd": 700.03,
+     "curve": 2140.33,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "2": {
+     "value": 1697.51,
+     "n": 8,
+     "mean": 1971.4,
+     "sd": 831.35,
+     "curve": 1697.51,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "3": {
+     "value": 1438.47,
+     "n": 8,
+     "mean": 1310.71,
+     "sd": 747.45,
+     "curve": 1438.47,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "4": {
+     "value": 1254.68,
+     "n": 8,
+     "mean": 1342.41,
+     "sd": 899.31,
+     "curve": 1254.68,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "5": {
+     "value": 1112.12,
+     "n": 8,
+     "mean": 1502.61,
+     "sd": 853.6,
+     "curve": 1112.12,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "6": {
+     "value": 995.64,
+     "n": 8,
+     "mean": 963.44,
+     "sd": 873.61,
+     "curve": 995.64,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "7": {
+     "value": 897.16,
+     "n": 8,
+     "mean": 515.91,
+     "sd": 729.35,
+     "curve": 897.16,
+     "basis": "data (8 picks), shrunk toward the curve"
+    },
+    "8": {
+     "value": 811.85,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 811.85,
+     "basis": "curve (no data)"
+    },
+    "9": {
+     "value": 736.6,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 736.6,
+     "basis": "curve (no data)"
+    },
+    "10": {
+     "value": 669.29,
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "curve": 669.29,
+     "basis": "curve (no data)"
+    }
+   }
+  }
+ },
+ "lines": [
+  {
+   "season": "2024-25",
+   "round": 1,
+   "pick_number": 1,
+   "manager": "Benton",
+   "player": "James Harden",
+   "starts": 48,
+   "par": 672.076,
+   "fp": 1993.05
+  },
+  {
+   "season": "2024-25",
+   "round": 1,
+   "pick_number": 2,
+   "manager": "Garrett",
+   "player": "Karl-Anthony Towns",
+   "starts": 64,
+   "par": 1067.165,
+   "fp": 2886.0
+  },
+  {
+   "season": "2024-25",
+   "round": 1,
+   "pick_number": 3,
+   "manager": "Hayden",
+   "player": "Paolo Banchero",
+   "starts": 40,
+   "par": 345.88,
+   "fp": 1489.35
+  },
+  {
+   "season": "2024-25",
+   "round": 1,
+   "pick_number": 4,
+   "manager": "Benton",
+   "player": "Kevin Durant",
+   "starts": 61,
+   "par": 713.204,
+   "fp": 2461.1
+  },
+  {
+   "season": "2024-25",
+   "round": 2,
+   "pick_number": 5,
+   "manager": "Benton",
+   "player": "Cade Cunningham",
+   "starts": 64,
+   "par": 1021.692,
+   "fp": 2818.3
+  },
+  {
+   "season": "2024-25",
+   "round": 2,
+   "pick_number": 6,
+   "manager": "Garrett",
+   "player": "LeBron James",
+   "starts": 4,
+   "par": 48.512,
+   "fp": 157.5
+  },
+  {
+   "season": "2024-25",
+   "round": 2,
+   "pick_number": 7,
+   "manager": "Hayden",
+   "player": "Jalen Williams",
+   "starts": 57,
+   "par": 551.206,
+   "fp": 2176.25
+  },
+  {
+   "season": "2024-25",
+   "round": 2,
+   "pick_number": 8,
+   "manager": "Nick",
+   "player": "Damian Lillard",
+   "starts": 58,
+   "par": 903.736,
+   "fp": 2523.35
+  },
+  {
+   "season": "2024-25",
+   "round": 3,
+   "pick_number": 9,
+   "manager": "Nick",
+   "player": "Fred VanVleet",
+   "starts": 4,
+   "par": 40.662,
+   "fp": 149.65
+  },
+  {
+   "season": "2024-25",
+   "round": 3,
+   "pick_number": 10,
+   "manager": "Garrett",
+   "player": "Ja Morant",
+   "starts": 36,
+   "par": 239.22,
+   "fp": 1266.1
+  },
+  {
+   "season": "2024-25",
+   "round": 3,
+   "pick_number": 11,
+   "manager": "Hayden",
+   "player": "Kyrie Irving",
+   "starts": 48,
+   "par": 554.398,
+   "fp": 1911.4
+  },
+  {
+   "season": "2024-25",
+   "round": 3,
+   "pick_number": 12,
+   "manager": "Nick",
+   "player": "Nikola Vucevic",
+   "starts": 56,
+   "par": 653.246,
+   "fp": 2217.0
+  },
+  {
+   "season": "2024-25",
+   "round": 4,
+   "pick_number": 13,
+   "manager": "Benton",
+   "player": "Desmond Bane",
+   "starts": 11,
+   "par": 1.556,
+   "fp": 305.55
+  },
+  {
+   "season": "2024-25",
+   "round": 4,
+   "pick_number": 14,
+   "manager": "Garrett",
+   "player": "Paul George",
+   "starts": 37,
+   "par": 205.719,
+   "fp": 1266.35
+  },
+  {
+   "season": "2024-25",
+   "round": 4,
+   "pick_number": 15,
+   "manager": "Hayden",
+   "player": "Jalen Johnson",
+   "starts": 35,
+   "par": 453.208,
+   "fp": 1420.3
+  },
+  {
+   "season": "2024-25",
+   "round": 4,
+   "pick_number": 16,
+   "manager": "Nick",
+   "player": "Mikal Bridges",
+   "starts": 3,
+   "par": 1.381,
+   "fp": 82.75
+  },
+  {
+   "season": "2024-25",
+   "round": 5,
+   "pick_number": 17,
+   "manager": "Benton",
+   "player": "Evan Mobley",
+   "starts": 60,
+   "par": 540.509,
+   "fp": 2233.15
+  },
+  {
+   "season": "2024-25",
+   "round": 5,
+   "pick_number": 18,
+   "manager": "Garrett",
+   "player": "Jamal Murray",
+   "starts": 53,
+   "par": 550.123,
+   "fp": 2042.25
+  },
+  {
+   "season": "2024-25",
+   "round": 5,
+   "pick_number": 19,
+   "manager": "Hayden",
+   "player": "Franz Wagner",
+   "starts": 53,
+   "par": 447.306,
+   "fp": 1944.2
+  },
+  {
+   "season": "2024-25",
+   "round": 5,
+   "pick_number": 20,
+   "manager": "Nick",
+   "player": "Michael Porter Jr.",
+   "starts": 21,
+   "par": 26.695,
+   "fp": 629.1
+  },
+  {
+   "season": "2024-25",
+   "round": 6,
+   "pick_number": 21,
+   "manager": "Benton",
+   "player": "Bam Adebayo",
+   "starts": 68,
+   "par": 557.205,
+   "fp": 2468.55
+  },
+  {
+   "season": "2024-25",
+   "round": 6,
+   "pick_number": 22,
+   "manager": "Garrett",
+   "player": "Miles Bridges",
+   "starts": 3,
+   "par": 2.243,
+   "fp": 85.1
+  },
+  {
+   "season": "2024-25",
+   "round": 6,
+   "pick_number": 23,
+   "manager": "Hayden",
+   "player": "Jaren Jackson Jr.",
+   "starts": 59,
+   "par": 458.479,
+   "fp": 2136.4
+  },
+  {
+   "season": "2024-25",
+   "round": 6,
+   "pick_number": 24,
+   "manager": "Nick",
+   "player": "Rudy Gobert",
+   "starts": 9,
+   "par": 28.081,
+   "fp": 265.8
+  },
+  {
+   "season": "2024-25",
+   "round": 7,
+   "pick_number": 25,
+   "manager": "Benton",
+   "player": "Jaylen Brown",
+   "starts": 28,
+   "par": 257.427,
+   "fp": 1025.75
+  },
+  {
+   "season": "2024-25",
+   "round": 7,
+   "pick_number": 26,
+   "manager": "Garrett",
+   "player": "Anfernee Simons",
+   "starts": 11,
+   "par": -41.891,
+   "fp": 247.3
+  },
+  {
+   "season": "2024-25",
+   "round": 7,
+   "pick_number": 27,
+   "manager": "Hayden",
+   "player": "Immanuel Quickley",
+   "starts": 1,
+   "par": -5.169,
+   "fp": 22.45
+  },
+  {
+   "season": "2024-25",
+   "round": 7,
+   "pick_number": 28,
+   "manager": "Nick",
+   "player": "Jabari Smith Jr.",
+   "starts": 3,
+   "par": -4.107,
+   "fp": 78.75
+  },
+  {
+   "season": "2025-26",
+   "round": 1,
+   "pick_number": 1,
+   "manager": "Garrett",
+   "player": "Cooper Flagg",
+   "starts": 57,
+   "par": 347.632,
+   "fp": 1944.45
+  },
+  {
+   "season": "2025-26",
+   "round": 1,
+   "pick_number": 2,
+   "manager": "Benton",
+   "player": "Devin Booker",
+   "starts": 20,
+   "par": 125.801,
+   "fp": 679.15
+  },
+  {
+   "season": "2025-26",
+   "round": 1,
+   "pick_number": 3,
+   "manager": "Hayden",
+   "player": "Stephen Curry",
+   "starts": 35,
+   "par": 547.928,
+   "fp": 1509.6
+  },
+  {
+   "season": "2025-26",
+   "round": 1,
+   "pick_number": 4,
+   "manager": "Benton",
+   "player": "James Harden",
+   "starts": 57,
+   "par": 868.735,
+   "fp": 2472.75
+  },
+  {
+   "season": "2025-26",
+   "round": 2,
+   "pick_number": 5,
+   "manager": "Garrett",
+   "player": "Kevin Durant",
+   "starts": 67,
+   "par": 649.021,
+   "fp": 2526.1
+  },
+  {
+   "season": "2025-26",
+   "round": 2,
+   "pick_number": 6,
+   "manager": "Benton",
+   "player": "Josh Giddey",
+   "starts": 40,
+   "par": 642.607,
+   "fp": 1758.0
+  },
+  {
+   "season": "2025-26",
+   "round": 2,
+   "pick_number": 7,
+   "manager": "Hayden",
+   "player": "Alperen Sengun",
+   "starts": 42,
+   "par": 474.902,
+   "fp": 1658.75
+  },
+  {
+   "season": "2025-26",
+   "round": 2,
+   "pick_number": 8,
+   "manager": "Benton",
+   "player": "Jaylen Brown",
+   "starts": 55,
+   "par": 606.474,
+   "fp": 2152.95
+  },
+  {
+   "season": "2025-26",
+   "round": 3,
+   "pick_number": 9,
+   "manager": "Garrett",
+   "player": "Tyler Herro",
+   "starts": 24,
+   "par": 140.47,
+   "fp": 813.75
+  },
+  {
+   "season": "2025-26",
+   "round": 3,
+   "pick_number": 10,
+   "manager": "Benton",
+   "player": "LeBron James",
+   "starts": 47,
+   "par": 412.223,
+   "fp": 1750.6
+  },
+  {
+   "season": "2025-26",
+   "round": 3,
+   "pick_number": 11,
+   "manager": "Hayden",
+   "player": "Pascal Siakam",
+   "starts": 53,
+   "par": 378.655,
+   "fp": 1862.5
+  },
+  {
+   "season": "2025-26",
+   "round": 3,
+   "pick_number": 12,
+   "manager": "Garrett",
+   "player": "Josh Hart",
+   "starts": 19,
+   "par": -16.704,
+   "fp": 514.7
+  },
+  {
+   "season": "2025-26",
+   "round": 4,
+   "pick_number": 13,
+   "manager": "Garrett",
+   "player": "Jamal Murray",
+   "starts": 64,
+   "par": 960.998,
+   "fp": 2768.75
+  },
+  {
+   "season": "2025-26",
+   "round": 4,
+   "pick_number": 14,
+   "manager": "Benton",
+   "player": "Bam Adebayo",
+   "starts": 49,
+   "par": 530.303,
+   "fp": 1889.7
+  },
+  {
+   "season": "2025-26",
+   "round": 4,
+   "pick_number": 15,
+   "manager": "Hayden",
+   "player": "De'Aaron Fox",
+   "starts": 60,
+   "par": 355.226,
+   "fp": 2051.6
+  },
+  {
+   "season": "2025-26",
+   "round": 4,
+   "pick_number": 16,
+   "manager": "Nick",
+   "player": "Trey Murphy III",
+   "starts": 25,
+   "par": 268.387,
+   "fp": 954.25
+  },
+  {
+   "season": "2025-26",
+   "round": 5,
+   "pick_number": 17,
+   "manager": "Nick",
+   "player": "Brandon Miller",
+   "starts": 50,
+   "par": 356.271,
+   "fp": 1760.15
+  },
+  {
+   "season": "2025-26",
+   "round": 5,
+   "pick_number": 18,
+   "manager": "Benton",
+   "player": "Derrick White",
+   "starts": 65,
+   "par": 700.11,
+   "fp": 2508.4
+  },
+  {
+   "season": "2025-26",
+   "round": 5,
+   "pick_number": 19,
+   "manager": "Hayden",
+   "player": "Ja Morant",
+   "starts": 12,
+   "par": 14.417,
+   "fp": 327.0
+  },
+  {
+   "season": "2025-26",
+   "round": 5,
+   "pick_number": 20,
+   "manager": "Nick",
+   "player": "Ivica Zubac",
+   "starts": 18,
+   "par": 72.625,
+   "fp": 576.6
+  },
+  {
+   "season": "2025-26",
+   "round": 6,
+   "pick_number": 21,
+   "manager": "Garrett",
+   "player": "Desmond Bane",
+   "starts": 15,
+   "par": 42.007,
+   "fp": 457.9
+  },
+  {
+   "season": "2025-26",
+   "round": 6,
+   "pick_number": 22,
+   "manager": "Nick",
+   "player": "Joel Embiid",
+   "starts": 15,
+   "par": 138.973,
+   "fp": 550.4
+  },
+  {
+   "season": "2025-26",
+   "round": 6,
+   "pick_number": 23,
+   "manager": "Hayden",
+   "player": "Franz Wagner",
+   "starts": 26,
+   "par": 145.95,
+   "fp": 872.25
+  },
+  {
+   "season": "2025-26",
+   "round": 6,
+   "pick_number": 24,
+   "manager": "Nick",
+   "player": "Austin Reaves",
+   "starts": 20,
+   "par": 317.895,
+   "fp": 871.15
+  },
+  {
+   "season": "2025-26",
+   "round": 7,
+   "pick_number": 25,
+   "manager": "Garrett",
+   "player": "Darius Garland",
+   "starts": 1,
+   "par": 14.687,
+   "fp": 42.3
+  },
+  {
+   "season": "2025-26",
+   "round": 7,
+   "pick_number": 26,
+   "manager": "Nick",
+   "player": "Walker Kessler",
+   "starts": 3,
+   "par": 43.087,
+   "fp": 114.95
+  },
+  {
+   "season": "2025-26",
+   "round": 7,
+   "pick_number": 27,
+   "manager": "Hayden",
+   "player": "Zion Williamson",
+   "starts": 16,
+   "par": 24.319,
+   "fp": 476.6
+  },
+  {
+   "season": "2025-26",
+   "round": 7,
+   "pick_number": 28,
+   "manager": "Nick",
+   "player": "Deni Avdija",
+   "starts": 53,
+   "par": 636.245,
+   "fp": 2119.15
+  }
+ ],
+ "note": "H56 s.4.3 (Nick 11-21: one curve). Each live pick of the drafts above, over his started games for the manager who drafted him, regular season: PAR (Trade of the Year's unit), FPPG (5+ games) and total points. Each round's mean is shrunk toward a log curve across rounds; a round without data takes the curve. Built by scripts/build_draft_round_values.py."
+}

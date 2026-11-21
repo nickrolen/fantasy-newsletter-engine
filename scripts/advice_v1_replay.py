@@ -47,13 +47,13 @@ sys.path.insert(0, str(ROOT))
 
 from modules import advice_replay as ar          # noqa: E402
 from modules import advice_v2 as av              # noqa: E402
+from modules import draft_history                # noqa: E402
 
 LOG = ROOT / "data" / "historical" / "HISTORICAL_PLAYERLOG.json"
 MATCHUPS = ROOT / "data" / "historical" / "all_matchups.json"
 SCHEDULE = ROOT / "data" / "nba_schedule_2025-26.json"
 PRIOR_HTML = ROOT / "data" / ".cache" / "bbref_per_game_2024-25.html"
 PREV_HTML = ROOT / "data" / ".cache" / "bbref_per_game_2023-24.html"
-DRAFTS = ROOT / "data" / "historical" / "all_drafts.json"
 UA = {"User-Agent": "Mozilla/5.0 (newsletter advice replay)"}
 SETTINGS = av.Settings()
 
@@ -170,7 +170,7 @@ def load_season(out: Path) -> ar.Season:
     rd = lambda p: json.loads(Path(p).read_text(encoding="utf-8"))
     return ar.Season.build(rd(LOG), rd(out / "box_2025-26.json"), rd(SCHEDULE), rd(MATCHUPS),
                            rd(out / "prior_2024-25.json"), rd(out / "positions_2025-26.json"),
-                           rd(out / "prior_2023-24.json"), rd(DRAFTS))
+                           rd(out / "prior_2023-24.json"), draft_history.read(ROOT))   # H56
 
 
 def move_dict(mo):

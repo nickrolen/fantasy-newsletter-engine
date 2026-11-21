@@ -22,7 +22,8 @@
         "from_manager": "Hayden",
         "to_manager": "Nick"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2017-18",
@@ -61,6 +62,26 @@
         "from_manager": "Garrett",
         "to_manager": "Nick"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 6,
+        "draft": "2018-19",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 4,
+        "draft": "2018-19",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -86,7 +107,8 @@
         "from_manager": "Benton",
         "to_manager": "Nick"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2018-19",
@@ -110,6 +132,26 @@
         "to_team": "The G league",
         "from_manager": "Benton",
         "to_manager": "Hayden"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 13,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Hayden",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 11,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Hayden",
+        "source": "yahoo"
       }
     ]
   },
@@ -136,6 +178,26 @@
         "from_manager": "Nick",
         "to_manager": "Hayden"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 7,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Hayden",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      },
+      {
+        "round": 5,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Nick",
+        "to_manager": "Hayden",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -161,7 +223,8 @@
         "from_manager": "Hayden",
         "to_manager": "Benton"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2018-19",
@@ -186,30 +249,43 @@
         "from_manager": "Nick",
         "to_manager": "Garrett"
       }
-    ]
-  },
-  {
-    "season": "2018-19",
-    "timestamp": "1547595949",
-    "date": "2019-01-15",
-    "trader_team": "Russell Eastbrook",
-    "tradee_team": "The G league",
-    "trader_manager": "Nick",
-    "tradee_manager": "Hayden",
-    "players": [
+    ],
+    "draft_picks": [
       {
-        "player_name": "Andre Drummond",
-        "from_team": "Russell Eastbrook",
-        "to_team": "The G league",
-        "from_manager": "Nick",
-        "to_manager": "Hayden"
+        "round": 10,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Nick",
+        "source": "yahoo"
       },
       {
-        "player_name": "Kawhi Leonard",
-        "from_team": "The G league",
-        "to_team": "Russell Eastbrook",
-        "from_manager": "Hayden",
-        "to_manager": "Nick"
+        "round": 11,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      },
+      {
+        "round": 1,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 9,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Garrett",
+        "source": "yahoo"
       }
     ]
   },
@@ -250,6 +326,26 @@
         "from_manager": "Hayden",
         "to_manager": "Nick"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 4,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Hayden",
+        "source": "yahoo"
+      },
+      {
+        "round": 2,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -282,6 +378,26 @@
         "from_manager": "Garrett",
         "to_manager": "Benton"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 9,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 12,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -306,6 +422,26 @@
         "to_team": "The G league",
         "from_manager": "Garrett",
         "to_manager": "Hayden"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 10,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 13,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Hayden",
+        "source": "yahoo"
       }
     ]
   },
@@ -332,7 +468,8 @@
         "from_manager": "Benton",
         "to_manager": "Nick"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2018-19",
@@ -371,6 +508,26 @@
         "from_manager": "Hayden",
         "to_manager": "Nick"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 7,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Nick",
+        "to_manager": "Hayden",
+        "source": "yahoo"
+      },
+      {
+        "round": 6,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -396,7 +553,8 @@
         "from_manager": "Nick",
         "to_manager": "Benton"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2018-19",
@@ -420,6 +578,26 @@
         "to_team": "The Austin River",
         "from_manager": "Nick",
         "to_manager": "Benton"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 7,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      },
+      {
+        "round": 5,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
       }
     ]
   },
@@ -445,6 +623,26 @@
         "to_team": "Russell Eastbrook",
         "from_manager": "Hayden",
         "to_manager": "Nick"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 4,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Nick",
+        "to_manager": "Hayden",
+        "source": "yahoo"
+      },
+      {
+        "round": 3,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Nick",
+        "source": "yahoo"
       }
     ]
   },
@@ -485,6 +683,44 @@
         "from_manager": "Garrett",
         "to_manager": "Nick"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 3,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 3,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Nick",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 4,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      },
+      {
+        "round": 5,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -523,6 +759,26 @@
         "to_team": "Russell Eastbrook",
         "from_manager": "Benton",
         "to_manager": "Nick"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 6,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 3,
+        "draft": "2019-20",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
       }
     ]
   },
@@ -570,6 +826,26 @@
         "from_manager": "Benton",
         "to_manager": "Nick"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 1,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 2,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -595,7 +871,8 @@
         "from_manager": "Garrett",
         "to_manager": "Benton"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2020-21",
@@ -619,6 +896,26 @@
         "to_team": "Wood",
         "from_manager": "Garrett",
         "to_manager": "Benton"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 4,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Benton",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 3,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Garrett",
+        "to_manager": "Benton",
+        "source": "yahoo"
       }
     ]
   },
@@ -644,6 +941,26 @@
         "to_team": "Wood",
         "from_manager": "Nick",
         "to_manager": "Benton"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 5,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      },
+      {
+        "round": 2,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
       }
     ]
   },
@@ -676,6 +993,26 @@
         "to_team": "Wet Like I'm Book",
         "from_manager": "Benton",
         "to_manager": "Hayden"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 4,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 6,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Hayden",
+        "source": "yahoo"
       }
     ]
   },
@@ -716,6 +1053,26 @@
         "from_manager": "Benton",
         "to_manager": "Garrett"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 5,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 3,
+        "draft": "2021-22",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -755,7 +1112,8 @@
         "from_manager": "Benton",
         "to_manager": "Hayden"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2021-22",
@@ -786,6 +1144,26 @@
         "to_team": "Big Nik Energy",
         "from_manager": "Nick",
         "to_manager": "Hayden"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 7,
+        "draft": "2022-23",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      },
+      {
+        "round": 5,
+        "draft": "2022-23",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Hayden",
+        "source": "yahoo"
       }
     ]
   },
@@ -826,7 +1204,8 @@
         "from_manager": "Benton",
         "to_manager": "Nick"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2023-24",
@@ -851,7 +1230,8 @@
         "from_manager": "Garrett",
         "to_manager": "Nick"
       }
-    ]
+    ],
+    "draft_picks": []
   },
   {
     "season": "2023-24",
@@ -875,6 +1255,26 @@
         "to_team": "Serge I-Cock-Ya",
         "from_manager": "Nick",
         "to_manager": "Benton"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 4,
+        "draft": "2024-25",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      },
+      {
+        "round": 3,
+        "draft": "2024-25",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
       }
     ]
   },
@@ -908,6 +1308,26 @@
         "from_manager": "Benton",
         "to_manager": "Nick"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 1,
+        "draft": "2024-25",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 3,
+        "draft": "2024-25",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -939,6 +1359,44 @@
         "to_team": "Luka my Balls",
         "from_manager": "Benton",
         "to_manager": "Nick"
+      }
+    ],
+    "draft_picks": [
+      {
+        "round": 1,
+        "draft": "2025-26",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 2,
+        "draft": "2025-26",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 6,
+        "draft": "2025-26",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      },
+      {
+        "round": 7,
+        "draft": "2025-26",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
       }
     ]
   },
@@ -979,6 +1437,26 @@
         "from_manager": "Garrett",
         "to_manager": "Nick"
       }
+    ],
+    "draft_picks": [
+      {
+        "round": 3,
+        "draft": "2025-26",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 5,
+        "draft": "2025-26",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
     ]
   },
   {
@@ -1013,7 +1491,27 @@
       "Garrett": [
         "2026 7th (Garrett)"
       ]
-    }
+    },
+    "draft_picks": [
+      {
+        "round": 2,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 7,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
+    ]
   },
   {
     "season": "2025-26",
@@ -1047,7 +1545,27 @@
       "Benton": [
         "2026 2nd (Benton)"
       ]
-    }
+    },
+    "draft_picks": [
+      {
+        "round": 1,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Nick",
+        "from_manager": "Nick",
+        "to_manager": "Benton",
+        "source": "yahoo"
+      },
+      {
+        "round": 2,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Nick",
+        "source": "yahoo"
+      }
+    ]
   },
   {
     "season": "2025-26",
@@ -1083,7 +1601,45 @@
         "2026 1st (Garrett)",
         "2026 5th (Garrett)"
       ]
-    }
+    },
+    "draft_picks": [
+      {
+        "round": 7,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 8,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 1,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Hayden",
+        "source": "yahoo"
+      },
+      {
+        "round": 5,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Hayden",
+        "source": "yahoo"
+      }
+    ]
   },
   {
     "season": "2025-26",
@@ -1119,7 +1675,46 @@
         "2026 5th (Benton)",
         "2027 5th (Benton)"
       ]
-    }
+    },
+    "draft_picks": [
+      {
+        "round": 9,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Benton",
+        "source": "yahoo",
+        "corrected": "Yahoo records round 15 (a keeper round); it was Hayden's 9th: the label, TRADES.json and the 2026-27 draft agree (Nick, 11-21)"
+      },
+      {
+        "round": 5,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Hayden",
+        "source": "yahoo"
+      },
+      {
+        "round": 5,
+        "draft": "2027-28",
+        "draft_how": "chat: a draft beyond the next (TRADES.json label)",
+        "original_manager": "Benton",
+        "from_manager": "Benton",
+        "to_manager": "Hayden",
+        "source": "chat"
+      },
+      {
+        "round": 2,
+        "draft": "2027-28",
+        "draft_how": "chat: a draft beyond the next (TRADES.json label)",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Benton",
+        "source": "chat"
+      }
+    ]
   },
   {
     "season": "2025-26",
@@ -1155,6 +1750,44 @@
         "2026 8th (Garrett)",
         "2027 8th (Garrett)"
       ]
-    }
+    },
+    "draft_picks": [
+      {
+        "round": 8,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Hayden",
+        "source": "yahoo"
+      },
+      {
+        "round": 4,
+        "draft": "2026-27",
+        "draft_how": "rule: traded after the season's opening day, so the next draft",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Garrett",
+        "source": "yahoo"
+      },
+      {
+        "round": 8,
+        "draft": "2027-28",
+        "draft_how": "chat: a draft beyond the next (TRADES.json label)",
+        "original_manager": "Garrett",
+        "from_manager": "Garrett",
+        "to_manager": "Hayden",
+        "source": "chat"
+      },
+      {
+        "round": 3,
+        "draft": "2027-28",
+        "draft_how": "chat: a draft beyond the next (TRADES.json label)",
+        "original_manager": "Hayden",
+        "from_manager": "Hayden",
+        "to_manager": "Garrett",
+        "source": "chat"
+      }
+    ]
   }
 ]

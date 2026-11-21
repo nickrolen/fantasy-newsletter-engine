@@ -92,6 +92,10 @@ CSS = """
 .v2-lg-dr td{vertical-align:middle}
 .v2-lg-dr td:nth-child(2),.v2-lg-dr th:nth-child(2){text-align:left;max-width:44vw}
 .v2-lg-k{font-size:var(--type-small-size);font-weight:800;color:var(--ink-3);margin-left:var(--space-4)}
+.v2-lg-dr--team td:first-child{text-align:left;max-width:52vw}
+.v2-lg-dr--team td:nth-child(2),.v2-lg-dr--team th:nth-child(2){text-align:right;max-width:none}
+.v2-lg-dr--team th:first-child{text-align:left}
+.v2-lg-dteam th{text-align:left;padding-top:var(--space-8)}
 .v2-lg-why{all:unset;box-sizing:border-box;cursor:pointer;min-height:var(--tap-min);min-width:var(--tap-min);display:inline-flex;align-items:center;justify-content:flex-end;color:var(--ink-3);text-decoration:underline dotted var(--axis-strong)}
 .v2-lg-why[aria-expanded="true"]{color:var(--ink)}
 .v2-lg-chg{font-size:var(--type-small-size);font-weight:700;margin-left:var(--space-2)}
@@ -408,7 +412,7 @@ def _race(a: dict, mono, chart, icon: str) -> str:
         sides = "".join(f'<span class="v2-aw-side">{_chip(sd["team"]) if sd["team"] else clean(sd["m"])} '
                         f'<b>{clean(sd["par"])}:</b> '
                         + (", ".join(_name(x["name"], x["href"]) for x in sd["players"]) or "no player")
-                        + (" + picks" if sd["picks"] else "") + "</span>" for sd in r["sides"])
+                        + (f" + {clean(sd['picks'])}" if sd["picks"] else "") + "</span>" for sd in r["sides"])
         move = (f'<span class="lh-delta lh-delta--{d}">{clean(r["move"])}</span>' if r["move"] else "")
         o.append(f'<div class="v2-lg-row{cls}"><span class="lh-rank__n">{clean(r["rank"])}</span>'
                  f'<span class="v2-minw">{who}<span class="lh-sub">{_chip(t) if t and r["player"] else ""}</span>'
@@ -614,10 +618,33 @@ def _draft(d: dict) -> str:
                  f'{clean(s["season"])}</option>')
     o.append("</select></label></div>")
     for s in d["seasons"]:
+        mode = s.get("mode", "order")
         o.append(f'<section class="lh-card lh-card--flush" data-lhdraft-of="{clean(s["season"])}"'
                  f'{"" if s["season"] == d["default"] else " hidden"}><div class="lh-sechead v2-pad">'
                  f'<h2 class="lh-eyebrow">{clean(s["season"])} draft</h2><span class="lh-meta">{clean(s["meta"])}</span>'
-                 '</div><div class="v2-scroll"><table class="lh-table v2-lg-dr"><thead><tr><th>Pick</th>'
+                 '</div>')
+        if mode == "dropped":                         # H56: 2018-19's list doesn't match the rosters
+            o.append(f'<p class="v2-p v2-pad">{clean(s["order_note"])}</p></section>')
+            continue
+        if mode == "by_team":                         # H56: the order is punted; each team's class
+            o.append(f'<p class="lh-sub v2-pad">{clean(s["order_note"])}</p>'
+                     '<div class="v2-scroll"><table class="lh-table v2-lg-dr v2-lg-dr--team"><thead><tr>'
+                     f'<th>Player</th><th>Then</th><th>{clean(s["later_label"])}</th></tr></thead><tbody>')
+            last = None
+            for r in s["rows"]:
+                if r["m"] != last:
+                    t = r["team"]
+                    o.append(f'<tr class="v2-lg-dteam"><th colspan="3" scope="colgroup">'
+                             f'{_chip(t) if t else clean(r["m"])}</th></tr>')
+                    last = r["m"]
+                k = '<span class="v2-lg-k">K</span>' if r["keeper"] else ""
+                chg = (f'<span class="v2-lg-chg v2-lg-chg--{r["dir"]}">{clean(r["chg"])}</span>' if r["chg"] else "")
+                o.append(f'<tr><td>{_name(r["player"], r["href"], True)}{k}</td>'
+                         f'<td class="lh-num">{_why(r["then"], r["player"], r["then_why"])}</td>'
+                         f'<td class="lh-num">{_why(r["later"], r["player"], r["later_why"])}{chg}</td></tr>')
+            o.append(f'</tbody></table></div><div class="lh-table-note">{clean(s["drafted"])}</div></section>')
+            continue
+        o.append('<div class="v2-scroll"><table class="lh-table v2-lg-dr"><thead><tr><th>Pick</th>'
                  f'<th>Player</th><th>Then</th><th>{clean(s["later_label"])}</th></tr></thead><tbody>')
         for r in s["rows"]:
             t = r["team"]

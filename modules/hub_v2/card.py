@@ -314,10 +314,13 @@ def view(card: dict, row: dict, ctx: dict) -> dict:
         own.append({"season": t["season"], "text": ev or DASH})
     drafts = []
     for d in card.get("draft_history") or []:
-        bits = [f"Round {d['round']}, pick {d['pick_number']}" if d.get("round") else f"Pick {d['pick_number']}",
-                d["manager"]]
-        if d.get("is_keeper"):
-            bits.append("kept")
+        if d.get("pick_number") is None:          # H56: the season's pick order is punted
+            bits = [f"{'Kept' if d.get('is_keeper') else 'Drafted'} by {d['manager']}"]
+        else:
+            bits = [f"Round {d['round']}, pick {d['pick_number']}" if d.get("round") else f"Pick {d['pick_number']}",
+                    d["manager"]]
+            if d.get("is_keeper"):
+                bits.append("kept")
         if d.get("roi_label"):
             bits.append(f"{d['roi_label']} ({_signed1(float(d['roi']))} FPPG vs the slot)")
         drafts.append({"season": d["season"], "text": " \u00b7 ".join(bits)})

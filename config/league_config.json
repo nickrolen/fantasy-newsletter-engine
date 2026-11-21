@@ -431,6 +431,29 @@
             "2026-27": null
         }
     },
+    "draft_history": {
+        "_note": "H56, Nick 11-20. Yahoo's pick ORDER for the 2017-18 to 2023-24 drafts disagrees with the league's memory (Garrett took Wembanyama first overall in 2023; Yahoo lists him 3.02) and the memories conflict too, so the order is punted: \"Might have to punt all drafts before last year\". Who drafted whom and who kept whom are verified and stay. Read only through modules/draft_history.py: a punted season's pick numbers and rounds are never shown and never used. all_drafts.json stays Yahoo's record, unedited.",
+        "order_trusted_from": "2024-25",
+        "drafts_dropped": [
+            "2018-19"
+        ],
+        "_drafts_dropped_note": "2018-19's draft list does not match the opening rosters (23 of 52 drafted players on their drafter's opening-day roster; verified 11-20): the list is not shown or used at all.",
+        "_live_rounds_note": "LEAGUE_RULES 'Drafts and keepers by season' (Nick, 11-20). Live rounds = the rounds in which players are actually drafted; keepers take the rounds after them. A traded pick numbered past its draft's live rounds is a keeper slot, not a pick. The snake drafts through 2020-21 had no keepers (every round live); their picks are listed, never valued.",
+        "live_rounds": {
+            "2021-22": 7,
+            "2022-23": 7,
+            "2023-24": 7,
+            "2024-25": 7,
+            "2025-26": 7,
+            "2026-27": 9
+        },
+        "live_rounds_default": {
+            "from": "2027-28",
+            "rounds": 10,
+            "last_round_picks": 3,
+            "_note": "From 2027-28 everyone keeps 5 except the previous season's Cup winner, who keeps 6: his 6th keeper takes his 10th-round pick, so round 10 holds 3 picks."
+        }
+    },
     "yahoo_settings": {
         "_comment": "The Yahoo league settings the engine models, beyond league_structure and roster_moves (step 1a, 10-31): the settings-drift check (modules/yahoo_settings.py, scripts/check_yahoo_settings.py) refuses when Yahoo shows anything else. Read from Yahoo 10-31 and put to Nick the same day (step 1a); his answer is recorded in claude/STEP1A_RESULT_2026-10-31.md. Settings the engine has no rule for are listed in _unchecked, on purpose. Every key is required: missing raises.",
         "scoring_type": "headpoint",

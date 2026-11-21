@@ -580,7 +580,7 @@ def test_todays_cache_rates_without_raising(history):
                 assert g["letter"] is None and g["reason"] == "stats still loading", (p["player"], g)
             else:
                 assert g["letter"] is not None or any(k in g["reason"] for k in KNOWN), (p["player"], g)
-        assert p["archetype_enabled"] is False                 # 4a4: computed, shown only when enabled
+        assert p["archetype_enabled"] is True                  # 4a4: computed; enabled since dafe97e (Nick, 11-20)
         s = p["grades"]["schedule"]
         assert (s["letter"] is not None and isinstance(s["value"], int)) or s["reason"]
     assert res["schedule_horizon"] is not None

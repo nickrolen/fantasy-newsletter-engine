@@ -213,9 +213,15 @@ def test_a_traded_players_par_sums_for_mvp_and_splits_for_the_trade(inp, res):
     assert t["sides"]["Marcus"]["par"] == pytest.approx(for_m)        # only Marcus's starts after 10-19
     ms = sum(r["fantasy_points"] - R[r["week"]]["R"] for r in _starts(inp["rows"])
              if r["player_name"] == "Marcus Star" and r["manager"] == "Tyler")
-    assert t["sides"]["Tyler"]["par"] == pytest.approx(ms)
-    assert t["value"] == pytest.approx(abs(for_m - ms)) and t["m"] == ("Marcus" if for_m >= ms else "Tyler")
-    assert "picks listed, not valued" in t["shown"] and t["picks"] == {"Marcus": ["2027 2nd (Marcus)"]}
+    # H56 s.4.4: Tyler also got Marcus's 2027 2nd, at round 2's expected PAR (est.)
+    from modules import draft_values as DV
+    est = DV.value(DV.load(), "par", 2)["value"]
+    tt = t["sides"]["Tyler"]
+    assert tt["players_par"] == pytest.approx(ms) and tt["picks_est"] == pytest.approx(est)
+    assert tt["par"] == pytest.approx(ms + est) and t["sides"]["Marcus"]["picks_est"] == 0
+    tot_t = ms + est
+    assert t["value"] == pytest.approx(abs(for_m - tot_t)) and t["m"] == ("Marcus" if for_m >= tot_t else "Tyler")
+    assert "picks est." in t["shown"] and t["picks"] == {"Tyler": [f"Marcus's 2027 2nd (est. {A._d1(est)})"]}
 
 
 def test_a_trade_after_the_regular_season_is_excluded_with_a_reason():
@@ -588,7 +594,7 @@ def test_then_falls_back_to_the_week_2_point_labelled():
 def test_the_draft_cache_carries_the_week_2_fallback():
     from modules import draft_ovr as D
     c = D.load(ROOT)
-    assert c["schema"] == D.SCHEMA == 3                          # 4a4: the skill OVR
+    assert c["schema"] == D.SCHEMA == 4                          # 4a4: the skill OVR; H56: no punted order
     picks = [p for s in c["seasons"].values() for p in s["picks"]]
     assert all(p["then_point"] in ("open", "week2") for p in picks)
     assert all(p["then"] is not None for p in picks if p["then_point"] == "week2")

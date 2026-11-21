@@ -1,23 +1,21 @@
 {
   "age_center": 27.0,
-  "dataset_sha256": "451f214c9234730f0faefaa70a5aaac103f2e4b58791fc9760e65c4ff9653e61",
+  "dataset_sha256": "fd34badd1a1c07c1d649ce176c9c6ee6c9db58a1812dae7fa8e06734d8d371f3",
   "feature_text": {
     "age": "age that season - 27",
     "availability": "games / his team's games while rostered so far; missing -> that snapshot's mean",
     "kept": "kept this season (carried on a trade); 0 for everyone in 2021-22",
     "level": "FPPG so far shrunk toward the prior, w = k/(k+k0); k0 13 (last season) or 4.7 (league mean)",
-    "log_draft_rank": "log(overall draft rank / 36) -- rank = players kept league-wide + pick -- for drafted non-keepers; 0 otherwise",
     "undrafted": "neither kept nor drafted this season"
   },
   "features": [
     "kept",
-    "log_draft_rank",
     "undrafted",
     "level",
     "availability",
     "age"
   ],
-  "fit_date": "2026-10-29",
+  "fit_date": "2026-11-21",
   "fitted_on": [
     "2021-22",
     "2022-23",
@@ -37,16 +35,15 @@
   "points": {
     "end": {
       "coef": {
-        "age": -0.438705,
-        "availability": -0.010162,
-        "kept": 1.134885,
-        "level": 0.501346,
-        "log_draft_rank": -0.749416,
-        "undrafted": -1.320974
+        "age": -0.441915,
+        "availability": -0.135454,
+        "kept": 1.105082,
+        "level": 0.511106,
+        "undrafted": -1.37188
       },
       "loglik_per_roster": {
-        "held_out": -3.1655,
-        "in_sample": -2.9374,
+        "held_out": -3.1817,
+        "in_sample": -2.9621,
         "uniform": -8.9252
       },
       "missing_keepers": {
@@ -55,26 +52,24 @@
       "n_players": 382,
       "n_rosters": 24,
       "se": {
-        "age": 0.062973,
-        "availability": 0.945082,
-        "kept": 0.419051,
-        "level": 0.066082,
-        "log_draft_rank": 0.659542,
-        "undrafted": 0.497995
+        "age": 0.062756,
+        "availability": 0.938572,
+        "kept": 0.418401,
+        "level": 0.066105,
+        "undrafted": 0.493445
       }
     },
     "mid": {
       "coef": {
-        "age": -0.407512,
-        "availability": 1.346461,
-        "kept": 0.882208,
-        "level": 0.442929,
-        "log_draft_rank": -0.795828,
-        "undrafted": -1.040821
+        "age": -0.412833,
+        "availability": 1.336904,
+        "kept": 0.853026,
+        "level": 0.455743,
+        "undrafted": -1.102382
       },
       "loglik_per_roster": {
-        "held_out": -3.5225,
-        "in_sample": -3.1452,
+        "held_out": -3.4357,
+        "in_sample": -3.1747,
         "uniform": -8.4175
       },
       "missing_keepers": {
@@ -85,26 +80,24 @@
       "n_players": 370,
       "n_rosters": 24,
       "se": {
-        "age": 0.060266,
-        "availability": 0.893745,
-        "kept": 0.40538,
-        "level": 0.059969,
-        "log_draft_rank": 0.643094,
-        "undrafted": 0.53446
+        "age": 0.060164,
+        "availability": 0.891176,
+        "kept": 0.407162,
+        "level": 0.059521,
+        "undrafted": 0.53152
       }
     },
     "week2": {
       "coef": {
-        "age": -0.354457,
-        "availability": 1.726158,
-        "kept": 1.0948,
-        "level": 0.309661,
-        "log_draft_rank": -1.197862,
-        "undrafted": -1.695311
+        "age": -0.363985,
+        "availability": 1.708853,
+        "kept": 1.018266,
+        "level": 0.327008,
+        "undrafted": -1.74641
       },
       "loglik_per_roster": {
-        "held_out": -3.9196,
-        "in_sample": -3.5525,
+        "held_out": -3.945,
+        "in_sample": -3.6438,
         "uniform": -7.8416
       },
       "missing_keepers": {
@@ -116,12 +109,11 @@
       "n_players": 367,
       "n_rosters": 24,
       "se": {
-        "age": 0.056728,
-        "availability": 0.704712,
-        "kept": 0.376726,
-        "level": 0.048208,
-        "log_draft_rank": 0.610941,
-        "undrafted": 0.758128
+        "age": 0.055951,
+        "availability": 0.691358,
+        "kept": 0.376772,
+        "level": 0.047524,
+        "undrafted": 0.75794
       }
     }
   },
@@ -130,8 +122,8 @@
     "sd": 2.5
   },
   "rank_center": 36.0,
-  "specification": "age linear",
+  "specification": "age linear, no draft rank (H56)",
   "version": 3,
-  "why": "features: step B's comparison (age linear). Level prior: highest summed held-out log-likelihood among P1, P2, P3, P3r without losing hits to P1 (step B2)",
+  "why": "features: step B's comparison (age linear); H56: no draft rank (the pick order before 2024-25 is punted). Nick chose this (R0) over R1, rank where trusted plus a rank-unknown indicator, after the pre-registered check (_to_delete/56/PREREG.md): R1 +2.8 [-6.0, +12.5], R0 +1.1 [-5.2, +8.0] held-out log-likelihood against the old model; R1's rank effect came from two drafts (11-21). Level prior: highest summed held-out log-likelihood among P1, P2, P3, P3r without losing hits to P1 (step B2)",
   "young_age": 23
 }

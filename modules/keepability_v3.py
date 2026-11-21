@@ -127,13 +127,21 @@ def level_of(c, lp: dict) -> tuple:
 # ---------------------------------------------------------------------------
 
 def _undrafted(c) -> bool:
-    return (not c.kept) and c.draft_rank is None
+    """Neither kept nor drafted this season. H56: from who-drafted-whom, which
+    every season keeps, never from the rank (a punted season has none)."""
+    return bool(c.undrafted)
+
+
+def _rank_unknown(c) -> bool:
+    """Drafted (not kept) in a season whose pick order is punted (H56)."""
+    return (not c.kept) and (not c.undrafted) and c.draft_rank is None
 
 
 FEATURES = {
     "kept":            lambda c, m: float(c.kept),
     "log_draft_rank":  lambda c, m: (math.log(c.draft_rank / RANK_CENTER)
                                      if (c.draft_rank and not c.kept) else 0.0),
+    "rank_unknown":    lambda c, m: float(_rank_unknown(c)),
     "undrafted":       lambda c, m: float(_undrafted(c)),
     "undrafted_trade": lambda c, m: float(_undrafted(c) and c.acquired == "trade"),
     "level":           lambda c, m: float(level_of(c, m["level_prior"])[0]),
@@ -145,7 +153,8 @@ FEATURES = {
 }
 FEATURE_TEXT = {
     "kept": "kept this season (carried on a trade); 0 for everyone in 2021-22",
-    "log_draft_rank": "log(overall draft rank / 36) -- rank = players kept league-wide + pick -- for drafted non-keepers; 0 otherwise",
+    "log_draft_rank": "log(overall draft rank / 36) -- rank = players kept league-wide + pick -- for drafted non-keepers in a season whose order is trusted (2024-25 on); 0 otherwise",
+    "rank_unknown": "drafted (not kept) in a season whose pick order is punted (before 2024-25; H56): rank unknown",
     "undrafted": "neither kept nor drafted this season",
     "undrafted_trade": "undrafted and arrived by trade",
     "level": "FPPG so far shrunk toward the prior, w = k/(k+k0); k0 13 (last season) or 4.7 (league mean)",

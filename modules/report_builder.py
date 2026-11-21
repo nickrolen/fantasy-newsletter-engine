@@ -2737,16 +2737,16 @@ def build_record_book(data) -> dict:
          "FPPG", "Avg FPPG across top 7 draft picks (min 20 GP, keepers excluded). *2021-22 onward only"),
         ("biggest_draft_steal_top10", "Biggest Draft Steal", "delta",
          lambda e: f"P{e.get('pick_number', '?')} (R{e.get('round', '?')}): {e.get('fppg', 0):.1f} actual vs {e.get('expected_fppg', 0):.1f} expected",
-         "FPPG above expected", "FPPG minus expected FPPG for draft pick (min 20 GP, keepers excluded). *2021-22 onward only"),
+         "FPPG above expected", "FPPG minus expected FPPG for draft pick (min 20 GP, keepers excluded). *2024-25 onward only: the pick order before that isn't reliable"),
         ("biggest_draft_bust_top10", "Biggest Draft Bust", "delta",
          lambda e: f"P{e.get('pick_number', '?')} (R{e.get('round', '?')}): {e.get('fppg', 0):.1f} actual vs {e.get('expected_fppg', 0):.1f} expected",
-         "FPPG below expected", "FPPG minus expected FPPG for draft pick (min 20 GP, keepers excluded). *2021-22 onward only"),
+         "FPPG below expected", "FPPG minus expected FPPG for draft pick (min 20 GP, keepers excluded). *2024-25 onward only: the pick order before that isn't reliable"),
         ("biggest_draft_steal_totalfp_top10", "Biggest Draft Steal", "delta",
          lambda e: f"P{e.get('pick_number', '?')} (R{e.get('round', '?')}): {e.get('total_fp', 0):,.1f} actual vs {e.get('expected_total_fp', 0):,.1f} expected",
-         "FP above expected", "Total FP minus expected Total FP for draft pick (min 20 GP, keepers excluded). *2021-22 onward only"),
+         "FP above expected", "Total FP minus expected Total FP for draft pick (min 20 GP, keepers excluded). *2024-25 onward only: the pick order before that isn't reliable"),
         ("biggest_draft_bust_totalfp_top10", "Biggest Draft Bust", "delta",
          lambda e: f"P{e.get('pick_number', '?')} (R{e.get('round', '?')}): {e.get('total_fp', 0):,.1f} actual vs {e.get('expected_total_fp', 0):,.1f} expected",
-         "FP below expected", "Total FP minus expected Total FP for draft pick (min 20 GP, keepers excluded). *2021-22 onward only"),
+         "FP below expected", "Total FP minus expected Total FP for draft pick (min 20 GP, keepers excluded). *2024-25 onward only: the pick order before that isn't reliable"),
         ("trade_winner_top10", "Best Trade Acquisition", "post_trade_fp",
          lambda e: f"from {e.get('from_manager', '?')}, {e.get('gp', 0)} GP post-trade",
          "FP", "Total FP produced after trade for acquiring manager within that season"),
@@ -2760,11 +2760,18 @@ def build_record_book(data) -> dict:
          lambda e: f"{e.get('gp', 0)} GP, {e.get('fppg', 0):.1f} FPPG",
          "FP", "Total FP after waiver acquisition (min 10 GP). *Waiver data available from 2025-26 onward only"),
     ]:
-        if all_time.get(key):
+        src = all_time
+        if key in PICK_POSITION_TOP10:
+            # H56: measured against the pick's slot, so trusted pick orders only
+            # (RECORDS.json is state; an entry from a punted season written
+            # before H56 is never shown, and its pick number never printed)
+            from . import draft_history as _dh
+            src = {**all_time, key: [e for e in all_time.get(key) or [] if _dh.order_trusted(e.get("season"))]}
+        if src.get(key):
             draft_records.append(_build_player_record(
                 record_name=name,
                 top10_key=key,
-                all_time=all_time,
+                all_time=src,
                 value_field=val_field,
                 current_season=current_season,
                 detail_fn=dfn,
@@ -3128,6 +3135,10 @@ def build_keeper_watch(data: FantasyData, week: int) -> dict:
 # DRAFT VALUE TRACKER
 # =============================================================================
 
+# H56: the record book's lists measured against a pick's slot
+PICK_POSITION_TOP10 = ("biggest_draft_steal_top10", "biggest_draft_bust_top10",
+                       "biggest_draft_steal_totalfp_top10", "biggest_draft_bust_totalfp_top10")
+
 # Value label thresholds (deviation from expected mid FPPG)
 DRAFT_STEAL_THRESHOLD = 4.0    # actual >= mid + 4 -> Steal
 DRAFT_GOOD_THRESHOLD = 1.0     # actual >= mid + 1 -> Good Value
@@ -3217,7 +3228,8 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
 
     Reads:
         - config/DRAFT_PICKS_CURRENT.json for who was picked where
-        - config/DRAFT_PICK_VALUES.json for expected FPPG per round
+        - data/historical/DRAFT_ROUND_VALUES.json (modules/draft_values) for
+          expected FPPG per round (H56: one curve, by round)
         - PLAYERLOG for actual season stats
 
     Only grades drafted players. Keepers are listed separately without a
@@ -3260,13 +3272,12 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
         draft_data = json.load(f)
     picks = draft_data.get("picks", [])
 
-    # Load pick values
-    values_file = base / "config" / "DRAFT_PICK_VALUES.json"
-    if not values_file.exists():
+    # Expected value by round (H56: modules/draft_values, one curve)
+    from . import draft_values as _dv
+    try:
+        round_values = _dv.load(base)
+    except _dv.DraftValuesError:
         return {"drafted": [], "keepers": []}
-    with open(values_file, encoding="utf-8") as f:
-        values_data = json.load(f)
-    pick_values = values_data.get("pick_values", {})
 
     # Build season stats from PLAYERLOG (all games where player scored)
     plog = data.playerlog
@@ -3370,10 +3381,9 @@ def build_draft_value_tracker(data: FantasyData, week: int) -> dict:
 
         is_ofs = pname in ofs_players
 
-        # Grade against expected value (pick-level granularity)
-        pv = pick_values.get(str(pick_num), {})
-        expected = pv.get("expected_projFPPG", {})
-        expected_mid = expected.get("mid", 35.0)
+        # Grade against the round's expected FPPG (H56: by round; a round the
+        # table lacks raises -- a live pick is always in a live round)
+        expected_mid = _dv.value(round_values, "fppg", int(round_num))["value"]
 
         delta = round(actual_fppg - expected_mid, 2)
         value = _compute_draft_value(delta, gp)

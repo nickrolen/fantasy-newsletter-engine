@@ -78,7 +78,6 @@ CROSS_SEASON_CONFIG = {
     # The injury-override template. Documentation, not state: it shows the three
     # entry shapes and which fields are load-bearing, and carries forward.
     "config/INJURY_OVERRIDES.json.example",
-    "config/DRAFT_PICK_VALUES.json",    # rebuilt from history, not season state
     "config/ROOKIE_SEASONS.json",       # append-only reference data
     "config/SCHEDULE.json",             # replaced wholesale for the new season
     "config/.file_baselines.json",      # machine-specific integrity baseline

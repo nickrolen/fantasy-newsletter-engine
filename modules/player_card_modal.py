@@ -660,7 +660,7 @@ function pcRenderDraftROI(c) {
     
     html += '<div class="pc-draft-entry">';
     html += '<div class="pc-draft-top">';
-    html += '<span class="pc-draft-pick">Rd ' + d.round + ', Pick ' + d.pick_number + '</span>';
+    html += '<span class="pc-draft-pick">' + (d.pick_number ? 'Rd ' + d.round + ', Pick ' + d.pick_number : 'Drafted') + '</span>';
     html += '<span class="pc-draft-season">' + d.season + ' by ' + esc(d.manager) + '</span>';
     html += '</div>';
     

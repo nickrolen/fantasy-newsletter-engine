@@ -20,7 +20,8 @@ CHANGELOG (v2 - Feb 2026):
   - Added date normalization to prevent duplicate GP from format mismatches
   - Added GP sanity caps: max 4/week per player, max 82/season per player
   - Fixed "games" field in weekly records (was counting inflated rows)
-  - Draft steal/bust now uses is_keeper flag + DRAFT_PICK_VALUES.json deltas
+  - Draft steal/bust uses is_keeper + the round's expected value (H56: data/historical/
+    DRAFT_ROUND_VALUES.json, modules/draft_values; trusted pick orders only)
   - Best waiver pickup now works across all seasons (not just current)
   - Added new records: team FPPG week, daily team score, duo day/season,
     sub-20 FP week
@@ -53,10 +54,8 @@ HISTORICAL_PLAYERLOG_FILE = PROJECT_ROOT / "data" / "historical" / "HISTORICAL_P
 PLAYERLOG_FILE = PROJECT_ROOT / "data" / "PLAYERLOG.xlsx"
 LINEUPS_FILE = PROJECT_ROOT / "data" / "LINEUPS.xlsx"
 ROOKIE_SEASONS_FILE = PROJECT_ROOT / "config" / "ROOKIE_SEASONS.json"
-ALL_DRAFTS_FILE = PROJECT_ROOT / "data" / "historical" / "all_drafts.json"
 DRAFT_PICKS_CURRENT_FILE = PROJECT_ROOT / "config" / "DRAFT_PICKS_CURRENT.json"
 ALL_TRADES_FILE = PROJECT_ROOT / "data" / "historical" / "all_trades.json"
-DRAFT_PICK_VALUES_FILE = PROJECT_ROOT / "config" / "DRAFT_PICK_VALUES.json"
 WAIVERS_DIR = PROJECT_ROOT / "data"
 
 MIN_GP_FPPG = 30
@@ -236,10 +235,13 @@ def load_rookie_seasons() -> dict | None:
 
 
 def load_all_drafts() -> list:
-    drafts = []
-    if ALL_DRAFTS_FILE.exists():
-        with open(ALL_DRAFTS_FILE, "r", encoding="utf-8") as f:
-            drafts = json.load(f)
+    # H56: through modules/draft_history -- a punted season's picks carry no
+    # pick number or round, and 2018-19's list is dropped
+    from modules import draft_history
+    try:
+        drafts = draft_history.read(PROJECT_ROOT)
+    except FileNotFoundError:
+        drafts = []
     if DRAFT_PICKS_CURRENT_FILE.exists():
         with open(DRAFT_PICKS_CURRENT_FILE, "r", encoding="utf-8") as f:
             current = json.load(f)
@@ -251,12 +253,10 @@ def load_all_drafts() -> list:
 
 
 def load_draft_pick_values() -> dict:
-    if not DRAFT_PICK_VALUES_FILE.exists():
-        print(f"WARNING: {DRAFT_PICK_VALUES_FILE} not found -- using defaults")
-        return {}
-    with open(DRAFT_PICK_VALUES_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return data.get("pick_values", {})
+    """The round table (modules/draft_values; H56, one curve). RAISES if missing:
+    the steal/bust records are measured against it, never against a default."""
+    from modules import draft_values
+    return draft_values.load(PROJECT_ROOT)
 
 
 def load_all_trades() -> list:
@@ -1267,10 +1267,22 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
     for pick in drafts:
         if not pick.get("is_keeper", False) and pick["season"] >= KEEPER_ERA_START:
             dbc[(pick["manager"], pick["season"])].append(pick)
+
+    def _top7(picks):
+        """The team's first 7 live picks. H56: a punted season has no rounds,
+        and 2021-22..2023-24 drafted exactly 7 live rounds, so its class is all
+        of them; more than 7 with no order to choose by RAISES."""
+        if all(p.get("round") is not None for p in picks):
+            return sorted(picks, key=lambda p: int(p["round"]))[:7]
+        if len(picks) > 7:
+            raise ValueError(f"{picks[0]['season']} {picks[0]['manager']}: {len(picks)} live picks and no "
+                             "pick order to choose the first 7")
+        return list(picks)
+
     dc_all = []
     for (mgr, season), picks in dbc.items():
         # Sort by round (earliest picks first) and take top 7
-        picks_sorted = sorted(picks, key=lambda p: p.get("round", 99))[:7]
+        picks_sorted = _top7(picks)
         fp, gp, cnt = 0.0, 0, 0
         for p in picks_sorted:
             s = pss.get((p["player_name"], mgr, season))
@@ -1283,7 +1295,7 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
     # BEST DRAFT CLASS BY FPPG (top 7 picks, min 20 GP per player, keeper era only)
     dc_fppg = []
     for (mgr, season), picks in dbc.items():
-        picks_sorted = sorted(picks, key=lambda p: p.get("round", 99))[:7]
+        picks_sorted = _top7(picks)
         qualifying = []
         for p in picks_sorted:
             s = pss.get((p["player_name"], mgr, season))
@@ -1296,7 +1308,7 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
                             "player_count": len(qualifying), "draft_year": season, "season": season})
     dc_fppg.sort(key=lambda x: x["avg_fppg"], reverse=True)
 
-    # DRAFT STEAL & BUST BY FPPG (real picks, delta vs expected FPPG, keeper era only)
+    # DRAFT STEAL & BUST BY FPPG (real picks, delta vs expected FPPG, trusted pick orders only: H56)
     steal_fppg, bust_fppg = [], []
     # DRAFT STEAL & BUST BY TOTAL FP (real picks, delta vs expected Total FP, keeper era only)
     steal_totalfp, bust_totalfp = [], []
@@ -1306,17 +1318,18 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
             continue
         if pick["season"] < KEEPER_ERA_START:
             continue
+        if pick.get("pick_number") is None:
+            continue          # H56: measured against the slot, so trusted pick orders only (2024-25 on)
         s = pss.get((pick["player_name"], pick["manager"], pick["season"]))
         if not s or s["gp"] < 20:
             continue
 
-        # Look up expected values by individual pick number (not round)
-        pick_str = str(pick["pick_number"])
-        pv = pick_values.get(pick_str, {})
+        # Expected values for the pick's ROUND (H56: one curve, by round)
+        from modules import draft_values as _dv
 
         # FPPG steal/bust
         actual_fppg = s["total_fp"] / s["gp"]
-        expected_fppg = pv.get("expected_projFPPG", {}).get("mid", 35.0)
+        expected_fppg = _dv.value(pick_values, "fppg", int(pick["round"]))["value"]
         delta_fppg = actual_fppg - expected_fppg
         fppg_entry = {
             "player_name": pick["player_name"], "manager": pick["manager"],
@@ -1333,7 +1346,7 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
 
         # Total FP steal/bust
         actual_totalfp = s["total_fp"]
-        expected_totalfp = pv.get("expected_total_fp", {}).get("mid", 1500.0)
+        expected_totalfp = _dv.value(pick_values, "total_fp", int(pick["round"]))["value"]
         delta_totalfp = actual_totalfp - expected_totalfp
         totalfp_entry = {
             "player_name": pick["player_name"], "manager": pick["manager"],

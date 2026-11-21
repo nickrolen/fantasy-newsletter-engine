@@ -166,7 +166,11 @@ def _image_kind(b: bytes) -> str:
 
 
 def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms=None, echo=print,
-          picture_notes=(), card_errors=()) -> dict:
+          picture_notes=(), card_errors=(), keep_shown: bool = False) -> dict:
+    """Publish to out_dir under a throwaway passphrase, open every piece and
+    check it (the report's "ok" and "problems"). keep_shown (H56): also
+    return "shown", {where: HTML} of every piece the text audit read, for a
+    caller's own audit of the published text."""
     from .. import hub_crypto, hub_publish, hub_archive
     from . import publish
     out = Path(out_dir)
@@ -315,7 +319,8 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
             "card_errors": list(card_errors),
             "groups": {g: group(g + "/") for g in ("parts", "cards", "photos", "issues")},
             "parts": {f: sizes[f] for f in sorted(opened["parts"])}, "league_parts": rep["league_parts"],
-            "card_files": rep["card_files"], "over_cap": rep["over_cap"], "build": rep}
+            "card_files": rep["card_files"], "over_cap": rep["over_cap"], "build": rep,
+            **({"shown": shown} if keep_shown else {})}
 
 
 def summary(rep: dict) -> list:

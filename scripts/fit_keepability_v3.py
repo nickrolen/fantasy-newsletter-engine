@@ -42,7 +42,18 @@ from modules import keeper_history as kh                  # noqa: E402
 from modules import keepability_v3 as M                    # noqa: E402
 
 BASE = ["kept", "log_draft_rank", "undrafted", "level", "availability", "age"]
+# H56 (Nick 11-20): the pick order before 2024-25 is punted, so a drafted player
+# in those seasons has no rank. Pre-registered (_to_delete/56/PREREG.md, sha256
+# 817c79e5...): R1 keeps the rank where it is trusted, with an indicator for
+# "drafted, rank unknown"; R0 drops the rank. R1 passed the pre-registered
+# check (+2.8 [-6.0, +12.5] against the old model) and shipped first; Nick
+# (11-21) then chose R0 over R1 (R0: +1.1 [-5.2, +8.0]): R1's rank effect is
+# learned from two drafts (Boozer 58% -> 30%). R0 is the shipped specification.
+H56 = ["kept", "log_draft_rank", "undrafted", "rank_unknown", "level", "availability", "age"]
+H56_R0 = ["kept", "undrafted", "level", "availability", "age"]
 SPECS = {
+    "age linear, no draft rank (H56)": H56_R0,
+    "age linear, rank unknown (H56)": H56,
     "age linear":               BASE,
     "age + young":              BASE + ["young"],
     "age quadratic":            BASE + ["age_sq"],
@@ -52,7 +63,7 @@ SPECS = {
 BINS = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0000001]
 CACHE = ROOT / "data" / ".cache" / "keepability_v3_dataset.pkl"
 INPUT_FILES = [kh.PLAYERLOG, kh.DRAFTS, kh.DRAFTS_CURRENT, kh.TRADES, kh.AGES_FILE,
-               "modules/keeper_history.py"]
+               "modules/keeper_history.py", "modules/draft_history.py"]
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +71,9 @@ INPUT_FILES = [kh.PLAYERLOG, kh.DRAFTS, kh.DRAFTS_CURRENT, kh.TRADES, kh.AGES_FI
 # ---------------------------------------------------------------------------
 
 def _inputs_key(root=ROOT) -> str:
+    from modules import draft_history
     h = hashlib.sha256()
+    h.update(json.dumps(draft_history.rules(), sort_keys=True).encode())   # H56: the order rule
     for f in INPUT_FILES:
         h.update(f.encode())
         h.update((Path(root) / f).read_bytes())
@@ -122,7 +135,7 @@ def dataset_hash(snaps, features) -> str:
             h.update(json.dumps([d, p, c.manager, c.player, c.kept_next,
                                  [getattr(c, a) for a in ("kept", "draft_rank", "acquired", "games", "fppg",
                                                           "prev_lines", "league_mean", "availability",
-                                                          "age", "fppg_rank")]],
+                                                          "age", "fppg_rank", "undrafted")]],
                                 default=str).encode())
     h.update(json.dumps(features).encode())
     return h.hexdigest()
@@ -299,8 +312,17 @@ def evaluate(snaps, feats, lp) -> dict:
 def params_for(snaps, feats, ev, spec_name, fit_date) -> dict:
     out = {"version": 3, "features": feats, "feature_text": {f: M.FEATURE_TEXT[f] for f in feats},
            "specification": spec_name, "level_prior": ev["lp"],
-           "why": "features: step B's comparison (age linear). Level prior: highest summed held-out "
-                  "log-likelihood among P1, P2, P3, P3r without losing hits to P1 (step B2)",
+           "why": ("features: step B's comparison (age linear)"
+                   + ("; H56 (Nick 11-20): the draft rank only where the pick order is trusted (2024-25 on), "
+                      "with an indicator for a drafted player whose rank is unknown (pre-registered, "
+                      "_to_delete/56/PREREG.md)" if "rank_unknown" in feats else
+                      "; H56: no draft rank (the pick order before 2024-25 is punted). Nick chose this (R0) "
+                      "over R1, rank where trusted plus a rank-unknown indicator, after the pre-registered "
+                      "check (_to_delete/56/PREREG.md): R1 +2.8 [-6.0, +12.5], R0 +1.1 [-5.2, +8.0] held-out "
+                      "log-likelihood against the old model; R1's rank effect came from two drafts (11-21)"
+                      if "log_draft_rank" not in feats and "undrafted" in feats else "")
+                   + ". Level prior: highest summed held-out log-likelihood among P1, P2, P3, P3r without "
+                     "losing hits to P1 (step B2)"),
            "fitted_on": list(kh.DECISIONS), "fit_date": fit_date,
            "dataset_sha256": dataset_hash(snaps, feats + [ev["lp"]["spec"]]),
            "age_center": M.AGE_CENTER, "young_age": M.YOUNG_AGE, "rank_center": M.RANK_CENTER,
@@ -332,7 +354,7 @@ def main(argv=None):
     ap.add_argument("--fit-date", default=date.today().isoformat())
     ap.add_argument("--out")
     ap.add_argument("--no-live", action="store_true")
-    ap.add_argument("--features", default="age linear", choices=sorted(SPECS))
+    ap.add_argument("--features", default="age linear, no draft rank (H56)", choices=sorted(SPECS))
     ap.add_argument("--priors", nargs="*", default=list(M.PRIOR_SPECS))
     a = ap.parse_args(argv)
 

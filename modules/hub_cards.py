@@ -74,7 +74,7 @@ PHOTO_DIR = "photos"
 BUNDLE_VERSION = 1
 REQUIRED = ("data/historical/HISTORICAL_PLAYERLOG.json", "data/PLAYERLOG.xlsx", "data/PLAYERLIST.xlsx",
             "config/ROSTERS.json", "config/RECORDS.json", "data/historical/all_drafts.json",
-            "data/historical/all_trades.json", "config/TRADES.json", "config/DRAFT_PICK_VALUES.json",
+            "data/historical/all_trades.json", "config/TRADES.json", "data/historical/DRAFT_ROUND_VALUES.json",
             "config/DRAFT_PICKS_CURRENT.json")
 FREE_AGENT = "Free agent"
 

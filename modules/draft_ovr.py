@@ -51,7 +51,9 @@ from typing import Callable, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE_RELPATH = Path("data") / "historical" / "DRAFT_OVR.json"
-SCHEMA = 3                    # 2 (4c5): then_point, and each season's week-2 day; 3 (4a4): the skill OVR
+SCHEMA = 4                    # 2 (4c5): then_point, and each season's week-2 day; 3 (4a4): the skill OVR;
+                              # 4 (H56): no pick number or round for a season whose order is punted,
+                              # whose picks are listed by manager then name; 2018-19 dropped
 THEN_NO_PRIOR = "no earlier season of his in the league log: his opening-day level is the league average"
 NOT_ROSTERED = "not on a roster that day"
 OPEN, WEEK2 = "open", "week2"
@@ -137,8 +139,10 @@ def rate_day(inputs, season: str, as_of: str, dates_by_team: dict, last_day: str
 
 
 def season_entry(inputs, season: str, dates_by_team: dict, frac: float) -> dict:
-    """One past season: its two days and every pick (all_drafts order) with
-    THEN and LATER, each an int or None with its reason."""
+    """One past season: its two days and every pick with THEN and LATER, each
+    an int or None with its reason. H56: a trusted season's picks in draft
+    order with pick_number and round; a punted season's by manager then name,
+    with neither (modules/draft_history; keeper_history.Inputs applies it)."""
     from . import keeper_history as kh
     rows = inputs.log.get(season)
     if not rows:
@@ -153,12 +157,17 @@ def season_entry(inputs, season: str, dates_by_team: dict, frac: float) -> dict:
     wk2_day, wk2 = week2_ratings(inputs, season, rows, dates_by_team, last)
     names = kh.Names(rows)
     out = []
-    for p in sorted(picks, key=lambda x: int(x["pick_number"])):
+    ordered = all(p.get("pick_number") is not None for p in picks)
+    if not ordered and any(p.get("pick_number") is not None for p in picks):
+        raise DraftOvrError(f"{season}: some picks carry a pick number and some do not")
+    key = (lambda x: int(x["pick_number"])) if ordered else (lambda x: (x["manager"], x["player_name"]))
+    for p in sorted(picks, key=key):
         n = names.canon(p["player_name"], p.get("player_key"))
         t, point = then_with_fallback(then.get(n) if n else None,
                                       wk2.get(n, (None, NOT_ROSTERED)) if (n and wk2_day) else None)
         lt = later.get(n) if n else None
-        out.append({"pick_number": int(p["pick_number"]), "round": int(p["round"]), "manager": p["manager"],
+        out.append({**({"pick_number": int(p["pick_number"]), "round": int(p["round"])} if ordered else {}),
+                    "manager": p["manager"],
                     "player": p["player_name"], "is_keeper": bool(p.get("is_keeper")),
                     "then": t[0] if t else None, "then_reason": t[1] if t else NOT_ROSTERED, "then_point": point,
                     "later": lt[0] if lt else None, "later_reason": lt[1] if lt else NOT_ROSTERED})

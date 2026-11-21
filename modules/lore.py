@@ -355,8 +355,8 @@ def scan(games: list[Game], months: dict, regular_through: Callable,
         for pos, label in (("C", "center"), ("PG", "point guard")):
             first: dict = {}
             for d in drafts:
-                if d.get("is_keeper"):
-                    continue
+                if d.get("is_keeper") or d.get("round") is None:
+                    continue          # H56: a punted season's order (no round) is never used
                 pp = positions.get((d["season"], _pkey(d["player_name"]))) or \
                     positions.get((None, _pkey(d["player_name"])), "")
                 if pos not in [x.strip() for x in pp.split(",")]:

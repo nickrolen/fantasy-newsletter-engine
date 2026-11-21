@@ -150,15 +150,21 @@
       "sides": {
        "Nick": {
         "par": 481.01,
+        "players_par": 481.01,
+        "picks_est": 0.0,
         "got": [
          "Kyrie Irving"
-        ]
+        ],
+        "picks": []
        },
        "Benton": {
         "par": 279.01,
+        "players_par": 279.01,
+        "picks_est": 0.0,
         "got": [
          "John Wall"
-        ]
+        ],
+        "picks": []
        }
       },
       "picks": {}
@@ -175,15 +181,21 @@
        "sides": {
         "Nick": {
          "par": 481.01,
+         "players_par": 481.01,
+         "picks_est": 0.0,
          "got": [
           "Kyrie Irving"
-         ]
+         ],
+         "picks": []
         },
         "Benton": {
          "par": 279.01,
+         "players_par": 279.01,
+         "picks_est": 0.0,
          "got": [
           "John Wall"
-         ]
+         ],
+         "picks": []
         }
        },
        "picks": {}
@@ -199,20 +211,37 @@
        "sides": {
         "Nick": {
          "par": 710.68,
+         "players_par": 710.68,
+         "picks_est": 0.0,
          "got": [
           "Trevor Ariza",
           "Draymond Green"
+         ],
+         "picks": [
+          "Garrett's 2018 4th (not valued)"
          ]
         },
         "Garrett": {
          "par": 519.25,
+         "players_par": 519.25,
+         "picks_est": 0.0,
          "got": [
           "Kevin Love",
           "LaMarcus Aldridge"
+         ],
+         "picks": [
+          "Nick's 2018 6th (not valued)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Nick": [
+         "Garrett's 2018 4th (not valued)"
+        ],
+        "Garrett": [
+         "Nick's 2018 6th (not valued)"
+        ]
+       }
       },
       {
        "label": "Nick \u21c4 Hayden, 02-27",
@@ -225,15 +254,21 @@
        "sides": {
         "Nick": {
          "par": 129.63,
+         "players_par": 129.63,
+         "picks_est": 0.0,
          "got": [
           "Rudy Gobert"
-         ]
+         ],
+         "picks": []
         },
         "Hayden": {
          "par": 27.65,
+         "players_par": 27.65,
+         "picks_est": 0.0,
          "got": [
           "Hassan Whiteside"
-         ]
+         ],
+         "picks": []
         }
        },
        "picks": {}
@@ -392,20 +427,37 @@
       "sides": {
        "Nick": {
         "par": 719.81,
+        "players_par": 719.81,
+        "picks_est": 0.0,
         "got": [
          "Kyle Lowry",
          "Eric Bledsoe"
+        ],
+        "picks": [
+         "Benton's 2019 3rd (not valued)"
         ]
        },
        "Benton": {
         "par": 1917.08,
+        "players_par": 1917.08,
+        "picks_est": 0.0,
         "got": [
          "Victor Oladipo",
          "Paul George"
+        ],
+        "picks": [
+         "Nick's 2019 6th (not valued)"
         ]
        }
       },
-      "picks": {}
+      "picks": {
+       "Nick": [
+        "Benton's 2019 3rd (not valued)"
+       ],
+       "Benton": [
+        "Nick's 2019 6th (not valued)"
+       ]
+      }
      },
      "top": [
       {
@@ -419,20 +471,37 @@
        "sides": {
         "Nick": {
          "par": 719.81,
+         "players_par": 719.81,
+         "picks_est": 0.0,
          "got": [
           "Kyle Lowry",
           "Eric Bledsoe"
+         ],
+         "picks": [
+          "Benton's 2019 3rd (not valued)"
          ]
         },
         "Benton": {
          "par": 1917.08,
+         "players_par": 1917.08,
+         "picks_est": 0.0,
          "got": [
           "Victor Oladipo",
           "Paul George"
+         ],
+         "picks": [
+          "Nick's 2019 6th (not valued)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Nick": [
+         "Benton's 2019 3rd (not valued)"
+        ],
+        "Benton": [
+         "Nick's 2019 6th (not valued)"
+        ]
+       }
       },
       {
        "label": "Garrett \u21c4 Nick, 01-15",
@@ -445,18 +514,39 @@
        "sides": {
         "Garrett": {
          "par": 298.31,
+         "players_par": 298.31,
+         "picks_est": 0.0,
          "got": [
           "Mike Conley"
+         ],
+         "picks": [
+          "Nick's 2019 1st (not valued)",
+          "Nick's 2019 9th (not valued)"
          ]
         },
         "Nick": {
          "par": 826.45,
+         "players_par": 826.45,
+         "picks_est": 0.0,
          "got": [
           "James Harden"
+         ],
+         "picks": [
+          "Garrett's 2019 10th (not valued)",
+          "Garrett's 2019 11th (not valued)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Garrett": [
+         "Nick's 2019 1st (not valued)",
+         "Nick's 2019 9th (not valued)"
+        ],
+        "Nick": [
+         "Garrett's 2019 10th (not valued)",
+         "Garrett's 2019 11th (not valued)"
+        ]
+       }
       },
       {
        "label": "Benton \u21c4 Garrett, 12-24",
@@ -469,19 +559,36 @@
        "sides": {
         "Benton": {
          "par": 182.97,
+         "players_par": 182.97,
+         "picks_est": 0.0,
          "got": [
           "Nikola Vucevic"
+         ],
+         "picks": [
+          "Garrett's 2019 12th (not valued)"
          ]
         },
         "Garrett": {
          "par": 687.44,
+         "players_par": 687.44,
+         "picks_est": 0.0,
          "got": [
           "Jimmy Butler III",
           "Rudy Gobert"
+         ],
+         "picks": [
+          "Benton's 2019 9th (not valued)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Benton": [
+         "Garrett's 2019 12th (not valued)"
+        ],
+        "Garrett": [
+         "Benton's 2019 9th (not valued)"
+        ]
+       }
       },
       {
        "label": "Nick \u21c4 Hayden, 12-14",
@@ -494,20 +601,37 @@
        "sides": {
         "Nick": {
          "par": 758.38,
+         "players_par": 758.38,
+         "picks_est": 0.0,
          "got": [
           "Jrue Holiday",
           "DeMar DeRozan"
+         ],
+         "picks": [
+          "Hayden's 2019 6th (not valued)"
          ]
         },
         "Hayden": {
          "par": 406.84,
+         "players_par": 406.84,
+         "picks_est": 0.0,
          "got": [
           "Hassan Whiteside",
           "Kyle Lowry"
+         ],
+         "picks": [
+          "Benton's 2019 7th (not valued)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Nick": [
+         "Hayden's 2019 6th (not valued)"
+        ],
+        "Hayden": [
+         "Benton's 2019 7th (not valued)"
+        ]
+       }
       },
       {
        "label": "Benton \u21c4 Hayden, 01-15",
@@ -520,15 +644,21 @@
        "sides": {
         "Benton": {
          "par": 202.07,
+         "players_par": 202.07,
+         "picks_est": 0.0,
          "got": [
           "Kawhi Leonard"
-         ]
+         ],
+         "picks": []
         },
         "Hayden": {
          "par": 531.65,
+         "players_par": 531.65,
+         "picks_est": 0.0,
          "got": [
           "Nikola Vucevic"
-         ]
+         ],
+         "picks": []
         }
        },
        "picks": {}
@@ -536,7 +666,7 @@
      ],
      "none": "",
      "excluded": {},
-     "eligible": 15
+     "eligible": 14
     },
     "improved": {
      "winner": {
@@ -944,130 +1074,130 @@
       "label": "Garrett \u21c4 Benton, 01-05",
       "player": null,
       "m": "Garrett",
-      "value": 997.76,
-      "shown": "won by Garrett",
+      "value": 1120.19,
+      "shown": "won by Garrett \u00b7 picks est.",
       "sub": "",
       "date": "2021-01-05",
       "sides": {
        "Garrett": {
-        "par": 1642.83,
+        "par": 2030.15,
+        "players_par": 1642.83,
+        "picks_est": 387.32,
         "got": [
          "Julius Randle",
          "De'Aaron Fox"
+        ],
+        "picks": [
+         "Benton's 2021 3rd (est. 387.3)"
         ]
        },
        "Benton": {
-        "par": 645.06,
+        "par": 909.95,
+        "players_par": 645.06,
+        "picks_est": 264.89,
         "got": [
          "Malcolm Brogdon",
          "Deandre Ayton"
+        ],
+        "picks": [
+         "Garrett's 2021 5th (est. 264.9)"
         ]
        }
       },
-      "picks": {}
+      "picks": {
+       "Garrett": [
+        "Benton's 2021 3rd (est. 387.3)"
+       ],
+       "Benton": [
+        "Garrett's 2021 5th (est. 264.9)"
+       ]
+      }
      },
      "top": [
       {
        "label": "Garrett \u21c4 Benton, 01-05",
        "player": null,
        "m": "Garrett",
-       "value": 997.76,
-       "shown": "won by Garrett",
+       "value": 1120.19,
+       "shown": "won by Garrett \u00b7 picks est.",
        "sub": "",
        "date": "2021-01-05",
        "sides": {
         "Garrett": {
-         "par": 1642.83,
+         "par": 2030.15,
+         "players_par": 1642.83,
+         "picks_est": 387.32,
          "got": [
           "Julius Randle",
           "De'Aaron Fox"
+         ],
+         "picks": [
+          "Benton's 2021 3rd (est. 387.3)"
          ]
         },
         "Benton": {
-         "par": 645.06,
+         "par": 909.95,
+         "players_par": 645.06,
+         "picks_est": 264.89,
          "got": [
           "Malcolm Brogdon",
           "Deandre Ayton"
+         ],
+         "picks": [
+          "Garrett's 2021 5th (est. 264.9)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Garrett": [
+         "Benton's 2021 3rd (est. 387.3)"
+        ],
+        "Benton": [
+         "Garrett's 2021 5th (est. 264.9)"
+        ]
+       }
       },
       {
        "label": "Hayden \u21c4 Benton, 01-20",
        "player": null,
        "m": "Hayden",
-       "value": 251.61,
-       "shown": "won by Hayden",
+       "value": 154.43,
+       "shown": "won by Hayden \u00b7 picks est.",
        "sub": "",
        "date": "2021-01-20",
        "sides": {
         "Hayden": {
-         "par": 901.14,
+         "par": 1122.33,
+         "players_par": 901.14,
+         "picks_est": 221.19,
          "got": [
           "Shai Gilgeous-Alexander",
           "Kyrie Irving"
+         ],
+         "picks": [
+          "Benton's 2021 6th (est. 221.2)"
          ]
         },
         "Benton": {
-         "par": 649.53,
+         "par": 967.9,
+         "players_par": 649.53,
+         "picks_est": 318.37,
          "got": [
           "Trae Young"
+         ],
+         "picks": [
+          "Hayden's 2021 4th (est. 318.4)"
          ]
         }
        },
-       "picks": {}
-      },
-      {
-       "label": "Benton \u21c4 Garrett, 02-26",
-       "player": null,
-       "m": "Garrett",
-       "value": 160.77,
-       "shown": "won by Garrett",
-       "sub": "",
-       "date": "2021-02-26",
-       "sides": {
-        "Benton": {
-         "par": 128.21,
-         "got": [
-          "Christian Wood"
-         ]
-        },
-        "Garrett": {
-         "par": 288.97,
-         "got": [
-          "Paul George"
-         ]
-        }
-       },
-       "picks": {}
-      },
-      {
-       "label": "Nick \u21c4 Benton, 03-19",
-       "player": null,
-       "m": "Nick",
-       "value": 137.68,
-       "shown": "won by Nick",
-       "sub": "",
-       "date": "2021-03-19",
-       "sides": {
-        "Nick": {
-         "par": 285.39,
-         "got": [
-          "Pascal Siakam",
-          "Bam Adebayo"
-         ]
-        },
-        "Benton": {
-         "par": 147.71,
-         "got": [
-          "Zion Williamson",
-          "Terry Rozier",
-          "Jerami Grant"
-         ]
-        }
-       },
-       "picks": {}
+       "picks": {
+        "Hayden": [
+         "Benton's 2021 6th (est. 221.2)"
+        ],
+        "Benton": [
+         "Hayden's 2021 4th (est. 318.4)"
+        ]
+       }
       },
       {
        "label": "Benton \u21c4 Garrett, 03-02",
@@ -1079,19 +1209,107 @@
        "date": "2021-03-02",
        "sides": {
         "Benton": {
-         "par": 0,
+         "par": 0.0,
+         "players_par": 0,
+         "picks_est": 0.0,
          "got": [
           "Pascal Siakam"
-         ]
+         ],
+         "picks": []
         },
         "Garrett": {
          "par": 127.8,
+         "players_par": 127.8,
+         "picks_est": 0.0,
          "got": [
           "Jamal Murray"
-         ]
+         ],
+         "picks": []
         }
        },
        "picks": {}
+      },
+      {
+       "label": "Benton \u21c4 Nick, 02-22",
+       "player": null,
+       "m": "Benton",
+       "value": 94.96,
+       "shown": "won by Benton \u00b7 picks est.",
+       "sub": "",
+       "date": "2021-02-22",
+       "sides": {
+        "Benton": {
+         "par": 568.06,
+         "players_par": 83.56,
+         "picks_est": 484.5,
+         "got": [
+          "John Collins"
+         ],
+         "picks": [
+          "Nick's 2021 2nd (est. 484.5)"
+         ]
+        },
+        "Nick": {
+         "par": 473.1,
+         "players_par": 208.21,
+         "picks_est": 264.89,
+         "got": [
+          "Malcolm Brogdon"
+         ],
+         "picks": [
+          "Benton's 2021 5th (est. 264.9)"
+         ]
+        }
+       },
+       "picks": {
+        "Benton": [
+         "Nick's 2021 2nd (est. 484.5)"
+        ],
+        "Nick": [
+         "Benton's 2021 5th (est. 264.9)"
+        ]
+       }
+      },
+      {
+       "label": "Benton \u21c4 Garrett, 02-26",
+       "player": null,
+       "m": "Garrett",
+       "value": 91.82,
+       "shown": "won by Garrett \u00b7 picks est.",
+       "sub": "",
+       "date": "2021-02-26",
+       "sides": {
+        "Benton": {
+         "par": 515.53,
+         "players_par": 128.21,
+         "picks_est": 387.32,
+         "got": [
+          "Christian Wood"
+         ],
+         "picks": [
+          "Benton's 2021 3rd (est. 387.3)"
+         ]
+        },
+        "Garrett": {
+         "par": 607.34,
+         "players_par": 288.97,
+         "picks_est": 318.37,
+         "got": [
+          "Paul George"
+         ],
+         "picks": [
+          "Hayden's 2021 4th (est. 318.4)"
+         ]
+        }
+       },
+       "picks": {
+        "Benton": [
+         "Benton's 2021 3rd (est. 387.3)"
+        ],
+        "Garrett": [
+         "Hayden's 2021 4th (est. 318.4)"
+        ]
+       }
       }
      ],
      "none": "",
@@ -1310,17 +1528,23 @@
       "sides": {
        "Nick": {
         "par": 656.11,
+        "players_par": 656.11,
+        "picks_est": 0.0,
         "got": [
          "Anthony Davis",
          "CJ McCollum"
-        ]
+        ],
+        "picks": []
        },
        "Benton": {
         "par": 1868.9,
+        "players_par": 1868.9,
+        "picks_est": 0.0,
         "got": [
          "Dejounte Murray",
          "Jayson Tatum"
-        ]
+        ],
+        "picks": []
        }
       },
       "picks": {}
@@ -1337,17 +1561,23 @@
        "sides": {
         "Nick": {
          "par": 656.11,
+         "players_par": 656.11,
+         "picks_est": 0.0,
          "got": [
           "Anthony Davis",
           "CJ McCollum"
-         ]
+         ],
+         "picks": []
         },
         "Benton": {
          "par": 1868.9,
+         "players_par": 1868.9,
+         "picks_est": 0.0,
          "got": [
           "Dejounte Murray",
           "Jayson Tatum"
-         ]
+         ],
+         "picks": []
         }
        },
        "picks": {}
@@ -1363,17 +1593,23 @@
        "sides": {
         "Hayden": {
          "par": 511.88,
+         "players_par": 511.88,
+         "picks_est": 0.0,
          "got": [
           "Evan Mobley",
           "Zion Williamson",
           "Pascal Siakam"
-         ]
+         ],
+         "picks": []
         },
         "Benton": {
          "par": 19.56,
+         "players_par": 19.56,
+         "picks_est": 0.0,
          "got": [
           "Russell Westbrook"
-         ]
+         ],
+         "picks": []
         }
        },
        "picks": {}
@@ -1381,27 +1617,44 @@
       {
        "label": "Hayden \u21c4 Nick, 11-20",
        "player": null,
-       "m": "Nick",
-       "value": 39.86,
-       "shown": "won by Nick",
+       "m": "Hayden",
+       "value": 40.79,
+       "shown": "won by Hayden \u00b7 picks est.",
        "sub": "",
        "date": "2021-11-20",
        "sides": {
         "Hayden": {
-         "par": 128.41,
+         "par": 393.3,
+         "players_par": 128.41,
+         "picks_est": 264.89,
          "got": [
           "Cole Anthony",
           "Jerami Grant"
+         ],
+         "picks": [
+          "Nick's 2022 5th (est. 264.9)"
          ]
         },
         "Nick": {
-         "par": 168.26,
+         "par": 352.5,
+         "players_par": 168.26,
+         "picks_est": 184.24,
          "got": [
           "Damian Lillard"
+         ],
+         "picks": [
+          "Hayden's 2022 7th (est. 184.2)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Hayden": [
+         "Nick's 2022 5th (est. 264.9)"
+        ],
+        "Nick": [
+         "Hayden's 2022 7th (est. 184.2)"
+        ]
+       }
       }
      ],
      "none": "",
@@ -1820,52 +2073,127 @@
       "label": "Nick \u21c4 Benton, 01-15",
       "player": null,
       "m": "Benton",
-      "value": 71.56,
-      "shown": "won by Benton",
+      "value": 334.86,
+      "shown": "won by Benton \u00b7 picks est.",
       "sub": "",
       "date": "2024-01-15",
       "sides": {
        "Nick": {
-        "par": 393.75,
+        "par": 781.07,
+        "players_par": 393.75,
+        "picks_est": 387.32,
         "got": [
          "CJ McCollum",
          "Kawhi Leonard"
+        ],
+        "picks": [
+         "Benton's 2024 3rd (est. 387.3)"
         ]
        },
        "Benton": {
-        "par": 465.3,
+        "par": 1115.92,
+        "players_par": 465.3,
+        "picks_est": 650.62,
         "got": [
          "Stephen Curry"
+        ],
+        "picks": [
+         "Nick's 2024 1st (est. 650.6)"
         ]
        }
       },
-      "picks": {}
+      "picks": {
+       "Nick": [
+        "Benton's 2024 3rd (est. 387.3)"
+       ],
+       "Benton": [
+        "Nick's 2024 1st (est. 650.6)"
+       ]
+      }
      },
      "top": [
       {
        "label": "Nick \u21c4 Benton, 01-15",
        "player": null,
        "m": "Benton",
-       "value": 71.56,
-       "shown": "won by Benton",
+       "value": 334.86,
+       "shown": "won by Benton \u00b7 picks est.",
        "sub": "",
        "date": "2024-01-15",
        "sides": {
         "Nick": {
-         "par": 393.75,
+         "par": 781.07,
+         "players_par": 393.75,
+         "picks_est": 387.32,
          "got": [
           "CJ McCollum",
           "Kawhi Leonard"
+         ],
+         "picks": [
+          "Benton's 2024 3rd (est. 387.3)"
          ]
         },
         "Benton": {
-         "par": 465.3,
+         "par": 1115.92,
+         "players_par": 465.3,
+         "picks_est": 650.62,
          "got": [
           "Stephen Curry"
+         ],
+         "picks": [
+          "Nick's 2024 1st (est. 650.6)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Nick": [
+         "Benton's 2024 3rd (est. 387.3)"
+        ],
+        "Benton": [
+         "Nick's 2024 1st (est. 650.6)"
+        ]
+       }
+      },
+      {
+       "label": "Benton \u21c4 Nick, 02-26",
+       "player": null,
+       "m": "Benton",
+       "value": 64.62,
+       "shown": "won by Benton \u00b7 picks est.",
+       "sub": "",
+       "date": "2024-02-26",
+       "sides": {
+        "Benton": {
+         "par": 445.08,
+         "players_par": 57.76,
+         "picks_est": 387.32,
+         "got": [
+          "Brandon Ingram"
+         ],
+         "picks": [
+          "Nick's 2024 3rd (est. 387.3)"
+         ]
+        },
+        "Nick": {
+         "par": 380.46,
+         "players_par": 62.09,
+         "picks_est": 318.37,
+         "got": [
+          "Jarrett Allen"
+         ],
+         "picks": [
+          "Benton's 2024 4th (est. 318.4)"
+         ]
+        }
+       },
+       "picks": {
+        "Benton": [
+         "Nick's 2024 3rd (est. 387.3)"
+        ],
+        "Nick": [
+         "Benton's 2024 4th (est. 318.4)"
+        ]
+       }
       },
       {
        "label": "Nick \u21c4 Garrett, 03-07",
@@ -1878,39 +2206,21 @@
        "sides": {
         "Nick": {
          "par": 70.27,
+         "players_par": 70.27,
+         "picks_est": 0.0,
          "got": [
           "Miles Bridges"
-         ]
+         ],
+         "picks": []
         },
         "Garrett": {
          "par": 61.2,
+         "players_par": 61.2,
+         "picks_est": 0.0,
          "got": [
           "CJ McCollum"
-         ]
-        }
-       },
-       "picks": {}
-      },
-      {
-       "label": "Benton \u21c4 Nick, 02-26",
-       "player": null,
-       "m": "Nick",
-       "value": 4.33,
-       "shown": "won by Nick",
-       "sub": "",
-       "date": "2024-02-26",
-       "sides": {
-        "Benton": {
-         "par": 57.76,
-         "got": [
-          "Brandon Ingram"
-         ]
-        },
-        "Nick": {
-         "par": 62.09,
-         "got": [
-          "Jarrett Allen"
-         ]
+         ],
+         "picks": []
         }
        },
        "picks": {}
@@ -2126,79 +2436,134 @@
       "label": "Nick \u21c4 Garrett, 10-30",
       "player": null,
       "m": "Nick",
-      "value": 770.42,
-      "shown": "won by Nick",
+      "value": 647.99,
+      "shown": "won by Nick \u00b7 picks est.",
       "sub": "",
       "date": "2024-10-30",
       "sides": {
        "Nick": {
-        "par": 1665.12,
+        "par": 1930.01,
+        "players_par": 1665.12,
+        "picks_est": 264.89,
         "got": [
          "LeBron James",
          "Donovan Mitchell"
+        ],
+        "picks": [
+         "Garrett's 2025 5th (est. 264.9)"
         ]
        },
        "Garrett": {
-        "par": 894.7,
+        "par": 1282.02,
+        "players_par": 894.7,
+        "picks_est": 387.32,
         "got": [
          "Scottie Barnes",
          "Fred VanVleet"
+        ],
+        "picks": [
+         "Nick's 2025 3rd (est. 387.3)"
         ]
        }
       },
-      "picks": {}
+      "picks": {
+       "Nick": [
+        "Garrett's 2025 5th (est. 264.9)"
+       ],
+       "Garrett": [
+        "Nick's 2025 3rd (est. 387.3)"
+       ]
+      }
      },
      "top": [
       {
        "label": "Nick \u21c4 Garrett, 10-30",
        "player": null,
        "m": "Nick",
-       "value": 770.42,
-       "shown": "won by Nick",
+       "value": 647.99,
+       "shown": "won by Nick \u00b7 picks est.",
        "sub": "",
        "date": "2024-10-30",
        "sides": {
         "Nick": {
-         "par": 1665.12,
+         "par": 1930.01,
+         "players_par": 1665.12,
+         "picks_est": 264.89,
          "got": [
           "LeBron James",
           "Donovan Mitchell"
+         ],
+         "picks": [
+          "Garrett's 2025 5th (est. 264.9)"
          ]
         },
         "Garrett": {
-         "par": 894.7,
+         "par": 1282.02,
+         "players_par": 894.7,
+         "picks_est": 387.32,
          "got": [
           "Scottie Barnes",
           "Fred VanVleet"
+         ],
+         "picks": [
+          "Nick's 2025 3rd (est. 387.3)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Nick": [
+         "Garrett's 2025 5th (est. 264.9)"
+        ],
+        "Garrett": [
+         "Nick's 2025 3rd (est. 387.3)"
+        ]
+       }
       },
       {
        "label": "Nick \u21c4 Benton, 02-12",
        "player": null,
-       "m": "Nick",
-       "value": 560.71,
-       "shown": "won by Nick",
+       "m": "Benton",
+       "value": 168.98,
+       "shown": "won by Benton \u00b7 picks est.",
        "sub": "",
        "date": "2025-02-12",
        "sides": {
         "Nick": {
-         "par": 672.07,
+         "par": 1077.5,
+         "players_par": 672.07,
+         "picks_est": 405.43,
          "got": [
           "James Harden",
           "Stephen Curry"
+         ],
+         "picks": [
+          "Benton's 2025 6th (est. 221.2)",
+          "Benton's 2025 7th (est. 184.2)"
          ]
         },
         "Benton": {
-         "par": 111.36,
+         "par": 1246.48,
+         "players_par": 111.36,
+         "picks_est": 1135.12,
          "got": [
           "Donovan Mitchell"
+         ],
+         "picks": [
+          "Nick's 2025 1st (est. 650.6)",
+          "Nick's 2025 2nd (est. 484.5)"
          ]
         }
        },
-       "picks": {}
+       "picks": {
+        "Nick": [
+         "Benton's 2025 6th (est. 221.2)",
+         "Benton's 2025 7th (est. 184.2)"
+        ],
+        "Benton": [
+         "Nick's 2025 1st (est. 650.6)",
+         "Nick's 2025 2nd (est. 484.5)"
+        ]
+       }
       }
      ],
      "none": "",
@@ -2409,30 +2774,40 @@
       "label": "Nick \u21c4 Benton, 12-15",
       "player": null,
       "m": "Benton",
-      "value": 406.74,
-      "shown": "won by Benton \u00b7 draft picks listed, not valued",
+      "value": 572.86,
+      "shown": "won by Benton \u00b7 picks est.",
       "sub": "",
       "date": "2025-12-15",
       "sides": {
        "Nick": {
-        "par": 59.08,
+        "par": 543.58,
+        "players_par": 59.08,
+        "picks_est": 484.5,
         "got": [
          "Devin Booker"
+        ],
+        "picks": [
+         "Benton's 2026 2nd (est. 484.5)"
         ]
        },
        "Benton": {
-        "par": 465.82,
+        "par": 1116.44,
+        "players_par": 465.82,
+        "picks_est": 650.62,
         "got": [
          "Trey Murphy III"
+        ],
+        "picks": [
+         "Nick's 2026 1st (est. 650.6)"
         ]
        }
       },
       "picks": {
        "Nick": [
-        "2026 1st (Nick)"
+        "Benton's 2026 2nd (est. 484.5)"
        ],
        "Benton": [
-        "2026 2nd (Benton)"
+        "Nick's 2026 1st (est. 650.6)"
        ]
       }
      },
@@ -2441,127 +2816,85 @@
        "label": "Nick \u21c4 Benton, 12-15",
        "player": null,
        "m": "Benton",
-       "value": 406.74,
-       "shown": "won by Benton \u00b7 draft picks listed, not valued",
+       "value": 572.86,
+       "shown": "won by Benton \u00b7 picks est.",
        "sub": "",
        "date": "2025-12-15",
        "sides": {
         "Nick": {
-         "par": 59.08,
+         "par": 543.58,
+         "players_par": 59.08,
+         "picks_est": 484.5,
          "got": [
           "Devin Booker"
+         ],
+         "picks": [
+          "Benton's 2026 2nd (est. 484.5)"
          ]
         },
         "Benton": {
-         "par": 465.82,
+         "par": 1116.44,
+         "players_par": 465.82,
+         "picks_est": 650.62,
          "got": [
           "Trey Murphy III"
+         ],
+         "picks": [
+          "Nick's 2026 1st (est. 650.6)"
          ]
         }
        },
        "picks": {
         "Nick": [
-         "2026 1st (Nick)"
+         "Benton's 2026 2nd (est. 484.5)"
         ],
         "Benton": [
-         "2026 2nd (Benton)"
-        ]
-       }
-      },
-      {
-       "label": "Nick \u21c4 Garrett, 12-08",
-       "player": null,
-       "m": "Nick",
-       "value": 314.52,
-       "shown": "won by Nick \u00b7 draft picks listed, not valued",
-       "sub": "",
-       "date": "2025-12-08",
-       "sides": {
-        "Nick": {
-         "par": 425.99,
-         "got": [
-          "Karl-Anthony Towns"
-         ]
-        },
-        "Garrett": {
-         "par": 111.46,
-         "got": [
-          "Austin Reaves"
-         ]
-        }
-       },
-       "picks": {
-        "Nick": [
-         "2026 2nd (Nick)"
-        ],
-        "Garrett": [
-         "2026 7th (Garrett)"
-        ]
-       }
-      },
-      {
-       "label": "Hayden \u21c4 Benton, 01-27",
-       "player": null,
-       "m": "Benton",
-       "value": 78.18,
-       "shown": "won by Benton \u00b7 draft picks listed, not valued",
-       "sub": "",
-       "date": "2026-01-27",
-       "sides": {
-        "Hayden": {
-         "par": 38.06,
-         "got": [
-          "Lauri Markkanen"
-         ]
-        },
-        "Benton": {
-         "par": 116.24,
-         "got": [
-          "Michael Porter Jr."
-         ]
-        }
-       },
-       "picks": {
-        "Hayden": [
-         "2026 9th (Hayden)",
-         "2027 2nd (Hayden)"
-        ],
-        "Benton": [
-         "2026 5th (Benton)",
-         "2027 5th (Benton)"
+         "Nick's 2026 1st (est. 650.6)"
         ]
        }
       },
       {
        "label": "Hayden \u21c4 Garrett, 01-23",
        "player": null,
-       "m": "Garrett",
-       "value": 19.11,
-       "shown": "won by Garrett \u00b7 draft picks listed, not valued",
+       "m": "Hayden",
+       "value": 559.92,
+       "shown": "won by Hayden \u00b7 picks est.",
        "sub": "",
        "date": "2026-01-23",
        "sides": {
         "Hayden": {
-         "par": -0.62,
+         "par": 914.89,
+         "players_par": -0.62,
+         "picks_est": 915.51,
          "got": [
           "VJ Edgecombe"
+         ],
+         "picks": [
+          "Garrett's 2026 1st (est. 650.6)",
+          "Garrett's 2026 5th (est. 264.9)"
          ]
         },
         "Garrett": {
-         "par": 18.49,
+         "par": 354.97,
+         "players_par": 18.49,
+         "picks_est": 336.48,
          "got": [
           "Stephen Curry"
+         ],
+         "picks": [
+          "Hayden's 2026 7th (est. 184.2)",
+          "Hayden's 2026 8th (est. 152.2)"
          ]
         }
        },
        "picks": {
         "Hayden": [
-         "2026 7th (Hayden)",
-         "2026 8th (Hayden)"
+         "Garrett's 2026 1st (est. 650.6)",
+         "Garrett's 2026 5th (est. 264.9)"
         ],
         "Garrett": [
-         "2026 1st (Garrett)",
-         "2026 5th (Garrett)"
+         "Hayden's 2026 7th (est. 184.2)",
+         "Hayden's 2026 8th (est. 152.2)"
         ]
        }
       },
@@ -2569,32 +2902,130 @@
        "label": "Hayden \u21c4 Garrett, 02-02",
        "player": null,
        "m": "Garrett",
-       "value": 3.15,
-       "shown": "won by Garrett \u00b7 draft picks listed, not valued",
+       "value": 404.36,
+       "shown": "won by Garrett \u00b7 picks est.",
        "sub": "",
        "date": "2026-02-02",
        "sides": {
         "Hayden": {
-         "par": 106.71,
+         "par": 411.19,
+         "players_par": 106.71,
+         "picks_est": 304.48,
          "got": [
           "Scottie Barnes"
+         ],
+         "picks": [
+          "Garrett's 2026 8th (est. 152.2)",
+          "Garrett's 2027 8th (est. 152.2)"
          ]
         },
         "Garrett": {
-         "par": 109.86,
+         "par": 815.55,
+         "players_par": 109.86,
+         "picks_est": 705.69,
          "got": [
           "Alperen Sengun"
+         ],
+         "picks": [
+          "Hayden's 2026 4th (est. 318.4)",
+          "Hayden's 2027 3rd (est. 387.3)"
          ]
         }
        },
        "picks": {
         "Hayden": [
-         "2026 4th (Hayden)",
-         "2027 3rd (Hayden)"
+         "Garrett's 2026 8th (est. 152.2)",
+         "Garrett's 2027 8th (est. 152.2)"
         ],
         "Garrett": [
-         "2026 8th (Garrett)",
-         "2027 8th (Garrett)"
+         "Hayden's 2026 4th (est. 318.4)",
+         "Hayden's 2027 3rd (est. 387.3)"
+        ]
+       }
+      },
+      {
+       "label": "Hayden \u21c4 Benton, 01-27",
+       "player": null,
+       "m": "Benton",
+       "value": 156.91,
+       "shown": "won by Benton \u00b7 picks est.",
+       "sub": "",
+       "date": "2026-01-27",
+       "sides": {
+        "Hayden": {
+         "par": 567.84,
+         "players_par": 38.06,
+         "picks_est": 529.78,
+         "got": [
+          "Lauri Markkanen"
+         ],
+         "picks": [
+          "Benton's 2026 5th (est. 264.9)",
+          "Benton's 2027 5th (est. 264.9)"
+         ]
+        },
+        "Benton": {
+         "par": 724.75,
+         "players_par": 116.24,
+         "picks_est": 608.51,
+         "got": [
+          "Michael Porter Jr."
+         ],
+         "picks": [
+          "Hayden's 2026 9th (est. 124.0)",
+          "Hayden's 2027 2nd (est. 484.5)"
+         ]
+        }
+       },
+       "picks": {
+        "Hayden": [
+         "Benton's 2026 5th (est. 264.9)",
+         "Benton's 2027 5th (est. 264.9)"
+        ],
+        "Benton": [
+         "Hayden's 2026 9th (est. 124.0)",
+         "Hayden's 2027 2nd (est. 484.5)"
+        ]
+       }
+      },
+      {
+       "label": "Nick \u21c4 Garrett, 12-08",
+       "player": null,
+       "m": "Nick",
+       "value": 14.26,
+       "shown": "won by Nick \u00b7 picks est.",
+       "sub": "",
+       "date": "2025-12-08",
+       "sides": {
+        "Nick": {
+         "par": 610.23,
+         "players_par": 425.99,
+         "picks_est": 184.24,
+         "got": [
+          "Karl-Anthony Towns"
+         ],
+         "picks": [
+          "Garrett's 2026 7th (est. 184.2)"
+         ]
+        },
+        "Garrett": {
+         "par": 595.96,
+         "players_par": 111.46,
+         "picks_est": 484.5,
+         "got": [
+          "Austin Reaves"
+         ],
+         "picks": [
+          "Nick's 2026 2nd (est. 484.5)"
+         ]
+        }
+       },
+       "picks": {
+        "Nick": [
+         "Garrett's 2026 7th (est. 184.2)"
+        ],
+        "Garrett": [
+         "Nick's 2026 2nd (est. 484.5)"
         ]
        }
       }
@@ -2689,7 +3120,7 @@
   "wins_swung": "Counted against the official weekly scores (all_matchups); his own started points from the league log.",
   "missing_days": "The league log misses whole days in some weeks (checks.short_weeks): no PAR is counted on them.",
   "most_improved": "League-log FPPG (games on a league roster) for this season and the usual level; there are no daily NBA lines before 2026-27.",
-  "trades": "data/historical/all_trades.json; draft picks listed, not valued."
+  "trades": "data/historical/all_trades.json; each side's players' PAR plus each draft pick it got at the average PAR of players taken in that round (est.; data/historical/DRAFT_ROUND_VALUES.json); picks for a 2020 or earlier draft listed, not valued."
  },
  "best": {
   "mvp": {
@@ -2720,17 +3151,23 @@
    "sides": {
     "Nick": {
      "par": 656.11,
+     "players_par": 656.11,
+     "picks_est": 0.0,
      "got": [
       "Anthony Davis",
       "CJ McCollum"
-     ]
+     ],
+     "picks": []
     },
     "Benton": {
      "par": 1868.9,
+     "players_par": 1868.9,
+     "picks_est": 0.0,
      "got": [
       "Dejounte Murray",
       "Jayson Tatum"
-     ]
+     ],
+     "picks": []
     }
    },
    "picks": {},

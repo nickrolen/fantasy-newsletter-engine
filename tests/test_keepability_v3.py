@@ -150,7 +150,7 @@ def test_refitting_gives_the_same_parameters_file(tmp_path):
 @pytest.mark.slow
 def test_the_committed_parameters_file_loads_and_predicts():
     params = M.load_params()
-    assert params["specification"] == "age linear" and params["level_prior"]["spec"] == "P3"
+    assert params["specification"] == "age linear, no draft rank (H56)" and params["level_prior"]["spec"] == "P3"
     snaps = F.dataset()
     by = snaps[("2026-27", "end")].by_manager()
     out = M.predict(by, "end", 6, params)

@@ -13,7 +13,7 @@ Data sources:
   - RECORDS.json (all-time top-10 leaderboards)
   - all_drafts.json (draft history)
   - all_trades.json + TRADES.json (trade history)
-  - DRAFT_PICK_VALUES.json (expected pick value for draft ROI)
+  - DRAFT_ROUND_VALUES.json (expected FPPG by round for draft ROI; H56, modules/draft_values)
   - keeper_watch data from stats report (keep chance and rank on his team, keepability v3)
 
 Output:
@@ -123,6 +123,10 @@ RECORD_BOOK_LABELS = {
     "best_waiver_pickup": "Best Waiver Pickup (FPPG)",
     "best_waiver_pickup_totalfp": "Best Waiver Pickup (Total FP)",
 }
+
+# H56: record-book lists measured against a pick's slot (trusted seasons only)
+PICK_POSITION_RECORDS = ("biggest_draft_steal", "biggest_draft_steal_totalfp",
+                         "biggest_draft_bust", "biggest_draft_bust_totalfp")
 
 # Milestone thresholds to check against
 CAREER_FP_MILESTONES = [1000, 2500, 5000, 7500, 10000, 15000, 20000, 25000, 30000]
@@ -518,10 +522,15 @@ def build_player_cards(
     playerlist = _load_playerlist(data_dir)
     rosters = _load_json(config_dir / "ROSTERS.json")
     records = _load_json(config_dir / "RECORDS.json")
-    all_drafts = _load_json(historical_dir / "all_drafts.json")
+    from . import draft_history                  # H56: no pick number or round for a punted season
+    all_drafts = draft_history.read_in(historical_dir, missing_ok=True)
     all_trades = _load_json(historical_dir / "all_trades.json")
     current_trades = _load_json(config_dir / "TRADES.json")
-    draft_pick_values = _load_json(config_dir / "DRAFT_PICK_VALUES.json")
+    from . import draft_values as _dv            # H56: one curve, by round
+    try:
+        draft_round_values = _dv.load(historical_dir.parents[1])
+    except _dv.DraftValuesError:
+        draft_round_values = None
 
     if not isinstance(all_drafts, list):
         all_drafts = []
@@ -569,7 +578,7 @@ def build_player_cards(
             })
 
     all_time = records.get("all_time", {})
-    pick_values = draft_pick_values.get("pick_values", {})
+    pick_values = draft_round_values            # the round table (or None): _build_draft_history reads it
 
     # --- Pre-index historical data ---
     print("  Indexing historical game logs...")
@@ -580,7 +589,12 @@ def build_player_cards(
 
     print("  Indexing drafts and trades...")
     drafts_by_player = _index_drafts_by_player(all_drafts)
-    trades_by_player = _index_trades_by_player(all_trades)
+    from . import draft_history as _dh, trade_picks as _tp   # H56 s.4.2: picks and what they became
+    _d = {}
+    for _p in all_drafts:
+        if _p.get("pick_number") and _dh.order_trusted(_p["season"]):
+            _d.setdefault(_p["season"], []).append(_p)
+    trades_by_player = _index_trades_by_player(all_trades, _tp.Became(_d))
 
     # --- Build season_performers lookup (all-games stats, not lineup-only) ---
     sp_lookup = {}
@@ -767,15 +781,23 @@ def _index_drafts_by_player(all_drafts: list[dict]) -> dict[str, list[dict]]:
     return dict(by_player)
 
 
-def _index_trades_by_player(all_trades: list[dict]) -> dict[str, list[dict]]:
-    """Group trade entries by player_name, including full trade context."""
+def _index_trades_by_player(all_trades: list[dict], became=None) -> dict[str, list[dict]]:
+    """Group trade entries by player_name, including full trade context.
+    H56 s.4.2: a row with draft_picks lists them as {"pick": label, from, to}
+    (the label says what the pick became, from the 2024 draft on), and the
+    picks coming back count in received_back."""
+    from . import trade_picks as _tp
     by_player = defaultdict(list)
     for t in all_trades:
         season = t.get("season", "")
         date = t.get("date", "")
         all_players = t.get("players", [])
-        # Also capture draft picks if present (from TRADES.json format)
-        picks_info = t.get("picks", [])
+        if "draft_picks" in t:
+            picks_info = [{"pick": _tp.show(p, became), "from_manager": p["from_manager"],
+                           "to_manager": p["to_manager"]} for p in t["draft_picks"]]
+        else:
+            # Also capture draft picks if present (from TRADES.json format)
+            picks_info = t.get("picks", [])
 
         for p in all_players:
             # Build list of other players in same trade, grouped by direction
@@ -788,6 +810,8 @@ def _index_trades_by_player(all_trades: list[dict]) -> dict[str, list[dict]]:
                     other_sent.append(op.get("player_name", ""))
                 else:
                     other_received.append(op.get("player_name", ""))
+            if "draft_picks" in t:
+                other_received += [x["pick"] for x in picks_info if x["to_manager"] == p.get("from_manager")]
 
             entry = {
                 "season": season,
@@ -1388,21 +1412,25 @@ def _build_draft_history(
     name: str,
     drafts: list[dict],
     career: dict,
-    pick_values: dict,
+    pick_values,
 ) -> list[dict]:
-    """Build draft history with ROI calculation for each draft entry."""
+    """Build draft history with ROI calculation for each draft entry.
+    pick_values: the round table (modules/draft_values) or None. H56: a pick
+    is graded only when its round is known (a trusted pick order) and its
+    draft is in the keeper era (the table's values are keeper-era rounds)."""
+    from . import draft_values as _dv, draft_history as _dh
     result = []
     season_lookup = {s["season"]: s for s in career.get("season_breakdown", [])}
 
     for d in sorted(drafts, key=lambda x: x.get("season", "")):
-        pick = d.get("pick_number", 0)
+        pick = d.get("pick_number")              # None: the season's order is punted (H56)
         season = d.get("season", "")
         is_keeper = d.get("is_keeper", False)
 
-        # Get expected value for this pick
+        # Expected FPPG for the pick's round (only a live pick with a known round)
         expected_fppg = None
-        if pick and str(pick) in pick_values:
-            expected_fppg = pick_values[str(pick)].get("expected_projFPPG", {}).get("mid")
+        if pick and not is_keeper and pick_values and d.get("round") and _dh.keeper_era(season):
+            expected_fppg = _dv.value(pick_values, "fppg", int(d["round"]))["value"]
 
         # Get actual production that season
         actual_fppg = None
@@ -1429,7 +1457,7 @@ def _build_draft_history(
         result.append({
             "season": season,
             "pick_number": pick,
-            "round": d.get("round", 0),
+            "round": d.get("round"),
             "manager": d.get("manager", ""),
             "is_keeper": is_keeper,
             "expected_fppg": round(expected_fppg, 1) if expected_fppg else None,
@@ -1451,8 +1479,12 @@ def _find_record_book_appearances(name: str, all_time: dict) -> list[dict]:
     top10_keys = [k for k in all_time if k.endswith("_top10")]
     him = PlayerIndex({name: name})             # an accent is the same player (task 40)
 
+    from . import draft_history
     for key in sorted(top10_keys):
         entries = all_time[key]
+        if key.replace("_top10", "") in PICK_POSITION_RECORDS:
+            # H56: measured against the pick's slot: trusted pick orders only
+            entries = [e for e in entries if draft_history.order_trusted(e.get("season"))]
         for i, entry in enumerate(entries):
             entry_name = entry.get("player_name", "")
             if entry_name == name or (entry_name and him.canonical(entry_name) is not None):

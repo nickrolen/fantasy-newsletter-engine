@@ -111,6 +111,16 @@ def _json(p: Path):
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def _drafts(base) -> list:
+    """Past drafts with H56's rule applied (modules/draft_history): a punted
+    season's picks carry no pick number or round; 2018-19 is dropped."""
+    from .. import draft_history
+    try:
+        return draft_history.read(base)
+    except FileNotFoundError as e:
+        raise LeagueError(str(e)) from None
+
+
 def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: dict, now: datetime,
            ratings: Optional[dict] = None, ratings_error: Optional[str] = None, live=None,
            awards: Optional[dict] = None) -> dict:
@@ -189,7 +199,7 @@ def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: 
         "cup_winners": (keeper_rules_for() or {}).get("cup_winners") if callable(keeper_rules_for) else {},
         "leaguehistory": lh_rows,
         "all_standings": _json(hist / "all_standings.json"), "all_matchups": _json(hist / "all_matchups.json"),
-        "all_drafts": _json(hist / "all_drafts.json"), "all_trades": _json(hist / "all_trades.json"),
+        "all_drafts": _drafts(base), "all_trades": _json(hist / "all_trades.json"),
         "all_teams": _json(hist / "all_teams.json"),
         "season_teams": (data.records.get("team_name_history") or {}).get(CURRENT_SEASON) or {},
         "trades_now": trades_cfg["trades"], "potw": potw_seasons,
@@ -551,9 +561,9 @@ def _past_value(k: str, v: float) -> str:
 
 def _past_sub(k: str, w: dict) -> str:
     if k == "trade":
-        return DOT.join(f"{m} got {', '.join(sd['got']) or 'no player'} ({_d1(sd['par'])} PAR)"
-                        + (" + picks" if (w.get("picks") or {}).get(m) else "")
-                        for m, sd in w["sides"].items())
+        return DOT.join(f"{m} got {', '.join(sd['got']) or 'no player'}"
+                        + (f" + {', '.join(sd['picks'])}" if sd.get("picks") else "")
+                        + f" ({_d1(sd['par'])} PAR)" for m, sd in w["sides"].items())
     return w["sub"]
 
 
@@ -974,6 +984,9 @@ RECORD_BOOK = [
     ("best_waiver_pickup", "Best free-agent pickup", "Moves", lambda e: _d1(e["fppg"]) + " FPPG", _who_p),
 ]
 TILES = ["highest_weekly_score", "biggest_blowout", "closest_game", "highest_single_game"]
+# H56: records measured against the pick's slot (its expected value): trusted
+# seasons only (modules/draft_history.order_trusted)
+PICK_POSITION_RECORDS = ("biggest_draft_steal", "biggest_draft_bust")
 
 
 def _match_index(inp: dict, results: dict) -> dict:
@@ -1011,10 +1024,18 @@ def records(inp: dict, results: dict) -> dict:
     idx = _match_index(inp, results)
     groups: List[dict] = []
     tiles = []
+    from .. import draft_history as DH
     for key, label, group, val, who in RECORD_BOOK:
         top = at.get(f"{key}_top10")
         if not isinstance(top, list) or not top:
             raise LeagueError(f"config/RECORDS.json all_time has no {key}_top10")
+        if key in PICK_POSITION_RECORDS:
+            # H56: a record measured against the pick's slot counts only seasons
+            # whose pick order is trusted (RECORDS.json is state; an entry from a
+            # punted season, written before H56, is never shown)
+            top = [e for e in top if DH.order_trusted(e["season"])]
+            if not top:
+                raise LeagueError(f"config/RECORDS.json {key}_top10 has no season with a trusted pick order")
         rows = []
         for i, e in enumerate(top, 1):
             try:
@@ -1052,28 +1073,43 @@ def records(inp: dict, results: dict) -> dict:
 # =============================================================================
 
 def draft(inp: dict) -> dict:
+    """History > Draft. H56 (Nick, 11-20): a season whose pick order is
+    trusted (2024-25 on, and this season) keeps its numbered picks; a punted
+    season shows each team's draft class, keepers apart, by OVR then (best
+    first, ties by name), with no pick numbers or rounds; a dropped season
+    (2018-19) shows only its note."""
+    from .. import draft_history as DH
     cur = inp["season"]
     cache = inp["draft_ovr"]
     seasons = []
-    by_season: dict = {}
-    for p in inp["all_drafts"]:
-        by_season.setdefault(p["season"], []).append(p)
+    rows_in = DH.apply_rule(inp["all_drafts"])        # idempotent: gather() already applied it
+    by_season = DH.by_season(rows_in)
     cd = inp["draft_current"]
     if cd.get("season") != cur:
         raise LeagueError(f"config/DRAFT_PICKS_CURRENT.json is {cd.get('season')}, not {cur}")
+    if not DH.order_trusted(cur):
+        raise LeagueError(f"this season ({cur}) is before draft_history.order_trusted_from")
     by_season[cur] = list(cd["picks"])
-    for s in sorted(by_season, reverse=True):
-        picks = sorted(by_season[s], key=lambda x: int(x["pick_number"]))
-        in_round: dict = {}
-        rows = []
+    first = min(by_season) if by_season else cur
+    dropped = [s for s in DH.rules()["drafts_dropped"] if s >= first and s not in by_season]
+    for s in sorted(list(by_season) + dropped, reverse=True):
+        if s in dropped:
+            seasons.append({"season": s, "later_label": "", "meta": "", "picks": "0", "drafted": "",
+                            "rows": [], "mode": "dropped", "order_note": DH.DROPPED_NOTE})
+            continue
+        trusted = DH.order_trusted(s)
+        if trusted:
+            picks = sorted(by_season[s], key=lambda x: int(x["pick_number"]))
+        else:
+            picks = list(by_season[s])
         if s == cur:
             lt = inp["live_then"]
-            then_of = (lambda name: (tuple(lt["players"].get(name) or (None, "not in the draft")) + ("open",))[:3]) \
-                if lt else (lambda name: (None, "this season's opening-day OVR could not be computed: "
-                                                + (inp["live_error"] or "unknown"), "open"))
+            then_of = (lambda name, m=None: (tuple(lt["players"].get(name) or (None, "not in the draft")) + ("open",))[:3]) \
+                if lt else (lambda name, m=None: (None, "this season's opening-day OVR could not be computed: "
+                                                  + (inp["live_error"] or "unknown"), "open"))
             now = inp["now_ovr"]
 
-            def later_of(name):
+            def later_of(name, m=None):
                 if now is None:
                     return None, "today's ratings failed: " + (inp["ratings_error"] or "unknown")
                 if name in now:
@@ -1085,39 +1121,45 @@ def draft(inp: dict) -> dict:
         else:
             ent = ((cache or {}).get("seasons") or {}).get(s)
             if ent is None:
-                later_of = (lambda name, s=s: (None, f"not computed: data/historical/DRAFT_OVR.json has "
-                                                     f"no {s} (python scripts/build_draft_ovr.py)"))
-                then_of = (lambda name, f=later_of: f(name) + ("open",))
+                later_of = (lambda name, m=None, s=s: (None, f"not computed: data/historical/DRAFT_OVR.json has "
+                                                             f"no {s} (python scripts/build_draft_ovr.py)"))
+                then_of = (lambda name, m=None, f=later_of: f(name) + ("open",))
             else:
-                look = {(int(x["pick_number"])): x for x in ent["picks"]}
+                # joined on (manager, player), never on Yahoo's pick number
+                look = {(x["manager"], x["player"]): x for x in ent["picks"]}
 
-                def then_of(name, look=look, picks=picks):
-                    x = next((look.get(int(p["pick_number"])) for p in picks if p["player_name"] == name), None)
+                def then_of(name, m=None, look=look):
+                    x = look.get((m, name))
                     return (x["then"], x["then_reason"], x.get("then_point", "open")) if x else \
                         (None, "not in the cache", "open")
 
-                def later_of(name, look=look, picks=picks):
-                    x = next((look.get(int(p["pick_number"])) for p in picks if p["player_name"] == name), None)
+                def later_of(name, m=None, look=look):
+                    x = look.get((m, name))
                     return (x["later"], x["later_reason"]) if x else (None, "not in the cache")
             later_label, later_note = "Deadline", "at the trade-deadline point"
             open_day = ent["open"] if ent else None
+        built = []
+        slots = {id(p): q["slot"] for p, q in zip(picks, DH.with_slots(picks))} if trusted else {}
         for p in picks:
-            rd = int(p["round"])
-            in_round[rd] = in_round.get(rd, 0) + 1
             name = p["player_name"]
-            t, tr, tp = then_of(name)
-            n, nr = later_of(name)
+            t, tr, tp = then_of(name, p["manager"])
+            n, nr = later_of(name, p["manager"])
             if t is not None and n is not None:
                 k = int(n) - int(t)
                 chg, d = ((f"{UP}{k}", "up") if k > 0 else (f"{DOWN}{-k}", "down") if k < 0 else (NDASH, "flat"))
             else:
                 chg, d = "", "none"
-            rows.append({"pick": f"{rd}.{in_round[rd]:02d}", "overall": str(int(p["pick_number"])),
-                         "m": p["manager"], "player": name, "card": _slug(name), "keeper": bool(p.get("is_keeper")),
-                         "then": (str(t) + (" (wk 2)" if tp == "week2" else "")) if t is not None else DASH,
-                         "then_why": tr or "",
-                         "later": str(n) if n is not None else DASH, "later_why": nr or "",
-                         "chg": chg, "dir": d})
+            built.append({"pick": slots[id(p)] if trusted else "",
+                          "overall": str(int(p["pick_number"])) if trusted else "",
+                          "m": p["manager"], "player": name, "card": _slug(name), "keeper": bool(p.get("is_keeper")),
+                          "then": (str(t) + (" (wk 2)" if tp == "week2" else "")) if t is not None else DASH,
+                          "then_why": tr or "",
+                          "later": str(n) if n is not None else DASH, "later_why": nr or "",
+                          "chg": chg, "dir": d, "_t": t})
+        if not trusted:
+            # each team's class: drafted first, then keepers; best OVR then first, ties by name
+            built.sort(key=lambda r: (r["m"], r["keeper"], r["_t"] is None, -(r["_t"] or 0), r["player"]))
+        rows = [{k: v for k, v in r.items() if k != "_t"} for r in built]
         counts: dict = {}
         for p in picks:
             if not p.get("is_keeper"):
@@ -1127,11 +1169,15 @@ def draft(inp: dict) -> dict:
                         + f"{DOT}{later_label.lower()} {later_note}" if s != cur else
                         (f"opening day {open_day[5:]}" if open_day else "opening day not computed") + f"{DOT}now today",
                         "picks": str(len(picks)),
-                        "drafted": DOT.join(f"{m} {counts[m]}" for m in sorted(counts)), "rows": rows})
+                        "drafted": DOT.join(f"{m} {counts[m]}" for m in sorted(counts)), "rows": rows,
+                        "mode": "order" if trusted else "by_team",
+                        "order_note": "" if trusted else DH.PUNTED_NOTE})
     return {"seasons": seasons, "default": cur,
             "note": ("OVR then = his OVR on the season's opening day, judged on his NBA record before that "
                      "season (a rookie: his draft slot). Later = his OVR at the trade-deadline point for a past "
-                     "season, or today's for this season. \u2014 says why there is none. K = a keeper.")}
+                     "season, or today's for this season. \u2014 says why there is none. K = a keeper. "
+                     "Before 2024-25 Yahoo's pick order isn't reliable, so those drafts are shown by team, "
+                     "best OVR then first.")}
 
 
 # =============================================================================
@@ -1150,7 +1196,20 @@ def _trade_date(t: dict, season: str) -> tuple:
         f"{a:%b} {a.day}{NDASH}{b:%b} {b.day}, {b.year}"
 
 
+def _became(inp: dict):
+    """H56 s.4.2: what a traded pick became, from the trusted drafts (this one included)."""
+    from .. import draft_history as DH, trade_picks as TP
+    rows = DH.apply_rule(inp["all_drafts"])
+    d = {s: DH.order(s, rows) for s in {p["season"] for p in rows} if DH.order_trusted(s)}
+    cd = inp.get("draft_current") or {}
+    if cd.get("season") and cd.get("picks"):
+        d[cd["season"]] = [dict(p, season=cd["season"]) for p in cd["picks"]]
+    return TP.Became(d)
+
+
 def trades(inp: dict) -> dict:
+    from .. import trade_picks as TP
+    became = _became(inp)
     items = []
     for t in list(inp["all_trades"]) + list(inp["trades_now"]):
         for k in ("season", "date", "trader_manager", "tradee_manager", "players"):
@@ -1162,12 +1221,17 @@ def trades(inp: dict) -> dict:
             if mv["to_manager"] not in got or mv["from_manager"] not in got:
                 raise LeagueError(f"a {t['season']} trade moves {mv['player_name']} outside its two managers")
             got[mv["to_manager"]].append({"t": mv["player_name"], "card": _slug(mv["player_name"])})
-        picks = t.get("picks") or {}
-        for sender, lst in picks.items():
-            if sender not in got:
-                raise LeagueError(f"a {t['season']} trade's picks name {sender}, not one of its managers")
-            other = b if sender == a else a
-            got[other] += [{"t": str(x), "card": None} for x in lst]
+        if "draft_picks" in t:                       # H56: Yahoo's picks (and the chat's), structured
+            for p in t["draft_picks"]:
+                if p["to_manager"] not in got or p["from_manager"] not in got:
+                    raise LeagueError(f"a {t['season']} trade's pick moves outside its two managers")
+                got[p["to_manager"]].append({"t": TP.show(p, became), "card": None})
+        else:                                        # this season's, from config/TRADES.json labels
+            for sender, lst in (t.get("picks") or {}).items():
+                if sender not in got:
+                    raise LeagueError(f"a {t['season']} trade's picks name {sender}, not one of its managers")
+                other = b if sender == a else a
+                got[other] += [{"t": str(x), "card": None} for x in lst]
         key, label = _trade_date(t, t["season"])
         items.append({"key": key, "date": label, "season": t["season"], "ms": [a, b],
                       "sides": [{"m": m, "gets": got[m]} for m in (a, b)]})
@@ -1176,7 +1240,9 @@ def trades(inp: dict) -> dict:
         x.pop("key")
     return {"items": items, "count": str(len(items)),
             "note": ("Every trade, newest first: 2017-18 on from Yahoo (data/historical/all_trades.json) and this "
-                     "season's (config/TRADES.json). Draft picks are named by their original owner."),
+                     "season's (config/TRADES.json). A draft pick is named by its original owner, its draft's "
+                     "year and its round; from the 2024 draft on, \u2192 shows the player it became. Picks "
+                     "beyond the next draft were agreed in the group chat."),
             "empty": "No trade on record."}
 
 

@@ -387,7 +387,7 @@ def check_import_chain(verbose=False):
 # missed it and the live file is last season's.
 #
 # Deliberately not every file: LEAGUEHISTORY.xlsx, POTW_HISTORY.json,
-# ROOKIE_SEASONS.json, DRAFT_PICK_VALUES.json and TRADES draft_pick_ownership
+# ROOKIE_SEASONS.json, DRAFT_ROUND_VALUES.json and TRADES draft_pick_ownership
 # are all meant to carry forward unchanged.
 PER_SEASON_FILES = [
     "data/PLAYERLOG.xlsx",

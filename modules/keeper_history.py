@@ -42,12 +42,13 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from .data_loader import PlayerIndex, SEASON_STRUCTURE
+from . import draft_history as _draft_history
 
 ROOT = Path(__file__).resolve().parents[1]
 DECISIONS = ("2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27")
 POINTS = ("week2", "mid", "end")
 PLAYERLOG = "data/historical/HISTORICAL_PLAYERLOG.json"
-DRAFTS = "data/historical/all_drafts.json"
+DRAFTS = _draft_history.DRAFTS_FILE.as_posix()   # read only through modules/draft_history (H56)
 DRAFTS_CURRENT = "config/DRAFT_PICKS_CURRENT.json"
 TRADES = "data/historical/all_trades.json"
 AGES_FILE = "data/historical/BBREF_AGES.json"
@@ -126,7 +127,8 @@ class Inputs:
         for s in log:
             log[s].sort(key=lambda r: (r["date"], r["manager"], r["player_name"]))
         picks: dict = {}
-        for p in json.loads((root / DRAFTS).read_text(encoding="utf-8")):
+        from . import draft_history                  # H56: the order rule (punted seasons carry no
+        for p in draft_history.read(root):           # pick number or round; 2018-19 is dropped)
             picks.setdefault(p["season"], []).append(p)
         cur = json.loads((root / DRAFTS_CURRENT).read_text(encoding="utf-8"))
         for p in cur["picks"]:
@@ -344,8 +346,12 @@ class Candidate:
     prev_fppg: Optional[float]
     age: Optional[int]               # None: not found -- reported, never guessed
     age_source: Optional[str] = None # "bbref <season>", or a neighbour's "- 1" / "+ 1"
-    draft_pick: Optional[int] = None # his non-keeper pick number this season (carried on a trade)
-    draft_rank: Optional[int] = None # overall rank across eras: players kept league-wide + pick
+    draft_pick: Optional[int] = None # his non-keeper pick number this season (carried on a trade);
+                                     # None when the season's order is punted (H56)
+    draft_rank: Optional[int] = None # overall rank across eras: players kept league-wide + pick;
+                                     # None when the season's order is punted (H56)
+    drafted: bool = False            # drafted (not kept) this season, by anyone: known in every
+                                     # season, whether or not its order is trusted (H56)
     level: Optional[float] = None    # shrunk_level(): FPPG so far toward the prior
     level_prior: Optional[float] = None
     level_prior_kind: Optional[str] = None
@@ -448,7 +454,7 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
     ceiling = sum(len(ks) for ks in keepers.values()) - len(absent)
 
     names = Names(all_rows)
-    kept_now, round_now, pick_now, drafted_by = set(), {}, {}, {}
+    kept_now, round_now, pick_now, drafted_by, drafted_now = set(), {}, {}, {}, set()
     season_picks = inputs.picks.get(season, [])
     kept_league = sum(1 for p in season_picks if p.get("is_keeper"))
     for p in season_picks:
@@ -459,8 +465,10 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
         if p.get("is_keeper"):
             kept_now.add(n)
         else:
-            round_now[n] = int(p["round"])
-            pick_now[n] = int(p["pick_number"])
+            drafted_now.add(n)
+            if p.get("pick_number") is not None:     # H56: only a trusted season's order is used
+                round_now[n] = int(p["round"])
+                pick_now[n] = int(p["pick_number"])
     played = [r["fantasy_points"] for r in rows if appeared(r)]
     league_mean = sum(played) / len(played) if played else 0.0     # rostered players, so far
     trades_in = {}                                     # (player, to_manager) -> [(first, last)]
@@ -512,7 +520,8 @@ def snapshot(inputs: Inputs, decision: str, point: str, ages: Optional[dict] = N
             mine.append(Candidate(
                 decision=decision, season=season, point=point, as_of=as_of, manager=m, player=n,
                 kept_next=n in set(keepers.get(m, [])), kept=n in kept_now,
-                draft_round=round_now.get(n), undrafted=n not in kept_now and n not in round_now,
+                draft_round=round_now.get(n), undrafted=n not in kept_now and n not in drafted_now,
+                drafted=n in drafted_now and n not in kept_now,
                 acquired=acquired, stint_start=start, games=games,
                 fppg=None if fppg is None else round(fppg, 3), fppg_rank=0,
                 team_games=team_games,
@@ -602,17 +611,19 @@ def live_snapshot(inputs: Inputs, season: str, rosters: dict, ages: Optional[dic
             level, prior, _k0, kind = shrunk_level(None, 0, pf, pg, league_mean)
             age, age_source = age_for(ages, season, raw) if ages is not None else (None, None)
             kept = bool(pk and pk.get("is_keeper"))
+            ranked = bool(pk and not kept and pk.get("pick_number") is not None)
             out.candidates.append(Candidate(
                 decision=out.decision, season=season, point="live", as_of=last, manager=m, player=raw,
                 kept_next=False, kept=kept,
-                draft_round=None if (not pk or kept) else int(pk["round"]),
+                draft_round=int(pk["round"]) if ranked else None,
                 undrafted=pk is None, acquired="trade" if any(n == raw and mm == m for n, mm in trades_to)
                 else ("draft" if pk and pk["manager"] == m else "pickup"),
                 stint_start=last, games=0, fppg=None, fppg_rank=0, team_games=0, availability=None,
                 days_rostered=0, first_day=last, prev_games=pg, prev_fppg=None if pf is None else round(pf, 3),
                 age=age, age_source=age_source,
-                draft_pick=None if (not pk or kept) else int(pk["pick_number"]),
-                draft_rank=None if (not pk or kept) else kept_league + int(pk["pick_number"]),
+                draft_pick=int(pk["pick_number"]) if ranked else None,
+                draft_rank=kept_league + int(pk["pick_number"]) if ranked else None,
+                drafted=bool(pk and not kept),
                 level=round(level, 3), level_prior=round(prior, 3), level_prior_kind=kind,
                 prev_lines=back(raw), league_mean=round(league_mean, 4)))
     for m in rosters:

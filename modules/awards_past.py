@@ -22,8 +22,10 @@ WHAT DIFFERS FROM THIS SEASON, AND WHY (each said in the file's notes)
 - MOST IMPROVED uses the league log's FPPG (his games on a league roster)
   for both sides, because there are no daily NBA lines before 2026-27. The
   "usual level" is the same P3 prior as this season's.
-- TRADE OF THE YEAR: data/historical/all_trades.json; picks listed, not
-  valued, as this season.
+- TRADE OF THE YEAR: data/historical/all_trades.json; each side's players'
+  PAR plus each draft pick it got at its round's expected PAR (H56 s.4.4,
+  modules/draft_values: est.); a pick for a 2020 or earlier draft is listed,
+  not valued.
 - NOT BUILT (the old data cannot support them): Best pickup (no transaction
   log before 2026-27: no add dates, no drops), Rookie of the Year
   (ROOKIE_SEASONS is thin after 2022-23), Bust (no stored preseason
@@ -146,7 +148,9 @@ def _row(a: dict, r: dict) -> dict:
     elif a == "improved":
         keep.update(fppg=round(r["fppg"], 2), usual=round(r["usual"], 2), games=r["games"])
     elif a == "trade":
-        keep.update(date=r["date"], sides={m: {"par": round(sd["par"], 2), "got": sd["got"]}
+        keep.update(date=r["date"], sides={m: {"par": round(sd["par"], 2), "players_par": round(sd["players_par"], 2),
+                                               "picks_est": round(sd["picks_est"], 2), "got": sd["got"],
+                                               "picks": sd["picks"]}
                                            for m, sd in r["sides"].items()}, picks=r["picks"])
     return keep
 
@@ -200,7 +204,9 @@ def build(root=ROOT, inputs=None, cfg: Optional[dict] = None, only_seasons: Opti
                                "counted on them.",
                "most_improved": "League-log FPPG (games on a league roster) for this season and the usual level; "
                                 "there are no daily NBA lines before 2026-27.",
-               "trades": "data/historical/all_trades.json; draft picks listed, not valued."}}
+               "trades": "data/historical/all_trades.json; each side's players' PAR plus each draft pick it got "
+                         "at the average PAR of players taken in that round (est.; data/historical/"
+                         "DRAFT_ROUND_VALUES.json); picks for a 2020 or earlier draft listed, not valued."}}
     for s in (only_seasons or seasons(cfg)):
         inp = season_inputs(inputs, s, mat, cfg=cfg, lp=lp, quantile=q, tie=tie)
         out["seasons"][s] = season_awards(inp)

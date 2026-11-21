@@ -24,7 +24,6 @@ from collections import defaultdict
 PROJECT_ROOT = Path(__file__).parent.parent
 HISTORICAL_PLAYERLOG = PROJECT_ROOT / "data" / "historical" / "HISTORICAL_PLAYERLOG.json"
 PLAYERLOG_XLSX = PROJECT_ROOT / "data" / "PLAYERLOG.xlsx"
-ALL_DRAFTS = PROJECT_ROOT / "data" / "historical" / "all_drafts.json"
 DRAFT_PICKS_CURRENT = PROJECT_ROOT / "config" / "DRAFT_PICKS_CURRENT.json"
 OUTPUT_FILE = PROJECT_ROOT / "data" / "historical" / "DRAFT_PERFORMANCE.json"
 
@@ -41,22 +40,27 @@ def load_drafts() -> list[dict]:
     """Load all draft picks (historical + current season)."""
     picks = []
 
-    # Historical drafts
-    if ALL_DRAFTS.exists():
-        with open(ALL_DRAFTS, "r", encoding="utf-8") as f:
-            historical = json.load(f)
+    # Historical drafts, through modules/draft_history (H56): a punted season's
+    # picks carry no pick number or round; 2018-19's list is dropped
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from modules import draft_history
+    try:
+        historical = draft_history.read(PROJECT_ROOT)
+    except FileNotFoundError:
+        historical = None
+    if historical is not None:
         for p in historical:
             picks.append({
                 "season": normalize_season(p["season"]),
-                "round": int(p["round"]),
-                "pick_number": int(p["pick_number"]),
+                "round": None if p["round"] is None else int(p["round"]),
+                "pick_number": None if p["pick_number"] is None else int(p["pick_number"]),
                 "player_name": p["player_name"],
                 "manager": p["manager"],
                 "is_keeper": bool(p.get("is_keeper", False)),
             })
-        print(f"Loaded {len(historical)} picks from all_drafts.json")
+        print(f"Loaded {len(historical)} past picks (modules/draft_history)")
     else:
-        print(f"WARNING: {ALL_DRAFTS} not found")
+        print("WARNING: no past drafts (data/historical, modules/draft_history)")
 
     # Current season draft
     if DRAFT_PICKS_CURRENT.exists():
@@ -232,7 +236,7 @@ def main():
         # Show some misses for debugging
         misses = [r for r in results if r["fppg"] is None]
         for m in misses[:10]:
-            print(f"  - {m['season']} R{m['round']}: {m['player_name']} ({m['manager']})")
+            print(f"  - {m['season']} {'R' + str(m['round']) if m['round'] is not None else '(order punted)'}: {m['player_name']} ({m['manager']})")
         if len(misses) > 10:
             print(f"  ... and {len(misses) - 10} more")
 
