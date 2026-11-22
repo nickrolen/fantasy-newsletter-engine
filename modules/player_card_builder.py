@@ -120,8 +120,7 @@ RECORD_BOOK_LABELS = {
     "biggest_draft_steal_totalfp": "Biggest Draft Steal (Total FP)",
     "biggest_draft_bust": "Biggest Draft Bust (FPPG)",
     "biggest_draft_bust_totalfp": "Biggest Draft Bust (Total FP)",
-    "best_waiver_pickup": "Best Waiver Pickup (FPPG)",
-    "best_waiver_pickup_totalfp": "Best Waiver Pickup (Total FP)",
+    "best_pickup": "Best Pickup (PAR)",
 }
 
 # H56: record-book lists measured against a pick's slot (trusted seasons only)

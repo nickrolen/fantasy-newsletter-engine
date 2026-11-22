@@ -6,13 +6,17 @@ build_awards_past.py -- past seasons' awards for the record book (4c6 part B).
     python scripts\\build_awards_past.py --check    build and validate, write nothing
     python scripts\\build_awards_past.py --out data\\historical\\AWARDS_PAST.json
 
-MVP with wins swung, Trade of the Year and Most improved for every season
-2017-18 to 2025-26, through each season's own regular season, by
-modules/awards_past (modules/awards' definitions). Public history like
+MVP with wins swung, Trade of the Year and Most improved (4c6), and (4c7)
+Best pickup, Rookie of the Year, Bust of the Year, the manager awards
+(modules/manager_awards), Player of the Week by season and the all-time
+lists Records shows, for every season 2017-18 to 2025-26, through each
+season's own regular season, by modules/awards_past (modules/awards'
+definitions). Reads data/historical/NBA_SEASONS.json (rookies, busts) and
+config/POTW_HISTORY.json. Public history like
 DRAFT_OVR.json: built here, on Nick's machine, where the league log lives;
 committed; the runner never rebuilds it. --out must be inside
 data\\historical\\ (anything else REFUSES before a byte is written). About
-25 s.
+30 s.
 """
 from __future__ import annotations
 

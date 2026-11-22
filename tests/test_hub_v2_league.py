@@ -361,7 +361,13 @@ def test_the_record_book_equals_records_json():
     _, h = L.build(inp)
     at = inp["records_alltime"]
     shown = {lst["key"]: lst for g in h["records"]["groups"] for lst in g["lists"]}
-    assert list(shown) == [k for k, *_ in L.RECORD_BOOK]
+    book = [k for k, *_ in L.RECORD_BOOK]
+    i = book.index("best_keeper_value") + 1                    # 4c7 D: the awards' measures, from AWARDS_PAST
+    assert list(shown) == book[:i] + ["best_pickup", "lopsided_trade"] + book[i:]
+    assert "best_waiver_pickup" not in book and "trade_winner" not in book
+    ap = inp["awards_past"]["alltime"]
+    assert [r["who"] for r in shown["best_pickup"]["rows"]] == [f"{x['label']} \u00b7 {x['m']}" for x in ap["pickup"]]
+    assert [r["who"] for r in shown["lopsided_trade"]["rows"]] == [x["label"] for x in ap["trade"]]
     for key, _label, _g, val, who in L.RECORD_BOOK:
         top = at[f"{key}_top10"]
         assert [r["value"] for r in shown[key]["rows"]] == [val(e) for e in top]
@@ -434,7 +440,8 @@ def test_awards_show_the_races_and_player_of_the_week_with_its_backfilled_points
     wk2, wk1 = aw["potw"][1]["rows"]
     assert wk1["pts"] == "109.5" and wk1["sub"].startswith("2 games") and "from the league log" in wk1["sub"]
     assert wk2["pts"] == "\u2014" and "not recorded" in wk2["sub"]          # not in the log: never guessed
-    assert set(aw) == {"potw", "potw_current", "potw_note", "races", "races_error", "par_note", "races_note"}
+    assert set(aw) == {"potw", "potw_current", "potw_note", "races", "races_error", "par_note", "races_note",
+                       "managers", "managers_error", "managers_note"}          # 4c7: the manager awards
     assert [a["key"] for a in aw["races"]] == ["mvp", "pickup", "improved", "roy", "trade", "bust"]
     assert aw["races_error"] == ""
 

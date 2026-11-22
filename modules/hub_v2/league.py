@@ -196,6 +196,7 @@ def gather(base, *, data, power: dict, managers: list, teams: dict, newsletter: 
         "records_week": data.records.get("last_updated_week"),
         "power": power, "history_rows": toh.read(base), "reports": reports,
         "season_structure": SEASON_STRUCTURE, "pre_data_era": _LEAGUE_CONFIG.get("pre_data_era") or {},
+        "base": base,
         "cup_winners": (keeper_rules_for() or {}).get("cup_winners") if callable(keeper_rules_for) else {},
         "leaguehistory": lh_rows,
         "all_standings": _json(hist / "all_standings.json"), "all_matchups": _json(hist / "all_matchups.json"),
@@ -551,8 +552,15 @@ def _awards_past_input(base) -> dict:
                 "awards_past_error": f"Past seasons' awards cannot be read: {type(e).__name__}: {e}"[:300]}
 
 
-PAST_UNITS = {"mvp": "PAR", "trade": "PAR gap", "improved": "FPPG"}
-PAST_TILES = {"mvp": "Best MVP season", "trade": "Most lopsided trade", "improved": "Most improved season"}
+PAST_UNITS = {"mvp": "PAR", "trade": "PAR gap", "improved": "FPPG", "pickup": "PAR", "roy": "PAR",
+              "bust": "pts short"}
+PAST_TILES = {"mvp": "Best MVP season", "trade": "Most lopsided trade", "improved": "Most improved season",
+              "pickup": "Best pickup", "roy": "Best rookie season", "bust": "Biggest bust",
+              "lineup": "Best fill rate", "draft": "Best draft class", "waiver": "Best waiver season",
+              "unlucky": "Unluckiest season", "potw_wins": "Most Player of the Week wins",
+              "potw_week": "Best Player of the Week"}
+# 4c7: the tiles' measure (awards_past.best): a season's PAR total is per regular-season week
+TILE_PER_WEEK = ("mvp", "roy", "draft", "waiver")
 
 
 def _past_value(k: str, v: float) -> str:
@@ -597,9 +605,46 @@ def awards_past(inp: dict) -> dict:
             f"season ({lens[0]} to {lens[-1]} weeks; this season 15), so totals are not like for like. Wins swung "
             "count against the official scores. "
             + (f"The league log misses some days in {', '.join(short)}: no PAR is counted on them. " if short else "")
-            + "Most improved uses FPPG on a league roster before 2026-27. Best pickup, Rookie of the Year and "
-              "Bust aren't kept for past seasons: the old data can't support them.")
-    return {"error": "", "by_award": by, "note": note}
+            + "Before 2026-27: Most improved uses FPPG on a league roster; a Best pickup is read off the daily "
+              "rosters (no transaction log); a rookie is a player in his first NBA season; a Bust's expectation is "
+              "his previous NBA season's FPPG (no preseason projection was stored).")
+    return {"error": "", "by_award": by, "note": note, "managers": _managers_past(blob),
+            "potw": _potw_past(inp, blob)}
+
+
+def _managers_past(blob: dict) -> dict:
+    """4c7: each manager award's past winners, newest first (co-winners joined)."""
+    from ..manager_awards import KEYS, NAMES, UNITS, value_text
+    out = {}
+    for k in KEYS:
+        rows = []
+        for s in sorted(blob["seasons"], reverse=True):
+            a = blob["seasons"][s]["managers"][k]
+            if not a["top"]:
+                rows.append({"season": s, "none": a["none"], "ms": [], "value": "", "unit": "", "shown": "", "sub": ""})
+                continue
+            t = a["top"][0]
+            rows.append({"season": s, "none": "", "ms": list(a["winners"]), "value": value_text(k, t["value"]),
+                         "unit": UNITS[k], "shown": t["shown"], "sub": t["sub"]})
+        out[k] = {"name": NAMES[k], "rows": rows}
+    return out
+
+
+def _potw_past(inp: dict, blob: dict) -> list:
+    """4c7: Player of the Week by past season: the most wins and the best
+    winning week, newest first."""
+    out = []
+    for s, v in sorted((blob.get("potw_seasons") or {}).items(), reverse=True):
+        b = v.get("best_week")
+        out.append({"season": s, "weeks": str(v["weeks"]),
+                    "most": [{"player": x["player"], "card": _slug(x["player"]), "ms": list(x["ms"]),
+                              "wins": f"{x['wins']} wins"} for x in v["most_wins"]],
+                    "best": None if b is None else
+                    {"player": b["player"], "card": _slug(b["player"]), "m": b["m"], "pts": _d1(b["total_fp"]),
+                     "sub": f"Wk {b['week']}{DOT}{b['games']} games{DOT}{_d1(b['fppg'])} FPPG"
+                            + (f"{DOT}from the league log" if b["from_log"] else "")},
+                    "unrecorded": ", ".join(str(w) for w in v["unrecorded"])})
+    return out
 
 
 def award_tiles(inp: dict) -> list:
@@ -608,22 +653,55 @@ def award_tiles(inp: dict) -> list:
     blob = inp.get("awards_past")
     if blob is None:
         return []
+    from ..manager_awards import UNITS as MUNITS, NAMES as MNAMES, value_text
+    n = len(blob["seasons"])
     out = []
     for k in blob["awards"]:
         b = blob["best"].get(k)
         if b is None:
             continue
         who = (f"{b['label']}{DOT}{b['m']}" if b.get("player") else b["label"])
+        pw = k in TILE_PER_WEEK
         out.append({"key": f"award_{k}", "label": PAST_TILES[k],
-                    "value": (f"{_d1(b['per_week'])} PAR a week" if k == "mvp" else
+                    "value": (f"{_d1(b['per_week'])} PAR a week" if pw else
                               f"{_past_value(k, b['value'])} {PAST_UNITS[k]}"), "who": who,
-                    "ctx": (f"{b['season']}{DOT}{_d1(b['value'])} PAR over {b['regular_weeks']} weeks" if k == "mvp"
+                    "ctx": (f"{b['season']}{DOT}{_d1(b['value'])} PAR over {b['regular_weeks']} weeks" if pw
                             else f"{b['season']}{DOT}{b['regular_weeks']}-week season"),
                     "tip": {"h": f"{PAST_TILES[k]}, {b['season']}", "b": f"{b['shown']}{DOT}{_past_sub(k, b)}"
                             if _past_sub(k, b) else b["shown"],
-                            "f": f"{b['regular_weeks']}-week regular season; the best of {len(blob['seasons'])} "
+                            "f": f"{b['regular_weeks']}-week regular season; the best of {n} "
                                  f"past seasons by the award's own measure"
-                                 + (" per regular-season week" if k == "mvp" else "")}})
+                                 + (" per regular-season week" if pw else "")}})
+    for k in blob.get("manager_awards") or []:       # 4c7: the manager awards' best seasons
+        b = blob["best"].get(k)
+        if b is None:
+            continue
+        pw = k in TILE_PER_WEEK
+        out.append({"key": f"award_{k}", "label": PAST_TILES[k],
+                    "value": (f"{_d1(b['per_week'])} PAR a week" if pw else value_text(k, b["value"])
+                              + ("" if k == "lineup" else f" {MUNITS[k]}")), "who": b["m"],
+                    "ctx": (f"{b['season']}{DOT}{_d1(b['value'])} PAR over {b['regular_weeks']} weeks" if pw
+                            else f"{b['season']}{DOT}{b['regular_weeks']}-week season"),
+                    "tip": {"h": f"{MNAMES[k]}, {b['season']}: {b['m']}",
+                            "b": b["shown"] + (f"{DOT}{b['sub']}" if b.get("sub") else ""),
+                            "f": f"{b['regular_weeks']}-week regular season; the best of {n} past seasons"
+                                 + (" per regular-season week" if pw else "")}})
+    b = blob["best"].get("potw_wins")
+    if b is not None:
+        out.append({"key": "award_potw_wins", "label": PAST_TILES["potw_wins"], "value": f"{b['wins']} wins",
+                    "who": f"{b['player']}{DOT}{', '.join(b['ms'])}",
+                    "ctx": f"{b['season']}{DOT}{blob['potw_seasons'][b['season']]['weeks']} weeks",
+                    "tip": {"h": f"{PAST_TILES['potw_wins']}, {b['season']}",
+                            "b": f"{b['player']} won {b['wins']} of {blob['potw_seasons'][b['season']]['weeks']} weeks",
+                            "f": "Player of the Week history starts in 2025-26"}})
+    b = blob["best"].get("potw_week")
+    if b is not None:
+        out.append({"key": "award_potw_week", "label": PAST_TILES["potw_week"], "value": f"{_d1(b['total_fp'])} pts",
+                    "who": f"{b['player']}{DOT}{b['m']}", "ctx": f"{b['season']}{DOT}Wk {b['week']}",
+                    "tip": {"h": f"{PAST_TILES['potw_week']}, {b['season']} week {b['week']}",
+                            "b": f"{b['games']} games{DOT}{_d1(b['fppg'])} FPPG"
+                                 + (f"{DOT}from the league log" if b["from_log"] else ""),
+                            "f": "The winning week with the most points; history starts in 2025-26"}})
     return out
 
 
@@ -646,6 +724,13 @@ def awards(inp: dict) -> dict:
                                  "points not recorded for this week")})
         seasons.append({"season": s, "rows": rows})
     rec = inp.get("awards_rec")
+    mrec = (rec or {}).get("managers") or {}        # 4c7: the manager awards, this season live
+    if rec is None or not mrec:
+        mgr, mgr_err = [], "The manager awards were not computed in this build."
+    elif mrec.get("error") or not mrec.get("view"):
+        mgr, mgr_err = [], f"The manager awards could not be computed: {mrec.get('error') or rec.get('error') or ''}"
+    else:
+        mgr, mgr_err = mrec["view"], ""
     if rec is None:
         races, err, par_note, note = [], "The awards were not computed in this build.", "", ""
     elif rec.get("error") or not rec.get("races"):
@@ -656,7 +741,10 @@ def awards(inp: dict) -> dict:
     return {"potw": seasons, "potw_current": inp.get("season") or "",
             "potw_note": ("The week's best player by fantasy points in his starts, among rostered "
                                            "players (the newsletter's pick)."),
-            "races": races, "races_error": err, "par_note": par_note, "races_note": note}
+            "races": races, "races_error": err, "par_note": par_note, "races_note": note,
+            "managers": mgr, "managers_error": mgr_err,
+            "managers_note": ("Manager awards, regular season only. Biggest blowout and closest game are in "
+                              "History > Records.")}
 
 
 # =============================================================================
@@ -846,7 +934,48 @@ def alltime(inp: dict, results: dict) -> dict:
                      "played. W-L-T and win % are the regular season (a T counts half); the playoffs are the "
                      "second line. Titles = League Championships (first in the regular season, the league's "
                      "champion); Playoff = playoff titles (the bracket)."),
-            "seasons_note": "12 seasons"}
+            "seasons_note": "12 seasons", "trophy": trophy(inp)}
+
+
+TROPHY_HEAD = {"league": "League", "playoff": "Playoff", "cup": "Cup", "mvp": "MVP", "pickup": "Pickup",
+               "roy": "ROY", "trade": "Trade", "improved": "MIP", "lineup": "Lineup", "draft": "Draft",
+               "waiver": "Waiver", "bust": "Bust", "unlucky": "Unlucky"}
+
+
+def trophy(inp: dict) -> dict:
+    """4c7 B: the trophy case (modules/trophy_case.build, the one function the
+    manager card will call too): one row per manager; each count taps open
+    its seasons. Busts and Unluckiest seasons are shown apart, muted, never
+    among the honours. Never fails All-time: an error is the section's note."""
+    from .. import trophy_case as TC
+    try:
+        cfg = {"managers": list(inp["managers"]), "pre_data_era": inp.get("pre_data_era") or {},
+               "keeper_rules": {"cup_winners": inp.get("cup_winners") or {}}}
+        tc = TC.build(inp.get("base") or ".", past=inp.get("awards_past"), standings=inp["all_standings"],
+                      cfg=cfg, managers=inp["managers"])
+    except Exception as e:                           # noqa: BLE001 -- the section says why
+        return {"error": f"The trophy case cannot be built: {type(e).__name__}: {e}"[:300], "rows": [],
+                "cols": [], "note": ""}
+    cols = [[k, TROPHY_HEAD[k]] for k in tc["order"]]
+    rows = []
+    for r in tc["managers"]:
+        cells = []
+        for k in tc["order"]:
+            its = r["items"][k]
+            cells.append({"k": k, "n": str(len(its)), "apart": k in tc["apart"],
+                          "tip": None if not its else
+                          {"h": f"{r['m']}: {tc['labels'][k]}",
+                           "b": "; ".join(f"{x['season']} {x['what']}".strip() for x in its)[:400],
+                           "f": f"{len(its)} in all"}})
+        rows.append({"m": r["m"], "cells": cells})
+    span = (f"{tc['awards_from']} to {tc['awards_to']}" if tc["awards_from"] else "none built yet")
+    return {"error": "" if inp.get("awards_past") is not None else (inp.get("awards_past_error") or ""),
+            "cols": cols, "rows": rows,
+            "note": ("Finished seasons. League = League Championships (first in the regular season), every season "
+                     "with records; Playoff = playoff titles; Cup from 2026-27. The awards (" + span + "): MVP, "
+                     "Best pickup, Rookie of the Year, Trade of the Year and Most improved count for the manager "
+                     "the player won them for; Lineup manager, Draft of the year and Waiver king are his own. "
+                     "Bust and Unluckiest are kept apart, not honours. Tap a count for its seasons.")}
 
 
 # =============================================================================
@@ -981,9 +1110,11 @@ RECORD_BOOK = [
     ("best_keeper_value", "Best keeper", "Moves", lambda e: _int(e["total_fp"]), _who_p),
     ("biggest_draft_steal", "Biggest draft steal", "Moves", lambda e: _signed1(e["delta"]) + " FPPG", _who_p),
     ("biggest_draft_bust", "Biggest draft bust", "Moves", lambda e: _signed1(e["delta"]) + " FPPG", _who_p),
-    ("trade_winner", "Best trade pickup", "Moves", lambda e: _int(e["post_trade_fp"]), _who_p),
-    ("best_waiver_pickup", "Best free-agent pickup", "Moves", lambda e: _d1(e["fppg"]) + " FPPG", _who_p),
 ]
+# 4c7 D (one measure per idea): "Best free-agent pickup" (FPPG, this season's waiver files only) and
+# "Best trade pickup" (a player's Total FP, every game) left the record book's display. The ideas are
+# the awards', measured as the awards measure them: Best pickup (PAR for the manager who added him)
+# and Trade of the Year (the PAR gap, picks est.), all-time lists from AWARDS_PAST (alltime_lists).
 TILES = ["highest_weekly_score", "biggest_blowout", "closest_game", "highest_single_game"]
 # H56: records measured against the pick's slot (its expected value): trusted
 # seasons only (modules/draft_history.order_trusted)
@@ -1018,6 +1149,33 @@ def _game_tip(e: dict, idx: dict) -> Optional[dict]:
         res = f"{win} won by {_d1(abs(sa - sb))}"
     head = f"{s}{DOT}Week {int(w)}" + (f"{DOT}{e['date']}" if e.get("date") else "")
     return {"h": head, "b": f"{a} {_d1(sa)}{DOT}{b} {_d1(sb)}", "f": res}
+
+
+def alltime_lists(inp: dict) -> list:
+    """4c7 D: Records' "Best pickup" and "Most lopsided trade", the awards'
+    own measures over every past season (AWARDS_PAST alltime: top 10). No
+    file: no lists (the Awards note says why)."""
+    blob = inp.get("awards_past")
+    if blob is None:
+        return []
+    out = []
+    rows = []
+    for i, r in enumerate(blob["alltime"]["pickup"], 1):
+        rows.append({"rank": str(i), "value": _d1(r["value"]) + " PAR", "who": f"{r['label']}{DOT}{r['m']}",
+                     "ctx": f"{r['season']}{DOT}added {r['add_day'][5:]}", "card": _slug(r["player"]),
+                     "player": r["player"], "tip": {"h": f"{r['label']}, {r['season']}", "b": r["shown"],
+                                                    "f": r["sub"]}})
+    if rows:
+        out.append({"key": "best_pickup", "label": "Best pickup", "rows": rows})
+    rows = []
+    for i, r in enumerate(blob["alltime"]["trade"], 1):
+        rows.append({"rank": str(i), "value": _d1(r["value"]) + " PAR gap", "who": r["label"],
+                     "ctx": f"{r['season']}{DOT}{r['shown']}", "card": None, "player": "",
+                     "tip": {"h": f"{r['label']}, {r['season']}", "b": _past_sub("trade", r),
+                             "f": "Each side's PAR in its own starts after the trade, plus its picks (est.)"}})
+    if rows:
+        out.append({"key": "lopsided_trade", "label": "Most lopsided trade", "rows": rows})
+    return out
 
 
 def records(inp: dict, results: dict) -> dict:
@@ -1055,6 +1213,8 @@ def records(inp: dict, results: dict) -> dict:
             g = {"label": group, "lists": []}
             groups.append(g)
         g["lists"].append({"key": key, "label": label, "rows": rows})
+        if key == "best_keeper_value":
+            g["lists"] += alltime_lists(inp)
         if key in TILES:
             tiles.append({"key": key, "label": label, "value": rows[0]["value"], "who": rows[0]["who"],
                           "ctx": rows[0]["ctx"], "tip": rows[0]["tip"]})
@@ -1062,7 +1222,8 @@ def records(inp: dict, results: dict) -> dict:
     wk = inp.get("records_week")
     return {"tiles": tiles, "groups": groups, "award_tiles": award_tiles(inp),
             "award_note": ("The awards' best seasons, 2017-18 to 2025-26 (data/historical/AWARDS_PAST.json): each "
-                           "season through its own regular season, so a longer season has more games. Tap a tile."
+                           "season through its own regular season, so a longer season has more games; a season's "
+                           "PAR total is ranked per week. Player of the Week starts in 2025-26. Tap a tile."
                            if inp.get("awards_past") is not None else (inp.get("awards_past_error") or "")),
             "note": ("The record book (config/RECORDS.json), the top ten of each record, 2017-18 on and this "
                      f"season through week {wk}, the last week the weekly build recorded. Tap a game for its "

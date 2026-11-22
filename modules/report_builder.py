@@ -2747,18 +2747,15 @@ def build_record_book(data) -> dict:
         ("biggest_draft_bust_totalfp_top10", "Biggest Draft Bust", "delta",
          lambda e: f"P{e.get('pick_number', '?')} (R{e.get('round', '?')}): {e.get('total_fp', 0):,.1f} actual vs {e.get('expected_total_fp', 0):,.1f} expected",
          "FP below expected", "Total FP minus expected Total FP for draft pick (min 20 GP, keepers excluded). *2024-25 onward only: the pick order before that isn't reliable"),
-        ("trade_winner_top10", "Best Trade Acquisition", "post_trade_fp",
-         lambda e: f"from {e.get('from_manager', '?')}, {e.get('gp', 0)} GP post-trade",
-         "FP", "Total FP produced after trade for acquiring manager within that season"),
-        ("trade_winner_fppg_top10", "Best Trade Acquisition", "fppg",
-         lambda e: f"from {e.get('from_manager', '?')}, {e.get('gp', 0)} GP, {e.get('post_trade_fp', 0):,.1f} FP post-trade",
-         "FPPG", "FPPG after trade for acquiring manager (min 25 GP post-trade)"),
-        ("best_waiver_pickup_top10", "Best Waiver Pickup", "fppg",
-         lambda e: f"{e.get('gp', 0)} GP, {e.get('total_fp', 0):,.1f} FP",
-         "FPPG", "FPPG after waiver acquisition (min 10 GP). *Waiver data available from 2025-26 onward only"),
-        ("best_waiver_pickup_totalfp_top10", "Best Waiver Pickup", "total_fp",
-         lambda e: f"{e.get('gp', 0)} GP, {e.get('fppg', 0):.1f} FPPG",
-         "FP", "Total FP after waiver acquisition (min 10 GP). *Waiver data available from 2025-26 onward only"),
+        # 4c7 D (one measure per idea): the awards' own measures, every past season (AWARDS_PAST)
+        ("best_pickup_top10", "Best Pickup", "par",
+         lambda e: f"added {str(e.get('add_date', '?'))[5:]}, {e.get('detail', '')}",
+         "PAR", "Points above replacement in his starts for the manager who added him, from the add through "
+                "the regular season (the Best pickup award). *2017-18 to last season"),
+        ("lopsided_trade_top10", "Most Lopsided Trade", "par_gap",
+         lambda e: f"{e.get('trade', '?')}: {e.get('sides', '')}",
+         "PAR gap", "Each side's PAR in its own starts after the trade, plus its draft picks (est.); the gap "
+                    "(the Trade of the Year award). *2017-18 to last season"),
     ]:
         src = all_time
         if key in PICK_POSITION_TOP10:

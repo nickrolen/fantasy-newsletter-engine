@@ -55,7 +55,8 @@ def _past(reg=3, bump=None):
     cfg = copy.deepcopy(_LEAGUE_CONFIG)
     cfg["awards"].update(AF.CFG)
     cfg["season_structure"] = {AF.SEASON: {"regular_through": reg, "bracket": True}}
-    pi = P.season_inputs(i["inputs"], AF.SEASON, mat, cfg=cfg, lp=i["lp"], quantile=0.0, tie=0.5)
+    pi = P.season_inputs(i["inputs"], AF.SEASON, mat, cfg=cfg, lp=i["lp"], quantile=0.0, tie=0.5,
+                         nba=AF.nba_ctx())
     return i, pi, mat
 
 
@@ -111,7 +112,7 @@ def test_season_inputs_raise_on_a_missing_week():
     cfg = copy.deepcopy(_LEAGUE_CONFIG)
     cfg["season_structure"] = {AF.SEASON: {"regular_through": 3}}
     with pytest.raises(P.AwardsPastError, match="missing"):
-        P.season_inputs(i["inputs"], AF.SEASON, [], cfg=cfg, lp=i["lp"], quantile=0.0, tie=0.5)
+        P.season_inputs(i["inputs"], AF.SEASON, [], cfg=cfg, lp=i["lp"], quantile=0.0, tie=0.5, nba=AF.nba_ctx())
 
 
 def test_most_improved_reads_the_league_log_in_a_past_season():
@@ -132,7 +133,7 @@ def test_the_files_schema():
     b = AF.past_blob()
     P.validate(b)
     assert b["best"]["mvp"]["season"] == "2025-26" and b["best"]["trade"]["season"] == "2024-25"
-    for bad in (lambda x: x.update(schema=2), lambda x: x["seasons"]["2024-25"]["awards"].pop("trade"),
+    for bad in (lambda x: x.update(schema=1), lambda x: x["seasons"]["2024-25"]["awards"].pop("trade"),
                 lambda x: x["seasons"]["2024-25"]["awards"]["mvp"].update(winner=None),
                 lambda x: x["seasons"]["2024-25"]["awards"]["mvp"]["top"].append(dict(x["seasons"]["2024-25"]["awards"]["mvp"]["top"][0], value=9e9)),
                 lambda x: x.pop("best")):
@@ -197,8 +198,8 @@ def test_past_winners_ride_in_the_side_file_and_show_in_each_awards_card():
     mvp = re.search(r'data-award="mvp".*?</section>', h, re.S).group(0)
     assert "Tyler Star" in mvp and "wins swung: 2.5" in mvp and "1,810.2" in mvp
     assert "Zone Defense Zone Defense" not in mvp                     # that season's name only when it differs
-    for k in ("pickup", "roy", "bust"):
-        assert "Past winners" not in re.search(rf'data-award="{k}".*?</section>', h, re.S).group(0)
+    for k in ("pickup", "roy", "bust"):                                # 4c7: every award has its past
+        assert "Past winners" in re.search(rf'data-award="{k}".*?</section>', h, re.S).group(0)
     assert "Past winners, 2024-25 to 2025-26" in h
 
 
@@ -207,7 +208,8 @@ def test_records_get_one_tile_per_award_with_its_tooltip():
     from test_hub_v2 import tap_violations
     p = _hub()
     rec = p["v2"]["league_history"]["records"]
-    assert [t["key"] for t in rec["award_tiles"]] == ["award_mvp", "award_trade", "award_improved"]
+    assert [t["key"] for t in rec["award_tiles"]] == [f"award_{k}" for k in P.PAST] + [
+        "award_lineup", "award_draft", "award_waiver", "award_unlucky", "award_potw_wins", "award_potw_week"]
     t = rec["award_tiles"][0]
     # MVP ranks per regular-season week (Nick, 11-19): 1,810.2 PAR over 21 weeks
     assert t["value"] == "86.2 PAR a week" and t["ctx"].endswith("1,810.2 PAR over 21 weeks") \
@@ -215,7 +217,7 @@ def test_records_get_one_tile_per_award_with_its_tooltip():
     from modules.hub_v2 import view
     h = PL.chip_html(view.league_history(p, {m: dict(v) for m, v in p["v2"]["teams"].items()}), "records", None)
     sec = re.search(r'data-section="award-records".*?</section>', h, re.S).group(0)
-    assert sec.count('class="v2-lg-tile"') == 3 and sec.count("data-tip-h=") == 3 and "aria-label=" in sec
+    assert sec.count('class="v2-lg-tile"') == 12 and sec.count("data-tip-h=") == 12 and "aria-label=" in sec
     assert not tap_violations("<body>" + sec + "</body>")
 
 

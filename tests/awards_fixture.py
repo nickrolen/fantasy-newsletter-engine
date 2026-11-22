@@ -43,6 +43,8 @@ for i, m in enumerate(MGRS):
 LEVEL["Quinn Rookie"] = 40.0
 LEVEL["Pat Journey"] = 30.0
 PID = {n: 1000 + i for i, n in enumerate(sorted(LEVEL))}
+# 4c7: position eligibility (the manager awards' fill reads it): any four of these fit the ten seats
+POS = {"Star": "PG,SG", "Wing": "SF,PF", "Role": "C", "Bench": "PG", "Rookie": "SF", "Journey": "PF,C"}
 
 
 def weeks() -> list:
@@ -103,6 +105,7 @@ def _row(season: str, week: int, d: date, m: str, n: str, started: bool, played=
     pts = 0.0 if (not hg or inj) else fp(n, d)
     return {"season_key": season, "week": week, "date": d.isoformat(), "manager": m, "player_name": n,
             "player_id": PID.get(n, 9999), "slot": "UTIL" if started else "BN", "fantasy_points": pts,
+            "positions": POS.get(n.split()[-1], "PG,SG"),
             "started": started, "nba_team": "AAA", "had_game": hg, "is_injured": inj}
 
 
@@ -230,6 +233,34 @@ def inp(last: str = LAST, *, rows: list = None, rookies: dict = None, extra_trad
             "actuals_first": act["first_day"], "act_by_id": by_id, "act_by_name": by_name, "tie_value": 0.5}
 
 
+def nba_ctx(rookie_file: dict = None) -> dict:
+    """4c7: a made-up NBA_SEASONS context (modules/awards_past.nba_context's
+    shape) for this season run as a PAST one: every player has a 2014-15 line
+    (so he is no rookie) except Quinn Rookie (first season SEASON); each
+    Wing's 2025-26 FPPG is his level + 6 + i (his manager's index), so his
+    SEASON line (his level, 30 games) falls short by (6 + i) x 30 points."""
+    from pathlib import Path
+    from modules import nba_prior, nba_seasons
+    values = nba_seasons.stat_values(Path(__file__).resolve().parents[1])
+
+    def entry(f, gp):
+        st = {k: 0.0 for k in values}
+        st["PTS"] = f * gp / values["PTS"]
+        return {"gp": gp, "stats": st}
+    players = {}
+    for n in LEVEL:
+        ss = {}
+        if n != "Quinn Rookie":
+            ss["2014-15"] = entry(30.0, 70)
+            i = MGRS.index(n.split()[0]) if n.split()[0] in MGRS else 0
+            ss["2025-26"] = entry(LEVEL[n] + (6 + i if n.endswith("Wing") else -3), 60)
+        ss[SEASON] = entry(LEVEL[n], 30)
+        players[str(PID[n])] = {"name": n, "seasons": ss}
+    blob = {"players": players}
+    return {"blob": blob, "values": values, "index": nba_prior.Index(blob, dict(PID)), "first": "2014-15",
+            "unmatched": {}, "rookie_file": rookie_file if rookie_file is not None else {"Quinn Rookie": SEASON}}
+
+
 def odds_blob(res: dict, through: str = None) -> dict:
     """4c6: a made-up mvp_odds blob for the synthetic season: today's MVP
     rows with made-up odds that sum to 1 (the first 0.55, then halves)."""
@@ -269,8 +300,10 @@ def races(last: str = LAST, odds: bool = False) -> dict:
                 ln = MO.attach([ln], odds_blob(wk))[0]
             out.append(ln)
         lines = out
+    from modules import manager_awards as MA                 # 4c7: the manager awards, live
     return {"races": A.races(res, lines, i["cfg"], mvp_odds=blob), "pending": lines, "through": last,
-            "week": res["week"], "on_file": 0, "error": None, "seconds": 0.0}
+            "week": res["week"], "on_file": 0, "error": None, "seconds": 0.0,
+            "managers": {"view": MA.view(MA.compute(i, res, managers=MGRS)), "error": None}}
 
 
 def past_blob() -> dict:
@@ -279,12 +312,30 @@ def past_blob() -> dict:
     from modules import awards_past as P
 
     def season(s, mvp, imp, trade):
-        aw = {"mvp": {"winner": mvp, "top": [mvp], "none": "", "excluded": {}, "eligible": 30},
-              "improved": {"winner": imp, "top": [imp], "none": "", "excluded": {}, "eligible": 4},
-              "trade": ({"winner": trade, "top": [trade], "none": "", "excluded": {}, "eligible": 1} if trade else
-                        {"winner": None, "top": [], "none": "no regular-season trade", "excluded": {}, "eligible": 0})}
+        def one(w, n=5):
+            return {"winner": w, "top": [w], "none": "", "excluded": {}, "eligible": n}
+        aw = {"mvp": one(mvp, 30), "improved": one(imp, 4),
+              "trade": (one(trade, 1) if trade else
+                        {"winner": None, "top": [], "none": "no regular-season trade", "excluded": {}, "eligible": 0}),
+              # 4c7: the rest of the season's awards
+              "pickup": one({"label": "Pat Guard", "player": "Pat Guard", "m": mvp["m"], "value": 420.5,
+                             "shown": "dropped Lee Bench on 12-02", "sub": "40 starts for " + mvp["m"],
+                             "add_day": f"{s[:4]}-12-02", "stint": [f"{s[:4]}-12-02", f"{s[:2]}{s[5:]}-03-30"],
+                             "drops": ["Lee Bench"]}),
+              "roy": one({"label": "Rook Wing", "player": "Rook Wing", "m": imp["m"], "value": 300.0,
+                          "shown": "33.0 FPPG in 60 games", "sub": "55 starts", "ms": [imp["m"]]}),
+              "bust": one({"label": "Old Big", "player": "Old Big", "m": "Jordan", "value": 400.0,
+                           "shown": "expected 45.0, 38.0 in 60 games", "sub": "Jordan's keeper",
+                           "expected": 45.0, "fppg": 38.0, "games": 60})}
+        aw["bust"]["source"] = "his previous NBA season's FPPG"
+        mg = {}
+        for k, unit_v in (("lineup", 0.99), ("draft", 900.0), ("waiver", 1200.0), ("unlucky", 3.0)):
+            rows = [{"m": m, "value": unit_v - i * (0.01 if k == "lineup" else 1.0), "shown": f"{k} {m}",
+                     "sub": "", "rank": i + 1, "pa": 30000.0} for i, m in enumerate(("Dana", "Jordan", "Marcus", "Tyler"))]
+            mg[k] = {"winners": ["Dana"], "top": rows, "none": ""}
         return {"season": s, "regular_weeks": 21, "through": f"{s[:2]}{s[5:]}-03-30", "R": {"1": 25.0},
-                "checks": {"team_weeks": 84, "off": 0, "max_off": 0.0, "short_weeks": [], "flips": 0}, "awards": aw}
+                "checks": {"team_weeks": 84, "off": 0, "max_off": 0.0, "short_weeks": [], "flips": 0}, "awards": aw,
+                "managers": mg}
     mv1 = {"label": "Marcus Star", "player": "Marcus Star", "m": "Marcus", "value": 1700.5, "shown": "wins swung: 3",
            "sub": "60 starts", "ms": ["Marcus"], "swung": 3.0, "starts": 60}
     mv2 = dict(mv1, label="Tyler Star", player="Tyler Star", m="Tyler", value=1810.25, shown="wins swung: 2.5",
@@ -296,8 +347,17 @@ def past_blob() -> dict:
           "shown": "won by Jordan", "sub": "", "date": "2024-12-01",
           "sides": {"Marcus": {"par": 100.0, "got": ["Jordan Wing"]}, "Jordan": {"par": 400.0, "got": ["Marcus Big"]}},
           "picks": {"Marcus": ["2025 3rd (Marcus)"]}}
-    blob = {"schema": P.SCHEMA, "awards": list(P.PAST), "not_built": P.NOT_BUILT, "notes": {},
-            "seasons": {"2024-25": season("2024-25", mv1, im1, tr), "2025-26": season("2025-26", mv2, im2, None)}}
+    from modules import manager_awards as MA
+    blob = {"schema": P.SCHEMA, "awards": list(P.PAST), "manager_awards": list(MA.KEYS), "not_built": P.NOT_BUILT,
+            "notes": {},
+            "seasons": {"2024-25": season("2024-25", mv1, im1, tr), "2025-26": season("2025-26", mv2, im2, None)},
+            "potw_seasons": {"2025-26": {"weeks": 23, "most_wins": [{"player": "Tyler Star", "wins": 6, "ms": ["Tyler"]}],
+                                 "best_week": {"week": 9, "player": "Tyler Star", "m": "Tyler", "total_fp": 300.5,
+                                               "games": 4, "fppg": 75.12, "from_log": False},
+                                 "unrecorded": []}}}
+    blob["alltime"] = {"pickup": [dict(blob["seasons"][s]["awards"]["pickup"]["winner"], season=s)
+                                  for s in ("2024-25", "2025-26")],
+                       "trade": [dict(tr, season="2024-25")]}
     blob["best"] = P.best(blob)
     P.validate(blob)
     return blob

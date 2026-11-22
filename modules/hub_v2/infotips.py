@@ -272,6 +272,31 @@ COLUMNS = {
         "titles": ("Titles", "League Championships: first in the regular season."),
         "playoff": ("Playoff", "Playoff titles: the bracket's winner."),
     },
+    # 4c7 B: History > All-time > Trophy case (modules/trophy_case), finished seasons
+    "trophy": {
+        "team": ("Manager", "The manager and his team today."),
+        "league": ("League", "League Championships: first in the regular season, the league's champion. Every "
+                             "season with records, 2014-15 on."),
+        "playoff": ("Playoff", "Playoff titles: the bracket's winner. Every season with records."),
+        "cup": ("Cup", "Cups won (weeks 22-23, from 2026-27; the winner keeps a 6th player next season)."),
+        "mvp": ("MVP", "MVPs: his player had the most PAR that season, counted for the manager he scored the most "
+                       "for. 2017-18 on."),
+        "pickup": ("Pickup", "Best pickups: the free agent he added gave him the most PAR. 2017-18 on."),
+        "roy": ("ROY", "Rookies of the Year: a first-year NBA player with the most PAR, counted for the manager "
+                       "he scored the most for. 2017-18 on."),
+        "trade": ("Trade", "Trades of the Year he won: the biggest PAR gap, picks estimated. 2017-18 on."),
+        "improved": ("MIP", "Most improved: the season's biggest rise in fantasy points per game over the player's "
+                            "usual level, counted for the manager he finished with. 2017-18 on."),
+        "lineup": ("Lineup", "Lineup manager of the year: his best fill rate (started games over fillable starts). "
+                             "2017-18 on."),
+        "draft": ("Draft", "Draft of the year: the most PAR from the players he drafted, keepers apart. 2017-18 "
+                           "on; 2018-19 has no draft list."),
+        "waiver": ("Waiver", "Waiver king: the most PAR from all of his pickups. 2017-18 on."),
+        "bust": ("Bust", "Busts of the Year: a player he drafted or kept fell furthest short of expectation. Kept "
+                         "apart, not an honour."),
+        "unlucky": ("Unlucky", "Unluckiest seasons: the most losses in weeks his score beat the league median. "
+                               "Kept apart, not an honour."),
+    },
     "draft": {
         "pick": ("Pick", "Round and pick, as Yahoo recorded the draft (2024-25 on: earlier pick orders aren't "
                          "reliable)."),

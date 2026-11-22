@@ -767,7 +767,23 @@ def awards_view(aw: dict, teams: dict, href, past: Optional[dict] = None) -> dic
                           geom=race_chart(a["chart"], teams, f"{a['unit']} so far") if a.get("chart") else None))
     potw = [dict(s, rows=[dict(r, team=teams.get(r["m"]), href=href(r["card"])) for r in s["rows"]])
             for s in aw["potw"]]
-    return dict(aw, races=races, potw=potw, past=past or {})
+    # 4c7: the manager awards (this season live, with each one's Past winners)
+    mpast = (past or {}).get("managers") or {}
+    cur = {a["key"]: a for a in aw.get("managers") or []}
+    mgr = []
+    for k in list(cur) + [k for k in mpast if k not in cur]:
+        a = cur.get(k) or {"key": k, "name": mpast[k]["name"], "info": "", "unit": "", "status": "",
+                           "none": "", "rows": [], "meta": ""}
+        pa = mpast.get(k)
+        if pa:
+            pa = dict(pa, rows=[dict(r, teams=[teams[m] for m in r["ms"] if m in teams]) for r in pa["rows"]])
+        mgr.append(dict(a, rows=[dict(r, team=teams.get(r["m"])) for r in a["rows"]], past=pa))
+    ppast = [dict(x, most=[dict(w, href=href(w["card"]), teams=[teams[m] for m in w["ms"] if m in teams])
+                           for w in x["most"]],
+                  best=None if x["best"] is None else dict(x["best"], href=href(x["best"]["card"]),
+                                                          team=teams.get(x["best"]["m"])))
+             for x in (past or {}).get("potw") or []]
+    return dict(aw, races=races, potw=potw, past=past or {}, managers=mgr, potw_past=ppast)
 
 
 def league(payload: dict, teams: dict, mode: str, archive_href: str) -> dict:
@@ -818,6 +834,9 @@ def league_history(payload: dict, teams: dict) -> dict:
     ch = dict(h["champions"], rows=[dict(r, season_team=r["team"], team=teams.get(r["m"]) if r["m"] else None)
                                     for r in h["champions"]["rows"]])
     at = dict(h["alltime"], rows=[dict(r, team=teams[r["m"]]) for r in h["alltime"]["rows"]])
+    tr0 = h["alltime"].get("trophy")                 # 4c7: the trophy case
+    if tr0:
+        at["trophy"] = dict(tr0, rows=[dict(r, team=teams[r["m"]]) for r in tr0["rows"]])
     hh = h["h2h"]
     grid = {ph: [dict(r, team=teams[r["m"]]) for r in rows] for ph, rows in hh["grid"].items()}
     h2 = dict(hh, cols=[teams[m] for m in hh["order"]], grid=grid,

@@ -119,6 +119,14 @@ CSS = """
 .v2-aw-oth b{color:var(--ink);font-weight:800}
 .v2-aw-past{display:grid;grid-template-columns:max-content minmax(0,1fr) auto;column-gap:var(--space-10);align-items:center;min-height:var(--row-min);border-top:var(--hairline) solid var(--line-soft);padding:var(--space-6) 0}
 .v2-aw-past:first-of-type{border-top:0}
+.v2-tro{font-variant-numeric:tabular-nums}
+.v2-tro td,.v2-tro th{text-align:center}
+.v2-tro td:first-child,.v2-tro th:first-child{text-align:left}
+.v2-tro .v2-tro-apart{color:var(--ink-3)}
+.v2-tro-n{all:unset;position:relative;box-sizing:border-box;cursor:pointer;min-width:var(--tap-min);min-height:var(--tap-min);display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:var(--ink)}
+.v2-tro-apart .v2-tro-n{font-weight:400;color:var(--ink-3)}
+.v2-tro-z{color:var(--ink-3)}
+.v2-mg-past{display:grid;grid-template-columns:max-content minmax(0,1fr) auto;column-gap:var(--space-10);align-items:center;min-height:var(--row-min);border-top:var(--hairline) solid var(--line-soft);padding:var(--space-6) 0}
 """
 
 JS = r"""
@@ -477,6 +485,69 @@ def _race(a: dict, mono, chart, icon: str) -> str:
     return "".join(o)
 
 
+def _mgr_award(a: dict, icon: str) -> str:
+    """4c7 C: one manager award: every manager this season (rank, team mark,
+    the measure, what it's shown with), then its Past winners, collapsed."""
+    o = [f'<section class="lh-card v2-gap8" data-section="mgr-award" data-mgr-award="{clean(a["key"])}">'
+         f'<div class="v2-aw-head"><span class="v2-aw-st"><h2 class="lh-eyebrow">{clean(a["name"])}</h2>'
+         + (f'<span class="lh-status lh-status--neutral">{clean(a["status"])}</span>' if a["status"] else "")
+         + f'</span>{_aw_info(a, icon) if a.get("info") else ""}</div>']
+    if a["none"] and not a["rows"]:
+        o.append(f'<p class="v2-p">{clean(a["none"])}</p>')
+    for r in a["rows"]:
+        t = r["team"]
+        cls = f' {t["cls"]}' if t else ""
+        who = _chip(t) if t else f'<b class="v2-name14">{clean(r["m"])}</b>'
+        o.append(f'<div class="v2-lg-row{cls}"><span class="lh-rank__n">{clean(r["rank"])}</span>'
+                 f'<span class="v2-minw">{who}<span class="v2-aw-shown">{clean(r["shown"])}</span>'
+                 + (f'<span class="lh-sub">{clean(r["sub"])}</span>' if r["sub"] else "") + '</span>'
+                 f'<span class="v2-lg-right"><span class="v2-lg-val">{clean(r["value"])}</span>'
+                 f'<span class="lh-sub">{clean(a["unit"])}</span></span></div>')
+    p = a.get("past")
+    if p and p.get("rows"):
+        o.append(f'<details class="v2-lg-group"><summary class="v2-lg-sum"><span>Past winners</span>'
+                 f'<span>{clean(p["rows"][0]["season"])} back to {clean(p["rows"][-1]["season"])}</span></summary>')
+        for r in p["rows"]:
+            if r["none"]:
+                o.append(f'<div class="v2-mg-past"><span class="v2-lg-wkn">{clean(r["season"])}</span>'
+                         f'<span class="lh-sub">{clean(r["none"])}</span><span></span></div>')
+                continue
+            who = " ".join(_chip(t) for t in r["teams"]) or clean(", ".join(r["ms"]))
+            o.append(f'<div class="v2-mg-past"><span class="v2-lg-wkn">{clean(r["season"])}</span>'
+                     f'<span class="v2-minw">{who}<span class="v2-aw-shown">{clean(r["shown"])}</span>'
+                     + (f'<span class="lh-sub">{clean(r["sub"])}</span>' if r["sub"] else "") + '</span>'
+                     f'<span class="v2-lg-right"><span class="v2-lg-val">{clean(r["value"])}</span>'
+                     f'<span class="lh-sub">{clean(r["unit"])}</span></span></div>')
+        o.append("</details>")
+    o.append("</section>")
+    return "".join(o)
+
+
+def _potw_past(rows: list) -> str:
+    """4c7: Player of the Week by past season (most wins, best winning week)."""
+    if not rows:
+        return ""
+    o = [f'<details class="v2-lg-group"><summary class="v2-lg-sum"><span>Past seasons</span>'
+         f'<span>{clean(rows[0]["season"])} back to {clean(rows[-1]["season"])}</span></summary>']
+    for x in rows:
+        most = ", ".join(_name(w["player"], w["href"], True) + " " + " ".join(_chip(t) for t in w["teams"])
+                         for w in x["most"])
+        wins = x["most"][0]["wins"] if x["most"] else ""
+        o.append(f'<div class="v2-mg-past"><span class="v2-lg-wkn">{clean(x["season"])}</span>'
+                 f'<span class="v2-minw"><span class="lh-sub">Most wins</span>{most}</span>'
+                 f'<span class="v2-lg-right"><span class="v2-lg-val">{clean(wins)}</span>'
+                 f'<span class="lh-sub">of {clean(x["weeks"])} weeks</span></span></div>')
+        b = x["best"]
+        if b:
+            o.append(f'<div class="v2-mg-past"><span class="v2-lg-wkn"></span>'
+                     f'<span class="v2-minw"><span class="lh-sub">Best week</span>{_name(b["player"], b["href"], True)}'
+                     f'<span class="lh-sub">{(_chip(b["team"]) + " ") if b["team"] else ""}{clean(b["sub"])}</span></span>'
+                     f'<span class="v2-lg-right"><span class="v2-lg-val">{clean(b["pts"])}</span>'
+                     f'<span class="lh-sub">pts</span></span></div>')
+    o.append("</details>")
+    return "".join(o)
+
+
 def awards_html(aw: dict, mono, chart, icon: str, season_refs: dict = None) -> str:
     """League > Awards (4c5): one section per award (name, Live/Final, its
     InfoTip; the top rows with the shown-with figures and the move; "new
@@ -493,6 +564,13 @@ def awards_html(aw: dict, mono, chart, icon: str, season_refs: dict = None) -> s
     past = aw.get("past") or {}
     if past.get("note") or past.get("error"):
         o.append(f'<span class="lh-sub">{clean(past.get("error") or past["note"])}</span>')
+    if aw.get("managers") or aw.get("managers_error"):       # 4c7 C: the manager awards
+        o.append('<h2 class="lh-eyebrow v2-pad" data-section="mgr-awards">Manager awards</h2>')
+        if aw.get("managers_error"):
+            o.append(f'<section class="lh-card"><p class="v2-aw-err">{clean(aw["managers_error"])}</p></section>')
+        for a in aw.get("managers") or []:
+            o.append(_mgr_award(a, icon))
+        o.append(f'<span class="lh-sub">{clean(aw.get("managers_note") or "")}</span>')
     o.append('<section class="lh-card v2-gap8" data-section="potw"><div class="lh-sechead">'
              '<h2 class="lh-eyebrow">Player of the Week</h2></div>')
     with_rows = [x for x in aw["potw"] if x["rows"]]
@@ -503,6 +581,7 @@ def awards_html(aw: dict, mono, chart, icon: str, season_refs: dict = None) -> s
     for x in with_rows:
         o.append(_spane("potw", x["season"], default, (season_refs or {}).get(x["season"]),
                         lambda x=x: potw_season_html(x)))
+    o.append(_potw_past(aw.get("potw_past") or []))
     o.append(f'<span class="lh-sub">{clean(aw["potw_note"])}</span></section>')
     return "".join(o)
 
@@ -584,6 +663,38 @@ def _alltime(a: dict, mono) -> str:
                  f'<td class="lh-num">{clean(r["pf"])}</td><td class="lh-num">{clean(r["titles"])}</td>'
                  f'<td class="lh-num">{clean(r["playoff_titles"])}</td></tr>')
     o.append(f'</tbody></table></div><div class="lh-table-note">{clean(a["note"])}</div></section>')
+    o.append(_trophy(a.get("trophy")))
+    return "".join(o)
+
+
+def _trophy(tc) -> str:
+    """4c7 B: the trophy case, one row per manager (trophy_case.build); a
+    count taps open its seasons; Bust and Unluckiest are muted, apart."""
+    if not tc:
+        return ""
+    o = ['<section class="lh-card lh-card--flush" data-section="trophy"><div class="lh-sechead v2-pad">'
+         '<h2 class="lh-eyebrow">Trophy case</h2></div>']
+    if tc.get("error") and not tc.get("rows"):
+        o.append(f'<p class="v2-p v2-pad">{clean(tc["error"])}</p></section>')
+        return "".join(o)
+    o.append('<div class="v2-scroll"><table class="lh-table v2-tro"><thead><tr>'
+             f'<th>{colh_btn("trophy", "team", "Manager")}</th>'
+             + "".join(('<th class="v2-tro-apart">' if k in ("bust", "unlucky") else "<th>")
+                       + colh_btn("trophy", k, clean(lab)) + "</th>" for k, lab in tc["cols"])
+             + "</tr></thead><tbody>")
+    for r in tc["rows"]:
+        o.append(f'<tr><td>{_chip(r["team"])}</td>')
+        for c in r["cells"]:
+            cls = ' class="v2-tro-apart"' if c["apart"] else ""
+            if c["tip"]:
+                o.append(f'<td{cls}><button type="button" class="v2-tro-n v2-tap"{_tip(c["tip"])} '
+                         f'aria-label="{clean(c["tip"]["h"])}: {clean(c["n"])}. Tap for the seasons.">'
+                         f'{clean(c["n"])}</button></td>')
+            else:
+                o.append(f'<td{cls}><span class="v2-tro-z">{clean(c["n"])}</span></td>')
+        o.append("</tr>")
+    o.append(f'</tbody></table></div><div class="lh-table-note">{clean(tc["note"])}'
+             + (f' {clean(tc["error"])}' if tc.get("error") else "") + "</div></section>")
     return "".join(o)
 
 

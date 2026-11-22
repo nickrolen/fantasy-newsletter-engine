@@ -1598,6 +1598,13 @@ def awards_step(base, live, actuals: dict, echo=print, mvp_odds_blob: dict = Non
         out.update(races=awards.races(res, lines + pend, inp["cfg"], mvp_odds=blob, mvp_odds_error=odds_err),
                    pending=pend, through=through, week=res["week"], on_file=len(lines),
                    mvp_odds=None if blob is None else blob["through"])
+        try:                                         # 4c7 C: the manager awards, soft on their own
+            from . import manager_awards as _ma
+            from .data_loader import MANAGERS as _MS
+            out["managers"] = {"view": _ma.view(_ma.compute(inp, res, managers=list(_MS))), "error": None}
+        except Exception as e:                       # noqa: BLE001 -- the Awards say why
+            out["managers"] = {"view": None, "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
+            echo(f"MANAGER AWARDS FAILED (the new hub's Awards say why): {out['managers']['error']}")
     except Exception as e:                           # noqa: BLE001 -- the awards fail softly (4c5)
         out.update(races=None, pending=[], error=f"{type(e).__name__}: {e}".splitlines()[0][:500])
         echo(f"AWARDS FAILED (the new hub's Awards say why; the current hub goes on): {out['error']}")

@@ -443,6 +443,7 @@ def compute(inp: dict, through: str, only=KEYS) -> dict:
                 starts.append(r)
     if inp.get("official_totals") is not None:
         totals = inp["official_totals"]
+    res["totals"] = totals                          # 4c7: the manager awards' Unluckiest reads them
 
     def par(r):
         return float(r["fantasy_points"]) - R[int(r["week"])]["R"]
@@ -487,15 +488,22 @@ def compute(inp: dict, through: str, only=KEYS) -> dict:
 
 def _stints(rows: list) -> dict:
     """{(player, manager): [(first day, last day)]}: runs of consecutive
-    logged days on which that manager had him."""
-    days = sorted({r["date"] for r in rows})
-    pos = {d: i for i, d in enumerate(days)}
+    days LOGGED FOR THAT MANAGER on which he had him. 4c7: consecutive in the
+    manager's own logged days, so a day the log misses for his whole team
+    (2017-18, 2019-20; awards_past.checks) never breaks a stint; this
+    season's log has every team every day, so nothing changes for it."""
+    mdays: dict = {}
+    for r in rows:
+        mdays.setdefault(r["manager"], set()).add(r["date"])
+    pos = {m: {d: i for i, d in enumerate(sorted(ds))} for m, ds in mdays.items()}
+    days_of = {m: sorted(ds) for m, ds in mdays.items()}
     have: dict = {}
     for r in rows:
         have.setdefault((r["player_name"], r["manager"]), set()).add(r["date"])
     out = {}
     for k, ds in have.items():
-        idx = sorted(pos[d] for d in ds)
+        days = days_of[k[1]]
+        idx = sorted(pos[k[1]][d] for d in ds)
         runs, s = [], idx[0]
         for a, b in zip(idx, idx[1:]):
             if b != a + 1:
@@ -576,8 +584,12 @@ def _dropped(inp: dict, t: dict, m: str, n: str, day: str, names) -> tuple:
 def _pickups(inp, res, rows, starts, par, names, cut) -> None:
     a = res["awards"]["pickup"]
     first_day = str(inp["weeks"][0]["start_date"])[:10]
-    adds = _fa_adds(inp, names)
     stints = _stints(rows)
+    by_rosters = inp.get("pickups_from") == "rosters"
+    if by_rosters:                                   # 4c7: a past season, no transaction log
+        adds, roster_drop = _roster_adds(inp, rows, stints, names, a)
+    else:
+        adds = _fa_adds(inp, names)
     par_of: dict = {}
     for r in starts:
         par_of.setdefault((r["player_name"], r["manager"]), []).append((r["date"], par(r)))
@@ -589,7 +601,7 @@ def _pickups(inp, res, rows, starts, par, names, cut) -> None:
             prev_end = e
             if not hits:
                 continue
-            day, _m, _n, t = max(hits, key=lambda x: (x[0], int(x[3].get("timestamp") or 0)))
+            day, _m, _n, t = max(hits, key=lambda x: (x[0], int((x[3] or {}).get("timestamp") or 0)))
             v = sum(p for d, p in par_of.get((n, m), []) if s <= d <= e)
             g = sum(1 for d, _p in par_of.get((n, m), []) if s <= d <= e)
             pre = day < first_day
@@ -597,7 +609,7 @@ def _pickups(inp, res, rows, starts, par, names, cut) -> None:
                 _excl(a["excluded"], n, "preseason add",
                       f"added {_md(day)}, before the season's first game: preseason adds are not moves (rule 14)")
                 continue
-            drops, note = _dropped(inp, t, m, n, day, names)
+            drops, note = roster_drop(m, n, day) if by_rosters else _dropped(inp, t, m, n, day, names)
             shown = (f"dropped {' and '.join(drops)} on {_md(day)}" if drops else
                      f"added {_md(day)}; {note}" if note else f"added {_md(day)}, no drop")
             row = {"key": f"{n}|{m}|{day}", "player": n, "label": n, "m": m, "value": v, "shown": shown,
@@ -607,6 +619,91 @@ def _pickups(inp, res, rows, starts, par, names, cut) -> None:
                 best[n] = row
             a.setdefault("stints", []).append(row)
     a["rows"] = _rank(best.values())
+
+
+def _roster_adds(inp, rows, stints, names, a) -> tuple:
+    """A PAST season's free-agent adds (4c7; no transaction log before
+    2026-27): read off the daily rosters in the league log. A PICKUP is a
+    stint (consecutive logged days on one manager's roster) that
+
+    - does NOT begin on the season's first logged day: the opening-day roster
+      is the draft and the keepers, plus any preseason move, and preseason
+      adds aren't moves (LEAGUE_RULES rule 14). An opening-day player his
+      manager neither drafted nor kept is listed as excluded, with that
+      reason;
+    - is NOT a TRADE ARRIVAL: a completed trade (data/historical/
+      all_trades.json; the vetoed one is not in it) brought him to that
+      manager within keeper_history.TRADE_WINDOW_DAYS of the stint's first
+      day (keeper_history.snapshot's own rule).
+
+    The add day is the stint's first logged day. THE DROP is read off the same
+    rosters, and only when it is unambiguous: that manager's one non-trade
+    departure (a stint ending on the logged day before) on a day with one
+    non-trade arrival. Several on one day are "not paired"; none is "no drop".
+    Returns ([(day, manager, name, None)], drop(m, n, day) -> (drops, note))."""
+    from datetime import timedelta
+    from . import keeper_history as kh
+    season = inp["season"]
+    first = inp["days"][0]
+    mdays: dict = {}
+    for r in rows:
+        mdays.setdefault(r["manager"], set()).add(r["date"])
+    nxt = {}
+    for m, ds in mdays.items():
+        ds = sorted(ds)
+        nxt[m] = {d: ds[i + 1] for i, d in enumerate(ds[:-1])}
+    tin: dict = {}
+    tout: dict = {}
+    for t in inp["inputs"].trades:
+        if t.get("season") != season:
+            continue
+        d0, d1 = kh.trade_dates(t.get("date"), season)
+        for mv in t.get("players") or []:
+            n = names.canon(mv["player_name"]) or mv["player_name"]
+            tin.setdefault((n, mv["to_manager"]), []).append((d0, d1))
+            tout.setdefault((n, mv["from_manager"]), []).append((d0, d1))
+    w = timedelta(days=kh.TRADE_WINDOW_DAYS)
+
+    def near(spans, d):
+        x = date.fromisoformat(d)
+        return any(date.fromisoformat(a0) - w <= x <= date.fromisoformat(a1) + w for a0, a1 in spans)
+    picked: dict = {}
+    for p in inp["inputs"].picks.get(season) or []:
+        n = names.canon(p["player_name"], p.get("player_key")) or p["player_name"]
+        picked.setdefault(p["manager"], set()).add(n)
+    adds, arr, dep = [], {}, {}
+    for (n, m), runs in sorted(stints.items()):
+        for s, e in runs:
+            if e in nxt[m] and not near(tout.get((n, m), []), nxt[m][e]):   # left his roster: not traded away
+                dep.setdefault((m, nxt[m][e]), []).append(n)
+            if s == first:
+                if season not in inp["inputs"].picks:
+                    _excl(a["excluded"], n, "opening-day roster",
+                          f"on {m}'s opening-day roster; {season} has no draft list (H56), and a preseason "
+                          "move isn't an in-season add (rule 14)")
+                elif n not in picked.get(m, set()):
+                    _excl(a["excluded"], n, "preseason add",
+                          f"on {m}'s opening-day roster, neither drafted nor kept by him: preseason adds are "
+                          "not moves (rule 14)")
+                continue
+            if near(tin.get((n, m), []), s):
+                continue                             # a trade arrival, not a pickup
+            adds.append((s, m, n, None))
+            src = [(m2, e2) for (n2, m2), rs2 in stints.items() if n2 == n and m2 != m
+                   for _s2, e2 in rs2 if e2 < s and (date.fromisoformat(s) - date.fromisoformat(e2)).days <= 3]
+            if src:                                  # off another roster, no recorded trade: still a pickup
+                a.setdefault("off_rosters", []).append({"player": n, "to": m, "day": s, "from": src[-1][0]})
+            arr.setdefault((m, s), []).append(n)
+
+    def drop(m, n, day):
+        gone = dep.get((m, day)) or []
+        if not gone:
+            return [], None
+        if len(gone) == 1 and len(arr.get((m, day)) or []) == 1:
+            return list(gone), None
+        return [], "drop not paired (the daily rosters show " + str(len(arr.get((m, day)) or [])) + \
+            " adds and " + str(len(gone)) + " departures that day)"
+    return adds, drop
 
 
 def _improved(inp, res, rows, pid_of, cut) -> None:
@@ -669,9 +766,11 @@ def _rookies(inp, res, per, pid_of, cut) -> None:
         if idx[idx.canonical(n)] != season:
             continue
         line, why = _actual(inp, n, pid_of.get(n), cut)
-        sub = (f"{_d1(line[1] / line[0])} FPPG in {line[0]} games" if line and line[0] else (why or "no games"))
+        sub = (f"{_d1(line[1] / line[0])} FPPG in {line[0]} game{'' if line[0] == 1 else 's'}"
+               if line and line[0] else (why or "no games"))
         a["rows"].append({"key": n, "player": n, "label": n, "m": d["last"][1], "value": d["par"],
-                          "shown": sub, "sub": f"{d['starts']} starts"})
+                          "shown": sub, "sub": f"{d['starts']} start{'' if d['starts'] == 1 else 's'}",
+                          "ms": sorted(d["teams"], key=lambda m: -d["teams"][m])})
     a["rows"] = _rank(a["rows"])
 
 
@@ -733,22 +832,27 @@ def _other(m, a, b):
 def _busts(inp, res, names, pid_of, cut) -> None:
     a = res["awards"]["bust"]
     pre = inp["preseason"]
-    a["source"] = (f"Yahoo's preseason projection ({inp['preseason_rel']}"
+    past = pre.get("kind") == "previous season"      # 4c7: a past season (modules/awards_past)
+    a["source"] = (pre["source"] if past else f"Yahoo's preseason projection ({inp['preseason_rel']}"
                    + (f", fetched {pre['fetched']}" if pre["fetched"] else "") + ")")
     need = int(inp["cfg"]["bust_min_games"])
     for p in inp["inputs"].picks.get(inp["season"]) or []:
         n = names.canon(p["player_name"], p.get("player_key")) or p["player_name"]
         how = ("keeper" if p.get("is_keeper") else
-               f"pick {int(p['pick_number'])}" if p.get("pick_number") is not None else "drafted")  # H56
+               f"pick {int(p['pick_number'])}" if p.get("pick_number") is not None else "draft pick")  # H56
         hit = pre["by_name"].canonical(n) or pre["by_name"].canonical(p["player_name"])
         if hit is None:
-            _excl(a["excluded"], n, "not in Yahoo's preseason projections",
-                  f"{how}: not in {pre['file']}")
+            if past:
+                _excl(a["excluded"], n, pre["missing_kind"], f"{how}: {pre['why'](n, p.get('player_key'))}")
+            else:
+                _excl(a["excluded"], n, "not in Yahoo's preseason projections",
+                      f"{how}: not in {pre['file']}")
             continue
         exp = pre["by_name"][hit]
-        line, why = _actual(inp, n, p.get("player_key") or pid_of.get(n), cut)
+        line, why = (pre["actual"](n, p.get("player_key")) if past else
+                     _actual(inp, n, p.get("player_key") or pid_of.get(n), cut))
         if line is None:
-            _excl(a["excluded"], n, "no daily lines", why)
+            _excl(a["excluded"], n, "no NBA games" if past else "no daily lines", why)
             continue
         g, pts = line
         if g < need:

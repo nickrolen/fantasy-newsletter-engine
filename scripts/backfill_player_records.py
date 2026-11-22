@@ -1409,73 +1409,9 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
     # DRAFT STEAL & BUST (FPPG and Total FP): 5d1 s.10a, over the round values' game set
     steal_fppg, bust_fppg, steal_totalfp, bust_totalfp = draft_steal_bust(pick_games, drafts, pick_values)
 
-    # TRADE WINNER
-    tw_top10 = []
-    if trades:
-        tr = []
-        for trade in trades:
-            for p in trade.get("players", []):
-                pname, to_m, from_m = p.get("player_name", ""), p.get("to_manager", ""), p.get("from_manager", "")
-                if not pname or not to_m:
-                    continue
-                s = pss.get((pname, to_m, trade["season"]))
-                if s and s["gp"] >= 5:
-                    tr.append({"player_name": pname, "manager": to_m, "from_manager": from_m, "post_trade_fp": round(s["total_fp"], 1), "gp": s["gp"], "fppg": round(s["total_fp"] / s["gp"], 2), "season": trade["season"]})
-        tr.sort(key=lambda x: x["post_trade_fp"], reverse=True)
-        tw_top10 = tr[:10]
-
-    # BEST TRADE ACQUISITION BY FPPG (25 GP minimum)
-    tw_fppg_top10 = []
-    if trades:
-        tr_fppg = []
-        for trade in trades:
-            for p in trade.get("players", []):
-                pname, to_m, from_m = p.get("player_name", ""), p.get("to_manager", ""), p.get("from_manager", "")
-                if not pname or not to_m:
-                    continue
-                s = pss.get((pname, to_m, trade["season"]))
-                if s and s["gp"] >= 25:
-                    tr_fppg.append({"player_name": pname, "manager": to_m, "from_manager": from_m, "fppg": round(s["total_fp"] / s["gp"], 2), "post_trade_fp": round(s["total_fp"], 1), "gp": s["gp"], "season": trade["season"]})
-        tr_fppg.sort(key=lambda x: x["fppg"], reverse=True)
-        tw_fppg_top10 = tr_fppg[:10]
-
-    # BEST WAIVER PICKUP (all seasons)
-    wp_top10 = []
-    if waivers:
-        wr = []
-        for w in waivers:
-            if w.get("is_trade", False):
-                continue
-            post = [g["fantasy_points"] for g in games if g["player_name"] == w["player_name"] and g["manager"] == w["manager"] and g["date"] >= w["date"] and g["fantasy_points"] > 0]
-            if len(post) >= 10:
-                total = sum(post)
-                ws = next((g["season"] for g in games if g["player_name"] == w["player_name"] and g["manager"] == w["manager"] and g["date"] >= w["date"]), "unknown")
-                wr.append({"player_name": w["player_name"], "manager": w["manager"], "fppg": round(total / len(post), 2), "total_fp": round(total, 1), "gp": len(post), "add_date": w["date"], "season": ws})
-        seen = {}
-        for r in wr:
-            key = (r["player_name"], r["manager"], r["season"])
-            if key not in seen or r["fppg"] > seen[key]["fppg"]:
-                seen[key] = r
-        wp_top10 = sorted(seen.values(), key=lambda x: x["fppg"], reverse=True)[:10]
-
-    # BEST WAIVER PICKUP BY TOTAL FP (all seasons, 10 GP min)
-    wp_totalfp_top10 = []
-    if waivers:
-        wr_tfp = []
-        for w in waivers:
-            if w.get("is_trade", False):
-                continue
-            post = [g["fantasy_points"] for g in games if g["player_name"] == w["player_name"] and g["manager"] == w["manager"] and g["date"] >= w["date"] and g["fantasy_points"] > 0]
-            if len(post) >= 10:
-                total = sum(post)
-                ws = next((g["season"] for g in games if g["player_name"] == w["player_name"] and g["manager"] == w["manager"] and g["date"] >= w["date"]), "unknown")
-                wr_tfp.append({"player_name": w["player_name"], "manager": w["manager"], "total_fp": round(total, 1), "fppg": round(total / len(post), 2), "gp": len(post), "add_date": w["date"], "season": ws})
-        seen_tfp = {}
-        for r in wr_tfp:
-            key = (r["player_name"], r["manager"], r["season"])
-            if key not in seen_tfp or r["total_fp"] > seen_tfp[key]["total_fp"]:
-                seen_tfp[key] = r
-        wp_totalfp_top10 = sorted(seen_tfp.values(), key=lambda x: x["total_fp"], reverse=True)[:10]
+    # 4c7 D (one measure per idea): the trade-winner and waiver-pickup lists are retired here.
+    # Their ideas are the awards', measured as the awards measure them: award_records() (Best
+    # pickup in PAR, Trade of the Year's PAR gap), from data/historical/AWARDS_PAST.json.
 
     # MOST CURSED ROSTER (renamed from most_cursed to most_il_gamedays)
     il_src = all_records if all_records else games
@@ -1493,8 +1429,6 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
         ("best_draft_class", dc_all), ("best_draft_class_fppg", dc_fppg),
         ("biggest_draft_steal", steal_fppg), ("biggest_draft_bust", bust_fppg),
         ("biggest_draft_steal_totalfp", steal_totalfp), ("biggest_draft_bust_totalfp", bust_totalfp),
-        ("trade_winner", tw_top10), ("trade_winner_fppg", tw_fppg_top10),
-        ("best_waiver_pickup", wp_top10), ("best_waiver_pickup_totalfp", wp_totalfp_top10),
         ("most_cursed_roster", cursed),
     ]:
         single, top10 = _t(data)
@@ -1507,6 +1441,33 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
             print(f"  {name}: {e.get('player_name', e.get('manager', '?'))} ({e.get('season', '?')})")
 
     return result
+
+
+# 4c7 D: retired from RECORDS.json (removed on every run, so a stale copy never lingers)
+RETIRED_KEYS = ("trade_winner", "trade_winner_top10", "trade_winner_fppg", "trade_winner_fppg_top10",
+                "best_waiver_pickup", "best_waiver_pickup_top10", "best_waiver_pickup_totalfp",
+                "best_waiver_pickup_totalfp_top10")
+
+
+def award_records(blob: dict) -> dict:
+    """4c7 D: the record book's Best pickup and Most lopsided trade, the
+    awards' own measures over every past season (AWARDS_PAST alltime, the
+    one source the hub's Records reads too): {"best_pickup", "best_pickup_
+    top10", "lopsided_trade", "lopsided_trade_top10"}. RAISES without the
+    file (never an empty list in its place)."""
+    if blob is None:
+        raise FileNotFoundError("data/historical/AWARDS_PAST.json is not built (python scripts\\build_awards_past.py)")
+    pk = [{"player_name": r["player"], "manager": r["m"], "par": round(float(r["value"]), 2),
+           "add_date": r["add_day"], "season": r["season"], "drops": list(r.get("drops") or []),
+           "detail": r["sub"]} for r in blob["alltime"]["pickup"]]
+    tr = [{"player_name": "", "manager": r["m"], "trade": r["label"], "par_gap": round(float(r["value"]), 2),
+           "date": r["date"], "season": r["season"],
+           "sides": "; ".join(f"{m} got {', '.join(sd['got']) or 'no player'}"
+                              + (f" + {', '.join(sd['picks'])}" if sd.get("picks") else "")
+                              + f" ({sd['par']:,.1f} PAR)" for m, sd in r["sides"].items())}
+          for r in blob["alltime"]["trade"]]
+    return {"best_pickup": pk[0] if pk else {}, "best_pickup_top10": pk[:10],
+            "lopsided_trade": tr[0] if tr else {}, "lopsided_trade_top10": tr[:10]}
 
 
 def compute_current_season_player_records(current_df, rookie_seasons=None) -> dict:
@@ -1676,14 +1637,19 @@ def main():
 
         drafts = load_all_drafts()
         trades = load_all_trades()
-        waivers = load_waivers()
         all_recs = build_all_records_with_slots(historical)
         if drafts:
             pick_games = pick_game_rows(historical, current_df)        # 5d1 s.10a
-            for k, v in compute_draft_manager_leaderboards(combined, drafts, trades, waivers, all_recs,
+            for k, v in compute_draft_manager_leaderboards(combined, drafts, trades, None, all_recs,
                                                            pick_games=pick_games).items():
                 if v:
                     all_time[k] = v
+
+    # 4c7 D: one measure per idea -- the awards' Best pickup and Trade of the Year
+    from modules import awards_past as _ap
+    for k in RETIRED_KEYS:
+        all_time.pop(k, None)
+    all_time.update(award_records(_ap.load(PROJECT_ROOT)))
 
     for k, v in compute_current_season_player_records(current_df, rookie_seasons).items():
         season_recs[k] = v

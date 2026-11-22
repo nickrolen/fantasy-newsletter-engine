@@ -1,15 +1,20 @@
 {
- "schema": 1,
+ "schema": 2,
  "awards": [
   "mvp",
   "trade",
-  "improved"
+  "improved",
+  "pickup",
+  "roy",
+  "bust"
  ],
- "not_built": {
-  "pickup": "no transaction log before 2026-27: no add dates and no drops",
-  "roy": "config/ROOKIE_SEASONS.json is too thin after 2022-23 to name every season's rookies",
-  "bust": "no preseason projection was stored before 2026-27"
- },
+ "manager_awards": [
+  "lineup",
+  "draft",
+  "waiver",
+  "unlucky"
+ ],
+ "not_built": {},
  "seasons": {
   "2017-18": {
    "season": "2017-18",
@@ -50,7 +55,75 @@
      18,
      20
     ],
-    "flips": 2
+    "flips": 2,
+    "rookies": {
+     "rookies": [
+      "Ben Simmons",
+      "Donovan Mitchell",
+      "Kyle Kuzma",
+      "Lauri Markkanen",
+      "Lonzo Ball"
+     ],
+     "disagree": [
+      {
+       "player": "Quinn Cook",
+       "nba_seasons": "2016-17",
+       "rookie_seasons": "2017-18"
+      }
+     ],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "Eric Bledsoe",
+      "to": "Nick",
+      "day": "2017-10-26",
+      "from": "Benton"
+     },
+     {
+      "player": "Paul Millsap",
+      "to": "Benton",
+      "day": "2017-11-08",
+      "from": "Hayden"
+     },
+     {
+      "player": "Nikola Mirotic",
+      "to": "Garrett",
+      "day": "2018-02-07",
+      "from": "Benton"
+     },
+     {
+      "player": "Gary Harris",
+      "to": "Garrett",
+      "day": "2018-02-13",
+      "from": "Benton"
+     },
+     {
+      "player": "Nikola Vucevic",
+      "to": "Benton",
+      "day": "2018-03-03",
+      "from": "Nick"
+     },
+     {
+      "player": "Rajon Rondo",
+      "to": "Benton",
+      "day": "2018-03-07",
+      "from": "Nick"
+     },
+     {
+      "player": "Rajon Rondo",
+      "to": "Nick",
+      "day": "2018-03-10",
+      "from": "Benton"
+     },
+     {
+      "player": "Nikola Vucevic",
+      "to": "Nick",
+      "day": "2018-03-14",
+      "from": "Benton"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -288,6 +361,446 @@
       "no games in the log": 3
      },
      "eligible": 0
+    },
+    "pickup": {
+     "winner": {
+      "label": "Victor Oladipo",
+      "player": "Victor Oladipo",
+      "m": "Hayden",
+      "value": 660.17,
+      "shown": "dropped Dennis Schroder on 10-23",
+      "sub": "58 starts for Hayden",
+      "add_day": "2017-10-23",
+      "stint": [
+       "2017-10-23",
+       "2018-03-18"
+      ],
+      "drops": [
+       "Dennis Schroder"
+      ]
+     },
+     "top": [
+      {
+       "label": "Victor Oladipo",
+       "player": "Victor Oladipo",
+       "m": "Hayden",
+       "value": 660.17,
+       "shown": "dropped Dennis Schroder on 10-23",
+       "sub": "58 starts for Hayden",
+       "add_day": "2017-10-23",
+       "stint": [
+        "2017-10-23",
+        "2018-03-18"
+       ],
+       "drops": [
+        "Dennis Schroder"
+       ]
+      },
+      {
+       "label": "Jrue Holiday",
+       "player": "Jrue Holiday",
+       "m": "Nick",
+       "value": 457.21,
+       "shown": "dropped Harrison Barnes on 12-04",
+       "sub": "44 starts for Nick",
+       "add_day": "2017-12-04",
+       "stint": [
+        "2017-12-04",
+        "2018-03-18"
+       ],
+       "drops": [
+        "Harrison Barnes"
+       ]
+      },
+      {
+       "label": "Lou Williams",
+       "player": "Lou Williams",
+       "m": "Benton",
+       "value": 387.12,
+       "shown": "dropped Tim Hardaway Jr. on 11-30",
+       "sub": "40 starts for Benton",
+       "add_day": "2017-11-30",
+       "stint": [
+        "2017-11-30",
+        "2018-03-05"
+       ],
+       "drops": [
+        "Tim Hardaway Jr."
+       ]
+      },
+      {
+       "label": "Devin Booker",
+       "player": "Devin Booker",
+       "m": "Benton",
+       "value": 310.95,
+       "shown": "dropped Austin Rivers on 10-30",
+       "sub": "45 starts for Benton",
+       "add_day": "2017-10-30",
+       "stint": [
+        "2017-10-30",
+        "2018-03-16"
+       ],
+       "drops": [
+        "Austin Rivers"
+       ]
+      },
+      {
+       "label": "Khris Middleton",
+       "player": "Khris Middleton",
+       "m": "Hayden",
+       "value": 299.9,
+       "shown": "added 10-22, no drop",
+       "sub": "60 starts for Hayden",
+       "add_day": "2017-10-22",
+       "stint": [
+        "2017-10-22",
+        "2018-03-18"
+       ],
+       "drops": []
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 58
+    },
+    "roy": {
+     "winner": {
+      "label": "Ben Simmons",
+      "player": "Ben Simmons",
+      "m": "Hayden",
+      "value": 562.29,
+      "shown": "36.0 FPPG in 65 games",
+      "sub": "65 starts",
+      "ms": [
+       "Hayden"
+      ]
+     },
+     "top": [
+      {
+       "label": "Ben Simmons",
+       "player": "Ben Simmons",
+       "m": "Hayden",
+       "value": 562.29,
+       "shown": "36.0 FPPG in 65 games",
+       "sub": "65 starts",
+       "ms": [
+        "Hayden"
+       ]
+      },
+      {
+       "label": "Lonzo Ball",
+       "player": "Lonzo Ball",
+       "m": "Benton",
+       "value": 250.81,
+       "shown": "35.7 FPPG in 38 games",
+       "sub": "34 starts",
+       "ms": [
+        "Benton",
+        "Garrett"
+       ]
+      },
+      {
+       "label": "Donovan Mitchell",
+       "player": "Donovan Mitchell",
+       "m": "Nick",
+       "value": 81.46,
+       "shown": "30.5 FPPG in 25 games",
+       "sub": "23 starts",
+       "ms": [
+        "Hayden",
+        "Nick",
+        "Benton"
+       ]
+      },
+      {
+       "label": "Kyle Kuzma",
+       "player": "Kyle Kuzma",
+       "m": "Benton",
+       "value": -20.37,
+       "shown": "22.1 FPPG in 4 games",
+       "sub": "4 starts",
+       "ms": [
+        "Benton"
+       ]
+      },
+      {
+       "label": "Lauri Markkanen",
+       "player": "Lauri Markkanen",
+       "m": "Benton",
+       "value": -22.62,
+       "shown": "22.7 FPPG in 5 games",
+       "sub": "4 starts",
+       "ms": [
+        "Benton"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 5
+    },
+    "bust": {
+     "winner": {
+      "label": "Brook Lopez",
+      "player": "Brook Lopez",
+      "m": "Benton",
+      "value": 562.84,
+      "shown": "expected 30.6, 23.0 in 74 games",
+      "sub": "Benton's draft pick",
+      "expected": 30.61,
+      "fppg": 23.0,
+      "games": 74
+     },
+     "top": [
+      {
+       "label": "Brook Lopez",
+       "player": "Brook Lopez",
+       "m": "Benton",
+       "value": 562.84,
+       "shown": "expected 30.6, 23.0 in 74 games",
+       "sub": "Benton's draft pick",
+       "expected": 30.61,
+       "fppg": 23.0,
+       "games": 74
+      },
+      {
+       "label": "Russell Westbrook",
+       "player": "Russell Westbrook",
+       "m": "Benton",
+       "value": 562.66,
+       "shown": "expected 55.5, 48.5 in 80 games",
+       "sub": "Benton's draft pick",
+       "expected": 55.54,
+       "fppg": 48.5,
+       "games": 80
+      },
+      {
+       "label": "Carmelo Anthony",
+       "player": "Carmelo Anthony",
+       "m": "Nick",
+       "value": 413.01,
+       "shown": "expected 31.7, 26.4 in 78 games",
+       "sub": "Nick's draft pick",
+       "expected": 31.74,
+       "fppg": 26.44,
+       "games": 78
+      },
+      {
+       "label": "Ricky Rubio",
+       "player": "Ricky Rubio",
+       "m": "Nick",
+       "value": 393.79,
+       "shown": "expected 32.7, 27.6 in 77 games",
+       "sub": "Nick's draft pick",
+       "expected": 32.7,
+       "fppg": 27.58,
+       "games": 77
+      },
+      {
+       "label": "Hassan Whiteside",
+       "player": "Hassan Whiteside",
+       "m": "Nick",
+       "value": 298.25,
+       "shown": "expected 36.5, 30.9 in 54 games",
+       "sub": "Nick's draft pick",
+       "expected": 36.46,
+       "fppg": 30.93,
+       "games": 54
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no expectation": 2,
+      "under 10 games: out, not a bust": 2
+     },
+     "eligible": 28,
+     "source": "his 2016-17 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 0.9913,
+       "shown": "99.1%",
+       "sub": "797 of 804 fillable starts \u00b7 7 missed over 147 days",
+       "started": 797,
+       "fillable": 804,
+       "days": 147,
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 0.9786,
+       "shown": "97.9%",
+       "sub": "779 of 796 fillable starts \u00b7 17 missed over 148 days",
+       "started": 779,
+       "fillable": 796,
+       "days": 148,
+       "rank": 2
+      },
+      {
+       "m": "Benton",
+       "value": 0.9665,
+       "shown": "96.7%",
+       "sub": "779 of 806 fillable starts \u00b7 27 missed over 145 days",
+       "started": 779,
+       "fillable": 806,
+       "days": 145,
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 0.9286,
+       "shown": "92.9%",
+       "sub": "728 of 784 fillable starts \u00b7 56 missed over 148 days",
+       "started": 728,
+       "fillable": 784,
+       "days": 148,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 6626.8367,
+       "shown": "13 picks \u00b7 best: Russell Westbrook 1,343.1",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "Russell Westbrook",
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 5938.0185,
+       "shown": "13 picks \u00b7 best: James Harden 1,477.9",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "James Harden",
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 5745.9378,
+       "shown": "13 picks \u00b7 best: Anthony Davis 1,223.8",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "Anthony Davis",
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 3447.7333,
+       "shown": "13 picks \u00b7 best: Karl-Anthony Towns 1,031.8",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "Karl-Anthony Towns",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "waiver": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 1441.8627,
+       "shown": "65 pickups \u00b7 best: Lou Williams 387.1",
+       "sub": "",
+       "n": 65,
+       "best": "Lou Williams",
+       "rank": 1
+      },
+      {
+       "m": "Nick",
+       "value": 1434.8116,
+       "shown": "39 pickups \u00b7 best: Jrue Holiday 457.2",
+       "sub": "",
+       "n": 39,
+       "best": "Jrue Holiday",
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 1108.9486,
+       "shown": "13 pickups \u00b7 best: Victor Oladipo 660.2",
+       "sub": "",
+       "n": 13,
+       "best": "Victor Oladipo",
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 57.048,
+       "shown": "5 pickups \u00b7 best: Nikola Mirotic 51.7",
+       "sub": "",
+       "n": 5,
+       "best": "Nikola Mirotic",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Garrett"
+     ],
+     "top": [
+      {
+       "m": "Garrett",
+       "value": 3.0,
+       "shown": "lost 3 of 8 weeks above the median",
+       "sub": "30,173.3 points against in 21 weeks",
+       "weeks_above": 8,
+       "pa": 30173.3,
+       "rank": 1
+      },
+      {
+       "m": "Benton",
+       "value": 3.0,
+       "shown": "lost 3 of 16 weeks above the median",
+       "sub": "29,231.2 points against in 21 weeks",
+       "weeks_above": 16,
+       "pa": 29231.2,
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 1.0,
+       "shown": "lost 1 of 8 weeks above the median",
+       "sub": "29,152.3 points against in 21 weeks",
+       "weeks_above": 8,
+       "pa": 29152.3,
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 1.0,
+       "shown": "lost 1 of 10 weeks above the median",
+       "sub": "28,190.0 points against in 21 weeks",
+       "weeks_above": 10,
+       "pa": 28189.95,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   },
@@ -323,7 +836,93 @@
     "off": 52,
     "max_off": 11.0,
     "short_weeks": [],
-    "flips": 0
+    "flips": 0,
+    "rookies": {
+     "rookies": [
+      "Deandre Ayton",
+      "Luka Doncic",
+      "Marvin Bagley III",
+      "Trae Young",
+      "Wendell Carter Jr."
+     ],
+     "disagree": [],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "Tim Hardaway Jr.",
+      "to": "Nick",
+      "day": "2018-11-05",
+      "from": "Benton"
+     },
+     {
+      "player": "Trae Young",
+      "to": "Hayden",
+      "day": "2018-11-05",
+      "from": "Benton"
+     },
+     {
+      "player": "Trae Young",
+      "to": "Benton",
+      "day": "2018-11-13",
+      "from": "Hayden"
+     },
+     {
+      "player": "Robert Covington",
+      "to": "Nick",
+      "day": "2018-11-26",
+      "from": "Benton"
+     },
+     {
+      "player": "Montrezl Harrell",
+      "to": "Hayden",
+      "day": "2018-12-03",
+      "from": "Benton"
+     },
+     {
+      "player": "John Collins",
+      "to": "Garrett",
+      "day": "2018-12-18",
+      "from": "Benton"
+     },
+     {
+      "player": "Will Barton",
+      "to": "Benton",
+      "day": "2018-12-19",
+      "from": "Garrett"
+     },
+     {
+      "player": "Al Horford",
+      "to": "Hayden",
+      "day": "2019-01-13",
+      "from": "Garrett"
+     },
+     {
+      "player": "Eric Bledsoe",
+      "to": "Benton",
+      "day": "2019-01-29",
+      "from": "Nick"
+     },
+     {
+      "player": "Otto Porter Jr.",
+      "to": "Hayden",
+      "day": "2019-01-29",
+      "from": "Benton"
+     },
+     {
+      "player": "DeAndre Jordan",
+      "to": "Hayden",
+      "day": "2019-02-28",
+      "from": "Garrett"
+     },
+     {
+      "player": "Eric Bledsoe",
+      "to": "Nick",
+      "day": "2019-02-28",
+      "from": "Benton"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -745,6 +1344,323 @@
       "no games in the log": 2
      },
      "eligible": 32
+    },
+    "pickup": {
+     "winner": {
+      "label": "Luka Doncic",
+      "player": "Luka Doncic",
+      "m": "Benton",
+      "value": 673.24,
+      "shown": "dropped Robert Covington on 11-26",
+      "sub": "46 starts for Benton",
+      "add_day": "2018-11-26",
+      "stint": [
+       "2018-11-26",
+       "2019-03-17"
+      ],
+      "drops": [
+       "Robert Covington"
+      ]
+     },
+     "top": [
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Benton",
+       "value": 673.24,
+       "shown": "dropped Robert Covington on 11-26",
+       "sub": "46 starts for Benton",
+       "add_day": "2018-11-26",
+       "stint": [
+        "2018-11-26",
+        "2019-03-17"
+       ],
+       "drops": [
+        "Robert Covington"
+       ]
+      },
+      {
+       "label": "D'Angelo Russell",
+       "player": "D'Angelo Russell",
+       "m": "Garrett",
+       "value": 504.25,
+       "shown": "added 12-18; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+       "sub": "40 starts for Garrett",
+       "add_day": "2018-12-18",
+       "stint": [
+        "2018-12-18",
+        "2019-03-17"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Clint Capela",
+       "player": "Clint Capela",
+       "m": "Hayden",
+       "value": 431.31,
+       "shown": "added 11-05; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+       "sub": "34 starts for Hayden",
+       "add_day": "2018-11-05",
+       "stint": [
+        "2018-11-05",
+        "2019-02-21"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Myles Turner",
+       "player": "Myles Turner",
+       "m": "Benton",
+       "value": 343.91,
+       "shown": "dropped Lauri Markkanen on 12-11",
+       "sub": "37 starts for Benton",
+       "add_day": "2018-12-11",
+       "stint": [
+        "2018-12-11",
+        "2019-03-17"
+       ],
+       "drops": [
+        "Lauri Markkanen"
+       ]
+      },
+      {
+       "label": "Buddy Hield",
+       "player": "Buddy Hield",
+       "m": "Hayden",
+       "value": 336.22,
+       "shown": "added 12-21, no drop",
+       "sub": "38 starts for Hayden",
+       "add_day": "2018-12-21",
+       "stint": [
+        "2018-12-21",
+        "2019-03-17"
+       ],
+       "drops": []
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "opening-day roster": 55
+     },
+     "eligible": 60
+    },
+    "roy": {
+     "winner": {
+      "label": "Luka Doncic",
+      "player": "Luka Doncic",
+      "m": "Benton",
+      "value": 716.16,
+      "shown": "38.7 FPPG in 53 games",
+      "sub": "53 starts",
+      "ms": [
+       "Benton",
+       "Nick"
+      ]
+     },
+     "top": [
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Benton",
+       "value": 716.16,
+       "shown": "38.7 FPPG in 53 games",
+       "sub": "53 starts",
+       "ms": [
+        "Benton",
+        "Nick"
+       ]
+      },
+      {
+       "label": "Trae Young",
+       "player": "Trae Young",
+       "m": "Nick",
+       "value": 376.94,
+       "shown": "37.0 FPPG in 35 games",
+       "sub": "33 starts",
+       "ms": [
+        "Nick",
+        "Benton",
+        "Hayden"
+       ]
+      },
+      {
+       "label": "Deandre Ayton",
+       "player": "Deandre Ayton",
+       "m": "Benton",
+       "value": 289.94,
+       "shown": "30.1 FPPG in 41 games",
+       "sub": "40 starts",
+       "ms": [
+        "Benton",
+        "Nick"
+       ]
+      },
+      {
+       "label": "Wendell Carter Jr.",
+       "player": "Wendell Carter Jr.",
+       "m": "Benton",
+       "value": 24.53,
+       "shown": "29.4 FPPG in 4 games",
+       "sub": "4 starts",
+       "ms": [
+        "Benton"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 4
+    },
+    "bust": {
+     "winner": null,
+     "top": [],
+     "none": "2018-19 has no draft list (H56): no drafted or kept player to judge",
+     "excluded": {},
+     "eligible": 0,
+     "source": "his 2017-18 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 1.0,
+       "shown": "100.0%",
+       "sub": "864 of 864 fillable starts \u00b7 0 missed over 153 days",
+       "started": 864,
+       "fillable": 864,
+       "days": 153,
+       "rank": 1
+      },
+      {
+       "m": "Benton",
+       "value": 0.9976,
+       "shown": "99.8%",
+       "sub": "835 of 837 fillable starts \u00b7 2 missed over 153 days",
+       "started": 835,
+       "fillable": 837,
+       "days": 153,
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 0.9884,
+       "shown": "98.8%",
+       "sub": "853 of 863 fillable starts \u00b7 10 missed over 153 days",
+       "started": 853,
+       "fillable": 863,
+       "days": 153,
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 0.9824,
+       "shown": "98.2%",
+       "sub": "838 of 853 fillable starts \u00b7 15 missed over 153 days",
+       "started": 838,
+       "fillable": 853,
+       "days": 153,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [],
+     "top": [],
+     "none": "2018-19 has no draft list (H56: it didn't match the opening rosters)"
+    },
+    "waiver": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 2171.4512,
+       "shown": "41 pickups \u00b7 best: Klay Thompson 286.6",
+       "sub": "",
+       "n": 41,
+       "best": "Klay Thompson",
+       "rank": 1
+      },
+      {
+       "m": "Benton",
+       "value": 1912.3083,
+       "shown": "36 pickups \u00b7 best: Luka Doncic 673.2",
+       "sub": "",
+       "n": 36,
+       "best": "Luka Doncic",
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 1683.3632,
+       "shown": "38 pickups \u00b7 best: Clint Capela 431.3",
+       "sub": "",
+       "n": 38,
+       "best": "Clint Capela",
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 1587.7386,
+       "shown": "12 pickups \u00b7 best: D'Angelo Russell 504.2",
+       "sub": "",
+       "n": 12,
+       "best": "D'Angelo Russell",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 4.0,
+       "shown": "lost 4 of 15 weeks above the median",
+       "sub": "32,249.8 points against in 21 weeks",
+       "weeks_above": 15,
+       "pa": 32249.85,
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 2.0,
+       "shown": "lost 2 of 6 weeks above the median",
+       "sub": "32,598.1 points against in 21 weeks",
+       "weeks_above": 6,
+       "pa": 32598.05,
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 2.0,
+       "shown": "lost 2 of 7 weeks above the median",
+       "sub": "32,266.7 points against in 21 weeks",
+       "weeks_above": 7,
+       "pa": 32266.7,
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 2.0,
+       "shown": "lost 2 of 14 weeks above the median",
+       "sub": "31,903.6 points against in 21 weeks",
+       "weeks_above": 14,
+       "pa": 31903.65,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   },
@@ -780,7 +1696,36 @@
     "short_weeks": [
      17
     ],
-    "flips": 0
+    "flips": 0,
+    "rookies": {
+     "rookies": [
+      "Ja Morant",
+      "Zion Williamson"
+     ],
+     "disagree": [],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "De'Aaron Fox",
+      "to": "Garrett",
+      "day": "2020-01-09",
+      "from": "Benton"
+     },
+     {
+      "player": "Tobias Harris",
+      "to": "Nick",
+      "day": "2020-02-25",
+      "from": "Hayden"
+     },
+     {
+      "player": "Jamal Murray",
+      "to": "Hayden",
+      "day": "2020-02-26",
+      "from": "Nick"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -951,6 +1896,405 @@
       "under 20 games in his prior league seasons": 6
      },
      "eligible": 32
+    },
+    "pickup": {
+     "winner": {
+      "label": "Hassan Whiteside",
+      "player": "Hassan Whiteside",
+      "m": "Nick",
+      "value": 779.88,
+      "shown": "added 12-02; drop not paired (the daily rosters show 3 adds and 3 departures that day)",
+      "sub": "43 starts for Nick",
+      "add_day": "2019-12-02",
+      "stint": [
+       "2019-12-02",
+       "2020-03-08"
+      ],
+      "drops": []
+     },
+     "top": [
+      {
+       "label": "Hassan Whiteside",
+       "player": "Hassan Whiteside",
+       "m": "Nick",
+       "value": 779.88,
+       "shown": "added 12-02; drop not paired (the daily rosters show 3 adds and 3 departures that day)",
+       "sub": "43 starts for Nick",
+       "add_day": "2019-12-02",
+       "stint": [
+        "2019-12-02",
+        "2020-03-08"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Domantas Sabonis",
+       "player": "Domantas Sabonis",
+       "m": "Benton",
+       "value": 637.19,
+       "shown": "dropped Myles Turner on 11-11",
+       "sub": "53 starts for Benton",
+       "add_day": "2019-11-11",
+       "stint": [
+        "2019-11-11",
+        "2020-03-08"
+       ],
+       "drops": [
+        "Myles Turner"
+       ]
+      },
+      {
+       "label": "Zach LaVine",
+       "player": "Zach LaVine",
+       "m": "Nick",
+       "value": 500.22,
+       "shown": "added 12-02; drop not paired (the daily rosters show 3 adds and 3 departures that day)",
+       "sub": "36 starts for Nick",
+       "add_day": "2019-12-02",
+       "stint": [
+        "2019-12-02",
+        "2020-03-03"
+       ],
+       "drops": []
+      },
+      {
+       "label": "CJ McCollum",
+       "player": "CJ McCollum",
+       "m": "Hayden",
+       "value": 499.27,
+       "shown": "added 11-18; drop not paired (the daily rosters show 1 adds and 2 departures that day)",
+       "sub": "46 starts for Hayden",
+       "add_day": "2019-11-18",
+       "stint": [
+        "2019-11-18",
+        "2020-03-08"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Devonte' Graham",
+       "player": "Devonte' Graham",
+       "m": "Nick",
+       "value": 495.32,
+       "shown": "added 11-18; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+       "sub": "44 starts for Nick",
+       "add_day": "2019-11-18",
+       "stint": [
+        "2019-11-18",
+        "2020-03-03"
+       ],
+       "drops": []
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "preseason add": 5
+     },
+     "eligible": 46
+    },
+    "roy": {
+     "winner": {
+      "label": "Ja Morant",
+      "player": "Ja Morant",
+      "m": "Hayden",
+      "value": -3.22,
+      "shown": "15.9 FPPG in 1 game",
+      "sub": "1 start",
+      "ms": [
+       "Hayden"
+      ]
+     },
+     "top": [
+      {
+       "label": "Ja Morant",
+       "player": "Ja Morant",
+       "m": "Hayden",
+       "value": -3.22,
+       "shown": "15.9 FPPG in 1 game",
+       "sub": "1 start",
+       "ms": [
+        "Hayden"
+       ]
+      },
+      {
+       "label": "Zion Williamson",
+       "player": "Zion Williamson",
+       "m": "Nick",
+       "value": -32.0,
+       "shown": "24.5 FPPG in 8 games",
+       "sub": "8 starts",
+       "ms": [
+        "Nick",
+        "Benton"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 2
+    },
+    "bust": {
+     "winner": {
+      "label": "Russell Westbrook",
+      "player": "Russell Westbrook",
+      "m": "Garrett",
+      "value": 664.41,
+      "shown": "expected 51.7, 40.0 in 57 games",
+      "sub": "Garrett's draft pick",
+      "expected": 51.68,
+      "fppg": 40.03,
+      "games": 57
+     },
+     "top": [
+      {
+       "label": "Russell Westbrook",
+       "player": "Russell Westbrook",
+       "m": "Garrett",
+       "value": 664.41,
+       "shown": "expected 51.7, 40.0 in 57 games",
+       "sub": "Garrett's draft pick",
+       "expected": 51.68,
+       "fppg": 40.03,
+       "games": 57
+      },
+      {
+       "label": "Paul George",
+       "player": "Paul George",
+       "m": "Garrett",
+       "value": 548.66,
+       "shown": "expected 48.9, 37.5 in 48 games",
+       "sub": "Garrett's draft pick",
+       "expected": 48.89,
+       "fppg": 37.46,
+       "games": 48
+      },
+      {
+       "label": "Joel Embiid",
+       "player": "Joel Embiid",
+       "m": "Nick",
+       "value": 397.52,
+       "shown": "expected 47.2, 39.4 in 51 games",
+       "sub": "Nick's draft pick",
+       "expected": 47.18,
+       "fppg": 39.39,
+       "games": 51
+      },
+      {
+       "label": "Anthony Davis",
+       "player": "Anthony Davis",
+       "m": "Garrett",
+       "value": 358.99,
+       "shown": "expected 50.8, 45.0 in 62 games",
+       "sub": "Garrett's draft pick",
+       "expected": 50.83,
+       "fppg": 45.04,
+       "games": 62
+      },
+      {
+       "label": "Lauri Markkanen",
+       "player": "Lauri Markkanen",
+       "m": "Benton",
+       "value": 340.39,
+       "shown": "expected 33.7, 26.8 in 50 games",
+       "sub": "Benton's draft pick",
+       "expected": 33.65,
+       "fppg": 26.85,
+       "games": 50
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no expectation": 3,
+      "under 10 games: out, not a bust": 1
+     },
+     "eligible": 23,
+     "source": "his 2018-19 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 0.9933,
+       "shown": "99.3%",
+       "sub": "743 of 748 fillable starts \u00b7 5 missed over 138 days",
+       "started": 743,
+       "fillable": 748,
+       "days": 138,
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 0.9907,
+       "shown": "99.1%",
+       "sub": "744 of 751 fillable starts \u00b7 7 missed over 138 days",
+       "started": 744,
+       "fillable": 751,
+       "days": 138,
+       "rank": 2
+      },
+      {
+       "m": "Nick",
+       "value": 0.9837,
+       "shown": "98.4%",
+       "sub": "726 of 738 fillable starts \u00b7 12 missed over 138 days",
+       "started": 726,
+       "fillable": 738,
+       "days": 138,
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 0.98,
+       "shown": "98.0%",
+       "sub": "687 of 701 fillable starts \u00b7 14 missed over 138 days",
+       "started": 687,
+       "fillable": 701,
+       "days": 138,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [
+      "Garrett"
+     ],
+     "top": [
+      {
+       "m": "Garrett",
+       "value": 9611.8519,
+       "shown": "13 picks \u00b7 best: LeBron James 1,478.7",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "LeBron James",
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 8452.9864,
+       "shown": "13 picks \u00b7 best: Giannis Antetokounmpo 1,515.7",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "Giannis Antetokounmpo",
+       "rank": 2
+      },
+      {
+       "m": "Benton",
+       "value": 7402.9094,
+       "shown": "13 picks \u00b7 best: James Harden 1,794.6",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "James Harden",
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 6595.7507,
+       "shown": "13 picks \u00b7 best: Damian Lillard 1,294.9",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "Damian Lillard",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "waiver": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 3216.812,
+       "shown": "33 pickups \u00b7 best: Hassan Whiteside 779.9",
+       "sub": "",
+       "n": 33,
+       "best": "Hassan Whiteside",
+       "rank": 1
+      },
+      {
+       "m": "Benton",
+       "value": 2601.9166,
+       "shown": "26 pickups \u00b7 best: Domantas Sabonis 637.2",
+       "sub": "",
+       "n": 26,
+       "best": "Domantas Sabonis",
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 1575.1292,
+       "shown": "19 pickups \u00b7 best: CJ McCollum 499.3",
+       "sub": "",
+       "n": 19,
+       "best": "CJ McCollum",
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 882.5182,
+       "shown": "7 pickups \u00b7 best: Fred VanVleet 237.9",
+       "sub": "",
+       "n": 7,
+       "best": "Fred VanVleet",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 2.0,
+       "shown": "lost 2 of 10 weeks above the median",
+       "sub": "28,196.2 points against in 19 weeks",
+       "weeks_above": 10,
+       "pa": 28196.2,
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 2.0,
+       "shown": "lost 2 of 14 weeks above the median",
+       "sub": "27,556.8 points against in 19 weeks",
+       "weeks_above": 14,
+       "pa": 27556.8,
+       "rank": 2
+      },
+      {
+       "m": "Nick",
+       "value": 1.0,
+       "shown": "lost 1 of 7 weeks above the median",
+       "sub": "28,746.5 points against in 19 weeks",
+       "weeks_above": 7,
+       "pa": 28746.55,
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 1.0,
+       "shown": "lost 1 of 7 weeks above the median",
+       "sub": "27,846.2 points against in 19 weeks",
+       "weeks_above": 7,
+       "pa": 27846.25,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   },
@@ -981,7 +2325,97 @@
     "off": 46,
     "max_off": 7.55,
     "short_weeks": [],
-    "flips": 0
+    "flips": 0,
+    "rookies": {
+     "rookies": [
+      "Anthony Edwards",
+      "LaMelo Ball",
+      "Tyrese Haliburton"
+     ],
+     "disagree": [],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "Gordon Hayward",
+      "to": "Nick",
+      "day": "2021-01-04",
+      "from": "Benton"
+     },
+     {
+      "player": "Michael Porter Jr.",
+      "to": "Benton",
+      "day": "2021-01-22",
+      "from": "Hayden"
+     },
+     {
+      "player": "Jerami Grant",
+      "to": "Benton",
+      "day": "2021-02-01",
+      "from": "Nick"
+     },
+     {
+      "player": "Tyrese Haliburton",
+      "to": "Benton",
+      "day": "2021-02-08",
+      "from": "Hayden"
+     },
+     {
+      "player": "Andre Drummond",
+      "to": "Benton",
+      "day": "2021-02-27",
+      "from": "Hayden"
+     },
+     {
+      "player": "Gordon Hayward",
+      "to": "Benton",
+      "day": "2021-03-12",
+      "from": "Nick"
+     },
+     {
+      "player": "LeBron James",
+      "to": "Benton",
+      "day": "2021-03-25",
+      "from": "Nick"
+     },
+     {
+      "player": "Buddy Hield",
+      "to": "Hayden",
+      "day": "2021-03-31",
+      "from": "Nick"
+     },
+     {
+      "player": "Jrue Holiday",
+      "to": "Garrett",
+      "day": "2021-03-31",
+      "from": "Hayden"
+     },
+     {
+      "player": "DeMar DeRozan",
+      "to": "Hayden",
+      "day": "2021-04-05",
+      "from": "Nick"
+     },
+     {
+      "player": "Pascal Siakam",
+      "to": "Hayden",
+      "day": "2021-04-05",
+      "from": "Nick"
+     },
+     {
+      "player": "Terry Rozier",
+      "to": "Nick",
+      "day": "2021-04-05",
+      "from": "Hayden"
+     },
+     {
+      "player": "Buddy Hield",
+      "to": "Garrett",
+      "day": "2021-04-12",
+      "from": "Hayden"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -1393,6 +2827,418 @@
       "no prior league seasons": 3
      },
      "eligible": 30
+    },
+    "pickup": {
+     "winner": {
+      "label": "Chris Paul",
+      "player": "Chris Paul",
+      "m": "Nick",
+      "value": 454.55,
+      "shown": "added 02-01; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+      "sub": "35 starts for Nick",
+      "add_day": "2021-02-01",
+      "stint": [
+       "2021-02-01",
+       "2021-04-18"
+      ],
+      "drops": []
+     },
+     "top": [
+      {
+       "label": "Chris Paul",
+       "player": "Chris Paul",
+       "m": "Nick",
+       "value": 454.55,
+       "shown": "added 02-01; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+       "sub": "35 starts for Nick",
+       "add_day": "2021-02-01",
+       "stint": [
+        "2021-02-01",
+        "2021-04-18"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Michael Porter Jr.",
+       "player": "Michael Porter Jr.",
+       "m": "Benton",
+       "value": 324.75,
+       "shown": "added 01-22, no drop",
+       "sub": "41 starts for Benton",
+       "add_day": "2021-01-22",
+       "stint": [
+        "2021-01-22",
+        "2021-04-18"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Lonzo Ball",
+       "player": "Lonzo Ball",
+       "m": "Benton",
+       "value": 241.44,
+       "shown": "dropped Malik Beasley on 02-17",
+       "sub": "18 starts for Benton",
+       "add_day": "2021-02-17",
+       "stint": [
+        "2021-02-17",
+        "2021-04-17"
+       ],
+       "drops": [
+        "Malik Beasley"
+       ]
+      },
+      {
+       "label": "LaMelo Ball",
+       "player": "LaMelo Ball",
+       "m": "Hayden",
+       "value": 225.44,
+       "shown": "dropped Tyrese Haliburton on 02-08",
+       "sub": "17 starts for Hayden",
+       "add_day": "2021-02-08",
+       "stint": [
+        "2021-02-08",
+        "2021-04-18"
+       ],
+       "drops": [
+        "Tyrese Haliburton"
+       ]
+      },
+      {
+       "label": "Jrue Holiday",
+       "player": "Jrue Holiday",
+       "m": "Benton",
+       "value": 215.15,
+       "shown": "added 01-04; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+       "sub": "20 starts for Benton",
+       "add_day": "2021-01-04",
+       "stint": [
+        "2021-01-04",
+        "2021-03-11"
+       ],
+       "drops": []
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "preseason add": 4
+     },
+     "eligible": 45
+    },
+    "roy": {
+     "winner": {
+      "label": "LaMelo Ball",
+      "player": "LaMelo Ball",
+      "m": "Hayden",
+      "value": 273.57,
+      "shown": "34.2 FPPG in 26 games",
+      "sub": "25 starts",
+      "ms": [
+       "Hayden",
+       "Benton"
+      ]
+     },
+     "top": [
+      {
+       "label": "LaMelo Ball",
+       "player": "LaMelo Ball",
+       "m": "Hayden",
+       "value": 273.57,
+       "shown": "34.2 FPPG in 26 games",
+       "sub": "25 starts",
+       "ms": [
+        "Hayden",
+        "Benton"
+       ]
+      },
+      {
+       "label": "Anthony Edwards",
+       "player": "Anthony Edwards",
+       "m": "Benton",
+       "value": 82.97,
+       "shown": "32.9 FPPG in 13 games",
+       "sub": "13 starts",
+       "ms": [
+        "Benton"
+       ]
+      },
+      {
+       "label": "Tyrese Haliburton",
+       "player": "Tyrese Haliburton",
+       "m": "Benton",
+       "value": 18.08,
+       "shown": "29.4 FPPG in 11 games",
+       "sub": "8 starts",
+       "ms": [
+        "Benton"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3
+    },
+    "bust": {
+     "winner": {
+      "label": "John Collins",
+      "player": "John Collins",
+      "m": "Nick",
+      "value": 564.35,
+      "shown": "expected 38.8, 29.9 in 63 games",
+      "sub": "Nick's draft pick",
+      "expected": 38.85,
+      "fppg": 29.89,
+      "games": 63
+     },
+     "top": [
+      {
+       "label": "John Collins",
+       "player": "John Collins",
+       "m": "Nick",
+       "value": 564.35,
+       "shown": "expected 38.8, 29.9 in 63 games",
+       "sub": "Nick's draft pick",
+       "expected": 38.85,
+       "fppg": 29.89,
+       "games": 63
+      },
+      {
+       "label": "Andre Drummond",
+       "player": "Andre Drummond",
+       "m": "Hayden",
+       "value": 443.49,
+       "shown": "expected 40.9, 31.3 in 46 games",
+       "sub": "Hayden's draft pick",
+       "expected": 40.94,
+       "fppg": 31.3,
+       "games": 46
+      },
+      {
+       "label": "Trae Young",
+       "player": "Trae Young",
+       "m": "Hayden",
+       "value": 333.26,
+       "shown": "expected 44.9, 39.6 in 63 games",
+       "sub": "Hayden's draft pick",
+       "expected": 44.89,
+       "fppg": 39.6,
+       "games": 63
+      },
+      {
+       "label": "Anthony Davis",
+       "player": "Anthony Davis",
+       "m": "Benton",
+       "value": 314.83,
+       "shown": "expected 45.0, 36.3 in 36 games",
+       "sub": "Benton's draft pick",
+       "expected": 45.04,
+       "fppg": 36.3,
+       "games": 36
+      },
+      {
+       "label": "Devin Booker",
+       "player": "Devin Booker",
+       "m": "Hayden",
+       "value": 296.51,
+       "shown": "expected 36.0, 31.6 in 67 games",
+       "sub": "Hayden's draft pick",
+       "expected": 36.01,
+       "fppg": 31.59,
+       "games": 67
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no expectation": 3
+     },
+     "eligible": 21,
+     "source": "his 2019-20 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Hayden"
+     ],
+     "top": [
+      {
+       "m": "Hayden",
+       "value": 0.9956,
+       "shown": "99.6%",
+       "sub": "677 of 680 fillable starts \u00b7 3 missed over 118 days",
+       "started": 677,
+       "fillable": 680,
+       "days": 118,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 0.9863,
+       "shown": "98.6%",
+       "sub": "647 of 656 fillable starts \u00b7 9 missed over 118 days",
+       "started": 647,
+       "fillable": 656,
+       "days": 118,
+       "rank": 2
+      },
+      {
+       "m": "Nick",
+       "value": 0.9829,
+       "shown": "98.3%",
+       "sub": "691 of 703 fillable starts \u00b7 12 missed over 118 days",
+       "started": 691,
+       "fillable": 703,
+       "days": 118,
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 0.9785,
+       "shown": "97.8%",
+       "sub": "637 of 651 fillable starts \u00b7 14 missed over 118 days",
+       "started": 637,
+       "fillable": 651,
+       "days": 118,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 9852.2916,
+       "shown": "13 picks \u00b7 best: Luka Doncic 1,320.5",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "Luka Doncic",
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 8311.412,
+       "shown": "13 picks \u00b7 best: Nikola Jokic 1,701.3",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "Nikola Jokic",
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 8265.1173,
+       "shown": "13 picks \u00b7 best: James Harden 1,248.7",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "James Harden",
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 4812.1123,
+       "shown": "13 picks \u00b7 best: Fred VanVleet 783.4",
+       "sub": "no keepers that season",
+       "picks": 13,
+       "keepers_par": 0.0,
+       "best": "Fred VanVleet",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "waiver": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 1716.4584,
+       "shown": "30 pickups \u00b7 best: Michael Porter Jr. 324.8",
+       "sub": "",
+       "n": 30,
+       "best": "Michael Porter Jr.",
+       "rank": 1
+      },
+      {
+       "m": "Nick",
+       "value": 1532.1379,
+       "shown": "27 pickups \u00b7 best: Chris Paul 454.5",
+       "sub": "",
+       "n": 27,
+       "best": "Chris Paul",
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 828.1104,
+       "shown": "18 pickups \u00b7 best: Gordon Hayward 173.1",
+       "sub": "",
+       "n": 18,
+       "best": "Gordon Hayward",
+       "rank": 3
+      },
+      {
+       "m": "Hayden",
+       "value": 827.0121,
+       "shown": "23 pickups \u00b7 best: LaMelo Ball 225.4",
+       "sub": "",
+       "n": 23,
+       "best": "LaMelo Ball",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Hayden"
+     ],
+     "top": [
+      {
+       "m": "Hayden",
+       "value": 2.0,
+       "shown": "lost 2 of 10 weeks above the median",
+       "sub": "25,999.7 points against in 16 weeks",
+       "weeks_above": 10,
+       "pa": 25999.7,
+       "rank": 1
+      },
+      {
+       "m": "Nick",
+       "value": 2.0,
+       "shown": "lost 2 of 14 weeks above the median",
+       "sub": "25,423.9 points against in 16 weeks",
+       "weeks_above": 14,
+       "pa": 25423.9,
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 2.0,
+       "shown": "lost 2 of 7 weeks above the median",
+       "sub": "24,723.4 points against in 16 weeks",
+       "weeks_above": 7,
+       "pa": 24723.35,
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 1.0,
+       "shown": "lost 1 of 1 week above the median",
+       "sub": "26,846.4 points against in 16 weeks",
+       "weeks_above": 1,
+       "pa": 26846.4,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   },
@@ -1427,7 +3273,56 @@
     "off": 51,
     "max_off": 5.4,
     "short_weeks": [],
-    "flips": 0
+    "flips": 0,
+    "rookies": {
+     "rookies": [
+      "Cade Cunningham",
+      "Evan Mobley",
+      "Josh Giddey",
+      "Scottie Barnes"
+     ],
+     "disagree": [],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "Mo Bamba",
+      "to": "Nick",
+      "day": "2021-11-22",
+      "from": "Benton"
+     },
+     {
+      "player": "Jonas Valanciunas",
+      "to": "Benton",
+      "day": "2021-12-15",
+      "from": "Nick"
+     },
+     {
+      "player": "Jonas Valanciunas",
+      "to": "Nick",
+      "day": "2022-01-05",
+      "from": "Benton"
+     },
+     {
+      "player": "Terry Rozier",
+      "to": "Garrett",
+      "day": "2022-02-01",
+      "from": "Nick"
+     },
+     {
+      "player": "Scottie Barnes",
+      "to": "Benton",
+      "day": "2022-03-01",
+      "from": "Nick"
+     },
+     {
+      "player": "Khris Middleton",
+      "to": "Benton",
+      "day": "2022-03-07",
+      "from": "Nick"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -1738,6 +3633,439 @@
       "no prior league seasons": 5
      },
      "eligible": 24
+    },
+    "pickup": {
+     "winner": {
+      "label": "Tyrese Haliburton",
+      "player": "Tyrese Haliburton",
+      "m": "Hayden",
+      "value": 508.32,
+      "shown": "dropped Jerami Grant on 12-12",
+      "sub": "38 starts for Hayden",
+      "add_day": "2021-12-12",
+      "stint": [
+       "2021-12-12",
+       "2022-03-13"
+      ],
+      "drops": [
+       "Jerami Grant"
+      ]
+     },
+     "top": [
+      {
+       "label": "Tyrese Haliburton",
+       "player": "Tyrese Haliburton",
+       "m": "Hayden",
+       "value": 508.32,
+       "shown": "dropped Jerami Grant on 12-12",
+       "sub": "38 starts for Hayden",
+       "add_day": "2021-12-12",
+       "stint": [
+        "2021-12-12",
+        "2022-03-13"
+       ],
+       "drops": [
+        "Jerami Grant"
+       ]
+      },
+      {
+       "label": "Miles Bridges",
+       "player": "Miles Bridges",
+       "m": "Benton",
+       "value": 417.32,
+       "shown": "dropped Cade Cunningham on 10-27",
+       "sub": "60 starts for Benton",
+       "add_day": "2021-10-27",
+       "stint": [
+        "2021-10-27",
+        "2022-03-13"
+       ],
+       "drops": [
+        "Cade Cunningham"
+       ]
+      },
+      {
+       "label": "DeMar DeRozan",
+       "player": "DeMar DeRozan",
+       "m": "Nick",
+       "value": 328.66,
+       "shown": "added 12-27; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+       "sub": "36 starts for Nick",
+       "add_day": "2021-12-27",
+       "stint": [
+        "2021-12-27",
+        "2022-03-13"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Darius Garland",
+       "player": "Darius Garland",
+       "m": "Benton",
+       "value": 321.87,
+       "shown": "dropped Jordan Poole on 12-05",
+       "sub": "29 starts for Benton",
+       "add_day": "2021-12-05",
+       "stint": [
+        "2021-12-05",
+        "2022-03-13"
+       ],
+       "drops": [
+        "Jordan Poole"
+       ]
+      },
+      {
+       "label": "Khris Middleton",
+       "player": "Khris Middleton",
+       "m": "Nick",
+       "value": 268.12,
+       "shown": "dropped Derrick White on 01-06",
+       "sub": "25 starts for Nick",
+       "add_day": "2022-01-06",
+       "stint": [
+        "2022-01-06",
+        "2022-03-06"
+       ],
+       "drops": [
+        "Derrick White"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "preseason add": 6
+     },
+     "eligible": 56
+    },
+    "roy": {
+     "winner": {
+      "label": "Cade Cunningham",
+      "player": "Cade Cunningham",
+      "m": "Nick",
+      "value": 67.27,
+      "shown": "31.0 FPPG in 25 games",
+      "sub": "24 starts",
+      "ms": [
+       "Nick",
+       "Benton"
+      ]
+     },
+     "top": [
+      {
+       "label": "Cade Cunningham",
+       "player": "Cade Cunningham",
+       "m": "Nick",
+       "value": 67.27,
+       "shown": "31.0 FPPG in 25 games",
+       "sub": "24 starts",
+       "ms": [
+        "Nick",
+        "Benton"
+       ]
+      },
+      {
+       "label": "Evan Mobley",
+       "player": "Evan Mobley",
+       "m": "Hayden",
+       "value": 52.65,
+       "shown": "29.1 FPPG in 51 games",
+       "sub": "49 starts",
+       "ms": [
+        "Hayden",
+        "Benton"
+       ]
+      },
+      {
+       "label": "Josh Giddey",
+       "player": "Josh Giddey",
+       "m": "Hayden",
+       "value": -0.16,
+       "shown": "28.8 FPPG in 4 games",
+       "sub": "4 starts",
+       "ms": [
+        "Hayden",
+        "Benton"
+       ]
+      },
+      {
+       "label": "Scottie Barnes",
+       "player": "Scottie Barnes",
+       "m": "Benton",
+       "value": -35.03,
+       "shown": "27.5 FPPG in 22 games",
+       "sub": "22 starts",
+       "ms": [
+        "Benton",
+        "Nick"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 4
+    },
+    "bust": {
+     "winner": {
+      "label": "Russell Westbrook",
+      "player": "Russell Westbrook",
+      "m": "Hayden",
+      "value": 1367.58,
+      "shown": "expected 50.6, 33.1 in 78 games",
+      "sub": "Hayden's keeper",
+      "expected": 50.64,
+      "fppg": 33.11,
+      "games": 78
+     },
+     "top": [
+      {
+       "label": "Russell Westbrook",
+       "player": "Russell Westbrook",
+       "m": "Hayden",
+       "value": 1367.58,
+       "shown": "expected 50.6, 33.1 in 78 games",
+       "sub": "Hayden's keeper",
+       "expected": 50.64,
+       "fppg": 33.11,
+       "games": 78
+      },
+      {
+       "label": "Nikola Vucevic",
+       "player": "Nikola Vucevic",
+       "m": "Nick",
+       "value": 576.13,
+       "shown": "expected 46.4, 38.5 in 73 games",
+       "sub": "Nick's keeper",
+       "expected": 46.43,
+       "fppg": 38.53,
+       "games": 73
+      },
+      {
+       "label": "Julius Randle",
+       "player": "Julius Randle",
+       "m": "Garrett",
+       "value": 478.52,
+       "shown": "expected 43.3, 36.6 in 72 games",
+       "sub": "Garrett's keeper",
+       "expected": 43.27,
+       "fppg": 36.63,
+       "games": 72
+      },
+      {
+       "label": "Clint Capela",
+       "player": "Clint Capela",
+       "m": "Nick",
+       "value": 459.22,
+       "shown": "expected 37.5, 31.3 in 74 games",
+       "sub": "Nick's draft pick",
+       "expected": 37.52,
+       "fppg": 31.31,
+       "games": 74
+      },
+      {
+       "label": "James Harden",
+       "player": "James Harden",
+       "m": "Garrett",
+       "value": 380.42,
+       "shown": "expected 52.9, 47.1 in 65 games",
+       "sub": "Garrett's keeper",
+       "expected": 52.91,
+       "fppg": 47.06,
+       "games": 65
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "under 10 games: out, not a bust": 1,
+      "no NBA games": 3
+     },
+     "eligible": 23,
+     "source": "his 2020-21 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 0.9964,
+       "shown": "99.6%",
+       "sub": "822 of 825 fillable starts \u00b7 3 missed over 146 days",
+       "started": 822,
+       "fillable": 825,
+       "days": 146,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 0.9917,
+       "shown": "99.2%",
+       "sub": "718 of 724 fillable starts \u00b7 6 missed over 146 days",
+       "started": 718,
+       "fillable": 724,
+       "days": 146,
+       "rank": 2
+      },
+      {
+       "m": "Benton",
+       "value": 0.9903,
+       "shown": "99.0%",
+       "sub": "818 of 826 fillable starts \u00b7 8 missed over 146 days",
+       "started": 818,
+       "fillable": 826,
+       "days": 146,
+       "rank": 3
+      },
+      {
+       "m": "Hayden",
+       "value": 0.9759,
+       "shown": "97.6%",
+       "sub": "768 of 787 fillable starts \u00b7 19 missed over 146 days",
+       "started": 768,
+       "fillable": 787,
+       "days": 146,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [
+      "Garrett"
+     ],
+     "top": [
+      {
+       "m": "Garrett",
+       "value": 3032.9041,
+       "shown": "7 picks \u00b7 best: LeBron James 976.7",
+       "sub": "keepers apart: 6 kept, 4,710.4 PAR",
+       "picks": 7,
+       "keepers_par": 4710.4223,
+       "best": "LeBron James",
+       "rank": 1
+      },
+      {
+       "m": "Nick",
+       "value": 1853.6141,
+       "shown": "7 picks \u00b7 best: Ja Morant 638.0",
+       "sub": "keepers apart: 6 kept, 4,346.8 PAR",
+       "picks": 7,
+       "keepers_par": 4346.7656,
+       "best": "Ja Morant",
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 1593.4335,
+       "shown": "7 picks \u00b7 best: Devin Booker 558.2",
+       "sub": "keepers apart: 6 kept, 3,746.7 PAR",
+       "picks": 7,
+       "keepers_par": 3746.7364,
+       "best": "Devin Booker",
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 1569.4744,
+       "shown": "7 picks \u00b7 best: Christian Wood 466.8",
+       "sub": "keepers apart: 6 kept, 2,811.5 PAR",
+       "picks": 7,
+       "keepers_par": 2811.5486,
+       "best": "Christian Wood",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "waiver": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 1568.0375,
+       "shown": "50 pickups \u00b7 best: DeMar DeRozan 328.7",
+       "sub": "",
+       "n": 50,
+       "best": "DeMar DeRozan",
+       "rank": 1
+      },
+      {
+       "m": "Benton",
+       "value": 1371.9726,
+       "shown": "34 pickups \u00b7 best: Miles Bridges 417.3",
+       "sub": "",
+       "n": 34,
+       "best": "Miles Bridges",
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 642.8239,
+       "shown": "15 pickups \u00b7 best: Tyrese Haliburton 508.3",
+       "sub": "",
+       "n": 15,
+       "best": "Tyrese Haliburton",
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 637.7818,
+       "shown": "9 pickups \u00b7 best: Terry Rozier 256.0",
+       "sub": "",
+       "n": 9,
+       "best": "Terry Rozier",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 3.0,
+       "shown": "lost 3 of 13 weeks above the median",
+       "sub": "29,760.5 points against in 20 weeks",
+       "weeks_above": 13,
+       "pa": 29760.55,
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 2.0,
+       "shown": "lost 2 of 8 weeks above the median",
+       "sub": "29,085.7 points against in 20 weeks",
+       "weeks_above": 8,
+       "pa": 29085.65,
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 1.0,
+       "shown": "lost 1 of 9 weeks above the median",
+       "sub": "30,230.0 points against in 20 weeks",
+       "weeks_above": 9,
+       "pa": 30230.0,
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 0.0,
+       "shown": "lost 0 of 10 weeks above the median",
+       "sub": "29,385.7 points against in 20 weeks",
+       "weeks_above": 10,
+       "pa": 29385.7,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   },
@@ -1773,7 +4101,49 @@
     "off": 20,
     "max_off": 5.0,
     "short_weeks": [],
-    "flips": 0
+    "flips": 0,
+    "rookies": {
+     "rookies": [
+      "Bennedict Mathurin",
+      "Paolo Banchero",
+      "Walker Kessler"
+     ],
+     "disagree": [],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "Desmond Bane",
+      "to": "Hayden",
+      "day": "2022-10-24",
+      "from": "Nick"
+     },
+     {
+      "player": "Desmond Bane",
+      "to": "Benton",
+      "day": "2022-11-12",
+      "from": "Hayden"
+     },
+     {
+      "player": "Evan Mobley",
+      "to": "Benton",
+      "day": "2022-12-05",
+      "from": "Nick"
+     },
+     {
+      "player": "Terry Rozier",
+      "to": "Benton",
+      "day": "2022-12-12",
+      "from": "Nick"
+     },
+     {
+      "player": "Jalen Brunson",
+      "to": "Nick",
+      "day": "2023-01-30",
+      "from": "Garrett"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -1945,6 +4315,415 @@
       "no games in the log": 1
      },
      "eligible": 32
+    },
+    "pickup": {
+     "winner": {
+      "label": "Lauri Markkanen",
+      "player": "Lauri Markkanen",
+      "m": "Nick",
+      "value": 680.73,
+      "shown": "added 10-24; drop not paired (the daily rosters show 3 adds and 3 departures that day)",
+      "sub": "57 starts for Nick",
+      "add_day": "2022-10-24",
+      "stint": [
+       "2022-10-24",
+       "2023-03-19"
+      ],
+      "drops": []
+     },
+     "top": [
+      {
+       "label": "Lauri Markkanen",
+       "player": "Lauri Markkanen",
+       "m": "Nick",
+       "value": 680.73,
+       "shown": "added 10-24; drop not paired (the daily rosters show 3 adds and 3 departures that day)",
+       "sub": "57 starts for Nick",
+       "add_day": "2022-10-24",
+       "stint": [
+        "2022-10-24",
+        "2023-03-19"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Myles Turner",
+       "player": "Myles Turner",
+       "m": "Benton",
+       "value": 308.12,
+       "shown": "added 11-13, no drop",
+       "sub": "48 starts for Benton",
+       "add_day": "2022-11-13",
+       "stint": [
+        "2022-11-13",
+        "2023-03-19"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Josh Giddey",
+       "player": "Josh Giddey",
+       "m": "Hayden",
+       "value": 258.07,
+       "shown": "dropped Deandre Ayton on 12-12",
+       "sub": "41 starts for Hayden",
+       "add_day": "2022-12-12",
+       "stint": [
+        "2022-12-12",
+        "2023-03-19"
+       ],
+       "drops": [
+        "Deandre Ayton"
+       ]
+      },
+      {
+       "label": "Jamal Murray",
+       "player": "Jamal Murray",
+       "m": "Hayden",
+       "value": 247.72,
+       "shown": "added 01-09; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+       "sub": "16 starts for Hayden",
+       "add_day": "2023-01-09",
+       "stint": [
+        "2023-01-09",
+        "2023-03-04"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Desmond Bane",
+       "player": "Desmond Bane",
+       "m": "Benton",
+       "value": 233.84,
+       "shown": "added 11-12; drop not paired (the daily rosters show 1 adds and 2 departures that day)",
+       "sub": "29 starts for Benton",
+       "add_day": "2022-11-12",
+       "stint": [
+        "2022-11-12",
+        "2023-03-19"
+       ],
+       "drops": []
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "preseason add": 4
+     },
+     "eligible": 52
+    },
+    "roy": {
+     "winner": {
+      "label": "Paolo Banchero",
+      "player": "Paolo Banchero",
+      "m": "Garrett",
+      "value": 59.7,
+      "shown": "28.8 FPPG in 65 games",
+      "sub": "59 starts",
+      "ms": [
+       "Garrett"
+      ]
+     },
+     "top": [
+      {
+       "label": "Paolo Banchero",
+       "player": "Paolo Banchero",
+       "m": "Garrett",
+       "value": 59.7,
+       "shown": "28.8 FPPG in 65 games",
+       "sub": "59 starts",
+       "ms": [
+        "Garrett"
+       ]
+      },
+      {
+       "label": "Walker Kessler",
+       "player": "Walker Kessler",
+       "m": "Garrett",
+       "value": 22.68,
+       "shown": "34.8 FPPG in 4 games",
+       "sub": "4 starts",
+       "ms": [
+        "Garrett"
+       ]
+      },
+      {
+       "label": "Bennedict Mathurin",
+       "player": "Bennedict Mathurin",
+       "m": "Hayden",
+       "value": -30.41,
+       "shown": "21.4 FPPG in 5 games",
+       "sub": "5 starts",
+       "ms": [
+        "Hayden",
+        "Nick"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3
+    },
+    "bust": {
+     "winner": {
+      "label": "Dejounte Murray",
+      "player": "Dejounte Murray",
+      "m": "Benton",
+      "value": 797.95,
+      "shown": "expected 47.9, 37.1 in 74 games",
+      "sub": "Benton's keeper",
+      "expected": 47.85,
+      "fppg": 37.07,
+      "games": 74
+     },
+     "top": [
+      {
+       "label": "Dejounte Murray",
+       "player": "Dejounte Murray",
+       "m": "Benton",
+       "value": 797.95,
+       "shown": "expected 47.9, 37.1 in 74 games",
+       "sub": "Benton's keeper",
+       "expected": 47.85,
+       "fppg": 37.07,
+       "games": 74
+      },
+      {
+       "label": "Rudy Gobert",
+       "player": "Rudy Gobert",
+       "m": "Nick",
+       "value": 525.86,
+       "shown": "expected 38.3, 30.7 in 70 games",
+       "sub": "Nick's draft pick",
+       "expected": 38.25,
+       "fppg": 30.74,
+       "games": 70
+      },
+      {
+       "label": "Trae Young",
+       "player": "Trae Young",
+       "m": "Benton",
+       "value": 322.64,
+       "shown": "expected 44.9, 40.4 in 73 games",
+       "sub": "Benton's keeper",
+       "expected": 44.85,
+       "fppg": 40.43,
+       "games": 73
+      },
+      {
+       "label": "Giannis Antetokounmpo",
+       "player": "Giannis Antetokounmpo",
+       "m": "Garrett",
+       "value": 297.92,
+       "shown": "expected 49.5, 44.8 in 63 games",
+       "sub": "Garrett's keeper",
+       "expected": 49.48,
+       "fppg": 44.75,
+       "games": 63
+      },
+      {
+       "label": "Khris Middleton",
+       "player": "Khris Middleton",
+       "m": "Nick",
+       "value": 277.6,
+       "shown": "expected 35.4, 26.9 in 33 games",
+       "sub": "Nick's draft pick",
+       "expected": 35.36,
+       "fppg": 26.95,
+       "games": 33
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no expectation": 4
+     },
+     "eligible": 23,
+     "source": "his 2021-22 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Hayden"
+     ],
+     "top": [
+      {
+       "m": "Hayden",
+       "value": 0.9978,
+       "shown": "99.8%",
+       "sub": "896 of 898 fillable starts \u00b7 2 missed over 153 days",
+       "started": 896,
+       "fillable": 898,
+       "days": 153,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 0.9913,
+       "shown": "99.1%",
+       "sub": "795 of 802 fillable starts \u00b7 7 missed over 153 days",
+       "started": 795,
+       "fillable": 802,
+       "days": 153,
+       "rank": 2
+      },
+      {
+       "m": "Benton",
+       "value": 0.9869,
+       "shown": "98.7%",
+       "sub": "827 of 838 fillable starts \u00b7 11 missed over 153 days",
+       "started": 827,
+       "fillable": 838,
+       "days": 153,
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 0.9733,
+       "shown": "97.3%",
+       "sub": "838 of 861 fillable starts \u00b7 23 missed over 153 days",
+       "started": 838,
+       "fillable": 861,
+       "days": 153,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [
+      "Hayden"
+     ],
+     "top": [
+      {
+       "m": "Hayden",
+       "value": 3828.0946,
+       "shown": "7 picks \u00b7 best: Kyrie Irving 840.4",
+       "sub": "keepers apart: 6 kept, 4,316.7 PAR",
+       "picks": 7,
+       "keepers_par": 4316.6871,
+       "best": "Kyrie Irving",
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 3357.3235,
+       "shown": "7 picks \u00b7 best: Kristaps Porzingis 733.4",
+       "sub": "keepers apart: 6 kept, 5,153.7 PAR",
+       "picks": 7,
+       "keepers_par": 5153.75,
+       "best": "Kristaps Porzingis",
+       "rank": 2
+      },
+      {
+       "m": "Benton",
+       "value": 3266.4107,
+       "shown": "7 picks \u00b7 best: Julius Randle 1,012.0",
+       "sub": "keepers apart: 6 kept, 4,224.7 PAR",
+       "picks": 7,
+       "keepers_par": 4224.7151,
+       "best": "Julius Randle",
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 1194.0603,
+       "shown": "7 picks \u00b7 best: Paul George 675.6",
+       "sub": "keepers apart: 6 kept, 6,195.8 PAR",
+       "picks": 7,
+       "keepers_par": 6195.8122,
+       "best": "Paul George",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "waiver": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 1801.3956,
+       "shown": "37 pickups \u00b7 best: Lauri Markkanen 680.7",
+       "sub": "",
+       "n": 37,
+       "best": "Lauri Markkanen",
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 1089.4315,
+       "shown": "42 pickups \u00b7 best: Josh Giddey 258.1",
+       "sub": "",
+       "n": 42,
+       "best": "Josh Giddey",
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 726.9118,
+       "shown": "9 pickups \u00b7 best: Klay Thompson 221.5",
+       "sub": "",
+       "n": 9,
+       "best": "Klay Thompson",
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 713.6798,
+       "shown": "19 pickups \u00b7 best: Myles Turner 308.1",
+       "sub": "",
+       "n": 19,
+       "best": "Myles Turner",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 4.0,
+       "shown": "lost 4 of 11 weeks above the median",
+       "sub": "31,711.0 points against in 21 weeks",
+       "weeks_above": 11,
+       "pa": 31710.95,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 3.0,
+       "shown": "lost 3 of 9 weeks above the median",
+       "sub": "32,521.4 points against in 21 weeks",
+       "weeks_above": 9,
+       "pa": 32521.35,
+       "rank": 2
+      },
+      {
+       "m": "Benton",
+       "value": 1.0,
+       "shown": "lost 1 of 6 weeks above the median",
+       "sub": "32,452.1 points against in 21 weeks",
+       "weeks_above": 6,
+       "pa": 32452.05,
+       "rank": 3
+      },
+      {
+       "m": "Hayden",
+       "value": 1.0,
+       "shown": "lost 1 of 16 weeks above the median",
+       "sub": "32,330.1 points against in 21 weeks",
+       "weeks_above": 16,
+       "pa": 32330.1,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   },
@@ -1980,7 +4759,87 @@
     "off": 11,
     "max_off": 5.0,
     "short_weeks": [],
-    "flips": 0
+    "flips": 0,
+    "rookies": {
+     "rookies": [
+      "Ausar Thompson",
+      "Brandon Miller",
+      "Chet Holmgren",
+      "Scoot Henderson",
+      "Victor Wembanyama"
+     ],
+     "disagree": [],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "Evan Mobley",
+      "to": "Hayden",
+      "day": "2023-11-06",
+      "from": "Nick"
+     },
+     {
+      "player": "Deandre Ayton",
+      "to": "Benton",
+      "day": "2023-11-14",
+      "from": "Garrett"
+     },
+     {
+      "player": "Miles Bridges",
+      "to": "Garrett",
+      "day": "2023-11-30",
+      "from": "Nick"
+     },
+     {
+      "player": "Zion Williamson",
+      "to": "Hayden",
+      "day": "2023-12-07",
+      "from": "Garrett"
+     },
+     {
+      "player": "Bam Adebayo",
+      "to": "Hayden",
+      "day": "2023-12-24",
+      "from": "Nick"
+     },
+     {
+      "player": "Rudy Gobert",
+      "to": "Nick",
+      "day": "2024-01-08",
+      "from": "Hayden"
+     },
+     {
+      "player": "Brandon Ingram",
+      "to": "Hayden",
+      "day": "2024-01-17",
+      "from": "Nick"
+     },
+     {
+      "player": "Mikal Bridges",
+      "to": "Hayden",
+      "day": "2024-01-23",
+      "from": "Nick"
+     },
+     {
+      "player": "Brandon Ingram",
+      "to": "Nick",
+      "day": "2024-02-08",
+      "from": "Hayden"
+     },
+     {
+      "player": "Jaylen Brown",
+      "to": "Hayden",
+      "day": "2024-02-12",
+      "from": "Garrett"
+     },
+     {
+      "player": "Anfernee Simons",
+      "to": "Hayden",
+      "day": "2024-03-18",
+      "from": "Nick"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -2296,6 +5155,431 @@
       "no prior league seasons": 5
      },
      "eligible": 32
+    },
+    "pickup": {
+     "winner": {
+      "label": "Tyrese Maxey",
+      "player": "Tyrese Maxey",
+      "m": "Benton",
+      "value": 706.68,
+      "shown": "dropped Jusuf Nurkic on 10-27",
+      "sub": "57 starts for Benton",
+      "add_day": "2023-10-27",
+      "stint": [
+       "2023-10-27",
+       "2024-03-24"
+      ],
+      "drops": [
+       "Jusuf Nurkic"
+      ]
+     },
+     "top": [
+      {
+       "label": "Tyrese Maxey",
+       "player": "Tyrese Maxey",
+       "m": "Benton",
+       "value": 706.68,
+       "shown": "dropped Jusuf Nurkic on 10-27",
+       "sub": "57 starts for Benton",
+       "add_day": "2023-10-27",
+       "stint": [
+        "2023-10-27",
+        "2024-03-24"
+       ],
+       "drops": [
+        "Jusuf Nurkic"
+       ]
+      },
+      {
+       "label": "Chet Holmgren",
+       "player": "Chet Holmgren",
+       "m": "Nick",
+       "value": 633.65,
+       "shown": "dropped Evan Mobley on 10-28",
+       "sub": "68 starts for Nick",
+       "add_day": "2023-10-28",
+       "stint": [
+        "2023-10-28",
+        "2024-03-24"
+       ],
+       "drops": [
+        "Evan Mobley"
+       ]
+      },
+      {
+       "label": "Bam Adebayo",
+       "player": "Bam Adebayo",
+       "m": "Hayden",
+       "value": 344.55,
+       "shown": "dropped Jerami Grant on 12-24",
+       "sub": "40 starts for Hayden",
+       "add_day": "2023-12-24",
+       "stint": [
+        "2023-12-24",
+        "2024-03-24"
+       ],
+       "drops": [
+        "Jerami Grant"
+       ]
+      },
+      {
+       "label": "Kawhi Leonard",
+       "player": "Kawhi Leonard",
+       "m": "Benton",
+       "value": 334.25,
+       "shown": "added 10-26; drop not paired (the daily rosters show 1 adds and 2 departures that day)",
+       "sub": "28 starts for Benton",
+       "add_day": "2023-10-26",
+       "stint": [
+        "2023-10-26",
+        "2024-01-14"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Terry Rozier",
+       "player": "Terry Rozier",
+       "m": "Garrett",
+       "value": 283.61,
+       "shown": "added 12-07, no drop",
+       "sub": "43 starts for Garrett",
+       "add_day": "2023-12-07",
+       "stint": [
+        "2023-12-07",
+        "2024-03-24"
+       ],
+       "drops": []
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "preseason add": 6
+     },
+     "eligible": 63
+    },
+    "roy": {
+     "winner": {
+      "label": "Victor Wembanyama",
+      "player": "Victor Wembanyama",
+      "m": "Garrett",
+      "value": 1050.37,
+      "shown": "45.5 FPPG in 63 games",
+      "sub": "62 starts",
+      "ms": [
+       "Garrett"
+      ]
+     },
+     "top": [
+      {
+       "label": "Victor Wembanyama",
+       "player": "Victor Wembanyama",
+       "m": "Garrett",
+       "value": 1050.37,
+       "shown": "45.5 FPPG in 63 games",
+       "sub": "62 starts",
+       "ms": [
+        "Garrett"
+       ]
+      },
+      {
+       "label": "Chet Holmgren",
+       "player": "Chet Holmgren",
+       "m": "Nick",
+       "value": 633.65,
+       "shown": "37.7 FPPG in 68 games",
+       "sub": "68 starts",
+       "ms": [
+        "Nick"
+       ]
+      },
+      {
+       "label": "Brandon Miller",
+       "player": "Brandon Miller",
+       "m": "Benton",
+       "value": 19.88,
+       "shown": "31.2 FPPG in 12 games",
+       "sub": "12 starts",
+       "ms": [
+        "Benton"
+       ]
+      },
+      {
+       "label": "Ausar Thompson",
+       "player": "Ausar Thompson",
+       "m": "Nick",
+       "value": -34.02,
+       "shown": "19.4 FPPG in 4 games",
+       "sub": "4 starts",
+       "ms": [
+        "Nick"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 4
+    },
+    "bust": {
+     "winner": {
+      "label": "Damian Lillard",
+      "player": "Damian Lillard",
+      "m": "Nick",
+      "value": 617.17,
+      "shown": "expected 49.3, 40.8 in 73 games",
+      "sub": "Nick's keeper",
+      "expected": 49.29,
+      "fppg": 40.84,
+      "games": 73
+     },
+     "top": [
+      {
+       "label": "Damian Lillard",
+       "player": "Damian Lillard",
+       "m": "Nick",
+       "value": 617.17,
+       "shown": "expected 49.3, 40.8 in 73 games",
+       "sub": "Nick's keeper",
+       "expected": 49.29,
+       "fppg": 40.84,
+       "games": 73
+      },
+      {
+       "label": "Stephen Curry",
+       "player": "Stephen Curry",
+       "m": "Nick",
+       "value": 531.98,
+       "shown": "expected 50.2, 43.0 in 74 games",
+       "sub": "Nick's keeper",
+       "expected": 50.21,
+       "fppg": 43.02,
+       "games": 74
+      },
+      {
+       "label": "James Harden",
+       "player": "James Harden",
+       "m": "Garrett",
+       "value": 492.63,
+       "shown": "expected 48.4, 41.6 in 72 games",
+       "sub": "Garrett's keeper",
+       "expected": 48.42,
+       "fppg": 41.58,
+       "games": 72
+      },
+      {
+       "label": "Jrue Holiday",
+       "player": "Jrue Holiday",
+       "m": "Hayden",
+       "value": 474.19,
+       "shown": "expected 38.6, 31.7 in 69 games",
+       "sub": "Hayden's draft pick",
+       "expected": 38.62,
+       "fppg": 31.75,
+       "games": 69
+      },
+      {
+       "label": "Josh Giddey",
+       "player": "Josh Giddey",
+       "m": "Benton",
+       "value": 446.04,
+       "shown": "expected 33.8, 28.2 in 80 games",
+       "sub": "Benton's draft pick",
+       "expected": 33.81,
+       "fppg": 28.24,
+       "games": 80
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no expectation": 2
+     },
+     "eligible": 24,
+     "source": "his 2022-23 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 0.9989,
+       "shown": "99.9%",
+       "sub": "907 of 908 fillable starts \u00b7 1 missed over 153 days",
+       "started": 907,
+       "fillable": 908,
+       "days": 153,
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 0.9944,
+       "shown": "99.4%",
+       "sub": "895 of 900 fillable starts \u00b7 5 missed over 153 days",
+       "started": 895,
+       "fillable": 900,
+       "days": 153,
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 0.9944,
+       "shown": "99.4%",
+       "sub": "885 of 890 fillable starts \u00b7 5 missed over 153 days",
+       "started": 885,
+       "fillable": 890,
+       "days": 153,
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 0.993,
+       "shown": "99.3%",
+       "sub": "846 of 852 fillable starts \u00b7 6 missed over 153 days",
+       "started": 846,
+       "fillable": 852,
+       "days": 153,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [
+      "Hayden"
+     ],
+     "top": [
+      {
+       "m": "Hayden",
+       "value": 2700.9847,
+       "shown": "7 picks \u00b7 best: LeBron James 997.7",
+       "sub": "keepers apart: 6 kept, 6,122.3 PAR",
+       "picks": 7,
+       "keepers_par": 6122.3157,
+       "best": "LeBron James",
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 2690.6931,
+       "shown": "7 picks \u00b7 best: Victor Wembanyama 1,050.4",
+       "sub": "keepers apart: 6 kept, 5,802.0 PAR",
+       "picks": 7,
+       "keepers_par": 5802.021,
+       "best": "Victor Wembanyama",
+       "rank": 2
+      },
+      {
+       "m": "Nick",
+       "value": 2264.7447,
+       "shown": "7 picks \u00b7 best: Scottie Barnes 820.3",
+       "sub": "keepers apart: 6 kept, 6,020.5 PAR",
+       "picks": 7,
+       "keepers_par": 6020.4984,
+       "best": "Scottie Barnes",
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 1666.3765,
+       "shown": "7 picks \u00b7 best: Dejounte Murray 720.7",
+       "sub": "keepers apart: 6 kept, 3,955.5 PAR",
+       "picks": 7,
+       "keepers_par": 3955.533,
+       "best": "Dejounte Murray",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "waiver": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 2208.6262,
+       "shown": "35 pickups \u00b7 best: Tyrese Maxey 706.7",
+       "sub": "",
+       "n": 35,
+       "best": "Tyrese Maxey",
+       "rank": 1
+      },
+      {
+       "m": "Nick",
+       "value": 1853.209,
+       "shown": "52 pickups \u00b7 best: Chet Holmgren 633.7",
+       "sub": "",
+       "n": 52,
+       "best": "Chet Holmgren",
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 1318.9379,
+       "shown": "32 pickups \u00b7 best: Terry Rozier 283.6",
+       "sub": "",
+       "n": 32,
+       "best": "Terry Rozier",
+       "rank": 3
+      },
+      {
+       "m": "Hayden",
+       "value": 1309.3058,
+       "shown": "47 pickups \u00b7 best: Bam Adebayo 344.5",
+       "sub": "",
+       "n": 47,
+       "best": "Bam Adebayo",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Hayden"
+     ],
+     "top": [
+      {
+       "m": "Hayden",
+       "value": 4.0,
+       "shown": "lost 4 of 14 weeks above the median",
+       "sub": "34,384.8 points against in 21 weeks",
+       "weeks_above": 14,
+       "pa": 34384.85,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 1.0,
+       "shown": "lost 1 of 11 weeks above the median",
+       "sub": "34,797.6 points against in 21 weeks",
+       "weeks_above": 11,
+       "pa": 34797.55,
+       "rank": 2
+      },
+      {
+       "m": "Nick",
+       "value": 1.0,
+       "shown": "lost 1 of 15 weeks above the median",
+       "sub": "33,762.4 points against in 21 weeks",
+       "weeks_above": 15,
+       "pa": 33762.4,
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 0.0,
+       "shown": "lost 0 of 2 weeks above the median",
+       "sub": "36,291.1 points against in 21 weeks",
+       "weeks_above": 2,
+       "pa": 36291.1,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   },
@@ -2331,7 +5615,119 @@
     "off": 10,
     "max_off": 3.0,
     "short_weeks": [],
-    "flips": 0
+    "flips": 0,
+    "rookies": {
+     "rookies": [
+      "Zach Edey"
+     ],
+     "disagree": [],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "RJ Barrett",
+      "to": "Nick",
+      "day": "2024-11-12",
+      "from": "Benton"
+     },
+     {
+      "player": "Brandon Ingram",
+      "to": "Nick",
+      "day": "2024-11-25",
+      "from": "Hayden"
+     },
+     {
+      "player": "Michael Porter Jr.",
+      "to": "Nick",
+      "day": "2024-11-25",
+      "from": "Hayden"
+     },
+     {
+      "player": "Desmond Bane",
+      "to": "Nick",
+      "day": "2024-11-30",
+      "from": "Benton"
+     },
+     {
+      "player": "Pascal Siakam",
+      "to": "Hayden",
+      "day": "2025-01-04",
+      "from": "Nick"
+     },
+     {
+      "player": "Zach LaVine",
+      "to": "Nick",
+      "day": "2025-01-04",
+      "from": "Hayden"
+     },
+     {
+      "player": "Jordan Poole",
+      "to": "Nick",
+      "day": "2025-01-29",
+      "from": "Garrett"
+     },
+     {
+      "player": "Jaylen Brown",
+      "to": "Hayden",
+      "day": "2025-01-31",
+      "from": "Nick"
+     },
+     {
+      "player": "Jalen Green",
+      "to": "Nick",
+      "day": "2025-02-03",
+      "from": "Benton"
+     },
+     {
+      "player": "Zion Williamson",
+      "to": "Garrett",
+      "day": "2025-02-03",
+      "from": "Hayden"
+     },
+     {
+      "player": "Dyson Daniels",
+      "to": "Benton",
+      "day": "2025-02-11",
+      "from": "Hayden"
+     },
+     {
+      "player": "Lauri Markkanen",
+      "to": "Nick",
+      "day": "2025-02-12",
+      "from": "Benton"
+     },
+     {
+      "player": "RJ Barrett",
+      "to": "Garrett",
+      "day": "2025-03-10",
+      "from": "Hayden"
+     },
+     {
+      "player": "DeMar DeRozan",
+      "to": "Nick",
+      "day": "2025-03-17",
+      "from": "Hayden"
+     },
+     {
+      "player": "Jimmy Butler III",
+      "to": "Hayden",
+      "day": "2025-03-17",
+      "from": "Benton"
+     },
+     {
+      "player": "Jimmy Butler III",
+      "to": "Garrett",
+      "day": "2025-03-25",
+      "from": "Hayden"
+     },
+     {
+      "player": "RJ Barrett",
+      "to": "Hayden",
+      "day": "2025-03-26",
+      "from": "Garrett"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -2635,6 +6031,374 @@
       "under 20 games in his prior league seasons": 8
      },
      "eligible": 30
+    },
+    "pickup": {
+     "winner": {
+      "label": "Tyler Herro",
+      "player": "Tyler Herro",
+      "m": "Garrett",
+      "value": 600.8,
+      "shown": "dropped Anfernee Simons on 11-13",
+      "sub": "57 starts for Garrett",
+      "add_day": "2024-11-13",
+      "stint": [
+       "2024-11-13",
+       "2025-03-30"
+      ],
+      "drops": [
+       "Anfernee Simons"
+      ]
+     },
+     "top": [
+      {
+       "label": "Tyler Herro",
+       "player": "Tyler Herro",
+       "m": "Garrett",
+       "value": 600.8,
+       "shown": "dropped Anfernee Simons on 11-13",
+       "sub": "57 starts for Garrett",
+       "add_day": "2024-11-13",
+       "stint": [
+        "2024-11-13",
+        "2025-03-30"
+       ],
+       "drops": [
+        "Anfernee Simons"
+       ]
+      },
+      {
+       "label": "Josh Hart",
+       "player": "Josh Hart",
+       "m": "Benton",
+       "value": 523.83,
+       "shown": "added 11-18; drop not paired (the daily rosters show 2 adds and 3 departures that day)",
+       "sub": "54 starts for Benton",
+       "add_day": "2024-11-18",
+       "stint": [
+        "2024-11-18",
+        "2025-03-30"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Miles Bridges",
+       "player": "Miles Bridges",
+       "m": "Nick",
+       "value": 328.83,
+       "shown": "added 01-18; drop not paired (the daily rosters show 2 adds and 3 departures that day)",
+       "sub": "30 starts for Nick",
+       "add_day": "2025-01-18",
+       "stint": [
+        "2025-01-18",
+        "2025-03-23"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Desmond Bane",
+       "player": "Desmond Bane",
+       "m": "Nick",
+       "value": 278.31,
+       "shown": "dropped Jakob Poeltl on 11-30",
+       "sub": "26 starts for Nick",
+       "add_day": "2024-11-30",
+       "stint": [
+        "2024-11-30",
+        "2025-02-02"
+       ],
+       "drops": [
+        "Jakob Poeltl"
+       ]
+      },
+      {
+       "label": "Josh Giddey",
+       "player": "Josh Giddey",
+       "m": "Garrett",
+       "value": 206.95,
+       "shown": "added 02-11, no drop",
+       "sub": "12 starts for Garrett",
+       "add_day": "2025-02-11",
+       "stint": [
+        "2025-02-11",
+        "2025-03-30"
+       ],
+       "drops": []
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "preseason add": 4
+     },
+     "eligible": 61
+    },
+    "roy": {
+     "winner": null,
+     "top": [],
+     "none": "no first-year NBA player started for a league team",
+     "excluded": {},
+     "eligible": 0
+    },
+    "bust": {
+     "winner": {
+      "label": "Fred VanVleet",
+      "player": "Fred VanVleet",
+      "m": "Nick",
+      "value": 538.7,
+      "shown": "expected 42.9, 33.9 in 60 games",
+      "sub": "Nick's pick 9",
+      "expected": 42.87,
+      "fppg": 33.89,
+      "games": 60
+     },
+     "top": [
+      {
+       "label": "Fred VanVleet",
+       "player": "Fred VanVleet",
+       "m": "Nick",
+       "value": 538.7,
+       "shown": "expected 42.9, 33.9 in 60 games",
+       "sub": "Nick's pick 9",
+       "expected": 42.87,
+       "fppg": 33.89,
+       "games": 60
+      },
+      {
+       "label": "Luka Doncic",
+       "player": "Luka Doncic",
+       "m": "Nick",
+       "value": 478.93,
+       "shown": "expected 61.6, 52.0 in 50 games",
+       "sub": "Nick's keeper",
+       "expected": 61.56,
+       "fppg": 51.98,
+       "games": 50
+      },
+      {
+       "label": "Lauri Markkanen",
+       "player": "Lauri Markkanen",
+       "m": "Benton",
+       "value": 440.11,
+       "shown": "expected 40.0, 30.6 in 47 games",
+       "sub": "Benton's keeper",
+       "expected": 39.99,
+       "fppg": 30.62,
+       "games": 47
+      },
+      {
+       "label": "Donovan Mitchell",
+       "player": "Donovan Mitchell",
+       "m": "Garrett",
+       "value": 428.63,
+       "shown": "expected 45.4, 39.4 in 71 games",
+       "sub": "Garrett's keeper",
+       "expected": 45.42,
+       "fppg": 39.38,
+       "games": 71
+      },
+      {
+       "label": "Joel Embiid",
+       "player": "Joel Embiid",
+       "m": "Nick",
+       "value": 325.55,
+       "shown": "expected 53.5, 36.3 in 19 games",
+       "sub": "Nick's keeper",
+       "expected": 53.45,
+       "fppg": 36.32,
+       "games": 19
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no expectation": 1
+     },
+     "eligible": 29,
+     "source": "his 2023-24 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 0.9989,
+       "shown": "99.9%",
+       "sub": "947 of 948 fillable starts \u00b7 1 missed over 160 days",
+       "started": 947,
+       "fillable": 948,
+       "days": 160,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 0.9956,
+       "shown": "99.6%",
+       "sub": "906 of 910 fillable starts \u00b7 4 missed over 160 days",
+       "started": 906,
+       "fillable": 910,
+       "days": 160,
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 0.9924,
+       "shown": "99.2%",
+       "sub": "920 of 927 fillable starts \u00b7 7 missed over 160 days",
+       "started": 920,
+       "fillable": 927,
+       "days": 160,
+       "rank": 3
+      },
+      {
+       "m": "Benton",
+       "value": 0.9822,
+       "shown": "98.2%",
+       "sub": "884 of 900 fillable starts \u00b7 16 missed over 160 days",
+       "started": 884,
+       "fillable": 900,
+       "days": 160,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 3763.6676,
+       "shown": "7 picks \u00b7 best: Cade Cunningham 1,021.7",
+       "sub": "keepers apart: 6 kept, 3,950.9 PAR",
+       "picks": 7,
+       "keepers_par": 3950.8717,
+       "best": "Cade Cunningham",
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 2805.3063,
+       "shown": "7 picks \u00b7 best: Kyrie Irving 554.4",
+       "sub": "keepers apart: 6 kept, 6,549.7 PAR",
+       "picks": 7,
+       "keepers_par": 6549.7096,
+       "best": "Kyrie Irving",
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 2071.09,
+       "shown": "7 picks \u00b7 best: Karl-Anthony Towns 1,067.2",
+       "sub": "keepers apart: 6 kept, 4,620.4 PAR",
+       "picks": 7,
+       "keepers_par": 4620.4254,
+       "best": "Karl-Anthony Towns",
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 1649.6937,
+       "shown": "7 picks \u00b7 best: Damian Lillard 903.7",
+       "sub": "keepers apart: 6 kept, 3,205.3 PAR",
+       "picks": 7,
+       "keepers_par": 3205.3322,
+       "best": "Damian Lillard",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "waiver": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 2654.7068,
+       "shown": "54 pickups \u00b7 best: Miles Bridges 328.8",
+       "sub": "",
+       "n": 54,
+       "best": "Miles Bridges",
+       "rank": 1
+      },
+      {
+       "m": "Benton",
+       "value": 1568.8038,
+       "shown": "29 pickups \u00b7 best: Josh Hart 523.8",
+       "sub": "",
+       "n": 29,
+       "best": "Josh Hart",
+       "rank": 2
+      },
+      {
+       "m": "Garrett",
+       "value": 1566.8984,
+       "shown": "29 pickups \u00b7 best: Tyler Herro 600.8",
+       "sub": "",
+       "n": 29,
+       "best": "Tyler Herro",
+       "rank": 3
+      },
+      {
+       "m": "Hayden",
+       "value": 1389.5652,
+       "shown": "43 pickups \u00b7 best: Dyson Daniels 190.0",
+       "sub": "",
+       "n": 43,
+       "best": "Dyson Daniels",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 5.0,
+       "shown": "lost 5 of 8 weeks above the median",
+       "sub": "36,947.2 points against in 21 weeks",
+       "weeks_above": 8,
+       "pa": 36947.25,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 3.0,
+       "shown": "lost 3 of 8 weeks above the median",
+       "sub": "36,825.5 points against in 21 weeks",
+       "weeks_above": 8,
+       "pa": 36825.55,
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 2.0,
+       "shown": "lost 2 of 12 weeks above the median",
+       "sub": "34,489.1 points against in 21 weeks",
+       "weeks_above": 12,
+       "pa": 34489.15,
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 1.0,
+       "shown": "lost 1 of 14 weeks above the median",
+       "sub": "34,827.4 points against in 21 weeks",
+       "weeks_above": 14,
+       "pa": 34827.45,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   },
@@ -2670,7 +6434,63 @@
     "off": 0,
     "max_off": 0.0,
     "short_weeks": [],
-    "flips": 0
+    "flips": 0,
+    "rookies": {
+     "rookies": [
+      "Ace Bailey",
+      "Cooper Flagg",
+      "Derik Queen",
+      "Kon Knueppel",
+      "VJ Edgecombe"
+     ],
+     "disagree": [],
+     "unplaced": [],
+     "rule": "NBA_SEASONS wins: the first season he played"
+    },
+    "pickups_off_rosters": [
+     {
+      "player": "Alex Sarr",
+      "to": "Nick",
+      "day": "2025-10-26",
+      "from": "Benton"
+     },
+     {
+      "player": "Jimmy Butler III",
+      "to": "Nick",
+      "day": "2025-10-27",
+      "from": "Hayden"
+     },
+     {
+      "player": "Kristaps Porzingis",
+      "to": "Hayden",
+      "day": "2025-10-27",
+      "from": "Nick"
+     },
+     {
+      "player": "Alex Sarr",
+      "to": "Benton",
+      "day": "2025-10-29",
+      "from": "Nick"
+     },
+     {
+      "player": "Zach LaVine",
+      "to": "Nick",
+      "day": "2025-11-03",
+      "from": "Hayden"
+     },
+     {
+      "player": "Myles Turner",
+      "to": "Hayden",
+      "day": "2025-11-17",
+      "from": "Nick"
+     },
+     {
+      "player": "Joel Embiid",
+      "to": "Nick",
+      "day": "2026-01-26",
+      "from": "Hayden"
+     }
+    ]
    },
    "awards": {
     "mvp": {
@@ -3100,6 +6920,431 @@
       "no games in the log": 3
      },
      "eligible": 24
+    },
+    "pickup": {
+     "winner": {
+      "label": "Donovan Clingan",
+      "player": "Donovan Clingan",
+      "m": "Garrett",
+      "value": 432.29,
+      "shown": "added 12-22; drop not paired (the daily rosters show 3 adds and 2 departures that day)",
+      "sub": "42 starts for Garrett",
+      "add_day": "2025-12-22",
+      "stint": [
+       "2025-12-22",
+       "2026-03-22"
+      ],
+      "drops": []
+     },
+     "top": [
+      {
+       "label": "Donovan Clingan",
+       "player": "Donovan Clingan",
+       "m": "Garrett",
+       "value": 432.29,
+       "shown": "added 12-22; drop not paired (the daily rosters show 3 adds and 2 departures that day)",
+       "sub": "42 starts for Garrett",
+       "add_day": "2025-12-22",
+       "stint": [
+        "2025-12-22",
+        "2026-03-22"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Julius Randle",
+       "player": "Julius Randle",
+       "m": "Benton",
+       "value": 425.27,
+       "shown": "dropped Alex Sarr on 10-25",
+       "sub": "68 starts for Benton",
+       "add_day": "2025-10-25",
+       "stint": [
+        "2025-10-25",
+        "2026-03-22"
+       ],
+       "drops": [
+        "Alex Sarr"
+       ]
+      },
+      {
+       "label": "Lauri Markkanen",
+       "player": "Lauri Markkanen",
+       "m": "Benton",
+       "value": 389.51,
+       "shown": "dropped Kyshawn George on 10-27",
+       "sub": "30 starts for Benton",
+       "add_day": "2025-10-27",
+       "stint": [
+        "2025-10-27",
+        "2026-01-26"
+       ],
+       "drops": [
+        "Kyshawn George"
+       ]
+      },
+      {
+       "label": "Bam Adebayo",
+       "player": "Bam Adebayo",
+       "m": "Benton",
+       "value": 373.66,
+       "shown": "added 01-19; drop not paired (the daily rosters show 2 adds and 2 departures that day)",
+       "sub": "26 starts for Benton",
+       "add_day": "2026-01-19",
+       "stint": [
+        "2026-01-19",
+        "2026-03-22"
+       ],
+       "drops": []
+      },
+      {
+       "label": "Amen Thompson",
+       "player": "Amen Thompson",
+       "m": "Nick",
+       "value": 367.23,
+       "shown": "added 12-08; drop not paired (the daily rosters show 6 adds and 4 departures that day)",
+       "sub": "47 starts for Nick",
+       "add_day": "2025-12-08",
+       "stint": [
+        "2025-12-08",
+        "2026-03-22"
+       ],
+       "drops": []
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "preseason add": 14
+     },
+     "eligible": 66
+    },
+    "roy": {
+     "winner": {
+      "label": "Cooper Flagg",
+      "player": "Cooper Flagg",
+      "m": "Garrett",
+      "value": 347.63,
+      "shown": "34.1 FPPG in 59 games",
+      "sub": "57 starts",
+      "ms": [
+       "Garrett"
+      ]
+     },
+     "top": [
+      {
+       "label": "Cooper Flagg",
+       "player": "Cooper Flagg",
+       "m": "Garrett",
+       "value": 347.63,
+       "shown": "34.1 FPPG in 59 games",
+       "sub": "57 starts",
+       "ms": [
+        "Garrett"
+       ]
+      },
+      {
+       "label": "Kon Knueppel",
+       "player": "Kon Knueppel",
+       "m": "Hayden",
+       "value": 206.42,
+       "shown": "35.6 FPPG in 29 games",
+       "sub": "28 starts",
+       "ms": [
+        "Hayden",
+        "Benton"
+       ]
+      },
+      {
+       "label": "VJ Edgecombe",
+       "player": "VJ Edgecombe",
+       "m": "Hayden",
+       "value": 196.81,
+       "shown": "31.8 FPPG in 56 games",
+       "sub": "52 starts",
+       "ms": [
+        "Garrett",
+        "Hayden"
+       ]
+      },
+      {
+       "label": "Derik Queen",
+       "player": "Derik Queen",
+       "m": "Nick",
+       "value": -38.19,
+       "shown": "23.1 FPPG in 7 games",
+       "sub": "7 starts",
+       "ms": [
+        "Nick"
+       ]
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 4
+    },
+    "bust": {
+     "winner": {
+      "label": "Zion Williamson",
+      "player": "Zion Williamson",
+      "m": "Hayden",
+      "value": 490.91,
+      "shown": "expected 35.6, 27.7 in 62 games",
+      "sub": "Hayden's pick 27",
+      "expected": 35.61,
+      "fppg": 27.69,
+      "games": 62
+     },
+     "top": [
+      {
+       "label": "Zion Williamson",
+       "player": "Zion Williamson",
+       "m": "Hayden",
+       "value": 490.91,
+       "shown": "expected 35.6, 27.7 in 62 games",
+       "sub": "Hayden's pick 27",
+       "expected": 35.61,
+       "fppg": 27.69,
+       "games": 62
+      },
+      {
+       "label": "Karl-Anthony Towns",
+       "player": "Karl-Anthony Towns",
+       "m": "Garrett",
+       "value": 452.61,
+       "shown": "expected 44.9, 38.9 in 75 games",
+       "sub": "Garrett's keeper",
+       "expected": 44.9,
+       "fppg": 38.87,
+       "games": 75
+      },
+      {
+       "label": "Josh Hart",
+       "player": "Josh Hart",
+       "m": "Garrett",
+       "value": 439.08,
+       "shown": "expected 38.6, 32.0 in 66 games",
+       "sub": "Garrett's pick 12",
+       "expected": 38.62,
+       "fppg": 31.97,
+       "games": 66
+      },
+      {
+       "label": "LeBron James",
+       "player": "LeBron James",
+       "m": "Benton",
+       "value": 428.19,
+       "shown": "expected 45.3, 38.1 in 60 games",
+       "sub": "Benton's pick 10",
+       "expected": 45.26,
+       "fppg": 38.12,
+       "games": 60
+      },
+      {
+       "label": "Desmond Bane",
+       "player": "Desmond Bane",
+       "m": "Garrett",
+       "value": 410.33,
+       "shown": "expected 37.2, 32.2 in 82 games",
+       "sub": "Garrett's pick 21",
+       "expected": 37.24,
+       "fppg": 32.24,
+       "games": 82
+      }
+     ],
+     "none": "",
+     "excluded": {
+      "no expectation": 1,
+      "under 10 games: out, not a bust": 1,
+      "no NBA games": 1
+     },
+     "eligible": 31,
+     "source": "his 2024-25 NBA FPPG (data/historical/NBA_SEASONS.json, this league's scoring): no preseason projection was stored before 2026-27"
+    }
+   },
+   "managers": {
+    "lineup": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 0.9884,
+       "shown": "98.8%",
+       "sub": "937 of 948 fillable starts \u00b7 11 missed over 152 days",
+       "started": 937,
+       "fillable": 948,
+       "days": 152,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 0.9833,
+       "shown": "98.3%",
+       "sub": "881 of 896 fillable starts \u00b7 15 missed over 152 days",
+       "started": 881,
+       "fillable": 896,
+       "days": 152,
+       "rank": 2
+      },
+      {
+       "m": "Benton",
+       "value": 0.9803,
+       "shown": "98.0%",
+       "sub": "846 of 863 fillable starts \u00b7 17 missed over 152 days",
+       "started": 846,
+       "fillable": 863,
+       "days": 152,
+       "rank": 3
+      },
+      {
+       "m": "Hayden",
+       "value": 0.9755,
+       "shown": "97.5%",
+       "sub": "836 of 857 fillable starts \u00b7 21 missed over 152 days",
+       "started": 836,
+       "fillable": 857,
+       "days": 152,
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "draft": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 3886.253,
+       "shown": "7 picks \u00b7 best: James Harden 868.7",
+       "sub": "keepers apart: 6 kept, 3,822.5 PAR",
+       "picks": 7,
+       "keepers_par": 3822.4877,
+       "best": "James Harden",
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 2138.1114,
+       "shown": "7 picks \u00b7 best: Jamal Murray 961.0",
+       "sub": "keepers apart: 6 kept, 3,182.7 PAR",
+       "picks": 7,
+       "keepers_par": 3182.66,
+       "best": "Jamal Murray",
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 1941.3972,
+       "shown": "7 picks \u00b7 best: Stephen Curry 547.9",
+       "sub": "keepers apart: 6 kept, 4,214.2 PAR",
+       "picks": 7,
+       "keepers_par": 4214.1911,
+       "best": "Stephen Curry",
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 1833.4828,
+       "shown": "7 picks \u00b7 best: Deni Avdija 636.2",
+       "sub": "keepers apart: 6 kept, 4,615.1 PAR",
+       "picks": 7,
+       "keepers_par": 4615.1351,
+       "best": "Deni Avdija",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "waiver": {
+     "winners": [
+      "Nick"
+     ],
+     "top": [
+      {
+       "m": "Nick",
+       "value": 1888.8264,
+       "shown": "48 pickups \u00b7 best: Amen Thompson 367.2",
+       "sub": "",
+       "n": 48,
+       "best": "Amen Thompson",
+       "rank": 1
+      },
+      {
+       "m": "Hayden",
+       "value": 1855.5243,
+       "shown": "24 pickups \u00b7 best: Michael Porter Jr. 337.9",
+       "sub": "",
+       "n": 24,
+       "best": "Michael Porter Jr.",
+       "rank": 2
+      },
+      {
+       "m": "Benton",
+       "value": 1710.2793,
+       "shown": "18 pickups \u00b7 best: Julius Randle 425.3",
+       "sub": "",
+       "n": 18,
+       "best": "Julius Randle",
+       "rank": 3
+      },
+      {
+       "m": "Garrett",
+       "value": 815.9328,
+       "shown": "29 pickups \u00b7 best: Donovan Clingan 432.3",
+       "sub": "",
+       "n": 29,
+       "best": "Donovan Clingan",
+       "rank": 4
+      }
+     ],
+     "none": ""
+    },
+    "unlucky": {
+     "winners": [
+      "Benton"
+     ],
+     "top": [
+      {
+       "m": "Benton",
+       "value": 4.0,
+       "shown": "lost 4 of 13 weeks above the median",
+       "sub": "33,118.0 points against in 21 weeks",
+       "weeks_above": 13,
+       "pa": 33118.0,
+       "rank": 1
+      },
+      {
+       "m": "Garrett",
+       "value": 2.0,
+       "shown": "lost 2 of 10 weeks above the median",
+       "sub": "32,607.9 points against in 21 weeks",
+       "weeks_above": 10,
+       "pa": 32607.95,
+       "rank": 2
+      },
+      {
+       "m": "Hayden",
+       "value": 1.0,
+       "shown": "lost 1 of 4 weeks above the median",
+       "sub": "33,445.0 points against in 21 weeks",
+       "weeks_above": 4,
+       "pa": 33444.95,
+       "rank": 3
+      },
+      {
+       "m": "Nick",
+       "value": 1.0,
+       "shown": "lost 1 of 15 weeks above the median",
+       "sub": "32,277.8 points against in 21 weeks",
+       "weeks_above": 15,
+       "pa": 32277.75,
+       "rank": 4
+      }
+     ],
+     "none": ""
     }
    }
   }
@@ -3109,7 +7354,628 @@
   "wins_swung": "Counted against the official weekly scores (all_matchups); his own started points from the league log.",
   "missing_days": "The league log misses whole days in some weeks (checks.short_weeks): no PAR is counted on them.",
   "most_improved": "League-log FPPG (games on a league roster) for this season and the usual level; there are no daily NBA lines before 2026-27.",
-  "trades": "data/historical/all_trades.json; each side's players' PAR plus each draft pick it got at the average PAR of players taken in that round (est.; data/historical/DRAFT_ROUND_VALUES.json); picks for a 2020 or earlier draft listed, not valued."
+  "trades": "data/historical/all_trades.json; each side's players' PAR plus each draft pick it got at the average PAR of players taken in that round (est.; data/historical/DRAFT_ROUND_VALUES.json); picks for a 2020 or earlier draft listed, not valued.",
+  "pickups": "No transaction log before 2026-27: a pickup is a stint on a roster that doesn't begin on opening day and isn't a trade arrival (all_trades.json, completed trades); the add day is its first logged day. The drop shows only when the daily rosters make it unambiguous (one arrival and one departure that day).",
+  "rookies": "His first NBA season played in data/historical/NBA_SEASONS.json; config/ROOKIE_SEASONS.json is checked against it and NBA_SEASONS wins where they disagree (checks.rookies.disagree).",
+  "bust": "The expectation is his previous NBA season's FPPG (NBA_SEASONS, 10+ games in it): no preseason projection was stored before 2026-27, and the pick order is punted through 2023-24. His actual is that season's whole NBA line. 2018-19 has no draft list.",
+  "potw_seasons": "Player of the Week history starts in 2025-26 (config/POTW_HISTORY.json); weeks without points take them from the league log.",
+  "managers": "modules/manager_awards: Lineup manager of the year (fill rate), Draft of the year (drafted players' PAR, keepers apart), Waiver king (all pickups' PAR), Unluckiest season (losses in weeks above the league median). Regular season only.",
+  "best": "Records' tiles: a season's PAR total (MVP, Rookie of the Year, Draft of the year, Waiver king) is ranked per regular-season week; the rest by their own measure."
+ },
+ "potw_seasons": {
+  "2025-26": {
+   "weeks": 23,
+   "most_wins": [
+    {
+     "player": "Nikola Jokic",
+     "wins": 7,
+     "ms": [
+      "Hayden"
+     ]
+    }
+   ],
+   "best_week": {
+    "week": 10,
+    "player": "Nikola Jokic",
+    "m": "Hayden",
+    "total_fp": 313.6,
+    "games": 4,
+    "fppg": 78.4,
+    "from_log": true
+   },
+   "unrecorded": []
+  }
+ },
+ "alltime": {
+  "pickup": [
+   {
+    "label": "Hassan Whiteside",
+    "player": "Hassan Whiteside",
+    "m": "Nick",
+    "value": 779.88,
+    "shown": "added 12-02; drop not paired (the daily rosters show 3 adds and 3 departures that day)",
+    "sub": "43 starts for Nick",
+    "add_day": "2019-12-02",
+    "stint": [
+     "2019-12-02",
+     "2020-03-08"
+    ],
+    "drops": [],
+    "season": "2019-20"
+   },
+   {
+    "label": "Tyrese Maxey",
+    "player": "Tyrese Maxey",
+    "m": "Benton",
+    "value": 706.68,
+    "shown": "dropped Jusuf Nurkic on 10-27",
+    "sub": "57 starts for Benton",
+    "add_day": "2023-10-27",
+    "stint": [
+     "2023-10-27",
+     "2024-03-24"
+    ],
+    "drops": [
+     "Jusuf Nurkic"
+    ],
+    "season": "2023-24"
+   },
+   {
+    "label": "Lauri Markkanen",
+    "player": "Lauri Markkanen",
+    "m": "Nick",
+    "value": 680.73,
+    "shown": "added 10-24; drop not paired (the daily rosters show 3 adds and 3 departures that day)",
+    "sub": "57 starts for Nick",
+    "add_day": "2022-10-24",
+    "stint": [
+     "2022-10-24",
+     "2023-03-19"
+    ],
+    "drops": [],
+    "season": "2022-23"
+   },
+   {
+    "label": "Luka Doncic",
+    "player": "Luka Doncic",
+    "m": "Benton",
+    "value": 673.24,
+    "shown": "dropped Robert Covington on 11-26",
+    "sub": "46 starts for Benton",
+    "add_day": "2018-11-26",
+    "stint": [
+     "2018-11-26",
+     "2019-03-17"
+    ],
+    "drops": [
+     "Robert Covington"
+    ],
+    "season": "2018-19"
+   },
+   {
+    "label": "Victor Oladipo",
+    "player": "Victor Oladipo",
+    "m": "Hayden",
+    "value": 660.17,
+    "shown": "dropped Dennis Schroder on 10-23",
+    "sub": "58 starts for Hayden",
+    "add_day": "2017-10-23",
+    "stint": [
+     "2017-10-23",
+     "2018-03-18"
+    ],
+    "drops": [
+     "Dennis Schroder"
+    ],
+    "season": "2017-18"
+   },
+   {
+    "label": "Domantas Sabonis",
+    "player": "Domantas Sabonis",
+    "m": "Benton",
+    "value": 637.19,
+    "shown": "dropped Myles Turner on 11-11",
+    "sub": "53 starts for Benton",
+    "add_day": "2019-11-11",
+    "stint": [
+     "2019-11-11",
+     "2020-03-08"
+    ],
+    "drops": [
+     "Myles Turner"
+    ],
+    "season": "2019-20"
+   },
+   {
+    "label": "Chet Holmgren",
+    "player": "Chet Holmgren",
+    "m": "Nick",
+    "value": 633.65,
+    "shown": "dropped Evan Mobley on 10-28",
+    "sub": "68 starts for Nick",
+    "add_day": "2023-10-28",
+    "stint": [
+     "2023-10-28",
+     "2024-03-24"
+    ],
+    "drops": [
+     "Evan Mobley"
+    ],
+    "season": "2023-24"
+   },
+   {
+    "label": "Tyler Herro",
+    "player": "Tyler Herro",
+    "m": "Garrett",
+    "value": 600.8,
+    "shown": "dropped Anfernee Simons on 11-13",
+    "sub": "57 starts for Garrett",
+    "add_day": "2024-11-13",
+    "stint": [
+     "2024-11-13",
+     "2025-03-30"
+    ],
+    "drops": [
+     "Anfernee Simons"
+    ],
+    "season": "2024-25"
+   },
+   {
+    "label": "Josh Hart",
+    "player": "Josh Hart",
+    "m": "Benton",
+    "value": 523.83,
+    "shown": "added 11-18; drop not paired (the daily rosters show 2 adds and 3 departures that day)",
+    "sub": "54 starts for Benton",
+    "add_day": "2024-11-18",
+    "stint": [
+     "2024-11-18",
+     "2025-03-30"
+    ],
+    "drops": [],
+    "season": "2024-25"
+   },
+   {
+    "label": "Tyrese Haliburton",
+    "player": "Tyrese Haliburton",
+    "m": "Hayden",
+    "value": 508.32,
+    "shown": "dropped Jerami Grant on 12-12",
+    "sub": "38 starts for Hayden",
+    "add_day": "2021-12-12",
+    "stint": [
+     "2021-12-12",
+     "2022-03-13"
+    ],
+    "drops": [
+     "Jerami Grant"
+    ],
+    "season": "2021-22"
+   }
+  ],
+  "trade": [
+   {
+    "label": "Nick \u21c4 Benton, 11-05",
+    "player": null,
+    "m": "Benton",
+    "value": 1212.79,
+    "shown": "won by Benton",
+    "sub": "",
+    "date": "2021-11-05",
+    "sides": {
+     "Nick": {
+      "par": 656.11,
+      "players_par": 656.11,
+      "picks_est": 0.0,
+      "got": [
+       "Anthony Davis",
+       "CJ McCollum"
+      ],
+      "picks": []
+     },
+     "Benton": {
+      "par": 1868.9,
+      "players_par": 1868.9,
+      "picks_est": 0.0,
+      "got": [
+       "Dejounte Murray",
+       "Jayson Tatum"
+      ],
+      "picks": []
+     }
+    },
+    "picks": {},
+    "season": "2021-22"
+   },
+   {
+    "label": "Nick \u21c4 Benton, 10-26",
+    "player": null,
+    "m": "Benton",
+    "value": 1197.27,
+    "shown": "won by Benton",
+    "sub": "",
+    "date": "2018-10-26",
+    "sides": {
+     "Nick": {
+      "par": 719.81,
+      "players_par": 719.81,
+      "picks_est": 0.0,
+      "got": [
+       "Kyle Lowry",
+       "Eric Bledsoe"
+      ],
+      "picks": [
+       "Benton's 2019 3rd (not valued)"
+      ]
+     },
+     "Benton": {
+      "par": 1917.08,
+      "players_par": 1917.08,
+      "picks_est": 0.0,
+      "got": [
+       "Victor Oladipo",
+       "Paul George"
+      ],
+      "picks": [
+       "Nick's 2019 6th (not valued)"
+      ]
+     }
+    },
+    "picks": {
+     "Nick": [
+      "Benton's 2019 3rd (not valued)"
+     ],
+     "Benton": [
+      "Nick's 2019 6th (not valued)"
+     ]
+    },
+    "season": "2018-19"
+   },
+   {
+    "label": "Garrett \u21c4 Benton, 01-05",
+    "player": null,
+    "m": "Garrett",
+    "value": 1120.19,
+    "shown": "won by Garrett \u00b7 picks est.",
+    "sub": "",
+    "date": "2021-01-05",
+    "sides": {
+     "Garrett": {
+      "par": 2030.15,
+      "players_par": 1642.83,
+      "picks_est": 387.32,
+      "got": [
+       "Julius Randle",
+       "De'Aaron Fox"
+      ],
+      "picks": [
+       "Benton's 2021 3rd (est. 387.3)"
+      ]
+     },
+     "Benton": {
+      "par": 909.95,
+      "players_par": 645.06,
+      "picks_est": 264.89,
+      "got": [
+       "Malcolm Brogdon",
+       "Deandre Ayton"
+      ],
+      "picks": [
+       "Garrett's 2021 5th (est. 264.9)"
+      ]
+     }
+    },
+    "picks": {
+     "Garrett": [
+      "Benton's 2021 3rd (est. 387.3)"
+     ],
+     "Benton": [
+      "Garrett's 2021 5th (est. 264.9)"
+     ]
+    },
+    "season": "2020-21"
+   },
+   {
+    "label": "Nick \u21c4 Garrett, 10-30",
+    "player": null,
+    "m": "Nick",
+    "value": 647.99,
+    "shown": "won by Nick \u00b7 picks est.",
+    "sub": "",
+    "date": "2024-10-30",
+    "sides": {
+     "Nick": {
+      "par": 1930.01,
+      "players_par": 1665.12,
+      "picks_est": 264.89,
+      "got": [
+       "LeBron James",
+       "Donovan Mitchell"
+      ],
+      "picks": [
+       "Garrett's 2025 5th (est. 264.9)"
+      ]
+     },
+     "Garrett": {
+      "par": 1282.02,
+      "players_par": 894.7,
+      "picks_est": 387.32,
+      "got": [
+       "Scottie Barnes",
+       "Fred VanVleet"
+      ],
+      "picks": [
+       "Nick's 2025 3rd (est. 387.3)"
+      ]
+     }
+    },
+    "picks": {
+     "Nick": [
+      "Garrett's 2025 5th (est. 264.9)"
+     ],
+     "Garrett": [
+      "Nick's 2025 3rd (est. 387.3)"
+     ]
+    },
+    "season": "2024-25"
+   },
+   {
+    "label": "Nick \u21c4 Benton, 12-15",
+    "player": null,
+    "m": "Benton",
+    "value": 572.86,
+    "shown": "won by Benton \u00b7 picks est.",
+    "sub": "",
+    "date": "2025-12-15",
+    "sides": {
+     "Nick": {
+      "par": 543.58,
+      "players_par": 59.08,
+      "picks_est": 484.5,
+      "got": [
+       "Devin Booker"
+      ],
+      "picks": [
+       "Benton's 2026 2nd (est. 484.5)"
+      ]
+     },
+     "Benton": {
+      "par": 1116.44,
+      "players_par": 465.82,
+      "picks_est": 650.62,
+      "got": [
+       "Trey Murphy III"
+      ],
+      "picks": [
+       "Nick's 2026 1st (est. 650.6)"
+      ]
+     }
+    },
+    "picks": {
+     "Nick": [
+      "Benton's 2026 2nd (est. 484.5)"
+     ],
+     "Benton": [
+      "Nick's 2026 1st (est. 650.6)"
+     ]
+    },
+    "season": "2025-26"
+   },
+   {
+    "label": "Hayden \u21c4 Garrett, 01-23",
+    "player": null,
+    "m": "Hayden",
+    "value": 559.92,
+    "shown": "won by Hayden \u00b7 picks est.",
+    "sub": "",
+    "date": "2026-01-23",
+    "sides": {
+     "Hayden": {
+      "par": 914.89,
+      "players_par": -0.62,
+      "picks_est": 915.51,
+      "got": [
+       "VJ Edgecombe"
+      ],
+      "picks": [
+       "Garrett's 2026 1st (est. 650.6)",
+       "Garrett's 2026 5th (est. 264.9)"
+      ]
+     },
+     "Garrett": {
+      "par": 354.97,
+      "players_par": 18.49,
+      "picks_est": 336.48,
+      "got": [
+       "Stephen Curry"
+      ],
+      "picks": [
+       "Hayden's 2026 7th (est. 184.2)",
+       "Hayden's 2026 8th (est. 152.2)"
+      ]
+     }
+    },
+    "picks": {
+     "Hayden": [
+      "Garrett's 2026 1st (est. 650.6)",
+      "Garrett's 2026 5th (est. 264.9)"
+     ],
+     "Garrett": [
+      "Hayden's 2026 7th (est. 184.2)",
+      "Hayden's 2026 8th (est. 152.2)"
+     ]
+    },
+    "season": "2025-26"
+   },
+   {
+    "label": "Garrett \u21c4 Nick, 01-15",
+    "player": null,
+    "m": "Nick",
+    "value": 528.14,
+    "shown": "won by Nick",
+    "sub": "",
+    "date": "2019-01-15",
+    "sides": {
+     "Garrett": {
+      "par": 298.31,
+      "players_par": 298.31,
+      "picks_est": 0.0,
+      "got": [
+       "Mike Conley"
+      ],
+      "picks": [
+       "Nick's 2019 1st (not valued)",
+       "Nick's 2019 9th (not valued)"
+      ]
+     },
+     "Nick": {
+      "par": 826.45,
+      "players_par": 826.45,
+      "picks_est": 0.0,
+      "got": [
+       "James Harden"
+      ],
+      "picks": [
+       "Garrett's 2019 10th (not valued)",
+       "Garrett's 2019 11th (not valued)"
+      ]
+     }
+    },
+    "picks": {
+     "Garrett": [
+      "Nick's 2019 1st (not valued)",
+      "Nick's 2019 9th (not valued)"
+     ],
+     "Nick": [
+      "Garrett's 2019 10th (not valued)",
+      "Garrett's 2019 11th (not valued)"
+     ]
+    },
+    "season": "2018-19"
+   },
+   {
+    "label": "Benton \u21c4 Garrett, 12-24",
+    "player": null,
+    "m": "Garrett",
+    "value": 504.47,
+    "shown": "won by Garrett",
+    "sub": "",
+    "date": "2018-12-24",
+    "sides": {
+     "Benton": {
+      "par": 182.97,
+      "players_par": 182.97,
+      "picks_est": 0.0,
+      "got": [
+       "Nikola Vucevic"
+      ],
+      "picks": [
+       "Garrett's 2019 12th (not valued)"
+      ]
+     },
+     "Garrett": {
+      "par": 687.44,
+      "players_par": 687.44,
+      "picks_est": 0.0,
+      "got": [
+       "Jimmy Butler III",
+       "Rudy Gobert"
+      ],
+      "picks": [
+       "Benton's 2019 9th (not valued)"
+      ]
+     }
+    },
+    "picks": {
+     "Benton": [
+      "Garrett's 2019 12th (not valued)"
+     ],
+     "Garrett": [
+      "Benton's 2019 9th (not valued)"
+     ]
+    },
+    "season": "2018-19"
+   },
+   {
+    "label": "Hayden \u21c4 Benton, 12-07",
+    "player": null,
+    "m": "Hayden",
+    "value": 492.32,
+    "shown": "won by Hayden",
+    "sub": "",
+    "date": "2021-12-07",
+    "sides": {
+     "Hayden": {
+      "par": 511.88,
+      "players_par": 511.88,
+      "picks_est": 0.0,
+      "got": [
+       "Evan Mobley",
+       "Zion Williamson",
+       "Pascal Siakam"
+      ],
+      "picks": []
+     },
+     "Benton": {
+      "par": 19.56,
+      "players_par": 19.56,
+      "picks_est": 0.0,
+      "got": [
+       "Russell Westbrook"
+      ],
+      "picks": []
+     }
+    },
+    "picks": {},
+    "season": "2021-22"
+   },
+   {
+    "label": "Hayden \u21c4 Garrett, 02-02",
+    "player": null,
+    "m": "Garrett",
+    "value": 404.36,
+    "shown": "won by Garrett \u00b7 picks est.",
+    "sub": "",
+    "date": "2026-02-02",
+    "sides": {
+     "Hayden": {
+      "par": 411.19,
+      "players_par": 106.71,
+      "picks_est": 304.48,
+      "got": [
+       "Scottie Barnes"
+      ],
+      "picks": [
+       "Garrett's 2026 8th (est. 152.2)",
+       "Garrett's 2027 8th (est. 152.2)"
+      ]
+     },
+     "Garrett": {
+      "par": 815.55,
+      "players_par": 109.86,
+      "picks_est": 705.69,
+      "got": [
+       "Alperen Sengun"
+      ],
+      "picks": [
+       "Hayden's 2026 4th (est. 318.4)",
+       "Hayden's 2027 3rd (est. 387.3)"
+      ]
+     }
+    },
+    "picks": {
+     "Hayden": [
+      "Garrett's 2026 8th (est. 152.2)",
+      "Garrett's 2027 8th (est. 152.2)"
+     ],
+     "Garrett": [
+      "Hayden's 2026 4th (est. 318.4)",
+      "Hayden's 2027 3rd (est. 387.3)"
+     ]
+    },
+    "season": "2025-26"
+   }
+  ]
  },
  "best": {
   "mvp": {
@@ -3174,6 +8040,115 @@
    "usual": 28.79,
    "games": 52,
    "regular_weeks": 16
+  },
+  "pickup": {
+   "season": "2019-20",
+   "label": "Hassan Whiteside",
+   "player": "Hassan Whiteside",
+   "m": "Nick",
+   "value": 779.88,
+   "shown": "added 12-02; drop not paired (the daily rosters show 3 adds and 3 departures that day)",
+   "sub": "43 starts for Nick",
+   "add_day": "2019-12-02",
+   "stint": [
+    "2019-12-02",
+    "2020-03-08"
+   ],
+   "drops": [],
+   "regular_weeks": 19
+  },
+  "roy": {
+   "season": "2023-24",
+   "label": "Victor Wembanyama",
+   "player": "Victor Wembanyama",
+   "m": "Garrett",
+   "value": 1050.37,
+   "shown": "45.5 FPPG in 63 games",
+   "sub": "62 starts",
+   "ms": [
+    "Garrett"
+   ],
+   "regular_weeks": 21,
+   "per_week": 50.018
+  },
+  "bust": {
+   "season": "2021-22",
+   "label": "Russell Westbrook",
+   "player": "Russell Westbrook",
+   "m": "Hayden",
+   "value": 1367.58,
+   "shown": "expected 50.6, 33.1 in 78 games",
+   "sub": "Hayden's keeper",
+   "expected": 50.64,
+   "fppg": 33.11,
+   "games": 78,
+   "regular_weeks": 20
+  },
+  "lineup": {
+   "season": "2018-19",
+   "m": "Nick",
+   "value": 1.0,
+   "shown": "100.0%",
+   "sub": "864 of 864 fillable starts \u00b7 0 missed over 153 days",
+   "started": 864,
+   "fillable": 864,
+   "days": 153,
+   "rank": 1,
+   "regular_weeks": 21
+  },
+  "draft": {
+   "season": "2020-21",
+   "m": "Nick",
+   "value": 9852.2916,
+   "shown": "13 picks \u00b7 best: Luka Doncic 1,320.5",
+   "sub": "no keepers that season",
+   "picks": 13,
+   "keepers_par": 0.0,
+   "best": "Luka Doncic",
+   "rank": 1,
+   "regular_weeks": 16,
+   "per_week": 615.768
+  },
+  "waiver": {
+   "season": "2019-20",
+   "m": "Nick",
+   "value": 3216.812,
+   "shown": "33 pickups \u00b7 best: Hassan Whiteside 779.9",
+   "sub": "",
+   "n": 33,
+   "best": "Hassan Whiteside",
+   "rank": 1,
+   "regular_weeks": 19,
+   "per_week": 169.306
+  },
+  "unlucky": {
+   "season": "2024-25",
+   "m": "Benton",
+   "value": 5.0,
+   "shown": "lost 5 of 8 weeks above the median",
+   "sub": "36,947.2 points against in 21 weeks",
+   "weeks_above": 8,
+   "pa": 36947.25,
+   "rank": 1,
+   "regular_weeks": 21
+  },
+  "potw_wins": {
+   "player": "Nikola Jokic",
+   "wins": 7,
+   "ms": [
+    "Hayden"
+   ],
+   "season": "2025-26"
+  },
+  "potw_week": {
+   "week": 10,
+   "player": "Nikola Jokic",
+   "m": "Hayden",
+   "total_fp": 313.6,
+   "games": 4,
+   "fppg": 78.4,
+   "from_log": true,
+   "season": "2025-26"
   }
  }
 }
