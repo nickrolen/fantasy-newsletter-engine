@@ -115,7 +115,7 @@ RECORD_BOOK_LABELS = {
     "best_duo_week": "Best Duo (Week)",
     "best_duo_day": "Best Duo (Day)",
     "garbage_time_king": "Garbage Time King",
-    "best_draft_class": "Best Draft Class",
+    "draft_of_year": "Draft of the Year (PAR a week)",
     "biggest_draft_steal": "Biggest Draft Steal (FPPG)",
     "biggest_draft_steal_totalfp": "Biggest Draft Steal (Total FP)",
     "biggest_draft_bust": "Biggest Draft Bust (FPPG)",

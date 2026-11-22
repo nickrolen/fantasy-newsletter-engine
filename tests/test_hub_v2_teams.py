@@ -304,7 +304,7 @@ def test_sorting_uses_the_payload_orders_for_every_column():
     for k in p["v2"]["roster_cols"]["keys"]:
         assert f'data-sort="d_{k}"' in sec
     js = page.PAGE_JS
-    assert "var ord=orders[key].slice();if(dir<0){ord.reverse();}" in js
+    assert "var o0=orders[vuKey(key)];if(!o0){return;}" in js and "var ord=o0.slice();if(dir<0){ord.reverse();}" in js
 
 
 def test_il_rows_stay_apart_and_mins_are_present():
@@ -318,7 +318,11 @@ def test_il_rows_stay_apart_and_mins_are_present():
 def test_the_chip_is_remembered_in_memory_only():
     js = page.PAGE_JS
     assert "seen['dgroup']=key;" in js and "if(seen['dgroup']){dgroup(seen['dgroup']);}" in js
-    assert "localStorage" not in js and "sessionStorage" not in js
+    assert "sessionStorage" not in js
+    # 5e: the one thing kept in the browser is the "I'm..." pick, each use inside a try
+    uses = [m.start() for m in re.finditer("localStorage", js)]
+    assert len(uses) == 3 and all(js.rfind("try{", 0, i) > js.rfind("}", 0, js.rfind("try{", 0, i)) - 1 for i in uses)
+    assert all("hub.viewer" in js[i:i + 40] for i in uses)
 
 
 def test_every_detailed_value_is_a_payload_string_and_trend_has_aria():

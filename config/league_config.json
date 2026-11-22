@@ -713,6 +713,8 @@
         "most_improved_min_prior_games": 20,
         "most_improved_prior_spec": "P3",
         "bust_min_games": 10,
+        "roy_min_starts": 10,
+        "_roy_min_starts": "5e (4C7 decision 5, Nick 11-22): Rookie of the Year needs at least this many starts for a league team, regular season. A rookie under it is listed, marked not yet eligible, and can't lead; past seasons rebuilt with it. A missing key RAISES.",
         "mvp_odds": {
             "_comment": "4c6 (modules/mvp_odds.py): each player's chance to finish weeks 1-15 with the most PAR, from the title odds' own season pass (the nightly only). Every player is in every simulation; ties at the top split evenly.",
             "future_replacement": "current",

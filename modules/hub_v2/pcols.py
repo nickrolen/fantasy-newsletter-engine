@@ -30,9 +30,11 @@ A column that can't (Keep %, Start %, PAR so far for a player never started
 on a league roster, Acquired) shows a dash, and its "why" says so. Never a 0
 standing in for a missing value.
 
-THE VIEWER: the hub has one shared passphrase, so it cannot know who is
-viewing: "Value to you" (and the "plays on my light days" filter) is hidden,
-and "hidden" says why.
+THE VIEWER (5e): the hub has one shared passphrase, so it cannot know who
+is viewing; the "I'm..." picker (remembered in the browser, cosmetic) says
+who. Value to you and its Title delta carry one string per manager (vu),
+and each manager's order (orders "vtv@<manager>"); the page shows the
+viewer's, and the columns only once a team is picked.
 
 CAREER (career_cells): from the player cards (hub_cards' career, ownership
 and draft history), which are built with the page; NBA seasons and the NBA
@@ -52,7 +54,7 @@ MINUS = "\u2212"
 DOT = "\u00b7"
 
 GROUPS = (
-    ("value", "Value", ("ovr", "pot", "dur", "rank", "posrank", "keep")),
+    ("value", "Value", ("ovr", "pot", "dur", "rank", "posrank", "keep", "vtv", "vtd")),
     ("season", "Season", ("gp", "total", "fppg", "proj", "vsproj", "par", "started", "startpct", "potw", "best")),
     ("form", "Form", ("l7", "l14", "l30", "trend", "floor", "ceil", "boom", "bust", "min", "mind", "streak")),
     ("box", "Box score", ("b_min", "b_pts", "b_reb", "b_ast", "b_stl", "b_blk", "b_to", "b_3pm", "b_fg", "b_fgp",
@@ -62,7 +64,10 @@ GROUPS = (
     ("market", "Market", ("owner", "acq", "free", "adds", "drops", "owners")),
     ("career", "Career", ("seasons", "cfppg", "bestsea", "kept", "drafted", "arch", "nbasea", "nbadraft")),
 )
+# 5e: "Value to you", one string per manager (the "I'm..." picker shows the viewer's)
+VU_COLS = ("vtv", "vtd")
 LABEL = {
+    "vtv": "Value to you", "vtd": "Title \u0394 to you",
     "ovr": "OVR", "pot": "POT", "dur": "DUR", "rank": "Rank", "posrank": "Pos rank", "keep": "Keep %",
     "gp": "GP", "total": "Total FP", "fppg": "FPPG", "proj": "Proj", "vsproj": "vs Proj", "par": "PAR so far",
     "started": "Started", "startpct": "Start %", "potw": "POTW", "best": "Best",
@@ -449,13 +454,44 @@ def build(base, payload: dict, ctx: dict) -> dict:
             cells["posrank"][i], keys["posrank"][i] = f"{pp}{k}", k
         else:
             cells["posrank"][i] = DASH
+    vu = value_to_you(v2.get("fa_value"), rows)
+    for k in VU_COLS:
+        cells[k] = [DASH if x is None else "" for x in vu[k]]
+        keys[k] = [None] * len(rows)
     orders = {k: _orders(keys[k], names, k in LOW_FIRST) for k in cells}
+    for k in VU_COLS:                            # each manager's own order of his values
+        for m in vu["managers"]:
+            orders[f"{k}@{m}"] = _orders([None if x is None else x[m][1] for x in vu[k]], names, False)
     return {"cells": cells, "tot": tot, "orders": orders, "trend": trend, "trend_max": round(float(tmax), 1),
+            "vu": {k: [None if x is None else {m: t for m, (t, _v) in x.items()} for x in vu[k]] for k in VU_COLS},
+            "vu_error": vu["error"],
             "ranges": {k: (rl[r].sub if r in rl else None) for k, r in (("nx3", "next3"), ("semis", "semis"),
                                                                          ("finals", "finals"), ("cup", "cup"))}}
 
 
+def value_to_you(fv: Optional[dict], rows: list) -> dict:
+    """5e: per Players row, {manager: (text, key)} for Value to you (vtv) and
+    its Title delta (vtd), or None (a rostered player, or a free agent the
+    nightly didn't price: only Market's screened free agents are)."""
+    fv = fv or {}
+    vals = fv.get("values") or {}
+    ms = sorted({m for v in vals.values() for m in v})
+    out = {"vtv": [], "vtd": [], "managers": ms, "error": fv.get("error")}
+    for z in rows:
+        v = vals.get(z["name"]) if z["kind"] != "rostered" else None
+        if not v or set(v) != set(ms):
+            out["vtv"].append(None)
+            out["vtd"].append(None)
+            continue
+        out["vtv"].append({m: (v[m]["tv"], v[m]["tv_k"]) for m in ms})
+        out["vtd"].append({m: (v[m]["td"], v[m]["td_k"]) for m in ms})
+    return out
+
+
 WHY = {
+    "vtv": "Rostered, or a free agent outside Market's lists (only they are priced each night); pick your team "
+           "with \u201cI'm\u2026\u201d to see it",
+    "vtd": "As Value to you; a dash too while the stakes file is missing",
     "rank": "No games this season (or his daily lines aren't cached yet)",
     "posrank": "No games this season, or no position on record",
     "keep": "Free agents have no keep chance",
@@ -585,9 +621,7 @@ def career_cells(base, payload: dict, cards_obj: Optional[dict]) -> dict:
     return {"cells": cells, "orders": orders, "owners": owners}
 
 
-HIDDEN = [{"what": "Value to you (Team value and Title \u0394 against the viewer's roster), and the \"plays on my "
-                   "light days next week\" filter",
-           "why": "the hub has one shared passphrase, so it can't tell which manager is viewing"}]
+HIDDEN: list = []                # 5e: the "I'm..." picker shows Value to you (it was hidden in 5d2)
 
 
 def shared(arch_on: bool) -> dict:

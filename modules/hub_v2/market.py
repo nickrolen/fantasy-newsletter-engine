@@ -75,7 +75,17 @@ POSITIONS = ("PG", "SG", "SF", "PF", "C")
 INTRO = ("Best moves for Monday\u2019s window, in order, with how much each one changes your chance to win "
          "this week and next. \u2691: another team wants him too. Tap a move for why.")
 IL_LABEL = "Activate from IL \u00b7 no add"
-HOLD_LABEL = "Keep in IL this week \u00b7 no moves"          # H54: the hold row (CSS upper-cases it)
+HOLD_LABEL = "Keep in IL this week \u00b7 no moves"
+
+
+def intro(weeks: list) -> str:
+    """5e (Nick's 11-22 screenshot): the intro names the weeks its columns
+    price ("weeks 6 and 7"), never "this week and next" (on a Sunday the
+    columns are next week and the one after)."""
+    ws = [str(w) for w in weeks if w is not None]
+    when = ("week " + ws[0]) if len(ws) == 1 else ("weeks " + " and ".join(ws)) if ws else "the coming weeks"
+    return (f"Best moves for Monday\u2019s window, in order, with how much each one changes your chance to "
+            f"win {when}. \u2691: another team wants him too. Tap a move for why.")          # H54: the hold row (CSS upper-cases it)
 
 
 class MarketError(RuntimeError):
@@ -132,8 +142,8 @@ def available(free: dict, fa_av, col_specs: list, prow: dict) -> dict:
     return {"title": "Best available", "meta": "games: " + DOT.join(weeks), "aside": free["aside"],
             "cols": weeks, "rows": rows, "orders": orders, "default": "l14", "pos": list(POSITIONS),
             "note": ("Tap a game count for the days. FPPG and L14 are actual points per game (L14: the last "
-                     "14 days); the games count only games he will play. The list is the best by projected "
-                     "points over the three weeks. Healthy: no status tag."),
+                     "14 days); the games count only games he will play. Each range lists its own best free "
+                     "agents (the range's note says how). Healthy: no status tag."),
             "empty": free["empty"] if not rows else ""}
 
 
@@ -149,6 +159,7 @@ RANGE_SORTS = (("pts", "Proj pts"), ("total", "Games"), ("fppg", "FPPG"), ("l14"
                ("avail", "Avail %"), ("age", "Age"))
 RANGE_TEXT = (("status", "Status"),)
 LOW_SORTS = {"age"}
+ROS_GAME_EDGES = (15, 25, 35)                 # 5e: Rest of season's one total column, bucketed for its shade
 DEFAULT_RANGE = "next3"
 
 
@@ -174,9 +185,16 @@ def range_tables(payload: dict, ctx: dict) -> dict:
     gcells = (pl.get("groups") or {}).get("cells")
     if gcells is None:
         raise MarketError("the Players groups are missing: Market's sorts read their cells (one source)")
-    free = payload["free_agents"]["rows"]
+    fa_all = {r["name"]: r for r in payload["free_agents"]["rows"] + (payload["free_agents"].get("range_rows") or [])}
+    own = payload["free_agents"].get("ranges")
+    if own is None:
+        raise MarketError("the free agents carry no per-range lists (hub_state.range_free_agents): a payload "
+                          "from before 5e")
     out_av, out_st = {}, {}
     for r_ in rl:
+        if r_.key not in own:
+            raise MarketError(f"the free agents have no list for the range {r_.key}")
+        free = [fa_all[n] for n in own[r_.key]]          # 5e: this range's own best (decision 2)
         weeks = []
         for w in r_.weeks:
             ds = [d for d in wk[w] if d in set(r_.days)]
@@ -184,9 +202,16 @@ def range_tables(payload: dict, ctx: dict) -> dict:
                           "label": f"Wk {w}" + (f" \u00b7 {len(wk[w])} days" if len(wk[w]) > 7 else "")
                           + (" rest" if ds and ds[0] != wk[w][0] else "")})
         rows, keys = [], {k: [] for k, _l in RANGE_SORTS}
+        vu_k = []
         # Team > Schedule's pickups link (fit=<manager>): his games on that team's empty-slot days
         fit_days = ({m: src.empty_days(m, list(r_.days)) for m in payload["v2"]["team_order"]}
                     if (r_.key == "next" and src is not None) else {})
+        # 5e: "Plays on my light days" (the I'm... picker): his games on the days that team has 4 or
+        # fewer players with a game (the day word, hub_v2.ranges' kind), every range; not the
+        # empty-slot days fit= uses
+        light_days = ({m: [d for d in r_.days if src.day(m, d).kind == "light"]
+                       for m in payload["v2"]["team_order"]} if src is not None else {})
+        fv = (payload["v2"].get("fa_value") or {}).get("values") or {}
         for r in free:
             n = r["name"]
             pj = proj.get(n)
@@ -208,18 +233,34 @@ def range_tables(payload: dict, ctx: dict) -> dict:
             cells["age"] = pl["rows"][i]["age"]
             cells["total"], cells["pts"] = str(tot), f"{pts:.1f}"
             fit = [m for m, ds in fit_days.items() if fa_av.playable(n, ds)]
-            rows.append({"name": n, "cells": cells, "games": games, "fit": " ".join(fit)})
+            light = [m for m, ds in light_days.items() if ds and fa_av.playable(n, ds)]
+            row = {"name": n, "cells": cells, "games": games, "fit": " ".join(fit), "light": " ".join(light),
+                   "vu": {m: x["tv"] for m, x in fv[n].items()} if n in fv else None}
+            vu_k.append({m: x["tv_k"] for m, x in fv[n].items()} if n in fv else None)
+            if r_.key == "ros":                          # 5e (5D2 decision 8): totals, the weeks in a tap
+                row["games"] = [{"n": str(tot), "b": bucket(int(tot), ROS_GAME_EDGES),
+                                 "tip": {"h": f"{n}: {r_.label}", "b": DOT.join(
+                                     f"{x['label']} {g['n']}" for x, g in zip(weeks, games)),
+                                         "f": f"{tot} games {DOT.strip()} {pts:.1f} proj pts"}}]
+            rows.append(row)
             keys["pts"].append(pts)
             keys["total"].append(tot)
             for k in ("fppg", "l14", "l7", "l30", "ovr", "pot", "dur", "mind", "avail", "age"):
                 keys[k].append(_num(str(cells[k]).replace("%", "").replace("Prov.", "").strip()))
         nm = [x["name"] for x in rows]
         orders = {k: _orders(keys[k], nm, k in LOW_SORTS)["d"] for k in keys}
-        out_av[r_.key] = {"weeks": [{"label": x["label"]} for x in weeks], "rows": rows, "orders": orders,
-                          "note": (f"{r_.label}: {r_.sub}. Games he will play in each fantasy week of the range "
-                                   "(a week under way counts its days from today); Proj pts: Yahoo's projected "
-                                   "FPPG times those games. The list is the same for every range: the best "
-                                   "free agents by projected points over the next three weeks.")}
+        for m in payload["v2"]["team_order"]:          # 5e: Value to you, each manager's own order
+            orders[f"vtv@{m}"] = _orders([None if v is None else v.get(m) for v in vu_k], nm, False)["d"]
+        ros = r_.key == "ros"
+        out_av[r_.key] = {"weeks": ([{"label": f"Games {DOT.strip()} {len(weeks)} wks"}] if ros else
+                                    [{"label": x["label"]} for x in weeks]), "rows": rows, "orders": orders,
+                          "note": (f"{r_.label}: {r_.sub}. "
+                                   + ("Games he will play over the whole range (tap a count for each week's); "
+                                      if ros else "Games he will play in each fantasy week of the range ")
+                                   + "(a week under way counts its days from today); Proj pts: Yahoo's projected "
+                                   "FPPG times those games. Each range lists its own best free agents by "
+                                   "projected points over its own days, so a late range can surface players "
+                                   "the next weeks don't.")}
         st = []
         for r in payload["stash"]["rows"]:
             n = r["name"]
@@ -357,6 +398,7 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
         view["empty"] = latest["season_over"]
         return view
     hz = latest["horizon"]
+    view["intro"] = intro(hz.get("weeks") or [])
     for m in order:
         e = latest["managers"].get(m)
         if e is None:

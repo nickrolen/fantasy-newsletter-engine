@@ -260,7 +260,7 @@ def test_title_odds_switch_off_leaves_no_tile_and_no_plan_title():
     h = render(_payload(advice=MF.advice_latest(show_title=False), show_title=False))
     a = _pane(h, "advice")
     assert "Title odds" not in visible_text(a) and "title odds" not in visible_text(a)
-    assert visible_text(a).count("Starts") >= 3
+    assert visible_text(a).count("Exp. starts") >= 3
     h2 = render()
     assert "Title odds" in visible_text(_pane(h2, "advice"))
 

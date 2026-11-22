@@ -204,7 +204,8 @@ def annotate(payload: dict) -> dict:
             owner[k] = m
             status[k] = [{"text": f"{rb['team']} \u00b7 {m}", "kind": "own"}] + \
                 [dict(c) for c in p.get("tags") or []]
-    for table in (payload["free_agents"]["rows"], payload["stash"]["rows"]):
+    for table in (payload["free_agents"]["rows"], payload["free_agents"].get("range_rows") or [],
+                  payload["stash"]["rows"]):                 # 5e: each Market range's own best free agents
         for r in table:
             k = r["card"] = keys.key(r["name"])
             if k in owner:
@@ -268,6 +269,8 @@ def strip(payload: dict) -> dict:
     for key in ("free_agents", "stash"):
         for r in (payload.get(key) or {}).get("rows") or []:
             r.pop("card", None)
+    for r in (payload.get("free_agents") or {}).get("range_rows") or []:      # 5e
+        r.pop("card", None)
     for c in (payload.get("trade_block") or {}).get("cards") or []:
         for lst in c["lists"]:
             for r in lst["rows"]:

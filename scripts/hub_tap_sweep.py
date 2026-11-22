@@ -27,7 +27,8 @@ card, Compare), scrolled to the top, the middle and the bottom:
 5d1: every column header's definition popover is opened and checked like an
 InfoTip's; 5d2: Team > Schedule's week chips and a day's tap, the Players
 groups (and the Box score's totals), Market's ranges and its ?fit= route,
-and next week's matchup previews are states of their own; a season picker's oldest season (and the draft's first by-team
+and next week's matchup previews are states of their own; 5e: the "I'm..." picker opened and a team
+picked (Home, Players, Market, the light-days chip) and Home's ?seg= links; a season picker's oldest season (and the draft's first by-team
 season) is a state of its own; the title-odds chart opened from a team's odds
 (?hl=) is a route of its own.
 
@@ -210,6 +211,10 @@ def states_for(page, route):
         if(s.querySelector('[data-pgroup="box"]')) out.push(['boxv','tot']);
         const r=s.querySelector('[data-section="available"]')?s.querySelector('select[data-mkr]'):null;
         if(r){[...r.options].forEach(o=>out.push(['mkr', o.value]));}
+        // 5e: the "I'm..." picker opened, and a team picked (Value to you, the light-days chip)
+        if(document.getElementById('me-btn')&&['home','players','market'].includes(s.getAttribute('data-route'))){
+          out.push(['me','open']); out.push(['me','pick']);
+          if(s.querySelector('[data-mklight]')) out.push(['me','light']);}
         return out; }""")
     return segs
 
@@ -222,7 +227,12 @@ APPLY_5D2 = """([k,p]) => { const s=[...document.querySelectorAll('.v2-screen')]
   else if(k==='boxv'){const g=s.querySelector('[data-pgrp="box"]'); if(g) g.click();
     setTimeout(()=>{const b=s.querySelector('[data-pgroup="box"] [data-boxv="tot"]'); if(b) b.click();},300);}
   else if(k==='mkr'){seg('market','available'); const x=s.querySelector('select[data-mkr]'); x.value=p;
-    x.dispatchEvent(new Event('change',{bubbles:true}));} }"""
+    x.dispatchEvent(new Event('change',{bubbles:true}));}
+  else if(k==='me'){const sh=document.getElementById('me-sheet');
+    if(p==='open'){if(sh.hidden) document.getElementById('me-btn').click();}
+    else{const b=document.querySelector('[data-me-pick]:not([data-me-pick=""])'); if(b) b.click();
+      if(p==='light'){seg('market','available'); const c=s.querySelector('[data-mklight]'); if(c) c.click();}
+      if(s.querySelector('[data-pgrp="value"]')){const g=s.querySelector('[data-pgrp="value"]'); g.click();}}} }"""
 
 
 def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
@@ -261,6 +271,8 @@ def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
               // 5d2: Market opened from Team > Schedule's pickups link (?r=next&fit=<manager>)
               const tm=document.querySelector('.v2-screen[data-route^="teams/"]');
               if(tm&&document.querySelector('select[data-mkr] option[value="next"]')) out.push('market?r=next&fit='+tm.getAttribute('data-route').slice(6));
+              // 5e: Home's Moves window links open Market on its segment
+              if(document.querySelector('a[href="#/market?seg=moves"]')) out.push('market?seg=moves');
               return out; }""")
             W = {"states": [], "routes": routes}
             for route in routes:
@@ -269,6 +281,8 @@ def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
                 except Exception as e:                       # noqa: BLE001
                     W["states"].append({"state": route, "error": f"did not open: {e}"[:200]})
                     continue
+                page.evaluate("() => { if(window.HUBVIEW) HUBVIEW.set(''); const sh=document.getElementById('me-sheet');"
+                              " if(sh) sh.hidden=true; }")             # 5e: every route opens with nobody picked
                 labels = [("as opened", None)] + [(f"{k}:{p}", (k, p)) for k, p in states_for(page, route)]
                 for lab, sp in labels:
                     if sp:
@@ -277,7 +291,7 @@ def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
                             page.evaluate("(kv) => { const [k,v]=kv.split('|'); const x=document.querySelector("
                                           "'select[data-spick=\"'+k+'\"]'); x.value=v; x.dispatchEvent(new Event('change',{bubbles:true})); }",
                                           p)
-                        elif k in ("swk", "sday", "pgrp", "boxv", "mkr"):          # 5d2
+                        elif k in ("swk", "sday", "pgrp", "boxv", "mkr", "me"):    # 5d2, 5e
                             page.evaluate(APPLY_5D2, [k, p])
                             page.wait_for_timeout(500)
                         elif k == "toggle":

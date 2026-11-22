@@ -11,16 +11,18 @@ replacement level R as the player awards. Through the regular season only
 
 THE FOUR AWARDS (one row per manager, ranked; every manager is in the race)
 - LINEUP MANAGER OF THE YEAR (the league's most important skill: LEAGUE_
-  RULES, daily management): the best FILL RATE = started games / fillable
-  starts. On each logged day, his fillable starts are the most of his
-  players who played that day (keeper_history.appeared) that the ten
-  starting seats could hold at once (lineup_fill.max_starters, the engine's
-  exact fill, on the log's position eligibility that day). Players in an IL
-  or IL+ slot are not counted: starting one takes a roster move. A started
-  game is a start (an active slot) on a day he played. A started player who
-  did not play costs a start only when a player who did play sat on the
-  bench and could have taken his seat (the fill counts players who played).
-  RAISES if a day's starts exceed what the seats could hold (a broken log).
+  RULES, daily management; 5e, 4C7 decision 3): the share of ALL his daily
+  starting slots that were filled = filled slots / (10 x days). A slot is
+  filled when its player's NBA team played that day (the log's had_game:
+  the player had a game, whether or not he then sat with an injury). The
+  days are the regular season's days with an NBA game (a day on which any
+  league player's team played), through the cut, on which his roster is
+  logged. Players in an IL or IL+ slot are never starters. This is the fill
+  rate the league measured for 2025-26 (Nick 73, Garrett 68, Hayden 67,
+  Benton 66 over the whole season; this function, over the whole season,
+  gives 72.4, 67.8, 66.1, 66.3: claude/5E_RESULT). It replaced 4c7's
+  "started over fillable" (every winner scored 98.8-100%).
+  RAISES if a day's starts exceed the ten seats (a broken log).
 - DRAFT OF THE YEAR: the most PAR from his draft class: the players he
   drafted that season (keepers apart: they are shown beside it, never
   counted), in HIS starts in the regular season (draft_values.pick_game's
@@ -48,9 +50,9 @@ KEYS = ("lineup", "draft", "waiver", "unlucky")
 NAMES = {"lineup": "Lineup manager of the year", "draft": "Draft of the year", "waiver": "Waiver king",
          "unlucky": "Unluckiest season"}
 INFO = {
-    "lineup": "The best fill rate: started games over fillable starts. Each day, fillable starts are the most "
-              "of his players who played that day that the ten starting seats could hold at once (players in "
-              "IL slots aside). Regular season only.",
+    "lineup": "The best fill rate: the share of all his daily starting slots (10 a day) holding a player "
+              "whose NBA team played that day. Every regular-season day with NBA games counts, so empty slots "
+              "on light days count against him. Regular season only.",
     "draft": "The most PAR from the players he drafted that season, in his own starts in the regular season. "
              "Keepers are shown apart and not counted; the pick order isn't needed.",
     "waiver": "The most PAR from all of his pickups that season, each counted as Best pickup counts it: "
@@ -93,28 +95,30 @@ def _rows(inp: dict, res: dict) -> list:
     return [r for r in inp["rows"] if r["date"] <= cut and int(r["week"]) <= reg]
 
 
+SEATS = 10
+
+
 def fill(inp: dict, res: dict) -> dict:
-    """{manager: {"started", "fillable", "days", "missed_dnp"}} over the
-    regular season through res's cut. RAISES on a day whose starts exceed
-    its fillable starts."""
-    from . import keeper_history as kh, lineup_fill as LF
+    """{manager: {"filled", "slots", "days"}} over the regular season through
+    res's cut (the module docstring): slots = 10 x his logged days with an NBA
+    game. RAISES on a day whose starts exceed the ten seats."""
     from .data_loader import IL_SLOTS
+    rows = _rows(inp, res)
+    nba_days = {r["date"] for r in rows if r.get("had_game")}
     by: dict = {}
-    for r in _rows(inp, res):
+    for r in rows:
         by.setdefault((r["manager"], r["date"]), []).append(r)
     out: dict = {}
     for (m, d), rs in sorted(by.items()):
-        act = [r for r in rs if r.get("slot") not in IL_SLOTS and kh.appeared(r)]
-        cap = LF.max_starters([_positions(r) for r in act])
-        st = sum(1 for r in act if r["started"])
-        if st > cap:
-            raise ManagerAwardsError(f"{inp['season']} {m} {d}: {st} started games but the seats hold {cap}")
-        dnp = sum(1 for r in rs if r["started"] and not kh.appeared(r) and r.get("had_game"))
-        x = out.setdefault(m, {"started": 0, "fillable": 0, "days": 0, "missed_dnp": 0})
-        x["started"] += st
-        x["fillable"] += cap
+        st = [r for r in rs if r["started"] and r.get("slot") not in IL_SLOTS]
+        if len(st) > SEATS:
+            raise ManagerAwardsError(f"{inp['season']} {m} {d}: {len(st)} starts but the seats hold {SEATS}")
+        if d not in nba_days:
+            continue
+        x = out.setdefault(m, {"filled": 0, "slots": 0, "days": 0})
+        x["filled"] += sum(1 for r in st if r.get("had_game"))
+        x["slots"] += SEATS
         x["days"] += 1
-        x["missed_dnp"] += dnp
     return out
 
 
@@ -230,13 +234,13 @@ def compute(inp: dict, res: dict, managers: Optional[list] = None) -> dict:
     f = fill(inp, res)
     for m in ms:
         x = f.get(m)
-        if not x or not x["fillable"]:
+        if not x or not x["slots"]:
             continue
-        a["rows"].append({"m": m, "value": x["started"] / x["fillable"], "shown": _pct(x["started"] / x["fillable"]),
-                          "sub": f"{x['started']:,} of {x['fillable']:,} fillable starts" + DOT
-                                 + f"{x['fillable'] - x['started']:,} missed over {x['days']} days",
-                          "started": x["started"], "fillable": x["fillable"], "days": x["days"]})
-    _finish(a, lambda r: -r["started"])
+        a["rows"].append({"m": m, "value": x["filled"] / x["slots"], "shown": _pct(x["filled"] / x["slots"]),
+                          "sub": f"{x['filled']:,} of {x['slots']:,} slots filled" + DOT
+                                 + f"{x['slots'] - x['filled']:,} empty over {x['days']} days with NBA games",
+                          "filled": x["filled"], "slots": x["slots"], "days": x["days"]})
+    _finish(a, lambda r: -r["filled"])
 
     a = out["awards"]["draft"]
     dc = draft_class(inp, res)

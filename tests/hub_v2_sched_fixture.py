@@ -36,7 +36,7 @@ def sched_ctx(p: dict = None, today: date = DAY) -> dict:
             "data": SimpleNamespace(schedule={"weeks": weeks}),
             "fcols": {"mode": "ahead", "join": wk[J][0] if J in wk else None}, "fa_av": w["fa_av"], "fa_rows": fa_rows,
             "adds_left": {m: 2 for m in W.MGRS}, "budget": 3,
-            "budget_note": "a claim now uses this week's adds (rule 7)",
+            "budget_note": "a claim now uses this week's adds",
             "window_text": "Claims made now are applied in Mon 12-14's window, which closes Dec 14, 6:55 PM Pacific.",
             "range_list": ranges.ranges(wk[J][0], J, wk) if J in wk else [], "stakes": stakes, "title_latest": None,
             "records": recs, "pending_note": "As rosters stand with pending moves: one claim applied.",

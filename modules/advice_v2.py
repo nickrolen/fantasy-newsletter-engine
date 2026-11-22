@@ -1520,7 +1520,7 @@ def hold_offer(inputs: MondayInputs, manager: str, step: Optional[dict]) -> str:
     k = (inputs.plan.args.get("known") or {}).get(int(inputs.horizon[0])) or {}
     if manager in k:
         return (f"a known move of his at week {inputs.horizon[0]}'s window: a healthy player held in IL "
-                "would block it (rule 3)")
+                "would block it")
     return ""
 
 

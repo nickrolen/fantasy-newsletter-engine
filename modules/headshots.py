@@ -344,7 +344,8 @@ def missing(base_path=".") -> dict:
         have_ro += len(names) - len(miss)
         teams.append({"manager": m, "team": MANAGER_TO_TEAM.get(m, m), "missing": miss, "of": len(names)})
     fa = []
-    for r in list(payload["free_agents"]["rows"]) + list(payload["stash"]["rows"]):
+    for r in list(payload["free_agents"]["rows"]) + list(payload["free_agents"].get("range_rows") or []) \
+            + list(payload["stash"]["rows"]):
         if r["name"] not in fa and r["name"] not in rostered:
             fa.append(r["name"])
     fa_miss = [n for n in fa if find(n, lib) is None]

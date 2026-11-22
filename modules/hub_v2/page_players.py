@@ -275,7 +275,8 @@ def _gtable(g: dict, cells_key: str, tid: str) -> str:
          f'<th class="v2-sticky" data-k="name"><button type="button" class="v2-tap"{colh("players", "name")}>Player'
          '<span class="v2-arrow"></span></button></th>']
     for c in g["cols"]:
-        o.append(f'<th data-k="{clean(c["k"])}"><button type="button" class="v2-tap" data-psort="{clean(c["k"])}"'
+        vu = ' class="v2-vu"' if c.get("vu") else ""             # 5e: shown once a team is picked
+        o.append(f'<th data-k="{clean(c["k"])}"{vu}><button type="button" class="v2-tap" data-psort="{clean(c["k"])}"'
                  f'{colh("players", c["k"])}>{clean(c["label"])}<span class="v2-arrow"></span></button></th>')
     o.append("</tr></thead><tbody>")
     for tr in g["rows"]:
@@ -283,7 +284,11 @@ def _gtable(g: dict, cells_key: str, tid: str) -> str:
         sub = _chip(r["chip"]) + f'<span>{clean(r["meta"])}</span>' + "".join(_status(c) for c in r["chips"])
         o.append(f'<tr {_row_attrs(r)}><td class="v2-sticky">{_name(r)}<span class="lh-sub">{sub}</span></td>')
         for c in tr[cells_key]:
-            if c.get("spark"):
+            if "vu" in c:                                        # 5e: each manager's string, the viewer's shown
+                o.append('<td class="v2-vu">' + (clean(c["t"]) if c["vu"] is None else "".join(
+                    f'<span class="v2-vu-v" data-m="{clean(m)}">{clean(t)}</span>' for m, t in c["vu"].items()))
+                    + "</td>")
+            elif c.get("spark"):
                 o.append(f'<td>{_spark(c["spark"], c["aria"])}</td>')
             else:
                 o.append(f'<td>{clean(c["t"])}</td>')

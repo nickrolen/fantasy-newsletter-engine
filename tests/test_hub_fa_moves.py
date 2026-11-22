@@ -311,7 +311,7 @@ def test_adds_used_are_the_counters_totals(tmp_path):
                                                            "Benton 0 of 3"]
     assert [u["text"] for u in tab(feed, "3")["used"]] == ["Nick 0 of 3", "Hayden 0 of 3", "Garrett 0 of 3",
                                                            "Benton 1 of 3"]
-    assert tab(feed, "pre")["used"] is None and "rule 14" in tab(feed, "pre")["used_note"]
+    assert tab(feed, "pre")["used"] is None and "count in no week" in tab(feed, "pre")["used_note"]
 
 
 def test_the_log_and_the_counter_must_agree_or_the_build_raises(tmp_path):

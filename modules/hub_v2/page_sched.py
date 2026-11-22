@@ -91,6 +91,16 @@ button.v2-sday{all:unset;box-sizing:border-box;display:flex;flex-direction:colum
 .v2-nwtag{font-size:var(--type-label-size);font-weight:800;letter-spacing:var(--type-label-ls);text-transform:uppercase;color:var(--ink-3)}
 .v2-nwboth{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-16)}
 @media (min-width:{{bp-mid}}){.v2-nwboth{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.v2-nxnote{font-size:var(--type-meta-size);color:var(--ink-2);margin:0;line-height:var(--type-meta-lh)}
+.v2-nxcard,.v2-nxcard *{text-decoration:none}
+.v2-nx-colh{display:flex;justify-content:flex-end;font-size:var(--type-label-size);font-weight:800;letter-spacing:var(--type-label-ls);text-transform:uppercase;color:var(--ink-3)}
+.v2-nx-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:var(--space-10)}
+.v2-nx-num{display:flex;flex-direction:column;align-items:flex-end}
+.v2-nx-num .lh-sub{text-align:right}
+.v2-lcard .lh-mrow__name{white-space:normal;overflow:visible;text-overflow:clip}
+.v2-nx-chips{display:flex;flex-wrap:wrap;gap:var(--space-4);padding-left:calc(var(--mono-36) + var(--space-6))}
+.v2-nx-chip{font-size:var(--type-label-size);font-weight:700;color:var(--ink-2);background:var(--surface-subtle);border-radius:var(--radius-pill);padding:var(--space-2) var(--space-8);white-space:nowrap}
+.v2-nx-more{color:var(--ink-3);background:transparent;box-shadow:inset 0 0 0 var(--hairline) var(--line)}
 """
 
 TAP_CLASSES = ("v2-sday",)
@@ -273,9 +283,15 @@ def schedule_pane(sp: dict, t: dict, pl_link) -> str:
 # Matchups > Next week
 # =============================================================================
 
-def next_week(nw: dict, teams: dict, mono) -> str:
+def next_week(nw: dict, teams: dict, mono, info: str = "") -> str:
+    """5e (Nick's note 1, the mock as approved 11-22): Last week's card
+    pattern. One note under the header; each card one link (no underline),
+    two team rows with startable games as the big number, labelled once,
+    the light and overflow counts under it, the injury chips (3, then "+N
+    more"), one early-look line and the footer."""
     o = ['<section class="v2-sec" data-section="next"><div class="lh-sechead">'
-         f'<h2 class="lh-eyebrow">{clean(nw["label"])}</h2><span class="lh-meta lh-meta--canvas">{clean(nw["sub"])}</span></div>']
+         f'<h2 class="lh-eyebrow">{clean(nw["label"])}</h2><span class="lh-meta lh-meta--canvas">{clean(nw["sub"])}</span>'
+         f'{info}</div>']
     if nw["unknown"] is not None:
         u = nw["unknown"]
         o.append(f'<div class="lh-card v2-gap8"><p class="v2-p"><b>{clean(u["text"])}</b></p>')
@@ -289,29 +305,28 @@ def next_week(nw: dict, teams: dict, mono) -> str:
                                + "</tr>" for r in ps["rows"]) + "</tbody></table>")
         o.append(f'<span class="lh-sub">{clean(nw["note"])}</span></div></section>')
         return "".join(o)
+    o.append(f'<p class="v2-nxnote">{clean(nw.get("head_note") or nw["early"])}</p>')
     for c in nw["cards"]:
-        o.append(f'<a class="lh-card v2-nwcard" href="#/{clean(c["route"])}" data-next="{clean(c["id"])}">'
-                 f'<span class="v2-nwtag">{clean(nw["early"])}</span>')
+        o.append(f'<a class="lh-card v2-lcard v2-nxcard" href="#/{clean(c["route"])}" data-next="{clean(c["id"])}">'
+                 '<span class="v2-nx-colh">Startable games</span>')
         for s in (c["a"], c["b"]):
             t = teams[s["m"]]
-            o.append(f'<span class="v2-nwside {t["cls"]}">{mono(t)}<span class="v2-minw"><span class="lh-mrow__name">'
+            o.append(f'<span class="v2-nx-row {t["cls"]}">{mono(t)}<span class="v2-minw"><span class="lh-mrow__name">'
                      f'{clean(s["team"])}</span><span class="lh-sub">{clean(s["m"])} &middot; {clean(s["record"])}</span></span>'
-                     f'<span class="v2-snum"><b class="lh-team-text">{clean(s["starts"])}</b>'
-                     '<span class="lh-sub">startable</span></span></span>')
-            if s["injuries"]:
-                o.append(f'<span class="lh-sub">Out or IL: {clean("; ".join(s["injuries"]))}</span>')
+                     f'<span class="v2-nx-num"><span class="lh-dsp v2-banked">{clean(s["starts"])}</span>'
+                     f'<span class="lh-sub">{clean(s.get("days") or "") or "&nbsp;"}</span></span></span>')
+            chips = s.get("chips") or []
+            if chips:
+                o.append('<span class="v2-nx-chips">'
+                         + "".join(f'<span class="v2-nx-chip" title="{clean(x["full"])}">{clean(x["text"])}</span>'
+                                   for x in chips)
+                         + (f'<span class="v2-nx-chip v2-nx-more">{clean(s["more"])}</span>' if s.get("more") else "")
+                         + "</span>")
         lk = c["look"]
-        if lk:
-            o.append(f'<span class="v2-nwlook"><b>{clean(lk["margin"])}</b> &middot; {clean(c["a"]["team"])} '
-                     f'{clean(lk["win_a"])}, {clean(c["b"]["team"])} {clean(lk["win_b"])}'
-                     f'<span class="lh-sub">{clean(lk["src"])}</span></span>')
-        else:
-            o.append('<span class="lh-sub">No early look on this run: the title-odds simulation has not priced this '
-                     'week.</span>')
-        o.append('<span class="lh-divider v2-mfoot"><span class="v2-note">Day by day, both teams</span>'
+        o.append(f'<span class="v2-lverdict">{clean(lk["line"]) if lk else "No early look yet: the simulation has not priced this week."}</span>'
+                 '<span class="lh-divider v2-mfoot"><span class="v2-note">Day by day, both teams</span>'
                  '<span class="v2-details">Preview &rsaquo;</span></span></a>')
-    o.append(f'<span class="lh-sub">{clean(nw["note"])}</span></section>')
-    return "".join(o)
+    return "".join(o) + "</section>"
 
 
 def next_page(c: dict, nw: dict, strips: dict, teams: dict, mono, topbar) -> str:

@@ -63,7 +63,8 @@ INFO = {
               "In-season free-agent adds only (preseason adds aren't moves); each add counts on its own.",
     "improved": "This season's fantasy points per game minus his usual level: his last three seasons in "
                 "this league, games-weighted. 20+ games this season and 20+ in those seasons.",
-    "roy": "Most PAR in his starts among first-year NBA players, weeks 1\u201315.",
+    "roy": "Most PAR in his starts among first-year NBA players with at least 10 starts for a league team, "
+           "weeks 1\u201315. A rookie under 10 starts is listed but can't lead.",
     "trade": "For each regular-season trade, the PAR each side has had from the players it got, in its own "
              "starts, through week 15, plus the draft picks it got. A draft pick counts as the average value "
              "of players taken in that round (est.); a pick for a 2020 or earlier draft is listed, not valued. "
@@ -76,7 +77,7 @@ PAR_INFO = ("PAR: each started game's fantasy points minus that week's replaceme
 UNITS = {"mvp": "PAR", "pickup": "PAR", "improved": "FPPG", "roy": "PAR", "trade": "PAR gap", "bust": "pts short"}
 UP, DOWN, NDASH, MINUS, DOT = "\u25b2", "\u25bc", "\u2013", "\u2212", " \u00b7 "
 CFG_KEYS = ("history_top_n", "shown", "most_improved_min_games", "most_improved_min_prior_games",
-            "most_improved_prior_spec", "bust_min_games")
+            "most_improved_prior_spec", "bust_min_games", "roy_min_starts")
 
 
 class AwardsError(RuntimeError):
@@ -607,7 +608,7 @@ def _pickups(inp, res, rows, starts, par, names, cut) -> None:
             pre = day < first_day
             if pre:     # Nick, 11-19: preseason adds are not moves (LEAGUE_RULES rule 14), so not pickups
                 _excl(a["excluded"], n, "preseason add",
-                      f"added {_md(day)}, before the season's first game: preseason adds are not moves (rule 14)")
+                      f"added {_md(day)}, before the season's first game: preseason adds are not moves")
                 continue
             drops, note = roster_drop(m, n, day) if by_rosters else _dropped(inp, t, m, n, day, names)
             shown = (f"dropped {' and '.join(drops)} on {_md(day)}" if drops else
@@ -680,11 +681,11 @@ def _roster_adds(inp, rows, stints, names, a) -> tuple:
                 if season not in inp["inputs"].picks:
                     _excl(a["excluded"], n, "opening-day roster",
                           f"on {m}'s opening-day roster; {season} has no draft list (H56), and a preseason "
-                          "move isn't an in-season add (rule 14)")
+                          "move isn't an in-season add")
                 elif n not in picked.get(m, set()):
                     _excl(a["excluded"], n, "preseason add",
                           f"on {m}'s opening-day roster, neither drafted nor kept by him: preseason adds are "
-                          "not moves (rule 14)")
+                          "not moves")
                 continue
             if near(tin.get((n, m), []), s):
                 continue                             # a trade arrival, not a pickup
@@ -762,16 +763,26 @@ def _rookies(inp, res, per, pid_of, cut) -> None:
         a["error"] = ("Not computed: config/ROOKIE_SEASONS.json is not up to date for " + season + ": "
                       + "; ".join(bits) + ". Run python scripts\\build_rookie_seasons.py --update.")
         return
+    need = int(inp["cfg"]["roy_min_starts"])         # 5e (4C7 decision 5): a start minimum
+    a["min_starts"] = need
+    a["ineligible"] = []
     for n, d in per.items():
         if idx[idx.canonical(n)] != season:
             continue
         line, why = _actual(inp, n, pid_of.get(n), cut)
         sub = (f"{_d1(line[1] / line[0])} FPPG in {line[0]} game{'' if line[0] == 1 else 's'}"
                if line and line[0] else (why or "no games"))
-        a["rows"].append({"key": n, "player": n, "label": n, "m": d["last"][1], "value": d["par"],
-                          "shown": sub, "sub": f"{d['starts']} start{'' if d['starts'] == 1 else 's'}",
-                          "ms": sorted(d["teams"], key=lambda m: -d["teams"][m])})
+        row = {"key": n, "player": n, "label": n, "m": d["last"][1], "value": d["par"],
+               "shown": sub, "sub": f"{d['starts']} start{'' if d['starts'] == 1 else 's'}",
+               "ms": sorted(d["teams"], key=lambda m: -d["teams"][m]), "starts": d["starts"]}
+        if d["starts"] >= need:
+            a["rows"].append(row)
+        else:
+            row["sub"] = (f"{'ineligible' if res['final'] else 'not yet eligible'} "
+                          f"({d['starts']} of {need} starts)")
+            a["ineligible"].append(row)
     a["rows"] = _rank(a["rows"])
+    a["ineligible"] = _rank(a["ineligible"])
 
 
 def _trades(inp, res, starts, par, names, cut, reg_end) -> None:
@@ -1142,6 +1153,14 @@ def races(res: dict, lines: list, cfg: dict, mvp_odds: Optional[dict] = None,
                          "card": player_slug(r["player"]) if r.get("player") else "", "m": r["m"],
                          "value": _s1(v) if k == "improved" else _d1(v), "unit": UNITS[k],
                          "shown": r["shown"], "sub": r["sub"], "move": move, "dir": d, "sides": sides})
+        # 5e: a rookie under the start minimum is listed (marked) when he would have made the
+        # shown rows, after them and unranked; he can't lead (he isn't in a["rows"])
+        cutv = a["rows"][show - 1]["value"] if len(a["rows"]) >= show else None
+        for r in [x for x in a.get("ineligible") or [] if cutv is None or x["value"] > cutv][:show]:
+            rows.append({"rank": "\u2013", "key": r["key"], "label": r["label"], "player": r.get("player"),
+                         "card": player_slug(r["player"]) if r.get("player") else "", "m": r["m"],
+                         "value": _d1(r["value"]), "unit": UNITS[k], "shown": r["shown"], "sub": r["sub"],
+                         "move": "", "dir": "none", "sides": [], "ineligible": True})
         leader = ""
         if prev is not None and prev.get("top") and a["rows"] and prev["top"][0]["key"] != a["rows"][0]["key"]:
             leader = f"New leader: {a['rows'][0]['label']} (was {prev['top'][0]['label']})."
@@ -1151,10 +1170,11 @@ def races(res: dict, lines: list, cfg: dict, mvp_odds: Optional[dict] = None,
         excl = ("Not eligible: " + "; ".join(f"{v} {kk}" for kk, v in sorted(kinds.items(), key=lambda x: -x[1]))
                 + ".") if kinds else ""
         empty = ""
-        if a["error"] is None and not rows:
+        if a["error"] is None and not a["rows"]:
             empty = {"trade": "No regular-season trade yet.", "bust": "No drafted or kept player is short of "
-                     "his projection with 10+ games yet."}.get(k, "No eligible player yet.") if wk else \
-                "The season has not started."
+                     "his projection with 10+ games yet.",
+                     "roy": f"No rookie has {a.get('min_starts')} starts yet."}.get(k, "No eligible player yet.") \
+                if wk else "The season has not started."
         odds_rows, odds = ({}, None)
         if k == "mvp" and a["error"] is None:
             odds_rows, odds = _mvp_odds(res, rows, lines, mvp_odds, cfg, mvp_odds_error)
@@ -1168,7 +1188,8 @@ def races(res: dict, lines: list, cfg: dict, mvp_odds: Optional[dict] = None,
                              f"through week {wk}" + ("" if wk in res["finished"] else " (in progress)")) if wk else "",
                     "unit": UNITS[k], "rows": rows, "leader": leader, "excluded": excl, "error": a["error"] or "",
                     "empty": empty, "source": a["source"] or "",
-                    "chart": None if a["error"] else race_chart(k, rows, lines, season)})
+                    "chart": None if a["error"] else race_chart(k, [r for r in rows if not r.get("ineligible")],
+                                                                          lines, season)})
     return {"awards": out, "par_note": PAR_INFO,
             "note": ("The arrows compare with the week before. Each race chart draws today's top 5 from the "
                      "weekly lines (the top 10 is kept each week).")}

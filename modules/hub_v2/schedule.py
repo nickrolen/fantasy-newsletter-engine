@@ -348,7 +348,7 @@ def build(ctx: dict) -> tuple:
                 "w": J, "head": f"Week {J} only",
                 "lead": (f"A pickup now plays from today (this week's window is open), so week {J}'s empty slots "
                          "are the ones a pickup can still fill." if J == week else
-                         f"A pickup claimed now joins {dmd(wk[J][0])} (rule 7), so week {J}'s empty slots are "
+                         f"A pickup claimed now joins {dmd(wk[J][0])}, so week {J}'s empty slots are "
                          "the ones a pickup can still fill."),
                 "total": rng(*tot), "ndays": str(len(ed)), "chips": chips,
                 "adds": f"{left} of {ctx['budget']} adds left {DOT} {ctx['budget_note']}",
@@ -380,7 +380,7 @@ def build(ctx: dict) -> tuple:
     sched = {"weeks": [{k: v for k, v in x.items() if not k.startswith("_")} for x in weeks],
              "open": open_i,
              "note": ("Startable: games the team can actually start: the daily 10, with players in IL slots and "
-                      "players who are out left out. A 14-day week (rule 9) is one fantasy week: every team has "
+                      "players who are out left out. A 14-day week is one fantasy week: every team has "
                       "the same 14 days, so the average and the rank compare fairly. Light day: 4 or fewer of your "
                       "players have a game. Overflow day: more than 10 do, so someone sits. Weeks after this one "
                       "count rosters as they will stand with the pending moves."),
@@ -429,7 +429,7 @@ def next_week(ctx, src, week, wk, managers, team_of, today, blocks, sched) -> Op
         sides = []
         for s in (m, o):
             t = src.team(s, days)
-            inj = []
+            inj, chips = [], []
             av = src.next_av
             il = av.il.get(s) or {}
             by = {p["name"]: p for p in (blocks.get(s) or {}).get("players", [])}
@@ -439,11 +439,20 @@ def next_week(ctx, src, week, wk, managers, team_of, today, blocks, sched) -> Op
                 missed = sum(1 for d in gdays if not av.plays(n, d))
                 if n in il:
                     inj.append(f"{n} ({tg or 'IL slot'})")
+                    chips.append({"text": f"{_last(n)} {DOT} IL" + _back(by.get(n)), "full": n})
                 elif gdays and missed:
                     inj.append(f"{n} ({tg + ' ' + DOT + ' ' if tg else ''}out {missed} of {len(gdays)} games)")
+                    chips.append({"text": f"{_last(n)} {DOT} " + _tagword(by.get(n))
+                                  + f"out {missed} of {len(gdays)}" + _back(by.get(n)), "full": n})
+            lo = [x for x in ((f"{t.light_days} light" if t.light_days else ""),
+                              (f"{t.over_days} overflow" if t.over_days else "")) if x]
             sides.append({"m": s, "team": team_of.get(s, s), "record": recs.get(s, ""),
                           "starts": rng(*t.starts), "games": rng(*t.games), "light": str(t.light_days),
-                          "over": str(t.over_days), "injuries": inj})
+                          "over": str(t.over_days), "injuries": inj,
+                          # 5e (Nick's note 1): the card's chips (3, then "+N more") and day counts
+                          "chips": chips[:CHIPS_SHOWN], "more": (f"+{len(chips) - CHIPS_SHOWN} more"
+                                                                 if len(chips) > CHIPS_SHOWN else ""),
+                          "days": f" {DOT} ".join(lo)})
         look = None
         if stakes is not None:
             row = (((stakes.get("teams") or {}).get(m) or {}).get("regular_season") or {}).get(str(w)) or \
@@ -455,16 +464,53 @@ def next_week(ctx, src, week, wk, managers, team_of, today, blocks, sched) -> Op
                 pa = 100.0 * int(row["n_win"]) / n_all
                 mm = float(row["margin_mean"])
                 fav = m if mm >= 0 else o
-                look = {"win_a": f"{pa:.0f}%", "win_b": f"{100.0 * int(row['n_loss']) / n_all:.0f}%",
+                pb_ = 100.0 * int(row['n_loss']) / n_all
+                look = {"win_a": f"{pa:.0f}%", "win_b": f"{pb_:.0f}%",
                         "margin": f"{team_of.get(fav, fav)} by {abs(mm):.0f}",
+                        # 5e: the card's one line (manager names, as Last week's "Final: Marcus by 158")
+                        "line": f"Early look: {fav} by {abs(mm):.0f} {DOT} {(pa if fav == m else pb_):.0f}%",
+                        "run": _clock(stakes["as_of"]),
                         "src": f"From the title-odds simulation ({int(stakes['num_simulations']):,} seasons, run "
                                f"{_clock(stakes['as_of'])}), with rosters as they stand."}
         cards.append({"id": f"n{w}-{len(cards)}", "route": f"matchups/next/{len(cards)}",
                       "a": sides[0], "b": sides[1], "look": look, "pane": pane_i})
+    run = next((c["look"]["run"] for c in cards if c["look"]), None)
     return {"week": w, "label": label, "sub": sub, "cards": cards, "unknown": None,
             "early": "Early look \u2014 the line is set at Monday's close.",
+            # 5e: the section's one note: the early look, the simulation's run, the rosters
+            "head_note": ("Early look \u2014 the line is set at Monday's close. "
+                          + (f"Simulation run {run}. " if run else "No simulation has priced this week yet. ")
+                          + (ctx.get("pending_note") or "").strip()).strip(),
             "note": (ctx.get("pending_note") or "") + " Startable games: the same numbers as Team \u203a Schedule. "
                     "Light day: 4 or fewer players with a game; overflow day: more than 10."}
+
+
+CHIPS_SHOWN = 3
+
+
+def _last(name: str) -> str:
+    return name.split(" ", 1)[1] if " " in name else name
+
+
+def _back(p: Optional[dict]) -> str:
+    """ " . back MM-DD" from his status chips (the injury entry's date), or ""."""
+    for t in (p or {}).get("tags") or []:
+        x = str(t.get("text") or "")
+        if t.get("kind") in ("out", "il") and "back " in x:
+            return f" {DOT} back " + x.split("back ", 1)[1]
+    return ""
+
+
+def _tagword(p: Optional[dict]) -> str:
+    """His Yahoo tag ("O", "Q", "D", "OFS") and a dot, or ""."""
+    for t in (p or {}).get("tags") or []:
+        x = str(t.get("text") or "")
+        if t.get("kind") in ("out", "q"):
+            w = x.split(",")[0].strip()
+            w = {"out": "O"}.get(w.lower(), w)
+            if w in ("O", "Q", "D", "OFS", "GTD", "DTD"):
+                return f"{w} {DOT} "
+    return ""
 
 
 def _clock(iso: str) -> str:

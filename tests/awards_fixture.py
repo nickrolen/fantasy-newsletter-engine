@@ -31,7 +31,7 @@ PAIRS = [[("Marcus", "Tyler"), ("Dana", "Jordan")], [("Marcus", "Dana"), ("Tyler
 START = date(2026, 10, 5)
 LAST = "2026-11-10"            # week 5's second day
 CFG = {"history_top_n": 10, "shown": 5, "most_improved_min_games": 20, "most_improved_min_prior_games": 20,
-       "most_improved_prior_spec": "P3", "bust_min_games": 10}
+       "most_improved_prior_spec": "P3", "bust_min_games": 10, "roy_min_starts": 10}
 LP = {"spec": "P3", "k0_prior": 10.0, "k0_league_mean": 4.7}
 
 LEVEL = {}
@@ -323,11 +323,15 @@ def past_blob() -> dict:
                              "add_day": f"{s[:4]}-12-02", "stint": [f"{s[:4]}-12-02", f"{s[:2]}{s[5:]}-03-30"],
                              "drops": ["Lee Bench"]}),
               "roy": one({"label": "Rook Wing", "player": "Rook Wing", "m": imp["m"], "value": 300.0,
-                          "shown": "33.0 FPPG in 60 games", "sub": "55 starts", "ms": [imp["m"]]}),
+                          "shown": "33.0 FPPG in 60 games", "sub": "55 starts", "ms": [imp["m"]], "starts": 55}),
               "bust": one({"label": "Old Big", "player": "Old Big", "m": "Jordan", "value": 400.0,
                            "shown": "expected 45.0, 38.0 in 60 games", "sub": "Jordan's keeper",
                            "expected": 45.0, "fppg": 38.0, "games": 60})}
         aw["bust"]["source"] = "his previous NBA season's FPPG"
+        aw["roy"].update(min_starts=10, ineligible=[{"label": "Late Rook", "player": "Late Rook", "m": mvp["m"],
+                                                       "value": 40.0, "shown": "30.0 FPPG in 9 games",
+                                                       "sub": "ineligible (9 of 10 starts)", "ms": [mvp["m"]],
+                                                       "starts": 9}])
         mg = {}
         for k, unit_v in (("lineup", 0.99), ("draft", 900.0), ("waiver", 1200.0), ("unlucky", 3.0)):
             rows = [{"m": m, "value": unit_v - i * (0.01 if k == "lineup" else 1.0), "shown": f"{k} {m}",
@@ -357,7 +361,9 @@ def past_blob() -> dict:
                                  "unrecorded": []}}}
     blob["alltime"] = {"pickup": [dict(blob["seasons"][s]["awards"]["pickup"]["winner"], season=s)
                                   for s in ("2024-25", "2025-26")],
-                       "trade": [dict(tr, season="2024-25")]}
+                       "trade": [dict(tr, season="2024-25")],
+                       "draft": [{"m": "Dana", "season": "2025-26", "value": 900.0, "per_week": 42.857,
+                                  "regular_weeks": 21, "picks": 7, "best": "Dana Wing", "won": True}]}
     blob["best"] = P.best(blob)
     P.validate(blob)
     return blob

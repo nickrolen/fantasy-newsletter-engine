@@ -443,8 +443,11 @@ def teams_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
     v2 = payload["v2"]
     try:
         active = {m: [p["name"] for p in rb["players"] if not p["in_il"]] for m, rb in payload["rosters"].items()}
+        fa = list(dict.fromkeys(r["name"] for r in payload["free_agents"]["rows"]
+                                + (payload["free_agents"].get("range_rows") or [])))   # 5e: Value to you
         tv = tvm.compute(data=ctx["data"], now=ctx["now"], week=ctx["week"], wk_dates=ctx["wk_dates"],
-                         active=active, pool=list(ctx["pool"]), tag_row=ctx["tag_row"], tags=ctx["tags"])
+                         active=active, pool=list(ctx["pool"]) + [n for n in fa if n not in set(ctx["pool"])],
+                         tag_row=ctx["tag_row"], tags=ctx["tags"], fa=fa)
         prices = tvm.title_prices(base, list(payload["rosters"]), tv["weeks"]) if tv["weeks"] else ({}, "", "")
         wk = {int(w): list(v) for w, v in ctx["wk_dates"].items()}
         today = ctx["today"]
@@ -460,7 +463,71 @@ def teams_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
     for m, d in detail.items():
         v2["teams"][m]["roster"]["detail"] = d
     v2["team_value"] = {"weeks": tv["weeks"], "seconds": tv["seconds"], "sims": tv["sims"]}
+    v2["fa_value"] = fa_value_view(tv, prices, list(payload["rosters"]), fa)
+    if v2["fa_value"]["error"]:
+        echo(f"VALUE TO YOU FAILED (Players and Market show no Value to you; the hub goes on): "
+             f"{v2['fa_value']['error']}")
     return v2, None
+
+
+def fa_value_view(tv: dict, prices: tuple, managers: list, fa: list) -> dict:
+    """5e: "Value to you", the strings: {"weeks", "seconds", "n", "error",
+    "values": {free agent: {manager: {"tv", "td", "drop", "tv_k", "td_k"}}}}
+    (team_value.compute's fa_values, Title delta at each manager's price of a
+    point, as the roster's Title delta). Soft: an error leaves values empty."""
+    from .roster import _signed0, _signed1
+    out = {"weeks": list(tv.get("weeks") or []), "seconds": tv.get("fa_seconds", 0.0), "n": len(fa),
+           "error": tv.get("fa_error"), "values": {}}
+    if out["error"] or not tv.get("weeks"):
+        if not tv.get("weeks") and not out["error"]:
+            out["error"] = "no window left this season"
+        return out
+    pr = prices[0] if prices else {}
+    for m in managers:
+        for n, t in (tv["fa_values"].get(m) or {}).items():
+            td = t["pts"] * pr[m] if m in pr else None
+            out["values"].setdefault(n, {})[m] = {
+                "tv": _signed0(t["pts"]), "tv_k": round(t["pts"], 4),
+                "td": DASH if td is None else _signed1(td), "td_k": None if td is None else round(td, 4),
+                "drop": t["drop"] or ""}
+    return out
+
+
+def home_soft(base, payload: dict, ctx: dict, echo=print) -> dict:
+    """5e: v2["home"] = {"nightly": Last night . Tonight, "window": Moves
+    window} (modules/hub_v2/home.py), each SOFT ON ITS OWN: a failure leaves
+    {"error"} (the card says "Couldn't update", the run row names it:
+    soft_notes) and never v2_error. Pops v2["_swing"]. Returns v2["home"]."""
+    from . import home
+    v2 = payload["v2"]
+    raw = v2.pop("_swing", None)
+    reg = (payload.get("cards") or {}).get("players") or {}
+    key_of = {v["name"]: k for k, v in reg.items()}
+    c = dict(ctx, card_of=lambda n: key_of.get(n), swing_raw=raw)
+    out = {}
+    for k, fn, label in (("nightly", home.nightly, "LAST NIGHT \u00b7 TONIGHT"), ("window", home.window, "MOVES WINDOW")):
+        try:
+            out[k] = fn(c)
+        except Exception as e:                   # noqa: BLE001 -- a Home card fails softly (5e)
+            out[k] = {"error": f"{type(e).__name__}: {e}".splitlines()[0][:300]}
+            echo(f"{label} FAILED (the card says it couldn't update; the hub goes on): {out[k]['error']}")
+    v2["home"] = out
+    return out
+
+
+def soft_notes(payload: dict) -> list:
+    """5e: the new hub's soft failures for the run row: a Home card that
+    couldn't update, Value to you."""
+    v2 = payload.get("v2") or {}
+    out = []
+    for k, label in (("nightly", "Last night \u00b7 Tonight"), ("window", "Moves window")):
+        e = ((v2.get("home") or {}).get(k) or {}).get("error")
+        if e:
+            out.append(f"{label} couldn't update: {e}")
+    e = (v2.get("fa_value") or {}).get("error")
+    if e and e != "no window left this season":
+        out.append(f"Value to you couldn't update: {e}")
+    return out
 
 
 def market_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
@@ -842,7 +909,7 @@ def build(base, ctx: dict) -> dict:
     views = {v["id"]: v for v in ctx["matchup_views"]}
     this_tab = grid_rows["this"]
     days_hdr = [{"dow": f"{d:%a}", "day": str(d.day)} for d in this_days]
-    mus = []
+    mus, swing_this = [], []
     for i, (c, ln) in enumerate(zip(cards, line["lines"])):
         a, b = c["a"]["manager"], c["b"]["manager"]
         if (ln["manager_a"], ln["manager_b"]) != (a, b):
@@ -874,6 +941,7 @@ def build(base, ctx: dict) -> dict:
         except hc.ChartError as e:
             raise V2Error(str(e)) from None
         win = win_series(entry, a, b, wpts, tz, team_of, mono)
+        swing_this.append({"a": a, "b": b, "pts": _raw_pts(wpts)})        # 5e: Home's swings
         flow = flow_series(entry, a, b, banked, expected, team_of, mono)
         for m, s in ((a, "a"), (b, "b")):
             if _int(flow["series"][m]["banked"][-1]) != c[s]["now"]:
@@ -971,7 +1039,14 @@ def build(base, ctx: dict) -> dict:
             "sched_cols": [{"label": c["label"], "sub": c["sub"]} for c in sched_cols],
             "sched_note": ("Games he will play each week: not in an IL slot, not out under a tag or an "
                            "injury entry. Darker = more games (0\u20131, 2, 3, 4+)."),
-            "matchups": mus, "issue": issue, "last": last, "line_text": ctx.get("line_text") or ""}
+            "matchups": mus, "issue": issue, "last": last, "line_text": ctx.get("line_text") or "",
+            # 5e: the Win % series' raw points for Home's swings; home_soft pops it (never stored)
+            "_swing": {"this": swing_this, "last": (last or {}).pop("_raw", None) if last else None}}
+
+
+def _raw_pts(wpts: list) -> list:
+    """[(iso time, pa, pb)] of hub_charts.winprob_points' points (JSON-safe)."""
+    return [(dt.isoformat(), float(pa), float(pb)) for dt, pa, pb, _lab in wpts]
 
 
 # =============================================================================
@@ -1028,7 +1103,7 @@ def last_week(base, data, week: int, cur_last: Optional[dict], team_of: dict, mo
     cp = Path(base) / "output" / f"closing_line_week{lw}.json"
     close2 = json.loads(cp.read_text(encoding="utf-8")) if cp.is_file() else None
     at = datetime.combine(end2 + timedelta(days=1), _time(0), tzinfo=tz)
-    cards = []
+    cards, raw = [], []
     mus = e2.get("matchups", [])
     if len(mus) != len(cur_last["cards"]):
         raise V2Error(f"week {lw}: {len(mus)} matchups, the payload's last-week block has {len(cur_last['cards'])}")
@@ -1053,6 +1128,7 @@ def last_week(base, data, week: int, cur_last: Optional[dict], team_of: dict, mo
             ltext, verdict = line_verdict(close_ln, a, b, fa, fb)
         wpts = hc.winprob_points(a, b, rows2, close2, {"at": at, "a": fa_, "b": fb_})
         win = win_series(e2, a, b, wpts, tz, team_of, mono)
+        raw.append({"a": a, "b": b, "pts": _raw_pts(wpts), "fa": fa_, "fb": fb_, "id": f"w{lw}-{i}"})   # 5e
         fl = flow_series(e2, a, b, {a: flow["banked"][a], b: flow["banked"][b]}, None, team_of, mono)
         win_a = "100.0%" if fa > fb else "0.0%" if fa < fb else "50.0%"
         win_b = "100.0%" if fb > fa else "0.0%" if fb < fa else "50.0%"
@@ -1060,6 +1136,6 @@ def last_week(base, data, week: int, cur_last: Optional[dict], team_of: dict, mo
                       "result": lc["result"], "line": ltext, "verdict": verdict, "views": dict(lc["views"]),
                       "win_a": win_a, "win_b": win_b, "won": "a" if fa > fb else "b" if fb > fa else "",
                       "win": win, "flow": fl})
-    return {"week": lw, "title": cur_last["title"], "cards": cards,
+    return {"week": lw, "title": cur_last["title"], "cards": cards, "_raw": raw,
             "note": ("How last week ended, and how Monday's closing line did: the favourite by the spread, "
                      "against the final scores. Tap a matchup for its charts at the end.")}

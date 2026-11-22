@@ -737,7 +737,8 @@ def v2_tiles(m: dict, *, show_title: bool) -> list:
     """The tap-open tiles: Starts, Points and (advice.show_title_odds) Title odds."""
     st = m["dstarts"][0] + m["dstarts"][1]
     pts = m["dpts"][0] + m["dpts"][1]
-    out = [{"label": "Starts", "value": f"{st:+.1f}".replace("-", "\u2212"), "dir": _dir(st, 1, 1.0)},
+    # 5e (5D2 decision 3): a simulated mean, labelled so beside Schedule's exact counts
+    out = [{"label": "Exp. starts", "value": f"{st:+.1f}".replace("-", "\u2212"), "dir": _dir(st, 1, 1.0)},
            {"label": "Points", "value": f"{pts:+.0f}".replace("-", "\u2212"), "dir": _dir(pts, 0, 1.0)}]
     if show_title:
         t = m.get("title_odds")
@@ -754,7 +755,7 @@ def v2_why(m: dict, horizon: dict) -> str:
     tot = st[0] + st[1]
     word = "start" if abs(round(tot, 1)) == 1.0 else "starts"
     by = ", ".join(f"{st[k]:+.1f} in week {w}" for k, w in enumerate(ws) if w is not None)
-    s = (f"{tot:+.1f} lineup {word}: {by}.").replace("-", "\u2212")
+    s = (f"{tot:+.1f} expected lineup {word}: {by}.").replace("-", "\u2212")
     if m.get("flat"):
         s += " The matchups are as good as decided, so it is ranked on points."
     return s
@@ -993,7 +994,7 @@ def latest_payload(*, run_id: str, mode: str, cause: Optional[str], now: datetim
             # the plan is the hold: no move this window; A's steps and total kept beside it
             e["activate_plan"], e["activate_total"] = e["plan"], e["plan_total"]
             e["plan"], e["move"], e["plan_total"] = [], None, None
-            e["plan_stop"] = {"code": "hold", "text": "keeps him in IL this window: no move (rule 3)"}
+            e["plan_stop"] = {"code": "hold", "text": "keeps him in IL this window, so no other move"}
         if a.backup is not None:
             d = _move_dict(a.backup, a.backup_score, inputs, hz, cfg)
             d["text"] = {"move": move_text(d), "numbers": numbers_text(d, horizon, opps, show_title=show),

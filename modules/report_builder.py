@@ -2729,12 +2729,13 @@ def build_record_book(data) -> dict:
     # =========================================================================
     draft_records = []
     for key, name, val_field, dfn, unit, note in [
-        ("best_draft_class_top10", "Best Draft Class", "total_fp",
-         lambda e: f"{e.get('player_count', 0)} picks, {e.get('total_gp', 0)} GP",
-         "FP", "Total FP from top 7 draft picks (keepers excluded). *2021-22 onward only"),
-        ("best_draft_class_fppg_top10", "Best Draft Class", "avg_fppg",
-         lambda e: f"{e.get('player_count', 0)} qualifying picks, {e.get('total_gp', 0)} GP",
-         "FPPG", "Avg FPPG across top 7 draft picks (min 20 GP, keepers excluded). *2021-22 onward only"),
+        # 5e (4C7 decision 6): Draft of the year replaces best_draft_class (one measure per idea)
+        ("draft_of_year_top10", "Draft of the Year", "par_per_week",
+         lambda e: (f"{e.get('picks', '?')} picks, {e.get('par', 0):,.1f} PAR over {e.get('regular_weeks', '?')} "
+                    "weeks" + (", won the award" if e.get("won") else "")),
+         "PAR a week", "The players he drafted that season (keepers apart), PAR in his own starts through the "
+                       "regular season, per regular-season week (the Draft of the year award). *2017-18 to last "
+                       "season; 2018-19 has no draft list"),
         ("biggest_draft_steal_top10", "Biggest Draft Steal", "delta",
          lambda e: f"P{e.get('pick_number', '?')} (R{e.get('round', '?')}): {e.get('fppg', 0):.1f} actual vs {e.get('expected_fppg', 0):.1f} expected",
          "FPPG above expected", "FPPG minus expected FPPG for draft pick (min 20 GP, keepers excluded). *2024-25 onward only: the pick order before that isn't reliable"),

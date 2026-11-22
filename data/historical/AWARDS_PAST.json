@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "awards": [
   "mvp",
   "trade",
@@ -473,7 +473,8 @@
       "sub": "65 starts",
       "ms": [
        "Hayden"
-      ]
+      ],
+      "starts": 65
      },
      "top": [
       {
@@ -485,7 +486,8 @@
        "sub": "65 starts",
        "ms": [
         "Hayden"
-       ]
+       ],
+       "starts": 65
       },
       {
        "label": "Lonzo Ball",
@@ -497,7 +499,8 @@
        "ms": [
         "Benton",
         "Garrett"
-       ]
+       ],
+       "starts": 34
       },
       {
        "label": "Donovan Mitchell",
@@ -510,18 +513,26 @@
         "Hayden",
         "Nick",
         "Benton"
-       ]
-      },
+       ],
+       "starts": 23
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3,
+     "min_starts": 10,
+     "ineligible": [
       {
        "label": "Kyle Kuzma",
        "player": "Kyle Kuzma",
        "m": "Benton",
        "value": -20.37,
        "shown": "22.1 FPPG in 4 games",
-       "sub": "4 starts",
+       "sub": "ineligible (4 of 10 starts)",
        "ms": [
         "Benton"
-       ]
+       ],
+       "starts": 4
       },
       {
        "label": "Lauri Markkanen",
@@ -529,15 +540,13 @@
        "m": "Benton",
        "value": -22.62,
        "shown": "22.7 FPPG in 5 games",
-       "sub": "4 starts",
+       "sub": "ineligible (4 of 10 starts)",
        "ms": [
         "Benton"
-       ]
+       ],
+       "starts": 4
       }
-     ],
-     "none": "",
-     "excluded": {},
-     "eligible": 5
+     ]
     },
     "bust": {
      "winner": {
@@ -625,42 +634,42 @@
      "top": [
       {
        "m": "Nick",
-       "value": 0.9913,
-       "shown": "99.1%",
-       "sub": "797 of 804 fillable starts \u00b7 7 missed over 147 days",
-       "started": 797,
-       "fillable": 804,
-       "days": 147,
+       "value": 0.6094,
+       "shown": "60.9%",
+       "sub": "847 of 1,390 slots filled \u00b7 543 empty over 139 days with NBA games",
+       "filled": 847,
+       "slots": 1390,
+       "days": 139,
        "rank": 1
       },
       {
-       "m": "Hayden",
-       "value": 0.9786,
-       "shown": "97.9%",
-       "sub": "779 of 796 fillable starts \u00b7 17 missed over 148 days",
-       "started": 779,
-       "fillable": 796,
-       "days": 148,
+       "m": "Benton",
+       "value": 0.6066,
+       "shown": "60.7%",
+       "sub": "831 of 1,370 slots filled \u00b7 539 empty over 137 days with NBA games",
+       "filled": 831,
+       "slots": 1370,
+       "days": 137,
        "rank": 2
       },
       {
-       "m": "Benton",
-       "value": 0.9665,
-       "shown": "96.7%",
-       "sub": "779 of 806 fillable starts \u00b7 27 missed over 145 days",
-       "started": 779,
-       "fillable": 806,
-       "days": 145,
+       "m": "Hayden",
+       "value": 0.5993,
+       "shown": "59.9%",
+       "sub": "839 of 1,400 slots filled \u00b7 561 empty over 140 days with NBA games",
+       "filled": 839,
+       "slots": 1400,
+       "days": 140,
        "rank": 3
       },
       {
        "m": "Garrett",
-       "value": 0.9286,
-       "shown": "92.9%",
-       "sub": "728 of 784 fillable starts \u00b7 56 missed over 148 days",
-       "started": 728,
-       "fillable": 784,
-       "days": 148,
+       "value": 0.5736,
+       "shown": "57.4%",
+       "sub": "803 of 1,400 slots filled \u00b7 597 empty over 140 days with NBA games",
+       "filled": 803,
+       "slots": 1400,
+       "days": 140,
        "rank": 4
       }
      ],
@@ -1455,7 +1464,8 @@
       "ms": [
        "Benton",
        "Nick"
-      ]
+      ],
+      "starts": 53
      },
      "top": [
       {
@@ -1468,7 +1478,8 @@
        "ms": [
         "Benton",
         "Nick"
-       ]
+       ],
+       "starts": 53
       },
       {
        "label": "Trae Young",
@@ -1481,7 +1492,8 @@
         "Nick",
         "Benton",
         "Hayden"
-       ]
+       ],
+       "starts": 33
       },
       {
        "label": "Deandre Ayton",
@@ -1493,23 +1505,28 @@
        "ms": [
         "Benton",
         "Nick"
-       ]
-      },
+       ],
+       "starts": 40
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3,
+     "min_starts": 10,
+     "ineligible": [
       {
        "label": "Wendell Carter Jr.",
        "player": "Wendell Carter Jr.",
        "m": "Benton",
        "value": 24.53,
        "shown": "29.4 FPPG in 4 games",
-       "sub": "4 starts",
+       "sub": "ineligible (4 of 10 starts)",
        "ms": [
         "Benton"
-       ]
+       ],
+       "starts": 4
       }
-     ],
-     "none": "",
-     "excluded": {},
-     "eligible": 4
+     ]
     },
     "bust": {
      "winner": null,
@@ -1528,42 +1545,42 @@
      "top": [
       {
        "m": "Nick",
-       "value": 1.0,
-       "shown": "100.0%",
-       "sub": "864 of 864 fillable starts \u00b7 0 missed over 153 days",
-       "started": 864,
-       "fillable": 864,
-       "days": 153,
+       "value": 0.6283,
+       "shown": "62.8%",
+       "sub": "911 of 1,450 slots filled \u00b7 539 empty over 145 days with NBA games",
+       "filled": 911,
+       "slots": 1450,
+       "days": 145,
        "rank": 1
       },
       {
-       "m": "Benton",
-       "value": 0.9976,
-       "shown": "99.8%",
-       "sub": "835 of 837 fillable starts \u00b7 2 missed over 153 days",
-       "started": 835,
-       "fillable": 837,
-       "days": 153,
+       "m": "Hayden",
+       "value": 0.6276,
+       "shown": "62.8%",
+       "sub": "910 of 1,450 slots filled \u00b7 540 empty over 145 days with NBA games",
+       "filled": 910,
+       "slots": 1450,
+       "days": 145,
        "rank": 2
       },
       {
-       "m": "Hayden",
-       "value": 0.9884,
-       "shown": "98.8%",
-       "sub": "853 of 863 fillable starts \u00b7 10 missed over 153 days",
-       "started": 853,
-       "fillable": 863,
-       "days": 153,
+       "m": "Benton",
+       "value": 0.6186,
+       "shown": "61.9%",
+       "sub": "897 of 1,450 slots filled \u00b7 553 empty over 145 days with NBA games",
+       "filled": 897,
+       "slots": 1450,
+       "days": 145,
        "rank": 3
       },
       {
        "m": "Garrett",
-       "value": 0.9824,
-       "shown": "98.2%",
-       "sub": "838 of 853 fillable starts \u00b7 15 missed over 153 days",
-       "started": 838,
-       "fillable": 853,
-       "days": 153,
+       "value": 0.6103,
+       "shown": "61.0%",
+       "sub": "885 of 1,450 slots filled \u00b7 565 empty over 145 days with NBA games",
+       "filled": 885,
+       "slots": 1450,
+       "days": 145,
        "rank": 4
       }
      ],
@@ -1993,28 +2010,24 @@
      "eligible": 46
     },
     "roy": {
-     "winner": {
-      "label": "Ja Morant",
-      "player": "Ja Morant",
-      "m": "Hayden",
-      "value": -3.22,
-      "shown": "15.9 FPPG in 1 game",
-      "sub": "1 start",
-      "ms": [
-       "Hayden"
-      ]
-     },
-     "top": [
+     "winner": null,
+     "top": [],
+     "none": "No winner: no rookie reached 10 starts",
+     "excluded": {},
+     "eligible": 0,
+     "min_starts": 10,
+     "ineligible": [
       {
        "label": "Ja Morant",
        "player": "Ja Morant",
        "m": "Hayden",
        "value": -3.22,
        "shown": "15.9 FPPG in 1 game",
-       "sub": "1 start",
+       "sub": "ineligible (1 of 10 starts)",
        "ms": [
         "Hayden"
-       ]
+       ],
+       "starts": 1
       },
       {
        "label": "Zion Williamson",
@@ -2022,16 +2035,14 @@
        "m": "Nick",
        "value": -32.0,
        "shown": "24.5 FPPG in 8 games",
-       "sub": "8 starts",
+       "sub": "ineligible (8 of 10 starts)",
        "ms": [
         "Nick",
         "Benton"
-       ]
+       ],
+       "starts": 8
       }
-     ],
-     "none": "",
-     "excluded": {},
-     "eligible": 2
+     ]
     },
     "bust": {
      "winner": {
@@ -2114,47 +2125,47 @@
    "managers": {
     "lineup": {
      "winners": [
-      "Benton"
+      "Hayden"
      ],
      "top": [
       {
-       "m": "Benton",
-       "value": 0.9933,
-       "shown": "99.3%",
-       "sub": "743 of 748 fillable starts \u00b7 5 missed over 138 days",
-       "started": 743,
-       "fillable": 748,
-       "days": 138,
+       "m": "Hayden",
+       "value": 0.6215,
+       "shown": "62.2%",
+       "sub": "808 of 1,300 slots filled \u00b7 492 empty over 130 days with NBA games",
+       "filled": 808,
+       "slots": 1300,
+       "days": 130,
        "rank": 1
       },
       {
-       "m": "Hayden",
-       "value": 0.9907,
-       "shown": "99.1%",
-       "sub": "744 of 751 fillable starts \u00b7 7 missed over 138 days",
-       "started": 744,
-       "fillable": 751,
-       "days": 138,
+       "m": "Nick",
+       "value": 0.6208,
+       "shown": "62.1%",
+       "sub": "807 of 1,300 slots filled \u00b7 493 empty over 130 days with NBA games",
+       "filled": 807,
+       "slots": 1300,
+       "days": 130,
        "rank": 2
       },
       {
-       "m": "Nick",
-       "value": 0.9837,
-       "shown": "98.4%",
-       "sub": "726 of 738 fillable starts \u00b7 12 missed over 138 days",
-       "started": 726,
-       "fillable": 738,
-       "days": 138,
+       "m": "Benton",
+       "value": 0.62,
+       "shown": "62.0%",
+       "sub": "806 of 1,300 slots filled \u00b7 494 empty over 130 days with NBA games",
+       "filled": 806,
+       "slots": 1300,
+       "days": 130,
        "rank": 3
       },
       {
        "m": "Garrett",
-       "value": 0.98,
-       "shown": "98.0%",
-       "sub": "687 of 701 fillable starts \u00b7 14 missed over 138 days",
-       "started": 687,
-       "fillable": 701,
-       "days": 138,
+       "value": 0.6085,
+       "shown": "60.8%",
+       "sub": "791 of 1,300 slots filled \u00b7 509 empty over 130 days with NBA games",
+       "filled": 791,
+       "slots": 1300,
+       "days": 130,
        "rank": 4
       }
      ],
@@ -2936,7 +2947,8 @@
       "ms": [
        "Hayden",
        "Benton"
-      ]
+      ],
+      "starts": 25
      },
      "top": [
       {
@@ -2949,7 +2961,8 @@
        "ms": [
         "Hayden",
         "Benton"
-       ]
+       ],
+       "starts": 25
       },
       {
        "label": "Anthony Edwards",
@@ -2960,23 +2973,28 @@
        "sub": "13 starts",
        "ms": [
         "Benton"
-       ]
-      },
+       ],
+       "starts": 13
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 2,
+     "min_starts": 10,
+     "ineligible": [
       {
        "label": "Tyrese Haliburton",
        "player": "Tyrese Haliburton",
        "m": "Benton",
        "value": 18.08,
        "shown": "29.4 FPPG in 11 games",
-       "sub": "8 starts",
+       "sub": "ineligible (8 of 10 starts)",
        "ms": [
         "Benton"
-       ]
+       ],
+       "starts": 8
       }
-     ],
-     "none": "",
-     "excluded": {},
-     "eligible": 3
+     ]
     },
     "bust": {
      "winner": {
@@ -3058,47 +3076,47 @@
    "managers": {
     "lineup": {
      "winners": [
-      "Hayden"
+      "Nick"
      ],
      "top": [
       {
-       "m": "Hayden",
-       "value": 0.9956,
-       "shown": "99.6%",
-       "sub": "677 of 680 fillable starts \u00b7 3 missed over 118 days",
-       "started": 677,
-       "fillable": 680,
-       "days": 118,
+       "m": "Nick",
+       "value": 0.6518,
+       "shown": "65.2%",
+       "sub": "730 of 1,120 slots filled \u00b7 390 empty over 112 days with NBA games",
+       "filled": 730,
+       "slots": 1120,
+       "days": 112,
        "rank": 1
       },
       {
        "m": "Garrett",
-       "value": 0.9863,
-       "shown": "98.6%",
-       "sub": "647 of 656 fillable starts \u00b7 9 missed over 118 days",
-       "started": 647,
-       "fillable": 656,
-       "days": 118,
+       "value": 0.65,
+       "shown": "65.0%",
+       "sub": "728 of 1,120 slots filled \u00b7 392 empty over 112 days with NBA games",
+       "filled": 728,
+       "slots": 1120,
+       "days": 112,
        "rank": 2
       },
       {
-       "m": "Nick",
-       "value": 0.9829,
-       "shown": "98.3%",
-       "sub": "691 of 703 fillable starts \u00b7 12 missed over 118 days",
-       "started": 691,
-       "fillable": 703,
-       "days": 118,
+       "m": "Hayden",
+       "value": 0.65,
+       "shown": "65.0%",
+       "sub": "728 of 1,120 slots filled \u00b7 392 empty over 112 days with NBA games",
+       "filled": 728,
+       "slots": 1120,
+       "days": 112,
        "rank": 3
       },
       {
        "m": "Benton",
-       "value": 0.9785,
-       "shown": "97.8%",
-       "sub": "637 of 651 fillable starts \u00b7 14 missed over 118 days",
-       "started": 637,
-       "fillable": 651,
-       "days": 118,
+       "value": 0.642,
+       "shown": "64.2%",
+       "sub": "719 of 1,120 slots filled \u00b7 401 empty over 112 days with NBA games",
+       "filled": 719,
+       "slots": 1120,
+       "days": 112,
        "rank": 4
       }
      ],
@@ -3748,7 +3766,8 @@
       "ms": [
        "Nick",
        "Benton"
-      ]
+      ],
+      "starts": 24
      },
      "top": [
       {
@@ -3761,7 +3780,8 @@
        "ms": [
         "Nick",
         "Benton"
-       ]
+       ],
+       "starts": 24
       },
       {
        "label": "Evan Mobley",
@@ -3773,19 +3793,8 @@
        "ms": [
         "Hayden",
         "Benton"
-       ]
-      },
-      {
-       "label": "Josh Giddey",
-       "player": "Josh Giddey",
-       "m": "Hayden",
-       "value": -0.16,
-       "shown": "28.8 FPPG in 4 games",
-       "sub": "4 starts",
-       "ms": [
-        "Hayden",
-        "Benton"
-       ]
+       ],
+       "starts": 49
       },
       {
        "label": "Scottie Barnes",
@@ -3797,12 +3806,29 @@
        "ms": [
         "Benton",
         "Nick"
-       ]
+       ],
+       "starts": 22
       }
      ],
      "none": "",
      "excluded": {},
-     "eligible": 4
+     "eligible": 3,
+     "min_starts": 10,
+     "ineligible": [
+      {
+       "label": "Josh Giddey",
+       "player": "Josh Giddey",
+       "m": "Hayden",
+       "value": -0.16,
+       "shown": "28.8 FPPG in 4 games",
+       "sub": "ineligible (4 of 10 starts)",
+       "ms": [
+        "Hayden",
+        "Benton"
+       ],
+       "starts": 4
+      }
+     ]
     },
     "bust": {
      "winner": {
@@ -3890,42 +3916,42 @@
      "top": [
       {
        "m": "Nick",
-       "value": 0.9964,
-       "shown": "99.6%",
-       "sub": "822 of 825 fillable starts \u00b7 3 missed over 146 days",
-       "started": 822,
-       "fillable": 825,
-       "days": 146,
+       "value": 0.6377,
+       "shown": "63.8%",
+       "sub": "880 of 1,380 slots filled \u00b7 500 empty over 138 days with NBA games",
+       "filled": 880,
+       "slots": 1380,
+       "days": 138,
        "rank": 1
       },
       {
-       "m": "Garrett",
-       "value": 0.9917,
-       "shown": "99.2%",
-       "sub": "718 of 724 fillable starts \u00b7 6 missed over 146 days",
-       "started": 718,
-       "fillable": 724,
-       "days": 146,
+       "m": "Benton",
+       "value": 0.6304,
+       "shown": "63.0%",
+       "sub": "870 of 1,380 slots filled \u00b7 510 empty over 138 days with NBA games",
+       "filled": 870,
+       "slots": 1380,
+       "days": 138,
        "rank": 2
       },
       {
-       "m": "Benton",
-       "value": 0.9903,
-       "shown": "99.0%",
-       "sub": "818 of 826 fillable starts \u00b7 8 missed over 146 days",
-       "started": 818,
-       "fillable": 826,
-       "days": 146,
+       "m": "Garrett",
+       "value": 0.6268,
+       "shown": "62.7%",
+       "sub": "865 of 1,380 slots filled \u00b7 515 empty over 138 days with NBA games",
+       "filled": 865,
+       "slots": 1380,
+       "days": 138,
        "rank": 3
       },
       {
        "m": "Hayden",
-       "value": 0.9759,
-       "shown": "97.6%",
-       "sub": "768 of 787 fillable starts \u00b7 19 missed over 146 days",
-       "started": 768,
-       "fillable": 787,
-       "days": 146,
+       "value": 0.6145,
+       "shown": "61.4%",
+       "sub": "848 of 1,380 slots filled \u00b7 532 empty over 138 days with NBA games",
+       "filled": 848,
+       "slots": 1380,
+       "days": 138,
        "rank": 4
       }
      ],
@@ -4421,7 +4447,8 @@
       "sub": "59 starts",
       "ms": [
        "Garrett"
-      ]
+      ],
+      "starts": 59
      },
      "top": [
       {
@@ -4433,18 +4460,26 @@
        "sub": "59 starts",
        "ms": [
         "Garrett"
-       ]
-      },
+       ],
+       "starts": 59
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 1,
+     "min_starts": 10,
+     "ineligible": [
       {
        "label": "Walker Kessler",
        "player": "Walker Kessler",
        "m": "Garrett",
        "value": 22.68,
        "shown": "34.8 FPPG in 4 games",
-       "sub": "4 starts",
+       "sub": "ineligible (4 of 10 starts)",
        "ms": [
         "Garrett"
-       ]
+       ],
+       "starts": 4
       },
       {
        "label": "Bennedict Mathurin",
@@ -4452,16 +4487,14 @@
        "m": "Hayden",
        "value": -30.41,
        "shown": "21.4 FPPG in 5 games",
-       "sub": "5 starts",
+       "sub": "ineligible (5 of 10 starts)",
        "ms": [
         "Hayden",
         "Nick"
-       ]
+       ],
+       "starts": 5
       }
-     ],
-     "none": "",
-     "excluded": {},
-     "eligible": 3
+     ]
     },
     "bust": {
      "winner": {
@@ -4548,42 +4581,42 @@
      "top": [
       {
        "m": "Hayden",
-       "value": 0.9978,
-       "shown": "99.8%",
-       "sub": "896 of 898 fillable starts \u00b7 2 missed over 153 days",
-       "started": 896,
-       "fillable": 898,
-       "days": 153,
+       "value": 0.6479,
+       "shown": "64.8%",
+       "sub": "933 of 1,440 slots filled \u00b7 507 empty over 144 days with NBA games",
+       "filled": 933,
+       "slots": 1440,
+       "days": 144,
        "rank": 1
       },
       {
-       "m": "Garrett",
-       "value": 0.9913,
-       "shown": "99.1%",
-       "sub": "795 of 802 fillable starts \u00b7 7 missed over 153 days",
-       "started": 795,
-       "fillable": 802,
-       "days": 153,
+       "m": "Nick",
+       "value": 0.6312,
+       "shown": "63.1%",
+       "sub": "909 of 1,440 slots filled \u00b7 531 empty over 144 days with NBA games",
+       "filled": 909,
+       "slots": 1440,
+       "days": 144,
        "rank": 2
       },
       {
-       "m": "Benton",
-       "value": 0.9869,
-       "shown": "98.7%",
-       "sub": "827 of 838 fillable starts \u00b7 11 missed over 153 days",
-       "started": 827,
-       "fillable": 838,
-       "days": 153,
+       "m": "Garrett",
+       "value": 0.6299,
+       "shown": "63.0%",
+       "sub": "907 of 1,440 slots filled \u00b7 533 empty over 144 days with NBA games",
+       "filled": 907,
+       "slots": 1440,
+       "days": 144,
        "rank": 3
       },
       {
-       "m": "Nick",
-       "value": 0.9733,
-       "shown": "97.3%",
-       "sub": "838 of 861 fillable starts \u00b7 23 missed over 153 days",
-       "started": 838,
-       "fillable": 861,
-       "days": 153,
+       "m": "Benton",
+       "value": 0.6139,
+       "shown": "61.4%",
+       "sub": "884 of 1,440 slots filled \u00b7 556 empty over 144 days with NBA games",
+       "filled": 884,
+       "slots": 1440,
+       "days": 144,
        "rank": 4
       }
      ],
@@ -5267,7 +5300,8 @@
       "sub": "62 starts",
       "ms": [
        "Garrett"
-      ]
+      ],
+      "starts": 62
      },
      "top": [
       {
@@ -5279,7 +5313,8 @@
        "sub": "62 starts",
        "ms": [
         "Garrett"
-       ]
+       ],
+       "starts": 62
       },
       {
        "label": "Chet Holmgren",
@@ -5290,7 +5325,8 @@
        "sub": "68 starts",
        "ms": [
         "Nick"
-       ]
+       ],
+       "starts": 68
       },
       {
        "label": "Brandon Miller",
@@ -5301,23 +5337,28 @@
        "sub": "12 starts",
        "ms": [
         "Benton"
-       ]
-      },
+       ],
+       "starts": 12
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3,
+     "min_starts": 10,
+     "ineligible": [
       {
        "label": "Ausar Thompson",
        "player": "Ausar Thompson",
        "m": "Nick",
        "value": -34.02,
        "shown": "19.4 FPPG in 4 games",
-       "sub": "4 starts",
+       "sub": "ineligible (4 of 10 starts)",
        "ms": [
         "Nick"
-       ]
+       ],
+       "starts": 4
       }
-     ],
-     "none": "",
-     "excluded": {},
-     "eligible": 4
+     ]
     },
     "bust": {
      "winner": {
@@ -5404,42 +5445,42 @@
      "top": [
       {
        "m": "Nick",
-       "value": 0.9989,
-       "shown": "99.9%",
-       "sub": "907 of 908 fillable starts \u00b7 1 missed over 153 days",
-       "started": 907,
-       "fillable": 908,
-       "days": 153,
+       "value": 0.661,
+       "shown": "66.1%",
+       "sub": "932 of 1,410 slots filled \u00b7 478 empty over 141 days with NBA games",
+       "filled": 932,
+       "slots": 1410,
+       "days": 141,
        "rank": 1
       },
       {
        "m": "Hayden",
-       "value": 0.9944,
-       "shown": "99.4%",
-       "sub": "895 of 900 fillable starts \u00b7 5 missed over 153 days",
-       "started": 895,
-       "fillable": 900,
-       "days": 153,
+       "value": 0.6539,
+       "shown": "65.4%",
+       "sub": "922 of 1,410 slots filled \u00b7 488 empty over 141 days with NBA games",
+       "filled": 922,
+       "slots": 1410,
+       "days": 141,
        "rank": 2
       },
       {
        "m": "Garrett",
-       "value": 0.9944,
-       "shown": "99.4%",
-       "sub": "885 of 890 fillable starts \u00b7 5 missed over 153 days",
-       "started": 885,
-       "fillable": 890,
-       "days": 153,
+       "value": 0.6511,
+       "shown": "65.1%",
+       "sub": "918 of 1,410 slots filled \u00b7 492 empty over 141 days with NBA games",
+       "filled": 918,
+       "slots": 1410,
+       "days": 141,
        "rank": 3
       },
       {
        "m": "Benton",
-       "value": 0.993,
-       "shown": "99.3%",
-       "sub": "846 of 852 fillable starts \u00b7 6 missed over 153 days",
-       "started": 846,
-       "fillable": 852,
-       "days": 153,
+       "value": 0.6433,
+       "shown": "64.3%",
+       "sub": "907 of 1,410 slots filled \u00b7 503 empty over 141 days with NBA games",
+       "filled": 907,
+       "slots": 1410,
+       "days": 141,
        "rank": 4
       }
      ],
@@ -6136,7 +6177,9 @@
      "top": [],
      "none": "no first-year NBA player started for a league team",
      "excluded": {},
-     "eligible": 0
+     "eligible": 0,
+     "min_starts": 10,
+     "ineligible": []
     },
     "bust": {
      "winner": {
@@ -6223,42 +6266,42 @@
      "top": [
       {
        "m": "Nick",
-       "value": 0.9989,
-       "shown": "99.9%",
-       "sub": "947 of 948 fillable starts \u00b7 1 missed over 160 days",
-       "started": 947,
-       "fillable": 948,
-       "days": 160,
+       "value": 0.69,
+       "shown": "69.0%",
+       "sub": "1,035 of 1,500 slots filled \u00b7 465 empty over 150 days with NBA games",
+       "filled": 1035,
+       "slots": 1500,
+       "days": 150,
        "rank": 1
       },
       {
-       "m": "Garrett",
-       "value": 0.9956,
-       "shown": "99.6%",
-       "sub": "906 of 910 fillable starts \u00b7 4 missed over 160 days",
-       "started": 906,
-       "fillable": 910,
-       "days": 160,
+       "m": "Hayden",
+       "value": 0.6407,
+       "shown": "64.1%",
+       "sub": "961 of 1,500 slots filled \u00b7 539 empty over 150 days with NBA games",
+       "filled": 961,
+       "slots": 1500,
+       "days": 150,
        "rank": 2
       },
       {
-       "m": "Hayden",
-       "value": 0.9924,
-       "shown": "99.2%",
-       "sub": "920 of 927 fillable starts \u00b7 7 missed over 160 days",
-       "started": 920,
-       "fillable": 927,
-       "days": 160,
+       "m": "Garrett",
+       "value": 0.636,
+       "shown": "63.6%",
+       "sub": "954 of 1,500 slots filled \u00b7 546 empty over 150 days with NBA games",
+       "filled": 954,
+       "slots": 1500,
+       "days": 150,
        "rank": 3
       },
       {
        "m": "Benton",
-       "value": 0.9822,
-       "shown": "98.2%",
-       "sub": "884 of 900 fillable starts \u00b7 16 missed over 160 days",
-       "started": 884,
-       "fillable": 900,
-       "days": 160,
+       "value": 0.6273,
+       "shown": "62.7%",
+       "sub": "941 of 1,500 slots filled \u00b7 559 empty over 150 days with NBA games",
+       "filled": 941,
+       "slots": 1500,
+       "days": 150,
        "rank": 4
       }
      ],
@@ -7028,7 +7071,8 @@
       "sub": "57 starts",
       "ms": [
        "Garrett"
-      ]
+      ],
+      "starts": 57
      },
      "top": [
       {
@@ -7040,7 +7084,8 @@
        "sub": "57 starts",
        "ms": [
         "Garrett"
-       ]
+       ],
+       "starts": 57
       },
       {
        "label": "Kon Knueppel",
@@ -7052,7 +7097,8 @@
        "ms": [
         "Hayden",
         "Benton"
-       ]
+       ],
+       "starts": 28
       },
       {
        "label": "VJ Edgecombe",
@@ -7064,23 +7110,28 @@
        "ms": [
         "Garrett",
         "Hayden"
-       ]
-      },
+       ],
+       "starts": 52
+      }
+     ],
+     "none": "",
+     "excluded": {},
+     "eligible": 3,
+     "min_starts": 10,
+     "ineligible": [
       {
        "label": "Derik Queen",
        "player": "Derik Queen",
        "m": "Nick",
        "value": -38.19,
        "shown": "23.1 FPPG in 7 games",
-       "sub": "7 starts",
+       "sub": "ineligible (7 of 10 starts)",
        "ms": [
         "Nick"
-       ]
+       ],
+       "starts": 7
       }
-     ],
-     "none": "",
-     "excluded": {},
-     "eligible": 4
+     ]
     },
     "bust": {
      "winner": {
@@ -7169,42 +7220,42 @@
      "top": [
       {
        "m": "Nick",
-       "value": 0.9884,
-       "shown": "98.8%",
-       "sub": "937 of 948 fillable starts \u00b7 11 missed over 152 days",
-       "started": 937,
-       "fillable": 948,
-       "days": 152,
+       "value": 0.7208,
+       "shown": "72.1%",
+       "sub": "1,038 of 1,440 slots filled \u00b7 402 empty over 144 days with NBA games",
+       "filled": 1038,
+       "slots": 1440,
+       "days": 144,
        "rank": 1
       },
       {
        "m": "Garrett",
-       "value": 0.9833,
-       "shown": "98.3%",
-       "sub": "881 of 896 fillable starts \u00b7 15 missed over 152 days",
-       "started": 881,
-       "fillable": 896,
-       "days": 152,
+       "value": 0.6736,
+       "shown": "67.4%",
+       "sub": "970 of 1,440 slots filled \u00b7 470 empty over 144 days with NBA games",
+       "filled": 970,
+       "slots": 1440,
+       "days": 144,
        "rank": 2
       },
       {
        "m": "Benton",
-       "value": 0.9803,
-       "shown": "98.0%",
-       "sub": "846 of 863 fillable starts \u00b7 17 missed over 152 days",
-       "started": 846,
-       "fillable": 863,
-       "days": 152,
+       "value": 0.6604,
+       "shown": "66.0%",
+       "sub": "951 of 1,440 slots filled \u00b7 489 empty over 144 days with NBA games",
+       "filled": 951,
+       "slots": 1440,
+       "days": 144,
        "rank": 3
       },
       {
        "m": "Hayden",
-       "value": 0.9755,
-       "shown": "97.5%",
-       "sub": "836 of 857 fillable starts \u00b7 21 missed over 152 days",
-       "started": 836,
-       "fillable": 857,
-       "days": 152,
+       "value": 0.6493,
+       "shown": "64.9%",
+       "sub": "935 of 1,440 slots filled \u00b7 505 empty over 144 days with NBA games",
+       "filled": 935,
+       "slots": 1440,
+       "days": 144,
        "rank": 4
       }
      ],
@@ -7975,6 +8026,108 @@
     },
     "season": "2025-26"
    }
+  ],
+  "draft": [
+   {
+    "m": "Nick",
+    "season": "2020-21",
+    "value": 9852.2916,
+    "per_week": 615.768,
+    "regular_weeks": 16,
+    "picks": 13,
+    "best": "Luka Doncic",
+    "won": true
+   },
+   {
+    "m": "Hayden",
+    "season": "2020-21",
+    "value": 8311.412,
+    "per_week": 519.463,
+    "regular_weeks": 16,
+    "picks": 13,
+    "best": "Nikola Jokic",
+    "won": false
+   },
+   {
+    "m": "Garrett",
+    "season": "2020-21",
+    "value": 8265.1173,
+    "per_week": 516.57,
+    "regular_weeks": 16,
+    "picks": 13,
+    "best": "James Harden",
+    "won": false
+   },
+   {
+    "m": "Garrett",
+    "season": "2019-20",
+    "value": 9611.8519,
+    "per_week": 505.887,
+    "regular_weeks": 19,
+    "picks": 13,
+    "best": "LeBron James",
+    "won": true
+   },
+   {
+    "m": "Hayden",
+    "season": "2019-20",
+    "value": 8452.9864,
+    "per_week": 444.894,
+    "regular_weeks": 19,
+    "picks": 13,
+    "best": "Giannis Antetokounmpo",
+    "won": false
+   },
+   {
+    "m": "Benton",
+    "season": "2019-20",
+    "value": 7402.9094,
+    "per_week": 389.627,
+    "regular_weeks": 19,
+    "picks": 13,
+    "best": "James Harden",
+    "won": false
+   },
+   {
+    "m": "Nick",
+    "season": "2019-20",
+    "value": 6595.7507,
+    "per_week": 347.145,
+    "regular_weeks": 19,
+    "picks": 13,
+    "best": "Damian Lillard",
+    "won": false
+   },
+   {
+    "m": "Benton",
+    "season": "2017-18",
+    "value": 6626.8367,
+    "per_week": 315.564,
+    "regular_weeks": 21,
+    "picks": 13,
+    "best": "Russell Westbrook",
+    "won": true
+   },
+   {
+    "m": "Benton",
+    "season": "2020-21",
+    "value": 4812.1123,
+    "per_week": 300.757,
+    "regular_weeks": 16,
+    "picks": 13,
+    "best": "Fred VanVleet",
+    "won": false
+   },
+   {
+    "m": "Garrett",
+    "season": "2017-18",
+    "value": 5938.0185,
+    "per_week": 282.763,
+    "regular_weeks": 21,
+    "picks": 13,
+    "best": "James Harden",
+    "won": false
+   }
   ]
  },
  "best": {
@@ -8068,6 +8221,7 @@
    "ms": [
     "Garrett"
    ],
+   "starts": 62,
    "regular_weeks": 21,
    "per_week": 50.018
   },
@@ -8085,14 +8239,14 @@
    "regular_weeks": 20
   },
   "lineup": {
-   "season": "2018-19",
+   "season": "2025-26",
    "m": "Nick",
-   "value": 1.0,
-   "shown": "100.0%",
-   "sub": "864 of 864 fillable starts \u00b7 0 missed over 153 days",
-   "started": 864,
-   "fillable": 864,
-   "days": 153,
+   "value": 0.7208,
+   "shown": "72.1%",
+   "sub": "1,038 of 1,440 slots filled \u00b7 402 empty over 144 days with NBA games",
+   "filled": 1038,
+   "slots": 1440,
+   "days": 144,
    "rank": 1,
    "regular_weeks": 21
   },

@@ -74,7 +74,40 @@ TIPS = {
     "advice": ("Advice",
                "The engine's plan for each team, up to its adds left. Each move is priced after the one before it, "
                "as the change in your chance to win each week; an IL activation is priced against leaving him in "
-               "IL, which blocks every move. Advice, not a rule."),
+               "IL, which blocks every move. Advice, not a rule. Expected starts: the average over the "
+               "simulated weeks, where players get hurt and Q tags play or sit at random, so it carries "
+               "decimals; Team \u203a Schedule's startable games are the exact fill on the known schedule "
+               "and today's tags. Both use the same daily lineup fill, so they differ only by the chances."),
+    # 5e: Matchups > Next week (its definitions, out of the cards)
+    "next_week": ("Next week",
+                  "Startable games: games each team can actually start next week, the daily 10, with players in "
+                  "IL slots and players who are out left out: the same numbers as Team \u203a Schedule. Light "
+                  "day: 4 or fewer of the team's players have a game; overflow: more than 10, so someone sits. "
+                  "The chips: who is in an IL slot or out, with his return date when there is one. The early "
+                  "look is the title-odds simulation's for that week, with rosters as they will stand; the "
+                  "line itself is set at Monday's close."),
+    # 5e: Home's two cards (every line defined here)
+    "nightly": ("Last night \u00b7 Tonight",
+                "Last night: each team's best started game of the night before (the games that counted), "
+                "sorted by fantasy points; Top marks the night's best. Then each matchup's win chance this week, "
+                "from the run before last night's first game to the latest run, as its Win % chart draws it; "
+                "on a week's first day, last week's two matchups from the run before their last day to their "
+                "finals. Tonight: each team's starters with a game today, of the 10 lineup spots (\u201c4 + 1 "
+                "Q\u201d: a fifth if his Q plays), the same count as the games grid. Light day: 4 or fewer of "
+                "the team's players have a game; overflow day: more than 10, so someone sits. \u2020 out "
+                "tonight on the NBA's injury report. The card is as of the run time beside its heading."),
+    "window": ("Moves window",
+               "Moves happen once a fantasy week, on its Monday, from 12:01 AM until five minutes before that "
+               "night's last game starts (Pacific time); a 14-day week has one window. Adds left: each team's "
+               "adds this fantasy week, of 3; a claim in the group chat uses the week it's posted in and the "
+               "player joins the next Monday. A drop in the chat frees the player for the coming week at once. "
+               "A team with a player in an IL slot who no longer has an O, OFS, Q or D tag can make no moves "
+               "until he leaves it."),
+    # 5e: the "I'm..." team picker (5D2 decision 1)
+    "me": ("I'm\u2026",
+           "Pick your team and the hub shows what's yours: Value to you on Players and Market, and Market's "
+           "\u201cPlays on my light days\u201d. It's a convenience, not a login: the hub has one shared "
+           "passphrase, so anyone can pick any team. It's remembered in this browser only."),
     "age_curve": ("The age curve",
                   "How a player's fantasy scoring changes from one season to the next at each age, fitted on "
                   "every NBA player's seasons since 2014-15. POT uses it."),
@@ -162,6 +195,13 @@ COLUMNS = {
                                 "his: C4 is the fourth-best center here."),
         "keep": ("Keep %", "The chance he is one of his team's keepers next season, from the keeper model. A free "
                            "agent has no keep chance."),
+        # 5e: the "I'm..." picker's columns (shown once a team is picked)
+        "vtv": ("Value to you", "For a free agent on Market's lists: the points he would add to YOUR team's best "
+                                "daily lineups over the next two weeks, swapped for the player whose loss costs "
+                                "you least (no drop with an open spot). Priced each night for all four teams; "
+                                "the column shows the team you picked with \u201cI'm\u2026\u201d."),
+        "vtd": ("Title \u0394 to you", "Value to you as a change in your title odds (points of title odds), at "
+                                       "your price of a point: the same price as the roster's Title \u0394."),
         "gp": ("GP", "NBA games he has played this season."),
         "total": ("Total FP", "His fantasy points in his NBA games this season."),
         "proj": ("Proj", "Yahoo's projected fantasy points per game for him for the rest of the season."),
@@ -222,7 +262,7 @@ COLUMNS = {
         "acq": ("Acquired", "How and when he joined his team: kept, drafted, a free-agent add or a trade."),
         "free": ("Free since", "For a free agent: who dropped him and when, or that no team has had him this "
                                "season."),
-        "adds": ("Added", "Times a team added him this season (pre-season moves count nowhere, rule 14)."),
+        "adds": ("Added", "Times a team added him this season (pre-season moves count nowhere)."),
         "drops": ("Dropped", "Times a team dropped him this season."),
         "owners": ("Managers", "How many of the four managers have had him on a roster, all-time (from 2017-18)."),
         "seasons": ("Seasons", "Seasons he was on a league roster (2017-18 on)."),
@@ -255,6 +295,14 @@ COLUMNS = {
         "avail": ("Avail %", "How often he plays when his NBA team does, this season with his history."),
         "status": ("Status", "His injury tag, or Healthy."),
         "age": ("Age", "His age today."),
+        # 5e: the "I'm..." picker's column and filter
+        "vtv": ("Value to you", "The points he would add to YOUR team's best daily lineups over the next two "
+                                "weeks, swapped for the player whose loss costs you least: the same number as "
+                                "Players' Value to you. Shown once you pick your team with \u201cI'm\u2026\u201d."),
+        "light": ("Plays on my light days", "Free agents with a game on a day YOUR team has 4 or fewer players "
+                                            "with a game, in this range. Not the same as \u201cGames on your "
+                                            "empty-slot days\u201d (Team \u203a Schedule's link), which counts "
+                                            "days with an empty starting slot."),
     },
     "standings": {
         "team": ("Team", "The team, ranked by the regular-season standings: record, then head-to-head, then "
@@ -287,7 +335,8 @@ COLUMNS = {
         "trade": ("Trade", "Trades of the Year he won: the biggest PAR gap, picks estimated. 2017-18 on."),
         "improved": ("MIP", "Most improved: the season's biggest rise in fantasy points per game over the player's "
                             "usual level, counted for the manager he finished with. 2017-18 on."),
-        "lineup": ("Lineup", "Lineup manager of the year: his best fill rate (started games over fillable starts). "
+        "lineup": ("Lineup", "Lineup manager of the year: the best fill rate (the share of all his daily slots, 10 a day, "
+                             "holding a player whose team played). "
                              "2017-18 on."),
         "draft": ("Draft", "Draft of the year: the most PAR from the players he drafted, keepers apart. 2017-18 "
                            "on; 2018-19 has no draft list."),

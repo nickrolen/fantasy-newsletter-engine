@@ -93,6 +93,42 @@ LAYOUT_CSS = """
 .v2-gap8{gap:var(--space-8)}
 .v2-p{margin:0;font-size:var(--type-body-size);line-height:var(--type-body-lh);color:var(--ink-2)}
 .v2-stale-hd{display:flex;gap:var(--space-8);align-items:center;justify-content:space-between}
+.v2-hdr-btns{display:flex;gap:var(--space-4);align-items:center}
+.v2-me .v2-me-l{font-size:var(--type-meta-size);font-weight:800;white-space:nowrap}
+.v2-mesheet{display:flex;flex-direction:column;gap:var(--space-8);margin:var(--space-8) var(--space-12) 0}
+.v2-mesheet[hidden]{display:none}
+.v2-me-teams{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-8)}
+.v2-me-pick{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-8);align-items:center;text-align:left;background:var(--surface-subtle);border:var(--hairline) solid var(--line);border-radius:var(--radius-9);padding:var(--space-8);min-height:var(--tap-min);font:inherit;color:var(--ink);cursor:pointer}
+.v2-me-pick[aria-pressed="true"]{border-color:var(--team);box-shadow:inset 0 0 0 var(--hairline) var(--team)}
+.v2-me-none{background:none;border:0;color:var(--accent);font:inherit;font-size:var(--type-meta-size);font-weight:700;min-height:var(--tap-min);text-align:left;cursor:pointer}
+.v2-vu,.v2-vu-chip,.v2-vu-v{display:none}
+.v2-hm-sub{display:flex;justify-content:space-between;gap:var(--space-8);font-size:var(--type-label-size);font-weight:800;letter-spacing:var(--type-label-ls);text-transform:uppercase;color:var(--ink-3);margin-top:var(--space-4)}
+.v2-hm-sub span+span{text-transform:none;letter-spacing:0;font-weight:600;text-align:right}
+.v2-hm-best{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:var(--space-8);min-height:var(--tap-min);border-bottom:var(--hairline) solid var(--line-soft)}
+.v2-hm-fp{font-family:var(--font-display);font-size:var(--type-display-row-size);font-weight:700;white-space:nowrap}
+.v2-hm-fp small,.v2-hm-big small{font-family:var(--font-sans);font-size:var(--type-label-size);font-weight:700;color:var(--ink-3);margin-left:var(--space-2)}
+.v2-hm-swing{display:flex;justify-content:space-between;align-items:center;gap:var(--space-8);min-height:var(--tap-min);padding:0 var(--space-10);background:var(--surface-subtle);border-radius:var(--radius-6);text-decoration:none;color:var(--ink);font-size:var(--type-body-size);font-weight:700}
+.v2-hm-ton{display:flex;flex-direction:column;gap:var(--space-2);border-bottom:var(--hairline) solid var(--line-soft);padding-bottom:var(--space-6)}
+.v2-hm-tlink{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--space-8);min-height:var(--tap-min);text-decoration:none;color:var(--ink)}
+.v2-hm-big{font-family:var(--font-display);font-size:var(--type-display-sm-size);font-weight:700;white-space:nowrap}
+.v2-hm-tags{display:flex;flex-wrap:wrap;gap:var(--space-6);align-items:center;padding-left:calc(var(--mono-36) + var(--space-8))}
+.v2-hm-word{font-size:var(--type-label-size);font-weight:800;border-radius:var(--radius-pill);padding:var(--space-2) var(--space-8);background:var(--dark);color:var(--ink-on-dark)}
+.v2-hm-word--over{background:var(--team-tint);color:var(--team-ink)}
+.v2-hm-out{font-size:var(--type-meta-size);font-weight:700;color:var(--down)}
+.v2-hm-win{display:flex;flex-direction:column;gap:var(--space-4);background:var(--dark);color:var(--ink-on-dark);border-radius:var(--radius-9);padding:var(--space-10) var(--space-12)}
+.v2-hm-win b{font-family:var(--font-display);font-size:var(--type-display-row-size);font-weight:700}
+.v2-hm-win span{font-size:var(--type-meta-size);color:var(--ink-on-dark-2)}
+.v2-hm-win.v2-hm-open{background:var(--up)}
+.v2-hm-adds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-6)}
+.v2-hm-ad{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);background:var(--surface-subtle);border-radius:var(--radius-9);padding:var(--space-6);text-decoration:none;color:var(--ink);min-height:var(--tap-min)}
+.v2-hm-ad b{font-family:var(--font-display);font-size:var(--type-display-row-size)}
+.v2-hm-ad > span:last-child{font-size:var(--type-label-size);color:var(--ink-3);font-weight:700}
+.v2-hm-ad.v2-hm-zero b{color:var(--down)}
+.v2-hm-mv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-8);align-items:center;padding:var(--space-4) 0;font-size:var(--type-body-size)}
+.v2-hm-block{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-6);background:var(--surface-subtle);border-left:var(--space-4) solid var(--down);border-radius:var(--radius-6);padding:var(--space-8);font-size:var(--type-body-size)}
+.v2-hm-foot{display:flex;justify-content:flex-end;gap:var(--space-16);border-top:var(--hairline) solid var(--line-soft)}
+.v2-hm-err{color:var(--down);font-weight:700}
+.v2-hm-block a,.v2-hm-mv a{white-space:nowrap}
 .v2-lock{font-size:var(--type-small-size);line-height:var(--type-small-lh);color:var(--ink-on-dark-3)}
 .lh-tabbar{position:fixed;left:0;right:0;bottom:0;z-index:4}
 .lh-seg button{min-height:var(--tap-min)}
@@ -508,6 +544,30 @@ def _matchup_card(mu: dict) -> str:
     return "".join(o)
 
 
+def _me_sheet(vm: dict, ids: _Ids) -> str:
+    """5e (5D2 decision 1): the "I'm..." picker, opened from the header on
+    every tab. Cosmetic: remembered in this browser (the script's HUBVIEW),
+    never sent anywhere; its InfoTip says anyone can pick any team."""
+    o = ['<div class="lh-card v2-mesheet" id="me-sheet" hidden><div class="lh-sechead">'
+         f'<h2 class="lh-eyebrow">I&rsquo;m&hellip;</h2>{_info(ids, "me")}</div><div class="v2-me-teams">']
+    for t in vm["teams"]:
+        o.append(f'<button type="button" class="v2-me-pick v2-tap {t["cls"]}" data-me-pick="{clean(t["manager"])}" '
+                 f'data-mono="{clean(t["mono"])}" data-cls="{clean(t["cls"])}" aria-pressed="false">{_mono(t)}'
+                 f'<span class="v2-minw"><span class="lh-mrow__name">{clean(t["team"])}</span>'
+                 f'<span class="lh-sub">{clean(t["manager"])}</span></span></button>')
+    o.append('</div><button type="button" class="v2-me-none v2-tap" data-me-pick="" aria-pressed="true">'
+             'Nobody: show the hub the same for everyone</button></div>')
+    return "".join(o)
+
+
+def viewer_css(managers: list) -> str:
+    """5e: the viewer's own strings (one per manager in each Value to you
+    cell) and the viewer-only columns and chips, shown once a team is picked."""
+    return ("".join(f'#hub[data-viewer="{m}"] .v2-vu-v[data-m="{m}"]{{display:inline}}' for m in managers)
+            + "#hub[data-viewer] th.v2-vu,#hub[data-viewer] td.v2-vu{display:table-cell}"
+            + "#hub[data-viewer] .v2-vu-chip{display:inline-flex}")
+
+
 def _team_card(tp: dict, odds_label: str) -> str:
     t = tp["team"]
     tiles = [("Record", tp["record"]), (odds_label, tp["odds"]), ("Adds left", tp["adds_left"]),
@@ -549,20 +609,91 @@ def _ranking(vm: dict, ids: _Ids) -> str:
     return "".join(o)
 
 
-def _trade(vm: dict) -> str:
-    o = ['<section class="lh-card" data-section="trade"><div class="lh-sechead"><h2 class="lh-eyebrow">Trade block</h2></div>']
-    for c in vm["trade"]:
-        t = c["team"]
-        o.append(f'<div class="lh-divider v2-tb"><div class="v2-tb-head"><a class="v2-tb-team v2-tap {t["cls"]}" '
-                 f'href="{t["href"]}"><span class="lh-swatch"></span>{clean(t["team"])}</a>'
-                 f'<span class="lh-status lh-status--neutral">{clean(c["mode"])}</span></div>')
-        for lst in c["lists"]:
-            o.append(f'<span class="v2-tb-text">{clean(lst["label"])}: '
-                     + ", ".join(_pl(p["name"], p["card"]) for p in lst["players"]) + "</span>")
-        if c["empty"]:
-            o.append(f'<span class="v2-tb-text">{clean(c["empty"])}</span>')
-        o.append("</div>")
-    o.append(f'<span class="lh-sub">{clean(vm["trade_foot"])}</span></section>')
+def _cant(name: str, n: dict) -> str:
+    return (f'<p class="v2-p v2-hm-err">Couldn\u2019t update on this run.</p>'
+            f'<span class="lh-sub">{clean(n["error"])}</span>')
+
+
+def _nightly(vm: dict, ids: _Ids) -> str:
+    """5e: Home's Last night . Tonight (modules/hub_v2/home.py's strings)."""
+    n = vm["home"]["nightly"]
+    o = ['<section class="lh-card v2-gap8" data-section="nightly"><div class="lh-sechead">'
+         f'<h2 class="lh-eyebrow">Last night &middot; Tonight</h2>{_info(ids, "nightly", n.get("run", ""))}</div>']
+    if "error" in n:
+        return "".join(o) + _cant("Last night \u00b7 Tonight", n) + "</section>"
+    ln = n["last"]
+    o.append(f'<div class="v2-hm-sub"><span>Last night</span><span>{clean(ln["sub"])}</span></div>')
+    if ln["empty"]:
+        o.append(f'<p class="v2-p">{clean(ln["empty"])}</p>')
+    for x in ln["best"]:
+        t = x["team"]
+        who = (f'<a class="lh-name v2-tap" href="{x["href"]}">{clean(x["name"])}</a>' if x["href"] else
+               f'<b>{clean(x["name"])}</b>')
+        o.append(f'<div class="v2-hm-best {t["cls"]}">{_mono(t)}<span class="v2-minw">{who}'
+                 f'<span class="lh-sub">{clean(t["team"])}' + (f' &middot; {clean(x["nba"])}' if x["nba"] else "")
+                 + "</span></span>"
+                 + ('<span class="lh-status lh-status--neutral v2-hm-topmk">Top</span>' if x["top"] else "<span></span>")
+                 + f'<span class="v2-hm-fp lh-num">{clean(x["fp_text"])}<small>FP</small></span></div>')
+    if n["swings"]:
+        o.append(f'<div class="v2-hm-sub"><span>{clean(n["swing_head"])}</span><span></span></div>')
+        for sw in n["swings"]:
+            o.append(f'<a class="v2-hm-swing v2-tap" href="{sw["href"]}">{clean(sw["text"])}'
+                     '<span class="v2-details">&rsaquo;</span></a>')
+        if n["swing_note"]:
+            o.append(f'<span class="lh-sub">{clean(n["swing_note"])}</span>')
+    t = n["tonight"]
+    o.append(f'<div class="v2-hm-sub"><span>Tonight</span><span>{clean(t["sub"])}</span></div>')
+    if t["empty"]:
+        o.append(f'<p class="v2-p">{clean(t["empty"])}</p>')
+    for r in t["rows"]:
+        tm = r["team"]
+        tags = []
+        if r["word"]:
+            tags.append(f'<span class="v2-hm-word v2-hm-word--{clean(r["word_kind"])}">{clean(r["word"])}</span>')
+        if r["out"]:
+            tags.append('<span class="v2-hm-out">&dagger; Out: ' + ", ".join(
+                (f'<a class="v2-pl v2-tap" href="{x["href"]}">{clean(x["last"])}</a>' if x["href"] else clean(x["last"]))
+                for x in r["out"]) + "</span>")
+        o.append(f'<div class="v2-hm-ton {tm["cls"]}"><a class="v2-hm-tlink v2-tap" href="{tm["href"]}">{_mono(tm)}'
+                 f'<span class="v2-minw"><span class="lh-mrow__name">{clean(tm["team"])}</span></span>'
+                 f'<span class="v2-hm-big lh-num">{clean(r["big"])}<small> {clean(r["of"])}</small></span></a>'
+                 + (f'<span class="v2-hm-tags">{"".join(tags)}</span>' if tags else "") + "</div>")
+    return "".join(o) + "</section>"
+
+
+def _window(vm: dict, ids: _Ids) -> str:
+    """5e: Home's Moves window (modules/hub_v2/home.py's strings)."""
+    w = vm["home"]["window"]
+    o = ['<section class="lh-card v2-gap8" data-section="window"><div class="lh-sechead">'
+         f'<h2 class="lh-eyebrow">Moves window</h2>{_info(ids, "window")}</div>']
+    if "error" in w:
+        return "".join(o) + _cant("Moves window", w) + "</section>"
+    o.append(f'<div class="v2-hm-win{" v2-hm-open" if w["open"] else ""}"><b>{clean(w["head"])}</b>'
+             + (f'<span>{clean(w["sub"])}</span>' if w["sub"] else "") + "</div>")
+    o.append(f'<div class="v2-hm-sub"><span>Adds left &middot; week {clean(str(w["adds_week"]))}</span>'
+             f'<span>{clean(w["adds_of"])}</span></div><div class="v2-hm-adds">')
+    for x in w["adds"]:
+        t = x["team"]
+        o.append(f'<a class="v2-hm-ad v2-tap {t["cls"]}{" v2-hm-zero" if x["zero"] else ""}" href="{t["href"]}" '
+                 f'aria-label="{clean(t["team"])}: {clean(x["left"])} {clean(w["adds_of"])} adds left">{_mono(t)}'
+                 f'<b class="lh-num">{clean(x["left"])}</b><span>left</span></a>')
+    o.append("</div>")
+    if w["moves"]:
+        o.append(f'<div class="v2-hm-sub"><span>Pending chat moves</span><span>{clean(w["moves_sub"])}</span></div>')
+        for x in w["moves"]:
+            t = x["team"]
+            txt = clean(x["text"])
+            if x["href"]:
+                txt = txt.replace(clean(x["player"]), f'<a class="v2-pl v2-tap" href="{x["href"]}">{clean(x["player"])}</a>', 1)
+            o.append(f'<div class="v2-hm-mv {t["cls"]}">{_mono(t)}<span class="v2-minw"><b>{txt}</b>'
+                     f'<span class="lh-sub">{clean(x["sub"])}</span></span></div>')
+    for x in w["blocked"]:
+        txt = clean(x["text"])
+        if x["href"]:
+            txt = txt.replace(clean(x["player"]), f'<a class="v2-pl v2-tap" href="{x["href"]}">{clean(x["player"])}</a>', 1)
+        o.append(f'<div class="v2-hm-block" role="note">{WARN}<span>{txt}</span></div>')
+    o.append('<div class="v2-hm-foot"><a class="lh-link v2-tap" href="#/market?seg=moves">Moves &rsaquo;</a>'
+             '<a class="lh-link v2-tap" href="#/market?seg=advice">Advice &rsaquo;</a></div></section>')
     return "".join(o)
 
 
@@ -847,20 +978,27 @@ def render(vm: dict, *, cards: dict = None) -> str:
     ids = _Ids()
     o = ["<!DOCTYPE html>", '<html lang="en"><head><meta charset="utf-8">',
          '<meta name="viewport" content="width=device-width,initial-scale=1">', '<meta name="robots" content="noindex">',
-         f"<title>{clean(vm['title'])}</title>", f"<style>{tokens.css(LAYOUT_CSS + pp.CSS + pm.CSS + pl.CSS)}</style>",
+         f"<title>{clean(vm['title'])}</title>",
+         f"<style>{tokens.css(LAYOUT_CSS + pp.CSS + pm.CSS + pl.CSS + viewer_css([t['manager'] for t in vm['teams']]))}"
+         "</style>",
          _pictures_style(vm.get("pictures") or []) + "</head><body>",
          f'<div class="v2-app" id="hub" data-epoch="{vm["epoch"]}" data-stale-hours="{vm["stale_hours"]}">']
     # header (tab roots), then the banners, then the tab bar (a top bar on desktop)
     o.append('<header class="lh-header lh-on-dark v2-hdr" id="app-header"><div class="v2-stale-hd">'
              f'<span class="v2-minw"><span class="lh-header__title">{clean(vm["title"])}</span>'
              f'<span class="lh-header__date">{clean(vm["week_label"])}</span></span>'
-             f'<button type="button" class="lh-iconbtn" data-go="search" aria-label="Search players">{pp.SEARCH}</button></div>'
+             f'<span class="v2-hdr-btns"><button type="button" class="lh-iconbtn v2-me" id="me-btn" data-me '
+             f'aria-expanded="false" aria-controls="me-sheet" aria-label="I\'m: pick your team">'
+             f'<span class="v2-me-l">I&rsquo;m&hellip;</span></button>'
+             f'<button type="button" class="lh-iconbtn" data-go="search" aria-label="Search players">{pp.SEARCH}</button>'
+             '</span></div>'
              f'<div class="lh-fresh"><span class="lh-fresh__dot" id="fresh-dot"{" hidden" if vm["stale"] else ""}></span>'
              f'<span>Updated <span class="v2-age">{clean(vm["age"])}</span> ({clean(vm["generated_text"])})</span></div>'
              f'<span class="v2-lock">{clean(vm["line_text"])}</span>'
              f'<span class="v2-lock">{clean(vm["lock"])}</span>'
              + (f'<span class="v2-lock">{clean(vm["nba"]["text"])}</span>' if (vm.get("nba") or {}).get("text") else "")
              + '</header>')
+    o.append(_me_sheet(vm, ids))                       # 5e: the "I'm..." picker
     o.append('<div class="v2-stale-wrap">')
     if vm["mismatch"]:
         o.append(f'<div class="v2-banner" role="status"><b>Do not price anything off this page.</b> '
@@ -891,10 +1029,12 @@ def render(vm: dict, *, cards: dict = None) -> str:
              '<section class="v2-sec" data-section="matchups"><div class="lh-sechead">'
              f'<h2 class="lh-eyebrow">This week\'s matchups</h2><span class="lh-meta lh-meta--canvas">{clean(vm["clock"])}</span></div>'
              + "".join(_matchup_card(mu) for mu in vm["matchups"]) + "</section>"
+             + _nightly(vm, ids)                     # 5e: second, after This week's matchups (Nick, 11-22)
              + _ranking(vm, ids) + '</div><div class="v2-col">'
              '<section class="v2-sec" data-section="teams"><div class="lh-sechead"><h2 class="lh-eyebrow">Teams</h2></div>'
              '<div class="v2-teamgrid">' + "".join(_team_card(tp, vm["odds_label"]) for tp in vm["team_pages"])
-             + "</div></section>" + _trade(vm) + "</div></div></div></section>")
+             + "</div></section>" + _window(vm, ids)   # 5e: where the trade block was (it lives on Market)
+             + "</div></div></div></section>")
 
     # ---------------------------------------------------------------- matchups
     g = vm["grid3"]
@@ -902,14 +1042,17 @@ def render(vm: dict, *, cards: dict = None) -> str:
              '<section class="v2-sec"><div class="lh-sechead">'
              f'<h2 class="lh-eyebrow">This week\'s matchups</h2><span class="lh-meta lh-meta--canvas">{clean(vm["clock"])}</span></div>'
              + "".join(_matchup_card(mu) for mu in vm["matchups"]) + "</section>"
-             + (ps.next_week(vm["next_week"], {t["manager"]: t for t in vm["teams"]}, _mono) if vm["next_week"] else "")
              + '<section class="lh-card v2-gap8" data-section="grid"><div class="lh-sechead"><h2 class="lh-eyebrow">Games grid</h2>'
              '<span class="lh-meta">starts per week</span></div>'
              + _heat(g["rows"], g["cols"], total=bool(g.get("idle_label")), total_head=g.get("idle_label"),
                      label_of=lambda r: f'<a class="v2-heat-a v2-tap {r["team"]["cls"]}" href="{r["team"]["href"]}">'
                                         f'<span class="lh-swatch"></span>{clean(r["team"]["team"])}</a>')
              + f'<span class="lh-sub">{clean(g["note"])}</span></section>'
-             + (_last_week(vm["last"]) if vm["last"] else "") + "</div></div></section>")
+             + (_last_week(vm["last"]) if vm["last"] else "")
+             # 5e (Nick's note 1): Next week at the bottom: This week, the grid, Last week, then Next week
+             + (ps.next_week(vm["next_week"], {t["manager"]: t for t in vm["teams"]}, _mono,
+                             _info(ids, "next_week")) if vm["next_week"] else "")
+             + "</div></div></section>")
     for mu in vm["matchups"]:
         o.append(_matchup_page(mu, vm, ids))
     for lc in (vm["last"] or {}).get("cards", []):
@@ -995,6 +1138,43 @@ PAGE_JS = r"""
 (function(){
 var hub=document.getElementById('hub');
 var header=document.getElementById('app-header');
+// 5e: the "I'm..." picker (5D2 decision 1). Cosmetic, remembered in this
+// browser only (storage can throw or come back empty: then nobody is picked
+// and the hub is as it was). Other pages read the viewer: window.HUBVIEW.get()
+// and the "hub:viewer" event.
+var VIEWER='';
+try{VIEWER=localStorage.getItem('hub.viewer')||'';}catch(e){VIEWER='';}
+function viewerPick(m){var ps=document.querySelectorAll('[data-me-pick]');
+  for(var i=0;i<ps.length;i++){if(ps[i].getAttribute('data-me-pick')===m){return ps[i];}}return null;}
+if(VIEWER&&!viewerPick(VIEWER)){VIEWER='';}
+function applyViewer(){
+  if(VIEWER){hub.setAttribute('data-viewer',VIEWER);}else{hub.removeAttribute('data-viewer');}
+  var b=document.getElementById('me-btn');
+  if(b){var p=VIEWER?viewerPick(VIEWER):null;b.innerHTML='';
+    if(p){var s=document.createElement('span');s.className='lh-mono v2-mono-28 '+p.getAttribute('data-cls');
+      s.setAttribute('aria-hidden','true');s.textContent=p.getAttribute('data-mono');b.appendChild(s);
+      b.setAttribute('aria-label','I\u2019m '+VIEWER+': change');}
+    else{var l=document.createElement('span');l.className='v2-me-l';l.textContent='I\u2019m\u2026';b.appendChild(l);
+      b.setAttribute('aria-label','I\u2019m: pick your team');}}
+  var ps=document.querySelectorAll('[data-me-pick]');
+  for(var i=0;i<ps.length;i++){ps[i].setAttribute('aria-pressed',String(ps[i].getAttribute('data-me-pick')===VIEWER));}
+}
+function setViewer(m){VIEWER=m||'';
+  try{if(VIEWER){localStorage.setItem('hub.viewer',VIEWER);}else{localStorage.removeItem('hub.viewer');}}catch(e){}
+  applyViewer();
+  try{document.dispatchEvent(new CustomEvent('hub:viewer',{detail:VIEWER}));}catch(e){}
+}
+window.HUBVIEW={get:function(){return VIEWER;},set:setViewer};
+function vuKey(key){return (VIEWER&&(key==='vtv'||key==='vtd'))?key+'@'+VIEWER:key;}
+applyViewer();
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-me]');
+  if(t){var sh=document.getElementById('me-sheet'),open=sh.hidden;sh.hidden=!open;
+    t.setAttribute('aria-expanded',String(open));return;}
+  t=e.target.closest('[data-me-pick]');
+  if(t){setViewer(t.getAttribute('data-me-pick'));document.getElementById('me-sheet').hidden=true;
+    var b2=document.getElementById('me-btn');if(b2){b2.setAttribute('aria-expanded','false');}}
+});
 var seen={};                       // segmented-tab choice per kind, for the session
 // 5c: A TAP REACHES WHAT IS DRAWN. A tap that reached a .v2-tap through its
 // 44-point area (outside its own box), on a point where another tap target
@@ -1076,6 +1256,8 @@ function route(){
   if(qi>=0){r.slice(qi+1).split('&').forEach(function(kv){var p=kv.split('=');
     if(p[0]){q[decodeURIComponent(p[0])]=decodeURIComponent(p.slice(1).join('='));}});r=r.slice(0,qi)||'home';}
   window.routeQ=q;
+  // 5e: Home's Moves window links (#/market?seg=moves, ?seg=advice) open that segment
+  if(r==='market'&&q.seg&&document.querySelector('.lh-seg[data-seg="market"] [data-pane="'+q.seg+'"]')){seen['market']=q.seg;}
   var parts=r.split('/'),want=r,dyn='';
   if(parts[0]==='league'&&parts.length>1&&parts[1]){want='league';dyn='league';}
   if(parts[0]==='players'&&parts.length>1&&parts[1]){
@@ -1129,7 +1311,8 @@ function pick(seg,key){
 function sortTable(tbl,key){
   var orders=JSON.parse(tbl.getAttribute('data-orders'));
   var dir=(tbl.getAttribute('data-sort')===key)?-Number(tbl.getAttribute('data-dir')):1;
-  var ord=orders[key].slice();if(dir<0){ord.reverse();}
+  var o0=orders[vuKey(key)];if(!o0){return;}                 // 5e: Value to you sorts by the viewer's own
+  var ord=o0.slice();if(dir<0){ord.reverse();}
   hideTip();
   var bodies=tbl.querySelectorAll('tbody');
   for(var b=0;b<bodies.length;b++){
@@ -1321,7 +1504,8 @@ function plFilter(){
 function plSort(key,tbl){
   tbl=tbl||document.getElementById('pl-table');var orders=JSON.parse(tbl.getAttribute('data-porders'));
   var dir=(tbl.getAttribute('data-pcol')===key&&tbl.getAttribute('data-pdir')==='d')?'a':'d';
-  var ord=orders[key][dir],body=tbl.querySelector('tbody'),rows={},rs=body.querySelectorAll('tr[data-i]');
+  var o0=orders[vuKey(key)];if(!o0){return;}                 // 5e: Value to you sorts by the viewer's own
+  var ord=o0[dir],body=tbl.querySelector('tbody'),rows={},rs=body.querySelectorAll('tr[data-i]');
   for(var i=0;i<rs.length;i++){rows[rs[i].getAttribute('data-i')]=rs[i];}
   for(var j=0;j<ord.length;j++){var r=rows[String(ord[j])];if(r){body.appendChild(r);}}
   tbl.setAttribute('data-pcol',key);tbl.setAttribute('data-pdir',dir);
@@ -1525,12 +1709,12 @@ function check130(){
   for(var a=0;a<all.length;a++){fs.push(parseFloat(getComputedStyle(all[a]).fontSize));}
   for(var b=0;b<all.length;b++){all[b].style.fontSize=(fs[b]*1.3)+'px';}
   setTimeout(function(){
-    var els=document.querySelectorAll('.v2-rt td, .v2-rt th, .v2-mcard *, .v2-tcard *, .lh-kpi *, .v2-stile *, .v2-nwcard *, .v2-sov td'),bad=[];
+    var els=document.querySelectorAll('.v2-rt td, .v2-rt th, .v2-mcard *, .v2-tcard *, .lh-kpi *, .v2-stile *, .v2-nwcard *, .v2-nxcard *, .v2-hm-best *, .v2-hm-ton *, .v2-hm-ad *, .v2-hm-win *, .v2-me-pick *, .v2-sov td'),bad=[];
     for(var i=0;i<els.length;i++){var x=els[i];
       if(x.offsetParent===null||!x.getClientRects().length||x.closest('[hidden]')){continue;}
       if(x.scrollWidth>x.clientWidth+1||x.scrollHeight>x.clientHeight+1){
         var cs=getComputedStyle(x);if(cs.overflow!=='visible'||cs.textOverflow==='ellipsis'){bad.push((x.className||x.tagName)+': '+x.textContent.slice(0,40));}}
-      var box=x.closest('.lh-kpi, .v2-mcard, .v2-tcard, .v2-stile, .v2-nwcard');
+      var box=x.closest('.lh-kpi, .v2-mcard, .v2-tcard, .v2-stile, .v2-nwcard, .v2-nxcard, .v2-hm-best, .v2-hm-ton, .v2-hm-ad, .v2-me-pick');
       if(box&&x.getBoundingClientRect().right>box.getBoundingClientRect().right+1){bad.push((x.className||x.tagName)+' (past its tile): '+x.textContent.slice(0,40));}}
     var d=document.createElement('div');d.className='v2-check';
     d.textContent='Text-size check at 130%: '+(bad.length?bad.length+' clipped on this screen:\n'+bad.join('\n'):'nothing clipped on this screen.');

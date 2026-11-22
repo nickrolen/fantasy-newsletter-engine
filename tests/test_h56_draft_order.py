@@ -269,9 +269,8 @@ def test_the_record_writer_values_only_trusted_slots_and_classes_need_no_order()
                "is_keeper": False}]
     out = B.compute_draft_manager_leaderboards(games, drafts, pick_games=games)     # 5d1: the pick game set, given
     assert [e["player_name"] for e in out["biggest_draft_steal_top10"]] == ["New Star"]
-    with pytest.raises(ValueError):
-        B.compute_draft_manager_leaderboards(games, [dict(drafts[0], player_name=f"P{i}") for i in range(8)],
-                                             pick_games=games)
+    # 5e (4C7 decision 6): best_draft_class (its first-7-picks rule) is retired for Draft of the year
+    assert not any(k.startswith("best_draft_class") for k in out)
 
 
 def test_the_card_record_book_skips_punted_steals():
@@ -355,7 +354,7 @@ def test_a_bust_exclusion_for_a_punted_pick_says_drafted():
     from modules import awards as A
     import inspect
     src = inspect.getsource(A._busts)
-    assert 'else "drafted"' in src
+    assert 'else "draft pick"' in src             # 4c7's wording ("drafted" until then)
 
 
 def test_draft_ovr_has_no_order_for_punted_seasons_and_no_2018_19():

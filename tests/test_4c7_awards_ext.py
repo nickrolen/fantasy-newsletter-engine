@@ -79,7 +79,7 @@ def test_an_opening_day_player_not_drafted_or_kept_is_a_preseason_add_and_out():
     pi = dict(pi, inputs=kh.Inputs(log=pi["inputs"].log, picks={"2026-27": picks}, trades=pi["inputs"].trades))
     a = _season(pi, only=("pickup",))["awards"]["pickup"]
     assert [(e["who"], e["kind"]) for e in a["excluded"]] == [("Marcus Role", "preseason add")]
-    assert "rule 14" in a["excluded"][0]["reason"]
+    assert "preseason adds are not moves" in a["excluded"][0]["reason"]      # 5e: no rule numbers in the UI
     assert not any(s["player"] == "Marcus Role" for s in a["stints"])
 
 
@@ -247,19 +247,69 @@ def test_real_trophy_case_titles_equal_leaguehistory_and_season_outcomes():
 # =============================================================================
 
 def test_fill_rate_on_a_fixture_day():
-    """Tue 2026-10-06: Tyler Wing starts but doesn't play (DNP); Tyler's Star,
-    Role and Bench play: 3 fillable, 2 started. Marcus: 4 played (the Bench
-    scores 70+ on the bench), 3 started."""
+    """5e (4C7 decision 3): the share of ALL daily slots filled. Tue 2026-10-06:
+    Tyler starts Star, Wing (hurt, but his team played: the slot is filled)
+    and Role: 3 of 10. Marcus 3 of 10. Sun 2026-10-11 has no NBA game: not a
+    day of the measure. More than ten starts on a day RAISES."""
     _i, pi, _ = _past()
-    day = [r for r in pi["rows"] if r["date"] == "2026-10-06"]
-    res = dict(_season(pi, only=("pickup",)), cut="2026-10-06")
+    day = [r for r in pi["rows"] if r["date"] in ("2026-10-06", "2026-10-11")]
+    res = dict(_season(pi, only=("pickup",)), cut="2026-10-11")
     f = MA.fill(dict(pi, rows=day), res)
-    assert (f["Tyler"]["started"], f["Tyler"]["fillable"]) == (2, 3)
-    assert (f["Marcus"]["started"], f["Marcus"]["fillable"]) == (3, 4)
-    bad = [dict(r, started=True) for r in day if r["manager"] == "Marcus"]
+    assert (f["Tyler"]["filled"], f["Tyler"]["slots"], f["Tyler"]["days"]) == (3, 10, 1)
+    assert (f["Marcus"]["filled"], f["Marcus"]["slots"]) == (3, 10)
+    bad = [dict(r, started=True) for r in day if r["manager"] == "Marcus" and r["date"] == "2026-10-06"]
     bad += [dict(bad[0], player_name=f"X{k}") for k in range(8)]             # 12 starts, 10 seats
     with pytest.raises(MA.ManagerAwardsError, match="seats hold"):
         MA.fill(dict(pi, rows=bad), res)
+
+
+@pytest.mark.slow
+def test_real_2025_26_fill_rates():
+    """5e: 2025-26's fill rates as the league measured them (LEAGUE_RULES via
+    the 4C7 decisions: Nick 73, Garrett 68, Hayden 67, Benton 66, over the
+    whole season). This measure over the whole season (every NBA day of the
+    log, 10-21 to 04-05, 158 days) gives Nick 72.4, Garrett 67.8, Benton 66.3,
+    Hayden 66.1: within a point, Hayden and Benton a fifth of a point apart and
+    in the other order (claude/5E_RESULT s.4: the old measure said 157 days;
+    its "more than 10 players with a game on 37 days" is reproduced exactly).
+    The award counts the regular season only (weeks 1-21 then)."""
+    from modules import keeper_history as kh
+    inputs = kh.Inputs.load(ROOT)
+    rows = inputs.log["2025-26"]
+    last = max(r["date"] for r in rows)
+    f = MA.fill({"season": "2025-26", "rows": rows, "reg": 99}, {"cut": last})
+    got = {m: round(100 * x["filled"] / x["slots"], 1) for m, x in f.items()}
+    assert got == {"Nick": 72.4, "Garrett": 67.8, "Benton": 66.3, "Hayden": 66.1}
+    assert {x["days"] for x in f.values()} == {158}
+    blob = json.loads((ROOT / "data/historical/AWARDS_PAST.json").read_text(encoding="utf-8"))
+    reg = {r["m"]: r["shown"] for r in blob["seasons"]["2025-26"]["managers"]["lineup"]["top"]}
+    assert reg == {"Nick": "72.1%", "Garrett": "67.4%", "Benton": "66.0%", "Hayden": "64.9%"}
+
+
+def test_rookie_of_the_year_needs_ten_starts():
+    """5e (4C7 decision 5): a rookie one start under the minimum is listed but
+    can't lead; at the minimum he is eligible (the fixture's rookie has n
+    starts: minimum n+1 is "9 of 10", minimum n is "10 of 10"). The minimum is
+    a config key and a missing key RAISES."""
+    _i, pi, _ = _past()
+    cfg = dict(pi["cfg"])
+
+    def roy(need):
+        return A.compute(dict(pi, cfg=dict(cfg, roy_min_starts=need)), pi["days"][-1], only=("roy",))["awards"]["roy"]
+    a = roy(1)
+    assert a["rows"], "the fixture has a rookie"
+    top = a["rows"][0]
+    n = top["starts"]
+    a = roy(n)
+    assert a["rows"][0]["key"] == top["key"]
+    assert all(r["starts"] >= n for r in a["rows"]) and all(r["starts"] < n for r in a["ineligible"])
+    a = roy(n + 1)
+    assert top["key"] not in {r["key"] for r in a["rows"]}
+    x = next(r for r in a["ineligible"] if r["key"] == top["key"])
+    assert x["sub"] in (f"not yet eligible ({n} of {n + 1} starts)", f"ineligible ({n} of {n + 1} starts)")
+    cfgm = {k: v for k, v in cfg.items() if k != "roy_min_starts"}
+    with pytest.raises(A.AwardsInputError, match="roy_min_starts"):
+        A.config({"awards": cfgm})
 
 
 def test_draft_of_the_year_counts_the_draft_class_with_keepers_apart():
@@ -317,7 +367,9 @@ def test_the_record_book_retires_the_overlapping_lists_and_writes_the_awards_mea
     sys.path.insert(0, str(ROOT / "scripts"))
     import backfill_player_records as B
     out = B.award_records(AF.past_blob())
-    assert set(out) == {"best_pickup", "best_pickup_top10", "lopsided_trade", "lopsided_trade_top10"}
+    assert set(out) == {"best_pickup", "best_pickup_top10", "lopsided_trade", "lopsided_trade_top10",
+                        "draft_of_year", "draft_of_year_top10"}                     # 5e
+    assert out["draft_of_year"]["manager"] == "Dana" and out["draft_of_year"]["par_per_week"] == 42.86
     assert out["best_pickup"]["par"] == 420.5 and out["lopsided_trade"]["par_gap"] == 300.0
     B.check_written_leaderboards(out)
     with pytest.raises(FileNotFoundError):
@@ -326,6 +378,26 @@ def test_the_record_book_retires_the_overlapping_lists_and_writes_the_awards_mea
     assert "for k in RETIRED_KEYS:" in src and '"tw_top10"' not in src
     from modules.hub_v2 import league as L
     assert not {"trade_winner", "best_waiver_pickup"} & {k for k, *_ in L.RECORD_BOOK}
+
+
+def test_best_draft_class_is_retired_with_no_reader_left():
+    """5e (4C7 decision 6): Draft of the year replaces best_draft_class
+    everywhere; the only mentions left are the retirement itself."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import backfill_player_records as B
+    assert {"best_draft_class", "best_draft_class_top10", "best_draft_class_fppg",
+            "best_draft_class_fppg_top10"} <= set(B.RETIRED_KEYS)
+    hits = []
+    for d in ("modules", "scripts", "templates"):
+        for p in (ROOT / d).rglob("*"):
+            if p.suffix in (".py", ".html", ".md", ".txt", ".j2") and p.is_file():
+                for i, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                    if "best_draft_class" in line and "5e" not in line and "RETIRED" not in line \
+                            and '"best_draft_class", "best_draft_class_top10"' not in line:
+                        hits.append(f"{p.relative_to(ROOT)}:{i}")
+    assert not hits, hits
+    from modules import player_card_builder as PCB
+    assert "best_draft_class" not in PCB.RECORD_BOOK_LABELS and "draft_of_year" in PCB.RECORD_BOOK_LABELS
 
 
 # =============================================================================
@@ -375,3 +447,21 @@ def test_the_new_renderers_do_no_arithmetic():
     src = "".join(inspect.getsource(f) for f in (PL._mgr_award, PL._potw_past, PL._trophy))
     for banned in ("round", "float", "sum", "sorted", "max", "min", "int", "len"):
         assert not re.search(rf"\b{banned}\(", src), f"the League renderer calls {banned}("
+
+
+def test_a_rookie_under_the_minimum_is_listed_marked_and_never_leads_on_the_hub():
+    """5e: the race lists him after the eligible rows, unranked, marked, and he
+    is never the leader or on the race chart; with no eligible rookie the card
+    says so."""
+    _i, pi, _ = _past()
+    cfg = dict(pi["cfg"])
+    first = A.compute(dict(pi, cfg=dict(cfg, roy_min_starts=1)), pi["days"][-1], only=("roy",))["awards"]["roy"]
+    n = first["rows"][0]["starts"]
+    res = A.compute(dict(pi, cfg=dict(cfg, roy_min_starts=n + 1)), pi["days"][-1], only=("roy",))
+    out = {a["key"]: a for a in A.races(res, [], dict(cfg, roy_min_starts=n + 1))["awards"]}
+    roy = out["roy"]
+    marked = [r for r in roy["rows"] if r.get("ineligible")]
+    assert marked and all(r["rank"] == "–" for r in marked)
+    assert marked[0]["sub"].endswith(f"({n} of {n + 1} starts)")
+    assert not [r for r in roy["rows"] if not r.get("ineligible")]
+    assert roy["empty"] == f"No rookie has {n + 1} starts yet." and roy["leader"] == ""

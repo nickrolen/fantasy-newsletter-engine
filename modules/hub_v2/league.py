@@ -556,7 +556,7 @@ PAST_UNITS = {"mvp": "PAR", "trade": "PAR gap", "improved": "FPPG", "pickup": "P
               "bust": "pts short"}
 PAST_TILES = {"mvp": "Best MVP season", "trade": "Most lopsided trade", "improved": "Most improved season",
               "pickup": "Best pickup", "roy": "Best rookie season", "bust": "Biggest bust",
-              "lineup": "Best fill rate", "draft": "Best draft class", "waiver": "Best waiver season",
+              "lineup": "Best fill rate", "draft": "Best Draft of the year", "waiver": "Best waiver season",
               "unlucky": "Unluckiest season", "potw_wins": "Most Player of the Week wins",
               "potw_week": "Best Player of the Week"}
 # 4c7: the tiles' measure (awards_past.best): a season's PAR total is per regular-season week

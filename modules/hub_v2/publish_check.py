@@ -170,6 +170,22 @@ def champion_audit(pieces: dict) -> list:
     return out
 
 
+# 5e (Nick, 11-22): "No rule numbers anywhere in the UI" ("rules 4-11", "(rule 3)"):
+# the rule is said in words or left out. A visible rule number REFUSES the publish.
+RULE_NUMBER = re.compile(r"\brules?\s+\d+", re.I)
+
+
+def rule_audit(pieces: dict) -> list:
+    """[(where, the rule number with 40 characters either side)] for every
+    visible rule number."""
+    out = []
+    for where, html in pieces.items():
+        t = " ".join(visible_text(html).split())
+        for m in RULE_NUMBER.finditer(t):
+            out.append((where, t[max(0, m.start() - 40):m.end() + 40]))
+    return out
+
+
 def text_audit(pieces: dict) -> dict:
     """{"pieces", "chars", "object_hits", "empty_hits", "empty_cells", "dash_cells"} over
     {where: html}. A hit is (where, the match with 30 characters either side)."""
@@ -323,6 +339,10 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
     if champ:
         problems.append(f"a champion or title the rules don't name ({len(champ)}; LEAGUE_RULES \"Who the champion "
                         f"is\"): {champ[:5]}")
+    rules = rule_audit(shown)                        # 5e: no rule numbers in the UI
+    audit["rule_hits"] = rules
+    if rules:
+        problems.append(f"a rule number on the page ({len(rules)}; say it in words): {rules[:5]}")
     orphans = sorted(set(rep["files"]) - reached)
     if orphans:
         problems.append(f"published files no key reaches: {orphans}")
@@ -384,7 +404,8 @@ def summary(rep: dict) -> list:
              f"of visible text: {len(rep['text_audit']['object_hits'])} object text, "
              f"{len(rep['text_audit']['empty_hits'])} empty value(s); {rep['text_audit']['empty_cells']} empty "
              f"cell(s), {rep['text_audit']['dash_cells']} dash cell(s) (counted, not failed); "
-             f"{len(rep['text_audit'].get('champion_hits') or [])} unqualified champion/title word(s)",
+             f"{len(rep['text_audit'].get('champion_hits') or [])} unqualified champion/title word(s), "
+             f"{len(rep['text_audit'].get('rule_hits') or [])} rule number(s)",
              f"  banners: stale {'present' if rep['banners']['stale_banner'] else 'MISSING'}"
              f" ({'shown' if rep['banners']['stale_shown'] else 'hidden'}), engine mismatch "
              f"{'shown' if rep['banners']['engine_mismatch'] else 'not shown'}, closing-line note "

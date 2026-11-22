@@ -1211,7 +1211,8 @@ class Run:
                f"; the new hub (hub.version v2)"
                + (f", first load {rep['served_bytes']:,} of {rep['budget_bytes']:,} bytes" if rep else "")
                + (" -- OVER BUDGET" if rep.get("over_budget") else "")
-               + (f" -- lazy files over the cap: {rep['over_cap']}" if rep.get("over_cap") else ""))
+               + (f" -- lazy files over the cap: {rep['over_cap']}" if rep.get("over_cap") else "")) \
+            + "".join(f" -- {x}" for x in _v2data_notes(payload))      # 5e: the soft Home cards
 
     def _ratings_record(self, rt: dict, published: bool) -> dict:
         """4c1: the ratings step's record (the run's "ratings" block), and the
@@ -1830,3 +1831,13 @@ def _no_closing_line(a) -> int:
         return 1
     print(f"recorded: week {a.week} has no closing line ({p})")
     return 0
+
+
+def _v2data_notes(payload: dict) -> list:
+    """5e: the new hub's soft failures for the hub step's line (a Home card
+    that couldn't update, Value to you): named in the run row, never fatal."""
+    from .hub_v2 import data as _d
+    try:
+        return _d.soft_notes(payload)
+    except Exception:                            # noqa: BLE001 -- a note, never a failure
+        return []

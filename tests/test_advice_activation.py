@@ -179,7 +179,7 @@ def test_a_negative_activation_is_reported_as_it_is():
     d = payload(negative_fixture(), inp)["managers"]["Nick"]["activation"]
     t = {x["label"]: x for x in d["texts"]["v2"]["tiles"]}
     assert d["dpts"][0] < 0 and d["texts"]["v2"]["why"].startswith(("\u2212", "+"))
-    assert t["Starts"]["value"].startswith(("\u2212", "+"))
+    assert t["Exp. starts"]["value"].startswith(("\u2212", "+"))
 
 
 # =============================================================================

@@ -73,7 +73,7 @@ from . import awards as A
 
 ROOT = Path(__file__).resolve().parents[1]
 FILE = Path("data") / "historical" / "AWARDS_PAST.json"
-SCHEMA = 2
+SCHEMA = 3
 PAST = ("mvp", "trade", "improved", "pickup", "roy", "bust")
 TOP = 5
 ALLTIME_TOP = 10
@@ -320,7 +320,7 @@ def _row(a: dict, r: dict) -> dict:
     elif a == "pickup":
         keep.update(add_day=r["add_day"], stint=list(r["stint"]), drops=list(r["drops"]))
     elif a == "roy":
-        keep.update(ms=r["ms"])
+        keep.update(ms=r["ms"], starts=r["starts"])
     elif a == "bust":
         keep.update(expected=round(r["expected"], 2), fppg=round(r["fppg"], 2), games=r["games"])
     return keep
@@ -380,8 +380,13 @@ def season_awards(inp: dict) -> dict:
                     if k == "improved" and first else
                     f"{inp['season']} has no draft list (H56): no drafted or kept player to judge" if nodraft else
                     NONE.get(k, "none"))
+        if k == "roy" and not rows and a.get("ineligible"):
+            none = f"No winner: no rookie reached {a['min_starts']} starts"     # Nick, 11-22
         out["awards"][k] = {"winner": rows[0] if rows else None, "top": rows, "none": none,
                             "excluded": kinds, "eligible": len(a["rows"])}
+        if k == "roy":                    # 5e (4C7 decision 5): listed, never the winner
+            out["awards"][k]["min_starts"] = a["min_starts"]
+            out["awards"][k]["ineligible"] = [_row(k, r) for r in a["ineligible"][:TOP]]
         if k == "bust":
             out["awards"][k]["source"] = a["source"]
     out["managers"] = _managers(MA.compute(inp, res))
@@ -399,6 +404,17 @@ def alltime(blob: dict) -> dict:
         rows = [dict(r, season=s) for s, v in sorted(blob["seasons"].items()) for r in v["_all"][k]]
         rows.sort(key=lambda r: (-r["value"], r["season"], r["label"]))
         out[k] = rows[:ALLTIME_TOP]
+    # 5e (4C7 decision 6): Draft of the year replaces best_draft_class: every manager's draft class
+    # every season, ranked as the Records tile ranks it (PAR per regular-season week)
+    rows = []
+    for s, v in sorted(blob["seasons"].items()):
+        wk = int(v["regular_weeks"])
+        for r in v["managers"]["draft"]["top"]:
+            rows.append({"m": r["m"], "season": s, "value": r["value"], "per_week": round(r["value"] / wk, 3),
+                         "regular_weeks": wk, "picks": r.get("picks"), "best": r.get("best"),
+                         "won": r["m"] in v["managers"]["draft"]["winners"]})
+    rows.sort(key=lambda r: (-r["per_week"], r["season"], r["m"]))
+    out["draft"] = rows[:ALLTIME_TOP]
     return out
 
 
@@ -580,11 +596,18 @@ def validate(blob: dict) -> None:
             vals = [r["value"] for r in a["top"]]
             need(vals == sorted(vals, reverse=True), f"{s} {k}: rows are not in order")
     need(isinstance(blob.get("potw_seasons"), dict), "no potw_seasons")
-    need(set((blob.get("alltime") or {})) == {"pickup", "trade"}, "alltime must hold pickup and trade")
+    need(set((blob.get("alltime") or {})) == {"pickup", "trade", "draft"},
+         "alltime must hold pickup, trade and draft")
     for k, rows in blob["alltime"].items():
+        f = "per_week" if k == "draft" else "value"
         need(len(rows) <= ALLTIME_TOP and all("season" in r for r in rows), f"alltime {k}: rows")
-        need([r["value"] for r in rows] == sorted((r["value"] for r in rows), reverse=True),
-             f"alltime {k}: not in order")
+        need([r[f] for r in rows] == sorted((r[f] for r in rows), reverse=True), f"alltime {k}: not in order")
+    for s_, v in blob["seasons"].items():                  # 5e: Rookie of the Year's start minimum
+        a = v["awards"]["roy"]
+        need(isinstance(a.get("min_starts"), int), f"{s_} roy: no min_starts")
+        need(all(int(r["starts"]) >= a["min_starts"] for r in a["top"]), f"{s_} roy: a winner under the minimum")
+        need(all(int(r["starts"]) < a["min_starts"] for r in a.get("ineligible") or []),
+             f"{s_} roy: an eligible rookie listed as ineligible")
     need(set(blob.get("best") or {}) == set(BEST_KEYS), "best must name every award")
 
 

@@ -403,7 +403,8 @@ def test_six_tabs_in_order_and_every_route_resolves():
 def test_home_sections_are_in_page_map_order():
     h = render()
     home = re.search(r'data-route="home">(.*?)<section class="v2-screen"', h, re.S).group(1)
-    assert re.findall(r'data-section="(\w+)"', home) == ["matchups", "power", "teams", "trade"]
+    # 5e (Nick, 11-22): Last night . Tonight second, Moves window where the trade block was
+    assert re.findall(r'data-section="(\w+)"', home) == ["matchups", "nightly", "power", "teams", "window"]
     assert home.index("lh-issuebar") < home.index('data-section="matchups"')
     assert "Week 8 issue" in home                      # until 4d's headline
 
@@ -457,7 +458,7 @@ def test_a_payload_string_is_printed_as_is():
 
 def test_the_renderer_does_no_arithmetic():
     src = "".join(inspect.getsource(f) for f in (page.render, page._matchup_card, page._team_card, page._ranking,
-                                                 page._trade, page._kpi, page._roster, page._keepers, page._team_page,
+                                                 page._nightly, page._window, page._kpi, page._roster, page._keepers, page._team_page,
                                                  page._matchup_page, page._chart, page._heat, page._spark))
     for banned in ("round", "float", "sum", "sorted", "max", "min", "int"):
         assert not re.search(rf"\b{banned}\(", src), f"the renderer calls {banned}("
@@ -980,6 +981,42 @@ class _SynAv:
         return d in self.team_dates["AAA"]
 
 
+def syn_home_ctx(p: dict, w: dict, src) -> dict:
+    """5e: Home's two cards on the made-up league, by the REAL engine
+    (hub_v2.home through data.home_soft): last night's log, the swings'
+    points, tonight's Day, the ledger's moves, one blocked team."""
+    y = GEN.date() - timedelta(days=1)
+    t0 = datetime.combine(y, datetime.min.time(), tzinfo=TZ)
+
+    def pts(a0, a1):
+        return [((t0 - timedelta(hours=2)).isoformat(), a0, 100.0 - a0), ((t0 + timedelta(days=1, minutes=6)).isoformat(),
+                                                                          a1, 100.0 - a1)]
+    raw = {"this": [{"a": "Marcus", "b": "Tyler", "pts": pts(55.0, 64.0)},
+                    {"a": "Dana", "b": "Jordan", "pts": pts(52.0, 41.0)}], "last": None}
+    p["v2"]["_swing"] = raw
+    import pandas as pd
+    lu = w["lineups"]
+    lu = pd.concat([lu[lu["date"].astype(str) != y.isoformat()], pd.DataFrame(
+        [{"date": y.isoformat(), "manager": m, "player_name": x["name"], "slot": "BN" if j == 3 else "PG",
+          "fantasy_points": 30.0 + 6 * i + 4 * j + (25.0 if j == 3 else 0.0), "nba_team": "AAA"}
+         for i, m in enumerate(MGRS) for j, x in enumerate(p["rosters"][m]["players"][:4])])], ignore_index=True)
+    wk = {9: [GEN.date() - timedelta(days=2) + timedelta(days=i) for i in range(7)],
+          10: [GEN.date() + timedelta(days=5 + i) for i in range(7)]}
+    return {"now": GEN, "today": GEN.date(), "week": 9, "wk_dates": wk, "nba_schedule": {"games": w["games"]},
+            "lineups": lu, "managers": list(p["v2"]["team_order"]), "src": src,
+            "team_of": dict(TEAMS), "budget": 3, "adds_left": {"Marcus": 2, "Tyler": 3, "Dana": 0, "Jordan": 1},
+            "ledger": {"live_claims": [{"manager": "Dana", "player": "Free Guy", "window": wk[10][0].isoformat(),
+                                        "claim_week": 9, "entry": "e1"}],
+                       "dropped": {"Dana Bench": {"manager": "Dana", "window": wk[10][0].isoformat(), "entry": "e1"}}},
+            "il_slots": {"Tyler": ["Tyler Hurt"]}, "tags": {"Tyler Hurt": None}}
+
+
+def add_synth_home(p: dict, w: dict, src) -> dict:
+    from modules.hub_v2 import data as _d
+    _d.home_soft(SYN_BASE, p, syn_home_ctx(p, w, src), echo=lambda *a: None)
+    return p
+
+
 def add_synth_teams(p: dict) -> dict:
     """v2's 4c2 keys on the made-up league: roster_cols and every team's
     roster.detail by the REAL roster.build; the grids' tooltips; the win
@@ -1008,12 +1045,17 @@ def add_synth_teams(p: dict) -> dict:
     v2["roster_cols"] = shared
     for m in MGRS:
         v2["teams"][m]["roster"]["detail"] = detail[m]
+    # 5e: Value to you, the free agent priced for every roster (team_value's fa_values shape)
+    tv.update(fa_values={m: {"Free Guy": {"pts": 40.0 - 9.0 * i, "by_week": {}, "drop": f"{m} Bench"}}
+                         for i, m in enumerate(MGRS)}, fa_error=None, fa_seconds=0.1)
+    p["v2"]["fa_value"] = _d.fa_value_view(tv, ({m: SYN_PRICE for m in MGRS}, "title", None), MGRS, ["Free Guy"])
     # 5d2 s.3: the Players tab's Detailed groups, by the real engine (pcols.build)
     from modules.hub_v2 import pcols as _pc
     g = _pc.build(SYN_BASE, p, dict(ctx, range_list=[], fa_av=av, fa_ok=[], par={"Marcus Guard": 41.5},
                                     potw_wins={"Marcus Guard": 1}, sched_days=ctx["sched_days"]))
     g.update(_pc.shared(False))
     v2["players"]["groups"] = g
+    add_synth_home(p, w, ctx["ranges"])
     for r in v2["grid3"]["rows"]:
         for k, c in enumerate(r["cells"]):
             c["tip"] = {"h": f"Wk {9 + k}", "b": "Mon 8 \u00b7 Tue 7", "f": f"{c['n']} starts \u00b7 {r['idle']} idle"

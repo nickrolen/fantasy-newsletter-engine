@@ -160,6 +160,9 @@ from modules.hub_v2 import ranges as _ranges
 def add_market(p: dict, *, advice=None, advice_on: bool = True, show_title: bool = True, fa_av=None) -> dict:
     """payload["free_agents"], ["stash"] and v2["market"] on the made-up league."""
     p["free_agents"] = free_agents()
+    rl = _ranges.ranges(WEEKS[9][0], 9, WEEKS)
+    p["free_agents"]["ranges"] = {r.key: [FA_NAME] for r in rl}          # 5e: each range's own list
+    p["free_agents"]["range_rows"] = []
     p["stash"] = stash()
     p["v2"]["market"] = market.build(p, {
         "fa_av": fa_av or FaAv(), "col_specs": col_specs(), "advice_on": advice_on,

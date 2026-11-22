@@ -676,7 +676,10 @@ def test_the_real_hub_builds_with_a_card_for_every_name(tmp_path, monkeypatch):
     shown = hc.shown_names(payload)
     assert shown and all(k for _, k in shown), [n for n, k in shown if not k]
     cards = hc.build(ROOT, payload, data=co["data"], keeper_watch=co["keeper_watch"], echo=lambda *a: None)
-    assert set(cards["cards"]) == {k for _, k in shown} == set(payload["cards"]["players"])
+    # 5e: the new hub's Market ranges list their own best free agents (range_rows): cards too,
+    # though the current page (v1, the walk below) never shows them
+    ranged = {r["card"] for r in payload["free_agents"].get("range_rows") or []}
+    assert set(cards["cards"]) == {k for _, k in shown} | ranged == set(payload["cards"]["players"])
     reg = payload["cards"]["players"]
     for k, c in cards["cards"].items():
         for s in hc.strings(c):

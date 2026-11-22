@@ -353,7 +353,8 @@ def _universe(payload: dict) -> List[dict]:
             seen.add(p["name"])
             out.append({"key": None, "name": p["name"], "kind": "rostered", "m": m,
                         "status": [{"text": f"{rb['team']} \u00b7 {m}", "kind": "own"}] + list(p.get("tags") or [])})
-    for r in payload["free_agents"]["rows"] + payload["stash"]["rows"]:
+    for r in payload["free_agents"]["rows"] + (payload["free_agents"].get("range_rows") or []) \
+            + payload["stash"]["rows"]:                     # 5e: the ranges' own best free agents too
         if r["name"] not in seen:
             seen.add(r["name"])
             out.append({"key": None, "name": r["name"], "kind": "fa", "m": "",

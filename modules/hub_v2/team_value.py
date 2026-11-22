@@ -72,18 +72,25 @@ def horizon(now: datetime, week: int, wk_dates: dict, nba_schedule) -> tuple:
 
 def compute(*, data, now: datetime, week: int, wk_dates: dict, active: Dict[str, List[str]],
             pool: List[str], tag_row: dict, tags: dict, sims: int = SIMS, seed: int = SEED,
-            shortlist: int = SHORTLIST) -> dict:
+            shortlist: int = SHORTLIST, fa: Optional[List[str]] = None) -> dict:
     """{"weeks": [w...], "kind", "seconds", "sims", "values": {manager: {name:
     {"pts", "by_week": {w: pts}, "repl"}}}} or, with no window left this
     season, {"weeks": [], ...} and no values. tags: the hub's rostered tags
-    (tag_records.hub_tags over every rostered player, IL slots included)."""
+    (tag_records.hub_tags over every rostered player, IL slots included).
+    fa (5e, "Value to you"): free agents to price for EVERY roster, into
+    "fa_values" {manager: {name: {"pts", "by_week", "drop"}}}: the points he
+    adds to that manager's best daily lineups over the same window, swapped
+    for the active player whose loss costs least (no drop when the active
+    roster has an open spot), the mirror of Team value; "fa_error" says why
+    when it fails (soft: Team value stands), "fa_seconds" what it cost."""
     from .. import marginal_value as mv
     from ..hub_state import free_agent_tags
     from ..projections import load_player_projections, populate_actual_stats
     t0 = time.perf_counter()
     kind, weeks = horizon(now, week, wk_dates, data.nba_schedule)
     if not weeks:
-        return {"weeks": [], "kind": None, "seconds": 0.0, "sims": sims, "values": {}}
+        return {"weeks": [], "kind": None, "seconds": 0.0, "sims": sims, "values": {}, "fa_values": {},
+                "fa_error": None, "fa_seconds": 0.0}
     projs = load_player_projections(data)
     populate_actual_stats(projs, data)
     rostered = [n for v in active.values() for n in v]
@@ -125,9 +132,10 @@ def compute(*, data, now: datetime, week: int, wk_dates: dict, active: Dict[str,
         return float(pts.mean()), {w: float(bw.get(w, 0.0).mean()) if hasattr(bw.get(w, 0.0), "mean")
                                    else float(bw.get(w, 0.0)) for w in weeks}
 
-    values = {}
+    values, bases = {}, {}
     for m, R in active.items():
         base, base_w = tot(R)
+        bases[m] = (base, base_w)
         out = {}
         for n in R:
             rest = [x for x in R if x != n]
@@ -139,9 +147,40 @@ def compute(*, data, now: datetime, week: int, wk_dates: dict, active: Dict[str,
             out[n] = {"pts": base - best[0], "by_week": {w: base_w[w] - best[1][w] for w in weeks},
                       "repl": best[2]}
         values[m] = out
+    secs = round(time.perf_counter() - t0, 2)
+    fa_values, fa_error, t1 = {}, None, time.perf_counter()
+    if fa:
+        try:
+            fa_values = _fa_values(ctx, tot, active, bases, [n for n in fa if n not in set(rostered)], weeks)
+        except Exception as e:                       # noqa: BLE001 -- "Value to you" is soft (5e)
+            fa_error = f"{type(e).__name__}: {e}".splitlines()[0][:300]
     mv.release_caches(ctx)
-    return {"weeks": list(weeks), "kind": kind, "seconds": round(time.perf_counter() - t0, 2), "sims": sims,
-            "values": values}
+    return {"weeks": list(weeks), "kind": kind, "seconds": secs, "sims": sims, "values": values,
+            "fa_values": fa_values, "fa_error": fa_error, "fa_seconds": round(time.perf_counter() - t1, 2)}
+
+
+def _fa_values(ctx, tot, active: Dict[str, List[str]], bases: dict, fa: List[str], weeks) -> dict:
+    """5e: each free agent's value to each roster (compute's docstring)."""
+    from ..data_loader import LEAGUE_STRUCTURE
+    spots = int(LEAGUE_STRUCTURE["starters"]) + int(LEAGUE_STRUCTURE["bench"])
+    miss = [n for n in fa if n not in ctx.players]
+    if miss:
+        raise TeamValueError(f"no projection for the free agents {', '.join(miss)}: no Value to you")
+    out = {}
+    for m, R in active.items():
+        base, base_w = bases[m]
+        drops = list(R) + ([None] if len(R) < spots else [])
+        vals = {}
+        for f in fa:
+            best = None
+            for p in drops:
+                v, vw = tot([x for x in R if x != p] + [f])
+                if best is None or v > best[0] or (v == best[0] and str(p) < str(best[2])):
+                    best = (v, vw, p)
+            vals[f] = {"pts": best[0] - base, "by_week": {w: best[1][w] - base_w[w] for w in weeks},
+                       "drop": best[2]}
+        out[m] = vals
+    return out
 
 
 def title_prices(base, managers, weeks: List[int]) -> tuple:

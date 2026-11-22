@@ -265,7 +265,7 @@ def by_week(transactions: list, rulings, schedule: dict, ledger, counts: dict, *
         items = [{kk: vv for kk, vv in x.items() if kk != "_ts"} for x in items]
         if k == PRE:
             tabs.append({"key": PRE, "label": "Pre-season", "used": None,
-                         "used_note": "Pre-season moves count in no week and have no limit (rule 14).",
+                         "used_note": "Pre-season moves count in no week and have no limit.",
                          "items": items})
             continue
         used = []
@@ -283,7 +283,7 @@ def by_week(transactions: list, rulings, schedule: dict, ledger, counts: dict, *
             "empty": "No moves in this week.",
             "note": ("Every move of the season, under the week whose add budget it used: a "
                      "group-chat claim under the week it was claimed in, though it joins the roster "
-                     "the next Monday (rule 7); a drop with the add it was paired with; a drop or a "
+                     "the next Monday; a drop with the add it was paired with; a drop or a "
                      "trade on its own under the week it happened. Times are Pacific.")}
 
 

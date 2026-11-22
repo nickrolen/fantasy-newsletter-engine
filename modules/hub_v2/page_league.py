@@ -452,7 +452,7 @@ def _race(a: dict, mono, chart, icon: str) -> str:
         return "".join(o)
     if a["leader"]:
         o.append(f'<p class="v2-aw-lead">{clean(a["leader"])}</p>')
-    if not a["rows"]:
+    if a["empty"]:                       # 5e: Rookie of the Year can list only rookies under the minimum
         o.append(f'<p class="v2-p">{clean(a["empty"])}</p>')
     for r in a["rows"]:
         t = r["team"]

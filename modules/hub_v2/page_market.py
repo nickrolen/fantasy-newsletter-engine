@@ -141,6 +141,7 @@ function mkFilter(){
       if(MK.pos&&(' '+t.getAttribute('data-pos')+' ').indexOf(' '+MK.pos+' ')<0){ok=false;}
       if(MK.h&&t.getAttribute('data-h')!=='1'){ok=false;}
       if(MK.fit&&(' '+t.getAttribute('data-fit')+' ').indexOf(' '+MK.fit+' ')<0){ok=false;}
+      if(MK.light&&VIEWER&&(' '+(t.getAttribute('data-light')||'')+' ').indexOf(' '+VIEWER+' ')<0){ok=false;}
       t.hidden=!ok;if(ok&&vis){any=true;}}}
   var n=document.getElementById('mk-fa-none');if(n){n.hidden=any;}
   var f=document.querySelector('[data-mkfit]');if(f){f.hidden=!MK.fit;}
@@ -165,6 +166,7 @@ function mkRoute(){
   if(q.r){mkRange(q.r,false);}else{mkFilter();}
 }
 window.addEventListener('hashchange',mkRoute);
+document.addEventListener('hub:viewer',function(){mkFilter();});
 setTimeout(mkRoute,0);
 function mvFilter(m){
   MK.mv=m;
@@ -180,6 +182,9 @@ document.addEventListener('click',function(e){
     document.getElementById(t.getAttribute('aria-controls')).hidden=open;return;}
   t=e.target.closest('[data-mkh]');
   if(t){var on=t.getAttribute('aria-pressed')!=='true';t.setAttribute('aria-pressed',String(on));MK.h=on?'1':'';mkFilter();return;}
+  t=e.target.closest('[data-mklight]');
+  if(t){var on2=t.getAttribute('aria-pressed')!=='true';t.setAttribute('aria-pressed',String(on2));
+    MK.light=on2?'1':'';mkFilter();return;}
   t=e.target.closest('[data-mkfit]');
   if(t){MK.fit='';mkRange(MK.r||(document.querySelector('[data-mkr]')||{}).value,true);mkFilter();return;}
   t=e.target.closest('[data-mvf]');
@@ -233,6 +238,7 @@ def _cell(c: dict, name: str) -> str:
 # the segments
 # =============================================================================
 
+DASH_HTML = "&mdash;"
 RANGE_COLS = (("pts", "Proj pts"), ("total", "Games"), ("fppg", "FPPG"), ("l14", "L14"), ("l7", "L7"),
               ("l30", "L30"), ("ovr", "OVR"), ("pot", "POT"), ("dur", "DUR"), ("mind", "MIN \u0394"),
               ("avail", "Avail %"), ("status", "Status"), ("age", "Age"))
@@ -246,6 +252,8 @@ def range_table(t: dict, default: bool) -> str:
     tid = ' id="mk-fa"' if default else ""
     o = [f'<div class="v2-scroll"><table class="lh-table v2-mk-fa"{tid} data-mkt="{clean(t["key"])}" data-sort="pts" '
          f'data-dir="1" data-orders=\'{clean(t["orders_json"])}\'><thead><tr><th>{colh_btn("market", "name", "Player")}</th>']
+    o.append('<th data-k="vtv" class="v2-vu"><button type="button" class="v2-tap" data-sort="vtv"'   # 5e
+             f'{colh("market", "vtv")}>Value to you<span class="v2-arrow"></span></button></th>')
     for k, lab in RANGE_COLS[:2]:
         on = k == "pts"
         o.append(f'<th data-k="{k}"{" aria-sort=" + chr(34) + "descending" + chr(34) if on else ""}>'
@@ -263,8 +271,13 @@ def range_table(t: dict, default: bool) -> str:
     for i in t["default_rows"]:
         r = t["rows"][i]
         c = r["cells"]
-        o.append(f'<tr data-i="{i}" data-h="{r["h"]}" data-pos="{clean(r["pos"])}" data-fit="{clean(r["fit"])}">'
+        vu = r.get("vu")
+        o.append(f'<tr data-i="{i}" data-h="{r["h"]}" data-pos="{clean(r["pos"])}" data-fit="{clean(r["fit"])}" '
+                 f'data-light="{clean(r.get("light") or "")}">'
                  f'<td>{_name(r)}<span class="lh-sub">{clean(r["sub"])} {_chips(r["chips"])}</span></td>'
+                 '<td class="lh-num v2-vu">' + (DASH_HTML if not vu else "".join(
+                     f'<span class="v2-vu-v" data-m="{clean(m)}">{clean(t)}</span>' for m, t in vu.items()))
+                 + "</td>"
                  f'<td class="lh-num">{clean(c["pts"])}</td><td class="lh-num">{clean(c["total"])}</td>'
                  '<td><span class="v2-mk-cells">' + "".join(_cell(g, r["name"]) for g in r["games"]) + "</span></td>"
                  + "".join(f'<td class="lh-num">{clean(c[k])}</td>' for k, _l in RANGE_COLS[2:]) + "</tr>")
@@ -286,7 +299,12 @@ def _available(a: dict, ids, info, parts: dict = None) -> str:
          + "".join(f'<option value="{clean(x["k"])}"{" selected" if x["k"] == "pts" else ""}>{clean(x["label"])}</option>'
                    for x in rg["sorts"]) + "</select></label>",
          '<button type="button" class="v2-fchip" data-mkfit="" aria-pressed="true" hidden>Games on your empty-slot '
-         'days &times;</button></div>']
+         'days &times;</button>',
+         # 5e: the viewer's light days (4 or fewer of his players with a game), not the empty-slot days above
+         '<button type="button" class="v2-fchip v2-vu-chip" data-mklight aria-pressed="false">Plays on my light '
+         'days</button>' + colh_btn("market", "light", "&#9432;").replace('class="v2-tap v2-colh"',
+                                                                         'class="v2-tap v2-colh v2-vu-chip"')
+         + '</div>']
     o.append('<section class="lh-card lh-card--flush" data-section="available"><div class="lh-sechead v2-pad">'
              f'<h2 class="lh-eyebrow">{clean(a["title"])}</h2><span class="lh-meta" data-mkr-sub>'
              + "".join(f'<span data-mkrange="{clean(t["key"])}"{"" if t["key"] == rg["default"] else " hidden"}>'

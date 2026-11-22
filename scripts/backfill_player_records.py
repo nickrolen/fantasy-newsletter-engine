@@ -1348,63 +1348,10 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
     if pick_games is None:
         raise ValueError("the steal/bust records need pick_games (pick_game_rows): the round values' game set")
 
-    pss = defaultdict(lambda: {"total_fp": 0.0, "gp": 0, "fps": []})
-    for g in games:
-        if g["fantasy_points"] > 0:
-            key = (g["player_name"], g["manager"], g["season"])
-            pss[key]["total_fp"] += g["fantasy_points"]
-            pss[key]["gp"] += 1
-            pss[key]["fps"].append(g["fantasy_points"])
-
     pick_values = load_draft_pick_values()
 
-    # Keeper-era filter (from config/league_config.json)
-
-    # BEST DRAFT CLASS (real draft picks only, top 7 per team, keeper era only)
-    dbc = defaultdict(list)
-    for pick in drafts:
-        if not pick.get("is_keeper", False) and pick["season"] >= KEEPER_ERA_START:
-            dbc[(pick["manager"], pick["season"])].append(pick)
-
-    def _top7(picks):
-        """The team's first 7 live picks. H56: a punted season has no rounds,
-        and 2021-22..2023-24 drafted exactly 7 live rounds, so its class is all
-        of them; more than 7 with no order to choose by RAISES."""
-        if all(p.get("round") is not None for p in picks):
-            return sorted(picks, key=lambda p: int(p["round"]))[:7]
-        if len(picks) > 7:
-            raise ValueError(f"{picks[0]['season']} {picks[0]['manager']}: {len(picks)} live picks and no "
-                             "pick order to choose the first 7")
-        return list(picks)
-
-    dc_all = []
-    for (mgr, season), picks in dbc.items():
-        # Sort by round (earliest picks first) and take top 7
-        picks_sorted = _top7(picks)
-        fp, gp, cnt = 0.0, 0, 0
-        for p in picks_sorted:
-            s = pss.get((p["player_name"], mgr, season))
-            if s and s["gp"] > 0:
-                fp += s["total_fp"]; gp += s["gp"]; cnt += 1
-        if cnt >= 3:
-            dc_all.append({"manager": mgr, "total_fp": round(fp, 1), "total_gp": gp, "player_count": cnt, "draft_year": season, "season": season})
-    dc_all.sort(key=lambda x: x["total_fp"], reverse=True)
-
-    # BEST DRAFT CLASS BY FPPG (top 7 picks, min 20 GP per player, keeper era only)
-    dc_fppg = []
-    for (mgr, season), picks in dbc.items():
-        picks_sorted = _top7(picks)
-        qualifying = []
-        for p in picks_sorted:
-            s = pss.get((p["player_name"], mgr, season))
-            if s and s["gp"] >= 20:
-                qualifying.append({"fppg": s["total_fp"] / s["gp"], "gp": s["gp"]})
-        if len(qualifying) >= 3:
-            avg_fppg = sum(q["fppg"] for q in qualifying) / len(qualifying)
-            total_gp = sum(q["gp"] for q in qualifying)
-            dc_fppg.append({"manager": mgr, "avg_fppg": round(avg_fppg, 2), "total_gp": total_gp,
-                            "player_count": len(qualifying), "draft_year": season, "season": season})
-    dc_fppg.sort(key=lambda x: x["avg_fppg"], reverse=True)
+    # 5e (4C7 decision 6): best_draft_class (Total FP and FPPG of the top 7 picks) is retired:
+    # Draft of the year, the award's own measure, replaces it (award_records, from AWARDS_PAST)
 
     # DRAFT STEAL & BUST (FPPG and Total FP): 5d1 s.10a, over the round values' game set
     steal_fppg, bust_fppg, steal_totalfp, bust_totalfp = draft_steal_bust(pick_games, drafts, pick_values)
@@ -1426,7 +1373,6 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
 
     result = {}
     for name, data in [
-        ("best_draft_class", dc_all), ("best_draft_class_fppg", dc_fppg),
         ("biggest_draft_steal", steal_fppg), ("biggest_draft_bust", bust_fppg),
         ("biggest_draft_steal_totalfp", steal_totalfp), ("biggest_draft_bust_totalfp", bust_totalfp),
         ("most_cursed_roster", cursed),
@@ -1435,7 +1381,7 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
         result[name] = single
         result[f"{name}_top10"] = top10
 
-    for name in ["best_draft_class", "biggest_draft_steal", "biggest_draft_bust", "biggest_draft_steal_totalfp", "biggest_draft_bust_totalfp"]:
+    for name in ["biggest_draft_steal", "biggest_draft_bust", "biggest_draft_steal_totalfp", "biggest_draft_bust_totalfp"]:
         e = result.get(name, {})
         if e:
             print(f"  {name}: {e.get('player_name', e.get('manager', '?'))} ({e.get('season', '?')})")
@@ -1446,14 +1392,18 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
 # 4c7 D: retired from RECORDS.json (removed on every run, so a stale copy never lingers)
 RETIRED_KEYS = ("trade_winner", "trade_winner_top10", "trade_winner_fppg", "trade_winner_fppg_top10",
                 "best_waiver_pickup", "best_waiver_pickup_top10", "best_waiver_pickup_totalfp",
-                "best_waiver_pickup_totalfp_top10")
+                "best_waiver_pickup_totalfp_top10",
+                # 5e (4C7 decision 6): Draft of the year replaces it
+                "best_draft_class", "best_draft_class_top10", "best_draft_class_fppg", "best_draft_class_fppg_top10")
 
 
 def award_records(blob: dict) -> dict:
     """4c7 D: the record book's Best pickup and Most lopsided trade, the
     awards' own measures over every past season (AWARDS_PAST alltime, the
     one source the hub's Records reads too): {"best_pickup", "best_pickup_
-    top10", "lopsided_trade", "lopsided_trade_top10"}. RAISES without the
+    top10", "lopsided_trade", "lopsided_trade_top10", and (5e) "draft_of_year",
+    "draft_of_year_top10": every manager's draft class, PAR per regular-season
+    week}. RAISES without the
     file (never an empty list in its place)."""
     if blob is None:
         raise FileNotFoundError("data/historical/AWARDS_PAST.json is not built (python scripts\\build_awards_past.py)")
@@ -1466,8 +1416,13 @@ def award_records(blob: dict) -> dict:
                               + (f" + {', '.join(sd['picks'])}" if sd.get("picks") else "")
                               + f" ({sd['par']:,.1f} PAR)" for m, sd in r["sides"].items())}
           for r in blob["alltime"]["trade"]]
+    dy = [{"player_name": "", "manager": r["m"], "season": r["season"], "par": round(float(r["value"]), 2),
+           "par_per_week": round(float(r["per_week"]), 2), "regular_weeks": r["regular_weeks"],
+           "picks": r.get("picks"), "best": r.get("best"), "won": bool(r.get("won"))}
+          for r in blob["alltime"]["draft"]]
     return {"best_pickup": pk[0] if pk else {}, "best_pickup_top10": pk[:10],
-            "lopsided_trade": tr[0] if tr else {}, "lopsided_trade_top10": tr[:10]}
+            "lopsided_trade": tr[0] if tr else {}, "lopsided_trade_top10": tr[:10],
+            "draft_of_year": dy[0] if dy else {}, "draft_of_year_top10": dy[:10]}
 
 
 def compute_current_season_player_records(current_df, rookie_seasons=None) -> dict:

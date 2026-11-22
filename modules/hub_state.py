@@ -759,6 +759,31 @@ def free_agent_status(av: Availability, name: str, tag: str, window) -> dict:
     return {"source": "healthy", "chips": []}
 
 
+def range_free_agents(fa_records, dropped_recs, fa_av, range_list, top_n: int, later: set, this_days: set,
+                      col_days, listed: set) -> tuple:
+    """5e (5D2 decision 2): ({range key: [name, best first]}, [extra rows]):
+    each range's top_n free agents by projected points over ITS days
+    (rank_free_agents' rule: Yahoo's projected FPPG x the games he will
+    play), so Semifinals, Finals and Cup surface their own players. A player
+    dropped in the chat (rule 11) counts from the next window only (`later`:
+    those names while this week's window is open; their games on this_days
+    don't count). Players not already `listed` come back as rows in the free
+    agents' shape (col_days' columns), for their cards and Players rows."""
+    out, need = {}, []
+    for r_ in range_list:
+        days = list(r_.days)
+        rows = rank_free_agents(fa_records, fa_av, days)
+        if dropped_recs:
+            rows += rank_free_agents(dropped_recs, fa_av, [d for d in days if d not in this_days]) \
+                if later else rank_free_agents(dropped_recs, fa_av, days)
+            rows.sort(key=lambda x: (-x["_pts"], -x["_proj"], x["name"]))
+        out[r_.key] = [x["name"] for x in rows[:top_n]]
+        need += [n for n in out[r_.key] if n not in listed and n not in need]
+    by = {r["player_name"]: r for r in list(fa_records) + list(dropped_recs or [])}
+    extra = rank_free_agents([by[n] for n in need], fa_av, *col_days) if need else []
+    return out, [{k: v for k, v in r.items() if not k.startswith("_")} for r in extra]
+
+
 def rank_free_agents(fa_records, av: Availability, *col_days) -> List[dict]:
     """Every free agent, ranked by projected points over the columns' days
     (free_agent_columns: three since task 48g -- the rest of this week, next
@@ -848,7 +873,7 @@ def free_agent_columns(now: datetime, week: int, wk_dates: dict, nba_schedule, g
 
 def stash_rows(fa_records, av: Availability, window, top_n: int) -> List[dict]:
     """The stash candidates (task 42): free agents TAGGED O or OFS -- only
-    they can go straight into an IL slot (rule 2); a Q or healthy player with
+    they can go straight into an IL slot; a Q or healthy player with
     an injury entry cannot -- by Yahoo's projected FPPG, then name, top N.
     LONG ABSENCES ONLY (task 48f; Nick, 11-10): an O-tagged player is listed
     only when INJURY_OVERRIDES has a live entry for him -- one that keeps him
@@ -1343,6 +1368,14 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     top += [r for r in ranked_fa[cfg["free_agents_top_n"]:] if r["name"] in dropped]
     for r in top:
         fa_rows.append({k: v for k, v in r.items() if not k.startswith("_")})
+    # 5e (5D2 decision 2): each Market range's OWN best free agents (by projected points
+    # over that range's days), not the three-week list re-sorted: the names that aren't
+    # in the list above ride along in range_rows (so they get cards and Players rows)
+    range_names, range_rows = range_free_agents(
+        fa_records, [proj.get(n) for n in dropped], fa_av, sched_ctx_ranges(
+            fcols, week, today, {int(w): list(v) for w, v in wk_dates.items()}),
+        cfg["free_agents_top_n"], {n for n in dropped} if fcols["mode"] == "this" else set(),
+        set(this_days), col_days, {r["name"] for r in fa_rows})
     shown = [c for c in fcols["cols"] if c["week"] is not None]
     long_weeks = [c["week"] for c in shown if len(c["days"]) > 7 and c["label"] != "GL"]
     if fcols["mode"] == "this":
@@ -1357,17 +1390,18 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         aside = (f"by projected points, weeks {_and_list([str(c['week']) for c in shown])}: a pickup "
                  f"now joins {_ml_mon(fcols['join'].isoformat())}")
         cols_note = (f"This week's window closed {_clock_text(fcols['closes'])}: a pickup now is a "
-                     f"group-chat claim and joins the next Monday (rule 7), so the columns are the "
+                     f"group-chat claim and joins the next Monday, so the columns are the "
                      f"next three weeks.")
         if len(shown) < 3:
             cols_note += f" Week {shown[-1]['week']} is the season's last."
     if long_weeks:
-        cols_note += "".join(f" Week {w} is one fantasy week of {len(wk_dates[w])} days (rule 9): "
+        cols_note += "".join(f" Week {w} is one fantasy week of {len(wk_dates[w])} days: "
                              f"its games are one column." for w in long_weeks)
     pts_label = PTS_LABELS.get(len(shown)) or (f"Pts ({shown[0]['label']})" if shown else PTS_LABEL)
     # no note on the unscheduled Cup games here (Nick, 11-10: "remove it"); the
     # grid's tabs keep theirs
-    free = {"rows": fa_rows, "aside": aside, "pts_label": pts_label, "mode": fcols["mode"],
+    free = {"rows": fa_rows, "ranges": range_names, "range_rows": range_rows,
+            "aside": aside, "pts_label": pts_label, "mode": fcols["mode"],
             "cols": [c["label"] for c in fcols["cols"]],
             "weeks": [c["week"] for c in fcols["cols"]],
             "empty": "No pickup joins a roster again this season.",
@@ -1388,7 +1422,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
              "empty": "No free agent is OFS, or tagged O with an injury entry.",
              "note": ("Long absences only: a player tagged O is listed when he has an injury entry "
                       "keeping him out (an O tag alone is at most 3 games); OFS players are listed as "
-                      "before. Only a player tagged O or OFS can go straight into an IL slot (rule 2); a "
+                      "before. Only a player tagged O or OFS can go straight into an IL slot; a "
                       "Q or healthy player cannot, whatever his injury entry says. OFS is out for the "
                       "season: an IL slot all year, for his keeper value only. A display, not advice: "
                       "IL slots change only in a Monday window.")}
@@ -1543,6 +1577,14 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
             "first_day": first_day, "ranges": rsrc, "proj": proj, "wk_dates": wk_dates,
             "range_list": sched_ctx_ranges(fcols, week, today, {int(w): list(v) for w, v in wk_dates.items()})},
         echo=echo)
+    # 5e: Home's Last night . Tonight and Moves window (modules/hub_v2/home.py), each soft
+    if payload["v2"] is not None:
+        v2data.home_soft(base, payload, {
+            "now": now, "today": today, "week": week, "wk_dates": wk_dates, "nba_schedule": data.nba_schedule,
+            "lineups": data.lineups, "managers": list(payload["v2"]["team_order"]), "src": rsrc,
+            "team_of": dict(MANAGER_TO_TEAM), "budget": int(budget),
+            "adds_left": {m: max(0, int(budget) - len((adds or {}).get(m, []))) for m in managers},
+            "ledger": lv, "il_slots": il_slots, "tags": tags}, echo=echo)
     # 4c4: the League tab (modules/hub_v2/league.py): standings, the title-odds
     # chart, power history, awards, the archive; History goes to the side file
     if payload["v2"] is not None:
@@ -1745,7 +1787,7 @@ def sched_ctx(base, *, now, data, week, today, wk_dates, managers, rsrc, fcols, 
             "team_of": dict(MANAGER_TO_TEAM), "data": data, "fcols": fcols, "fa_av": fa_av, "fa_rows": top,
             "adds_left": {m: max(0, int(budget) - len((adds or {}).get(m, []))) for m in managers},
             "budget": int(budget),
-            "budget_note": "a claim now uses this week's adds (rule 7)",
+            "budget_note": "a claim now uses this week's adds",
             "window_text": wtext, "range_list": rl, "stakes": stakes, "title_latest": latest,
             "records": {r["manager"]: r["record"] for r in power["rows"]}, "pending_note": pending_note}
 

@@ -116,7 +116,7 @@ def test_pickups_only_for_the_join_week_count_games_on_empty_slot_days(built):
     src = ctx["ranges"]
     for m in W.MGRS:
         pk = sched["teams"][m]["pickups"]
-        assert pk["w"] == 8 and "rule 7" in pk["lead"]
+        assert pk["w"] == 8 and "joins Mon 12-14" in pk["lead"]
         days = ctx["wk_dates"][8]
         assert pk["total"] == R.rng(*src.team(m, days).empty)
         assert len(pk["chips"]) == int(pk["ndays"]) == len(src.empty_days(m, days))
@@ -209,7 +209,8 @@ def test_every_players_column_has_a_definition_and_the_viewer_columns_are_hidden
             infotips.column("players", k)
     assert [g["key"] for g in sh["groups"]] == ["value", "season", "form", "box", "schedule", "health", "market",
                                                 "career", "all"]
-    assert "Value to you" in sh["hidden"][0]["what"] and "passphrase" in sh["hidden"][0]["why"]
+    assert sh["hidden"] == []                    # 5e: the "I'm..." picker shows Value to you
+    assert {"vtv", "vtd"} <= set(next(g for g in sh["groups"] if g["key"] == "value")["cols"])
     assert all(k in sh["why"] for k in ("keep", "startpct", "par"))
 
 
