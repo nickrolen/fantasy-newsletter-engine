@@ -155,6 +155,9 @@ def cmd_parse(a) -> int:
             print(f"- {r['season']} {r['date']}: {p['from_manager']} -> {p['to_manager']}: "
                   f"{p['original_manager'] or '?'}'s {p['draft']} round {p['round']} "
                   f"[{tag}; {p['source']}; {p['draft_how']}{fix}]")
+        for p in r.get("draft_picks_reversed", []):
+            print(f"- {r['season']} {r['date']}: REVERSED (not part of the trade): {p['from_manager']} -> "
+                  f"{p['to_manager']}: {p['original_manager']}'s {p['draft']} round {p['round']}: {p['reversed']}")
     sc = TP.screenshot_check(after)
     print(f"\n## The 2023-24 screenshot\n\nJan 15 exactly Nick->Benton round 1, Benton->Nick round 3: {sc['jan15']}; "
           f"Feb 26 has picks, Mar 7 has none (True = as the screenshot): {sc['later_have_picks']}; "

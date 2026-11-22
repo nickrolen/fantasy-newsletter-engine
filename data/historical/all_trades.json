@@ -1257,7 +1257,8 @@
         "to_manager": "Benton"
       }
     ],
-    "draft_picks": [
+    "draft_picks": [],
+    "draft_picks_reversed": [
       {
         "round": 4,
         "draft": "2024-25",
@@ -1265,7 +1266,8 @@
         "original_manager": "Benton",
         "from_manager": "Benton",
         "to_manager": "Nick",
-        "source": "yahoo"
+        "source": "yahoo",
+        "reversed": "Reversed outside Yahoo (Nick, 11-21): the 2024-25 draft doesn't reflect this swap (Nick picked twice in round 3, at 9 and 12, the second from the Jan 15 trade; Benton made his own round-4 pick at 13), so both picks come off this trade"
       },
       {
         "round": 3,
@@ -1274,7 +1276,8 @@
         "original_manager": "Nick",
         "from_manager": "Nick",
         "to_manager": "Benton",
-        "source": "yahoo"
+        "source": "yahoo",
+        "reversed": "Reversed outside Yahoo (Nick, 11-21): the 2024-25 draft doesn't reflect this swap (Nick picked twice in round 3, at 9 and 12, the second from the Jan 15 trade; Benton made his own round-4 pick at 13), so both picks come off this trade"
       }
     ]
   },

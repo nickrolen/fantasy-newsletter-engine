@@ -24,6 +24,10 @@ card, Compare), scrolled to the top, the middle and the bottom:
   - every InfoTip popover opened: inside the viewport with an 8 px margin (7 allowing for sub-pixel rounding) and
     drawn on top (not clipped, not covered); every chart tooltip inside;
   - no script error and no sideways scroll.
+5d1: every column header's definition popover is opened and checked like an
+InfoTip's; a season picker's oldest season (and the draft's first by-team
+season) is a state of its own; the title-odds chart opened from a team's odds
+(?hl=) is a route of its own.
 
     python scripts/hub_tap_sweep.py PUBLISH_DIR PASSPHRASE [--widths 390,360,1280] [--out report.json]
 
@@ -135,6 +139,20 @@ async function popovers(){
       if(q.top<7){bb.push('top '+q.top.toFixed(1));}if(q.bottom>vh-7){bb.push('bottom');}}
     tips.push({tip:desc(t),ok:!bb.length,bad:bb,rect:q?[Math.round(q.left),Math.round(q.top),Math.round(q.width),Math.round(q.height)]:null,vw:vw});
     document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));}
+  // 5d1 s.5: every column header's definition popover, opened and checked like an InfoTip's
+  var hs=[].slice.call(document.querySelectorAll('[data-colh]')).filter(function(b){return vis(b)&&b.getClientRects().length&&(!scr||scr.contains(b));});
+  for(var c=0;c<hs.length;c++){var hb=hs[c];hb.scrollIntoView({block:'center'});await new Promise(function(r){setTimeout(r,40);});
+    hb.click();await new Promise(function(r){requestAnimationFrame(function(){r();});});
+    var cp=document.getElementById('v2-colpop'),cr=cp?cp.getBoundingClientRect():null,cb=[];
+    if(!cp||cp.hidden){cb.push('did not open');}
+    else{if(cr.left<7){cb.push('left '+cr.left.toFixed(1));}if(cr.right>vw-7){cb.push('right '+(vw-cr.right).toFixed(1));}
+      if(cr.top<7){cb.push('top '+cr.top.toFixed(1));}if(cr.bottom>vh-7){cb.push('bottom '+(vh-cr.bottom).toFixed(1));}
+      var cps=[[cr.left+cr.width/2,cr.top+cr.height/2],[cr.left+4,cr.top+4],[cr.right-4,cr.top+4],[cr.left+4,cr.bottom-4],[cr.right-4,cr.bottom-4]];
+      for(var q=0;q<cps.length;q++){var ce=document.elementFromPoint(cps[q][0],cps[q][1]);if(!ce||!cp.contains(ce)){cb.push('covered/clipped at '+q+' by '+desc(ce));break;}}}
+    out.push({tip:'column '+hb.getAttribute('data-colh'),ok:!cb.length,bad:cb,
+              rect:cr?[Math.round(cr.left),Math.round(cr.top),Math.round(cr.width),Math.round(cr.height)]:null});
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    await new Promise(function(r){setTimeout(r,0);});}
   window.scrollTo(0,0);
   return {pops:out,tips:tips};
 }
@@ -178,6 +196,10 @@ def states_for(page, route):
         const out=[]; s.querySelectorAll('.lh-seg[data-seg] button').forEach(b=>{
           const k=b.closest('.lh-seg').getAttribute('data-seg'); if(k!=='league') out.push([k,b.getAttribute('data-pane')]); });
         if(s.querySelector('.lh-toggle button[data-mode="detailed"]')) out.push(['toggle','detailed']);
+        // 5d1 s.8: a season picker's oldest season (a past part), and the draft's first by-team season
+        s.querySelectorAll('select[data-spick]').forEach(x=>{ if(x.closest('[hidden]')) return; const v=[...x.options].map(o=>o.value);
+          if(v.length>1) out.push(['spick', x.getAttribute('data-spick')+'|'+v[v.length-1]]);
+          if(x.getAttribute('data-spick')==='draft' && v.includes('2023-24')) out.push(['spick','draft|2023-24']); });
         return out; }""")
     return segs
 
@@ -213,6 +235,8 @@ def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
               segs.forEach(s=>{ if(s!=='history') out.push('league/'+s); });
               const chips=[...document.querySelectorAll('[data-lhchip]')].map(b=>b.getAttribute('data-lhchip'));
               chips.forEach(c=>out.push('league/history/'+c));
+              // 5d1 s.4: the title-odds chart opened from a team's odds, his line highlighted
+              const hl=document.querySelector('a.v2-rank-odds'); if(hl) out.push(hl.getAttribute('href').slice(2));
               return out; }""")
             W = {"states": [], "routes": routes}
             for route in routes:
@@ -225,7 +249,11 @@ def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
                 for lab, sp in labels:
                     if sp:
                         k, p = sp
-                        if k == "toggle":
+                        if k == "spick":                       # 5d1 s.8: pick a past season (the route changes)
+                            page.evaluate("(kv) => { const [k,v]=kv.split('|'); const x=document.querySelector("
+                                          "'select[data-spick=\"'+k+'\"]'); x.value=v; x.dispatchEvent(new Event('change',{bubbles:true})); }",
+                                          p)
+                        elif k == "toggle":
                             page.evaluate("() => { const s=[...document.querySelectorAll('.v2-screen')].find(x=>!x.hidden);"
                                           " s.querySelector('.lh-toggle button[data-mode=\"detailed\"]').click(); }")
                         else:

@@ -163,6 +163,11 @@ def inputs(p: dict) -> dict:
                           "player_name": f"{m} Big", "is_keeper": True})
     past = [{"season": "2025-26", "pick_number": i + 1, "round": 1, "manager": m, "player_key": str(200 + i),
              "player_name": f"{m} Guard", "is_keeper": False} for i, m in enumerate(MGRS)]
+    # 5d1: a punted season (H56: shown by team, no pick numbers), so the tap sweep reaches the by-team table
+    past += [{"season": "2023-24", "pick_number": i + 1, "round": 1, "manager": m, "player_key": str(300 + i),
+              "player_name": f"{m} Guard", "is_keeper": False} for i, m in enumerate(MGRS)]
+    past += [{"season": "2023-24", "pick_number": 5 + i, "round": 2, "manager": m, "player_key": str(310 + i),
+              "player_name": f"{m} Big", "is_keeper": True} for i, m in enumerate(MGRS)]
     cache = {"schema": 1, "deadline_fraction": 0.78, "seasons": {"2025-26": {
         "season": "2025-26", "open": "2025-10-21", "deadline": "2026-02-28",
         "picks": [{"pick_number": i + 1, "round": 1, "manager": m, "player": f"{m} Guard", "is_keeper": False,
@@ -214,7 +219,18 @@ def inputs(p: dict) -> dict:
                                      "from_team": "Glass Cannons", "to_team": "Zone Defense"},
                                     {"player_name": "Tyler Wing", "from_manager": "Tyler", "to_manager": "Marcus",
                                      "from_team": "Zone Defense", "to_team": "Glass Cannons"}],
-                        "picks": {"Marcus": ["2026 4th (Marcus)"], "Tyler": ["2026 8th (Tyler)"]}}],
+                        "picks": {"Marcus": ["2026 4th (Marcus)"], "Tyler": ["2026 8th (Tyler)"]}},
+                       # 5d1: a past season's trade with Yahoo's structured picks (H56) and one reversed by a ruling
+                       {"season": "2023-24", "timestamp": None, "date": "2024-01-15", "trader_team": "Glass Cannons",
+                        "tradee_team": "Pick & Roll Call", "trader_manager": "Marcus", "tradee_manager": "Dana",
+                        "players": [{"player_name": "Marcus Guard", "from_manager": "Marcus", "to_manager": "Dana",
+                                     "from_team": "Glass Cannons", "to_team": "Pick & Roll Call"}],
+                        "draft_picks": [{"round": 1, "draft": "2024-25", "original_manager": "Dana",
+                                         "from_manager": "Dana", "to_manager": "Marcus", "source": "yahoo",
+                                         "draft_how": "rule"}],
+                        "draft_picks_reversed": [{"round": 3, "draft": "2024-25", "original_manager": "Marcus",
+                                                  "from_manager": "Marcus", "to_manager": "Dana", "source": "yahoo",
+                                                  "draft_how": "rule", "reversed": "made up"}]}],
         "all_teams": {s: {f"t.{i}": {"manager": m, "team_name": p["v2"]["teams"][m]["team"]}
                           for i, m in enumerate(MGRS)} for s in ("2023-24", "2024-25", "2025-26")},
         "season_teams": {},

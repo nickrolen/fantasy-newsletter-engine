@@ -653,7 +653,8 @@ def awards(inp: dict) -> dict:
     else:
         races, err = rec["races"]["awards"], ""
         par_note, note = rec["races"]["par_note"], rec["races"]["note"]
-    return {"potw": seasons, "potw_note": ("The week's best player by fantasy points in his starts, among rostered "
+    return {"potw": seasons, "potw_current": inp.get("season") or "",
+            "potw_note": ("The week's best player by fantasy points in his starts, among rostered "
                                            "players (the newsletter's pick)."),
             "races": races, "races_error": err, "par_note": par_note, "races_note": note}
 
@@ -1233,12 +1234,18 @@ def trades(inp: dict) -> dict:
                 other = b if sender == a else a
                 got[other] += [{"t": str(x), "card": None} for x in lst]
         key, label = _trade_date(t, t["season"])
-        items.append({"key": key, "date": label, "season": t["season"], "ms": [a, b],
-                      "sides": [{"m": m, "gets": got[m]} for m in (a, b)]})
+        it = {"key": key, "date": label, "season": t["season"], "ms": [a, b],
+              "sides": [{"m": m, "gets": got[m]} for m in (a, b)]}
+        rev = t.get("draft_picks_reversed") or []
+        if rev:                                      # a ruling took picks Yahoo records off this trade
+            it["ruling"] = (f"Yahoo also lists {' and '.join(TP.pick_label(p) for p in rev)}; the league reversed "
+                            f"{'them' if len(rev) > 1 else 'it'} outside Yahoo (Nick, 11-21), so "
+                            f"{'they are' if len(rev) > 1 else 'it is'} not part of this trade.")
+        items.append(it)
     items.sort(key=lambda x: x["key"], reverse=True)
     for x in items:
         x.pop("key")
-    return {"items": items, "count": str(len(items)),
+    return {"items": items, "count": str(len(items)), "current": inp.get("season") or "",
             "note": ("Every trade, newest first: 2017-18 on from Yahoo (data/historical/all_trades.json) and this "
                      "season's (config/TRADES.json). A draft pick is named by its original owner, its draft's "
                      "year and its round; from the 2024 draft on, \u2192 shows the player it became. Picks "

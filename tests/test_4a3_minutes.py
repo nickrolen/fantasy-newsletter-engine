@@ -620,7 +620,7 @@ def test_the_page_shows_min_and_min_delta_in_form(synm):
     h = render(p)
     for k in ("min", "mind"):
         assert re.search(rf'<th class="v2-dc v2-g-form v2-g-all" data-k="d_{k}"><button type="button" class="v2-tap" '
-                         rf'data-sort="d_{k}">', h)
+                         rf'data-sort="d_{k}" data-colh="roster\|{k}"', h)          # 5d1 s.5: + its definition
     assert "<b>MIN</b>: Minutes per game in his NBA games this season." in h
     assert "<b>MIN \u0394</b>: His minutes per game over the last 14 days minus his season" in h
 
@@ -656,7 +656,7 @@ def test_the_cards_last_5_min_and_season_line(synm):
     assert n_lines > 0
     h = v2pub.card_html_all(p, cards)
     for k, one in h.items():
-        assert "<th>FP</th><th>MIN</th>" in one
+        assert 'data-colh="last5|fp"' in one and 'data-colh="last5|min"' in one     # 5d1 s.5: headers with definitions
         if rows[k]["min_k"] is not None:
             assert 'aria-label="What MIN means">' in one
             line_ = views[k]["season"]["minutes"]
@@ -699,7 +699,7 @@ def test_the_new_pieces_obey_the_4b_4c_rules(synm):
     body = inspect.getsource(PP.card_html)
     for frag in ('clean(g["min"])', 'clean(s["minutes"])', '_info(ids, "min")'):
         assert frag in body
-    seg = body[body.index('s.get("minutes")') - 200:body.index("<th>MIN</th>") + 200]
+    seg = body[body.index('s.get("minutes")') - 200:body.index('("min", "MIN")') + 200]
     for banned in ("round(", "float(", "sum(", "sorted(", "max(", "min(", "int("):
         assert banned not in seg, banned                                     # display only
     # every number on a card is an engine string (the minutes included)

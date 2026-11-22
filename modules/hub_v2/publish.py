@@ -176,23 +176,33 @@ def league_files(vm: dict, root_key: bytes, terms=()) -> tuple:
     from . import page as _page, page_league
     lg = vm.get("league") or {}
     h = lg.get("history")
-    htmls = {}
-    if lg.get("awards") is not None:                 # 4c5: the Awards segment, one more part
-        htmls["awards"] = page_league.awards_html(lg["awards"], _page._mono, _page._chart, _page.INFO)
-    if lg.get("chart") is not None:                  # 5b: the title-odds chart, one more
-        htmls["odds"] = page_league.odds_html(lg, _page._chart)
-    for chip, _lab in (h["chips"] if h else []):
-        htmls[chip] = page_league.chip_html(h, chip, _page._mono)
-    if not htmls:
-        return {}, {}, None
     K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
     files, refs, sizes = {}, {}, {}
-    for key, html in htmls.items():
+
+    def put(key, html):
         k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": html}), terms)
         rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
         files[rel] = blob
-        refs[key] = {"file": rel, "key": hub_crypto.b64(k)}
         sizes[key] = len(blob)
+        return {"file": rel, "key": hub_crypto.b64(k)}
+
+    def season_refs(model, which):
+        """5d1 s.8: each past season of a picker list, its own part (its ref
+        rides inside the list's part, so it is opened only when picked)."""
+        return {se: put(f"{which}:{se}", html) for se, html in page_league.past_seasons(model, which).items()}
+    htmls = {}
+    if lg.get("awards") is not None:                 # 4c5: the Awards segment, one more part
+        htmls["awards"] = page_league.awards_html(lg["awards"], _page._mono, _page._chart, _page.INFO,
+                                                  season_refs(lg["awards"], "potw"))
+    if lg.get("chart") is not None:                  # 5b: the title-odds chart, one more
+        htmls["odds"] = page_league.odds_html(lg, _page._chart)
+    for chip, _lab in (h["chips"] if h else []):
+        sr = season_refs(h[chip], chip) if chip in page_league.SEASONAL else None
+        htmls[chip] = page_league.chip_html(h, chip, _page._mono, sr)
+    if not htmls:
+        return {}, {}, None
+    for key, html in htmls.items():
+        refs[key] = put(key, html)
     return files, refs, {"parts": len(files), "bytes": sizes, "largest": max(sizes.values()) if sizes else 0}
 
 

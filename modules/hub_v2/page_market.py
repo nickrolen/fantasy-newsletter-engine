@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import json
 
-from .text import clean
+from .text import clean, colh, colh_btn
 
 TAP_CLASSES = ("adv-row", "adv-bk", "v2-mkcell", "v2-mvchip")
 DOT = " \u00b7 "
@@ -217,14 +217,14 @@ def _available(a: dict, ids, info) -> str:
         o.append(f'<p class="v2-p v2-pad">{clean(a["empty"])}</p></section>')
         return "".join(o)
     o.append(f'<div class="v2-scroll"><table class="lh-table v2-mk-fa" id="mk-fa" data-sort="{clean(a["default"])}" '
-             f'data-dir="1" data-orders=\'{clean(a["orders_json"])}\'><thead><tr><th>Player</th>')
+             f'data-dir="1" data-orders=\'{clean(a["orders_json"])}\'><thead><tr><th>{colh_btn("market", "name", "Player")}</th>')
     for k, lab in (("fppg", "FPPG"), ("l14", "L14")):
         on = k == a["default"]
         o.append(f'<th data-k="{k}"{" aria-sort=" + chr(34) + "descending" + chr(34) if on else ""}>'
-                 f'<button type="button" class="v2-tap" data-sort="{k}">{clean(lab)}'
+                 f'<button type="button" class="v2-tap" data-sort="{k}"{colh("market", k)}>{clean(lab)}'
                  f'<span class="v2-arrow">{" &#9662;" if on else ""}</span></button></th>')
     cols = clean(DOT.join(a["cols"]))
-    o.append(f'<th>Games<span class="lh-sub">{cols}</span></th></tr></thead><tbody>')
+    o.append(f'<th>{colh_btn("market", "games", "Games")}<span class="lh-sub">{cols}</span></th></tr></thead><tbody>')
     for i in a["default_rows"]:
         r = a["rows"][i]
         o.append(f'<tr data-i="{i}" data-h="{r["h"]}" data-pos="{clean(r["pos"])}"><td>{_name(r)}'

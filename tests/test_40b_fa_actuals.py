@@ -542,6 +542,7 @@ def test_jsdom_a_decrypt_failure_keeps_the_old_message(published):
     assert out["moved"] is None and out["alerts"] == ["That player card could not be opened."]
 
 
+@pytest.mark.slow                                  # 5d1 s.3 (5c decision 12): 10.9 s, over the fast tier's 8 s
 @needs_jsdom
 def test_jsdom_reload_keeps_the_key_for_one_load_with_no_passphrase(published):
     out = _page(published, tap="zed-alpha", gone=[published["bundle"]], reload=True)

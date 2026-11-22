@@ -275,7 +275,7 @@ def test_the_archetype_is_on_and_every_key_is_required():
     assert c["archetype"]["enabled"] is True          # Nick, 11-20: turn them on
     for k in ("history_games", "history_weights", "min_games_rookie", "standout_pct", "star_count", "efficient_pct",
               "turnover_pct", "trend_min_games", "trend_margin", "labels", "tags", "pair_first", "all_around_min",
-              "all_around_pct", "star_min_games", "star_min_share"):
+              "all_around_pct", "all_around_ovr", "star_min_games", "star_min_share"):
         bad = copy.deepcopy(c)
         del bad["archetype"][k]
         with pytest.raises(ratings.RatingsInputError, match=k):

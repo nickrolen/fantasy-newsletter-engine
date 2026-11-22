@@ -58,6 +58,28 @@ class DraftValuesError(RuntimeError):
 # the data: each live pick's season for his drafter
 # ---------------------------------------------------------------------------
 
+def regular_through(season: str) -> int:
+    """The season's last regular-season week (config season_structure, the
+    awards' source). RAISES when the season isn't listed: never a default."""
+    from .data_loader import SEASON_STRUCTURE
+    ss = SEASON_STRUCTURE.get(str(season))
+    if not isinstance(ss, dict) or not ss.get("regular_through"):
+        raise DraftValuesError(f"{season} has no regular_through in season_structure")
+    return int(ss["regular_through"])
+
+
+def pick_game(row: dict, reg_weeks: int) -> bool:
+    """THE ONE GAME SET a pick is measured over (H56 s.4.3; 5d1 s.10a): a
+    league-log row that is a START (an active slot) for the manager whose
+    log it is, in that season's REGULAR SEASON (week <= reg_weeks), on a day
+    he PLAYED (keeper_history.appeared: his team had a game and he was not
+    the 0.0 injured row). The round values here (pick_lines, the expected)
+    and the steal/bust records' actual (scripts/backfill_player_records) both
+    count through it, so actual and expected are the same games."""
+    from . import keeper_history as kh
+    return bool(row["started"]) and int(row["week"]) <= int(reg_weeks) and kh.appeared(row)
+
+
 def seasons(root=ROOT) -> list:
     """The drafts used: trusted order, keeper era, finished (not the current season)."""
     from . import draft_history as DH
@@ -89,7 +111,7 @@ def pick_lines(root=ROOT, inputs=None, cfg: Optional[dict] = None) -> list:
         names = kh.Names(inp["rows"])
         starts: dict = {}
         for r in inp["rows"]:
-            if r["started"] and int(r["week"]) <= inp["reg"] and kh.appeared(r):
+            if pick_game(r, inp["reg"]):
                 starts.setdefault((r["player_name"], r["manager"]), []).append(r)
         live = DH.live_rounds(s)
         for p in DH.order(s, picks):

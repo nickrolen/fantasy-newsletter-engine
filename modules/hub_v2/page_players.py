@@ -21,7 +21,7 @@ OVR ring's arc is the engine's dash string.
 
 from __future__ import annotations
 
-from .text import clean
+from .text import clean, colh, colh_btn
 from .infotips import tip
 
 SEARCH = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
@@ -177,7 +177,8 @@ def players_screen(vm: dict, ids) -> str:
     for k, lab in PLAYER_COLS:
         sort = ' aria-sort="descending"' if k == pv["default"] else ""
         cls = ' class="v2-sticky"' if k == "name" else ""
-        o.append(f'<th{cls}{sort} data-k="{k}"><button type="button" class="v2-tap" data-psort="{k}">{clean(lab)}'
+        o.append(f'<th{cls}{sort} data-k="{k}"><button type="button" class="v2-tap" data-psort="{k}"'
+                 f'{colh("players", k)}>{clean(lab)}'
                  f'<span class="v2-arrow">{" &#9662;" if k == pv["default"] else ""}</span></button></th>')
     o.append('</tr></thead><tbody>')
     for r in pv["rows_default"]:                 # the engine's default order (OVR, best first)
@@ -423,8 +424,10 @@ def card_html(cv: dict) -> str:
     o.append('<section class="lh-card lh-card--flush"><div class="lh-sechead v2-pad"><h2 class="lh-eyebrow">Last 5 games'
              '</h2></div>')
     if s["last"]:
-        o.append('<table class="lh-table v2-last"><thead><tr><th>Day</th><th>Opp</th><th>FP</th><th>MIN</th></tr></thead>'
-                 '<tbody>'
+        o.append('<table class="lh-table v2-last"><thead><tr>'
+                 + "".join(f'<th>{colh_btn("last5", k, lab)}</th>' for k, lab in (("day", "Day"), ("opp", "Opp"),
+                                                                                ("fp", "FP"), ("min", "MIN")))
+                 + '</tr></thead><tbody>'
                  + "".join(f'<tr><td>{clean(g["day"])}</td><td>{clean(g["opp"])}</td><td>{clean(g["fp"])}</td>'
                            f'<td>{clean(g["min"])}</td></tr>' for g in s["last"]) + "</tbody></table>")
     else:
@@ -437,8 +440,10 @@ def card_html(cv: dict) -> str:
     o.append('<section class="lh-card lh-card--flush"><div class="lh-sechead v2-pad"><h2 class="lh-eyebrow">By season</h2>'
              '</div>')
     if c["rows"]:
-        o.append('<div class="v2-scroll"><table class="lh-table"><thead><tr><th>Season</th><th>GP</th><th>FPPG</th>'
-                 '<th>Total</th><th>With</th></tr></thead><tbody>'
+        o.append('<div class="v2-scroll"><table class="lh-table"><thead><tr>'
+                 + "".join(f'<th>{colh_btn("career", k, lab)}</th>' for k, lab in (
+                     ("season", "Season"), ("gp", "GP"), ("fppg", "FPPG"), ("total", "Total"), ("with", "With")))
+                 + '</tr></thead><tbody>'
                  + "".join(f'<tr><td>{clean(r["season"])}</td><td>{clean(r["gp"])}</td><td>{clean(r["fppg"])}</td>'
                            f'<td>{clean(r["total"])}</td><td>{clean(r["who"])}</td></tr>' for r in c["rows"]))
         t = c["total"]

@@ -105,6 +105,9 @@ COLS = {
     "best": ("Best", False, "His best game this season."),
     "worst": ("Worst", False, "His worst game this season."),
 }
+# 5d1 s.5: each column's words are infotips.COLUMNS["roster"]'s (one place)
+from .infotips import column as _column               # noqa: E402
+COLS = {k: (v[0], v[1], _column("roster", k)[1]) for k, v in COLS.items()}
 # best first: higher, except these (lower is better, or soonest)
 LOW_FIRST = {"bust", "missed", "age", "keeprank", "back", "acq"}
 

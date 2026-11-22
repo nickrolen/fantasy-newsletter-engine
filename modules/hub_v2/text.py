@@ -20,6 +20,20 @@ class NotAString(TypeError):
     """A renderer was handed something that is not a payload string."""
 
 
+def colh(table: str, key: str) -> str:
+    """5d1 s.5: the attributes that make a column header open its definition
+    (modules/hub_v2/infotips.COLUMNS): RAISES KeyError for a column with no
+    definition, so a new column can't ship without one."""
+    from .infotips import column
+    column(table, key)
+    return f' data-colh="{table}|{key}" aria-haspopup="dialog" aria-expanded="false"'
+
+
+def colh_btn(table: str, key: str, inner_html: str) -> str:
+    """A header that sorts nothing: a button that opens its definition."""
+    return f'<button type="button" class="v2-tap v2-colh"{colh(table, key)}>{inner_html}</button>'
+
+
 def clean(value) -> str:
     if type(value) is not str:
         r = repr(value)

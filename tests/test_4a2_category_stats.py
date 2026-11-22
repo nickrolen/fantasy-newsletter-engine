@@ -61,7 +61,7 @@ def base(tmp_path, cap=20) -> Path:
     b = tmp_path / "base"
     for d in ("config", "data", "output"):
         (b / d).mkdir(parents=True, exist_ok=True)
-    cfg = {"actuals": {"extra_players_max": 150, "category_backfill_calls_max": cap},
+    cfg = {"actuals": {"extra_players_max": 150, "category_backfill_calls_max": cap, "recheck_days": 3},
            "yahoo_settings": {"stat_values": dict(zip(ORDER, VALUES))}}
     (b / "config" / "league_config.json").write_text(json.dumps(cfg), encoding="utf-8")
     return b
@@ -250,10 +250,13 @@ def test_a_category_problem_never_costs_the_points(tmp_path):
     src = pa.YahooSource(FakeLeague(lines, broken={(2, d0)}))
     r = pa.update(b, source=src, ids={"Zed Alpha": 1, "Yan Beta": 2}, today=FIRST + timedelta(days=1),
                   first_day=FIRST, season=SEASON, echo=lambda *a: None)
-    assert len(r["cat_errors"]) == 1 and "Yan Beta" in r["cat_errors"][0] and "has no TO" in r["cat_errors"][0]
+    # 5d1 s.2b: one player's bad line holds back only him (was: all or nothing for the day)
+    assert r["cat_errors"] == []
+    assert len(r["cat_held"]) == 1 and "Yan Beta" in r["cat_held"][0] and "has no TO" in r["cat_held"][0]
     blob = pa.load(b)
     assert blob["players"]["1"]["days"][d0][0] == points(line(1))    # the points are written
-    assert "cat_days" not in blob["players"]["1"] and "cat_days" not in blob["players"]["2"]  # all or nothing
+    assert blob["players"]["1"]["cat_days"][d0] == line(1)           # the other player's categories too
+    assert "cat_days" not in blob["players"]["2"] and "has no TO" in blob["players"]["2"]["cat_pending"][d0]
 
 
 # =============================================================================
@@ -315,13 +318,25 @@ def test_a_failure_writes_nothing_for_its_day_and_keeps_the_days_before(tmp_path
     assert have == {"2026-10-20"}                                   # 10-21's first batch came back: not written
 
 
-def test_a_missing_category_refuses_the_day(tmp_path):
+def test_a_missing_category_holds_back_only_that_player_day(tmp_path):
+    """5d1 s.2b (was: the whole day refused and the backfill stopped)."""
     b, lines, lg = backfill_world(tmp_path, n_players=5, idle=lambda p, i: False,
                                   broken={(3, "2026-10-21")})
-    with pytest.raises(pa.CategoryError, match="Player 3"):
-        pa.backfill_categories(b, source=pa.YahooSource(lg), today=FIRST + timedelta(days=4))
+    r = pa.backfill_categories(b, source=pa.YahooSource(lg), today=FIRST + timedelta(days=4))
     blob = pa.load(b)
-    assert {iso for rec in blob["players"].values() for iso in rec.get("cat_days", {})} == {"2026-10-20"}
+    assert len(r["days_done"]) == 4                                   # the backfill never stalls on him
+    assert r["held"] == ["Player 3 2026-10-21: categories pending: Yahoo's 2026-10-21 line for Player 3 has no TO"]
+    assert "2026-10-21" not in blob["players"]["3"]["cat_days"] and "2026-10-21" in blob["players"]["3"]["cat_pending"]
+    assert all("2026-10-21" in blob["players"][str(p)]["cat_days"] for p in (1, 2, 4, 5))
+
+
+def test_every_player_failing_is_the_days_error_and_the_backfill_goes_on(tmp_path):
+    b, lines, lg = backfill_world(tmp_path, n_players=3, n_days=2, idle=lambda p, i: False,
+                                  broken={(p, "2026-10-20") for p in (1, 2, 3)})
+    r = pa.backfill_categories(b, source=pa.YahooSource(lg), today=FIRST + timedelta(days=2))
+    blob = pa.load(b)
+    assert r["days_done"] == ["2026-10-21"] and len(r["failed_days"]) == 1 and r["held"] == []
+    assert not any("cat_pending" in rec or "2026-10-20" in rec.get("cat_days", {}) for rec in blob["players"].values())
 
 
 def test_a_stat_correction_is_kept_beside_the_points_and_a_scoring_change_raises(tmp_path):
@@ -338,11 +353,11 @@ def test_a_stat_correction_is_kept_beside_the_points_and_a_scoring_change_raises
     assert rec["days"][iso][0] == points(cached)                     # the points are never rewritten
     assert rec["cat_days"][iso] == c and rec["cat_corrections"][iso] == points(c)
     assert r["corrections"] == [f"Player 2 {iso}: {points(cached)} cached, {points(c)} now"]
-    # a total that the categories do not score: the scoring changed
+    # a total that the categories do not score for every player: the scoring changed (the day's error)
     b2, lines2, lg2 = backfill_world(tmp_path / "x", n_players=2, n_days=1, idle=lambda p, i: False,
-                                     total_shift={(1, "2026-10-20"): 0.4})
-    with pytest.raises(pa.CategoryError, match="Player 1 2026-10-20: the categories score"):
-        pa.backfill_categories(b2, source=pa.YahooSource(lg2), today=FIRST + timedelta(days=1))
+                                     total_shift={(1, "2026-10-20"): 0.4, (2, "2026-10-20"): 0.4})
+    r2 = pa.backfill_categories(b2, source=pa.YahooSource(lg2), today=FIRST + timedelta(days=1))
+    assert r2["days_done"] == [] and "the categories score" in r2["failed_days"][0]
 
 
 def test_a_day_bigger_than_the_cap_raises_rather_than_waiting_forever(tmp_path):
@@ -404,7 +419,9 @@ def test_the_nightly_records_a_backfill_failure_loudly_and_goes_on(tmp_path, mon
 def test_a_good_nights_backfill_is_recorded(tmp_path, monkeypatch):
     ok = {"days_done": ["2026-10-20"], "days_left": 3, "calls": 4, "cap": 20, "corrections": [], "stopped": None}
     run, detail, called = _step(tmp_path, monkeypatch, "nightly", lambda: dict(ok))
-    assert run.ctx["actuals"]["categories"]["backfill"] == ok and "3 day(s) left" in detail
+    got = run.ctx["actuals"]["categories"]["backfill"]
+    assert {k: got[k] for k in ok} == ok and "3 day(s) left" in detail
+    assert all(got[k] == [] for k in ("late_filled", "held", "given_up", "failed_days"))
 
 
 def test_only_the_nightly_run_backfills(tmp_path, monkeypatch):

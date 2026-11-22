@@ -42,7 +42,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from .text import clean
+from .text import clean, colh, colh_btn
 from .infotips import tip
 from . import page_players as pp
 from . import page_market as pm
@@ -54,7 +54,8 @@ from . import page_league as pl
 # strips (lh-c-hit) are the design's per-point hit areas: full plot height,
 # keyboard-reachable, as wide as the point's share of the axis.
 TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-iconbtn", "v2-tap", "lh-c-hit",
-               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit") + pm.TAP_CLASSES + pl.TAP_CLASSES
+               "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit",
+               "v2-oddslink", "v2-rank-team", "v2-tc-link") + pm.TAP_CLASSES + pl.TAP_CLASSES
 # 4c2: the roster table's Detailed chip groups (roster.GROUPS, plus "all"): the
 # CSS shows a column when the table's data-group is one of its groups
 DETAIL_GROUPS = ("value", "form", "schedule", "health", "keeper", "profile", "all")
@@ -117,7 +118,18 @@ button.lh-name{all:unset;position:relative;cursor:pointer;font-size:var(--type-r
 .v2-name14{font-size:var(--type-row-size)}
 .v2-dsp-sm{font-size:var(--type-display-sm-size);font-weight:700}
 .v2-teamgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-10)}
-.v2-tcard{text-decoration:none;color:var(--ink);gap:var(--space-10)}
+.v2-tcard{text-decoration:none;color:var(--ink);gap:var(--space-10);position:relative}
+.v2-tc-link{position:absolute;inset:0;border-radius:inherit;min-height:var(--tap-min);z-index:0}
+.v2-tcard .v2-tc-top,.v2-tcard .v2-nested2{position:relative;pointer-events:none}
+.v2-tcard .v2-tc-odds{pointer-events:auto;position:relative;z-index:1}
+.v2-oddslink{text-decoration:none;color:inherit;min-height:var(--tap-min);cursor:pointer}
+.v2-rankrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;column-gap:var(--space-8);border-top:var(--hairline) solid var(--line-soft)}
+.v2-rank-team{display:grid;grid-template-columns:var(--space-20) calc(2 * var(--space-14)) minmax(0,1fr);align-items:center;column-gap:var(--space-8);min-height:var(--row-min);text-decoration:none;color:var(--ink)}
+.v2-rank-odds{display:grid;grid-template-columns:calc(4 * var(--space-16)) calc(5 * var(--space-10));align-items:center;column-gap:var(--space-8);min-height:var(--row-min)}
+.v2-kpi-odds{display:block;min-height:var(--tap-min);padding:var(--space-6) 0;margin:calc(-1 * var(--space-6)) 0}
+.lh-chart.v2-hl [data-m]{opacity:.22;transition:opacity .15s}
+.lh-chart.v2-hl [data-m].v2-hl-on{opacity:1}
+.lh-chart.v2-hl [data-m].v2-hl-on .lh-c-line{stroke-width:3.5}
 .v2-tc-top{display:flex;align-items:center;gap:var(--space-8);min-width:0}
 .v2-tname{font-size:var(--type-row-size);font-weight:800;overflow-wrap:anywhere}
 .v2-nested2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-6)}
@@ -134,6 +146,25 @@ button.lh-name{all:unset;position:relative;cursor:pointer;font-size:var(--type-r
 .v2-heat-rows{display:flex;flex-direction:column;gap:var(--space-4)}
 .lh-heat__cell.v2-s0{background:var(--surface-sunken);color:var(--ink-3)}
 .v2-heat-a{color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:var(--space-6);min-width:0}
+.lh-chart .v2-c-dash{stroke-dasharray:6 4}
+.lh-chart .v2-c-dot{stroke-dasharray:1.5 4}
+.lh-chart .v2-c-mirror{stroke-width:1.5;opacity:.45}
+.lh-chart .v2-c-pt{fill:var(--team);stroke:var(--surface);stroke-width:1.5}
+.lh-chart .v2-c-pt.v2-c-dash,.lh-chart .v2-c-pt.v2-c-dot{fill:var(--surface);stroke:var(--team);stroke-width:2;stroke-dasharray:none}
+.lh-chart .v2-c-lab-dash,.lh-chart .v2-c-lab-dot{font-style:italic}
+.lh-chart .v2-c-lead{stroke:var(--team);stroke-width:1;opacity:.6}
+.lh-chart .v2-c-ytitle{font-size:var(--type-small-size);fill:var(--ink-3);font-weight:700}
+.v2-colh{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;min-height:var(--tap-min);text-align:inherit}
+.v2-heat-h .v2-colh{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%}
+.v2-cmp-lab.v2-colh{justify-self:center}
+.v2-colpop{z-index:30;width:auto;max-width:min(calc(100vw - 2 * var(--space-16)),calc(24 * var(--space-12)))}
+.v2-colpop span{display:block}
+.v2-colsort{display:flex!important;align-items:center;gap:var(--space-10);margin-top:var(--space-8)}
+.v2-colsort-b{min-height:var(--tap-min);padding:0 var(--space-16);background:var(--surface);color:var(--ink);border:0;border-radius:var(--radius-pill);font-weight:800}
+.v2-colsort-st{color:var(--ink-on-dark-2)}
+.v2-issuerow{display:flex;align-items:stretch;background:var(--surface);border-bottom:var(--hairline) solid var(--line)}
+.v2-issuerow .lh-issuebar{flex:1;min-width:0;border-bottom:0}
+.v2-allissues{padding:0 var(--space-16);white-space:nowrap;flex:none}
 button.lh-issuebar{width:100%;border:0;border-bottom:var(--hairline) solid var(--line);cursor:pointer;text-align:left}
 .v2-ib{display:flex;align-items:center;gap:var(--space-10);min-width:0;color:var(--ink-2)}
 .v2-mside a{color:var(--ink);text-decoration:none}
@@ -354,21 +385,39 @@ def _seg(group: str, panes: list) -> str:
                       f'{clean(lab)}</button>' for i, (k, lab) in enumerate(panes)) + "</div>")
 
 
+X_TITLE, Y_TITLE = 40, 8          # 5d1 s.7: the axis title, top left of the plot, clear of the y labels
+
+
 def _chart(ch: dict, cid: str) -> str:
     o = [f'<svg class="lh-chart" width="100%" viewBox="{ch["vb"]}" role="group" aria-label="{clean(ch["aria"])}" '
          f'data-chart="{cid}">']
     o += [f'<line class="{g["cls"]}" x1="{g["x1"]}" y1="{g["y1"]}" x2="{g["x2"]}" y2="{g["y2"]}"/>' for g in ch["grid"]]
     o += [f'<text x="{t["x"]}" y="{t["y"]}" text-anchor="{t["anchor"]}">{clean(t["t"])}</text>' for t in ch["labels"]]
+    if ch.get("ytitle"):                          # 5d1 s.7: what the axis is ("PAR so far", not odds)
+        o.append(f'<text class="v2-c-ytitle" x="{X_TITLE}" y="{Y_TITLE}">{clean(ch["ytitle"])}</text>')
     for ln in ch["lines"]:
-        o.append(f'<g class="{ln["cls"]}"><polyline class="lh-c-line{" lh-c-proj" if ln["proj"] else ""}" '
+        st = f' v2-c-{ln["style"]}' if ln.get("style") else ""
+        if ln.get("dot"):                            # 5d1 s.7: a one-point series is a dot
+            o.append(f'<g class="{ln["cls"]}"><circle class="v2-c-pt{st}" cx="{ln["dot"]["cx"]}" '
+                     f'cy="{ln["dot"]["cy"]}" r="3.5"/></g>')
+            continue
+        dm = f' data-m="{clean(ln["m"])}"' if ln.get("m") else ""
+        o.append(f'<g class="{ln["cls"]}"{dm}><polyline class="lh-c-line{" lh-c-proj" if ln["proj"] else ""}{st}" '
                  f'points="{ln["points"]}"/></g>')
     for e in ch["events"]:
-        o.append(f'<circle class="lh-c-event v2-ev--{clean(e["dir"])}" cx="{e["cx"]}" cy="{e["cy"]}" r="4"/>')
+        dm = f' data-m="{clean(e["m"])}"' if e.get("m") else ""          # 5d1 s.4: dimmed with its line
+        o.append(f'<circle class="lh-c-event v2-ev--{clean(e["dir"])}"{dm} cx="{e["cx"]}" cy="{e["cy"]}" r="4"/>')
     if ch["dot"]:
         d = ch["dot"]
         o.append(f'<g class="{d["cls"]}"><circle class="v2-dot" cx="{d["cx"]}" cy="{d["cy"]}" r="4"/></g>')
     for e in ch["ends"]:
-        o.append(f'<g class="{e["cls"]}"><text class="lh-c-label" x="{e["x"]}" y="{e["y"]}">{clean(e["t"])}</text></g>')
+        lead = e.get("lead")
+        lead_h = (f'<line class="v2-c-lead" x1="{lead["x1"]}" y1="{lead["y1"]}" x2="{lead["x2"]}" y2="{lead["y2"]}"/>'
+                  if lead else "")
+        st = f' v2-c-lab-{e["style"]}' if e.get("style") else ""
+        dm = f' data-m="{clean(e["m"])}"' if e.get("m") else ""
+        o.append(f'<g class="{e["cls"]}"{dm}>{lead_h}<text class="lh-c-label{st}" x="{e["x"]}" y="{e["y"]}">'
+                 f'{clean(e["t"])}</text></g>')
     o.append('<circle class="v2-sel" r="6" cx="-20" cy="-20"/>')
     for h in ch["hits"]:
         o.append(f'<rect class="lh-c-hit" x="{h["x"]}" y="{h["y"]}" width="{h["w"]}" height="{h["h"]}" tabindex="0" '
@@ -409,11 +458,14 @@ def _heat(rows: list, cols: list, *, total: bool, label_of, total_head: dict = N
     n = len(cols)
     cls = "v2-heat--tot" if total else "v2-heat"
     o = [f'<div class="v2-heat-rows"><div class="lh-heat {cls} v2-heat-h" style="--n:{n}"><span></span>']
-    o += [f'<span><span>{clean(c["label"])}</span><span>{clean(c.get("sub", ""))}</span></span>' for c in cols]
+    # 5d1 s.5: a week's header and the Idle/Total header open their definitions
+    o += [colh_btn("grid", "week", f'<span>{clean(c["label"])}</span><span>{clean(c.get("sub", ""))}</span>')
+          for c in cols]
     if total and total_head:                       # 5b: the games grid's Idle
-        o.append(f'<span><span>{clean(total_head["label"])}</span><span>{clean(total_head.get("sub", ""))}</span></span>')
+        o.append(colh_btn("grid", "idle", f'<span>{clean(total_head["label"])}</span>'
+                                          f'<span>{clean(total_head.get("sub", ""))}</span>'))
     elif total:
-        o.append('<span>Total</span>')
+        o.append(colh_btn("grid", "total", '<span>Total</span>'))
     o.append("</div>")
     for r in rows:
         o.append(f'<div class="lh-heat {cls}{" " + r["team"]["cls"] if r.get("team") else ""}" style="--n:{n}">'
@@ -458,12 +510,20 @@ def _team_card(tp: dict, odds_label: str) -> str:
     t = tp["team"]
     tiles = [("Record", tp["record"]), (odds_label, tp["odds"]), ("Adds left", tp["adds_left"]),
              ("Injured", tp["injured"])]
-    return (f'<a class="lh-card v2-tcard {t["cls"]}" href="{t["href"]}">'
+    # 5d1 s.4: the card is one link to the team's page (stretched over it),
+    # and the title-odds tile is its own link, on top, to the chart
+    def tile(lab, v):
+        inner = (f'<span class="lh-label">{clean(lab)}</span><span class="lh-kpi__value">{clean(v)}</span>')
+        if lab == odds_label:
+            return (f'<a class="lh-kpi lh-kpi--nested v2-oddslink v2-tc-odds" href="{t["odds_href"]}" '
+                    f'aria-label="{clean(t["team"])}: {clean(lab)} {clean(v)}, on the chart">{inner}</a>')
+        return f'<span class="lh-kpi lh-kpi--nested">{inner}</span>'
+    return (f'<div class="lh-card v2-tcard {t["cls"]}"><a class="v2-tc-link" href="{t["href"]}" '
+            f'aria-label="{clean(t["team"])}, {clean(t["manager"])}"></a>'
             f'<span class="v2-tc-top">{_mono(t)}<span class="v2-minw"><span class="v2-tname">{clean(t["team"])}</span>'
             f'<span class="lh-sub">{clean(t["manager"])}</span></span></span><span class="v2-nested2">'
-            + "".join(f'<span class="lh-kpi lh-kpi--nested"><span class="lh-label">{clean(lab)}</span>'
-                      f'<span class="lh-kpi__value">{clean(v)}</span></span>' for lab, v in tiles)
-            + "</span></a>")
+            + "".join(tile(lab, v) for lab, v in tiles)
+            + "</span></div>")
 
 
 def _ranking(vm: dict, ids: _Ids) -> str:
@@ -472,12 +532,17 @@ def _ranking(vm: dict, ids: _Ids) -> str:
     for r in vm["ranking"]:
         t = r["team"]
         d = r["dir"] if r["dir"] in ("up", "down") else "flat"
-        o.append(f'<a class="lh-rank {t["cls"]}" href="{t["href"]}"><span class="lh-rank__n">{clean(r["rank"])}</span>'
+        # 5d1 s.4: the team (rank, mark, name) opens his page; the right side (the
+        # sparkline, the %, the change) opens the title-odds chart with his line highlighted
+        o.append(f'<div class="v2-rankrow {t["cls"]}"><a class="v2-rank-team" href="{t["href"]}">'
+                 f'<span class="lh-rank__n">{clean(r["rank"])}</span>'
                  f'{_mono(t, "28")}<span class="v2-minw"><span class="lh-mrow__name v2-name14">{clean(t["team"])}</span>'
-                 f'<span class="lh-sub lh-num">{clean(r["record"])} &middot; {clean(r["pf"])} PF</span></span>'
+                 f'<span class="lh-sub lh-num">{clean(r["record"])} &middot; {clean(r["pf"])} PF</span></span></a>'
+                 f'<a class="v2-oddslink v2-rank-odds" href="{t["odds_href"]}" '
+                 f'aria-label="{clean(t["team"])}: title odds {clean(r["odds"])}, on the chart">'
                  f'{_spark(r["spark"], r["aria"])}<span class="lh-rank__right lh-num">'
                  f'<span class="lh-dsp v2-dsp-sm">{clean(r["odds"])}</span>'
-                 f'<span class="lh-delta lh-delta--{d}">{clean(r["delta"])}</span></span></a>')
+                 f'<span class="lh-delta lh-delta--{d}">{clean(r["delta"])}</span></span></a></div>')
     o.append(f'<span class="lh-sub">{clean(vm["spark_note"])}</span></section>')
     return "".join(o)
 
@@ -508,6 +573,9 @@ def _kpi(k: dict, team: dict, ids: _Ids, key: str, spark_html: str = "") -> str:
         head = f'<span class="v2-kpi-head">{head}{_info(ids, tipkey)}</span>'
     body = (f'<span class="lh-kpi__row"><span class="{value_cls}">{clean(k["value"])}</span>{spark_html}</span>'
             if spark_html else f'<span class="{value_cls}">{clean(k["value"])}</span>')
+    if key == "odds" and team.get("odds_href"):      # 5d1 s.4: the number and its sparkline open the chart
+        body = (f'<a class="v2-oddslink v2-kpi-odds" href="{team["odds_href"]}" '
+                f'aria-label="{clean(k["label"])} {clean(k["value"])}, on the chart">{body}</a>')
     return f'<div class="lh-kpi {team["cls"]}">{head}{body}<span class="{cls}">{clean(k["ctx"])}</span></div>'
 
 
@@ -552,12 +620,12 @@ def _roster(tp: dict, ids: _Ids) -> str:
         cls = "v2-sticky" if k == "name" else "v2-sc"
         sort = f' aria-sort="descending"' if k == default else ""
         o.append(f'<th class="{cls}"{sort} data-k="{k}"><button type="button" '
-                 f'class="v2-tap" data-sort="{k}">{clean(lab)}<span class="v2-arrow">{" &#9662;" if k == default else ""}'
-                 f'</span></button></th>')
+                 f'class="v2-tap" data-sort="{k}"{colh("roster", k)}>{clean(lab)}<span class="v2-arrow">'
+                 f'{" &#9662;" if k == default else ""}</span></button></th>')
     for k in r["keys"]:
         gcls = " ".join(f"v2-g-{g}" for g in r["gs"][k])
-        o.append(f'<th class="v2-dc {gcls}" data-k="d_{k}"><button type="button" class="v2-tap" data-sort="d_{k}">'
-                 f'{clean(r["cols"][k]["label"])}<span class="v2-arrow"></span></button></th>')
+        o.append(f'<th class="v2-dc {gcls}" data-k="d_{k}"><button type="button" class="v2-tap" data-sort="d_{k}"'
+                 f'{colh("roster", k)}>{clean(r["cols"][k]["label"])}<span class="v2-arrow"></span></button></th>')
     o.append("</tr></thead>")
 
     def row(p, inactive):
@@ -577,7 +645,8 @@ def _roster(tp: dict, ids: _Ids) -> str:
                  '</td></tr>' + "".join(row(p, True) for p in r["il"]) + "</tbody>")
     o.append("</table></div>"
              f'<div class="lh-table-note">{clean(tp["size"])}. {clean(tp["note"])} GP is games played; Next is next '
-             "week's games he will play. Tap a column to sort; Detailed picks a group of columns.</div>")
+             "week's games he will play. Tap a column for what it means and to sort; Detailed picks a group of "
+             "columns.</div>")
     for g in groups:
         o.append(f'<div class="lh-table-note v2-gnote" data-gnote="{clean(g["key"])}">'
                  + " ".join(f'<b>{clean(r["cols"][k]["label"])}</b>: {clean(r["cols"][k]["tip"])}'
@@ -638,7 +707,10 @@ def _team_page(tp: dict, vm: dict, ids: _Ids) -> str:
     # keepers
     o.append('<div class="v2-pane" data-pane-of="keepers" hidden><section class="lh-card lh-card--flush">'
              f'<div class="lh-sechead v2-pad"><h2 class="lh-eyebrow">Keep chance</h2>{_info(ids, "keep")}</div>'
-             '<table class="lh-table"><thead><tr><th>Player</th><th>Keep</th><th>Rank</th></tr></thead><tbody>')
+             '<table class="lh-table"><thead><tr>'
+             + "".join(f'<th>{colh_btn("keepers", k, lab)}</th>' for k, lab in (("player", "Player"), ("keep", "Keep"),
+                                                                                 ("rank", "Rank")))
+             + '</tr></thead><tbody>')
     for kk in tp["keep_all"]:
         o.append(f'<tr{" class=" + chr(34) + "lh-inactive" + chr(34) if kk["in_il"] else ""}><td>'
                  f'{_pl(kk["name"], kk["card"], "lh-name v2-tap")}<span class="lh-sub">{clean(kk["meta"])}</span></td>'
@@ -810,9 +882,11 @@ def render(vm: dict, *, cards: dict = None) -> str:
     o.append('<section class="v2-screen" data-route="home">')
     if vm["issue"]:
         k, v = vm["issue"]["attr"]
-        o.append(f'<button type="button" class="lh-issuebar" {k}="{clean(v)}"><span class="v2-ib">{DOC}'
+        o.append(f'<div class="v2-issuerow"><button type="button" class="lh-issuebar" {k}="{clean(v)}"><span class="v2-ib">{DOC}'
                  f'<span class="v2-note"><strong>Latest issue</strong> &middot; {clean(vm["issue"]["text"])}</span></span>'
-                 f'{CHEV}</button>')
+                 f'{CHEV}</button>'
+                 # 5d1 s.6 (Nick, 11-20: past newsletters are hard to find): League > Archive
+                 '<a class="lh-link v2-allissues" href="#/league/archive">All issues &rsaquo;</a></div>')
     o.append('<div class="v2-stack"><div class="v2-cols"><div class="v2-col">'
              '<section class="v2-sec" data-section="matchups"><div class="lh-sechead">'
              f'<h2 class="lh-eyebrow">This week\'s matchups</h2><span class="lh-meta lh-meta--canvas">{clean(vm["clock"])}</span></div>'
@@ -879,6 +953,10 @@ def render(vm: dict, *, cards: dict = None) -> str:
     o.append("</div>")
     if vm["mode"] == "preview":                    # 4c4: History's chips, plaintext, this machine only
         o.append(pl.templates(vm["league"], _mono))
+    # 5d1 s.5: every column's definition, once (the header popovers read it)
+    from .infotips import columns_flat
+    cdefs = json.dumps(columns_flat(), separators=(",", ":"), ensure_ascii=True).replace("</", "<\\/")
+    o.append(f'<script type="application/json" id="v2-coldefs">{cdefs}</script>')
     if cards is not None:
         blob = json.dumps(cards, separators=(",", ":"), ensure_ascii=True).replace("</", "<\\/")
         o.append(f'<script type="application/json" id="v2-cards">{blob}</script>')
@@ -934,6 +1012,39 @@ document.addEventListener('click',function(e){
   e.preventDefault();e.stopImmediatePropagation();
   if(typeof I.click==='function'){I.click();}else{I.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));}
 },true);
+// 5d1 s.5 (Nick, 11-20): COLUMN DEFINITIONS. A tap on a column's header opens
+// a small popover: the column's name, its definition (infotips.COLUMNS, the
+// page's one copy in #v2-coldefs) and, where the table sorts, a Sort button
+// with the current direction: sorting moves inside the popover. It is placed
+// like an InfoTip (placePop: inside the screen), and a tap elsewhere, Escape
+// or a second tap on the header closes it.
+var COLDEFS=null,COLPOP=null,colFor=null,colPass=false;
+function colDefs(){if(!COLDEFS){var e=document.getElementById('v2-coldefs');COLDEFS=e?JSON.parse(e.textContent):{};}
+  return COLDEFS;}
+function colBox(){if(!COLPOP){COLPOP=document.createElement('div');COLPOP.className='lh-info__pop v2-colpop';
+  COLPOP.id='v2-colpop';COLPOP.setAttribute('role','dialog');COLPOP.hidden=true;hub.appendChild(COLPOP);}return COLPOP;}
+function colDir(btn){var th=btn.closest('th'),s=th?th.getAttribute('aria-sort'):null;
+  return s==='descending'?'Sorted \u25be':(s==='ascending'?'Sorted \u25b4':'Not sorted by this');}
+function colClose(){if(COLPOP){COLPOP.hidden=true;}if(colFor){colFor.setAttribute('aria-expanded','false');colFor=null;}}
+function colOpen(btn){
+  var d=colDefs()[btn.getAttribute('data-colh')];if(!d){return;}
+  var box=colBox();box.textContent='';box.appendChild(mk('b','',d[0]));box.appendChild(mk('span','',d[1]));
+  if(btn.hasAttribute('data-sort')||btn.hasAttribute('data-psort')){
+    var row=mk('span','v2-colsort'),sb=mk('button','v2-btn v2-colsort-b','Sort'),st=mk('span','v2-colsort-st',colDir(btn));
+    sb.type='button';row.appendChild(sb);row.appendChild(st);box.appendChild(row);
+    sb.addEventListener('click',function(ev){ev.stopPropagation();colPass=true;try{btn.click();}finally{colPass=false;}
+      st.textContent=colDir(btn);});
+  }
+  box.hidden=false;colFor=btn;btn.setAttribute('aria-expanded','true');placePop(btn,box);
+}
+document.addEventListener('click',function(e){
+  var b=e.target&&e.target.closest?e.target.closest('[data-colh]'):null;
+  if(b&&!colPass){e.preventDefault();e.stopImmediatePropagation();var same=(colFor===b);colClose();if(!same){colOpen(b);}return;}
+  if(colFor&&!(e.target.closest&&e.target.closest('#v2-colpop'))){colClose();}
+},true);
+window.addEventListener('scroll',function(){if(colFor){placePop(colFor,colBox());}},true);
+window.addEventListener('resize',function(){if(colFor){placePop(colFor,colBox());}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&colFor){var f=colFor;colClose();f.focus();}});
 function screens(){return document.querySelectorAll('.v2-screen');}
 var depth=0,focusSearch=false;    // hash changes since the page opened (the back buttons), the header's search
 function legacy(){                // 5a: the current hub's #v-... links land on their new screens
@@ -954,6 +1065,11 @@ function legacy(){                // 5a: the current hub's #v-... links land on 
 function route(){
   legacy();
   var r=location.hash.replace(/^#\/?/,'')||'home';
+  // 5d1: a route's query (e.g. #/league/standings?hl=Garrett: the title-odds highlight)
+  var q={},qi=r.indexOf('?');
+  if(qi>=0){r.slice(qi+1).split('&').forEach(function(kv){var p=kv.split('=');
+    if(p[0]){q[decodeURIComponent(p[0])]=decodeURIComponent(p.slice(1).join('='));}});r=r.slice(0,qi)||'home';}
+  window.routeQ=q;
   var parts=r.split('/'),want=r,dyn='';
   if(parts[0]==='league'&&parts.length>1&&parts[1]){want='league';dyn='league';}
   if(parts[0]==='players'&&parts.length>1&&parts[1]){
@@ -981,6 +1097,7 @@ function route(){
   else if(dyn==='compare'){showCompare(parts[2],parts[3]);}
   else if(dyn==='league'&&window.lgRoute){window.lgRoute(parts.slice(1));}
   if(window.lgOdds){window.lgOdds();}
+  if(window.lgHl){window.lgHl(dyn==='league'&&parts[1]==='standings'?(q.hl||''):'');}
   if(r==='players'&&focusSearch){focusSearch=false;var sf=document.getElementById('pl-search');if(sf){sf.focus();}}
 }
 window.addEventListener('hashchange',function(){depth++;route();});
@@ -1244,7 +1361,11 @@ function showCompare(a,b){
     var x=A.cmp[i],y=B.cmp[i];
     var xw=(x.k!==null&&y.k!==null&&x.k>y.k),yw=(x.k!==null&&y.k!==null&&y.k>x.k);
     var r=mk('div','v2-cmp-row');
-    r.appendChild(mk('span','v2-cmp-v'+(xw?' v2-win':''),x.t));r.appendChild(mk('span','v2-cmp-lab',D.labels[i]));
+    r.appendChild(mk('span','v2-cmp-v'+(xw?' v2-win':''),x.t));
+    var lb=mk('button','v2-cmp-lab v2-tap v2-colh',D.labels[i]);lb.type='button';   // 5d1 s.5: its definition
+    if(D.keys){lb.setAttribute('data-colh','compare|'+D.keys[i]);lb.setAttribute('aria-haspopup','dialog');
+      lb.setAttribute('aria-expanded','false');}
+    r.appendChild(lb);
     r.appendChild(mk('span','v2-cmp-v'+(yw?' v2-win':''),y.t));rows.appendChild(r);
   }
 }

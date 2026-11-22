@@ -87,6 +87,12 @@ s.2.4 and s.4 the design. The nightly run:
                    4a2, oldest first, at most actuals.category_backfill_
                    calls_max calls; its failure is recorded the same way
                    (the "actuals" block's "categories") and never stops the run.
+                   5d1: one player's line that doesn't add up holds back only
+                   him (CATEGORIES PENDING, retried for actuals.recheck_days,
+                   then left empty once: CATEGORIES LEFT EMPTY); then
+                   player_actuals.recheck_recent re-checks the last
+                   recheck_days days for a game cached as 0 points and writes
+                   a line Yahoo filled in late (LATE STAT LINE FILLED).
                    4a3: both passes keep each day's minutes from the same
                    game-scoped rows; a minutes problem never costs the points
                    or the categories: recorded (MINUTES FAILED). Then, the
@@ -980,6 +986,7 @@ class Run:
         block: dict = {}
         lines: list = []
         cat_errors = list(r.get("cat_errors") or [])
+        cat_held = list(r.get("cat_held") or [])                 # 5d1 s.2b: one player's line, held back
         min_errors = list(r.get("min_errors") or [])             # 4a3
         # 40b: then every non-rostered player the previous hub named, in their
         # own batches. It feeds only the player cards, which fail softly, so a
@@ -998,6 +1005,7 @@ class Run:
             detail += f"; free agents FAILED (recorded, the run goes on): {err}"
         else:
             cat_errors += list(x.get("cat_errors") or [])
+            cat_held += list(x.get("cat_held") or [])
             min_errors += list(x.get("min_errors") or [])
             block.update({"extras": x["players"], "no_id": x["no_id"], "days": len(x["days_fetched"]),
                           "calls": x["calls"], "backfilled": x["backfilled"], "error": None,
@@ -1010,7 +1018,8 @@ class Run:
         # days cached without categories, at most the config's calls. Both
         # feed only the grade tiles, so a failure is recorded loudly
         # (CATEGORY STATS FAILED) and the run goes on.
-        cats: dict = {"errors": cat_errors, "backfill": None, "error": None}
+        cats: dict = {"errors": cat_errors, "held": cat_held, "backfill": None, "error": None,
+                      "recheck": None, "recheck_error": None}
         if self.mode == "nightly" and not hasattr(r.get("source"), "cats_day"):
             cats["backfill"] = "skipped: the source fetches no categories"
         elif self.mode == "nightly":
@@ -1023,10 +1032,40 @@ class Run:
                 cats["error"] = err
                 detail += f"; categories' backfill FAILED (recorded, the run goes on): {err}"
             else:
-                cats["backfill"] = {k: bf[k] for k in ("days_done", "days_left", "calls", "cap", "corrections",
-                                                       "stopped")}
+                cats["backfill"] = {k: bf.get(k, []) for k in ("days_done", "days_left", "calls", "cap",
+                                                               "corrections", "late_filled", "held", "given_up",
+                                                               "failed_days", "stopped")}
                 detail += (f"; categories backfilled {len(bf['days_done'])} day(s), {bf['calls']} call(s), "
                            f"{bf['days_left']} day(s) left")
+                for c in bf.get("late_filled", []):
+                    lines.append(f"LATE STAT LINE FILLED: {c}")
+                for c in bf.get("held", []):
+                    lines.append(f"CATEGORIES PENDING: {c} -- the others are written; re-checked nightly")
+                for c in bf.get("given_up", []):
+                    lines.append(f"CATEGORIES LEFT EMPTY: {c} -- recorded once, never asked again")
+                for c in bf.get("failed_days", []):
+                    lines.append(f"CATEGORY STATS FAILED: {c} -- every player's line failed; retried tomorrow")
+            # 5d1 s.2: re-check the last few days for a line Yahoo filled in late
+            # (a day cached as 0 points in 1 game). Soft and loud, like the backfill.
+            if hasattr(r.get("source"), "recheck_day"):
+                try:
+                    rc = pa.recheck_recent(self.base, source=r.get("source"), today=self.today,
+                                           header=r.get("header"))
+                except Exception as e:               # noqa: BLE001 -- recorded loudly, never stops the run
+                    err = f"{type(e).__name__}: {e}".splitlines()[0][:500]
+                    cats["recheck_error"] = err
+                    detail += f"; the late-line re-check FAILED (recorded, the run goes on): {err}"
+                    lines.append(f"LATE-LINE RE-CHECK FAILED: {err} -- tomorrow's run re-checks again")
+                else:
+                    cats["recheck"] = {k: rc[k] for k in ("days", "asked", "calls", "settled", "late_filled",
+                                                          "phantoms")}
+                    filled = rc["settled"] + rc["late_filled"]
+                    detail += (f"; re-checked {rc['asked']} 0-point game(s) over {rc['days']} day(s), "
+                               f"{rc['calls']} call(s)" + (f", {len(filled)} late line(s) filled" if filled else ""))
+                    for c in filled:
+                        lines.append(f"LATE STAT LINE FILLED: {c}")
+                    for c in rc["phantoms"]:
+                        lines.append(f"PHANTOM GAME CORRECTED: {c}")
             cats["seconds"] = round(time.perf_counter() - t1, 2)
         for e in cat_errors:
             lines.append(f"CATEGORY STATS FAILED: {e} -- that day's points are written; the backfill retries it")
@@ -1034,6 +1073,10 @@ class Run:
             lines.append(f"CATEGORY STATS FAILED: the backfill: {cats['error']} -- the grade tiles wait")
         if cat_errors:
             detail += f"; {len(cat_errors)} day(s) of categories FAILED (recorded)"
+        for e in cat_held:
+            lines.append(f"CATEGORIES PENDING: {e} -- the others are written; re-checked nightly")
+        if cat_held:
+            detail += f"; {len(cat_held)} player-day(s) of categories pending (recorded)"
         block["categories"] = cats
         # 4a3: the minutes. A day's minutes that failed above are left out (its
         # points and categories are written) and recorded; the nightly run then

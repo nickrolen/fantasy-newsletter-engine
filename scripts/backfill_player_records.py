@@ -1245,10 +1245,108 @@ def compute_expanded_leaderboards(games: list) -> dict:
     return result
 
 
-def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None, all_records=None) -> dict:
+def pick_game_rows(historical: list, current_df: pd.DataFrame) -> list:
+    """5d1 s.10a: every league-log game a draft pick is measured over
+    (draft_values.pick_game: his drafter's regular-season starts on days he
+    played), as {player_name, manager, season, fantasy_points}: the SAME games
+    the round values' expected counts (H56 Part 2, decision 1). Bench and
+    playoff games are not in it."""
+    from modules import draft_values as _dv
+    reg: dict = {}
+
+    def through(season):
+        if season not in reg:
+            reg[season] = _dv.regular_through(season)
+        return reg[season]
+    out = []
+    for row in historical:
+        s = row.get("season_key") or normalize_season(row.get("season_year", ""))
+        if _dv.pick_game(row, through(s)):
+            out.append({"player_name": row.get("player_name", ""), "manager": row.get("manager", ""),
+                        "season": s, "fantasy_points": float(row.get("fantasy_points") or 0.0)})
+    if not current_df.empty:
+        for _, row in current_df.iterrows():
+            s = normalize_season(str(row.get("season_year", CURRENT_SEASON_LONG)))
+            opp = row.get("nba_opponent")
+            r = {"started": bool(row.get("started")) if pd.notna(row.get("started")) else False,
+                 "week": int(row.get("week", 0)),
+                 "had_game": opp is not None and pd.notna(opp) and str(opp).strip() != "",
+                 "is_injured": bool(row.get("is_injured")) if pd.notna(row.get("is_injured")) else False}
+            if _dv.pick_game(r, through(s)):
+                out.append({"player_name": str(row.get("player_name", "")), "manager": str(row.get("manager", "")),
+                            "season": s, "fantasy_points": float(row.get("fantasy_points") or 0.0)})
+    return out
+
+
+def draft_steal_bust(pick_games: list, drafts: list, pick_values: dict) -> tuple:
+    """(steal_fppg, bust_fppg, steal_totalfp, bust_totalfp), each fully
+    ranked: every live pick of a trusted pick order (H56), keeper era, with
+    20+ of pick_games (pick_game_rows), against its round's value
+    (draft_values: the same game set)."""
+    from modules import draft_values as _dv
+    pss = defaultdict(lambda: {"total_fp": 0.0, "gp": 0})
+    for g in pick_games:
+        k = (g["player_name"], g["manager"], g["season"])
+        pss[k]["total_fp"] += g["fantasy_points"]
+        pss[k]["gp"] += 1
+    steal_fppg, bust_fppg, steal_totalfp, bust_totalfp = [], [], [], []
+    for pick in drafts:
+        if pick.get("is_keeper", False):
+            continue
+        if pick["season"] < KEEPER_ERA_START:
+            continue
+        if pick.get("pick_number") is None:
+            continue          # H56: measured against the slot, so trusted pick orders only (2024-25 on)
+        s = pss.get((pick["player_name"], pick["manager"], pick["season"]))
+        if not s or s["gp"] < 20:
+            continue
+        actual_fppg = s["total_fp"] / s["gp"]
+        expected_fppg = _dv.value(pick_values, "fppg", int(pick["round"]))["value"]
+        delta_fppg = actual_fppg - expected_fppg
+        fppg_entry = {
+            "player_name": pick["player_name"], "manager": pick["manager"],
+            "round": pick["round"], "pick_number": pick["pick_number"],
+            "fppg": round(actual_fppg, 2), "expected_fppg": expected_fppg,
+            "delta": round(delta_fppg, 2),
+            "total_fp": round(s["total_fp"], 1), "gp": s["gp"],
+            "season": pick["season"],
+        }
+        if delta_fppg > 0:
+            steal_fppg.append(fppg_entry)
+        if delta_fppg < 0:
+            bust_fppg.append(dict(fppg_entry))
+        actual_totalfp = s["total_fp"]
+        expected_totalfp = _dv.value(pick_values, "total_fp", int(pick["round"]))["value"]
+        delta_totalfp = actual_totalfp - expected_totalfp
+        totalfp_entry = {
+            "player_name": pick["player_name"], "manager": pick["manager"],
+            "round": pick["round"], "pick_number": pick["pick_number"],
+            "total_fp": round(actual_totalfp, 1), "expected_total_fp": expected_totalfp,
+            "delta": round(delta_totalfp, 1),
+            "fppg": round(actual_fppg, 2), "gp": s["gp"],
+            "season": pick["season"],
+        }
+        if delta_totalfp > 0:
+            steal_totalfp.append(totalfp_entry)
+        if delta_totalfp < 0:
+            bust_totalfp.append(dict(totalfp_entry))
+    steal_fppg.sort(key=lambda x: x["delta"], reverse=True)
+    bust_fppg.sort(key=lambda x: x["delta"])
+    steal_totalfp.sort(key=lambda x: x["delta"], reverse=True)
+    bust_totalfp.sort(key=lambda x: x["delta"])
+    return steal_fppg, bust_fppg, steal_totalfp, bust_totalfp
+
+
+def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None, all_records=None,
+                                       pick_games=None) -> dict:
+    """pick_games (5d1 s.10a): pick_game_rows' games, which the steal/bust
+    records count (the round values' own game set). Required: RAISES
+    without it, never falling back to every game."""
     print("\n--- Computing Draft, Trade & Manager Leaderboards ---")
     if not games or not drafts:
         return {}
+    if pick_games is None:
+        raise ValueError("the steal/bust records need pick_games (pick_game_rows): the round values' game set")
 
     pss = defaultdict(lambda: {"total_fp": 0.0, "gp": 0, "fps": []})
     for g in games:
@@ -1308,63 +1406,8 @@ def compute_draft_manager_leaderboards(games, drafts, trades=None, waivers=None,
                             "player_count": len(qualifying), "draft_year": season, "season": season})
     dc_fppg.sort(key=lambda x: x["avg_fppg"], reverse=True)
 
-    # DRAFT STEAL & BUST BY FPPG (real picks, delta vs expected FPPG, trusted pick orders only: H56)
-    steal_fppg, bust_fppg = [], []
-    # DRAFT STEAL & BUST BY TOTAL FP (real picks, delta vs expected Total FP, keeper era only)
-    steal_totalfp, bust_totalfp = [], []
-
-    for pick in drafts:
-        if pick.get("is_keeper", False):
-            continue
-        if pick["season"] < KEEPER_ERA_START:
-            continue
-        if pick.get("pick_number") is None:
-            continue          # H56: measured against the slot, so trusted pick orders only (2024-25 on)
-        s = pss.get((pick["player_name"], pick["manager"], pick["season"]))
-        if not s or s["gp"] < 20:
-            continue
-
-        # Expected values for the pick's ROUND (H56: one curve, by round)
-        from modules import draft_values as _dv
-
-        # FPPG steal/bust
-        actual_fppg = s["total_fp"] / s["gp"]
-        expected_fppg = _dv.value(pick_values, "fppg", int(pick["round"]))["value"]
-        delta_fppg = actual_fppg - expected_fppg
-        fppg_entry = {
-            "player_name": pick["player_name"], "manager": pick["manager"],
-            "round": pick["round"], "pick_number": pick["pick_number"],
-            "fppg": round(actual_fppg, 2), "expected_fppg": expected_fppg,
-            "delta": round(delta_fppg, 2),
-            "total_fp": round(s["total_fp"], 1), "gp": s["gp"],
-            "season": pick["season"],
-        }
-        if delta_fppg > 0:
-            steal_fppg.append(fppg_entry)
-        if delta_fppg < 0:
-            bust_fppg.append(dict(fppg_entry))
-
-        # Total FP steal/bust
-        actual_totalfp = s["total_fp"]
-        expected_totalfp = _dv.value(pick_values, "total_fp", int(pick["round"]))["value"]
-        delta_totalfp = actual_totalfp - expected_totalfp
-        totalfp_entry = {
-            "player_name": pick["player_name"], "manager": pick["manager"],
-            "round": pick["round"], "pick_number": pick["pick_number"],
-            "total_fp": round(actual_totalfp, 1), "expected_total_fp": expected_totalfp,
-            "delta": round(delta_totalfp, 1),
-            "fppg": round(actual_fppg, 2), "gp": s["gp"],
-            "season": pick["season"],
-        }
-        if delta_totalfp > 0:
-            steal_totalfp.append(totalfp_entry)
-        if delta_totalfp < 0:
-            bust_totalfp.append(dict(totalfp_entry))
-
-    steal_fppg.sort(key=lambda x: x["delta"], reverse=True)
-    bust_fppg.sort(key=lambda x: x["delta"])
-    steal_totalfp.sort(key=lambda x: x["delta"], reverse=True)
-    bust_totalfp.sort(key=lambda x: x["delta"])
+    # DRAFT STEAL & BUST (FPPG and Total FP): 5d1 s.10a, over the round values' game set
+    steal_fppg, bust_fppg, steal_totalfp, bust_totalfp = draft_steal_bust(pick_games, drafts, pick_values)
 
     # TRADE WINNER
     tw_top10 = []
@@ -1636,7 +1679,9 @@ def main():
         waivers = load_waivers()
         all_recs = build_all_records_with_slots(historical)
         if drafts:
-            for k, v in compute_draft_manager_leaderboards(combined, drafts, trades, waivers, all_recs).items():
+            pick_games = pick_game_rows(historical, current_df)        # 5d1 s.10a
+            for k, v in compute_draft_manager_leaderboards(combined, drafts, trades, waivers, all_recs,
+                                                           pick_games=pick_games).items():
                 if v:
                     all_time[k] = v
 

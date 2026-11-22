@@ -298,6 +298,41 @@ def reference_teams(base) -> dict:
     return PlayerIndex({n: str(t).upper() for n, t in players.items() if t})
 
 
+def _nba_games(base) -> list:
+    from ..season_performers import load_nba_schedule
+    return load_nba_schedule(base)
+
+
+def schedule_opponents(games: list) -> dict:
+    """{NBA team: {YYYY-MM-DD: its opponent that day, "@XXX" away, "XXX" at
+    home}} from the stored NBA schedule: the league log's own notation. A
+    team with two games on one day (never seen) RAISES: no guess."""
+    out: dict = {}
+    for g in games:
+        iso = str(g["date"])[:10]
+        for team, opp in ((g["home"], g["away"]), (g["away"], "@" + g["home"])):
+            day = out.setdefault(team, {})
+            if iso in day:
+                raise PlayersError(f"{team} has two games on {iso} in the NBA schedule")
+            day[iso] = opp
+    return out
+
+
+def override_window(av, first) -> list:
+    """The days an INJURY_OVERRIDES entry is read over for a free agent's
+    status: from `first` (today) to the end of next fantasy week, as the
+    free agents' table reads it (hub_state.free_agent_status's window)."""
+    from ..hub_state import HubInputError
+    if not hasattr(av, "week_of") or not hasattr(av, "override_covers"):    # a stand-in (the synthetic league)
+        return []
+    try:
+        w = av.week_of(first)
+    except HubInputError:                            # outside the season's weeks: no window
+        return []
+    last = av.weeks.get(w + 1, av.weeks[w])[1]
+    return [first + timedelta(days=i) for i in range((last - first).days + 1)]
+
+
 def universe(payload: dict) -> List[dict]:
     """The Players tab's players (_universe): public for the free agents'
     ratings (hub_state.ratings_fa_step), which rate exactly these."""
@@ -376,12 +411,20 @@ def build(base, payload: dict, ctx: dict) -> tuple:
     # that team; without one his Next stays a dash -- an untagged free agent
     # is never read as healthy, and he must not make the whole build fail
     # (free_agent_tags raises for the rest, as before).
-    fa_info, fa_untagged = {}, set()
+    # 5d1 s.3 (5c decision 4): such a free agent picks up his INJURY_OVERRIDES
+    # entry: "O - back MM-DD" on his row and card, his games counted with it
+    # (Availability's own override rule), and never "healthy". The entry is
+    # his status: he has no Yahoo tag to read.
+    fa_info, fa_untagged, fa_override = {}, set(), {}
+    window = override_window(av, yesterday + timedelta(days=1))
     for n in fa_names:
         t = fa_team_of[n]
         if n in fa_ok or (info.get(n) or {}).get("nba_team") is not None:
             continue
-        if "fa_av" not in ctx:
+        e = av.override_covers(n, window) if window else None
+        if e is not None and t and t in av.team_dates:
+            fa_override[n] = e
+        elif "fa_av" not in ctx:
             try:
                 free_agent_tags(ctx["tag_row"], [n])
             except HubInputError:
@@ -391,12 +434,24 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             continue
         fa_info[n] = {"nba_team": t, "positions": set(), "proj_fppg": None}
         fa_ok.append(n)
+    if fa_override:
+        from ..hub_state import override_chip
+        reg = (payload.get("cards") or {}).get("players") or {}
+        for u in uni:
+            if u["name"] in fa_override:
+                chip = override_chip(fa_override[u["name"]], av)
+                u["status"] = [c for c in u["status"] if c.get("kind") != "out"] + [chip]
+                if u.get("key") in reg:                  # the card shows the same status as the row
+                    reg[u["key"]]["status"] = [c for c in reg[u["key"]]["status"] if c.get("kind") != "out"] + [dict(chip)]
     if not fa_ok:
         fa_av = None
     elif "fa_av" in ctx:                                 # tests: a stand-in Availability
         fa_av = ctx["fa_av"](fa_ok)
     else:
-        fa_av = av.for_free_agents(fa_ok, free_agent_tags(ctx["tag_row"], fa_ok), extra_info=fa_info)
+        fa_av = av.for_free_agents(fa_ok, free_agent_tags(ctx["tag_row"], [n for n in fa_ok if n not in fa_override]),
+                                   extra_info=fa_info)
+
+    sched_opp = ctx["sched_opp"] if "sched_opp" in ctx else schedule_opponents(_nba_games(base))
 
     # the ratings, and last week's line
     rp = (res or {}).get("players") or {}
@@ -493,6 +548,10 @@ def build(base, payload: dict, ctx: dict) -> tuple:
         # 4a3: the minutes (MIN, MIN delta, Compare's MIN, the card's last 5)
         played = [ln[0] for ln in (cl["lines"].get(n) or []) if int(ln[2]) == 1]
         row.update(minutes_cells(actuals, n, first, yesterday, l14_first, played))
+        # 5d1 s.3: the card's last-5 Opp from the NBA schedule when the league log has no
+        # line that day (free agents, games before he joined a roster): his team's opponent
+        tm = sched_opp.get(team or "") or {}
+        row["opp_g"] = {i: tm[i] for i in played[-MIN_LAST:] if i in tm}
         # the total's rank among the rostered players
         if x["covered"] and r_total:
             rk = 1 + sum(1 for t in r_total if t > x["pts"])

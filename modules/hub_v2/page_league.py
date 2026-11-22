@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 
-from .text import clean
+from .text import clean, colh_btn
 
 TAP_CLASSES = ("v2-lg-cell", "v2-lg-why", "v2-lg-game", "v2-lg-issue", "v2-lg-sum", "v2-lg-tile")
 PARTS = ("awards",)                     # League's lazy segments beside History's chips (4c5)
@@ -133,9 +133,10 @@ function lgPart(pane){
   if(tpl){pane.innerHTML=tpl.innerHTML;pane.setAttribute('data-loaded','1');return Promise.resolve();}
   var ref=pane.getAttribute('data-part');
   if(!ref||!window.HUB||!window.HUB.part){return Promise.resolve();}
-  return window.HUB.part(JSON.parse(ref)).then(function(p){pane.innerHTML=p.html;pane.setAttribute('data-loaded','1');},
+  if(pane._lgp){return pane._lgp;}               // 5d1: one fetch per part, however many ask
+  return pane._lgp=window.HUB.part(JSON.parse(ref)).then(function(p){pane.innerHTML=p.html;pane.setAttribute('data-loaded','1');},
     function(err){if(err&&err.message==='gone'){movedBox();}
-      var e=pane.querySelector('.v2-lg-load');if(e){e.textContent='This part of the League could not be opened.';}});
+      pane._lgp=null;var e=pane.querySelector('.v2-lg-load');if(e){e.textContent='This part of the League could not be opened.';}});
 }
 function lgChip(key){
   LG.chip=key;
@@ -163,11 +164,19 @@ function lgAwView(key,v){
   var gs=document.querySelectorAll('[data-awview-of^="'+key+'|"]');
   for(var j=0;j<gs.length;j++){gs[j].hidden=gs[j].getAttribute('data-awview-of')!==key+'|'+v;}
 }
-function lgDraft(season){
-  var sel=document.querySelector('[data-lhdraft]');if(sel){sel.value=season;}
-  var ps=document.querySelectorAll('[data-lhdraft-of]');
-  for(var j=0;j<ps.length;j++){ps[j].hidden=ps[j].getAttribute('data-lhdraft-of')!==season;}
+// 5d1 s.8: a season picker (data-spick) over its panes (data-spick-of); a
+// published past season is a part, opened when picked
+function spick(key,season){
+  var sel=document.querySelector('[data-spick="'+key+'"]');if(!sel){return;}
+  var ok=false;for(var i=0;i<sel.options.length;i++){if(sel.options[i].value===season){ok=true;}}
+  if(!season||!ok){season=sel.options[sel.selectedIndex>=0?sel.selectedIndex:0].value;
+    for(var d=0;d<sel.options.length;d++){if(sel.options[d].defaultSelected){season=sel.options[d].value;}}}
+  sel.value=season;
+  var ps=document.querySelectorAll('[data-spick-of^="'+key+'|"]');
+  for(var j=0;j<ps.length;j++){var on=ps[j].getAttribute('data-spick-of')===key+'|'+season;ps[j].hidden=!on;
+    if(on&&ps[j].getAttribute('data-part')){lgPart(ps[j]);}}
 }
+function lgDraft(season){spick('draft',season);}
 // 5b: the title-odds chart (an encrypted part when published), opened when
 // League > Standings is on screen
 function lgOdds(){
@@ -175,18 +184,46 @@ function lgOdds(){
   if(p&&!p.closest('[hidden]')){lgPart(p);}
 }
 window.lgOdds=lgOdds;
+// 5d1 s.4: #/league/standings?hl=<manager> -- the chart opens with his line
+// highlighted and the others dimmed; a tap on the chart (or another line)
+// clears it, and the route with it, so the back button works
+var LGHL='';
+function lgHlApply(){
+  var svg=document.querySelector('[data-section="title-odds"] svg.lh-chart');if(!svg){return;}
+  svg.classList.toggle('v2-hl',!!LGHL);
+  var gs=svg.querySelectorAll('[data-m]');
+  for(var i=0;i<gs.length;i++){gs[i].classList.toggle('v2-hl-on',!!LGHL&&gs[i].getAttribute('data-m')===LGHL);}
+}
+window.lgHl=function(m){
+  LGHL=m||'';
+  var p=document.querySelector('[data-lhpart-of="odds"]');
+  var go=function(){lgHlApply();if(LGHL){var sec=document.querySelector('[data-section="title-odds"]');
+    if(sec&&sec.scrollIntoView){sec.scrollIntoView({block:'start'});}}};
+  if(p&&!p.closest('[hidden]')){lgPart(p).then(go);}else{go();}
+};
+document.addEventListener('click',function(e){
+  if(!LGHL||!e.target.closest){return;}
+  if(e.target.closest('[data-section="title-odds"] svg.lh-chart')){
+    LGHL='';lgHlApply();
+    try{history.replaceState(null,'','#/league/standings');}catch(x){}
+  }
+});
 // #/league/<segment>[/<chip>[/<a>/<b> | /<season>]]
 window.lgRoute=function(parts){
   var seg=document.querySelector('.lh-seg[data-seg="league"]');
   var s=parts[0]||'standings';seen['league']=s;if(seg){pick(seg,s);}
+  var q=window.routeQ||{};
   if(s==='awards'){var ap=document.querySelector('[data-lhpart-of="awards"]');
-    if(ap){lgPart(ap).then(function(){if(parts[1]){var sec=document.querySelector('[data-award="'+parts[1]+'"]');
+    if(ap){lgPart(ap).then(function(){spick('potw',parts[1]==='potw'?(q.s||''):'');
+      if(parts[1]){var sec=document.querySelector('[data-award="'+parts[1]+'"]')||
+        document.querySelector('[data-section="'+parts[1]+'"]');
       if(sec&&sec.scrollIntoView){sec.scrollIntoView();}}});}return;}
   if(s!=='history'){return;}
   var c=parts[1]||LG.chip;
   lgChip(c).then(function(){
     if(c==='h2h'&&parts.length>3){lgPair(decodeURIComponent(parts[2])+'|'+decodeURIComponent(parts[3]));}
-    if(c==='draft'&&parts[2]){lgDraft(decodeURIComponent(parts[2]));}
+    if(c==='draft'){spick('draft',parts[2]?decodeURIComponent(parts[2]):(q.s||''));}
+    if(c==='trades'){spick('trades',q.s||'');}
   });
 };
 document.addEventListener('click',function(e){
@@ -207,7 +244,9 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('change',function(e){
   var t=e.target;
-  if(t.matches&&t.matches('[data-lhdraft]')){lgDraft(t.value);}
+  if(t.matches&&t.matches('[data-spick]')){                 // 5d1 s.8: the season goes in the route
+    var k=t.getAttribute('data-spick'),to=(k==='potw')?'#/league/awards/potw?s=':'#/league/history/'+k+'?s=';
+    location.hash=to+encodeURIComponent(t.value);}
 });
 """
 
@@ -265,8 +304,10 @@ def _standings(lg: dict, ids, info, mono, chart) -> str:
     st = lg["standings"]
     o = ['<section class="lh-card lh-card--flush" data-section="standings"><div class="lh-sechead v2-pad">'
          f'<h2 class="lh-eyebrow">{clean(st["title"])}</h2><span class="lh-meta">{clean(st["meta"])}</span></div>'
-         '<div class="v2-scroll"><table class="lh-table v2-lg-st"><thead><tr><th>Team</th><th>W-L</th><th>PF</th>'
-         f'<th>Strk</th><th>{clean(st["odds_label"].split(" ")[0])}</th></tr></thead><tbody>']
+         '<div class="v2-scroll"><table class="lh-table v2-lg-st"><thead><tr>'
+         + "".join(f'<th>{colh_btn("standings", k, clean(lab))}</th>' for k, lab in (
+             ("team", "Team"), ("wl", "W-L"), ("pf", "PF"), ("strk", "Strk"), ("title", st["odds_label"].split(" ")[0])))
+         + '</tr></thead><tbody>']
     for r in st["rows"]:
         t = r["team"]
         d = r["dir"] if r["dir"] in ("up", "down") else "flat"
@@ -274,8 +315,10 @@ def _standings(lg: dict, ids, info, mono, chart) -> str:
         o.append(f'<tr><td><span class="v2-lg-team"><span class="v2-lg-rank">{clean(r["rank"])}{tie}</span>'
                  + _mgr(t, mono) + "</span></td>"
                  f'<td class="lh-num">{clean(r["record"])}</td><td class="lh-num">{clean(r["pf"])}</td>'
-                 f'<td class="lh-num">{clean(r["streak"])}</td><td class="lh-num"><span class="v2-lg-odds"><b>{clean(r["odds"])}</b>'
-                 f'<span class="lh-delta lh-delta--{d}">{clean(r["delta"])}</span></span></td></tr>')
+                 f'<td class="lh-num">{clean(r["streak"])}</td><td class="lh-num"><a class="v2-lg-odds v2-oddslink" '
+                 f'href="{t["odds_href"]}" aria-label="{clean(t["team"])}: title odds {clean(r["odds"])}, on the chart">'
+                 f'<b>{clean(r["odds"])}</b>'
+                 f'<span class="lh-delta lh-delta--{d}">{clean(r["delta"])}</span></a></td></tr>')
     o.append("</tbody></table></div>")
     note = st["note"] + ("".join(" * " + x for x in st["ties"]) if st["ties"] else "")
     o.append(f'<div class="lh-table-note">{clean(note)}</div></section>')
@@ -298,8 +341,10 @@ def _standings(lg: dict, ids, info, mono, chart) -> str:
             d = r["dir"] if r["dir"] in ("up", "down") else "flat"
             o.append(f'<div class="v2-lg-row {t["cls"]}"><span class="lh-rank__n">{clean(r["rank"])}</span>'
                      + _team(t, mono, r["record"], "28")
-                     + f'<span class="v2-lg-right"><span class="lh-dsp v2-dsp-sm lh-num">{clean(r["odds"])}</span>'
-                       f'<span class="lh-delta lh-delta--{d}">{clean(r["move"])}</span></span></div>')
+                     + f'<a class="v2-lg-right v2-oddslink" href="{t["odds_href"]}" '
+                       f'aria-label="{clean(t["team"])}: title odds {clean(r["odds"])} that week, on the chart">'
+                       f'<span class="lh-dsp v2-dsp-sm lh-num">{clean(r["odds"])}</span>'
+                       f'<span class="lh-delta lh-delta--{d}">{clean(r["move"])}</span></a></div>')
         o.append("</div>")
     o.append(f'<span class="lh-sub">{clean(pw["note"])}</span></section>')
     return "".join(o)
@@ -432,7 +477,7 @@ def _race(a: dict, mono, chart, icon: str) -> str:
     return "".join(o)
 
 
-def awards_html(aw: dict, mono, chart, icon: str) -> str:
+def awards_html(aw: dict, mono, chart, icon: str, season_refs: dict = None) -> str:
     """League > Awards (4c5): one section per award (name, Live/Final, its
     InfoTip; the top rows with the shown-with figures and the move; "new
     leader"; the race chart), then Player of the Week by season. Rendered at
@@ -450,18 +495,30 @@ def awards_html(aw: dict, mono, chart, icon: str) -> str:
         o.append(f'<span class="lh-sub">{clean(past.get("error") or past["note"])}</span>')
     o.append('<section class="lh-card v2-gap8" data-section="potw"><div class="lh-sechead">'
              '<h2 class="lh-eyebrow">Player of the Week</h2></div>')
-    for s in aw["potw"]:
-        o.append(f'<div class="v2-lg-wk"><span class="lh-label">{clean(s["season"])}</span>')
-        for r in s["rows"]:
-            t = r["team"]
-            sub = (_chip(t) if t else "")
-            o.append(f'<div class="v2-lg-row"><span class="v2-lg-wkn">{clean(r["week"])}</span>'
-                     f'<span class="v2-minw">{_name(r["player"], r["href"], True)}'
-                     f'<span class="lh-sub">{sub}</span></span><span class="v2-lg-right">'
-                     f'<span class="v2-lg-val">{clean(r["pts"])}</span><span class="lh-sub">{clean(r["sub"])}</span>'
-                     "</span></div>")
-        o.append("</div>")
+    with_rows = [x for x in aw["potw"] if x["rows"]]
+    seasons = [x["season"] for x in with_rows]
+    default, note = spick_default(seasons, aw.get("potw_current") or "", "Player of the week")
+    if seasons:                                      # 5d1 s.8: one season at a time
+        o.append(_spick("potw", seasons, default, note, "Player of the week season"))
+    for x in with_rows:
+        o.append(_spane("potw", x["season"], default, (season_refs or {}).get(x["season"]),
+                        lambda x=x: potw_season_html(x)))
     o.append(f'<span class="lh-sub">{clean(aw["potw_note"])}</span></section>')
+    return "".join(o)
+
+
+def potw_season_html(s: dict) -> str:
+    """One season's Players of the week, newest week first."""
+    o = [f'<div class="v2-lg-wk"><span class="lh-label">{clean(s["season"])}</span>']
+    for r in s["rows"]:
+        t = r["team"]
+        sub = (_chip(t) if t else "")
+        o.append(f'<div class="v2-lg-row"><span class="v2-lg-wkn">{clean(r["week"])}</span>'
+                 f'<span class="v2-minw">{_name(r["player"], r["href"], True)}'
+                 f'<span class="lh-sub">{sub}</span></span><span class="v2-lg-right">'
+                 f'<span class="v2-lg-val">{clean(r["pts"])}</span><span class="lh-sub">{clean(r["sub"])}</span>'
+                 "</span></div>")
+    o.append("</div>")
     return "".join(o)
 
 
@@ -517,7 +574,9 @@ def _champions(c: dict, mono) -> str:
 def _alltime(a: dict, mono) -> str:
     o = ['<section class="lh-card lh-card--flush"><div class="lh-sechead v2-pad"><h2 class="lh-eyebrow">All-time standings'
          f'</h2><span class="lh-meta">{clean(a["meta"])}</span></div><div class="v2-scroll"><table class="lh-table v2-lg-st">'
-         "<thead><tr><th>Team</th><th>W-L</th><th>PF</th><th>Titles</th><th>Playoff</th></tr></thead><tbody>"]
+         "<thead><tr>" + "".join(f'<th>{colh_btn("alltime", k, lab)}</th>' for k, lab in (
+             ("team", "Team"), ("wl", "W-L"), ("pf", "PF"), ("titles", "Titles"), ("playoff", "Playoff")))
+         + "</tr></thead><tbody>"]
     for r in a["rows"]:
         o.append(f'<tr><td><span class="v2-lg-team"><span class="v2-lg-rank">{clean(r["rank"])}</span>'
                  + _mgr(r["team"], mono, "Playoffs " + r["post"]) + "</span></td>"
@@ -611,74 +670,168 @@ def _records(r: dict) -> str:
     return "".join(o)
 
 
-def _draft(d: dict) -> str:
-    o = ['<div class="v2-lg-dsel"><label class="v2-fchip">Season<select data-lhdraft aria-label="Draft season">']
-    for s in d["seasons"]:
-        o.append(f'<option value="{clean(s["season"])}"{" selected" if s["season"] == d["default"] else ""}>'
-                 f'{clean(s["season"])}</option>')
-    o.append("</select></label></div>")
-    for s in d["seasons"]:
-        mode = s.get("mode", "order")
-        o.append(f'<section class="lh-card lh-card--flush" data-lhdraft-of="{clean(s["season"])}"'
-                 f'{"" if s["season"] == d["default"] else " hidden"}><div class="lh-sechead v2-pad">'
-                 f'<h2 class="lh-eyebrow">{clean(s["season"])} draft</h2><span class="lh-meta">{clean(s["meta"])}</span>'
-                 '</div>')
-        if mode == "dropped":                         # H56: 2018-19's list doesn't match the rosters
-            o.append(f'<p class="v2-p v2-pad">{clean(s["order_note"])}</p></section>')
-            continue
-        if mode == "by_team":                         # H56: the order is punted; each team's class
-            o.append(f'<p class="lh-sub v2-pad">{clean(s["order_note"])}</p>'
-                     '<div class="v2-scroll"><table class="lh-table v2-lg-dr v2-lg-dr--team"><thead><tr>'
-                     f'<th>Player</th><th>Then</th><th>{clean(s["later_label"])}</th></tr></thead><tbody>')
-            last = None
-            for r in s["rows"]:
-                if r["m"] != last:
-                    t = r["team"]
-                    o.append(f'<tr class="v2-lg-dteam"><th colspan="3" scope="colgroup">'
-                             f'{_chip(t) if t else clean(r["m"])}</th></tr>')
-                    last = r["m"]
-                k = '<span class="v2-lg-k">K</span>' if r["keeper"] else ""
-                chg = (f'<span class="v2-lg-chg v2-lg-chg--{r["dir"]}">{clean(r["chg"])}</span>' if r["chg"] else "")
-                o.append(f'<tr><td>{_name(r["player"], r["href"], True)}{k}</td>'
-                         f'<td class="lh-num">{_why(r["then"], r["player"], r["then_why"])}</td>'
-                         f'<td class="lh-num">{_why(r["later"], r["player"], r["later_why"])}{chg}</td></tr>')
-            o.append(f'</tbody></table></div><div class="lh-table-note">{clean(s["drafted"])}</div></section>')
-            continue
-        o.append('<div class="v2-scroll"><table class="lh-table v2-lg-dr"><thead><tr><th>Pick</th>'
-                 f'<th>Player</th><th>Then</th><th>{clean(s["later_label"])}</th></tr></thead><tbody>')
-        for r in s["rows"]:
-            t = r["team"]
-            team = _chip(t) if t else clean(r["m"])
-            k = '<span class="v2-lg-k">K</span>' if r["keeper"] else ""
-            chg = (f'<span class="v2-lg-chg v2-lg-chg--{r["dir"]}">{clean(r["chg"])}</span>' if r["chg"] else "")
-            o.append(f'<tr><td class="lh-num">{clean(r["pick"])}{k}</td><td>{_name(r["player"], r["href"], True)}'
-                     f'<span class="lh-sub">{team}</span></td>'
-                     f'<td class="lh-num">{_why(r["then"], r["player"], r["then_why"])}</td>'
-                     f'<td class="lh-num">{_why(r["later"], r["player"], r["later_why"])}{chg}</td></tr>')
-        o.append(f'</tbody></table></div><div class="lh-table-note">{clean(s["drafted"])}</div></section>')
+def _draft(d: dict, refs: dict = None) -> str:
+    """History > Draft: the season picker (5d1 s.8) over one pane per draft;
+    refs {season: part ref}: published, a past season is its own part."""
+    by = {x["season"]: x for x in d["seasons"]}
+    o = [_spick("draft", list(by), d["default"], "", "Draft season")]
+    for x in d["seasons"]:
+        o.append(_spane("draft", x["season"], d["default"], (refs or {}).get(x["season"]),
+                        lambda x=x: draft_season_html(x)))
     o.append(f'<span class="lh-sub">{clean(d["note"])}</span>')
     return "".join(o)
 
 
-def _trades(tr: dict) -> str:
+def draft_season_html(s: dict) -> str:
+    """One draft's section (H56: numbered, by team, or dropped)."""
+    mode = s.get("mode", "order")
+    o = []
+    o.append(f'<section class="lh-card lh-card--flush"><div class="lh-sechead v2-pad">'
+             f'<h2 class="lh-eyebrow">{clean(s["season"])} draft</h2><span class="lh-meta">{clean(s["meta"])}</span>'
+             '</div>')
+    if mode == "dropped":                         # H56: 2018-19's list doesn't match the rosters
+        o.append(f'<p class="v2-p v2-pad">{clean(s["order_note"])}</p></section>')
+        return "".join(o)
+    if mode == "by_team":                         # H56: the order is punted; each team's class
+        o.append(f'<p class="lh-sub v2-pad">{clean(s["order_note"])}</p>'
+                 '<div class="v2-scroll"><table class="lh-table v2-lg-dr v2-lg-dr--team"><thead><tr>'
+                 f'<th>{colh_btn("draft", "player", "Player")}</th><th>{colh_btn("draft", "then", "Then")}</th>'
+                 f'<th>{colh_btn("draft", s["later_label"].lower(), clean(s["later_label"]))}</th></tr></thead><tbody>')
+        last = None
+        for r in s["rows"]:
+            if r["m"] != last:
+                t = r["team"]
+                o.append(f'<tr class="v2-lg-dteam"><th colspan="3" scope="colgroup">'
+                         f'{_chip(t) if t else clean(r["m"])}</th></tr>')
+                last = r["m"]
+            k = '<span class="v2-lg-k">K</span>' if r["keeper"] else ""
+            chg = (f'<span class="v2-lg-chg v2-lg-chg--{r["dir"]}">{clean(r["chg"])}</span>' if r["chg"] else "")
+            o.append(f'<tr><td>{_name(r["player"], r["href"], True)}{k}</td>'
+                     f'<td class="lh-num">{_why(r["then"], r["player"], r["then_why"])}</td>'
+                     f'<td class="lh-num">{_why(r["later"], r["player"], r["later_why"])}{chg}</td></tr>')
+        o.append(f'</tbody></table></div><div class="lh-table-note">{clean(s["drafted"])}</div></section>')
+        return "".join(o)
+    o.append('<div class="v2-scroll"><table class="lh-table v2-lg-dr"><thead><tr>'
+             f'<th>{colh_btn("draft", "pick", "Pick")}</th>'
+             f'<th>{colh_btn("draft", "player", "Player")}</th><th>{colh_btn("draft", "then", "Then")}</th>'
+             f'<th>{colh_btn("draft", s["later_label"].lower(), clean(s["later_label"]))}</th></tr></thead><tbody>')
+    for r in s["rows"]:
+        t = r["team"]
+        team = _chip(t) if t else clean(r["m"])
+        k = '<span class="v2-lg-k">K</span>' if r["keeper"] else ""
+        chg = (f'<span class="v2-lg-chg v2-lg-chg--{r["dir"]}">{clean(r["chg"])}</span>' if r["chg"] else "")
+        o.append(f'<tr><td class="lh-num">{clean(r["pick"])}{k}</td><td>{_name(r["player"], r["href"], True)}'
+                 f'<span class="lh-sub">{team}</span></td>'
+                 f'<td class="lh-num">{_why(r["then"], r["player"], r["then_why"])}</td>'
+                 f'<td class="lh-num">{_why(r["later"], r["player"], r["later_why"])}{chg}</td></tr>')
+    o.append(f'</tbody></table></div><div class="lh-table-note">{clean(s["drafted"])}</div></section>')
+    return "".join(o)
+
+
+def _trades(tr: dict, refs: dict = None) -> str:
+    """History > Trades: the season picker (5d1 s.8) over one pane per season
+    with trades, newest first; refs {season: part ref}: published, a past
+    season is its own part, opened when picked."""
+    seasons = []
+    for it in tr["items"]:                           # newest first already
+        if it["season"] not in seasons:
+            seasons.append(it["season"])
     o = ['<section class="lh-card v2-gap8"><div class="lh-sechead"><h2 class="lh-eyebrow">Trades</h2>'
          f'<span class="lh-meta">{clean(tr["count"])}</span></div>']
     if not tr["items"]:
         o.append(f'<p class="v2-p">{clean(tr["empty"])}</p>')
-    o.append('<div class="v2-mk-list">')
+    else:
+        default, note = spick_default(seasons, tr.get("current") or "", "trade")
+        o.append(_spick("trades", seasons, default, note, "Trades season"))
+        for se in seasons:
+            o.append(_spane("trades", se, default, (refs or {}).get(se), lambda se=se: trades_season_html(tr, se)))
+    o.append(f'<span class="lh-sub">{clean(tr["note"])}</span></section>')
+    return "".join(o)
+
+
+def trades_season_html(tr: dict, season: str) -> str:
+    """One season's trades, newest first."""
+    o = ['<div class="v2-mk-list">']
     for it in tr["items"]:
+        if it["season"] != season:
+            continue
         o.append(f'<div class="v2-lg-trade"><span class="lh-sub">{clean(it["date"])} &middot; {clean(it["season"])}</span>'
                  f'<span class="v2-lg-th">{_chip(it["teams"][0])} &#8644; {_chip(it["teams"][1])}</span>')
         for sd in it["sides"]:
             gets = ", ".join(_name(g["t"], g["href"]) for g in sd["gets"]) or "nothing recorded"
             o.append(f'<span class="v2-lg-side"><b>{clean(sd["m"])} gets:</b> {gets}</span>')
+        if it.get("ruling"):
+            o.append(f'<span class="lh-sub">{clean(it["ruling"])}</span>')
         o.append("</div>")
-    o.append(f'</div><span class="lh-sub">{clean(tr["note"])}</span></section>')
+    o.append("</div>")
     return "".join(o)
 
 
-def chip_html(h: dict, chip: str, mono) -> str:
-    """One History chip's HTML, from view.league_history's model."""
+# =============================================================================
+# 5d1 s.8 (Nick, 11-20): a season picker on the lists that grow every season
+# (Player of the week, History > Trades, History > Draft). The current season
+# shows by default; before it has an entry (week 1), the latest season with
+# entries, and the picker says so. The season is in the route (?s=, and the
+# draft's /<season>), so the back button and a shared link work. Published,
+# each past season is its own encrypted part, opened only when picked
+# (past_seasons), so the first load doesn't grow with the years.
+# =============================================================================
+
+SEASONAL = ("draft", "trades")                       # History chips with a season picker (and Awards' potw)
+
+
+def spick_default(seasons: list, current: str, what: str) -> tuple:
+    """(the season shown first, the picker's note): the current season when
+    it has an entry, else the newest that has, saying so."""
+    if not seasons:
+        return "", ""
+    if current in seasons:
+        return current, ""
+    return seasons[0], f"No {what} in {current} yet: showing {seasons[0]}."
+
+
+def _spick(key: str, seasons: list, default: str, note: str, aria: str) -> str:
+    o = [f'<div class="v2-lg-dsel"><label class="v2-fchip v2-spick">Season<select data-spick="{clean(key)}" '
+         f'aria-label="{clean(aria)}">']
+    for se in seasons:
+        o.append(f'<option value="{clean(se)}"{" selected" if se == default else ""}>{clean(se)}</option>')
+    o.append("</select></label>")
+    if note:
+        o.append(f'<span class="lh-sub v2-spick-note">{clean(note)}</span>')
+    o.append("</div>")
+    return "".join(o)
+
+
+def _spane(key: str, season: str, default: str, ref, html_fn) -> str:
+    """One season's pane: inline, or (a published past season) its part's ref
+    and a loading line, filled when it is picked."""
+    hid = "" if season == default else " hidden"
+    attr = f'data-spick-of="{clean(key)}|{clean(season)}"'
+    if ref is not None and season != default:
+        return (f'<div {attr} data-part=\'{clean(json.dumps(ref, separators=(",", ":")))}\'{hid}>'
+                '<p class="v2-lg-load">Loading the season&hellip;</p></div>')
+    return f'<div {attr}{hid}>{html_fn()}</div>'
+
+
+def past_seasons(model: dict, which: str) -> dict:
+    """{season: its pane's HTML} for every season but the default one, of
+    "draft", "trades" (History) or "potw" (Awards): publish seals each."""
+    if which == "draft":
+        return {x["season"]: draft_season_html(x) for x in model["seasons"] if x["season"] != model["default"]}
+    if which == "trades":
+        seasons = list(dict.fromkeys(it["season"] for it in model["items"]))
+        default, _n = spick_default(seasons, model.get("current") or "", "trade")
+        return {se: trades_season_html(model, se) for se in seasons if se != default}
+    if which == "potw":
+        seasons = [x["season"] for x in model["potw"] if x["rows"]]
+        default, _n = spick_default(seasons, model.get("potw_current") or "", "Player of the week")
+        return {x["season"]: potw_season_html(x) for x in model["potw"] if x["rows"] and x["season"] != default}
+    raise ValueError(f"no season picker {which!r}")
+
+
+def chip_html(h: dict, chip: str, mono, season_refs: dict = None) -> str:
+    """One History chip's HTML, from view.league_history's model. 5d1:
+    season_refs {season: part ref} for a SEASONAL chip, published."""
     if chip == "champions":
         return _champions(h["champions"], mono)
     if chip == "alltime":
@@ -688,9 +841,9 @@ def chip_html(h: dict, chip: str, mono) -> str:
     if chip == "records":
         return _records(h["records"])
     if chip == "draft":
-        return _draft(h["draft"])
+        return _draft(h["draft"], season_refs)
     if chip == "trades":
-        return _trades(h["trades"])
+        return _trades(h["trades"], season_refs)
     raise ValueError(f"no History chip {chip!r}")
 
 

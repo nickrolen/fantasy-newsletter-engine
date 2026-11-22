@@ -137,6 +137,38 @@ def visible_text(html: str) -> str:
     return "\n".join([text] + attrs + data)
 
 
+# 5d1 s.9 (CHAMPION_HOTFIX follow-up; LEAGUE_RULES "Who the champion is"): the
+# same mistake four times, so the published text is checked. Every visible
+# "champion(s)", "championship(s)" or "title(s)" must be the League
+# Champion's (the regular-season winner), or qualified "playoff" or "Cup", or
+# title odds / Title delta. A word no pattern below covers REFUSES the publish:
+# a new use is a deliberate addition here, never a silent one.
+CHAMPION_WORD = re.compile(r"\b(?:champions?|championships?|titles?)\b", re.I)
+CHAMPION_OK = [re.compile(x, f) for x, f in (
+    (r"\btitle(?:[- ]odds|s? \u0394|-odds)", re.I),                         # title odds, Title delta
+    (r"\b(?:playoff|cup)\s+(?:champion(?:ship)?s?|titles?)\b", re.I),       # Playoff champion, playoff title(s)
+    (r"\bleague(?:'s)?\s+champion(?:ship)?s?\b", re.I),                    # League Champion(ships), the league's champion
+    (r"\bregular[- ]season\s+titles?\b", re.I),                            # the regular-season title (= League Champion)
+    (r"\bThe champion is the League Champion\b", 0),                        # League > History's note
+    (r"\bChampions(?= (?:All-time|\d+ seasons?\b))", 0),                   # the History chip and its section: League Champions
+    (r"\bTitles(?= (?:Playoff\b|=? ?League Championships))", 0),           # All-time's column (titles_won), its note and definition
+    (r"(?<=\bStrk )Title\b", 0),                                           # Standings' title-odds column
+)]
+
+
+def champion_audit(pieces: dict) -> list:
+    """[(where, the word with 40 characters either side)] for every visible
+    champion/title word that no CHAMPION_OK pattern covers."""
+    out = []
+    for where, html in pieces.items():
+        t = " ".join(visible_text(html).split())
+        ok = [m.span() for rx in CHAMPION_OK for m in rx.finditer(t)]
+        for m in CHAMPION_WORD.finditer(t):
+            if not any(a <= m.start() and m.end() <= b for a, b in ok):
+                out.append((where, t[max(0, m.start() - 40):m.end() + 40]))
+    return out
+
+
 def text_audit(pieces: dict) -> dict:
     """{"pieces", "chars", "object_hits", "empty_hits", "empty_cells", "dash_cells"} over
     {where: html}. A hit is (where, the match with 30 characters either side)."""
@@ -210,9 +242,14 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
         if tab not in rt["screens"]:
             problems.append(f"no {tab} screen")
     opened = {"screens": len(screens_opened), "parts": {}, "cards": 0, "photos": 0, "issues": 0, "pictures": 0}
-    # League's History chips and Awards
-    for raw in re.findall(r"data-part='([^']*)'", page):
+    # League's History chips and Awards (5d1 s.8: and the past seasons' parts
+    # their pickers hold, opened from inside them: a queue, not one pass)
+    todo = list(re.findall(r"data-part='([^']*)'", page))
+    while todo:
+        raw = todo.pop(0)
         ref = json.loads(_html.unescape(raw))
+        if ref.get("file") in opened["parts"]:
+            continue
         try:
             obj = open_part(out, ref)
             if not str(obj.get("html") or "").strip():
@@ -220,6 +257,7 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
             opened["parts"][ref["file"]] = len(obj["html"])
             shown[f"part {ref['file']}"] = str(obj["html"])
             reached.add(ref["file"])
+            todo += re.findall(r"data-part='([^']*)'", str(obj["html"]))
         except Exception as e:                       # noqa: BLE001 -- named
             problems.append(f"{ref.get('file')}: {type(e).__name__}: {e}")
     if not opened["parts"]:
@@ -279,6 +317,11 @@ def check(base, payload: dict, cards, out_dir, *, now=None, pictures=None, terms
         problems.append(f"object text on the page ({len(audit['object_hits'])}): {audit['object_hits'][:5]}")
     if audit["empty_hits"]:
         problems.append(f"empty values on the page ({len(audit['empty_hits'])}): {audit['empty_hits'][:5]}")
+    champ = champion_audit(shown)                    # 5d1 s.9: who is called champion
+    audit["champion_hits"] = champ
+    if champ:
+        problems.append(f"a champion or title the rules don't name ({len(champ)}; LEAGUE_RULES \"Who the champion "
+                        f"is\"): {champ[:5]}")
     orphans = sorted(set(rep["files"]) - reached)
     if orphans:
         problems.append(f"published files no key reaches: {orphans}")
@@ -339,7 +382,8 @@ def summary(rep: dict) -> list:
              f"  text audit: {rep['text_audit']['pieces']} pieces, {rep['text_audit']['chars']:,} characters "
              f"of visible text: {len(rep['text_audit']['object_hits'])} object text, "
              f"{len(rep['text_audit']['empty_hits'])} empty value(s); {rep['text_audit']['empty_cells']} empty "
-             f"cell(s), {rep['text_audit']['dash_cells']} dash cell(s) (counted, not failed)",
+             f"cell(s), {rep['text_audit']['dash_cells']} dash cell(s) (counted, not failed); "
+             f"{len(rep['text_audit'].get('champion_hits') or [])} unqualified champion/title word(s)",
              f"  banners: stale {'present' if rep['banners']['stale_banner'] else 'MISSING'}"
              f" ({'shown' if rep['banners']['stale_shown'] else 'hidden'}), engine mismatch "
              f"{'shown' if rep['banners']['engine_mismatch'] else 'not shown'}, closing-line note "

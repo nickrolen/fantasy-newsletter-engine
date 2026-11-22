@@ -153,7 +153,8 @@ def _league_inputs():
     extra = [_pick("2023-24", i + 1, 1 + i // 4, m, f"{m} Old{i}") for i, m in enumerate(["Marcus", "Tyler", "Dana", "Jordan"] * 2)]
     extra += [_pick("2023-24", 9, 3, "Dana", "Dana Keeper", True), _pick("2018-19", 1, 1, "Tyler", "Gone Guy"),
               _pick("2017-18", 1, 1, "Marcus", "First Guy")]
-    inp["all_drafts"] = list(inp["all_drafts"]) + extra
+    # 5d1: the fixture now has its own punted 2023-24 (for the tap sweep); this test's 2023-24 replaces it
+    inp["all_drafts"] = [p for p in inp["all_drafts"] if p["season"] != "2023-24"] + extra
     return inp
 
 
@@ -172,10 +173,10 @@ def test_a_punted_season_renders_by_team_with_no_pick_numbers_and_2018_19_its_no
     assert by["2018-19"]["mode"] == "dropped" and by["2018-19"]["rows"] == []
     assert by["2018-19"]["order_note"] == DH.DROPPED_NOTE
     html = PL._draft(_view_draft(h, inp))
-    sec = re.search(r'data-lhdraft-of="2023-24"(.*?)</section>', html, re.S).group(1)
+    sec = re.search(r'data-spick-of="draft\|2023-24"(.*?)</section>', html, re.S).group(1)       # 5d1 s.8
     assert "v2-lg-dr--team" in sec and "pick order for this season isn" in sec
-    assert not re.search(r'<td class="lh-num">\d+\.\d\d', sec) and "<th>Pick</th>" not in sec
-    drop = re.search(r'data-lhdraft-of="2018-19"(.*?)</section>', html, re.S).group(1)
+    assert not re.search(r'<td class="lh-num">\d+\.\d\d', sec) and 'data-colh="draft|pick"' not in sec
+    drop = re.search(r'data-spick-of="draft\|2018-19"(.*?)</section>', html, re.S).group(1)
     assert "doesn" in drop and "<table" not in drop
 
 
@@ -266,10 +267,11 @@ def test_the_record_writer_values_only_trusted_slots_and_classes_need_no_order()
                "is_keeper": False},
               {"season": "2024-25", "pick_number": 20, "round": 5, "manager": "Nick", "player_name": "New Star",
                "is_keeper": False}]
-    out = B.compute_draft_manager_leaderboards(games, drafts)
+    out = B.compute_draft_manager_leaderboards(games, drafts, pick_games=games)     # 5d1: the pick game set, given
     assert [e["player_name"] for e in out["biggest_draft_steal_top10"]] == ["New Star"]
     with pytest.raises(ValueError):
-        B.compute_draft_manager_leaderboards(games, [dict(drafts[0], player_name=f"P{i}") for i in range(8)])
+        B.compute_draft_manager_leaderboards(games, [dict(drafts[0], player_name=f"P{i}") for i in range(8)],
+                                             pick_games=games)
 
 
 def test_the_card_record_book_skips_punted_steals():
@@ -431,7 +433,8 @@ def test_real_no_punted_pick_number_in_any_published_piece(real, tmp_path):
         for m in re.finditer(r'<b>(\d{4}-\d{2})</b><span class="lh-sub">((?:Round \d+, pick \d+|Pick \d+)[^<]*)', html):
             if not DH.order_trusted(m.group(1)):
                 bad.append((where, m.group(0)))
-        for m in re.finditer(r'data-lhdraft-of="(\d{4}-\d{2})"(.*?)</section>', html, re.S):
+        # 5d1 s.8: each season's draft is its own section (a past one in its own part)
+        for m in re.finditer(r'<h2 class="lh-eyebrow">(\d{4}-\d{2}) draft</h2>(.*?)</section>', html, re.S):
             if not DH.order_trusted(m.group(1)) and re.search(r'<td class="lh-num">\d+\.\d\d', m.group(2)):
                 bad.append((where, m.group(1)))
         if re.search(r"P\d+ \(R\d+\)", PC.visible_text(html)):

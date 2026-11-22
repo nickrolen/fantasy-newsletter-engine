@@ -31,7 +31,9 @@ THE LABEL, from his standouts ordered by percentile (ties: SKILLS order):
     none                            all_around when all_around_min (3) or more
                                     skills are at or above all_around_pct (50:
                                     the rostered median), else role (Nick 11-20:
-                                    Siakam, Franz, Mikal, Deni are not role players)
+                                    Siakam, Franz, Mikal, Deni are not role players);
+                                    with OVR on, ratings.assign_stars then decides it
+                                    by the fixed all_around_ovr (75; 5d1)
     otherwise his best two (or one) by PAIRS below; with THREE OR MORE
     standouts the pair is chosen with pair_first's skills (Scoring,
     Playmaking) ahead of the rest, each group by percentile (Nick 11-20:
@@ -117,6 +119,7 @@ def check(ac: dict, categories: dict) -> dict:
     num("trend_margin", 0.01, 1.0)
     num("all_around_min", 1, 6, True)
     num("all_around_pct", 1, 99)
+    num("all_around_ovr", 1, 99, True)         # Nick, 11-20: a fixed OVR cutoff for All-Around (ratings.assign_stars)
     pf = ac.get("pair_first")
     if not isinstance(pf, list) or not all(x in SKILLS for x in pf) or len(set(pf)) != len(pf):
         bad.append("ratings.archetype.pair_first (skills, e.g. [\"scoring\", \"playmaking\"])")

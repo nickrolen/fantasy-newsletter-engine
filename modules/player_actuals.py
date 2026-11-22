@@ -133,6 +133,31 @@ THE MINUTES (4a3, 11-19: the roster's MIN and MIN delta, the card's last
         passes fetch a day once, and the category backfill's league-scoped
         line carries no games played.
 
+LATE-FILLED LINES AND HELD LINES (5d1, 11-21; config actuals.recheck_days)
+    - AN INCOMPLETE LINE (Zion Williamson 2026-11-14): a day cached as 0
+      points in 1 game whose categories now score a non-zero total. Yahoo
+      filled the stats in late; it is not a stat correction. The day is
+      rewritten with Yahoo's total and its categories, kept in the player's
+      "late_filled" ({day: {"was", "now"}}), and recorded (LATE STAT LINE
+      FILLED). It is caught by the backfill (a day with no categories yet),
+      by recheck_recent (the nightly re-checks the last recheck_days days for
+      any day cached as 0 points in 1 game), and, with no call, by
+      settle_recorded_late_lines for one the old rule kept as a correction.
+      A phantom (Yahoo now says games played 0) is still 5c's rule. Any other
+      late change to a saved day is a stat correction, never rewritten.
+    - A HELD LINE (Nickeil Alexander-Walker 2026-11-20: PTS 19 is not 2 FGM
+      + 3PTM + FTM, the same line ~5 and ~19 hours after the final): one
+      player's line that doesn't add up holds back only him. The others'
+      categories are written; his day goes in "cat_pending" ({day: why},
+      CATEGORIES PENDING) and is retried while it is within recheck_days of
+      today. When Yahoo's line adds up, it is written (and his points, if
+      Yahoo's total differs, as a late-filled line: they came from the line
+      that didn't add up). Past the window, it goes in "cat_missing" ({day:
+      "Yahoo's line never added up: ..."}), recorded once, and is never asked
+      for again. category_season leaves a held or missing day's game out of
+      the totals (never "loading" for it). When EVERY player asked for fails
+      (two or more), it is the whole day's error, as before: nothing is held;
+      the backfill records it and goes on to the next day.
 THE OTHER PLAYERS THE HUB NAMES (40b, 11-13: update_extras)
     The player cards show every carded player's NBA season (ONE FPPG
     EVERYWHERE), so the cache also covers every NON-ROSTERED player the hub
@@ -171,6 +196,7 @@ READERS
 
 from __future__ import annotations
 
+import inspect
 import json
 import math
 import time
@@ -250,6 +276,7 @@ def validate(blob: dict, path="data/player_actuals.json") -> dict:
                 raise ActualsError(f"{path}: {rec['name']} {d} has {v[0]} points and no game")
         _check_cat_days(rec, header, path)
         _check_min_days(rec, path)
+        _check_held_days(rec, path)
     for name, pid in blob["roster_names"].items():
         if str(pid) not in blob["players"]:
             raise ActualsError(f"{path}: roster name {name!r} points at id {pid}, not cached")
@@ -299,6 +326,34 @@ def _check_cat_days(rec: dict, header: Optional[dict], path) -> None:
     for d in corr:
         if d not in cd:
             raise ActualsError(f"{path}: {rec['name']} has a correction on {d} and no categories that day")
+
+
+def _check_held_days(rec: dict, path) -> None:
+    """5d1: "cat_pending" (a line that didn't add up, retried) and
+    "cat_missing" (given up) are {day: reason} on a cached day he played,
+    with no categories that day; "late_filled" is {day: {"was", "now"}} on a
+    cached day whose points are "now"."""
+    for k in ("cat_pending", "cat_missing"):
+        m = rec.get(k)
+        if m is None:
+            continue
+        if not isinstance(m, dict):
+            raise ActualsError(f"{path}: {rec['name']}'s {k} is malformed")
+        for d, why in m.items():
+            v = rec["days"].get(d)
+            if v is None or v[1] != 1 or not isinstance(why, str) or not why:
+                raise ActualsError(f"{path}: {rec['name']} {k} {d} is not a played, cached day with a reason")
+            if d in (rec.get("cat_days") or {}):
+                raise ActualsError(f"{path}: {rec['name']} {d} is in {k} and has categories")
+    lf = rec.get("late_filled")
+    if lf is not None:
+        if not isinstance(lf, dict):
+            raise ActualsError(f"{path}: {rec['name']}'s late_filled is malformed")
+        for d, e in lf.items():
+            v = rec["days"].get(d)
+            if (v is None or not isinstance(e, dict) or set(e) != {"was", "now"}
+                    or abs(float(v[0]) - float(e["now"])) > CAT_TOL):
+                raise ActualsError(f"{path}: {rec['name']} late_filled {d} is {e!r}, not the day's points")
 
 
 def _check_min_days(rec: dict, path) -> None:
@@ -548,7 +603,7 @@ class YahooSource:
         way. Stat 2 of the game-scoped response that carries stat 0."""
         out = {}
         cats: Dict[int, List[int]] = {}
-        cat_err: Optional[str] = None
+        held: Dict[int, str] = {}
         mins: Dict[int, int] = {}
         min_err: Optional[str] = None
         for i in range(0, len(pids), BATCH):
@@ -582,13 +637,15 @@ class YahooSource:
                     raise ActualsError(f"Yahoo's {d} line for {names[pid]}: {pts[pid]} points "
                                        "and no game played")
                 out[pid] = [round(pts[pid], 2), g]
-                if header is not None and cat_err is None:
+                if header is not None:
+                    # 5d1 s.2b: one player's bad line holds back only him (held), never the
+                    # others' categories; held lines are retried within the re-check window
                     try:
                         c = parse_cats(rowof[pid], header, names[pid], d, g)
                         check_cats(c, header, out[pid][0], names[pid], d)
                         cats[pid] = c
                     except CategoryError as e:
-                        cat_err = str(e)
+                        held[pid] = str(e)
                 if min_err is None:
                     try:
                         mins[pid] = parse_minutes(gst[pid][MIN_STAT], names[pid], d, g)
@@ -597,7 +654,7 @@ class YahooSource:
         mr = {"minutes": None, "error": min_err} if min_err else {"minutes": mins, "error": None}
         if header is None:
             return out, None, mr
-        return out, ({"cats": None, "error": cat_err} if cat_err else {"cats": cats, "error": None}), mr
+        return out, held_result(cats, held, out), mr
 
     def minutes_day(self, pids: List[int], d: date, names: Dict[int, str],
                     now_zero: Optional[set] = None) -> Dict[int, int]:
@@ -633,12 +690,15 @@ class YahooSource:
         return out
 
     def cats_day(self, pids: List[int], d: date, names: Dict[int, str],
-                 header: dict) -> Dict[int, tuple]:
+                 header: dict, held: Optional[Dict[int, str]] = None) -> Dict[int, tuple]:
         """The backfill's request (4a2): {pid: (counts, Yahoo's total now)}
         for players who PLAYED on day d, from the league-scoped line only
         (1 call per BATCH). The counts must score Yahoo's total now
         (check_cats), or CategoryError: the scoring changed. Any missing
-        player or failed request raises, naming the date and the player."""
+        player or failed request raises, naming the date and the player.
+        held (5d1 s.2b): a dict the caller passes to hold back a player whose
+        line does not add up (his reason is put in it and he is left out of
+        the result) instead of raising for the whole request."""
         out = {}
         for i in range(0, len(pids), BATCH):
             chunk = pids[i:i + BATCH]
@@ -656,9 +716,53 @@ class YahooSource:
                 if "total_points" not in r or _num(r["total_points"]) is None:
                     raise ActualsError(f"Yahoo's {d} line for {names[pid]} has no total_points")
                 total = round(_num(r["total_points"]), 2)
-                c = parse_cats(r, header, names[pid], d, 1)
-                check_cats(c, header, total, names[pid], d)
+                try:
+                    c = parse_cats(r, header, names[pid], d, 1)
+                    check_cats(c, header, total, names[pid], d)
+                except CategoryError as e:
+                    if held is None:
+                        raise
+                    held[pid] = str(e)
+                    continue
                 out[pid] = (c, total)
+        return out
+
+    def recheck_day(self, pids: List[int], d: date, names: Dict[int, str], header: dict) -> Dict[int, dict]:
+        """5d1 s.2: the re-check of a recent day cached as 0 points in 1 game.
+        {pid: {"total", "games", "cats" (or None), "error" (or None),
+        "minutes" (or None)}}: the league-scoped line (total and categories)
+        and the game-scoped one (games played and minutes), 2 calls per
+        BATCH. Never raises for one player's line; a failed request raises."""
+        out: Dict[int, dict] = {}
+        for i in range(0, len(pids), BATCH):
+            chunk = pids[i:i + BATCH]
+            try:
+                rows = self.lg.player_stats(chunk, "date", date=d)
+                self.calls += 1
+                raw = self._game_raw(chunk, d)
+            except Exception as e:                     # network, auth, parse
+                raise ActualsError(f"Yahoo request for {d}'s re-check failed ({type(e).__name__}: {e}) "
+                                   f"for {', '.join(names[p] for p in chunk)}") from e
+            byid = {int(r.get("player_id", 0)): r for r in rows}
+            gst = parse_game_stats(raw)
+            for pid in chunk:
+                r = byid.get(pid)
+                if r is None or "total_points" not in r or pid not in gst or gst[pid][GP_STAT] is None:
+                    raise ActualsError(f"Yahoo returned no {d} line for {names[pid]} (re-check)")
+                total = round(_num(r["total_points"]) or 0.0, 2)
+                g = games_value(gst[pid][GP_STAT], names[pid], d)
+                e = {"total": total, "games": g, "cats": None, "error": None, "minutes": None}
+                try:
+                    c = parse_cats(r, header, names[pid], d, g)
+                    check_cats(c, header, total, names[pid], d)
+                    e["cats"] = c
+                except CategoryError as ex:
+                    e["error"] = str(ex)
+                try:
+                    e["minutes"] = parse_minutes(gst[pid][MIN_STAT], names[pid], d, g)
+                except MinutesError:
+                    pass
+                out[pid] = e
         return out
 
 
@@ -693,14 +797,31 @@ def _fetch_day(source, pids, d, names, header):
     return source.day(pids, d, names), None, None
 
 
-def _store_cats(blob: dict, d: date, cr: Optional[dict], errors: List[str]) -> None:
+def held_result(cats: Dict[int, List[int]], held: Dict[int, str], asked) -> dict:
+    """5d1 s.2b: a day's categories result. One player's line that doesn't add
+    up holds back only him ("held"), and the rest are written. When EVERY
+    player asked for (two or more) fails, it is the whole day's error, as
+    before (the scoring may have changed): nothing is held or written."""
+    if held and not cats and len(list(asked)) >= 2:
+        return {"cats": None, "error": next(iter(held.values())), "held": {}}
+    return {"cats": cats, "error": None, "held": dict(held)}
+
+
+def _store_cats(blob: dict, d: date, cr: Optional[dict], errors: List[str],
+                held_out: Optional[List[str]] = None) -> None:
     if cr is None:
         return
     if cr["error"]:
         errors.append(f"{d.isoformat()}: {cr['error']}")
         return
+    iso = d.isoformat()
     for pid, c in cr["cats"].items():
-        blob["players"][str(pid)].setdefault("cat_days", {})[d.isoformat()] = c
+        blob["players"][str(pid)].setdefault("cat_days", {})[iso] = c
+    for pid, why in (cr.get("held") or {}).items():     # 5d1 s.2b: categories pending for him alone
+        rec = blob["players"][str(pid)]
+        rec.setdefault("cat_pending", {})[iso] = why
+        line = f"{rec['name']} {iso}: categories pending: {why}"
+        (held_out if held_out is not None else errors).append(line)
 
 
 def _store_minutes(blob: dict, d: date, mr: Optional[dict], errors: List[str]) -> None:
@@ -753,6 +874,7 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
     else:
         header = None
     cat_errors: List[str] = []
+    cat_held: List[str] = []
     min_errors: List[str] = []
     for n, pid in ids.items():
         rec = blob["players"].setdefault(str(pid), {"name": n, "days": {}})
@@ -768,7 +890,7 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
         for pid, v in got.items():
             blob["players"][str(pid)]["days"][d.isoformat()] = v
             per_player_days[names[pid]] = per_player_days.get(names[pid], 0) + 1
-        _store_cats(blob, d, cr, cat_errors)
+        _store_cats(blob, d, cr, cat_errors, cat_held)
         _store_minutes(blob, d, mr, min_errors)
         blob["roster_names"] = {n: int(p) for n, p in sorted(ids.items())}
         blob["rosters_from"] = "config/ROSTERS.json"
@@ -792,7 +914,7 @@ def update(base_path=".", *, source=None, ids: Dict[str, int] = None, yahoo_name
             getattr(source, "calls", 0) - calls0, "seconds": seconds,
             "backfilled": new_players, "player_days": per_player_days,
             "players": len(ids), "ids": names_now, "source": source, "header": header,
-            "cat_errors": cat_errors, "min_errors": min_errors}
+            "cat_errors": cat_errors, "cat_held": cat_held, "min_errors": min_errors}
 
 
 # =============================================================================
@@ -823,6 +945,13 @@ def extras_cap(base_path=".") -> int:
 def backfill_cap(base_path=".") -> int:
     """config actuals.category_backfill_calls_max (4a2): required, an int of at least 1."""
     return _actuals_int(base_path, "category_backfill_calls_max")
+
+
+def recheck_days(base_path=".") -> int:
+    """config actuals.recheck_days (5d1 s.2): required, an int of at least 1:
+    how many of the last finished days the nightly re-checks for a late-filled
+    line, and how long a held line (categories pending) is retried."""
+    return _actuals_int(base_path, "recheck_days")
 
 
 def minutes_cap(base_path=".") -> int:
@@ -930,7 +1059,7 @@ def update_extras(base_path=".", *, source, rostered: Dict[str, int], today: dat
     out = {"through": last.isoformat(), "players": len(ids), "no_id": ex["no_id"], "from": ex["from"],
            "cap": ex["cap"], "backfilled": new_players, "missing_days": missing,
            "planned_days": len(todo), "planned_calls": calls_for(todo), "days_fetched": [], "calls": 0,
-           "seconds": 0.0, "cat_errors": [], "min_errors": []}
+           "seconds": 0.0, "cat_errors": [], "cat_held": [], "min_errors": []}
     if dry_run:
         return out
     t0 = time.time()
@@ -941,7 +1070,7 @@ def update_extras(base_path=".", *, source, rostered: Dict[str, int], today: dat
         got, cr, mr = _fetch_day(source, pids, d, names, header)
         for pid, v in got.items():
             blob["players"][str(pid)]["days"][d.isoformat()] = v
-        _store_cats(blob, d, cr, out["cat_errors"])
+        _store_cats(blob, d, cr, out["cat_errors"], out["cat_held"])
         _store_minutes(blob, d, mr, out["min_errors"])
         blob["extra_names"] = names_now
         blob["updated_at"] = league_now().isoformat(timespec="seconds")
@@ -1006,7 +1135,9 @@ def backfill_plan(blob: dict, last: date, key: str = "cat_days") -> Dict[date, d
     out: Dict[date, dict] = {}
     for pid in tracked_ids(blob):
         rec = blob["players"][str(pid)]
-        have = rec.get(key) or {}
+        have = dict(rec.get(key) or {})
+        if key == "cat_days":
+            have.update(rec.get("cat_missing") or {})     # 5d1 s.2b: given up, never asked again
         for d, v in rec["days"].items():
             if d in have or date.fromisoformat(d) > last:
                 continue
@@ -1041,11 +1172,14 @@ def backfill_categories(base_path=".", *, source=None, today: date = None, cap: 
     names = tracked_ids(blob)
     todo = backfill_plan(blob, last)
     out = {"days_missing": len(todo), "calls_needed": backfill_calls(todo), "cap": cap,
-           "days_done": [], "calls": 0, "corrections": [], "stopped": None, "seconds": 0.0}
+           "days_done": [], "calls": 0, "corrections": [], "late_filled": [], "held": [], "given_up": [],
+           "failed_days": [], "stopped": None, "seconds": 0.0}
     if dry_run:
         out["days_left"] = len(todo)
         return out
     t0 = time.time()
+    window_first = None                          # read when a line is held (config actuals.recheck_days)
+    takes_held = "held" in inspect.signature(source.cats_day).parameters if todo else False
     for d, want in todo.items():
         need = math.ceil(len(want["played"]) / BATCH)
         if need > cap:
@@ -1056,29 +1190,182 @@ def backfill_categories(base_path=".", *, source=None, today: date = None, cap: 
             out["stopped"] = f"the cap ({cap} calls) before {d.isoformat()}"
             break
         calls0 = getattr(source, "calls", 0)
-        got = source.cats_day(want["played"], d, names, header) if want["played"] else {}
+        held: Dict[int, str] = {}
+        if not want["played"]:
+            got = {}
+        elif takes_held:
+            got = source.cats_day(want["played"], d, names, header, held=held)
+        else:
+            got = source.cats_day(want["played"], d, names, header)
         out["calls"] += getattr(source, "calls", 0) - calls0
         iso = d.isoformat()
+        if held and not got and len(want["played"]) >= 2:
+            # every player asked for failed: the whole day's error, as before (the scoring may
+            # have changed). Recorded; the backfill goes on to the next day and retries this one
+            out["failed_days"].append(f"{iso}: {next(iter(held.values()))}")
+            continue
         for pid in want["played"]:
-            if pid not in got:
+            if pid not in got and pid not in held:
                 raise ActualsError(f"Yahoo returned no {d} categories for {names[pid]}")
         for pid, (c, total) in got.items():
             rec = blob["players"][str(pid)]
             stored = rec["days"][iso][0]
+            pending = iso in (rec.get("cat_pending") or {})
             corrected = None
             if abs(float(total) - float(stored)) > CAT_TOL:
+                if is_incomplete(rec, iso) or pending:
+                    # 5d1 s.2: a line Yahoo filled in late (cached 0 points in 1 game), or one cached
+                    # from a line that didn't add up: Yahoo's total and categories replace it
+                    out["late_filled"].append(fill_late_line(rec, iso, c, total, header, names[pid]))
+                    continue
                 corrected = total                       # an NBA stat correction since the night it came
             check_cats(c, header, stored, names[pid], iso, corrected=corrected)
             rec.setdefault("cat_days", {})[iso] = c
+            (rec.get("cat_pending") or {}).pop(iso, None)
+            if not rec.get("cat_pending"):
+                rec.pop("cat_pending", None)
             if corrected is not None:
                 rec.setdefault("cat_corrections", {})[iso] = corrected
                 out["corrections"].append(f"{names[pid]} {iso}: {stored} cached, {corrected} now")
+        for pid, why in sorted(held.items()):
+            rec = blob["players"][str(pid)]
+            if window_first is None:
+                window_first = today - timedelta(days=recheck_days(base))
+            if d >= window_first:                   # inside the re-check window: pending, retried
+                rec.setdefault("cat_pending", {})[iso] = why
+                out["held"].append(f"{names[pid]} {iso}: categories pending: {why}")
+            else:                                   # past it: left empty, recorded once, never asked again
+                rec.setdefault("cat_missing", {})[iso] = f"Yahoo's line never added up: {why}"
+                (rec.get("cat_pending") or {}).pop(iso, None)
+                if not rec.get("cat_pending"):
+                    rec.pop("cat_pending", None)
+                out["given_up"].append(f"{names[pid]} {iso}: Yahoo's line never added up: {why}")
         for pid in want["idle"]:
             blob["players"][str(pid)].setdefault("cat_days", {})[iso] = [0] * len(header["order"])
         blob["updated_at"] = league_now().isoformat(timespec="seconds")
         write(base, blob, today)
         out["days_done"].append(iso)
-    out["days_left"] = len(todo) - len(out["days_done"])
+    out["days_left"] = len(backfill_plan(blob, last)) if out["days_done"] else len(todo)
+    out["seconds"] = round(time.time() - t0, 1)
+    return out
+
+
+# =============================================================================
+# late-filled lines (5d1 s.2, Nick 11-20: Zion Williamson 2026-11-14)
+# =============================================================================
+
+def is_incomplete(rec: dict, iso: str) -> bool:
+    """5d1 s.2: a day cached as exactly 0 points in 1 game. When Yahoo's line
+    for it later scores a non-zero total, it was an incomplete line (Yahoo
+    filled the stats in late), not a stat correction."""
+    v = (rec.get("days") or {}).get(iso)
+    return v is not None and int(v[1]) == 1 and float(v[0]) == 0.0
+
+
+def fill_late_line(rec: dict, iso: str, cats: List[int], total: float, header: dict, who: str) -> str:
+    """Rewrite one day with Yahoo's total and its categories (they must score
+    it: check_cats), record it in the day's "late_filled", and return the run
+    row's line. Only for an incomplete day (is_incomplete) or a held one
+    (cat_pending): anything else RAISES -- a real stat correction is never
+    rewritten."""
+    if not (is_incomplete(rec, iso) or iso in (rec.get("cat_pending") or {})):
+        raise ActualsError(f"{who} {iso} is neither an incomplete line nor a held one: it is not rewritten")
+    if abs(float(total)) <= CAT_TOL:
+        raise ActualsError(f"{who} {iso}: Yahoo's total is still 0: nothing to fill")
+    check_cats(cats, header, total, who, iso)
+    was = rec["days"][iso][0]
+    rec["days"][iso] = [round(float(total), 2), 1]
+    rec.setdefault("cat_days", {})[iso] = list(cats)
+    for k in ("cat_corrections", "cat_pending"):
+        (rec.get(k) or {}).pop(iso, None)
+        if k in rec and not rec[k]:
+            rec.pop(k)
+    rec.setdefault("late_filled", {})[iso] = {"was": was, "now": round(float(total), 2)}
+    return f"{who} {iso}: {was} cached, {round(float(total), 2)} now (Yahoo's line filled in late)"
+
+
+def settle_recorded_late_lines(blob: dict, header: dict) -> List[str]:
+    """5d1 s.2, no call: a day cached as 0 points in 1 game whose categories
+    are cached and score a non-zero total kept as a "stat correction" (the
+    rule before 5d1: Zion Williamson 2026-11-14, 0.0 cached, 32.8 now) is an
+    incomplete line: rewritten with that total. Returns the run row's lines."""
+    out = []
+    for rec in blob["players"].values():
+        for iso, corr in sorted((rec.get("cat_corrections") or {}).items()):
+            c = (rec.get("cat_days") or {}).get(iso)
+            if c is None or not is_incomplete(rec, iso) or abs(float(corr)) <= CAT_TOL:
+                continue
+            out.append(fill_late_line(rec, iso, c, corr, header, rec["name"]))
+    return out
+
+
+def recheck_recent(base_path=".", *, source=None, today: date = None, header: dict = None,
+                   days: int = None, dry_run: bool = False) -> dict:
+    """5d1 s.2 (the nightly only): settle_recorded_late_lines, then re-check
+    the last `days` finished days (config actuals.recheck_days) for every
+    tracked player cached as 0 points in 1 game (is_incomplete):
+      - Yahoo's line now scores a non-zero total that its categories add up
+        to: the day is rewritten with it (fill_late_line), LATE STAT LINE
+        FILLED;
+      - Yahoo now says games played 0 and the day is a phantom (is_phantom):
+        5c's rule, the day becomes no game, PHANTOM GAME CORRECTED;
+      - anything else (still 0 points; a line that doesn't add up): left as
+        it is.
+    A day that is not 0 points in 1 game is never asked for, so a complete
+    day is never touched. 2 calls per 25 such players a day (the source's
+    recheck_day); none when there are none. RAISES (ActualsError) on a failed
+    request, after keeping what it settled."""
+    base = Path(base_path)
+    from .league_clock import league_today, league_now
+    today = today or league_today()
+    blob = load(base)
+    header = header or scoring_header(base)
+    ensure_cats(blob, header)
+    n = days if days is not None else recheck_days(base)
+    out = {"days": n, "settled": settle_recorded_late_lines(blob, header), "late_filled": [], "phantoms": [],
+           "asked": 0, "calls": 0, "seconds": 0.0}
+    names = tracked_ids(blob)
+    todo: Dict[date, List[int]] = {}
+    for d in days_between(today - timedelta(days=n), today - timedelta(days=1)):
+        iso = d.isoformat()
+        for pid in names:
+            rec = blob["players"][str(pid)]
+            if is_incomplete(rec, iso):
+                todo.setdefault(d, []).append(pid)
+    out["asked"] = sum(len(v) for v in todo.values())
+    if dry_run:
+        return out
+    t0 = time.time()
+    changed = bool(out["settled"])
+    n_cats = len(header["order"])
+    if todo and not hasattr(source, "recheck_day"):
+        out["skipped"] = "the source has no re-check"
+        todo = {}
+    for d, pids in todo.items():
+        calls0 = getattr(source, "calls", 0)
+        got = source.recheck_day(pids, d, names, header)
+        out["calls"] += getattr(source, "calls", 0) - calls0
+        iso = d.isoformat()
+        for pid in pids:
+            e = got.get(pid)
+            rec = blob["players"][str(pid)]
+            if e is None:
+                raise ActualsError(f"Yahoo returned no {d} line for {names[pid]} (re-check)")
+            if e["games"] == 0:
+                if is_phantom(rec, iso):
+                    correct_phantom(rec, iso, n_cats)
+                    out["phantoms"].append(f"{names[pid]} {iso}: a phantom game (games played 1 with no stats "
+                                           "when fetched; Yahoo now says 0): rewritten as no game")
+                    changed = True
+                continue
+            if e["cats"] is not None and abs(float(e["total"])) > CAT_TOL:
+                out["late_filled"].append(fill_late_line(rec, iso, e["cats"], e["total"], header, names[pid]))
+                if e["minutes"] is not None:
+                    rec.setdefault("min_days", {})[iso] = e["minutes"]
+                changed = True
+    if changed:
+        blob["updated_at"] = league_now().isoformat(timespec="seconds")
+        write(base, blob, today)
     out["seconds"] = round(time.time() - t0, 1)
     return out
 
@@ -1269,7 +1556,9 @@ def category_season(blob: dict, name: str, first: date, through: date) -> dict:
                     played lacks them (the backfill has not reached it)
       "not_cached"  never in the cache
       "gap"         a day in the window is not cached at all
-    Plain data; never raises for a player."""
+    5d1 s.2b: a day whose categories are held back (cat_pending) or given
+    up (cat_missing) is left out of games and totals, and listed in
+    "skipped". Plain data; never raises for a player."""
     header = blob.get("cats")
     rec = find_record(blob, name)
     res = {"status": "ok", "games": 0, "totals": None, "day": None}
@@ -1278,8 +1567,10 @@ def category_season(blob: dict, name: str, first: date, through: date) -> dict:
     if rec is None:
         return dict(res, status="not_cached")
     cd = rec.get("cat_days") or {}
+    held = set(rec.get("cat_pending") or {}) | set(rec.get("cat_missing") or {})   # 5d1 s.2b
     totals = [0] * len(header["order"])
     games = 0
+    skipped = []
     for d in days_between(first, through) if through >= first else []:
         iso = d.isoformat()
         v = rec["days"].get(iso)
@@ -1288,11 +1579,14 @@ def category_season(blob: dict, name: str, first: date, through: date) -> dict:
         if v[1] != 1:
             continue
         c = cd.get(iso)
+        if c is None and iso in held:
+            skipped.append(iso)                 # Yahoo's line didn't add up: the game is left out
+            continue
         if c is None:
             return dict(res, status="loading", day=iso)
         games += 1
         totals = [a + b for a, b in zip(totals, c)]
-    return dict(res, games=games, totals=dict(zip(header["order"], totals)))
+    return dict(res, games=games, totals=dict(zip(header["order"], totals)), skipped=skipped)
 
 
 def minutes_games(blob: dict, name: str, first: date, through: date) -> dict:

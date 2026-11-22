@@ -259,9 +259,10 @@ def view(card: dict, row: dict, ctx: dict) -> dict:
     bar = bars(games, fppg, card.get("last_10") or [])
     last = []
     min_g = row.get("min_g") or {}
+    opp_g = row.get("opp_g") or {}
     for g in (card.get("last_10") or [])[:LAST_N]:
-        o = g.get("opponent") or ""
         iso = str(g["date"])[:10]
+        o = g.get("opponent") or opp_g.get(iso) or ""        # 5d1 s.3: the NBA schedule's when the log has none
         last.append({"day": _day(g["date"]), "opp": o or DASH,
                      "fp": "INJ" if g.get("injured") else f"{float(g['fp']):.1f}",
                      "min": DASH if g.get("injured") else min_g.get(iso, "loading")})

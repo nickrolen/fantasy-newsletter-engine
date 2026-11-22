@@ -379,7 +379,8 @@ def test_the_draft_equals_the_draft_files_with_ovr_from_the_right_days():
     inp = _inputs()
     _, h = L.build(inp)
     by = {s["season"]: s for s in h["draft"]["seasons"]}
-    assert list(by) == ["2026-27", "2025-26"]
+    assert list(by) == ["2026-27", "2025-26", "2023-24"]        # 5d1: + a punted season, by team (H56)
+    assert by["2023-24"]["mode"] == "by_team"
     cur = by["2026-27"]
     assert [r["player"] for r in cur["rows"]] == [p["player_name"] for p in inp["draft_current"]["picks"]]
     assert "Jordan 3" in cur["drafted"] and "Marcus 2" in cur["drafted"]        # the one manager with an extra pick
@@ -433,7 +434,7 @@ def test_awards_show_the_races_and_player_of_the_week_with_its_backfilled_points
     wk2, wk1 = aw["potw"][1]["rows"]
     assert wk1["pts"] == "109.5" and wk1["sub"].startswith("2 games") and "from the league log" in wk1["sub"]
     assert wk2["pts"] == "\u2014" and "not recorded" in wk2["sub"]          # not in the log: never guessed
-    assert set(aw) == {"potw", "potw_note", "races", "races_error", "par_note", "races_note"}
+    assert set(aw) == {"potw", "potw_current", "potw_note", "races", "races_error", "par_note", "races_note"}
     assert [a["key"] for a in aw["races"]] == ["mvp", "pickup", "improved", "roy", "trade", "bust"]
     assert aw["races_error"] == ""
 
@@ -459,7 +460,10 @@ def test_history_is_published_as_encrypted_parts_and_never_in_the_page(tmp_path)
     p["v2"]["issue"]["file"] = e["enc"]
     out = tmp_path / "_to_delete" / "4c4" / "publish"
     rep = v2pub.build(tmp_path, p, PASS, salt=b"\x02" * 16, out_dir=out, iterations=1000, terms=TERMS, now=GEN)
-    assert rep["league_parts"]["parts"] == 8 and rep["served_bytes"] <= budget_bytes()       # 4c5: + Awards; 5b: + the odds chart
+    # 5d1 s.8: + one part per past season of a picker list (Draft, Trades, Player of the week)
+    seasons = [k for k in rep["league_parts"]["bytes"] if ":" in k]
+    assert seasons and all(k.split(":")[0] in ("draft", "trades", "potw") for k in seasons)
+    assert rep["league_parts"]["parts"] == 8 + len(seasons) and rep["served_bytes"] <= budget_bytes()       # 4c5: + Awards; 5b: + the odds chart
     assert hub_publish.scan_dir(out, TERMS)["hits"] == {}
     inner = v2pub.open_inner(PASS, json.loads(re.search(r'id="hub-bundle">(.*?)</script>',
                                                         (out / "index.html").read_text(encoding="utf-8"), re.S).group(1)))
@@ -635,5 +639,6 @@ def test_real_league_in_every_segment_and_chip_the_preview_and_publish(tmp_path)
     rep = v2pub.build(ROOT, p, "throwaway " + os.urandom(8).hex(), salt=os.urandom(16), out_dir=out,
                       iterations=1000, terms=terms)
     assert rep["served_bytes"] <= budget_bytes()
-    assert rep["league_parts"]["parts"] == 8 and rep["league_parts"]["largest"] <= 60_000          # 5b: + the odds chart
+    n_seasons = sum(1 for k in rep["league_parts"]["bytes"] if ":" in k)       # 5d1 s.8: each past season's part
+    assert rep["league_parts"]["parts"] == 8 + n_seasons and rep["league_parts"]["largest"] <= 60_000          # 5b: + the odds chart
     assert hub_publish.scan_dir(out, terms)["hits"] == {}

@@ -57,6 +57,26 @@ ROUND_CORRECTIONS = {
                             "TRADES.json and the 2026-27 draft agree (Nick, 11-21)"},
 }
 
+# Picks Yahoo records in a trade that the league reversed outside Yahoo (Nick's
+# rulings). Keyed like ROUND_CORRECTIONS, by Yahoo's transaction key and the
+# pick's (original team key, Yahoo round). A reversed pick leaves the trade:
+# add_picks moves it from "draft_picks" to "draft_picks_reversed" with the
+# note, so nothing shows it, values it or counts it, and the record of what
+# Yahoo says and why it doesn't stand stays in the file. A ruling that matches
+# no pick RAISES (add_picks), so a stale one can't silently do nothing.
+_FEB26_2024 = ("Reversed outside Yahoo (Nick, 11-21): the 2024-25 draft doesn't reflect this swap "
+               "(Nick picked twice in round 3, at 9 and 12, the second from the Jan 15 trade; Benton "
+               "made his own round-4 pick at 13), so both picks come off this trade")
+PICK_REVERSALS = {
+    ("428.l.83508.tr.220", "428.l.83508.t.1", 3): {"note": _FEB26_2024},     # Nick's 2024 3rd, to Benton
+    ("428.l.83508.tr.220", "428.l.83508.t.4", 4): {"note": _FEB26_2024},     # Benton's 2024 4th, to Nick
+}
+
+
+class StaleRuling(ValueError):
+    """A ruling in ROUND_CORRECTIONS or PICK_REVERSALS that matches no pick."""
+
+
 COMPLETED = "successful"        # Yahoo's status for a completed trade; anything else (vetoed) is not a trade
 
 
@@ -251,8 +271,24 @@ def picks_for_file(trade: dict, season: str, managers: dict, opening_day: Option
              "from_manager": who["source_team_key"], "to_manager": who["destination_team_key"], "source": "yahoo"}
         if fix:
             e["corrected"] = fix["note"]
+        rev = PICK_REVERSALS.get((trade["transaction_key"], p.get("original_team_key"), p["round"]))
+        if rev:
+            e["reversed"] = rev["note"]          # add_picks moves it out of the trade
         out.append(e)
     return out
+
+
+def rulings_used(matched_trades) -> set:
+    """The ruling keys (ROUND_CORRECTIONS and PICK_REVERSALS) that match a
+    pick in these Yahoo trades."""
+    keys = {(t["transaction_key"], p.get("original_team_key"), p["round"]) for t in matched_trades for p in t["picks"]}
+    return {k for k in list(ROUND_CORRECTIONS) + list(PICK_REVERSALS) if k in keys}
+
+
+def split_reversed(picks: list) -> tuple:
+    """(standing picks, reversed picks): a pick with a PICK_REVERSALS ruling
+    is not part of the trade."""
+    return [p for p in picks if not p.get("reversed")], [p for p in picks if p.get("reversed")]
 
 
 def label_picks(row: dict, season: str) -> list:
@@ -355,19 +391,30 @@ def add_picks(rows: list, matched: dict, managers_by_season: dict, opening_days:
         r2 = dict(r)
         if i in matched:
             s = r["season"]
-            r2[field] = picks_for_file(matched[i], s, managers_by_season[s], opening_days.get(s)) + chat_picks(r, s)
+            stand, gone = split_reversed(picks_for_file(matched[i], s, managers_by_season[s], opening_days.get(s)))
+            r2[field] = stand + chat_picks(r, s)
+            if gone:
+                r2[field + "_reversed"] = gone
         out.append(r2)
+    # a ruling whose transaction is here but whose pick isn't (Yahoo's record moved under it) RAISES
+    here = {t["transaction_key"] for t in matched.values()}
+    stale = {k for k in set(ROUND_CORRECTIONS) | set(PICK_REVERSALS) if k[0] in here} - rulings_used(matched.values())
+    if stale:
+        raise StaleRuling(f"rulings that match no pick in these trades: {sorted(stale)}")
     return out
 
 
-def players_unchanged(before: list, after: list) -> bool:
-    """Every row's players, byte for byte, and every other field but the new one."""
+WRITTEN = ("draft_picks", "draft_picks_reversed")       # the fields add_picks writes (a re-run rewrites them)
+
+
+def players_unchanged(before: list, after: list, written=WRITTEN) -> bool:
+    """Every row's players, byte for byte, and every other field but the ones add_picks writes."""
     if len(before) != len(after):
         return False
     for a, b in zip(before, after):
         if json.dumps(a["players"], ensure_ascii=False) != json.dumps(b["players"], ensure_ascii=False):
             return False
-        if {k: v for k, v in b.items() if k in a} != a:
+        if {k: v for k, v in b.items() if k in a and k not in written} != {k: v for k, v in a.items() if k not in written}:
             return False
     return True
 
@@ -388,7 +435,9 @@ def screenshot_check(rows: list, field: str = "draft_picks") -> dict:
     for r in rows:
         if r["season"] != SCREENSHOT["season"] or field not in r:
             continue
-        out["rows"][r["date"]] = [(p["round"], p["from_manager"], p["to_manager"]) for p in r[field]]
+        # what Yahoo records, reversed picks included (Feb 26: Yahoo has them; a ruling takes them off)
+        out["rows"][r["date"]] = [(p["round"], p["from_manager"], p["to_manager"])
+                                  for p in r[field] + r.get(field + "_reversed", [])]
     j = out["rows"].get("2024-01-15")
     if j is not None:
         want = sorted((rd, a, b) for (a, b), rds in SCREENSHOT["2024-01-15"].items() for rd in rds)

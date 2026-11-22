@@ -346,8 +346,12 @@ def render(p=None, mode="preview", now=None):
 
 def dyn_route(href: str) -> str:
     """The screen a hash opens (4c1: the player card and Compare are one screen
-    each, filled by the script): the page script's own mapping."""
+    each, filled by the script): the page script's own mapping. 5d1: a
+    route's query (?hl=...) is not part of its screen."""
+    href = href.split("?")[0]
     parts = href.split("/")
+    if parts[0] == "league" and len(parts) > 1 and parts[1]:
+        return "league"
     if parts[0] == "players" and len(parts) > 1 and parts[1]:
         if parts[1] == "compare":
             return "compare" if len(parts) > 3 and parts[3] else "compare-pick"
@@ -509,8 +513,9 @@ def test_the_publish_mode_file_holds_only_ciphertext_and_round_trips(tmp_path):
     # title-odds chart, Moves' older weeks, and the lazy screens (team pages, last week's matchups)
     n_screens = len(p["v2"]["teams"]) + len((p["v2"].get("last") or {}).get("cards") or [])
     assert len(rep["screen_parts"]) == n_screens and "odds" in rep["league_parts"]["bytes"]
+    n_seasons = sum(1 for k in rep["league_parts"]["bytes"] if ":" in k)     # 5d1 s.8: past seasons' parts
     assert rep["files"][0] == "index.html" and len(rep["files"]) == (
-        9 + 1 + n_screens + len(rep["market_parts"]) + len(rep["picture_parts"]))
+        9 + 1 + n_screens + len(rep["market_parts"]) + len(rep["picture_parts"]) + n_seasons)
     assert rep["files"][1] == f"issues/{e['enc']}"
     assert (out / "issues" / e["enc"]).read_bytes() == (tmp_path / "output" / "hub_archive" / e["enc"]).read_bytes()
     assert all(re.fullmatch(r"parts/[0-9a-f]{16}\.enc", f) for f in rep["files"][2:])

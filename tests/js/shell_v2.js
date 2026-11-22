@@ -95,6 +95,59 @@ async function until(fn, ms = 15000) {
       f.stored_after_real = w.localStorage.getItem('hub-key-v1') !== null;
       out.forget = f;
     }
+    if (sc.d5) {
+      // 5d1: the title-odds highlight (s.4), a column's definition (s.5), the season picker (s.8)
+      const r = {};
+      const go = async (h) => { w.location.hash = h; await sleep(50); };
+      await go('#/league/standings?hl=' + sc.d5);
+      await until(() => d.querySelector('[data-section="title-odds"] svg.lh-chart'));
+      await sleep(100);
+      let svg = d.querySelector('[data-section="title-odds"] svg.lh-chart');
+      r.hl_on = !!svg && svg.classList.contains('v2-hl');
+      r.hl_lines = svg ? [...svg.querySelectorAll('.v2-hl-on')].map((g) => g.getAttribute('data-m')) : [];
+      svg.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
+      r.hl_after_tap = svg.classList.contains('v2-hl');
+      r.hash_after_tap = w.location.hash;
+      // a column's definition: Standings' W-L (no sort)
+      const wl = d.querySelector('[data-colh="standings|wl"]');
+      wl.click(); const pop = d.getElementById('v2-colpop');
+      r.pop_wl = pop && !pop.hidden ? pop.textContent : '';
+      r.pop_wl_sort = pop ? pop.querySelectorAll('.v2-colsort-b').length : -1;
+      wl.click(); r.pop_closed = !pop || pop.hidden;
+      // a sortable one: Players' FPPG, sorted from inside the popover
+      await go('#/players');
+      const fp = d.querySelector('[data-colh="players|fppg"]');
+      const tbl = d.getElementById('pl-table');
+      const before = tbl.getAttribute('data-pcol');
+      fp.click();
+      r.players_sorted_by_tap = tbl.getAttribute('data-pcol') !== before;
+      const sb = d.querySelector('#v2-colpop .v2-colsort-b');
+      r.pop_fp_sort = !!sb;
+      if (sb) { sb.click(); }
+      r.players_sorted_from_pop = tbl.getAttribute('data-pcol') === 'fppg';
+      r.pop_fp_state = (d.querySelector('#v2-colpop .v2-colsort-st') || {}).textContent || '';
+      d.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      r.pop_escape_closed = d.getElementById('v2-colpop').hidden;
+      // the season picker: History > Trades
+      await go('#/league/history/trades');
+      await until(() => d.querySelector('[data-spick="trades"]'));
+      const sel = d.querySelector('[data-spick="trades"]');
+      r.seasons = sel ? [...sel.options].map((o) => o.value) : [];
+      r.default_season = sel ? sel.value : '';
+      if (sel && sel.options.length > 1) {
+        const past = sel.options[sel.options.length - 1].value;
+        sel.value = past; sel.dispatchEvent(new w.Event('change', { bubbles: true }));
+        await sleep(100);
+        r.hash_after_pick = w.location.hash;
+        const pane = d.querySelector('[data-spick-of="trades|' + past + '"]');
+        await until(() => pane && pane.getAttribute('data-loaded') === '1');
+        r.past_loaded = !!pane && !pane.hidden && pane.getAttribute('data-loaded') === '1';
+        r.past_text = pane ? pane.textContent.slice(0, 80) : '';
+        r.other_panes_hidden = [...d.querySelectorAll('[data-spick-of^="trades|"]')].filter((x) => !x.hidden).length === 1;
+      }
+      r.all_issues = (d.querySelector('a.v2-allissues') || {}).getAttribute ? d.querySelector('a.v2-allissues').getAttribute('href') : '';
+      out.d5 = r;
+    }
     if (sc.part) {
       const pane = d.querySelector('[data-part]');
       const ref = JSON.parse(pane.getAttribute('data-part'));

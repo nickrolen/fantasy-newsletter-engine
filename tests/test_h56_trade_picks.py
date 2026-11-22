@@ -215,9 +215,51 @@ def test_the_written_file_has_no_vetoed_trade_and_matches_the_25_26_labels():
         for p in r["draft_picks"]:
             if DH.keeper_era(p["draft"]):
                 assert p["round"] <= DH.live_rounds(p["draft"]), (r["date"], p)
-    assert sum(len(r["draft_picks"]) for r in rows) == 66                          # 62 in Yahoo + 4 in the chat
+    # 62 in Yahoo + 4 in the chat = 66; the Feb 26, 2024 swap (2 picks) was reversed outside Yahoo (Nick, 11-21)
+    assert sum(len(r["draft_picks"]) for r in rows) == 64
+    assert sum(len(r.get("draft_picks_reversed", [])) for r in rows) == 2
     sc = TP.screenshot_check(rows)
     assert sc["jan15"] and sc["later_have_picks"] == {"2024-02-26": True, "2024-03-07": True}
+
+
+def _feb26():
+    return {"transaction_key": f"{L}.tr.220", "timestamp": "1708967779", "picks": [
+        {"round": 4, "source_team_key": B, "destination_team_key": N, "original_team_key": B},
+        {"round": 3, "source_team_key": N, "destination_team_key": B, "original_team_key": N}]}
+
+
+def test_the_feb26_2024_swap_is_reversed_by_a_ruling_tied_to_its_transaction():
+    """5d1 (Nick, 11-21; H56 Part 2 decision 2): both picks leave the trade, with the reason."""
+    out = TP.picks_for_file(_feb26(), "2023-24", MG, "2023-10-24")
+    stand, gone = TP.split_reversed(out)
+    assert stand == [] and len(gone) == 2
+    assert {(p["original_manager"], p["draft"], p["round"]) for p in gone} == {("Benton", "2024-25", 4), ("Nick", "2024-25", 3)}
+    assert all("outside Yahoo (Nick, 11-21)" in p["reversed"] and "2024-25 draft" in p["reversed"] for p in gone)
+    # the same picks in another transaction are untouched: the ruling is tied to tr.220
+    other = dict(_feb26(), transaction_key=f"{L}.tr.221")
+    assert all("reversed" not in p for p in TP.picks_for_file(other, "2023-24", MG, "2023-10-24"))
+
+
+def test_add_picks_moves_reversed_picks_out_and_a_stale_ruling_raises():
+    row = {"season": "2023-24", "date": "2024-02-26", "players": []}
+    out = TP.add_picks([row], {0: _feb26()}, {"2023-24": MG}, {"2023-24": "2023-10-24"})
+    assert out[0]["draft_picks"] == [] and len(out[0]["draft_picks_reversed"]) == 2
+    assert TP.players_unchanged([row], out)
+    no_picks = dict(_feb26(), picks=[])                        # the ruled picks are gone from Yahoo's record
+    with pytest.raises(TP.StaleRuling):
+        TP.add_picks([row], {0: no_picks}, {"2023-24": MG}, {"2023-24": "2023-10-24"})
+
+
+def test_the_written_file_and_the_awards_drop_the_reversed_picks():
+    rows = json.loads((ROOT / "data" / "historical" / "all_trades.json").read_text(encoding="utf-8"))
+    f = [r for r in rows if r["date"] == "2024-02-26"]
+    assert len(f) == 1 and f[0]["draft_picks"] == [] and len(f[0]["draft_picks_reversed"]) == 2
+    assert not any(p.get("reversed") for r in rows for p in r["draft_picks"])
+    past = json.loads((ROOT / "data" / "historical" / "AWARDS_PAST.json").read_text(encoding="utf-8"))
+    t = past["seasons"]["2023-24"]["awards"]["trade"]
+    assert t["winner"]["date"] == "2024-01-15" and t["winner"]["m"] == "Benton"      # the winner doesn't change
+    feb = [x for x in t["top"] if x["date"] == "2024-02-26"][0]
+    assert all(sd["picks"] == [] and sd["picks_est"] == 0 for sd in feb["sides"].values())
 
 
 # =============================================================================

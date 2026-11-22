@@ -1008,8 +1008,9 @@ def assign_stars(players: dict, fas: Optional[dict], cfg: dict) -> list:
       played this season: at least min(star_min_games, ceil(star_min_share x
       the most games anyone in the pool has played)). The star's style label
       becomes his first tag.
-    - No standout skill: All-Around when his OVR is at or above the rostered
-      players' median OVR, else Role Player.
+    - No standout skill: All-Around when his OVR is at or above the fixed
+      all_around_ovr (75; Nick, 11-20, replacing the rostered median), else
+      Role Player.
     Idempotent: each archetype keeps its style ("style") and is rebuilt from
     it. Returns the stars' names."""
     ac = cfg["archetype"]
@@ -1019,16 +1020,14 @@ def assign_stars(players: dict, fas: Optional[dict], cfg: dict) -> list:
         a = p.get("archetype")
         if a is not None and "style" in a:
             p["archetype"] = dict(a["style"])
-    roster_ovr = sorted(p["ovr"] for p in players.values() if p.get("ovr") is not None)
-    if roster_ovr:
-        median = statistics.median(roster_ovr)
-        for p in pool.values():
-            a = p.get("archetype")
-            if a is None or p.get("ovr") is None or a.get("key") not in ("role", "all_around"):
-                continue
-            key = "all_around" if p["ovr"] >= median else "role"
-            if key != a["key"]:
-                p["archetype"] = dict(a, key=key, label=ac["labels"][key], style=dict(a))
+    cut = ac["all_around_ovr"]                  # required (archetypes.validate); never defaulted
+    for p in pool.values():
+        a = p.get("archetype")
+        if a is None or p.get("ovr") is None or a.get("key") not in ("role", "all_around"):
+            continue
+        key = "all_around" if p["ovr"] >= cut else "role"
+        if key != a["key"]:
+            p["archetype"] = dict(a, key=key, label=ac["labels"][key], style=dict(a))
     def games(p):
         return int(((p.get("skill") or {}).get("games")) or 0)
     most = max((games(p) for p in pool.values()), default=0)

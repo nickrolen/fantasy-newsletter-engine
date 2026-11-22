@@ -700,7 +700,10 @@ def bracket_week(season_matchups: list, week: int, season: str,
                             f"{r['name'].lower()} game the series had "
                             f"already settled")
                 elif r["kind"] == "final":
-                    title = (br["title"] or "title").replace(
+                    if not br["title"]:      # 5d1 s.9: never a bare "title" for a bracket (LEAGUE_RULES)
+                        raise ValueError(f"the {br['stage']} bracket has no title in postseason_format: "
+                                         "its winner would be called the champion")
+                    title = br["title"].replace(
                         "Champion", "championship").replace(
                         "Cup championship", "Cup").lower().replace(
                         "cup", "Cup")

@@ -2155,47 +2155,6 @@
        }
       },
       {
-       "label": "Benton \u21c4 Nick, 02-26",
-       "player": null,
-       "m": "Benton",
-       "value": 64.62,
-       "shown": "won by Benton \u00b7 picks est.",
-       "sub": "",
-       "date": "2024-02-26",
-       "sides": {
-        "Benton": {
-         "par": 445.08,
-         "players_par": 57.76,
-         "picks_est": 387.32,
-         "got": [
-          "Brandon Ingram"
-         ],
-         "picks": [
-          "Nick's 2024 3rd (est. 387.3)"
-         ]
-        },
-        "Nick": {
-         "par": 380.46,
-         "players_par": 62.09,
-         "picks_est": 318.37,
-         "got": [
-          "Jarrett Allen"
-         ],
-         "picks": [
-          "Benton's 2024 4th (est. 318.4)"
-         ]
-        }
-       },
-       "picks": {
-        "Benton": [
-         "Nick's 2024 3rd (est. 387.3)"
-        ],
-        "Nick": [
-         "Benton's 2024 4th (est. 318.4)"
-        ]
-       }
-      },
-      {
        "label": "Nick \u21c4 Garrett, 03-07",
        "player": null,
        "m": "Nick",
@@ -2219,6 +2178,36 @@
          "picks_est": 0.0,
          "got": [
           "CJ McCollum"
+         ],
+         "picks": []
+        }
+       },
+       "picks": {}
+      },
+      {
+       "label": "Benton \u21c4 Nick, 02-26",
+       "player": null,
+       "m": "Nick",
+       "value": 4.33,
+       "shown": "won by Nick",
+       "sub": "",
+       "date": "2024-02-26",
+       "sides": {
+        "Benton": {
+         "par": 57.76,
+         "players_par": 57.76,
+         "picks_est": 0.0,
+         "got": [
+          "Brandon Ingram"
+         ],
+         "picks": []
+        },
+        "Nick": {
+         "par": 62.09,
+         "players_par": 62.09,
+         "picks_est": 0.0,
+         "got": [
+          "Jarrett Allen"
          ],
          "picks": []
         }

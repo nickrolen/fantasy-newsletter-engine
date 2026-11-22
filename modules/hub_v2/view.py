@@ -48,6 +48,13 @@ def team_cls(slot: str) -> str:
     return f"lh-t-{slot}"
 
 
+def odds_href(m: str) -> str:
+    """5d1 s.4 (Nick, 11-20): a team's title odds open League > Standings'
+    title-odds chart with his line highlighted; the highlight is part of the
+    route, so the back button and a shared link work."""
+    return f"#/league/standings?hl={m}"
+
+
 # =============================================================================
 # geometry
 # =============================================================================
@@ -105,6 +112,10 @@ def win_chart(win: dict, a: str, b: str, teams: dict) -> dict:
            "events": [], "ends": [], "hits": [], "empty": win["empty"], "dot": None}
     if not pts:
         return out
+    # 5d1 s.7: b's line is drawn too (his chance, the mirror of a's), quieter, so b's end
+    # label sits beside a line of its own: every labelled series is drawn
+    out["lines"].append({"cls": team_cls(teams[b]["slot"]), "points": " ".join(
+        f"{_f(x)},{_f(Y(p['b']))}" for x, p in zip(xs, pts)), "proj": False, "style": "mirror"})
     out["lines"].append({"cls": team_cls(teams[a]["slot"]), "points": " ".join(f"{_f(x)},{_f(y)}"
                                                                                for x, y in zip(xs, ys)),
                          "proj": False})
@@ -226,7 +237,8 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         if small is not None:
             inline_pics, big_pics = small, {m: u for m, u in pictures.items() if small.get(m) != u}
     teams = {m: {"cls": team_cls(t["slot"]), "slot": t["slot"], "mono": t["mono"], "team": t["team"],
-                 "manager": m, "href": f"#/teams/{m}", "pic": m in pictures} for m, t in teams_v2.items()}
+                 "manager": m, "href": f"#/teams/{m}", "odds_href": odds_href(m), "pic": m in pictures}
+             for m, t in teams_v2.items()}
     rosters = payload["rosters"]
     power = {r["manager"]: r for r in payload["power"]["rows"]}
     scale = v2["spark_scale"]
@@ -489,7 +501,11 @@ def players(payload: dict, teams: dict) -> dict:
     if pl["risers"] is not None:
         risers = [{"name": rows[r["i"]]["name"], "key": rows[r["i"]]["key"], "reason": r["reason"],
                    "ovr": r["ovr"], "d": r["d"]} for r in pl["risers"]]
-    cmp = {"labels": [r["label"] for r in pl["cmp_rows"]], "rows": {}}
+    cmp = {"labels": [r["label"] for r in pl["cmp_rows"]], "keys": [r["key"] for r in pl["cmp_rows"]],
+           "rows": {}}
+    from .infotips import column
+    for r in pl["cmp_rows"]:                         # 5d1 s.5: every Compare row has its definition
+        column("compare", r["key"])
     for z, r in zip(pl["rows"], rows):
         if r["key"] is None:
             continue
@@ -559,17 +575,17 @@ def title_chart(c: dict, teams: dict, order: list) -> dict:
     if not pts:
         return out
     for m in order:
-        out["lines"].append({"cls": team_cls(teams[m]["slot"]),
+        out["lines"].append({"cls": team_cls(teams[m]["slot"]), "m": m,
                              "points": " ".join(f"{_f(x)},{_f(Y(p['vals'][m]))}" for x, p in zip(xs, pts)),
                              "proj": False})
     for e in c["events"]:
         i, m = e["i"], e["m"]
         tip = e["tip"]
-        out["events"].append({"cx": _f(xs[i]), "cy": _f(Y(pts[i]["vals"][m])), "dir": e["dir"], "tip": tip,
+        out["events"].append({"cx": _f(xs[i]), "cy": _f(Y(pts[i]["vals"][m])), "dir": e["dir"], "tip": tip, "m": m,
                               "label": " \u00b7 ".join(x for x in (tip["h"], tip["b"], tip.get("f", "")) if x)})
     last = pts[-1]
     ys = _spread_n([Y(last["vals"][m]) for m in order])
-    out["ends"] = [{"cls": team_cls(teams[m]["slot"]), "x": _f(xs[-1] + 6), "y": _f(y + 4),
+    out["ends"] = [{"cls": team_cls(teams[m]["slot"]), "x": _f(xs[-1] + 6), "y": _f(y + 4), "m": m,
                     "t": f"{teams[m]['mono']} {last['texts'][m]}"} for m, y in zip(order, ys)]
     for (lo, hi), p, x in zip(_strips(xs), pts, xs):
         out["hits"].append({"x": _f(lo), "y": _f(Y0 - 6), "w": _f(hi - lo), "h": _f(Y1 - Y0 + 12),
@@ -578,12 +594,27 @@ def title_chart(c: dict, teams: dict, order: list) -> dict:
     return out
 
 
-def race_chart(c: dict, teams: dict) -> dict:
+STYLES = ("", "dash", "dot")     # 5d1 s.7: a second (third) player of one fantasy team: dashed (dotted)
+LEAD_MIN = 3.0                   # an end label moved further than this from its line's end gets a leader line
+
+
+def race_chart(c: dict, teams: dict, ytitle: str = "") -> dict:
     """An awards race (4c5): today's top 5's running measure by finished week,
     one line per player in his team's colour (a gap where he was outside a
     week's stored top 10), y from the engine's ticks, direct end labels, one
     tap strip per week (the readout: the week and every value). Layout only:
-    every printed string is the engine's."""
+    every printed string is the engine's.
+    5d1 s.7 (Nick, 11-20: five labels, three lines): every labelled series is
+    drawn and every drawn series is labelled.
+      - a run of ONE week (a player picked up last week, or back inside the
+        top 10 for a week) is a dot, not an empty polyline;
+      - two players of one fantasy team share his colour, so the second is
+        dashed and the third dotted ("style"), and the end label carries the
+        same style (italic for any but the first);
+      - an end label the spacing moved away from its line's end gets a thin
+        leader line ("lead") back to it;
+      - ytitle names the axis (e.g. "PAR so far": the race's running measure,
+        not odds)."""
     n = len(c["weeks"])
     lo, hi = float(c["ymin"]), float(c["ymax"])
 
@@ -596,25 +627,41 @@ def race_chart(c: dict, teams: dict) -> dict:
     xlab = [{"x": _f(x), "y": _f(Y1 + 16), "t": t["t"], "anchor": "middle" if 0 < i < n - 1 else
              ("start" if i == 0 else "end")} for i, (x, t) in enumerate(zip(xs, c["ticks"]))]
     out = {"vb": f"0 0 {W} {H}", "aria": c["aria"], "grid": grid, "labels": ylab + xlab, "lines": [],
-           "events": [], "ends": [], "hits": [], "empty": "", "dot": None,
-           "readout0": {"head": "Tap a week for its values.", "body": ""}}
+           "events": [], "ends": [], "hits": [], "empty": "", "dot": None, "ytitle": ytitle,
+           "readout0": {"head": (f"Tap a week for each player's {ytitle}." if ytitle
+                                 else "Tap a week for its values."), "body": ""}}
     ends = []
+    seen: dict = {}
     for sr in c["series"]:
         cls = team_cls(teams[sr["m"]]["slot"])
-        run = []
+        k = seen.get(cls, 0)
+        seen[cls] = k + 1
+        style = STYLES[min(k, len(STYLES) - 1)]
+        run: list = []
+
+        def flush():
+            if len(run) == 1:                        # one week: a dot, with its label
+                x, y = run[0]
+                out["lines"].append({"cls": cls, "points": f"{_f(x)},{_f(y)}", "proj": False, "style": style,
+                                     "dot": {"cx": _f(x), "cy": _f(y)}})
+            elif run:
+                out["lines"].append({"cls": cls, "points": " ".join(f"{_f(x)},{_f(y)}" for x, y in run),
+                                     "proj": False, "style": style})
         for x, v in zip(xs, sr["vals"]):
             if v is None:
-                if run:
-                    out["lines"].append({"cls": cls, "points": " ".join(run), "proj": False})
+                flush()
                 run = []
                 continue
-            run.append(f"{_f(x)},{_f(Y(v))}")
-        if run:
-            out["lines"].append({"cls": cls, "points": " ".join(run), "proj": False})
+            run.append((x, Y(v)))
+        flush()
         last = max(i for i, v in enumerate(sr["vals"]) if v is not None)
-        ends.append((cls, xs[last], Y(sr["vals"][last]), sr["end"]))
+        ends.append((cls, xs[last], Y(sr["vals"][last]), sr["end"], style))
     ys = _spread_n([e[2] for e in ends])
-    out["ends"] = [{"cls": cls, "x": _f(x + 6), "y": _f(y + 4), "t": t} for (cls, x, _y, t), y in zip(ends, ys)]
+    for (cls, x, y0, t, style), y in zip(ends, ys):
+        e = {"cls": cls, "x": _f(x + 6), "y": _f(y + 4), "t": t, "style": style}
+        if abs(y - y0) > LEAD_MIN:
+            e["lead"] = {"x1": _f(x + 1), "y1": _f(y0), "x2": _f(x + 5), "y2": _f(y)}
+        out["ends"].append(e)
     for (a, b), pt, x in zip(_strips(xs), c["points"], xs):
         out["hits"].append({"x": _f(a), "y": _f(Y0 - 6), "w": _f(b - a), "h": _f(Y1 - Y0 + 12), "cx": _f(x),
                             "cy": "", "head": pt["head"], "body": pt["body"], "label": f"{pt['head']}: {pt['body']}"})
@@ -638,13 +685,13 @@ def awards_view(aw: dict, teams: dict, href, past: Optional[dict] = None) -> dic
         if odds:                                     # 4c6: MVP's odds block, its others and its chart
             odds = dict(odds, others=[dict(o, team=teams.get(o["m"]), href=href(o["card"]))
                                       for o in odds.get("others") or []],
-                        geom=race_chart(odds["chart"], teams) if odds.get("chart") else None)
+                        geom=race_chart(odds["chart"], teams, "MVP chance") if odds.get("chart") else None)
         pa = ((past or {}).get("by_award") or {}).get(a["key"])
         if pa:                                       # 4c6: Past winners, with their team marks
             pa = dict(pa, rows=[dict(r, team=teams.get(r["m"]) if r["m"] else None,
                                      href=href(r["card"]) if r["card"] else "") for r in pa["rows"]])
         races.append(dict(a, rows=rows, odds=odds, past=pa,
-                          geom=race_chart(a["chart"], teams) if a.get("chart") else None))
+                          geom=race_chart(a["chart"], teams, f"{a['unit']} so far") if a.get("chart") else None))
     potw = [dict(s, rows=[dict(r, team=teams.get(r["m"]), href=href(r["card"])) for r in s["rows"]])
             for s in aw["potw"]]
     return dict(aw, races=races, potw=potw, past=past or {})
