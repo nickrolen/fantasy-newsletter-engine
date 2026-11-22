@@ -908,36 +908,24 @@ def build_grid_tab(av: Availability, managers, days: List[date], light_max: int,
     the newsletter grid's own fit; never more than 10); Idle = count - starts.
     standins: {NBA team: {dates}} of the schedule's stand-ins for games the NBA
     has not scheduled (nba_schedule.standin_team_dates, task 46): a cell
-    counting any is "est": "1" -- an estimated day, not a sure game."""
-    from .schedule_strength import fill_daily_lineup_detail, MAX_STARTERS_PER_DAY
+    counting any is "est": "1" -- an estimated day, not a sure game.
+    5d2: the day itself is hub_v2.ranges.day_fill, the one home of this rule."""
+    from .schedule_strength import MAX_STARTERS_PER_DAY
+    from .hub_v2.ranges import day_fill
     standins = standins or {}
     rows = []
-
-    def fit(ps):
-        return len(fill_daily_lineup_detail(
-            [(p, set(av.info[p]["positions"]), float(av.info[p].get("proj_fppg", 0.0))) for p in ps])[0])
     for m in managers:
         cells, st_lo, st_hi, id_lo, id_hi = [], 0, 0, 0, 0
         for d in days:
-            sure, maybe, nba = av.grid_players(m, d)
-            lo, hi = len(sure), len(sure) + len(maybe)
-            s_lo, s_hi = fit(sure), fit(sure + maybe)
+            x = day_fill(av, m, d, light_max, standins, nba_games_on.get(d, 0))
+            (lo, hi), (s_lo, s_hi) = x.count, x.starts
             st_lo, st_hi = st_lo + s_lo, st_hi + s_hi
-            id_lo, id_hi = id_lo + (lo - s_lo), id_hi + (hi - s_hi)
-            if nba_games_on.get(d, 0) == 0:
-                kind = "off"
-            elif hi > MAX_STARTERS_PER_DAY:
-                kind = "over"
-            elif hi <= light_max:
-                kind = "light"
-            else:
-                kind = "normal"
-            est = any(d in standins.get(av.info[p]["nba_team"], ()) for p in sure + maybe)
-            cells.append({"n": _rng(lo, hi), "kind": kind,
+            id_lo, id_hi = id_lo + x.idle_s[0], id_hi + x.idle_s[1]
+            cells.append({"n": _rng(lo, hi), "kind": x.kind,
                           "overflow": str(max(0, hi - MAX_STARTERS_PER_DAY)),
-                          "starts": _rng(s_lo, s_hi), "est": "1" if est else "",
-                          "rng": "1" if hi != lo else "", "nba": "1" if nba else "",
-                          "nba_names": ", ".join(nba)})
+                          "starts": _rng(s_lo, s_hi), "est": "1" if x.est else "",
+                          "rng": "1" if hi != lo else "", "nba": "1" if x.nba_out else "",
+                          "nba_names": ", ".join(x.nba_out)})
         rows.append({"manager": m, "cells": cells, "starts": _rng(st_lo, st_hi),
                      "idle": _rng(min(id_lo, id_hi), max(id_lo, id_hi)),
                      "rng": "1" if (st_lo, id_lo) != (st_hi, id_hi) else "", "_starts": (st_lo, st_hi)})
@@ -1194,6 +1182,11 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     def schedule_note(days) -> str:
         return unscheduled_note(data.nba_schedule, days)
 
+    # 5d2 s.0: every range-dependent number (Schedule, Next week, Players,
+    # Market's ranges) from one source: this week's days on this week's
+    # rosters, later days on next week's (the grid's own split)
+    from .hub_v2 import ranges as v2ranges
+    rsrc = v2ranges.Source(av, next_av, week, wk_dates, cfg["light_night_max"], sdates)
     this_tab = build_grid_tab(av, managers, this_days, cfg["light_night_max"], nba_games_on, sdates)
     next_tab = build_grid_tab(next_av, managers, next_days, cfg["light_night_max"], nba_games_on, sdates)
     grid = {"tabs": [
@@ -1480,7 +1473,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
         "this_days": this_days, "next_days": next_days, "grid_tabs": grid["tabs"],
         "light_max": cfg["light_night_max"], "standins": sdates, "keeper_watch": kw, "moves": moves,
         "line": line, "matchup_views": mviews["views"], "newsletter": newsletter,
-        "matchups_last": payload["matchups"]["last"], "line_text": line_text}, echo=echo)
+        "matchups_last": payload["matchups"]["last"], "line_text": line_text, "ranges": rsrc}, echo=echo)
     # task 40: a card key beside every player name shown, and the list of cards.
     # The cards fail softly (Nick, 11-12): a failure here (an unknown
     # moves-feed form, two players with one slug, anything) leaves every name
@@ -1507,10 +1500,17 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     # 4c1: the Players tab's rows and the ratings' strings (modules/hub_v2/
     # players.py), after annotate: they carry its card keys. New keys under
     # v2 only; a failure leaves v2 out, softly (v2_error), as v2's own does.
+    pctx = {"ratings": rt, "actuals": actuals, "yesterday": yesterday, "av": av, "info": player_info,
+            "next_days": next_days, "proj": proj, "keeper_watch": kw, "tag_row": tag_row, "ranges": rsrc}
     if payload["v2"] is not None:
-        payload["v2"], payload["v2_error"] = v2data.players_soft(base, payload, {
-            "ratings": rt, "actuals": actuals, "yesterday": yesterday, "av": av, "info": player_info,
-            "next_days": next_days, "proj": proj, "keeper_watch": kw, "tag_row": tag_row}, echo=echo)
+        payload["v2"], payload["v2_error"] = v2data.players_soft(base, payload, pctx, echo=echo)
+    # 5d2: Team > Schedule and Matchups > Next week (modules/hub_v2/schedule.py),
+    # from the one range source, after the Players rows (their card keys)
+    if payload["v2"] is not None:
+        payload["v2"], payload["v2_error"] = v2data.sched_soft(base, payload, sched_ctx(
+            base, now=now, data=data, week=week, today=today, wk_dates=wk_dates, managers=managers,
+            rsrc=rsrc, fcols=fcols, fa_av=fa_av, top=top, adds=adds, budget=budget, power=power,
+            pending_note=pending_note), echo=echo)
     # 4c2: the roster table's Detailed columns (modules/hub_v2/roster.py, with
     # Team value: modules/hub_v2/team_value.py), after the Players rows they
     # share; then v2.players leaves the payload for its own file (4c1 decision 8)
@@ -1519,7 +1519,17 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
             "data": data, "now": now, "week": week, "today": today, "yesterday": yesterday,
             "actuals": actuals, "av": av, "next_av": next_av, "next_days": next_days, "wk_dates": wk_dates,
             "joined": joined, "proj": proj, "tag_row": tag_row, "tags": tags, "il_slots": il_slots,
-            "pool": [r["player_name"] for r in fa_records] + list(dropped)}, echo=echo)
+            "pool": [r["player_name"] for r in fa_records] + list(dropped), "ranges": rsrc}, echo=echo)
+    # 5d2 s.3: the Players tab's Detailed groups (modules/hub_v2/pcols.py),
+    # after the roster's Detailed columns, whose strings they share
+    if payload["v2"] is not None:
+        sw = {int(w): list(v) for w, v in wk_dates.items()}
+        payload["v2"], payload["v2_error"] = v2data.pcols_soft(base, payload, {
+            "actuals": actuals, "yesterday": yesterday, "proj": proj, "ranges": rsrc, "data": data,
+            "fa_av": pctx.get("_fa_av"), "fa_ok": pctx.get("_fa_ok"),
+            "range_list": sched_ctx_ranges(fcols, week, today, sw),
+            "sched_days": [[d for d in sw.get(week, []) if d >= today], sw.get(week + 1, []), sw.get(week + 2, [])],
+            "par": aw.get("par"), "potw_wins": potw_counts(base)}, echo=echo)
     # 4c3: the Market tab (modules/hub_v2/market.py), after the Players rows it
     # reads (card keys, FPPG, L14), before they leave the payload
     if payload["v2"] is not None:
@@ -1530,7 +1540,9 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                            "days": list(c["days"]), "long": len(c["days"]) > 7}
                           for i, c in enumerate(fcols["cols"])],
             "advice_on": advice_raw is not None, "advice": advice_raw, "show_title": al.show_title_odds(),
-            "first_day": first_day}, echo=echo)
+            "first_day": first_day, "ranges": rsrc, "proj": proj, "wk_dates": wk_dates,
+            "range_list": sched_ctx_ranges(fcols, week, today, {int(w): list(v) for w, v in wk_dates.items()})},
+        echo=echo)
     # 4c4: the League tab (modules/hub_v2/league.py): standings, the title-odds
     # chart, power history, awards, the archive; History goes to the side file
     if payload["v2"] is not None:
@@ -1582,6 +1594,7 @@ def awards_step(base, live, actuals: dict, echo=print, mvp_odds_blob: dict = Non
         except Exception as e:                       # noqa: BLE001 -- the MVP card says why
             blob, odds_err = None, f"{type(e).__name__}: {e}".splitlines()[0][:300]
         pend = _mo.attach(awards.pending(inp, lines), blob)
+        out["par"] = {r["player"]: round(float(r["value"]), 2) for r in res["awards"]["mvp"]["rows"]}   # 5d2
         out.update(races=awards.races(res, lines + pend, inp["cfg"], mvp_odds=blob, mvp_odds_error=odds_err),
                    pending=pend, through=through, week=res["week"], on_file=len(lines),
                    mvp_odds=None if blob is None else blob["through"])
@@ -1665,6 +1678,69 @@ def ratings_step(base, live, actuals: dict, echo=print) -> dict:
 def _ml_mon(day: str) -> str:
     d = date.fromisoformat(str(day)[:10])
     return f"{d:%a} {d:%m-%d}"
+
+
+def sched_ctx_ranges(fcols: dict, week: int, today, wk: dict) -> list:
+    """5d2: the seven ranges (hub_v2.ranges.ranges) from the join week: this
+    week before Monday's close, the next week from it; none once no pickup
+    can join a roster again."""
+    from .hub_v2 import ranges as v2ranges
+    J = week if fcols["mode"] == "this" else week + 1
+    join_day = today if J == week else (wk[J][0] if J in wk else None)
+    return v2ranges.ranges(join_day, J, wk) if (fcols["join"] is not None and join_day is not None) else []
+
+
+def potw_counts(base) -> Optional[dict]:
+    """5d2: {player: Player of the Week wins this season} (config/POTW_HISTORY.json),
+    or None when the file can't be read."""
+    from .data_loader import CURRENT_SEASON
+    p = Path(base) / "config" / "POTW_HISTORY.json"
+    try:
+        rows = (json.loads(p.read_text(encoding="utf-8")).get("seasons") or {}).get(CURRENT_SEASON) or []
+    except (OSError, ValueError):
+        return None
+    out = {}
+    for r in rows:
+        out[r["player"]] = out.get(r["player"], 0) + 1
+    return out
+
+
+def sched_ctx(base, *, now, data, week, today, wk_dates, managers, rsrc, fcols, fa_av, top, adds, budget,
+              power, pending_note) -> dict:
+    """5d2: the ctx of hub_v2.schedule.build (Team > Schedule, Matchups > Next
+    week): the range list, the window's words, adds left, the stakes."""
+    from .data_loader import MANAGER_TO_TEAM
+    from . import price_lock, title_odds_run as tor
+    from .hub_v2 import ranges as v2ranges
+    wk = {int(w): list(v) for w, v in wk_dates.items()}
+    J = week if fcols["mode"] == "this" else week + 1
+    rl = sched_ctx_ranges(fcols, week, today, wk)
+    if fcols["mode"] == "this":
+        wtext = f"This week's window closes {_clock_text(fcols['closes'])}."
+    elif J in wk:
+        try:
+            wtext = (f"Claims made now are applied in {_ml_mon(wk[J][0].isoformat())}'s window, which closes "
+                     f"{_clock_text(price_lock.window_close(wk[J][0], data.nba_schedule))}.")
+        except price_lock.NoGames:
+            wtext = (f"Claims made now are applied in {_ml_mon(wk[J][0].isoformat())}'s window, which closes "
+                     "five minutes before that day's last game starts.")
+    else:
+        wtext = "No window is left this season."
+    # the early look: the stakes through their one reader (drop_inputs.read_stakes;
+    # the bootstrap gives None and the card says so), the seeds through load_latest
+    from . import drop_inputs
+    stakes, _note = drop_inputs.read_stakes(base)
+    try:
+        latest = tor.load_latest(base)
+    except (FileNotFoundError, ValueError):
+        latest = None
+    return {"ranges": rsrc, "week": week, "today": today, "now": now, "wk_dates": wk, "managers": managers,
+            "team_of": dict(MANAGER_TO_TEAM), "data": data, "fcols": fcols, "fa_av": fa_av, "fa_rows": top,
+            "adds_left": {m: max(0, int(budget) - len((adds or {}).get(m, []))) for m in managers},
+            "budget": int(budget),
+            "budget_note": "a claim now uses this week's adds (rule 7)",
+            "window_text": wtext, "range_list": rl, "stakes": stakes, "title_latest": latest,
+            "records": {r["manager"]: r["record"] for r in power["rows"]}, "pending_note": pending_note}
 
 
 def next_week_availability(base: Path, now: datetime, data, av: Availability, week: int,

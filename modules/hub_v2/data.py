@@ -22,7 +22,6 @@ page never prints them.
           "roster": {"extra": [{"gp", "next"} per player], "orders": {"gp", "next"},
                      "keepers": [i...], "keep_line" (string), "keep_rank": [str per player],
                      "keep_w": [str per player]},
-          "schedule": {"rows": [{"i", "cells": [{"n", "b"}]}]},
           "moves": [{"w": week key, "j": item index}]}},
       "team_order": [manager...]       the power-rankings order
       "spark_scale": {"max": float, "top": str, "note": str}
@@ -225,23 +224,14 @@ def player_week_tip(av, name: str, w: int, sub: str, days: list, long_week: bool
     return len(plays), tip
 
 
-def il_tip(w: int, sub: str, back: str) -> dict:
-    return {"h": week_head(w, sub), "b": "IL slot" + (f" \u00b7 {back}" if back else "")}
-
-
 def starters_on(av, m: str, d: date) -> tuple:
     """(starters, maybe, out tonight): the daily fill of who will play (the
-    grid's own fit, schedule_strength.fill_daily_lineup_detail), a Q's next
-    game added when it fits, and the NBA report's Outs. Names."""
-    from ..schedule_strength import fill_daily_lineup_detail
-
-    def fit(ps):
-        return fill_daily_lineup_detail([(p, set(av.info[p]["positions"]), float(av.info[p].get("proj_fppg", 0.0)))
-                                         for p in ps])[0]
-    sure, maybe, nba = av.grid_players(m, d)
-    st = fit(sure)
-    hi = fit(sure + maybe)
-    return st, [p for p in hi if p not in st], nba
+    grid's own fit, hub_v2.ranges.day_fill since 5d2), a Q's next game added
+    when it fits, and the NBA report's Outs. Names."""
+    from .ranges import day_fill
+    x = day_fill(av, m, d, light_max=0)
+    st = list(x.sure_started)
+    return st, [p for p in x.started if p not in st], list(x.nba_out)
 
 
 # =============================================================================
@@ -489,6 +479,46 @@ def market_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
     return v2, None
 
 
+def sched_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
+    """(v2, error) with v2["sched"] (Team > Schedule) and v2["next_week"]
+    (Matchups > Next week) added (5d2, modules/hub_v2/schedule.py), after the
+    Players rows (their card keys). A failure leaves v2 out, softly, as
+    build_soft does: (None, {"stage": "schedule", "error"}), echoed loudly."""
+    from . import schedule
+    v2 = payload["v2"]
+    try:
+        keys = {r["name"]: r.get("key") for r in (v2.get("players") or {}).get("rows", [])}
+        v2["sched"], v2["next_week"] = schedule.build(dict(ctx, roster_blocks=payload["rosters"],
+                                                           card_of=lambda n: keys.get(n)))
+    except Exception as e:                       # noqa: BLE001 -- v2 fails softly
+        err = {"stage": "schedule", "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
+        echo(f"NEW HUB KEYS FAILED (payload v2 left out; the current hub goes on): {err['error']}")
+        v2.pop("sched", None)
+        v2.pop("next_week", None)
+        return None, err
+    return v2, None
+
+
+def pcols_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
+    """(v2, error) with v2["players"]["groups"] (5d2 s.3: the Players tab's
+    Detailed groups, modules/hub_v2/pcols.py), after the roster's Detailed
+    columns. A failure leaves v2 out, softly: (None, {"stage": "players
+    groups", "error"}), echoed loudly."""
+    from . import pcols
+    from ..ratings import config as rcfg
+    v2 = payload["v2"]
+    try:
+        g = pcols.build(base, payload, ctx)
+        g.update(pcols.shared(bool(rcfg()["archetype"]["enabled"])))
+        v2["players"]["groups"] = g
+    except Exception as e:                       # noqa: BLE001 -- v2 fails softly
+        err = {"stage": "players groups", "error": f"{type(e).__name__}: {e}".splitlines()[0][:500]}
+        echo(f"NEW HUB KEYS FAILED (payload v2 left out; the current hub goes on): {err['error']}")
+        v2["players"].pop("groups", None)
+        return None, err
+    return v2, None
+
+
 def league_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
     """(v2, error) with v2["league"] and v2["league_history"] added (4c4,
     modules/hub_v2/league.py), after the Market. A failure leaves v2 out,
@@ -519,7 +549,9 @@ PLAYERS_SCHEMA = 1
 # attach_players for the page's builder. Each one grows through the season:
 # the awards' races (about 1 KB a week), the title-odds chart (one point per
 # pricing run) and Market's moves (one row per move). (v2 sub-block, key).
-SIDE_KEYS = (("league", "awards"), ("league", "chart"), ("market", "moves"))
+SIDE_KEYS = (("league", "awards"), ("league", "chart"), ("market", "moves"),
+             ("sched", "teams"),                 # 5d2: Team > Schedule's per-team weeks (~30 KB a team)
+             ("market", "ranges"))               # 5d2: Market's range tables (~50 KB)
 # 5b: each team's roster Detailed columns (v2.teams[m].roster.detail, ~9 KB a
 # team) ride in the side file too, under this name
 DETAIL_KEY = "teams.roster.detail"
@@ -730,8 +762,9 @@ def build(base, ctx: dict) -> dict:
                       "within each week: darker = more starts than the other teams that week, so a short "
                       "week compares fairly. Weeks after this one count rosters as they will stand with the "
                       "pending moves. Idle: games by players who sit, this week (each week's is in its cell's "
-                      f"tap). {DAGGER} a player out tonight on the NBA's injury report. Tap a cell for its "
-                      "starts by day.")}
+                      f"tap). {DAGGER} a player out tonight on the NBA's injury report. A light day: 4 or fewer of "
+                      "a team's players have a game; an overflow day: more than 10 (Team \u203a Schedule counts "
+                      "both). Tap a cell for its starts by day.")}
 
     # --- teams
     teams = {}
@@ -739,28 +772,21 @@ def build(base, ctx: dict) -> dict:
         rb = rosters[m]
         players = rb["players"]
         rk = by_rank[m]
-        # roster extras: games played, next week's games
-        extra, sched_rows = [], []
+        # roster extras: games played, next week's games (5d2: the old per-week
+        # Schedule grid is gone; Team > Schedule is hub_v2/schedule.py)
+        extra = []
+        nxt_col = next((c for c in sched_cols if c["w"] == week + 1), None)
         for i, p in enumerate(players):
-            per, tips = [], []
-            back = next((t["text"] for t in p["tags"] if str(t["text"]).startswith("back ")), "")
-            for c in sched_cols:
-                if p["in_il"]:
-                    n, tip = None, il_tip(c["w"], c["sub"], back)
-                else:
-                    n, tip = player_week_tip(av, p["name"], c["w"], c["sub"], c["days"], c["long"])
-                per.append(n)
-                tips.append(tip)
-            nxt_n = per[1] if len(per) > 1 else None
+            if p["in_il"] or nxt_col is None:
+                nxt_n = None
+            else:
+                nxt_n, _tip = player_week_tip(av, p["name"], nxt_col["w"], nxt_col["sub"], nxt_col["days"],
+                                              nxt_col["long"])
             extra.append({"gp": str(int(p["gp"])), "next": DASH if nxt_n is None else str(nxt_n)})
-            sched_rows.append({"i": i, "cells": [{"n": DASH if n is None else str(n),
-                                                  "b": 0 if n is None else bucket(n, WEEK_GAME_EDGES), "tip": tip}
-                                                 for n, tip in zip(per, tips)]})
         nm = lambda i: players[i]["name"]
         ord_gp = sorted(range(len(players)), key=lambda i: (-int(players[i]["gp"]), nm(i)))
         ord_next = sorted(range(len(players)),
                           key=lambda i: (-(int(extra[i]["next"]) if extra[i]["next"] != DASH else -1), nm(i)))
-        sched_order = rb["orders"][rb["default_order"]]
         keep_order = rb["orders"]["keep"]
         k = kv3.line_for(ctx["keeper_watch"], m)
         keep_rank = [""] * len(players)
@@ -802,7 +828,6 @@ def build(base, ctx: dict) -> dict:
             "roster": {"extra": extra, "orders": {"gp": ord_gp, "next": ord_next},
                        "keepers": list(keep_order[:k]), "keep_line": str(k), "keep_rank": keep_rank,
                        "keep_w": keep_w},
-            "schedule": {"rows": [sched_rows[i] for i in sched_order]},
             "moves": moves}
 
     # --- this week's matchups: the pages' data

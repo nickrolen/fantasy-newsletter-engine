@@ -299,7 +299,8 @@ def run_v2(base_path=".", *, state=None, out_dir=None, echo=print, archetype_pre
     pics, pic_notes = team_pictures.data_uris(base, list((payload.get("v2") or {}).get("team_order") or []))
     for n in pic_notes:
         echo(f"Team picture left out (the monogram shows): {n}")
-    html = page.render(view.build(payload, mode="preview", now=now, pictures=pics), cards=preview_cards)
+    html = page.render(view.build(payload, mode="preview", now=now, pictures=pics, player_cards=cards, base=base),
+                       cards=preview_cards)
     preview.parent.mkdir(parents=True, exist_ok=True)
     preview.write_text(html, encoding="utf-8")
     echo(f"Wrote {preview} (plaintext; local only; {len(html.encode('utf-8')):,} bytes"
@@ -410,8 +411,8 @@ def run_v2_publish(base_path=".", *, preview_only: bool = False, state=None, out
     preview = (out_dir / V2_PREVIEW.name) if out_dir is not None else base / V2_PREVIEW
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
-    html = page.render(view.build(copy.deepcopy(pub_payload), mode="preview", now=now, pictures=pics),
-                       cards=preview_cards)
+    html = page.render(view.build(copy.deepcopy(pub_payload), mode="preview", now=now, pictures=pics,
+                                  player_cards=cards, base=base), cards=preview_cards)
     preview.write_text(html, encoding="utf-8")
     echo(f"Wrote {preview} (the new hub, plaintext; local only).")
     if preview_only:

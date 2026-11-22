@@ -234,23 +234,56 @@ def market_files(vm: dict, root_key: bytes, terms=()) -> tuple:
     import hashlib
     from .. import hub_crypto, hub_cards
     from . import page_market
-    html = page_market.moves_older_html(((vm.get("market") or {}).get("moves")) or {})
-    if not html:
-        return {}, {}
     K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
-    k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": html}), terms)
-    rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
-    return {rel: blob}, {"moves_older": {"file": rel, "key": hub_crypto.b64(k)}}
+    files, refs = {}, {}
+    html = page_market.moves_older_html(((vm.get("market") or {}).get("moves")) or {})
+    if html:
+        k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": html}), terms)
+        rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+        files[rel] = blob
+        refs["moves_older"] = {"file": rel, "key": hub_crypto.b64(k)}
+    # 5d2 s.4: each range but the default, one encrypted part (opened when picked)
+    rg = (((vm.get("market") or {}).get("available") or {}).get("ranges")) or {}
+    for t in rg.get("tabs") or []:
+        if t["key"] == rg.get("default"):
+            continue
+        k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": page_market.range_table(t, False)}), terms)
+        rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+        files[rel] = blob
+        refs.setdefault("ranges", {})[t["key"]] = {"file": rel, "key": hub_crypto.b64(k)}
+    return files, refs
 
 
-LAZY_SCREENS = ("team pages", "last week's matchup pages")
+def players_files(vm: dict, root_key: bytes, terms=()) -> tuple:
+    """5d2 s.3: ({relative path: bytes}, {group: ref}, {group: bytes}) -- each
+    of the Players tab's Detailed groups (page_players.group_html) as one
+    encrypted part, opened on its chip's first tap; Simple stays in the page."""
+    import hashlib
+    from .. import hub_crypto, hub_cards
+    from . import page_players
+    det = (vm.get("players") or {}).get("detail")
+    if not det:
+        return {}, {}, {}
+    K = hub_crypto.subkey(root_key, hub_crypto.CARDS_INFO)
+    files, refs, sizes = {}, {}, {}
+    for g in det["groups"]:
+        k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": page_players.group_html(g, det)}), terms)
+        rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+        files[rel] = blob
+        refs[g["key"]] = {"file": rel, "key": hub_crypto.b64(k)}
+        sizes[g["key"]] = len(blob)
+    return files, refs, sizes
+
+
+LAZY_SCREENS = ("team pages", "last week's matchup pages", "next week's matchup previews")
 
 
 def lazy_routes(vm: dict) -> set:
     """5b: the screens that leave the published first load (LAZY_SCREENS):
     every team page and last week's matchup pages."""
     return ({tp["route"] for tp in vm.get("team_pages") or []}
-            | {lc["route"] for lc in ((vm.get("last") or {}).get("cards") or [])})
+            | {lc["route"] for lc in ((vm.get("last") or {}).get("cards") or [])}
+            | {c["route"] for c in ((vm.get("next_week") or {}).get("cards") or [])})      # 5d2
 
 
 def screen_files(vm: dict, html: str, root_key: bytes, terms=()) -> tuple:
@@ -313,7 +346,8 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, it
     if pictures is None:
         from .. import team_pictures
         pictures, _notes = team_pictures.data_uris(base, list((payload.get("v2") or {}).get("team_order") or []))
-    vm = view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo), pictures=pictures)
+    vm = view.build(payload, mode="publish", now=now or datetime.now(gen.tzinfo), pictures=pictures, player_cards=cards,
+                    base=base)
     idx = hub_archive.verify(base)
     by_file = {e["enc"]: e for e in idx["issues"]}
     nl = payload["newsletter"]
@@ -333,6 +367,7 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, it
     try:
         pfiles, prefs = picture_files(vm, root, terms)
         mfiles, mrefs = market_files(vm, root, terms)
+        plfiles, plrefs, plsizes = players_files(vm, root, terms)          # 5d2
     except hub_crypto.SealExhausted as e:
         raise hub_publish.PlaintextLeak(str(e)) from None
     for tp in vm.get("team_pages") or []:          # 5b: the full picture rides on the 72 TeamMark
@@ -341,6 +376,7 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, it
     if vm.get("market") is not None:
         vm["market"]["parts"] = mrefs
     vm["league"]["parts"] = lrefs
+    vm["players"]["parts"] = plrefs
     vm["league"]["history"] = None                # never in the page itself: only its encrypted files
     vm["league"]["awards_html"] = None            # 4c5: nor the Awards segment
     vm["lazy_screens"] = lazy_routes(vm)
@@ -354,6 +390,7 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, it
     cfiles.update(lfiles)
     cfiles.update(pfiles)
     cfiles.update(mfiles)
+    cfiles.update(plfiles)
     if cards is not None:
         try:
             files2, cref, crep = card_files(base, payload, cards, root, terms)
@@ -394,9 +431,10 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, it
     lazy = {f: n for f, n in sizes.items() if f != "index.html"}
     over_cap = sorted(f for f, n in lazy.items() if n > LAZY_CAP_BYTES and not f.startswith("issues/"))
     return {"dir": str(out), "files": scan["files"], "sizes": sizes, "terms": len(terms), "reseals": attempt - 1,
-            "gzip": gz, "live": live, "card_files": crep, "league_parts": lrep,
+            "gzip": gz, "live": live, "card_files": crep, "league_parts": lrep, "players_parts": plsizes,
             "picture_parts": {m: (out / r["file"]).stat().st_size for m, r in prefs.items()},
-            "market_parts": {k: (out / r["file"]).stat().st_size for k, r in mrefs.items()},
+            "market_parts": {k: (out / r["file"]).stat().st_size for k, r in mrefs.items() if k != "ranges"},
+            "market_range_parts": {k: (out / r["file"]).stat().st_size for k, r in (mrefs.get("ranges") or {}).items()},
             "screen_parts": ssizes,
             "iterations": bundle["iter"], "bundle_salt": bundle["salt"],
             "budget_bytes": budget, "over_budget": len(sh) > budget, "lazy_cap_bytes": LAZY_CAP_BYTES,

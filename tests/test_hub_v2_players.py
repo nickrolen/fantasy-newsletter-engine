@@ -114,7 +114,8 @@ def test_the_weekly_change_needs_a_line_at_least_7_days_back():
     # no line a week back: no marker on anyone, never a zero, and no Risers section
     import hub_v2_market_fixture as MF
     import hub_v2_league_fixture as LF
-    p = LF.add_league(MF.add_market(add_synth_players(_synth_payload_4b(), previous=False)))  # 4c3/4c4: Market, League
+    import test_hub_v2 as _T                     # 5d2: Market's sorts read the Players groups (add_synth_teams)
+    p = LF.add_league(MF.add_market(_T.add_synth_teams(add_synth_players(_synth_payload_4b(), previous=False))))
     assert all(z["ovr_d"] is None and z["pot_d"] is None for z in _rows(p))
     assert p["v2"]["players"]["risers"] is None
     h = render(p)
@@ -179,7 +180,7 @@ def test_a_ratings_error_leaves_ovr_out_with_its_reason():
     try:
         import hub_v2_market_fixture as MF
         import hub_v2_league_fixture as LF
-        p = LF.add_league(MF.add_market(T.add_synth_players(p)))                 # 4c3/4c4: Market, League
+        p = LF.add_league(MF.add_market(T.add_synth_teams(T.add_synth_players(p))))   # 4c3/4c4/5d2
     finally:
         P.build = orig
     assert all(z["ovr"] == DASH and z["pot"] == DASH and z["grades"] is None for z in _rows(p))
@@ -311,7 +312,8 @@ def test_the_table_and_the_risers(syn):
     p, _ = syn
     h = render(p)
     sec = re.search(r'data-route="players"(.*?)</section></div></section>', h, re.S).group(1)
-    assert re.findall(r'data-psort="(\w+)"', sec) == ["name", "ovr", "pot", "dur", "fppg", "next"]   # 4a4: DUR
+    simple = sec[sec.index('id="pl-simple"'):]                                    # 5d2: Simple, before the groups
+    assert re.findall(r'data-psort="(\w+)"', simple.split("</table>")[0]) == ["name", "ovr", "pot", "dur", "fppg", "next"]
     assert 'id="pl-search"' in sec and 'data-filter="k"' in sec and 'data-filter="h"' in sec
     risers = p["v2"]["players"]["risers"]
     assert risers and [r["d"] for r in risers] == ["\u25b23", "\u25b22", "\u25b21"]     # 5b: + the free agent

@@ -81,7 +81,8 @@ def synth_payload() -> dict:
     tab by the real engine path (market.build: tests/hub_v2_market_fixture.py)."""
     import hub_v2_market_fixture as MF
     import hub_v2_league_fixture as LF
-    return LF.add_league(MF.add_market(add_synth_teams(add_synth_players(_synth_payload_4b()))))
+    import hub_v2_sched_fixture as SF
+    return SF.add_sched(LF.add_league(MF.add_market(add_synth_teams(add_synth_players(_synth_payload_4b())))))
 
 
 def _synth_payload_4b() -> dict:
@@ -341,6 +342,9 @@ def render(p=None, mode="preview", now=None):
     p = p or synth_payload()
     if p.get("v2") is not None and "roster_cols" not in p["v2"] and "players" in p["v2"]:
         add_synth_teams(p)                  # a 4c1 test's own payload: the 4c2 keys by the same path
+    if p.get("v2") is not None and "sched" not in p["v2"] and "teams" in p["v2"]:
+        import hub_v2_sched_fixture as SF   # 5d2: Team > Schedule, Next week, by the real engine
+        SF.add_sched(p)
     return page.render(view.build(p, mode=mode, now=now or GEN + timedelta(hours=2)))
 
 
@@ -511,11 +515,13 @@ def test_the_publish_mode_file_holds_only_ciphertext_and_round_trips(tmp_path):
     # 4c4: beside index.html, only League's History chips, each an encrypted part file (4c5: + Awards);
     # 5a: and the archive's issues, byte for byte, as the current hub publishes them; 5b: + the
     # title-odds chart, Moves' older weeks, and the lazy screens (team pages, last week's matchups)
-    n_screens = len(p["v2"]["teams"]) + len((p["v2"].get("last") or {}).get("cards") or [])
+    n_screens = len(p["v2"]["teams"]) + len((p["v2"].get("last") or {}).get("cards") or []) \
+        + len((p["v2"].get("next_week") or {}).get("cards") or [])           # 5d2: next week's previews
     assert len(rep["screen_parts"]) == n_screens and "odds" in rep["league_parts"]["bytes"]
     n_seasons = sum(1 for k in rep["league_parts"]["bytes"] if ":" in k)     # 5d1 s.8: past seasons' parts
     assert rep["files"][0] == "index.html" and len(rep["files"]) == (
-        9 + 1 + n_screens + len(rep["market_parts"]) + len(rep["picture_parts"]) + n_seasons)
+        9 + 1 + n_screens + len(rep["market_parts"]) + len(rep["picture_parts"]) + n_seasons
+        + len(rep["players_parts"]) + len(rep["market_range_parts"]))   # 5d2: Players groups, Market ranges
     assert rep["files"][1] == f"issues/{e['enc']}"
     assert (out / "issues" / e["enc"]).read_bytes() == (tmp_path / "output" / "hub_archive" / e["enc"]).read_bytes()
     assert all(re.fullmatch(r"parts/[0-9a-f]{16}\.enc", f) for f in rep["files"][2:])
@@ -960,6 +966,13 @@ class _SynAv:
     def players(self, m, d):
         return list(self.rosters[m]) if d in self.team_dates["AAA"] else []
 
+    def grid_players(self, m, d):
+        """5d2: the one day fill (hub_v2.ranges.day_fill) reads this."""
+        return self.players(m, d), [], []
+
+    def plays(self, name, d):
+        return d in self.team_dates["AAA"] and not name.endswith("Wing")
+
     def playable(self, name, days):
         return [d for d in days if d in self.team_dates["AAA"] and not name.endswith("Wing")]
 
@@ -987,21 +1000,20 @@ def add_synth_teams(p: dict) -> dict:
            "next_days": nxt, "team_value": tv, "title_prices": ({m: SYN_PRICE for m in MGRS}, "title", None),
            "sched_days": [[GEN.date() + timedelta(days=i) for i in range(5)], nxt,
                           [GEN.date() + timedelta(days=12 + i) for i in range(7)]]}
+    from modules.hub_v2 import ranges as _rg
+    ctx["ranges"] = _rg.Source(av, av, 9, {9: [GEN.date() + timedelta(days=i) for i in range(5)], 10: nxt,
+                                           11: [GEN.date() + timedelta(days=12 + i) for i in range(7)]}, 4)
     shared, detail = R.build(SYN_BASE, p, ctx)
     v2 = p["v2"]
     v2["roster_cols"] = shared
     for m in MGRS:
         v2["teams"][m]["roster"]["detail"] = detail[m]
-        for row in v2["teams"][m]["schedule"]["rows"]:
-            for k, c in enumerate(row["cells"]):
-                il = p["rosters"][m]["players"][row["i"]]["in_il"]
-                c["tip"] = ({"h": f"Wk {9 + k}", "b": "IL slot \u00b7 back 12-14"} if il else
-                            {"h": f"Wk {9 + k}" + (" rest" if k == 0 else ""), "b": "Mon \u00b7 Wed",
-                             "f": "Fri\u2013Sat B2B \u00b7 out Mon"})
-                if il:
-                    c["n"], c["b"] = DASH, 0
-                else:
-                    c["n"], c["b"] = "2", 2
+    # 5d2 s.3: the Players tab's Detailed groups, by the real engine (pcols.build)
+    from modules.hub_v2 import pcols as _pc
+    g = _pc.build(SYN_BASE, p, dict(ctx, range_list=[], fa_av=av, fa_ok=[], par={"Marcus Guard": 41.5},
+                                    potw_wins={"Marcus Guard": 1}, sched_days=ctx["sched_days"]))
+    g.update(_pc.shared(False))
+    v2["players"]["groups"] = g
     for r in v2["grid3"]["rows"]:
         for k, c in enumerate(r["cells"]):
             c["tip"] = {"h": f"Wk {9 + k}", "b": "Mon 8 \u00b7 Tue 7", "f": f"{c['n']} starts \u00b7 {r['idle']} idle"

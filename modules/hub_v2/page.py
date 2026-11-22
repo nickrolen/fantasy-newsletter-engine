@@ -47,6 +47,7 @@ from .infotips import tip
 from . import page_players as pp
 from . import page_market as pm
 from . import page_league as pl
+from . import page_sched as ps
 
 # tap targets: an interactive element carries one of these classes (or sits
 # in one of TAP_PARENTS); each class's CSS gives it at least tap-min (or
@@ -55,7 +56,7 @@ from . import page_league as pl
 # keyboard-reachable, as wide as the point's share of the axis.
 TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-iconbtn", "v2-tap", "lh-c-hit",
                "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit",
-               "v2-oddslink", "v2-rank-team", "v2-tc-link") + pm.TAP_CLASSES + pl.TAP_CLASSES
+               "v2-oddslink", "v2-rank-team", "v2-tc-link") + pm.TAP_CLASSES + pl.TAP_CLASSES + ps.TAP_CLASSES
 # 4c2: the roster table's Detailed chip groups (roster.GROUPS, plus "all"): the
 # CSS shows a column when the table's data-group is one of its groups
 DETAIL_GROUPS = ("value", "form", "schedule", "health", "keeper", "profile", "all")
@@ -243,6 +244,7 @@ button.v2-dchip[aria-selected="true"]{background:var(--dark);color:var(--ink-on-
  .v2-cols .lh-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 """
+LAYOUT_CSS += ps.CSS                       # 5d2: Team > Schedule, Matchups > Next week
 # 4c2: one rule per Detailed chip group: the table shows a column when its
 # data-group is one of the column's groups; the group's note shows likewise
 LAYOUT_CSS += "".join(f'.v2-rt[data-mode="detailed"][data-group="{g}"] .v2-g-{g}{{display:table-cell}}\n'
@@ -685,11 +687,9 @@ def _team_page(tp: dict, vm: dict, ids: _Ids) -> str:
              + _kpi(k["odds"], t, ids, "odds", _spark(tp["spark"], tp["spark_aria"]))
              + _kpi(k["win"], t, ids, "win") + _kpi(k["pf"], t, ids, "pf") + _kpi(k["adds"], t, ids, "adds")
              + "</div>" + _keepers(tp, ids) + '</div><div class="v2-col">' + _roster(tp, ids) + "</div></div></div>")
-    # schedule
-    o.append('<div class="v2-pane" data-pane-of="schedule" hidden><section class="lh-card v2-gap8">'
-             '<div class="lh-sechead"><h2 class="lh-eyebrow">Games, next 3 weeks</h2></div>'
-             + _heat(tp["sched"], vm["sched_cols"], total=False, label_of=lambda r: _pl(r["name"], r["card"]))
-             + f'<span class="lh-sub">{clean(vm["sched_note"])}</span></section></div>')
+    # schedule (5d2 s.1: the redesign, modules/hub_v2/page_sched.py)
+    o.append('<div class="v2-pane" data-pane-of="schedule" hidden>'
+             + ps.schedule_pane(tp["sched2"], t, lambda n, c: _pl(n, c, "lh-name v2-tap")) + "</div>")
     # moves
     o.append('<div class="v2-pane" data-pane-of="moves" hidden><section class="lh-card v2-gap8">'
              '<div class="lh-sechead"><h2 class="lh-eyebrow">Moves</h2><span class="lh-meta">newest first</span></div>')
@@ -902,7 +902,8 @@ def render(vm: dict, *, cards: dict = None) -> str:
              '<section class="v2-sec"><div class="lh-sechead">'
              f'<h2 class="lh-eyebrow">This week\'s matchups</h2><span class="lh-meta lh-meta--canvas">{clean(vm["clock"])}</span></div>'
              + "".join(_matchup_card(mu) for mu in vm["matchups"]) + "</section>"
-             '<section class="lh-card v2-gap8" data-section="grid"><div class="lh-sechead"><h2 class="lh-eyebrow">Games grid</h2>'
+             + (ps.next_week(vm["next_week"], {t["manager"]: t for t in vm["teams"]}, _mono) if vm["next_week"] else "")
+             + '<section class="lh-card v2-gap8" data-section="grid"><div class="lh-sechead"><h2 class="lh-eyebrow">Games grid</h2>'
              '<span class="lh-meta">starts per week</span></div>'
              + _heat(g["rows"], g["cols"], total=bool(g.get("idle_label")), total_head=g.get("idle_label"),
                      label_of=lambda r: f'<a class="v2-heat-a v2-tap {r["team"]["cls"]}" href="{r["team"]["href"]}">'
@@ -913,6 +914,11 @@ def render(vm: dict, *, cards: dict = None) -> str:
         o.append(_matchup_page(mu, vm, ids))
     for lc in (vm["last"] or {}).get("cards", []):
         o.append(_lazy(_last_page(lc, vm, ids), vm))
+    nw = vm["next_week"]
+    for c in (nw or {}).get("cards", []):                      # 5d2 s.2: next week's previews
+        o.append(_lazy(ps.next_page(c, nw, vm["next_strips"].get(c["id"], {}),
+                                    {t["manager"]: t for t in vm["teams"]}, _mono,
+                                    _topbar("#/matchups", "Matchups", vm["age"])), vm))
 
     # ---------------------------------------------------------------- teams
     o.append('<section class="v2-screen" data-route="teams" hidden><div class="v2-stack"><section class="v2-sec">'
@@ -982,7 +988,7 @@ def script() -> str:
     tail = "route();check130();\n})();\n"
     if not PAGE_JS.endswith(tail):
         raise ValueError("PAGE_JS no longer ends with its first route() call")
-    return PAGE_JS[:-len(tail)] + pm.JS + pl.JS + tail
+    return PAGE_JS[:-len(tail)] + pm.JS + pl.JS + ps.JS + pp.JS + tail
 
 
 PAGE_JS = r"""
@@ -1301,7 +1307,7 @@ function fq(s){
 var PF={k:'',pos:'',nba:'',age:'',h:''};
 function plFilter(){
   var inp=document.getElementById('pl-search');if(!inp){return;}
-  var q=fq(inp.value),trs=document.querySelectorAll('#pl-table tbody tr'),any=false;
+  var q=fq(inp.value),trs=document.querySelectorAll('#pl-table tbody tr, [data-pgroup] .v2-pt tbody tr'),any=false;
   for(var i=0;i<trs.length;i++){var t=trs[i],ok=true;
     if(q&&t.getAttribute('data-q').indexOf(q)<0){ok=false;}
     if(PF.k&&t.getAttribute('data-k')!==PF.k){ok=false;}
@@ -1309,11 +1315,11 @@ function plFilter(){
     if(PF.nba&&t.getAttribute('data-nba')!==PF.nba){ok=false;}
     if(PF.age&&t.getAttribute('data-age')!==PF.age){ok=false;}
     if(PF.h&&t.getAttribute('data-h')!=='1'){ok=false;}
-    t.hidden=!ok;if(ok){any=true;}}
+    t.hidden=!ok;if(ok&&t.closest('#pl-table')){any=true;}}
   document.getElementById('pl-none').hidden=any;
 }
-function plSort(key){
-  var tbl=document.getElementById('pl-table'),orders=JSON.parse(tbl.getAttribute('data-porders'));
+function plSort(key,tbl){
+  tbl=tbl||document.getElementById('pl-table');var orders=JSON.parse(tbl.getAttribute('data-porders'));
   var dir=(tbl.getAttribute('data-pcol')===key&&tbl.getAttribute('data-pdir')==='d')?'a':'d';
   var ord=orders[key][dir],body=tbl.querySelector('tbody'),rows={},rs=body.querySelectorAll('tr[data-i]');
   for(var i=0;i<rs.length;i++){rows[rs[i].getAttribute('data-i')]=rs[i];}
@@ -1447,7 +1453,7 @@ document.addEventListener('click',function(e){
   t=e.target.closest('button[data-filter="h"]');
   if(t){var on=t.getAttribute('aria-pressed')!=='true';t.setAttribute('aria-pressed',String(on));PF.h=on?'1':'';plFilter();return;}
   t=e.target.closest('[data-psort]');
-  if(t){plSort(t.getAttribute('data-psort'));return;}
+  if(t){plSort(t.getAttribute('data-psort'),t.closest('table'));return;}
   t=e.target.closest('[data-pick]');
   if(t){location.hash='#/players/compare/'+cmpA+'/'+t.getAttribute('data-pick');return;}
   t=e.target.closest('.v2-bar');
@@ -1519,12 +1525,12 @@ function check130(){
   for(var a=0;a<all.length;a++){fs.push(parseFloat(getComputedStyle(all[a]).fontSize));}
   for(var b=0;b<all.length;b++){all[b].style.fontSize=(fs[b]*1.3)+'px';}
   setTimeout(function(){
-    var els=document.querySelectorAll('.v2-rt td, .v2-rt th, .v2-mcard *, .v2-tcard *, .lh-kpi *'),bad=[];
+    var els=document.querySelectorAll('.v2-rt td, .v2-rt th, .v2-mcard *, .v2-tcard *, .lh-kpi *, .v2-stile *, .v2-nwcard *, .v2-sov td'),bad=[];
     for(var i=0;i<els.length;i++){var x=els[i];
       if(x.offsetParent===null||!x.getClientRects().length||x.closest('[hidden]')){continue;}
       if(x.scrollWidth>x.clientWidth+1||x.scrollHeight>x.clientHeight+1){
         var cs=getComputedStyle(x);if(cs.overflow!=='visible'||cs.textOverflow==='ellipsis'){bad.push((x.className||x.tagName)+': '+x.textContent.slice(0,40));}}
-      var box=x.closest('.lh-kpi, .v2-mcard, .v2-tcard');
+      var box=x.closest('.lh-kpi, .v2-mcard, .v2-tcard, .v2-stile, .v2-nwcard');
       if(box&&x.getBoundingClientRect().right>box.getBoundingClientRect().right+1){bad.push((x.className||x.tagName)+' (past its tile): '+x.textContent.slice(0,40));}}
     var d=document.createElement('div');d.className='v2-check';
     d.textContent='Text-size check at 130%: '+(bad.length?bad.length+' clipped on this screen:\n'+bad.join('\n'):'nothing clipped on this screen.');

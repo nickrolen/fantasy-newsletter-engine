@@ -198,7 +198,7 @@ def _strips_days(n: int, X) -> List[tuple]:
 # =============================================================================
 
 def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_archive/",
-          pictures: dict = None) -> dict:
+          pictures: dict = None, player_cards: dict = None, base=None) -> dict:
     from ..hub_page import age_words, STALE_HOURS, STALE_TEXT
     if mode not in ("preview", "publish"):
         raise ViewError(f"mode {mode!r}")
@@ -214,6 +214,9 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
     if "players" not in v2:
         raise ViewError("the new hub's Players rows are not attached: they live in their own file since 4c2 "
                         "(output/hub_players.json; hub_v2.data.attach_players)")
+    if "sched" not in v2 or "next_week" not in v2 or "teams" not in (v2.get("sched") or {}):
+        raise ViewError("the payload's new-hub keys predate 5d2 (no Team > Schedule): rebuild it with this "
+                        "engine (python scripts/build_hub_state.py)")
     if "roster_cols" not in v2 or "last" not in v2:
         raise ViewError("the payload's new-hub keys predate 4c2 (no roster columns): rebuild it with this "
                         "engine (python scripts/build_hub_state.py)")
@@ -321,8 +324,6 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         keep_all = [{"rank": tv["roster"]["keep_rank"][i], "name": rows[i]["name"], "card": rows[i]["card"],
                      "keep": rows[i]["cells"]["keep"], "w": tv["roster"]["keep_w"][i], "meta": rows[i]["meta"],
                      "in_il": rows[i]["in_il"]} for i in orders["keep"]]
-        sched = [{"name": rows[r["i"]]["name"], "card": rows[r["i"]]["card"], "in_il": rows[r["i"]]["in_il"],
-                  "cells": r["cells"]} for r in tv["schedule"]["rows"]]
         mweeks = {w["key"]: w for w in payload["moves"]["weeks"]}
         moves = []
         for ref in tv["moves"]:
@@ -340,7 +341,9 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
                        "gs": {k: [g["key"] for g in rc["groups"] if k in g["cols"]] for k in rc["keys"]},
                        "why": rc["why"], "notes": rc["notes"]},
             "keepers": keepers, "keep_line": tv["roster"]["keep_line"], "keep_all": keep_all,
-            "sched": sched, "moves": moves, "note": rb["note"], "size": rb["size"],
+            "moves": moves, "note": rb["note"], "size": rb["size"],
+            "sched2": {"weeks": v2["sched"]["weeks"], "open": v2["sched"]["open"], "note": v2["sched"]["note"],
+                       "team": v2["sched"]["teams"][m]},
             "pending": [j["text"] for j in rb["pending"]]})
 
     # ------------------------------------------------------------------ home extras
@@ -408,8 +411,12 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "teams": [teams[m] for m in order], "team_pages": team_pages, "trade": trade,
         "trade_foot": payload["trade_block"]["foot"], "grid3": grid3,
         "sched_cols": v2["sched_cols"], "sched_note": v2["sched_note"],
+        "next_week": v2["next_week"],
+        "next_strips": {c["id"]: {s["m"]: v2["sched"]["teams"][s["m"]]["panes"][c["pane"]]["strip"]
+                                  for s in (c["a"], c["b"])}
+                        for c in ((v2["next_week"] or {}).get("cards") or []) if c.get("pane") is not None},
         "placeholders": placeholders, "odds_label": payload["power"]["label"],
-        "players": players(payload, teams),
+        "players": players(payload, teams, cards=player_cards, base=base),
         "market": market(payload, teams),
         "league": dict(league(payload, teams, mode, archive_href),
                        history=league_history(payload, teams) if "league_history" in v2 else None),
@@ -446,7 +453,23 @@ def market(payload: dict, teams: dict) -> dict:
     av = dict(a, rows=[dict(r, href=href(r["card"])) for r in a["rows"]],
               orders_json=_json.dumps(a["orders"], separators=(",", ":")),
               default_rows=list(a["orders"][a["default"]]))
-    st = dict(mk["stash"], rows=[dict(r, href=href(r["card"])) for r in mk["stash"]["rows"]])
+    # 5d2 s.4: each range's table, joined to Available's rows (card, sub, chips, filters)
+    rg = mk.get("ranges")
+    if rg is None:
+        raise ViewError("the payload's Market predates 5d2 (no ranges): rebuild it with this engine "
+                        "(python scripts/build_hub_state.py)")
+    base_rows = {r["name"]: r for r in av["rows"]}
+    rtabs = []
+    for x in rg["list"]:
+        t = rg["avail"][x["key"]]
+        rows = [dict(base_rows[r["name"]], cells=r["cells"], games=r["games"], fit=r["fit"]) for r in t["rows"]]
+        rtabs.append(dict(x, weeks=t["weeks"], rows=rows, note=t["note"],
+                          orders_json=_json.dumps(t["orders"], separators=(",", ":")),
+                          default_rows=list(t["orders"]["pts"]),
+                          stash={r["name"]: r for r in rg["stash"][x["key"]]}))
+    av["ranges"] = {"tabs": rtabs, "default": rg["default"], "sorts": rg["sorts"]}
+    st = dict(mk["stash"], rows=[dict(r, href=href(r["card"])) for r in mk["stash"]["rows"]],
+              ranges=av["ranges"])
     bl = {"foot": mk["block"]["foot"],
           "cards": [dict(c, team=teams[c["m"]],
                          lists=[{"label": lst["label"], "players": [who(p) for p in lst["players"]]}
@@ -474,7 +497,56 @@ def market(payload: dict, teams: dict) -> dict:
 # Players, the player card and Compare (4c1)
 # =============================================================================
 
-def players(payload: dict, teams: dict) -> dict:
+def player_groups(payload: dict, rows: list, cards: dict = None, base=None) -> dict:
+    """5d2 s.3: the Players tab's Detailed groups (payload v2.players.groups,
+    hub_v2/pcols.py), with the Career group from the player cards
+    (pcols.career_cells: given at the page's build). Joins only: each
+    group's columns, every row's cells in the table's default order, the
+    orders as JSON, the Trend sparklines on one scale."""
+    import json as _json
+    from . import pcols
+    pl = payload["v2"]["players"]
+    g = pl.get("groups")
+    if g is None:
+        raise ViewError("the payload's Players rows predate 5d2 (no Detailed groups): rebuild it with this "
+                        "engine (python scripts/build_hub_state.py)")
+    car = pcols.career_cells(base, payload, cards)
+    cells = dict(g["cells"])
+    cells.update(car["cells"])
+    cells["owners"] = car["owners"]
+    orders = dict(g["orders"])
+    orders.update(car["orders"])
+    why = dict(g["why"])
+    if cards is None:
+        for k in ("seasons", "cfppg", "bestsea", "kept", "drafted", "owners"):
+            why[k] = "The player cards are not built with this page (they come from the cards' history)"
+    out = []
+    order = pl["orders"][pl["default"]]["d"]
+    for grp in g["groups"]:
+        cols = grp["cols"]
+        trs = []
+        for i in order:
+            r = rows[i]
+            cs = []
+            for k in cols:
+                c = {"t": cells[k][i]}
+                if k == "trend" and g["trend"][i]:
+                    c["spark"] = spark(g["trend"][i]["values"], g["trend_max"])
+                    c["aria"] = g["trend"][i]["aria"]
+                cs.append(c)
+            tr = {"r": r, "cells": cs}
+            if grp["key"] == "box":
+                tr["tot"] = [{"t": g["tot"][k][i]} if k in g["tot"] else {"t": cells[k][i]} for k in cols]
+            trs.append(tr)
+        out.append({"key": grp["key"], "label": grp["label"],
+                    "cols": [{"k": k, "label": g["cols"][k]["label"], "num": g["cols"][k]["num"]} for k in cols],
+                    "rows": trs, "orders_json": _json.dumps({k: orders[k] for k in cols}, separators=(",", ":")),
+                    "why": [{"label": g["cols"][k]["label"], "t": why[k]} for k in cols if k in why]})
+    ranges = {k: v for k, v in (g.get("ranges") or {}).items() if v}
+    return {"groups": out, "hidden": g["hidden"], "ranges": ranges}
+
+
+def players(payload: dict, teams: dict, cards: dict = None, base=None) -> dict:
     """The Players screen, Compare's data and the pick list, from payload v2
     players (modules/hub_v2/players.py). Joins only: a row's team class, its
     card's route, the filters' labels. Every printed value is a payload string;
@@ -524,7 +596,8 @@ def players(payload: dict, teams: dict) -> dict:
             "error": rt["error"], "as_of": rt["as_of"], "change_note": rt["change_note"],
             "preview_arch": bool(rt.get("preview")),
             "cmp_json": _json.dumps(cmp, separators=(",", ":"), ensure_ascii=True),
-            "pick": [r for r in rows if r["key"]]}
+            "pick": [r for r in rows if r["key"]],
+            "detail": player_groups(payload, rows, cards=cards, base=base)}
 
 
 # =============================================================================

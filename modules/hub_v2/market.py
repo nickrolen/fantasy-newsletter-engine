@@ -138,6 +138,105 @@ def available(free: dict, fa_av, col_specs: list, prow: dict) -> dict:
 
 
 # =============================================================================
+# 5d2 s.4: the ranges (item 14)
+# =============================================================================
+
+# the sorts beside Pts and Games, each a column too (item 14), from the
+# Players groups' cells (one string everywhere: hub_v2/pcols.py); LOW: lower
+# is better
+RANGE_SORTS = (("pts", "Proj pts"), ("total", "Games"), ("fppg", "FPPG"), ("l14", "L14"), ("l7", "L7"),
+               ("l30", "L30"), ("ovr", "OVR"), ("pot", "POT"), ("dur", "DUR"), ("mind", "MIN \u0394"),
+               ("avail", "Avail %"), ("age", "Age"))
+RANGE_TEXT = (("status", "Status"),)
+LOW_SORTS = {"age"}
+DEFAULT_RANGE = "next3"
+
+
+def range_tables(payload: dict, ctx: dict) -> dict:
+    """{"list": [{"key", "label", "sub"}], "default", "avail": {key: table},
+    "stash": {key: [row]}}: the free agents of Available (the same list for
+    every range: the range re-sorts it and counts its games) and the Stash,
+    over each of the seven ranges still ahead (hub_v2.ranges: the same days
+    as Players and Team > Schedule). Each range's games are counted per
+    fantasy week (week 7's column says 14 days), then summed; Proj pts =
+    Yahoo's projected FPPG x those games (rank_free_agents' rule)."""
+    from .data import player_week_tip, bucket, WEEK_GAME_EDGES
+    from .pcols import _orders
+    rl = ctx.get("range_list") or []
+    if not rl:                                    # the season's last window has closed: no range is ahead
+        return {"list": [], "default": None, "avail": {}, "stash": {},
+                "sorts": [{"k": k, "label": lab} for k, lab in RANGE_SORTS]}
+    fa_av, proj, src = ctx["fa_av"], ctx["proj"], ctx.get("ranges")
+    wk = {int(w): list(v) for w, v in ctx["wk_dates"].items()}
+    pl = payload["v2"]["players"]
+    names_all = [z["name"] for z in pl["rows"]]
+    pos_of = {n: i for i, n in enumerate(names_all)}
+    gcells = (pl.get("groups") or {}).get("cells")
+    if gcells is None:
+        raise MarketError("the Players groups are missing: Market's sorts read their cells (one source)")
+    free = payload["free_agents"]["rows"]
+    out_av, out_st = {}, {}
+    for r_ in rl:
+        weeks = []
+        for w in r_.weeks:
+            ds = [d for d in wk[w] if d in set(r_.days)]
+            weeks.append({"w": w, "days": ds, "long": len(wk[w]) > 7,
+                          "label": f"Wk {w}" + (f" \u00b7 {len(wk[w])} days" if len(wk[w]) > 7 else "")
+                          + (" rest" if ds and ds[0] != wk[w][0] else "")})
+        rows, keys = [], {k: [] for k, _l in RANGE_SORTS}
+        # Team > Schedule's pickups link (fit=<manager>): his games on that team's empty-slot days
+        fit_days = ({m: src.empty_days(m, list(r_.days)) for m in payload["v2"]["team_order"]}
+                    if (r_.key == "next" and src is not None) else {})
+        for r in free:
+            n = r["name"]
+            pj = proj.get(n)
+            pjv = None if pj is None else pj.get("projectedFPPG")
+            if pjv is None:
+                raise MarketError(f"free agent {n} has no projectedFPPG")
+            games, tot = [], 0
+            for x in weeks:
+                cnt, tip = player_week_tip(fa_av, n, x["w"], "rest" if x["label"].endswith("rest") else "",
+                                           x["days"], x["long"])
+                tot += cnt
+                games.append({"n": str(cnt), "b": bucket(int(cnt), WEEK_GAME_EDGES), "tip": tip})
+            pts = float(pjv) * tot
+            i = pos_of.get(n)
+            if i is None:
+                raise MarketError(f"free agent {n} has no Players row")
+            cells = {k: gcells[k][i] for k in ("fppg", "l14", "l7", "l30", "ovr", "pot", "dur", "mind", "avail",
+                                                 "status")}
+            cells["age"] = pl["rows"][i]["age"]
+            cells["total"], cells["pts"] = str(tot), f"{pts:.1f}"
+            fit = [m for m, ds in fit_days.items() if fa_av.playable(n, ds)]
+            rows.append({"name": n, "cells": cells, "games": games, "fit": " ".join(fit)})
+            keys["pts"].append(pts)
+            keys["total"].append(tot)
+            for k in ("fppg", "l14", "l7", "l30", "ovr", "pot", "dur", "mind", "avail", "age"):
+                keys[k].append(_num(str(cells[k]).replace("%", "").replace("Prov.", "").strip()))
+        nm = [x["name"] for x in rows]
+        orders = {k: _orders(keys[k], nm, k in LOW_SORTS)["d"] for k in keys}
+        out_av[r_.key] = {"weeks": [{"label": x["label"]} for x in weeks], "rows": rows, "orders": orders,
+                          "note": (f"{r_.label}: {r_.sub}. Games he will play in each fantasy week of the range "
+                                   "(a week under way counts its days from today); Proj pts: Yahoo's projected "
+                                   "FPPG times those games. The list is the same for every range: the best "
+                                   "free agents by projected points over the next three weeks.")}
+        st = []
+        for r in payload["stash"]["rows"]:
+            n = r["name"]
+            pj = proj.get(n)
+            pjv = float((pj or {}).get("projectedFPPG") or 0.0)
+            g = sum(len(fa_av.playable(n, x["days"])) for x in weeks) if n in fa_av.info else None
+            st.append({"name": n, "games": DASH if g is None else str(g),
+                       "pts": DASH if g is None else f"{pjv * g:.1f}"})
+        out_st[r_.key] = st
+    keys_l = [r.key for r in rl]
+    default = DEFAULT_RANGE if DEFAULT_RANGE in keys_l else (keys_l[0] if keys_l else None)
+    return {"list": [{"key": r.key, "label": r.label, "sub": r.sub} for r in rl], "default": default,
+            "avail": out_av, "stash": out_st,
+            "sorts": [{"k": k, "label": lab} for k, lab in RANGE_SORTS]}
+
+
+# =============================================================================
 # Stash, Block, Moves
 # =============================================================================
 
@@ -361,4 +460,5 @@ def build(payload: dict, ctx: dict) -> dict:
             "stash": stash(payload["stash"]),
             "advice": adv,
             "block": block(payload["trade_block"], order),
-            "moves": moves(payload["moves"], order, ctx["first_day"])}
+            "moves": moves(payload["moves"], order, ctx["first_day"]),
+            "ranges": range_tables(payload, ctx)}                      # 5d2 s.4

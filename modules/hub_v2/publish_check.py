@@ -84,6 +84,7 @@ def routes(page: str) -> dict:
     bad = []
     for r in links:
         r = _html.unescape(r) or "home"
+        r = r.split("?")[0] or "home"                # 5d1/5d2: a route's query is not its screen
         parts = r.split("/")
         want = r
         if parts[0] == "league" and len(parts) > 1 and parts[1]:

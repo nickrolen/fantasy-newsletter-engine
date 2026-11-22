@@ -116,6 +116,9 @@ def team_world(tmp_path, *, archetype=None):
 
         def players(self, m, d):
             return [n for n in names if n != "P Four"] if d in tdates else []
+
+        def grid_players(self, m, d):                       # 5d2: the one day fill reads this
+            return self.players(m, d), [], []
     av = Av()
     ctx = {"players_block": {"rows": [prow(n) for n in names]}, "actuals": blob, "yesterday": YDAY,
            "today": YDAY + timedelta(days=1), "av": av, "next_av": av,
@@ -126,6 +129,8 @@ def team_world(tmp_path, *, archetype=None):
            "team_value": {"weeks": [4, 5], "sims": 48, "values": {"M": {"P One": {"pts": 40.0}, "P Two": {"pts": -15.0},
                                                                      "P Three": {"pts": 0.4}}}},
            "title_prices": ({"M": SYN_PRICE}, "title", None), "sched_days": SCHED}
+    from modules.hub_v2 import ranges as _rg
+    ctx["ranges"] = _rg.Source(av, av, 5, {5: SCHED[0], 6: NEXT, 7: SCHED[2]}, 4)
     return payload, ctx
 
 
@@ -357,7 +362,6 @@ def test_the_days_match_the_count_out_and_b2b_marked():
     long_ = [date(2026, 11, 30) + timedelta(days=i) for i in range(14)]
     n, tip = v2data.player_week_tip(_Av(7), "X", 7, "", long_, True)
     assert tip["b"].startswith("Mon 11-30 \u00b7 Fri 12-04 \u00b7 Sat 12-05")     # the 14-day week: dates
-    assert v2data.il_tip(5, "", "back 01-25") == {"h": "Wk 5", "b": "IL slot \u00b7 back 01-25"}
 
 
 def test_every_grid_cell_is_a_tap_with_its_tooltip():
@@ -366,7 +370,7 @@ def test_every_grid_cell_is_a_tap_with_its_tooltip():
     for cell in re.findall(r'<(?:button|span) [^>]*class="lh-heat__cell[^"]*"[^>]*>', h):
         assert cell.startswith("<button") and 'class="lh-heat__cell v2-cell' in cell, cell
         assert 'data-tip-h="' in cell and 'data-tip-b="' in cell and 'aria-label="' in cell
-    assert 'data-tip-b="IL slot \u00b7 back 12-14"' in h                       # a dash says why
+    assert re.search(r'<span class="lh-sub">[^<]*IL slot', h)        # 5d2: the Schedule grid says why
     assert 'data-tip-b="Marcus Guard, Marcus Big"' in h                         # who starts that day
 
 
@@ -402,7 +406,7 @@ def test_the_renderers_new_pieces_do_no_arithmetic():
 
 def test_lore_never_reaches_a_tooltip_a_cell_or_last_week():
     p = synth_payload()
-    p["v2"]["teams"]["Marcus"]["schedule"]["rows"][0]["cells"][0]["tip"]["b"] = "Mon <!-- lore:phase-a --> x"
+    p["v2"]["sched"]["teams"]["Marcus"]["panes"][0]["rows"][0]["sub"] = "Mon <!-- lore:phase-a --> x"
     p["v2"]["teams"]["Marcus"]["roster"]["detail"]["rows"][0][-1] = "75 vs AAA <!-- lore:phase-b -->"
     p["v2"]["last"]["cards"][0]["verdict"] = "Covered <!-- lore:phase-c -->"
     h = render(p)
@@ -614,14 +618,13 @@ def test_real_teams_matchups_preview_and_publish(real, tmp_path):
                 assert c["tv"] != DASH
                 if c["tdelta"] != DASH and c["tv"] not in ("0",):
                     assert (c["tv"].startswith("+")) == (c["tdelta"].startswith("+")) or c["tdelta"] == "0.0"
-        for row in t["schedule"]["rows"]:
-            for cell in row["cells"]:
-                assert cell["tip"]["h"].startswith("Wk ")
-                if cell["n"] != DASH:
-                    body = cell["tip"]["b"]
-                    assert (0 if body == "No games he will play" else len(body.split(" \u00b7 "))) == int(cell["n"])
-                else:
-                    assert cell["tip"]["b"].startswith("IL slot")
+        for pane in po["moved"]["sched.teams"][m]["panes"]:        # 5d2: Team > Schedule's player grid
+            for row in pane["rows"]:
+                played = sum(1 for c in row["cells"] if c["c"] in ("s", "q", "i"))
+                started = sum(1 for c in row["cells"] if c["c"] in ("s", "q"))
+                assert (int(row["g"]), int(row["s"])) == (played, started)
+                if row["il"]:
+                    assert "IL slot" in row["sub"] and not started
     assert v2["last"] is None or all(c["score_a"] and c["result"].startswith("Final") for c in v2["last"]["cards"])
     assert v2["line_text"] == p["header"]["line_text"]
     v2data.attach_players(p, po)
@@ -631,7 +634,7 @@ def test_real_teams_matchups_preview_and_publish(real, tmp_path):
     for m in v2["teams"]:
         sec = _team_section(h, m)
         assert len(re.findall(r'data-dgroup="', sec)) == len(rc["groups"])
-        assert "v2-cell" in sec                                       # the Schedule grid's taps
+        assert "v2-sday" in sec and "data-swk=" in sec                # 5d2: Team > Schedule (the strip, the weeks)
     assert ("v2-ev-hit" in h) == any(pt.get("event") for mu in v2["matchups"] for pt in mu["win"]["points"])
     if v2["last"]:
         assert 'data-section="last"' in h

@@ -129,15 +129,43 @@ function mvOlder(btn){
     if(err&&err.message==='gone'){movedBox();}
     btn.disabled=false;btn.textContent='The older weeks could not be opened. Try again';});
 }
+// 5d2 s.4: the range picker (the route carries it: #/market?r=next) and
+// Team > Schedule's link (?fit=<manager>: his games on that team's empty-slot days)
+MK.r='';MK.fit='';
+function mkTable(){var b=document.querySelector('[data-section="available"] [data-mkrange]:not([hidden]) table');return b;}
 function mkFilter(){
-  var tb=document.getElementById('mk-fa');if(!tb){return;}
-  var trs=tb.querySelectorAll('tbody tr[data-i]'),any=false;
-  for(var i=0;i<trs.length;i++){var t=trs[i],ok=true;
-    if(MK.pos&&(' '+t.getAttribute('data-pos')+' ').indexOf(' '+MK.pos+' ')<0){ok=false;}
-    if(MK.h&&t.getAttribute('data-h')!=='1'){ok=false;}
-    t.hidden=!ok;if(ok){any=true;}}
+  var tbs=document.querySelectorAll('[data-section="available"] table[data-mkt]'),any=false;
+  for(var b=0;b<tbs.length;b++){var vis=!tbs[b].closest('[data-mkrange]').hidden;
+    var trs=tbs[b].querySelectorAll('tbody tr[data-i]');
+    for(var i=0;i<trs.length;i++){var t=trs[i],ok=true;
+      if(MK.pos&&(' '+t.getAttribute('data-pos')+' ').indexOf(' '+MK.pos+' ')<0){ok=false;}
+      if(MK.h&&t.getAttribute('data-h')!=='1'){ok=false;}
+      if(MK.fit&&(' '+t.getAttribute('data-fit')+' ').indexOf(' '+MK.fit+' ')<0){ok=false;}
+      t.hidden=!ok;if(ok&&vis){any=true;}}}
   var n=document.getElementById('mk-fa-none');if(n){n.hidden=any;}
+  var f=document.querySelector('[data-mkfit]');if(f){f.hidden=!MK.fit;}
 }
+function mkRange(key,push){
+  if(!key){return;}MK.r=key;
+  var ss=document.querySelectorAll('[data-mkr]');for(var i=0;i<ss.length;i++){ss[i].value=key;}
+  var bs=document.querySelectorAll('[data-route="market"] [data-mkrange]');
+  for(var j=0;j<bs.length;j++){var b=bs[j],on=b.getAttribute('data-mkrange')===key;b.hidden=!on;
+    if(on&&b.getAttribute('data-part')&&!b.getAttribute('data-loaded')&&window.HUB&&window.HUB.part){mkLoad(b);}}
+  mkFilter();
+  if(push){var q='?r='+key+(MK.fit?'&fit='+MK.fit:'');try{history.replaceState(null,'','#/market'+q);}catch(e){}}
+}
+function mkLoad(b){b.setAttribute('data-loaded','1');
+  window.HUB.part(JSON.parse(b.getAttribute('data-part'))).then(function(p){b.innerHTML=p.html;mkFilter();},
+    function(){b.innerHTML='<p class="v2-card-load v2-pad">This range could not be opened. Reload the page.</p>';});}
+function mkRoute(){
+  var h=location.hash;if(h.indexOf('#/market')!==0){return;}
+  var qi=h.indexOf('?'),q={};
+  if(qi>=0){h.slice(qi+1).split('&').forEach(function(kv){var p=kv.split('=');q[p[0]]=decodeURIComponent(p[1]||'');});}
+  MK.fit=q.fit||'';
+  if(q.r){mkRange(q.r,false);}else{mkFilter();}
+}
+window.addEventListener('hashchange',mkRoute);
+setTimeout(mkRoute,0);
 function mvFilter(m){
   MK.mv=m;
   var bs=document.querySelectorAll('[data-mvf]');
@@ -152,6 +180,8 @@ document.addEventListener('click',function(e){
     document.getElementById(t.getAttribute('aria-controls')).hidden=open;return;}
   t=e.target.closest('[data-mkh]');
   if(t){var on=t.getAttribute('aria-pressed')!=='true';t.setAttribute('aria-pressed',String(on));MK.h=on?'1':'';mkFilter();return;}
+  t=e.target.closest('[data-mkfit]');
+  if(t){MK.fit='';mkRange(MK.r||(document.querySelector('[data-mkr]')||{}).value,true);mkFilter();return;}
   t=e.target.closest('[data-mvf]');
   if(t){mvFilter(t.getAttribute('data-mvf'));return;}
   t=e.target.closest('[data-mvolder]');
@@ -160,8 +190,9 @@ document.addEventListener('click',function(e){
 document.addEventListener('change',function(e){
   var t=e.target;
   if(t.matches&&t.matches('[data-mkpos]')){MK.pos=t.value;mkFilter();return;}
-  if(t.matches&&t.matches('[data-mksort]')){var tb=document.getElementById('mk-fa');
+  if(t.matches&&t.matches('[data-mksort]')){var tb=mkTable();if(!tb){return;}
     tb.setAttribute('data-sort','');sortTable(tb,t.value);return;}
+  if(t.matches&&t.matches('[data-mkr]')){mkRange(t.value,true);return;}
 });
 """
 
@@ -202,38 +233,77 @@ def _cell(c: dict, name: str) -> str:
 # the segments
 # =============================================================================
 
-def _available(a: dict, ids, info) -> str:
+RANGE_COLS = (("pts", "Proj pts"), ("total", "Games"), ("fppg", "FPPG"), ("l14", "L14"), ("l7", "L7"),
+              ("l30", "L30"), ("ovr", "OVR"), ("pot", "POT"), ("dur", "DUR"), ("mind", "MIN \u0394"),
+              ("avail", "Avail %"), ("status", "Status"), ("age", "Age"))
+
+
+def range_table(t: dict, default: bool) -> str:
+    """5d2 s.4: one range's Available table: Proj pts and Games over the range,
+    the games per fantasy week (tap a count for its days), and the sorts as
+    columns. The default range's table is the page's #mk-fa; the others are
+    lazy parts (publish.market_range_files)."""
+    tid = ' id="mk-fa"' if default else ""
+    o = [f'<div class="v2-scroll"><table class="lh-table v2-mk-fa"{tid} data-mkt="{clean(t["key"])}" data-sort="pts" '
+         f'data-dir="1" data-orders=\'{clean(t["orders_json"])}\'><thead><tr><th>{colh_btn("market", "name", "Player")}</th>']
+    for k, lab in RANGE_COLS[:2]:
+        on = k == "pts"
+        o.append(f'<th data-k="{k}"{" aria-sort=" + chr(34) + "descending" + chr(34) if on else ""}>'
+                 f'<button type="button" class="v2-tap" data-sort="{k}"{colh("market", k)}>{clean(lab)}'
+                 f'<span class="v2-arrow">{" &#9662;" if on else ""}</span></button></th>')
+    o.append(f'<th>{colh_btn("market", "games", "By week")}<span class="lh-sub">'
+             f'{clean(DOT.join(w["label"] for w in t["weeks"]))}</span></th>')
+    for k, lab in RANGE_COLS[2:]:
+        if k == "status":
+            o.append(f'<th>{colh_btn("market", k, clean(lab))}</th>')
+            continue
+        o.append(f'<th data-k="{k}"><button type="button" class="v2-tap" data-sort="{k}"{colh("market", k)}>'
+                 f'{clean(lab)}<span class="v2-arrow"></span></button></th>')
+    o.append("</tr></thead><tbody>")
+    for i in t["default_rows"]:
+        r = t["rows"][i]
+        c = r["cells"]
+        o.append(f'<tr data-i="{i}" data-h="{r["h"]}" data-pos="{clean(r["pos"])}" data-fit="{clean(r["fit"])}">'
+                 f'<td>{_name(r)}<span class="lh-sub">{clean(r["sub"])} {_chips(r["chips"])}</span></td>'
+                 f'<td class="lh-num">{clean(c["pts"])}</td><td class="lh-num">{clean(c["total"])}</td>'
+                 '<td><span class="v2-mk-cells">' + "".join(_cell(g, r["name"]) for g in r["games"]) + "</span></td>"
+                 + "".join(f'<td class="lh-num">{clean(c[k])}</td>' for k, _l in RANGE_COLS[2:]) + "</tr>")
+    o.append(f'</tbody></table></div><div class="lh-table-note">{clean(t["note"])}</div>')
+    return "".join(o)
+
+
+def _available(a: dict, ids, info, parts: dict = None) -> str:
+    rg = a["ranges"]
+    parts = parts or {}
     o = ['<div class="v2-fchips">',
+         '<label class="v2-fchip">Range<select data-mkr aria-label="Range">'
+         + "".join(f'<option value="{clean(t["key"])}"{" selected" if t["key"] == rg["default"] else ""}>'
+                   f'{clean(t["label"])}</option>' for t in rg["tabs"]) + "</select></label>",
          '<button type="button" class="v2-fchip" data-mkh="1" aria-pressed="false">Healthy</button>',
          '<label class="v2-fchip">Position<select data-mkpos aria-label="Position"><option value="">Any</option>'
          + "".join(f'<option value="{clean(p)}">{clean(p)}</option>' for p in a["pos"]) + "</select></label>",
          '<label class="v2-fchip">Sort<select data-mksort aria-label="Sort">'
-         + "".join(f'<option value="{k}"{" selected" if k == a["default"] else ""}>{clean(lab)}</option>'
-                   for k, lab in (("l14", "L14"), ("fppg", "FPPG"), ("pts", "Projected pts")))
-         + "</select></label></div>"]
+         + "".join(f'<option value="{clean(x["k"])}"{" selected" if x["k"] == "pts" else ""}>{clean(x["label"])}</option>'
+                   for x in rg["sorts"]) + "</select></label>",
+         '<button type="button" class="v2-fchip" data-mkfit="" aria-pressed="true" hidden>Games on your empty-slot '
+         'days &times;</button></div>']
     o.append('<section class="lh-card lh-card--flush" data-section="available"><div class="lh-sechead v2-pad">'
-             f'<h2 class="lh-eyebrow">{clean(a["title"])}</h2><span class="lh-meta">{clean(a["meta"])}</span></div>')
-    if not a["rows"]:
-        o.append(f'<p class="v2-p v2-pad">{clean(a["empty"])}</p></section>')
+             f'<h2 class="lh-eyebrow">{clean(a["title"])}</h2><span class="lh-meta" data-mkr-sub>'
+             + "".join(f'<span data-mkrange="{clean(t["key"])}"{"" if t["key"] == rg["default"] else " hidden"}>'
+                       f'{clean(t["sub"])}</span>' for t in rg["tabs"]) + "</span></div>")
+    if not a["rows"] or not rg["tabs"]:
+        o.append(f'<p class="v2-p v2-pad">{clean(a["empty"] or "No pickup joins a roster again this season.")}</p></section>')
         return "".join(o)
-    o.append(f'<div class="v2-scroll"><table class="lh-table v2-mk-fa" id="mk-fa" data-sort="{clean(a["default"])}" '
-             f'data-dir="1" data-orders=\'{clean(a["orders_json"])}\'><thead><tr><th>{colh_btn("market", "name", "Player")}</th>')
-    for k, lab in (("fppg", "FPPG"), ("l14", "L14")):
-        on = k == a["default"]
-        o.append(f'<th data-k="{k}"{" aria-sort=" + chr(34) + "descending" + chr(34) if on else ""}>'
-                 f'<button type="button" class="v2-tap" data-sort="{k}"{colh("market", k)}>{clean(lab)}'
-                 f'<span class="v2-arrow">{" &#9662;" if on else ""}</span></button></th>')
-    cols = clean(DOT.join(a["cols"]))
-    o.append(f'<th>{colh_btn("market", "games", "Games")}<span class="lh-sub">{cols}</span></th></tr></thead><tbody>')
-    for i in a["default_rows"]:
-        r = a["rows"][i]
-        o.append(f'<tr data-i="{i}" data-h="{r["h"]}" data-pos="{clean(r["pos"])}"><td>{_name(r)}'
-                 f'<span class="lh-sub">{clean(r["sub"])} {_chips(r["chips"])}</span></td>'
-                 f'<td class="lh-num">{clean(r["fppg"])}</td><td class="lh-num">{clean(r["l14"])}</td>'
-                 f'<td><span class="v2-mk-cells">' + "".join(_cell(c, r["name"]) for c in r["games"])
-                 + "</span></td></tr>")
-    o.append('</tbody></table></div><p class="v2-p v2-pad" id="mk-fa-none" hidden>No free agent on this list '
-             f'matches.</p><div class="lh-table-note">{clean(a["note"])}</div></section>')
+    for t in rg["tabs"]:
+        on = t["key"] == rg["default"]
+        ref = parts.get(t["key"])
+        if ref is not None and not on:
+            o.append(f'<div data-mkrange="{clean(t["key"])}" hidden data-part=\'{clean(json.dumps(ref, separators=(",", ":")))}\'>'
+                     '<p class="v2-part-load v2-pad">Opening&hellip;</p></div>')
+        else:
+            o.append(f'<div data-mkrange="{clean(t["key"])}"{"" if on else " hidden"}>{range_table(t, on)}</div>')
+    o.append('<p class="v2-p v2-pad" id="mk-fa-none" hidden>No free agent on this list matches.</p>'
+             f'<div class="lh-table-note">{clean(a["note"])}</div></section>')
     o.append(f'<span class="lh-sub">{clean(a["aside"])}</span>')
     return "".join(o)
 
@@ -244,11 +314,19 @@ def _stash(s: dict) -> str:
     if not s["rows"]:
         o.append(f'<p class="v2-p">{clean(s["empty"])}</p>')
     o.append('<div class="v2-mk-list">')
+    rg = s.get("ranges") or {"tabs": [], "default": None}
+    if rg["tabs"]:
+        o.append('<div class="v2-fchips"><label class="v2-fchip">Range<select data-mkr aria-label="Range">'
+                 + "".join(f'<option value="{clean(t["key"])}"{" selected" if t["key"] == rg["default"] else ""}>'
+                           f'{clean(t["label"])}</option>' for t in rg["tabs"]) + "</select></label></div>")
     for r in s["rows"]:
+        rr = "".join(f'<span class="lh-sub" data-mkrange="{clean(t["key"])}"{"" if t["key"] == rg["default"] else " hidden"}>'
+                     f'{clean(t["stash"][r["name"]]["games"])} games &middot; {clean(t["stash"][r["name"]]["pts"])} pts '
+                     f'({clean(t["label"])})</span>' for t in rg["tabs"] if r["name"] in t["stash"])
         o.append(f'<div class="v2-mk-item"><span class="v2-minw">{_name(r)}<span class="lh-sub">{clean(r["sub"])}'
                  f'{" &middot; " + clean(r["note"]) if r["note"] else ""}</span></span>'
                  f'<span class="v2-mk-right">{_chips(r["chips"])}<span class="lh-sub">Proj {clean(r["proj"])}</span>'
-                 "</span></div>")
+                 f"{rr}</span></div>")
     o.append(f'</div><span class="lh-sub">{clean(s["open_il"])}</span><span class="lh-sub">{clean(s["note"])}</span>'
              "</section>")
     return "".join(o)
@@ -480,7 +558,7 @@ def market_screen(vm: dict, ids, info_of, mark_of) -> str:
     for i, (k, _lab) in enumerate(mk["segs"]):
         o.append(f'<div class="v2-sec" data-pane-of="{k}"{"" if i == 0 else " hidden"}>')
         if k == "available":
-            o.append(_available(mk["available"], ids, info_of))
+            o.append(_available(mk["available"], ids, info_of, (mk.get("parts") or {}).get("ranges")))
         elif k == "stash":
             o.append(_stash(mk["stash"]))
         elif k == "advice":

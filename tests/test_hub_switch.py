@@ -229,7 +229,9 @@ def test_every_lazy_part_decrypts_by_its_content_and_every_file_is_reached(tmp_p
     assert rep["ok"], rep["problems"]
     # 5b: + the title-odds chart and Moves' older weeks (data-part), and the lazy screens
     n_seasons = sum(1 for k in rep["build"]["league_parts"]["bytes"] if ":" in k)    # 5d1 s.8: past seasons
-    assert len(rep["opened"]["parts"]) == 7 + 1 + len(rep["build"]["market_parts"]) + n_seasons and n_seasons
+    assert len(rep["opened"]["parts"]) == (7 + 1 + len(rep["build"]["market_parts"]) + n_seasons
+                                           + len(rep["build"]["players_parts"])            # 5d2: Players groups,
+                                           + len(rep["build"]["market_range_parts"])) and n_seasons   # Market ranges
     assert rep["opened"]["screens"] == len(rep["build"]["screen_parts"]) > 0
     assert rep["opened"]["issues"] == 1 and not rep["orphans"]
     assert rep["scan"]["control"] and rep["routes"]["unresolved"] == []
@@ -493,7 +495,8 @@ def test_real_payload_has_its_headroom_and_the_new_hub_publishes_whole(real, tmp
     assert rep["ok"], rep["problems"]
     # 5b: + the title-odds chart and Moves' older weeks; the lazy screens and the team pictures
     n_seasons = sum(1 for k in rep["build"]["league_parts"]["bytes"] if ":" in k)    # 5d1 s.8: past seasons
-    assert len(rep["opened"]["parts"]) == 7 + 1 + len(rep["build"]["market_parts"]) + n_seasons
+    assert len(rep["opened"]["parts"]) == (7 + 1 + len(rep["build"]["market_parts"]) + n_seasons
+                                           + len(rep["build"]["players_parts"]) + len(rep["build"]["market_range_parts"]))
     assert rep["opened"]["screens"] >= 4 and rep["opened"]["pictures"] == len(pics)
     assert rep["opened"]["cards"] == len(cards["cards"])
     idx = hub_archive.verify(ROOT)

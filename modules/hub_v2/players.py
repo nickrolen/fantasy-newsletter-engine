@@ -451,6 +451,7 @@ def build(base, payload: dict, ctx: dict) -> tuple:
         fa_av = av.for_free_agents(fa_ok, free_agent_tags(ctx["tag_row"], [n for n in fa_ok if n not in fa_override]),
                                    extra_info=fa_info)
 
+    ctx["_fa_av"], ctx["_fa_ok"] = fa_av, list(fa_ok)     # 5d2: the Players groups' Schedule columns
     sched_opp = ctx["sched_opp"] if "sched_opp" in ctx else schedule_opponents(_nba_games(base))
 
     # the ratings, and last week's line

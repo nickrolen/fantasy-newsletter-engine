@@ -99,13 +99,43 @@ button.lh-back{background:none;border:0;padding:0;cursor:pointer;font-family:inh
 .v2-cline .v2-dot{fill:var(--team,var(--ink-2))}
 button.v2-gtile{all:unset;box-sizing:border-box;cursor:pointer;min-height:var(--tap-min);background:var(--surface);border:var(--hairline) solid var(--line);border-radius:var(--radius-12);display:flex;flex-direction:column;align-items:center;gap:var(--space-4);padding:var(--space-8)}
 button.v2-gtile[aria-pressed="true"]{border-color:var(--ink-strong)}
-.v2-card-load{padding:var(--space-16);color:var(--ink-2);font-size:var(--type-body-size)}
+.v2-card-load,.v2-part-load{padding:var(--space-16);color:var(--ink-2);font-size:var(--type-body-size)}
 """
 
 
 # =============================================================================
 # small pieces
 # =============================================================================
+
+JS = r"""
+// 5d2 s.3: the Players tab's Detailed groups. A chip shows its group's table
+// (published: a lazy part, opened on the chip's first tap); the search and
+// the filters apply to every table; the Box score toggles per game / totals.
+function plGroup(key){
+  var bs=document.querySelectorAll('#pl-grps [data-pgrp]');
+  for(var i=0;i<bs.length;i++){bs[i].setAttribute('aria-selected',String(bs[i].getAttribute('data-pgrp')===key));}
+  var sp=document.getElementById('pl-simple');if(sp){sp.hidden=(key!=='simple');}
+  var gs=document.querySelectorAll('[data-pgroup]');
+  for(var j=0;j<gs.length;j++){plOpen(gs[j],gs[j].getAttribute('data-pgroup')===key);}
+  plFilter();
+}
+function plOpen(g,on){
+  g.hidden=!on;
+  if(!on||!g.getAttribute('data-part')||g.getAttribute('data-loaded')||!window.HUB||!window.HUB.part){return;}
+  g.setAttribute('data-loaded','1');
+  window.HUB.part(JSON.parse(g.getAttribute('data-part'))).then(function(p){g.innerHTML=p.html;plFilter();},
+    function(){g.innerHTML='<p class="v2-card-load">This part could not be opened. Reload the page.</p>';});
+}
+document.addEventListener('click',function(e){
+  var t=e.target.closest?e.target.closest('[data-pgrp]'):null;
+  if(t){plGroup(t.getAttribute('data-pgrp'));return;}
+  t=e.target.closest?e.target.closest('[data-boxv]'):null;
+  if(t){var box=t.closest('[data-pgroup]'),v=t.getAttribute('data-boxv');
+    var bb=box.querySelectorAll('[data-boxv]');for(var i=0;i<bb.length;i++){bb[i].setAttribute('aria-pressed',String(bb[i]===t));}
+    var ps=box.querySelectorAll('[data-boxpane]');for(var j=0;j<ps.length;j++){ps[j].hidden=ps[j].getAttribute('data-boxpane')!==v;}}
+});
+"""
+
 
 def _info(ids, key: str, meta: str = "") -> str:
     title, body = tip(key)
@@ -170,7 +200,23 @@ def players_screen(vm: dict, ids) -> str:
                  + "".join(f'<option value="{clean(x["v"])}">{clean(x["t"])}</option>' for x in pv["filters"][key])
                  + "</select></label>")
     o.append('<button type="button" class="v2-fchip" data-filter="h" aria-pressed="false">Healthy only</button></div>')
-    o.append('<section class="lh-card lh-card--flush" data-section="players"><div class="lh-sechead v2-pad">'
+    det = pv["detail"]
+    o.append('<div class="v2-dchips" role="tablist" aria-label="Columns" id="pl-grps">'
+             '<button type="button" class="v2-dchip" role="tab" data-pgrp="simple" aria-selected="true">Simple</button>'
+             + "".join(f'<button type="button" class="v2-dchip" role="tab" data-pgrp="{clean(g["key"])}" aria-selected="false">'
+                       f'{clean(g["label"])}</button>' for g in det["groups"]) + "</div>")
+    parts = pv.get("parts") or {}
+    for g in det["groups"]:
+        ref = parts.get(g["key"])
+        if ref is not None:                       # published: the group is a lazy part, opened on its chip
+            import json as _json
+            o.append(f'<section class="lh-card lh-card--flush" data-pgroup="{clean(g["key"])}" hidden '
+                     f"data-part='{clean(_json.dumps(ref, separators=(',', ':')))}'>"
+                     '<p class="v2-part-load">Opening&hellip;</p></section>')
+        else:
+            o.append(f'<section class="lh-card lh-card--flush" data-pgroup="{clean(g["key"])}" hidden>'
+                     + group_html(g, det) + "</section>")
+    o.append('<section class="lh-card lh-card--flush" data-section="players" id="pl-simple"><div class="lh-sechead v2-pad">'
              f'<h2 class="lh-eyebrow">Players</h2>{_info(ids, "ovr", pv["count"])}</div>'
              f'<div class="v2-scroll"><table class="lh-table v2-pt" id="pl-table" data-pcol="{clean(pv["default"])}" '
              f'data-pdir="d" data-porders=\'{clean(pv["orders_json"])}\'><thead><tr>')
@@ -213,6 +259,61 @@ def players_screen(vm: dict, ids) -> str:
                      f'<span class="lh-delta lh-delta--up">{clean(r["d"])}</span></span></div>')
         o.append("</section>")
     o.append("</div></section>")
+    return "".join(o)
+
+
+def _row_attrs(r: dict) -> str:
+    d = r["data"]
+    return (f'data-i="{r["i"]}" data-q="{clean(d["q"])}" data-k="{clean(d["k"])}" data-pos="{clean(d["pos"])}" '
+            f'data-nba="{clean(d["nba"])}" data-age="{clean(d["age"])}" data-h="{clean(d["h"])}"')
+
+
+def _gtable(g: dict, cells_key: str, tid: str) -> str:
+    from .page import _spark
+    o = [f'<div class="v2-scroll"><table class="lh-table v2-pt" data-ptable="{clean(tid)}" data-pcol="" data-pdir="d" '
+         f"data-porders='{clean(g['orders_json'])}'><thead><tr>"
+         f'<th class="v2-sticky" data-k="name"><button type="button" class="v2-tap"{colh("players", "name")}>Player'
+         '<span class="v2-arrow"></span></button></th>']
+    for c in g["cols"]:
+        o.append(f'<th data-k="{clean(c["k"])}"><button type="button" class="v2-tap" data-psort="{clean(c["k"])}"'
+                 f'{colh("players", c["k"])}>{clean(c["label"])}<span class="v2-arrow"></span></button></th>')
+    o.append("</tr></thead><tbody>")
+    for tr in g["rows"]:
+        r = tr["r"]
+        sub = _chip(r["chip"]) + f'<span>{clean(r["meta"])}</span>' + "".join(_status(c) for c in r["chips"])
+        o.append(f'<tr {_row_attrs(r)}><td class="v2-sticky">{_name(r)}<span class="lh-sub">{sub}</span></td>')
+        for c in tr[cells_key]:
+            if c.get("spark"):
+                o.append(f'<td>{_spark(c["spark"], c["aria"])}</td>')
+            else:
+                o.append(f'<td>{clean(c["t"])}</td>')
+        o.append("</tr>")
+    o.append("</tbody></table></div>")
+    return "".join(o)
+
+
+def group_html(g: dict, det: dict) -> str:
+    """One Detailed group's table (5d2 s.3): the published page carries it as
+    a lazy part (publish.players_files), the preview inline. The Box score has
+    a per-game / totals toggle; every group's note says why a dash is a dash."""
+    o = [f'<div class="lh-sechead v2-pad"><h2 class="lh-eyebrow">Players &middot; {clean(g["label"])}</h2>'
+         '<span class="lh-meta">tap a column for its definition and to sort</span></div>']
+    if g["key"] == "box":
+        o.append('<div class="v2-fchips v2-pad" role="tablist" aria-label="Box score">'
+                 '<button type="button" class="v2-fchip" data-boxv="pg" aria-pressed="true">Per game</button>'
+                 '<button type="button" class="v2-fchip" data-boxv="tot" aria-pressed="false">Totals</button></div>'
+                 f'<div data-boxpane="pg">{_gtable(g, "cells", "box")}</div>'
+                 f'<div data-boxpane="tot" hidden>{_gtable(g, "tot", "boxtot")}</div>')
+    else:
+        o.append(_gtable(g, "cells", g["key"]))
+    notes = " ".join(f'<b>{clean(w["label"])}</b>: a dash when: {clean(w["t"])}.' for w in g["why"])
+    rng = det.get("ranges") or {}
+    if g["key"] in ("schedule", "all") and rng:
+        notes += " " + " ".join(f"{clean(k)}: {clean(v)}." for k, v in
+                                (("Next 3 wks", rng.get("nx3")), ("Semis", rng.get("semis")),
+                                 ("Finals", rng.get("finals")), ("Cup", rng.get("cup"))) if v)
+    hid = " ".join(f'Not shown: {clean(h["what"])}, because {clean(h["why"])}.' for h in det["hidden"])
+    o.append(f'<div class="lh-table-note">{notes} {hid}</div>')
     return "".join(o)
 
 

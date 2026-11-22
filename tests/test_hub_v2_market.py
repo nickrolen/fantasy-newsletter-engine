@@ -103,12 +103,14 @@ def test_available_rows_come_from_the_payload_and_the_cells_tooltips_match_the_c
     for c in row["games"]:
         assert len(c["tip"]["b"].split(" \u00b7 ")) == int(c["n"])     # the days its count counts
     pane = _pane(render(p), "available")
+    pane = pane[pane.index('id="mk-fa"'):].split("</table>")[0]           # 5d2: the default range's table
     cells = re.findall(r'<button type="button" class="v2-mkcell"[^>]*data-tip-b="([^"]*)"[^>]*>'
                        r'<span class="v2-mkbox[^"]*">(\d+)</span>', pane)
     assert len(cells) == 3 and all(len(b.split(" &middot; " if "&middot;" in b else " \u00b7 ")) == int(n)
                                    for b, n in cells)
     assert 'data-pos="SF PF"' in pane and 'data-h="1"' in pane and "id=\"mk-fa\"" in pane
-    assert json.loads(re.search(r"data-orders='([^']*)'", pane).group(1).replace("&quot;", '"')) == a["orders"]
+    assert json.loads(re.search(r"data-orders='([^']*)'", pane).group(1).replace("&quot;", '"')) == \
+        p["v2"]["market"]["ranges"]["avail"]["next3"]["orders"]
 
 
 def test_an_out_day_lowers_the_count_and_says_so_and_a_mismatch_raises():

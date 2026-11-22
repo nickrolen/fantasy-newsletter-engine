@@ -35,6 +35,7 @@ class FaAv:
 
     def __init__(self, out=None):
         self.out = out or {}
+        self.info = {FA_NAME: {"nba_team": "AAA"}, "Stash Guy": {"nba_team": "BBB"}}
 
     def playable(self, name, days):
         return [d for d in days if d not in self.out.get(name, ())]
@@ -153,6 +154,9 @@ def advice_latest(*, show_title: bool = True, act_dwp=(0.061, 0.053), pre_4c3: b
     return out
 
 
+from modules.hub_v2 import ranges as _ranges
+
+
 def add_market(p: dict, *, advice=None, advice_on: bool = True, show_title: bool = True, fa_av=None) -> dict:
     """payload["free_agents"], ["stash"] and v2["market"] on the made-up league."""
     p["free_agents"] = free_agents()
@@ -160,5 +164,8 @@ def add_market(p: dict, *, advice=None, advice_on: bool = True, show_title: bool
     p["v2"]["market"] = market.build(p, {
         "fa_av": fa_av or FaAv(), "col_specs": col_specs(), "advice_on": advice_on,
         "advice": advice if advice is not None else advice_latest(show_title=show_title),
-        "show_title": show_title, "first_day": date(2026, 10, 20)})
+        "show_title": show_title, "first_day": date(2026, 10, 20),
+        # 5d2 s.4: the ranges over the made-up weeks (only weeks 9-11 exist here)
+        "range_list": _ranges.ranges(WEEKS[9][0], 9, WEEKS), "wk_dates": WEEKS, "ranges": None,
+        "proj": {FA_NAME: {"projectedFPPG": 31.0}, "Stash Guy": {"projectedFPPG": 28.0}}})
     return p

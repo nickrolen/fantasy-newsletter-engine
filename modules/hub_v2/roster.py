@@ -176,6 +176,32 @@ def opponents(nba_schedule: dict) -> Dict[tuple, str]:
     return out
 
 
+def form_spread(pts: List[float], fppg: Optional[float]) -> Optional[tuple]:
+    """(strings, order keys) of Floor, Ceil, Boom % and Bust %, or None below
+    MIN_GAMES_SPREAD games. 5d2: the one function the roster table and the
+    Players tab both use."""
+    gp = len(pts)
+    if gp < MIN_GAMES_SPREAD or fppg is None:
+        return None
+    fl, ce = nearest_rank(pts, 0.10), nearest_rank(pts, 0.90)
+    bo = sum(1 for x in pts if x >= BOOM * fppg) / gp
+    bu = sum(1 for x in pts if x <= BUST * fppg) / gp
+    return ({"floor": f"{fl:.1f}", "ceil": f"{ce:.1f}", "boom": _pct0(bo), "bust": _pct0(bu)},
+            {"floor": fl, "ceil": ce, "boom": bo, "bust": bu})
+
+
+def best_game(games: List[tuple], team: str, opp: dict, worst: bool = False) -> Optional[tuple]:
+    """(text, points) of his best (or worst) game: "120 vs DEN", or "79 on
+    11-03" when the schedule has no opponent that day. 5d2: one function for
+    the roster table and the Players tab."""
+    if not games:
+        return None
+    g = (min(games, key=lambda g: (g[1], g[0].toordinal())) if worst
+         else max(games, key=lambda g: (g[1], -g[0].toordinal())))
+    o = opp.get((team, g[0]))
+    return (f"{g[1]:.0f} {o}" if o else f"{g[1]:.0f} on {_md(g[0])}"), g[1]
+
+
 def back_to_backs(dates: List[date]) -> List[tuple]:
     """Consecutive pairs among sorted dates."""
     ds = sorted(dates)
@@ -262,7 +288,6 @@ def build(base, payload: dict, ctx: dict) -> tuple:
     from .. import player_actuals as pa
     from ..data_loader import PlayerIndex
     from ..ratings import config as rcfg
-    from ..schedule_strength import fill_daily_lineup_detail
     v2 = payload["v2"]
     pl = ctx["players_block"]
     prow = {z["name"]: z for z in pl["rows"] if z["kind"] == "rostered"}
@@ -287,17 +312,12 @@ def build(base, payload: dict, ctx: dict) -> tuple:
     lu = lu[lu["date"].astype(str) <= yesterday.isoformat()]
     started_slots = lu["slot"].astype(str).isin(("BN", "IL")) == False      # noqa: E712 (pandas)
 
-    # next week's starters per team per day (the daily fill), next week's rosters
-    nstarts = {}
-    for m in v2["teams"]:
-        cnt = {}
-        for d in next_days:
-            ps = next_av.players(m, d)
-            st = fill_daily_lineup_detail([(p, set(next_av.info[p]["positions"]),
-                                            float(next_av.info[p].get("proj_fppg", 0.0))) for p in ps])[0]
-            for p in st:
-                cnt[p] = cnt.get(p, 0) + 1
-        nstarts[m] = cnt
+    # next week's starters per team per day (the daily fill), next week's
+    # rosters: 5d2, the one source (hub_v2.ranges.Source.player_starts)
+    src = ctx.get("ranges")
+    if src is None:
+        raise RosterError("the roster's Next starts need the run's range source (hub_v2.ranges.Source)")
+    nstarts = {m: src.player_starts(m, next_days) for m in v2["teams"]}
 
     groups = []
     for gk, glabel, gcols in GROUPS:
@@ -387,13 +407,10 @@ def build(base, payload: dict, ctx: dict) -> tuple:
                                   "with this engine")
             r["min"], v["min"] = z["min"], z["min_k"]
             r["mind"], v["mind"] = z["mind"], z["mind_k"]
-            if gp >= MIN_GAMES_SPREAD:
-                fl, ce = nearest_rank(pts, 0.10), nearest_rank(pts, 0.90)
-                bo = sum(1 for x in pts if x >= BOOM * fppg) / gp
-                bu = sum(1 for x in pts if x <= BUST * fppg) / gp
-                r["floor"], r["ceil"] = f"{fl:.1f}", f"{ce:.1f}"
-                r["boom"], r["bust"] = _pct0(bo), _pct0(bu)
-                v.update(floor=fl, ceil=ce, boom=bo, bust=bu)
+            spread = form_spread(pts, fppg)
+            if spread is not None:
+                r.update(spread[0])
+                v.update(spread[1])
             else:
                 for k in ("floor", "ceil", "boom", "bust"):
                     r[k], v[k] = DASH, None
@@ -461,12 +478,8 @@ def build(base, payload: dict, ctx: dict) -> tuple:
             else:
                 r["share"], v["share"] = DASH, None
             if games:
-                best = max(games, key=lambda g: (g[1], -g[0].toordinal()))
-                worst = min(games, key=lambda g: (g[1], g[0].toordinal()))
-                for key, g in (("best", best), ("worst", worst)):
-                    o = opp.get((team, g[0]))
-                    r[key] = f"{g[1]:.0f} {o}" if o else f"{g[1]:.0f} on {_md(g[0])}"
-                    v[key] = g[1]
+                for key, bw in (("best", best_game(games, team, opp)), ("worst", best_game(games, team, opp, True))):
+                    r[key], v[key] = bw
             else:
                 r["best"] = r["worst"] = DASH
                 v["best"] = v["worst"] = None

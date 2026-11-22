@@ -25,7 +25,9 @@ card, Compare), scrolled to the top, the middle and the bottom:
     drawn on top (not clipped, not covered); every chart tooltip inside;
   - no script error and no sideways scroll.
 5d1: every column header's definition popover is opened and checked like an
-InfoTip's; a season picker's oldest season (and the draft's first by-team
+InfoTip's; 5d2: Team > Schedule's week chips and a day's tap, the Players
+groups (and the Box score's totals), Market's ranges and its ?fit= route,
+and next week's matchup previews are states of their own; a season picker's oldest season (and the draft's first by-team
 season) is a state of its own; the title-odds chart opened from a team's odds
 (?hl=) is a route of its own.
 
@@ -200,8 +202,27 @@ def states_for(page, route):
         s.querySelectorAll('select[data-spick]').forEach(x=>{ if(x.closest('[hidden]')) return; const v=[...x.options].map(o=>o.value);
           if(v.length>1) out.push(['spick', x.getAttribute('data-spick')+'|'+v[v.length-1]]);
           if(x.getAttribute('data-spick')==='draft' && v.includes('2023-24')) out.push(['spick','draft|2023-24']); });
+        // 5d2: Team > Schedule's week chips and a day's tap; the Players groups (and the Box score's
+        // totals); Market's ranges
+        s.querySelectorAll('[data-swk]').forEach(b=>out.push(['swk', b.getAttribute('data-swk')]));
+        if(s.querySelector('[data-sched] .v2-sday')) out.push(['sday','0']);
+        s.querySelectorAll('[data-pgrp]').forEach(b=>out.push(['pgrp', b.getAttribute('data-pgrp')]));
+        if(s.querySelector('[data-pgroup="box"]')) out.push(['boxv','tot']);
+        const r=s.querySelector('[data-section="available"]')?s.querySelector('select[data-mkr]'):null;
+        if(r){[...r.options].forEach(o=>out.push(['mkr', o.value]));}
         return out; }""")
     return segs
+
+
+APPLY_5D2 = """([k,p]) => { const s=[...document.querySelectorAll('.v2-screen')].find(x=>!x.hidden);
+  const seg=(g,pn)=>{const b=s.querySelector('.lh-seg[data-seg="'+g+'"] button[data-pane="'+pn+'"]'); if(b) b.click();};
+  if(k==='swk'){seg('team','schedule'); const b=s.querySelector('[data-swk="'+p+'"]'); if(b) b.click();}
+  else if(k==='sday'){seg('team','schedule'); const b=s.querySelector('[data-swpane]:not([hidden]) .v2-sday'); if(b) b.click();}
+  else if(k==='pgrp'){const b=s.querySelector('[data-pgrp="'+p+'"]'); if(b) b.click();}
+  else if(k==='boxv'){const g=s.querySelector('[data-pgrp="box"]'); if(g) g.click();
+    setTimeout(()=>{const b=s.querySelector('[data-pgroup="box"] [data-boxv="tot"]'); if(b) b.click();},300);}
+  else if(k==='mkr'){seg('market','available'); const x=s.querySelector('select[data-mkr]'); x.value=p;
+    x.dispatchEvent(new Event('change',{bubbles:true}));} }"""
 
 
 def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
@@ -237,6 +258,9 @@ def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
               chips.forEach(c=>out.push('league/history/'+c));
               // 5d1 s.4: the title-odds chart opened from a team's odds, his line highlighted
               const hl=document.querySelector('a.v2-rank-odds'); if(hl) out.push(hl.getAttribute('href').slice(2));
+              // 5d2: Market opened from Team > Schedule's pickups link (?r=next&fit=<manager>)
+              const tm=document.querySelector('.v2-screen[data-route^="teams/"]');
+              if(tm&&document.querySelector('select[data-mkr] option[value="next"]')) out.push('market?r=next&fit='+tm.getAttribute('data-route').slice(6));
               return out; }""")
             W = {"states": [], "routes": routes}
             for route in routes:
@@ -253,6 +277,9 @@ def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
                             page.evaluate("(kv) => { const [k,v]=kv.split('|'); const x=document.querySelector("
                                           "'select[data-spick=\"'+k+'\"]'); x.value=v; x.dispatchEvent(new Event('change',{bubbles:true})); }",
                                           p)
+                        elif k in ("swk", "sday", "pgrp", "boxv", "mkr"):          # 5d2
+                            page.evaluate(APPLY_5D2, [k, p])
+                            page.wait_for_timeout(500)
                         elif k == "toggle":
                             page.evaluate("() => { const s=[...document.querySelectorAll('.v2-screen')].find(x=>!x.hidden);"
                                           " s.querySelector('.lh-toggle button[data-mode=\"detailed\"]').click(); }")
