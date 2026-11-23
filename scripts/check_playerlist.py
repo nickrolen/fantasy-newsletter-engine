@@ -661,23 +661,42 @@ def main():
 
         # GP direction: pre-season files only (see GP_UP_SHARE).
         prev_flat, _prev_shape = gp_column_is_flat(prev["player_proj_GP"])
-        regime_change = flat and not prev_flat
-        pre_season_pair = not flat and not prev_flat
         live_on = (date.fromisoformat(str(fresh["fetched_on"])[:10])
                    if fresh["how"] == "stamp" else date.today())
         prev_on = _snapshot_date(prev_path)
+        # The phase is decided by DATE when week 1's start is known, never by the
+        # column's shape alone (11-23): in season the games-remaining column
+        # spreads as teams' schedules diverge (within-one share 0.85 on 11-02,
+        # 0.63 on 11-16), so an in-season pair started reading as "pre-season
+        # shaped" and the GP comparison failed a good file (47%, the nightly of
+        # 11-23). A file fetched on or after week 1's start is in season.
+        if first_week_start is not None:
+            live_in = live_on >= first_week_start
+            prev_in = prev_on is not None and prev_on >= first_week_start
+            regime_change = live_in and prev_on is not None and not prev_in
+            dated_in_season = live_in and not regime_change
+            pre_season_pair = not live_in and not flat and not prev_flat
+        else:
+            regime_change = flat and not prev_flat
+            dated_in_season = False
+            pre_season_pair = not flat and not prev_flat
         tdates = team_game_dates()
         by_share = pre_season_pair and tdates is not None and prev_on is not None
-        if by_share:
+        if regime_change:
+            print(f"  GP not compared: {prev_path.name} is pre-season and this "
+                  "file is in season -- the column changed meaning at week 1 (games of 82 "
+                  "with a durability haircut -> games remaining). Expected once a season.")
+        elif dated_in_season:
+            print(f"  GP direction not compared: in season by date (week 1 started "
+                  f"{first_week_start}; {prev_path.name} and this file are in-season "
+                  "files whatever the column's spread); the NBA-team check above is the "
+                  "shift check")
+        elif by_share:
             frame["_gp_share"] = gp_shares(frame, live_on, tdates)
             prev["_gp_share"] = gp_shares(prev, prev_on, tdates)
             joined = frame.merge(prev, on="_key", suffixes=("", "_prev"))
             print("  GP direction: compared as a share of games remaining "
                   "(both files pre-season shaped)")
-        elif regime_change:
-            print(f"  GP not compared: {prev_path.name} is pre-season shaped and this "
-                  "file is in-season shaped -- the column changed meaning at week 1 (games of 82 "
-                  "with a durability haircut -> games remaining). Expected once a season.")
         elif flat:
             print("  GP direction not compared: in season, games remaining fall with the "
                   "calendar and every team's denominator shrinks, so shares rise on ordinary "

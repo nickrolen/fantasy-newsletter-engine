@@ -18,6 +18,7 @@ equality.
 """
 import importlib.util
 import json
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -57,6 +58,15 @@ def check(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "ROSTERS", tmp_path / "ROSTERS.json")
     monkeypatch.setattr(mod, "SNAPSHOTS", tmp_path / "snapshots")
     return mod
+
+
+@pytest.fixture
+def pre_season(check, monkeypatch):
+    """Both files dated before week 1: the GP direction is compared only for a
+    pre-season pair, decided by date (11-23), so these tests move week 1 past
+    today rather than relying on the column's shape."""
+    monkeypatch.setattr(check, "_first_week_start", lambda: date(2099, 10, 20))
+    return check
 
 
 def _rows(n=6, fppg=30.0, gp=50):
@@ -217,7 +227,7 @@ def test_a_stale_file_still_fails_against_an_earlier_day(check, capsys):
     assert "not regenerated" in capsys.readouterr().out
 
 
-def test_a_few_players_gaining_games_is_a_refresh_not_a_failure(check, capsys):
+def test_a_few_players_gaining_games_is_a_refresh_not_a_failure(check, capsys, pre_season):
     """2026-10-13: Yahoo refreshed and six of 168 players gained games
     remaining (Kyrie 57 -> 60) as injury outlooks improved. The old rule
     failed the file on any one of them."""
@@ -237,7 +247,7 @@ def test_a_few_players_gaining_games_is_a_refresh_not_a_failure(check, capsys):
     assert "games remaining up for 3 of 40" in out
 
 
-def test_stats_shifted_against_names_fail(check, capsys):
+def test_stats_shifted_against_names_fail(check, capsys, pre_season):
     """The real misalignment: every row's numbers belong to the row above.
     About half the players gain games, half lose them."""
     import random
@@ -560,3 +570,31 @@ def test_snapshot_cannot_be_taken_of_a_scratch_file(check, tmp_path):
     other = tmp_path / "elsewhere.xlsx"
     pd.DataFrame(_rows(), columns=COLUMNS).to_excel(other, index=False)
     assert _run(check, ("c", "--file", str(other), "--snapshot")) == 1
+
+
+def test_an_in_season_pair_is_never_compared_on_gp_whatever_its_spread(check, capsys):
+    """The nightly of 11-23: two in-season files (week 1 long started) whose
+    games-remaining column had spread as teams' schedules diverged (within-one
+    share 0.63), so both read as "pre-season shaped" and the GP comparison
+    failed a good file at 47%. In season the phase comes from the date, and the
+    NBA-team check is the shift check."""
+    import random
+    rng = random.Random(7)
+    before = _rows(40)
+    for r in before:
+        r["player_proj_GP"] = rng.randint(50, 66)
+        r["player_total_proj_FP"] = round(r["projectedFPPG"] * r["player_proj_GP"], 2)
+    after = [dict(r) for r in before]
+    for r in after:                              # a week on: 2-4 fewer, unevenly
+        r["player_proj_GP"] = r["player_proj_GP"] - rng.choice([1, 2, 3, 4])
+        r["player_total_proj_FP"] = round(r["projectedFPPG"] * r["player_proj_GP"], 2)
+    for r in after[::2]:                         # and half of them shuffled up a little
+        r["player_proj_GP"] += 2
+        r["player_total_proj_FP"] = round(r["projectedFPPG"] * r["player_proj_GP"], 2)
+    _write(check, after)
+    _snapshot(check, before, stamp="2026-11-16")
+    assert check._first_week_start() is not None
+    assert _run(check) == 0
+    out = capsys.readouterr().out
+    assert "GP direction not compared: in season by date" in out
+    assert "larger share" not in out
