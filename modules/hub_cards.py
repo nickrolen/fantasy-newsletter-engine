@@ -204,12 +204,31 @@ def annotate(payload: dict) -> dict:
             owner[k] = m
             status[k] = [{"text": f"{rb['team']} \u00b7 {m}", "kind": "own"}] + \
                 [dict(c) for c in p.get("tags") or []]
+    # LEAGUE_RULES rule 11: a group-chat drop frees the player for the COMING week at
+    # once, while he still counts for the dropping manager this week. So a pending
+    # ledger drop may be on a roster AND in next week's free-agent lists (11-24:
+    # Hayden's chat drop of Day'Ron Sharpe failed every card). Anyone else on both
+    # still raises.
+    chat_dropped = {}
+    for w in payload["moves"]["weeks"]:
+        for it in w["items"]:
+            if it.get("kind") == "ledger" and it.get("state") == "Pending":
+                for x in it["parts"]:
+                    if x["kind"] == "drop":
+                        for n in part_names(x):
+                            chat_dropped[keys.key(n)] = it["who"]
     for table in (payload["free_agents"]["rows"], payload["free_agents"].get("range_rows") or [],
                   payload["stash"]["rows"]):                 # 5e: each Market range's own best free agents
         for r in table:
             k = r["card"] = keys.key(r["name"])
-            if k in owner:
+            if k in owner and chat_dropped.get(k) != owner[k]:
                 raise CardsError(f"{r['name']} is listed as a free agent and is on {owner[k]}'s roster")
+            if k in owner:
+                chip = {"text": f"Dropped by {owner[k]} in the group chat: a free agent from next week",
+                        "kind": "new"}
+                if chip not in status[k]:
+                    status[k].append(chip)
+                continue
             status.setdefault(k, [{"text": FREE_AGENT, "kind": "fa"}] + [dict(c) for c in r.get("tags") or []])
     for c in payload["trade_block"]["cards"]:
         for lst in c["lists"]:

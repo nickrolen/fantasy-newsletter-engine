@@ -12,6 +12,7 @@
   - the season filter's figures are the engine's, equal to the old modal's;
   - the real, unstubbed hub build, cards included, into scratch.
 """
+import copy
 import gzip
 import json
 import re
@@ -704,3 +705,31 @@ def test_the_real_hub_builds_with_a_card_for_every_name(tmp_path, monkeypatch):
     page = inner["page"]
     for n, k in shown:
         assert f'data-card="{k}"' in page, n
+
+
+def test_a_pending_chat_drop_may_be_on_his_roster_and_in_next_weeks_free_agents():
+    """LEAGUE_RULES rule 11: a group-chat drop frees the player for the coming week
+    while he still counts for the dropper this week. 11-24: Hayden's pending chat
+    drop of Day'Ron Sharpe put him in Market's lists and on Hayden's roster, and
+    every card failed. A pending drop by the OWNER is allowed (his card says so);
+    anyone else listed on both still raises."""
+    from test_hub import sample_payload
+    p = sample_payload()
+    owner = next(m for m, rb in p["rosters"].items() if any(x["name"] == "Zed Alpha" for x in rb["players"]))
+    other = next(m for m in p["rosters"] if m != owner)
+    p["free_agents"]["rows"][0]["name"] = "Zed Alpha"
+
+    def drop_item(who):
+        return {"day": "Mon", "date": "11/23", "time": "10:00 PM", "who": who, "what": "dropped Zed Alpha",
+                "note": "", "state": "Pending", "kind": "ledger",
+                "parts": [{"kind": "drop", "marker": "-", "text": "dropped Zed Alpha"}]}
+    q = copy.deepcopy(p)
+    q["moves"]["weeks"][1]["items"].append(drop_item(other))      # someone else's drop: still a conflict
+    with pytest.raises(hc.CardsError, match="listed as a free agent"):
+        hc.annotate(q)
+    p["moves"]["weeks"][1]["items"].append(drop_item(owner))
+    hc.annotate(p)
+    card = p["cards"]["players"]["zed-alpha"]
+    assert card["kind"] == "rostered" and card["manager"] == owner
+    assert {"text": f"Dropped by {owner} in the group chat: a free agent from next week", "kind": "new"} \
+        in card["status"]

@@ -190,6 +190,24 @@ def _as_of_for(data: FantasyData, week: int) -> date:
     return (max(seen) + timedelta(days=1)) if seen else dates[0]
 
 
+def _mvp_as_of(data: FantasyData, in_progress: dict):
+    """The first day the pass simulates, for the MVP odds (mvp_odds.check_aligned):
+    the earliest in-progress week's as-of, leaving out a week the logs already
+    cover to its last day. Such a week stays "in progress" only until the weekly
+    build records it (11-24: week 5 ended 11-22, its newsletter not yet built, so
+    the pass carried week 5 at as-of 11-23 beside week 6 at 11-24, and the MVP
+    odds refused "the pass simulates from 2026-11-23 but the awards' log ends
+    2026-11-23"). None without an in-progress week."""
+    if not in_progress:
+        return None
+    from .week_state import week_entry
+    from .simulator_betting import get_dates_in_week
+    live = [date.fromisoformat(v["as_of"]) for w, v in in_progress.items()
+            if date.fromisoformat(v["as_of"]) <= get_dates_in_week(week_entry(data, int(w)))[-1]]
+    days = live or [date.fromisoformat(v["as_of"]) for v in in_progress.values()]
+    return min(days).isoformat()
+
+
 # =============================================================================
 # THE PASS
 # =============================================================================
@@ -604,8 +622,7 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
         week_results=week_results,
         week_margins=week_margins,
         mvp=({"players": started, "weeks": sorted(pending + future), "standins": sorted(plan.standins),
-              "as_of": (min(date.fromisoformat(v["as_of"]) for v in in_progress.values()).isoformat()
-                        if in_progress else None)}
+              "as_of": _mvp_as_of(data, in_progress)}
              if mvp else None),
     )
 

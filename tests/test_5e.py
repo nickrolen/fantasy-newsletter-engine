@@ -462,3 +462,22 @@ def test_the_sparkline_stops_at_the_run_the_power_rows_read(monkeypatch, tmp_pat
     assert len(seen["rows"]) == 2                          # no cut-off: every row, as before
     import inspect
     assert 'upto=_tor.load_latest(base)["as_of"]' in inspect.getsource(D)
+
+
+def test_the_mvp_pass_starts_after_a_fully_banked_week_still_in_progress(monkeypatch):
+    """11-24: week 5 ended 11-22 but its weekly build hadn't recorded it, so the
+    season pass carried week 5 (as-of 11-23, nothing left) beside week 6 (as-of
+    11-24), and the MVP odds refused: "the pass simulates from 2026-11-23 but the
+    awards' log ends 2026-11-23". A week whose as-of is past its last day has no
+    day left to simulate and is left out."""
+    from datetime import date, timedelta
+    from modules import season_sim as S, week_state, simulator_betting
+    ends = {5: date(2026, 11, 22), 6: date(2026, 11, 29)}
+    monkeypatch.setattr(week_state, "week_entry", lambda data, w: w)
+    monkeypatch.setattr(simulator_betting, "get_dates_in_week",
+                        lambda w: [ends[w] - timedelta(days=6 - i) for i in range(7)])
+    ip = {"5": {"as_of": "2026-11-23"}, "6": {"as_of": "2026-11-24"}}
+    assert S._mvp_as_of(None, ip) == "2026-11-24"
+    assert S._mvp_as_of(None, {"5": {"as_of": "2026-11-20"}, "6": {"as_of": "2026-11-23"}}) == "2026-11-20"
+    assert S._mvp_as_of(None, {"5": {"as_of": "2026-11-23"}}) == "2026-11-23"   # nothing live: as before
+    assert S._mvp_as_of(None, {}) is None
