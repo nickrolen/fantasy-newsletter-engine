@@ -1,6 +1,7 @@
 {
   "_comment": "Patches on Yahoo PLAYERLIST rows that are wrong UPSTREAM. Applied by scripts/fetch_playerlist.py after parsing and before writing, so they survive every refetch; scripts/check_playerlist.py lists the live ones and FAILS on any past review_by, or whose Yahoo row no longer matches 'replaces' (upstream may be fixed). Keyed by Yahoo player id. 'set' may name projectedFPPG (a number) and player_proj_GP (a number, or \"team\": the most games remaining Yahoo projects for any teammate in the same fetch). Total FP is derived, FPPG x GP. See modules/projection_overrides.py.",
-  "overrides": [
+  "overrides": [],
+  "_retired": [
     {
       "yahoo_id": "6514",
       "player_name": "Evan Mobley",
@@ -16,7 +17,9 @@
       "source": "11-15 PLAYERLIST (Sun 8:30 AM hub): projectedFPPG 37.4; 11-16 nightly fetch: 0 GP, 0.0 FP",
       "added": "2026-11-16",
       "reviewed": "2026-11-18 (Nick): Yahoo still projects him at 0; he is a free agent outside the 175-player pool, so the override applies only if he is rostered or returns to the pool. Kept; next review 12-07.",
-      "review_by": "2026-12-07"
+      "review_by": "2026-12-07",
+      "retired": "2026-11-24",
+      "retired_why": "Yahoo fixed it upstream: the 11-24 7:13 AM forced nightly's fetch had Mobley back in the 175-player pool at GP 60.4, FP 2,203.05 (36.5 FPPG), and check_playerlist refused the run because his row no longer matched 'replaces' -- the check working as designed. Removed (reviewer, with Nick's 5f deploy)."
     }
   ]
 }
