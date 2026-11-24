@@ -239,6 +239,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                         "fantasy_team": fantasy_team,
                         "date": txn_date,
                         "timestamp": int(txn_timestamp) if txn_timestamp else 0,
+                        "transaction_key": txn.get("transaction_key"),
                         "details": txn_data,
                     })
                 elif action_type == "drop":
@@ -251,6 +252,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                         "fantasy_team": fantasy_team,
                         "date": txn_date,
                         "timestamp": int(txn_timestamp) if txn_timestamp else 0,
+                        "transaction_key": txn.get("transaction_key"),
                         "details": txn_data,
                     })
                 elif action_type == "trade":
@@ -264,6 +266,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                             "fantasy_team": dest_team_name,
                             "date": txn_date,
                             "timestamp": int(txn_timestamp) if txn_timestamp else 0,
+                        "transaction_key": txn.get("transaction_key"),
                             "details": {"via": "trade"},
                         })
                     if source_team_name:
@@ -275,6 +278,7 @@ def get_recent_transactions(lg: yfa.League, since_date: Optional[dt.date] = None
                             "fantasy_team": source_team_name,
                             "date": txn_date,
                             "timestamp": int(txn_timestamp) if txn_timestamp else 0,
+                        "transaction_key": txn.get("transaction_key"),
                             "details": {"via": "trade"},
                         })
     

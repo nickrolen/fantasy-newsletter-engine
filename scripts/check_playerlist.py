@@ -585,15 +585,50 @@ def main():
             for line in o_lines:
                 print(f"      {line}")
 
+    # --- override rows outside Yahoo's pool (5f) -----------------------------
+    # fetch_playerlist adds a row for every live override whose player is
+    # outside Yahoo's top N (Mobley, a free agent Yahoo projects at 0). The row
+    # is expected and reported; the override checks above ran on it like any
+    # other; and the comparisons against last week below leave it out, so it
+    # is never counted as a shift, a jump or a change in the file's size.
+    extra_keys = set()
+    try:
+        extras = projection_overrides.extras_from_stamp(stamp_)
+    except projection_overrides.OverrideError as e:
+        failures.append(str(e))
+        extras = None
+    if extras and extras["rows"]:
+        rows_ = extras["rows"]
+        print(f"  {len(rows_)} override row{'s' if len(rows_) != 1 else ''} added outside "
+              f"Yahoo's {extras['pool_limit']}: "
+              + "; ".join(f"{x['player_name']} ("
+                          + ("Yahoo's row, by search" if x["how"] == "search"
+                             else f"BUILT from {x.get('from')}") + ")" for x in rows_))
+        extra_keys = {normalize_player_name(x["player_name"]) for x in rows_}
+        absent_x = sorted(x["player_name"] for x in rows_
+                          if normalize_player_name(x["player_name"]) not in set(frame["_key"]))
+        if absent_x:
+            failures.append(f"the fetch stamp records override rows that are not in the "
+                            f"file: {absent_x}")
+
     # --- against last week --------------------------------------------------
     prev, prev_path = previous_snapshot()
+    cmp_frame = frame[~frame["_key"].isin(extra_keys)].reset_index(drop=True)
+    if prev is not None:
+        try:
+            prev_x = projection_overrides.extras_from_stamp(playerlist_freshness.read_stamp(prev_path))
+        except projection_overrides.OverrideError:
+            prev_x = None
+        if prev_x and prev_x["rows"]:
+            px = {normalize_player_name(x["player_name"]) for x in prev_x["rows"]}
+            prev = prev[~prev["player_name"].apply(normalize_player_name).isin(px)].reset_index(drop=True)
     if prev is None:
         warnings.append("no previous snapshot to compare against. Run with "
                         "--snapshot to start the baseline.")
     else:
         prev = prev.copy()
         prev["_key"] = prev["player_name"].apply(normalize_player_name)
-        joined = frame.merge(prev, on="_key", suffixes=("", "_prev"))
+        joined = cmp_frame.merge(prev, on="_key", suffixes=("", "_prev"))
 
         # Yahoo renames players. On 2026-10-05 "Shai Gilgeous-Alexander"
         # became "S. Gilgeous-Alexander" and "Bobby Portis" became "Bobby
@@ -603,8 +638,8 @@ def main():
         # arriving, so nothing flagged it, and a keeper silently lost his
         # projection. Anything that leaves and comes back under a name
         # reducing to the same person is reported.
-        entered = set(frame["player_name"]) - set(prev["player_name"])
-        departed = set(prev["player_name"]) - set(frame["player_name"])
+        entered = set(cmp_frame["player_name"]) - set(prev["player_name"])
+        departed = set(prev["player_name"]) - set(cmp_frame["player_name"])
         renames = []
         for gone in sorted(departed):
             for arrived in sorted(entered):
@@ -621,8 +656,8 @@ def main():
         print(f"  compared against {prev_path.name} "
               f"({len(joined)} players in both)")
 
-        if len(joined) == len(frame) == len(prev):
-            same = frame[REQUIRED].equals(prev[REQUIRED]) if list(prev.columns) else False
+        if len(joined) == len(cmp_frame) == len(prev):
+            same = cmp_frame[REQUIRED].equals(prev[REQUIRED]) if list(prev.columns) else False
             # Identical to a snapshot taken on an EARLIER day means the file
             # was not rebuilt. Identical to one taken today just means this
             # ran twice today, which is what happens after a re-run, and
@@ -641,7 +676,7 @@ def main():
                     "regenerated this week")
 
         # A shift, by NBA team: runs on every pair, any phase.
-        tc = team_changes(frame, prev)
+        tc = team_changes(cmp_frame, prev)
         t_share = len(tc["changed"]) / tc["compared"] if tc["compared"] else 0.0
         print(f"  shift check: NBA team per player against {prev_path.name} "
               f"(the one column the calendar does not move)")
@@ -692,9 +727,9 @@ def main():
                   "files whatever the column's spread); the NBA-team check above is the "
                   "shift check")
         elif by_share:
-            frame["_gp_share"] = gp_shares(frame, live_on, tdates)
+            cmp_frame["_gp_share"] = gp_shares(cmp_frame, live_on, tdates)
             prev["_gp_share"] = gp_shares(prev, prev_on, tdates)
-            joined = frame.merge(prev, on="_key", suffixes=("", "_prev"))
+            joined = cmp_frame.merge(prev, on="_key", suffixes=("", "_prev"))
             print("  GP direction: compared as a share of games remaining "
                   "(both files pre-season shaped)")
         elif flat:

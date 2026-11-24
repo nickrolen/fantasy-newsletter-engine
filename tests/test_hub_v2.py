@@ -846,6 +846,7 @@ def real_payload():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_v2_preview_from_todays_inputs(real_payload, tmp_path):
     from modules.data_loader import MANAGERS
     from modules import hub_publish

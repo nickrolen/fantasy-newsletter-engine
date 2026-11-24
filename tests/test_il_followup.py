@@ -188,6 +188,7 @@ def _capture(monkeypatch):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_seed_does_not_change_a_clear_decision_on_the_real_state(monkeypatch):
     """Every activation and mid-week decision of the real plan that is CLEAR
     of the tie band (above) gives the same answer at another seed of the

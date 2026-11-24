@@ -90,6 +90,7 @@ def test_the_stakes_on_a_hand_built_pass():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_margins_are_recorded_beside_results_and_never_drawn(real_pass):
     """Each week's margin agrees in sign with its result, and a week with no
     game has neither (task 18b)."""
@@ -138,6 +139,7 @@ def real_pass():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_pass_week_results_are_the_seasons_own(real_pass):
     """Recorded, never drawn: each iteration's regular-season wins equal the
     league's wins plus the weeks week_results says it won."""
@@ -153,6 +155,7 @@ def test_the_pass_week_results_are_the_seasons_own(real_pass):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_record_writes_the_row_the_latest_file_and_the_stakes(tmp_path, real_pass, monkeypatch):
     from modules import calibration_log as cal, title_odds_history as toh
     monkeypatch.setattr(cal, "engine_version", lambda base=".": {"commit": "abc1234", "dirty": False})

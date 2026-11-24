@@ -291,6 +291,7 @@ from test_5b import real                                       # noqa: E402,F401
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_the_fallback_team_reaches_only_free_agents_without_one_and_overrides_nothing(real):
     import pandas as pd
     from pathlib import Path
@@ -313,6 +314,7 @@ def test_real_the_fallback_team_reaches_only_free_agents_without_one_and_overrid
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_no_object_text_in_the_published_hub(real, tmp_path):
     from modules import hub_cards, team_pictures
     from modules.hub_v2 import data as v2data

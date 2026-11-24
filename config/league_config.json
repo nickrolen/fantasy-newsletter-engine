@@ -90,10 +90,38 @@
             "Nick": 1,
             "Benton": 1
         },
-        "_seasons": "Who won each pre-data-era season (Nick, 11-19). The two seasons are 2014-15 and 2016-17; 2015-16 was not played. Their winners must sum to titles_won (league_champion) and playoff_championships (playoff_champion); the hub's League > History > Champions reads them (modules/hub_v2/league.champions). Keys renamed 11-20: the League Champion is the regular-season winner, the league's champion; the bracket's winner is the Playoff Champion. No key here says 'champion' for the bracket alone (the old 'champion' key did, and the hub headlined the wrong winner).",
+        "_seasons": "Who won each pre-data-era season (Nick, 11-19), and (Nick, 11-23, Yahoo screenshots; team names confirmed) each season's full results: standings (team name, W-L, the regular-season finish by record, Yahoo's Pts as Yahoo gives it) and the bracket (semifinals seeded 1 v 4 and 2 v 3, the final, 3rd place, each a single matchup). 'Giant KIllers' is Yahoo's spelling. Read through modules/hub_v2/league.pre_era_season(s) only, which RAISES on a missing or contradictory fact: 21 games per manager, the finish order by record, the bracket's winners against playoff_champion / playoff_runner_up, the 1st against league_champion, and the two seasons together against LEAGUEHISTORY's career records minus the Yahoo seasons (LEAGUE_RULES 'Season numbering'). The two seasons are 2014-15 and 2016-17; 2015-16 was not played. Their winners must sum to titles_won (league_champion) and playoff_championships (playoff_champion); the hub's League > History > Champions reads them (modules/hub_v2/league.champions). Keys renamed 11-20: the League Champion is the regular-season winner, the league's champion; the bracket's winner is the Playoff Champion. No key here says 'champion' for the bracket alone (the old 'champion' key did, and the hub headlined the wrong winner).",
         "seasons": {
-            "2014-15": {"league_champion": "Nick", "league_runner_up": "Benton", "playoff_champion": "Nick", "playoff_runner_up": "Benton"},
-            "2016-17": {"league_champion": "Hayden", "league_runner_up": "Nick", "playoff_champion": "Benton", "playoff_runner_up": "Garrett"}
+            "2014-15": {"league_champion": "Nick", "league_runner_up": "Benton", "playoff_champion": "Nick", "playoff_runner_up": "Benton",
+                "regular_season_games": 21,
+                "standings": [
+                    {"finish": 1, "manager": "Nick", "team": "Russell Eastbrook", "w": 15, "l": 6, "pts": 23092.85},
+                    {"finish": 2, "manager": "Benton", "team": "Serge I-Block-Ya", "w": 12, "l": 9, "pts": 23200.50},
+                    {"finish": 3, "manager": "Garrett", "team": "The Birdmen", "w": 10, "l": 11, "pts": 22540.20},
+                    {"finish": 4, "manager": "Hayden", "team": "Giant KIllers", "w": 5, "l": 16, "pts": 20167.60}
+                ],
+                "bracket": {
+                    "semifinals": [{"a": "Nick", "a_pts": 1103.75, "b": "Hayden", "b_pts": 938.95},
+                                   {"a": "Benton", "a_pts": 1203.50, "b": "Garrett", "b_pts": 1168.25}],
+                    "final": {"a": "Nick", "a_pts": 1296.00, "b": "Benton", "b_pts": 1249.25},
+                    "third_place": {"a": "Garrett", "a_pts": 1000.35, "b": "Hayden", "b_pts": 382.95}
+                }
+            },
+            "2016-17": {"league_champion": "Hayden", "league_runner_up": "Nick", "playoff_champion": "Benton", "playoff_runner_up": "Garrett",
+                "regular_season_games": 21,
+                "standings": [
+                    {"finish": 1, "manager": "Hayden", "team": "Hayden's Rad Team", "w": 17, "l": 4, "pts": 29043.00},
+                    {"finish": 2, "manager": "Nick", "team": "3Js", "w": 12, "l": 9, "pts": 26536.00},
+                    {"finish": 3, "manager": "Benton", "team": "Serge I-Block-Ya", "w": 8, "l": 13, "pts": 27068.75},
+                    {"finish": 4, "manager": "Garrett", "team": "Trump University", "w": 5, "l": 16, "pts": 22722.75}
+                ],
+                "bracket": {
+                    "semifinals": [{"a": "Garrett", "a_pts": 1361.75, "b": "Hayden", "b_pts": 1328.75},
+                                   {"a": "Benton", "a_pts": 1412.50, "b": "Nick", "b_pts": 902.00}],
+                    "final": {"a": "Benton", "a_pts": 1499.50, "b": "Garrett", "b_pts": 1168.00},
+                    "third_place": {"a": "Hayden", "a_pts": 1703.75, "b": "Nick", "b_pts": 1349.00}
+                }
+            }
         }
     },
     "season": {

@@ -769,6 +769,7 @@ def test_the_closing_line_uses_the_rebuilt_overrides_and_raises_on_an_unrecorded
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_real_closing_line_raises_on_a_governing_entry_changed_after_the_tip(monkeypatch):
     import test_closing_line as tcl
     tcl._real_or_skip()

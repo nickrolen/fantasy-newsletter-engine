@@ -489,6 +489,7 @@ REAL = [ROOT / "output" / "tag_records.jsonl", ROOT / "output" / "stakes.json", 
 
 @pytest.mark.slow
 @pytest.mark.skipif(not all(p.is_file() for p in REAL), reason="needs the league's real state")
+@pytest.mark.real
 def test_the_real_state_prices_a_b_and_c_for_every_returner():
     """Read in place (nothing written), at the latest tag fetch's clock:
     every manager with a returner at the window gets A, B (or the reason it

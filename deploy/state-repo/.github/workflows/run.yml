@@ -13,6 +13,18 @@
 # refreshes with the entry as its cause, and comments the effect. A refusal
 # changes nothing and exits 0: no refresh, no failure issue.
 #
+# 5f (Nick's issue #21, 11-23: neither saved nor answered): AN ENTRY IS NEVER
+# SILENTLY LOST. The order stays apply -> commit -> answer -> refresh, so an
+# entry whose checks passed is in the private repo BEFORE the refresh, and a
+# refresh failure afterwards is a failed refresh ("The entry stands", in the
+# effect comment, which is posted whatever the refresh did). Three holes closed:
+#   - a commit of the entry that fails (the repo moved): every applied issue is
+#     answered "checked, but NOT saved" and left open for the next run;
+#   - an entry step that dies: the event's issue is answered with the run link;
+#   - a run cancelled while waiting (GitHub keeps one pending run per group): a
+#     desk push's refresh and the nightly also apply Nick's missed entries (the
+#     catch-up), softly -- their own run goes on whatever the catch-up does.
+#
 # Task 49 (claude/HANDOFF_TRADE_BLOCK_2026-11-11.md): when every entry applied
 # is a trade-block entry (apply_entry.py's facts_only=true) it changes no price:
 # the refresh is `nightly.py --refresh --facts-only` (no line, no title odds).
@@ -341,7 +353,8 @@ jobs:
       #    a command: apply_entry.py reads it from the event payload.
       - name: Nick's open issues (missed entries are applied too)
         id: entry-list
-        if: inputs.entry
+        if: inputs.entry || inputs.mode == 'refresh' || inputs.mode == 'nightly'
+        continue-on-error: ${{ !inputs.entry }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -350,7 +363,8 @@ jobs:
 
       - name: Apply the entry
         id: entry
-        if: inputs.entry
+        if: inputs.entry || ((inputs.mode == 'refresh' || inputs.mode == 'nightly') && steps.entry-list.outcome == 'success')
+        continue-on-error: ${{ !inputs.entry }}
         working-directory: engine
         run: |
           python scripts/apply_entry.py apply --event "$GITHUB_EVENT_PATH" \
@@ -360,6 +374,7 @@ jobs:
       - name: Commit the entry to the private repo
         id: entry-commit
         if: steps.entry.outputs.applied == 'true'
+        continue-on-error: ${{ !inputs.entry }}
         working-directory: engine
         env:
           CAUSE: ${{ steps.entry.outputs.cause }}
@@ -382,11 +397,17 @@ jobs:
 
       - name: Answer the issues (comment; close when applied, label when refused)
         id: entry-answer
-        if: always() && steps.entry.outcome == 'success' && steps.entry-commit.outcome != 'failure'
+        if: always() && steps.entry.outcome == 'success'
+        continue-on-error: ${{ !inputs.entry }}
         env:
           GH_TOKEN: ${{ github.token }}
+          COMMITTED: ${{ steps.entry-commit.outcome }}
         run: |
           d="$RUNNER_TEMP/entry"
+          # 5f: a commit that failed leaves nothing "Applied" and nothing closed
+          if [ "$COMMITTED" = failure ]; then
+            python3 engine/scripts/apply_entry.py unsaved --out-dir "$d" --log "$RUNNER_TEMP/entry-commit.log"
+          fi
           gh label create entry-refused --repo "$GITHUB_REPOSITORY" --color D93F0B \
             --description "A phone entry was refused: edit the title to fix it" --force
           python3 -c 'import json,sys; [print(a["issue"], a.get("comment_file") or "-", int(a["close"]), a["label"] or "-", int(a["unlabel"])) for a in json.load(open(sys.argv[1]))]' "$d/actions.json" |
@@ -396,6 +417,16 @@ jobs:
             if [ "$label" != - ]; then gh issue edit "$n" --repo "$GITHUB_REPOSITORY" --add-label "$label"; fi
             if [ "$close" = 1 ]; then gh issue close "$n" --repo "$GITHUB_REPOSITORY"; fi
           done
+
+      # 5f: the entry step died before it could answer: say so on the issue
+      - name: Answer an entry step that failed
+        if: always() && inputs.entry && steps.entry.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          N: ${{ github.event.issue.number }}
+        run: |
+          printf '%s\n' "**Not answered by the engine:** the entry step failed before it could apply or refuse this entry ($RUN_URL). Check the move ledger or the injury entries before entering it again; the failure issue has the details." > "$RUNNER_TEMP/entry-failed.md"
+          gh issue comment "$N" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/entry-failed.md"
 
       - name: Run
         id: run
@@ -415,6 +446,10 @@ jobs:
               exit 0
             fi
             c="${ENTRY_CAUSE:-$CAUSE_INPUT}"
+            # a desk push's refresh that also caught up a missed entry names both
+            if [ "$ENTRY" != true ] && [ -n "$ENTRY_CAUSE" ] && [ -n "$CAUSE_INPUT" ]; then
+              c="$CAUSE_INPUT; $ENTRY_CAUSE"
+            fi
             if [ -z "$c" ]; then echo "a refresh needs its cause" | tee "$RUNNER_TEMP/run.log"; exit 1; fi
             # task 49: only trade-block entries applied -> nothing to price
             if [ "$ENTRY" = true ] && [ "$FACTS_ONLY" = true ]; then
@@ -529,7 +564,7 @@ jobs:
       # -- the failure issue: one open at a time; the next good run closes it
       # -- step 3a: the entry's effect, once the refresh has priced (or not)
       - name: Comment the entry's effect
-        if: always() && steps.entry.outputs.applied == 'true' && steps.entry-answer.outcome == 'success'
+        if: always() && steps.entry.outputs.applied == 'true' && steps.entry-answer.outcome == 'success' && steps.entry-commit.outcome == 'success'
         working-directory: engine
         env:
           GH_TOKEN: ${{ github.token }}

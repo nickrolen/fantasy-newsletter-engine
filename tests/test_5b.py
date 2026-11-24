@@ -370,6 +370,7 @@ def real():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_free_agents_are_rated_on_the_rostered_players_scale(real):
     p, po, ro = real
     res = ro["result"]
@@ -402,6 +403,7 @@ def test_real_free_agents_are_rated_on_the_rostered_players_scale(real):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_rostered_players_outside_1a_are_untouched_by_the_free_agents(real):
     p, po, ro = real
     res = copy.deepcopy({k: v for k, v in ro["result"].items() if k not in ("basis", "free_agents")})
@@ -411,6 +413,7 @@ def test_real_rostered_players_outside_1a_are_untouched_by_the_free_agents(real)
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_first_load_and_payload_have_their_room(real, tmp_path):
     from modules import hub_cards, team_pictures
     p, po, ro = real

@@ -152,6 +152,7 @@ def runs():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_one_run_hands_every_simulator_the_same_seed(runs):
     for r in runs:
         assert {n for n, _s in r["got"]} == {fn for _m, fn in SPIED}, r["got"]
@@ -166,18 +167,21 @@ def _numbers(r):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_same_seed_gives_the_same_lines_and_odds(runs):
     assert _numbers(runs[0]) == _numbers(runs[1])
     assert _numbers(runs[0])[0]
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_a_different_seed_gives_different_numbers(runs):
     assert _numbers(runs[0])[0] != _numbers(runs[2])[0]
     assert _numbers(runs[0])[1] != _numbers(runs[2])[1]
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_build_logs_a_rerun_once_and_a_new_seed_again(runs):
     """A line's calibration records take their identity from the line key
     (calibration_log.IDENTITY): the same line twice is the same record, a

@@ -52,6 +52,7 @@ def _world(seed=0):
         teams[m] = TeamProjections(m, ps, weekly_std_dev=140.0)
     data = FantasyData(schedule={"weeks": weeks}, nba_schedule={"games": games}, current_week=0)
     data.il_slots = roster_plan.no_il(1)        # this world's IL state: nobody in a slot
+    data.known_moves = {}           # 5f item 4: an empty ledger, stated (never the real one)
     data.get_manager_record = lambda m, include_playoffs=False: Record()
     return data, teams
 

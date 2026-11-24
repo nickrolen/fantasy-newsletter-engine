@@ -67,6 +67,7 @@ def off_report():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_advice_engine_is_never_called_with_the_switch_off(off_report):
     report, calls = off_report
     assert calls == []
@@ -81,6 +82,7 @@ def _section10(report):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_section_10_markdown_has_the_one_line_and_no_c2c3(off_report):
     md = _section10(off_report[0])
     assert md.count(LINE) == 1
@@ -91,6 +93,7 @@ def test_section_10_markdown_has_the_one_line_and_no_c2c3(off_report):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_section_10_html_has_the_one_line_and_no_c2c3(off_report):
     nhg = _load("newsletter_html_generator")
     out = nhg.generate_html("Week 1", "sub", [("Rumor Mill", "Some rumors.")],
@@ -114,6 +117,7 @@ def _strip_advice(md: str, advice: dict) -> str:
     # ... and the engine failing (the retired path's status line)
     {"ran": False, "status": "error", "published": False, "launched": True, "week": 1,
      "publish_reason": "RuntimeError: x"}])
+@pytest.mark.real
 def test_the_rest_of_section_10_is_unchanged(off_report, on_advice):
     report = off_report[0]
     on = dict(report, advice=on_advice)
@@ -122,6 +126,7 @@ def test_the_rest_of_section_10_is_unchanged(off_report, on_advice):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_off_keeps_the_old_trade_ideas_in_the_rumor_mill(off_report):
     """Nick, 11-02 ("B is fine for Rumor Mill"): with the switch "off", C2/C3
     never launched, so the rumor mill's old heuristic trade ideas and

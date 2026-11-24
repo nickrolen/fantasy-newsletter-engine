@@ -413,6 +413,7 @@ def _moving_world(monkeypatch):
                     {f"Free{j}": "HEALTHY" for j in range(8)})
     # the returns at week 12 take both teams over 15: the one activation rule's inputs (44a)
     data.drop_context = activation_ctx({n: p for tp in teams.values() for n, p in tp.players.items()})
+    data.known_moves = {}           # 5f item 4: an empty ledger, stated (never the real one)
     return data, teams, tags
 
 
@@ -464,6 +465,7 @@ def _real():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_edwards_end_to_end_on_the_real_inputs(monkeypatch):
     data, teams = _real()
     ae = teams["Nick"].players.get("Anthony Edwards")

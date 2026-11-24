@@ -324,6 +324,7 @@ def priced_twice(tmp_path_factory):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_second_run_is_byte_identical(priced_twice):
     assert priced_twice["first"]["outcome"] == "priced"
     assert priced_twice["second"]["outcome"] == "unchanged"
@@ -331,6 +332,7 @@ def test_the_second_run_is_byte_identical(priced_twice):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_no_monday_result_is_banked_and_it_is_priced_as_at_the_close(priced_twice):
     line = priced_twice["first"]["line"]
     assert line["completed_dates"] == [] and line["as_of"] == "2026-11-02"
@@ -342,6 +344,7 @@ def test_no_monday_result_is_banked_and_it_is_priced_as_at_the_close(priced_twic
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_its_records_are_closing_records_at_the_close(priced_twice):
     from modules import calibration_log as cal
     recs = cal.load_log(priced_twice["out"])["lines"]
@@ -350,6 +353,7 @@ def test_its_records_are_closing_records_at_the_close(priced_twice):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_title_odds_at_the_close_use_the_same_inputs(priced_twice, monkeypatch):
     sim_counts.small(monkeypatch)                  # as the fixture priced it
     from modules import title_odds_run as tor

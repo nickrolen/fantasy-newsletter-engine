@@ -39,6 +39,7 @@ def _two_weeks():
               "end_date": (MON4 + timedelta(days=7 * (w - 4) + 6)).isoformat()} for w in (4, 5)]
     games = [{"date": d.isoformat(), "home": "AAA", "away": "BBB"} for d in (WED4, SAT4, MON5, WED5, FRI5)]
     data = FantasyData(schedule={"weeks": weeks}, nba_schedule={"games": games}, records={}, current_week=4)
+    data.known_moves = {}           # 5f item 4: an empty ledger, stated (never the real one)
     p = PlayerProjection(player_name="T", nba_team="AAA", positions=["PG"], projected_fppg=40.0,
                          projected_gp=82.0)
     tps = {"Nick": TeamProjections("Nick", {"T": p}, weekly_std_dev=1.0)}

@@ -34,6 +34,7 @@ def _data(weeks=None, current_week=99):
         records={},
         current_week=current_week,
         get_manager_record=lambda m: Record(),
+        known_moves={},             # 5f item 4: an empty ledger, stated (never the real one)
     )
 
 

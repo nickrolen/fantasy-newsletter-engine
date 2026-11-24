@@ -342,6 +342,7 @@ def test_the_nightly_alone_tallies_and_a_failure_is_soft(tmp_path):
 # =============================================================================
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_mvp_odds_past_awards_and_the_v2_preview():
     """Today's state, unstubbed, at a small n with the latest run's seed: the
     pass with the tally reproduces the pass without it byte for byte, the odds

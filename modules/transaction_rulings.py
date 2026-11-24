@@ -18,6 +18,27 @@ chat, unapplied. Nick voided the add on 10-30.
   rosters: the ROSTERS.json sync still applies the add and whatever followed
   it (here the same-day drop, so there is no roster effect to undo).
 
+  A DROP CAN BE VOIDED TOO (Nick, 11-23: "yes drops should be able to be
+  voided, duh. I want the moves ledger to make sense"; 5f):
+
+    {"date": "2026-11-23", "manager": "Nick", "type": "drop",
+     "player": "Dyson Daniels", "time": "01:19", "ruling": "void",
+     "by": "Nick", "on": "2026-11-24", "reason": "a test move in Yahoo"}
+
+  A voided drop is never listed where moves are shown (Market > Moves and
+  the player cards that read it, the awards' pairing of a drop with its
+  add; the waivers files list adds only) and changes no roster or log:
+  ROSTERS.json and the logs follow Yahoo. The same player can be dropped
+  twice by one manager in one day (Nick's Daniels, 11-23, 1:19 and 1:43
+  AM), so a drop ruling may name the one it means: "time" (HH:MM, the
+  league clock, Yahoo's timestamp) or "transaction_key" (Yahoo's, e.g.
+  "478.l.16778.tr.95"). One of them is REQUIRED when two drops would
+  otherwise match, and the ruling raises as ambiguous without it; a drop
+  ruling matching no drop raises, as an add ruling does. Neither field is
+  defined on an add. The round-trip rule (hub_moves.round_trip_drops) is
+  computed on Yahoo's log as before; a drop it hides and a ruling also
+  voids is fine, not an error (voided_drops, without_voided_drops).
+
 EFFECTIVE DATE ("kind": "effective_date") -- Hayden added Zach LaVine late on
 Sunday 10-25, after every game that day had finished; the league counts it as
 a week 2 move. Yahoo's roster for 10-25 nonetheless lists LaVine on Hayden's
@@ -115,7 +136,7 @@ def _same_player(a: str, b: str) -> bool:
 
 @dataclass(frozen=True)
 class Ruling:
-    """A void."""
+    """A void: of an add, or (5f) of a drop."""
     date: str
     manager: str
     type: str
@@ -124,11 +145,16 @@ class Ruling:
     by: str
     on: str
     reason: str
+    time: str = ""                  # a drop's HH:MM, the league clock (optional)
+    transaction_key: str = ""       # a drop's Yahoo transaction key (optional)
     kind = "void"
     FIELDS = ("date", "manager", "type", "player", "ruling", "by", "on", "reason")
+    OPTIONAL = ("time", "transaction_key")
 
     def label(self) -> str:
-        return (f"{self.ruling} {self.date} {self.manager} {self.type} {self.player} "
+        at = (f" at {self.time}" if self.time else "") + \
+             (f" [{self.transaction_key}]" if self.transaction_key else "")
+        return (f"{self.ruling} {self.date} {self.manager} {self.type} {self.player}{at} "
                 f"({self.by}, {self.on})")
 
     def matches(self, d, manager: str, kind: str, player: str) -> bool:
@@ -253,18 +279,35 @@ def load_all(base_path, schedule: dict = None) -> list:
         missing = [f for f in cls.FIELDS if not str(body.get(f, "")).strip()]
         if missing:
             raise RulingError(f"{where}: missing {missing}")
-        unknown = sorted(set(body) - set(cls.FIELDS))
+        unknown = sorted(set(body) - set(cls.FIELDS) - set(getattr(cls, "OPTIONAL", ())))
         if unknown:
             raise RulingError(f"{where}: unknown field(s) {unknown} -- a ruling only does what "
                               "transaction_rulings defines; anything more must be built, not ignored")
-        if body["type"] != "add":
-            raise RulingError(f"{where}: only rulings on an 'add' are defined, not {body['type']!r}")
+        if cls is Ruling:
+            if body["type"] not in ("add", "drop"):
+                raise RulingError(f"{where}: a void is defined on an 'add' or a 'drop', not "
+                                  f"{body['type']!r}")
+            extra = [f for f in Ruling.OPTIONAL if f in body]
+            if extra and body["type"] != "drop":
+                raise RulingError(f"{where}: {extra} are defined on a voided drop only")
+            for f in extra:
+                if not str(body[f]).strip():
+                    raise RulingError(f"{where}: {f} is empty -- leave it out, or name the drop")
+            if "time" in body and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", str(body["time"]).strip()):
+                raise RulingError(f"{where}: time {body['time']!r} is not HH:MM (24-hour, the "
+                                  "league clock)")
+        elif body["type"] != "add":
+            raise RulingError(f"{where}: only rulings on an 'add' are defined for kind {kind!r}, "
+                              f"not {body['type']!r}")
         if cls is Ruling and body["ruling"] != "void":
             raise RulingError(f"{where}: only 'void' is defined, not {body['ruling']!r}")
         for f in ("date", "transaction_date", "effective"):
             if f in body:
                 date.fromisoformat(str(body[f]))
         vals = {f: str(body[f]).strip() for f in cls.FIELDS}
+        for f in getattr(cls, "OPTIONAL", ()):
+            if f in body:
+                vals[f] = str(body[f]).strip()
         if cls is ClaimWeek:
             cw = body["claim_week"]
             if isinstance(cw, bool) or not isinstance(cw, int) or cw < 1:
@@ -286,6 +329,10 @@ def load_all(base_path, schedule: dict = None) -> list:
         out.append(cls(**vals))
     for i, a in enumerate(out):
         for b in out[i + 1:]:
+            if a.type == "drop" and b.type == "drop" and (
+                    (getattr(a, "time", ""), getattr(a, "transaction_key", ""))
+                    != (getattr(b, "time", ""), getattr(b, "transaction_key", ""))):
+                continue        # two drops of one player in a day, each named (5f)
             if (a.manager == b.manager and a.type == b.type and _yahoo_day(a) == _yahoo_day(b)
                     and _same_player(a.player, b.player)):
                 raise RulingError(f"{RULINGS_FILE}: two rulings on one add -- '{a.label()}' and "
@@ -302,6 +349,94 @@ def load_rulings(base_path) -> list:
 
 def voids(rulings) -> list:
     return [r for r in rulings if r.kind == "void"]
+
+
+def add_voids(rulings) -> list:
+    return [r for r in rulings if r.kind == "void" and r.type == "add"]
+
+
+def drop_voids(rulings) -> list:
+    return [r for r in rulings if r.kind == "void" and r.type == "drop"]
+
+
+# =============================================================================
+# voided drops (5f): matched by day, manager and player, then time or key
+# =============================================================================
+
+def _clock(ts) -> str:
+    """HH:MM on the league clock for Yahoo's Unix seconds."""
+    from datetime import datetime, timezone
+    from .league_clock import league_tz
+    return datetime.fromtimestamp(int(ts), tz=timezone.utc).astimezone(league_tz()).strftime("%H:%M")
+
+
+def match_drop(r, candidates: list, where: str):
+    """The one drop a drop ruling names among `candidates` ({"day", "manager",
+    "player", "time", "key", ...}), else RAISES: none matches, or two do and
+    the ruling has no time or transaction_key to tell them apart (or still
+    two with one)."""
+    base = [c for c in candidates if str(c["day"])[:10] == r.date and c["manager"] == r.manager
+            and _same_player(r.player, c["player"])]
+    hits = base
+    if r.transaction_key:
+        hits = [c for c in hits if c.get("key") == r.transaction_key]
+    if r.time:
+        hits = [c for c in hits if c.get("time") == r.time]
+    if len(hits) == 1:
+        return hits[0]
+    seen = "; ".join(f"{c.get('time') or '?'} [{c.get('key') or '?'}]" for c in base) or "none"
+    if not hits:
+        raise RulingError(f"ruling '{r.label()}' matches no drop in {where} (that day's drops of "
+                          f"{r.player} by {r.manager}: {seen}) -- fix {RULINGS_FILE}")
+    raise RulingError(f"ruling '{r.label()}' is ambiguous: {len(hits)} drops of {r.player} by "
+                      f"{r.manager} on {r.date} in {where} ({seen}). Name the one it means with "
+                      "\"time\" (HH:MM, the league clock) or \"transaction_key\" -- fix "
+                      f"{RULINGS_FILE}")
+
+
+def log_drops(transactions: list) -> list:
+    """Every drop in the transaction log (modules/transaction_log rows) as
+    match_drop's candidates. A trade's side is not a drop."""
+    out = []
+    for t in transactions:
+        if t.get("type") == "trade":
+            continue
+        for p in t.get("players") or []:
+            if p.get("action") == "drop" and (p.get("from") or {}).get("type") == "team":
+                out.append({"day": str(t["league_day"])[:10], "manager": p["from"]["manager"],
+                            "player": p["name"], "time": str(t["time"])[11:16], "key": t["key"]})
+    return out
+
+
+def voided_drops(transactions: list, rulings) -> dict:
+    """{transaction key: [players whose drop is voided]} over the transaction
+    log. Every drop void must match exactly one drop (match_drop raises)."""
+    cands = log_drops(transactions)
+    out: dict = {}
+    for r in drop_voids(rulings):
+        c = match_drop(r, cands, "the transaction log (data/transaction_log.jsonl)")
+        if c["player"] not in out.setdefault(c["key"], []):
+            out[c["key"]].append(c["player"])
+    return out
+
+
+def without_voided_drops(transactions: list, rulings) -> list:
+    """The transaction log without its voided drops: each such drop taken out
+    of its transaction, and a transaction left with no player taken out
+    entirely. A display filter; the log itself is never rewritten."""
+    gone = voided_drops(transactions, rulings)
+    out = []
+    for t in transactions:
+        names = gone.get(t["key"])
+        if not names:
+            out.append(t)
+            continue
+        t = dict(t)
+        t["players"] = [p for p in t["players"]
+                        if not (p.get("action") == "drop" and p["name"] in names)]
+        if t["players"]:
+            out.append(t)
+    return out
 
 
 def effective_dates(rulings) -> list:
@@ -353,7 +488,19 @@ def apply_to_transactions(transactions: list[dict], rulings: list, since=None, u
                 applied.append(r)
                 echo(f"  RULING applied: {r.label()} -- {r.reason}")
     work = [t for t in work if _in(t["date"], since, until)]
-    for r in voids(rulings):
+    for r in drop_voids(rulings):
+        if not _in(r.date, since, until):
+            continue
+        cands = [{"day": str(t["date"])[:10], "manager": t.get("manager", ""),
+                  "player": t["player_name"], "key": t.get("transaction_key"),
+                  "time": _clock(t["timestamp"]) if t.get("timestamp") else None, "_t": t}
+                 for t in work if t["type"] == "drop"
+                 and str((t.get("details") or {}).get("via", "")).lower() != "trade"]
+        hit = match_drop(r, cands, f"Yahoo's log for {since} to {until or 'today'}")
+        work.remove(hit["_t"])          # listed nowhere; rosters follow Yahoo (not this list)
+        applied.append(r)
+        echo(f"  RULING applied: {r.label()} -- {r.reason}")
+    for r in add_voids(rulings):
         if not _in(r.date, since, until):
             continue
         hits = [t for t in work
@@ -496,7 +643,7 @@ def waiver_lines(path, base_path, week: int, schedule: dict) -> tuple[list[str],
                 keep.append(f"- [{r.effective}] {r.manager}: {r.player}{effective_mark(stamped)}")
                 applied.append(r)
 
-    for r in voids(rulings):
+    for r in add_voids(rulings):         # the files list adds only; a voided drop is not in them
         if _placed(r, schedule, r.date)[0] != int(week):
             continue
         hits = [i for i, ln in enumerate(keep)

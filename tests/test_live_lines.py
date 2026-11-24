@@ -89,6 +89,9 @@ def _data(through=MON, current_week=1, **kw):
     # them, so no open spot is filled (roster_plan reads the move ledger
     # otherwise).
     data.start_adds_used = {m: roster_plan.rules()["add_budget"] for m in ROSTERS}
+    # 5f item 4: this made-up league's move ledger is empty, stated (roster_plan
+    # reads the REAL config/MOVE_LEDGER.json otherwise; tests/conftest.py refuses that)
+    data.known_moves = {}
     return data, week
 
 

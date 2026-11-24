@@ -411,6 +411,7 @@ REAL = [ROOT / "output" / "tag_records.jsonl", ROOT / "output" / "stakes.json", 
 
 @pytest.mark.slow
 @pytest.mark.skipif(not all(p.is_file() for p in REAL), reason="needs the league's real state")
+@pytest.mark.real
 def test_every_real_plan_is_legal_and_step_1_is_the_current_top_move():
     """The real state, read in place (nothing written), at the latest tag
     fetch's clock: every manager's plan within his adds left, his roster legal

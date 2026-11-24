@@ -686,6 +686,7 @@ def test_potw_points_from_the_log_equal_every_recorded_week():
 # =============================================================================
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_awards_backfill_preview_and_publish(tmp_path):
     """Today's state, unstubbed: every award computed; the backfill run into a
     temp folder (never the repo's state file); the v2 preview's Awards; publish

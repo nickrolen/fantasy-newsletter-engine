@@ -32,6 +32,12 @@ counts in (LEAGUE_RULES rules 6-7, 14; Nick, 11-05):
     a voided add": that would hide Hayden's 10-25 Buzelis drop, a real drop
     Nick kept on 11-05 (pinned by a test). A move that loses every part this
     way is not shown at all (round_trip_drops);
+  - a VOIDED DROP (TRANSACTION_RULINGS "void" with "type": "drop"; Nick,
+    11-23; 5f) is hidden the same way: taken out of its move before the
+    feed is built, the move dropped when nothing else is left. The round
+    trips above are computed on Yahoo's log as before, so a voided drop
+    never shifts which drop a voided add cancels; a drop both rules hide is
+    hidden once (transaction_rulings.voided_drops);
   - a pre-season move (before the season's first fantasy day; rule 14:
     counted nowhere) is shown under "Pre-season";
   - a group-chat entry in the move ledger that is not applied yet (pending),
@@ -229,7 +235,11 @@ def by_week(transactions: list, rulings, schedule: dict, ledger, counts: dict, *
         raise MovesError(f"ledger mode {mode!r}: one of {ml.MODES}")
     buckets: dict = {}
     placed: dict = {}
+    from . import transaction_rulings as tr
     hidden = round_trip_drops(transactions, rulings)
+    for key, names in tr.voided_drops(transactions, rulings).items():
+        have = hidden.setdefault(key, [])
+        have += [n for n in names if n not in have]      # both rules: hidden once, not an error
     for t in transactions:
         pl = place(t, rulings, schedule, ledger, first)
         it = yahoo_item(t, pl, schedule, hidden.get(t["key"], ()))

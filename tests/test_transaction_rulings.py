@@ -114,7 +114,10 @@ def test_the_real_file_holds_garretts_ruling_and_loads():
 
 
 def test_a_ruling_the_code_does_not_know_raises(tmp_path):
-    for bad in ({**GARRETT, "type": "drop"}, {**GARRETT, "ruling": "reverse"},
+    # a void on a "drop" is defined since 5f (Nick, 11-23; tests/test_voided_drops.py);
+    # a "trade" still is not, and neither is a drop's "time" on an add
+    for bad in ({**GARRETT, "type": "trade"}, {**GARRETT, "time": "01:19"},
+                {**GARRETT, "ruling": "reverse"},
                 {**GARRETT, "roster_effect": "undo"}, {k: v for k, v in GARRETT.items()
                                                        if k != "reason"}):
         world(tmp_path, [bad])

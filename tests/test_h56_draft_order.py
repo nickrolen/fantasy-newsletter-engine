@@ -414,6 +414,7 @@ from test_5b import real                                       # noqa: E402,F401
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_no_punted_pick_number_in_any_published_piece(real, tmp_path):
     from modules import hub_cards, team_pictures
     from modules.hub_v2 import data as v2data, publish_check as PC

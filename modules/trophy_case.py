@@ -96,8 +96,8 @@ def build(root=ROOT, *, past: Optional[dict] = None, standings: Optional[list] =
     for s, v in sorted(pre.items()):
         if s.startswith("_"):
             continue
-        add(v["league_champion"], "league", s, "(records only)")
-        add(v["playoff_champion"], "playoff", s, "(records only)")
+        add(v["league_champion"], "league", s, "(standings and brackets only)")
+        add(v["playoff_champion"], "playoff", s, "(standings and brackets only)")
     for s, m in sorted(((cfg.get("keeper_rules") or {}).get("cup_winners") or {}).items()):
         if not s.startswith("_") and m:
             add(m, "cup", s, "")

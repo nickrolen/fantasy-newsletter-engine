@@ -364,6 +364,7 @@ def _games(r):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_kawhi_scores_nothing_and_ranks_below_every_healthy_free_agent_with_games(real_all_free_agents):
     p = real_all_free_agents
     rows = p["free_agents"]["rows"]
@@ -385,6 +386,7 @@ def test_real_kawhi_scores_nothing_and_ranks_below_every_healthy_free_agent_with
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_free_agents_are_ranked_by_points_then_proj_then_name(real_all_free_agents):
     rows = real_all_free_agents["free_agents"]["rows"]
     keys = [(-float(r["pts"]), -float(r["proj"]), r["name"]) for r in rows]

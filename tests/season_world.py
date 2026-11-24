@@ -67,4 +67,5 @@ def decided_world(monkeypatch, scores_by_week, decided=None, calls=None,
             dict(standings), {m: {} for m in MANAGERS}, dict(points)),
         get_manager_record=lambda m: standings[m],
         il_slots=roster_plan.no_il(16),      # this world's IL state: nobody in a slot
+        known_moves={},                      # 5f item 4: an empty ledger, stated (never the real one)
     )

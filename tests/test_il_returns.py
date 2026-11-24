@@ -400,6 +400,7 @@ def test_an_entry_return_before_the_window_is_shown_and_a_midweek_one_waits():
 # =============================================================================
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_real_plans_activation_drops_are_the_one_rules():
     """roster_plan.for_run on the real state, nothing stubbed: the keeper
     watch, the stakes file and the run's LongRun. Every activation drop is

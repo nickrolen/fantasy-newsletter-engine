@@ -60,6 +60,9 @@ def _world(recorded_through=8, seed=0, strength=None):
     data = FantasyData(schedule={"weeks": weeks}, nba_schedule={"games": games},
                        records={"weekly_scores": scores}, current_week=recorded_through)
     data.il_slots = roster_plan.no_il(1)        # this world's IL state: nobody in a slot
+    # 5f item 4: this made-up league's move ledger is empty, stated (roster_plan
+    # reads the REAL config/MOVE_LEDGER.json otherwise; tests/conftest.py refuses that)
+    data.known_moves = {}
     return data, teams
 
 
@@ -336,6 +339,7 @@ def _scripted(monkeypatch, recs, weeks, scores):
             dict(recs), {m: {} for m in MANAGERS}, {m: 1000.0 for m in MANAGERS}),
         get_manager_record=lambda m: recs[m],
         il_slots=roster_plan.no_il(1),
+        known_moves={},             # 5f item 4: an empty ledger, stated (never the real one)
     )
 
 

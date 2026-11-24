@@ -46,6 +46,11 @@ OVERRIDES_PATH = PROJECT_ROOT / "config" / "PROJECTION_OVERRIDES.json"
 SETTABLE = ("projectedFPPG", "player_proj_GP")
 REQUIRED = ("yahoo_id", "player_name", "set", "replaces", "reason", "source", "review_by")
 STAMP_KEY = "overrides"
+# Rows fetch_playerlist added for an override's player outside Yahoo's pool
+# (5f): {"pool_limit": N, "rows": [{yahoo_id, player_name, how, from?}]}.
+# how "search": Yahoo's own row, found by a name search and kept by id;
+# how "built": built from his last known row in a snapshot ("from").
+EXTRA_KEY = "override_rows"
 
 
 class OverrideError(ValueError):
@@ -119,7 +124,15 @@ def apply(records: list, entries: list) -> tuple:
             unapplied.append({"yahoo_id": e["yahoo_id"], "player_name": e["player_name"],
                               "why": f"yahoo id {e['yahoo_id']} is {row['player_name']!r} in this fetch"})
             continue
-        yahoo = {k: _num(row[k]) for k in ("player_proj_GP", "player_total_proj_FP", "projectedFPPG")}
+        built = bool(row.get("_built"))
+        # A built row (fetch_playerlist.override_rows) has no Yahoo values:
+        # recorded as None, and 'replaces' cannot be compared against it.
+        yahoo = {k: (None if built else _num(row[k]))
+                 for k in ("player_proj_GP", "player_total_proj_FP", "projectedFPPG")}
+        if built and not {"projectedFPPG", "player_proj_GP"} <= set(e["set"]):
+            unapplied.append({"yahoo_id": e["yahoo_id"], "player_name": e["player_name"],
+                              "why": "a built row needs the override to set both FPPG and GP"})
+            continue
         gp = e["set"].get("player_proj_GP", yahoo["player_proj_GP"])
         if gp == "team":
             mates = [_num(r["player_proj_GP"]) for r in records
@@ -134,19 +147,40 @@ def apply(records: list, entries: list) -> tuple:
         row["player_proj_GP"] = float(gp)
         row["projectedFPPG"] = round(float(fppg), 2)
         row["player_total_proj_FP"] = round(float(fppg) * float(gp), 2)
-        matches = all(abs(_num(v) - yahoo[k]) < 1e-6 for k, v in e["replaces"].items() if k in yahoo)
+        matches = None if built else bool(all(
+            abs(_num(v) - yahoo[k]) < 1e-6 for k, v in e["replaces"].items() if k in yahoo))
         applied.append({
             "yahoo_id": e["yahoo_id"], "player_name": row["player_name"],
             "yahoo": yahoo,
             "now": {k: row[k] for k in ("player_proj_GP", "player_total_proj_FP", "projectedFPPG")},
-            "replaces": e["replaces"], "replaces_matches": bool(matches),
+            "replaces": e["replaces"], "replaces_matches": matches,
             "reason": e["reason"], "review_by": e["review_by"],
+            **({"built": True} if built else {}),
         })
     return applied, unapplied
 
 
 def stamp_value(applied: list, unapplied: list) -> str:
     return json.dumps({"applied": applied, "unapplied": unapplied}, sort_keys=True)
+
+
+def extra_value(rows: list, pool_limit: int) -> str:
+    return json.dumps({"pool_limit": int(pool_limit), "rows": rows}, sort_keys=True)
+
+
+def extras_from_stamp(stamp: Optional[dict]) -> Optional[dict]:
+    """{'pool_limit': N, 'rows': [...]} as fetched, or None (fetched before
+    5f, or no stamp). An unreadable record raises: a file that says it added
+    rows and cannot say which is not one to compare against."""
+    if not stamp or EXTRA_KEY not in stamp:
+        return None
+    try:
+        blob = json.loads(str(stamp[EXTRA_KEY]))
+    except json.JSONDecodeError as e:
+        raise OverrideError(f"the fetch stamp's {EXTRA_KEY} is unreadable: {e}") from e
+    if not isinstance(blob, dict) or not isinstance(blob.get("rows"), list):
+        raise OverrideError(f"the fetch stamp's {EXTRA_KEY} has no 'rows' list")
+    return blob
 
 
 def from_stamp(stamp: Optional[dict]) -> Optional[dict]:
@@ -175,6 +209,16 @@ def review(entries: list, recorded: Optional[dict], today: date) -> tuple:
         a = applied.get(e["yahoo_id"])
         if a is not None:
             y, n = a["yahoo"], a["now"]
+            if a.get("built"):
+                lines.append(f"{name}: a BUILT row (outside Yahoo's pool; no Yahoo values) -> "
+                             f"FPPG {n['projectedFPPG']:.2f}, GP {n['player_proj_GP']:g} "
+                             f"(review by {e['review_by']}; {e['reason']})")
+                warnings.append(
+                    f"projection override for {name} applies to a row BUILT from his last "
+                    "known PLAYERLIST row (Yahoo's search did not return him), so Yahoo's "
+                    f"current values are unknown and 'replaces' ({e['replaces']}) was not "
+                    "checked")
+                continue
             lines.append(f"{name}: FPPG {y['projectedFPPG']:.2f} -> {n['projectedFPPG']:.2f}, "
                          f"GP {y['player_proj_GP']:g} -> {n['player_proj_GP']:g} "
                          f"(review by {e['review_by']}; {e['reason']})")

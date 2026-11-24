@@ -90,6 +90,7 @@ def real():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_grid_and_the_betting_simulator_agree_on_who_can_play(real):
     data, up, week_teams, mask = real
     assert up["il_slots"] == {m: sorted(v) for m, v in sorted(mask.items()) if v}
@@ -100,6 +101,7 @@ def test_the_grid_and_the_betting_simulator_agree_on_who_can_play(real):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_every_il_occupant_counts_zero_games_in_the_locked_week(real):
     data, up, _teams, mask = real
     assert any(mask.values()), "the last sync put nobody on IL: nothing to check"

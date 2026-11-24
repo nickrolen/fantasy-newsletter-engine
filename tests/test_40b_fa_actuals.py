@@ -387,6 +387,7 @@ class FakeLeague:
 @needs_state("data/player_actuals.json", "output/hub_state.json", "config/ROSTERS.json",
              "data/PLAYERLIST.xlsx", "data/transaction_log.jsonl",
              why="the nightly's actuals step on a copy of Nick's state: the free agents his hub names")
+@pytest.mark.real
 def test_the_real_actuals_step_covers_every_carded_free_agent(tmp_path, monkeypatch):
     base = tmp_path / "base"
     rels = ["data/player_actuals.json", "output/hub_state.json", "config/ROSTERS.json", "config/league_config.json",

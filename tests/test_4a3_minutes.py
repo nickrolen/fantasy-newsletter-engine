@@ -776,6 +776,7 @@ def real_builds():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_every_min_cell_before_the_backfill_and_nothing_raises(real_builds):
     _now, p0, _p1, po0, _po1 = real_builds
     assert p0["v2_error"] is None, p0["v2_error"]
@@ -798,6 +799,7 @@ def test_real_every_min_cell_before_the_backfill_and_nothing_raises(real_builds)
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_the_live_hub_is_unchanged_by_the_minutes(real_builds, tmp_path):
     import os
     from modules import hub_page, hub_publish

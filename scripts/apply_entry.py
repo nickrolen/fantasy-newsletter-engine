@@ -39,6 +39,18 @@ apply  reads the event (the issue that fired the workflow, its author, the
        refresh is `nightly.py --refresh --facts-only` (the hub's facts
        rebuilt, the line and title odds not re-priced). A refusal exits 0: it
        is not a failed run.
+       NEVER SILENT (5f; Nick's issue #21, 11-23, was neither saved nor
+       answered): an entry that raises anything but a refusal is answered
+       "Not applied" with the error (labelled entry-refused, so an edit
+       retries it): every writer writes last, so nothing was saved; one
+       whose check passed and was written is "applied" even if its comment
+       then fails (a short comment instead); the "before"
+       snapshot failing never stops it. Without an issue event (a desk push's
+       refresh, the nightly: the run's catch-up, decision 5f-3) only the
+       open issues are applied.
+unsaved after a failed commit of the entry: every applied issue's comment
+       becomes "checked, but NOT saved" with the commit's last line, and it
+       is left open and unlabelled, so the next run's catch-up applies it.
 effect after the refresh: DIR/effect.md -- each matchup's win % this week and
        the title odds, before and after; "priced after tonight's games" when
        the refresh found prices locked; the failure when it failed. After a
@@ -124,11 +136,23 @@ def apply_one(base: Path, title: str, issue: int, created_at: datetime, now: dat
         if p["kind"] == "ledger":
             row = ml.add(base, p["text"], now=now, claimed_at=min(created_at, now),
                          entered_by=f"Nick (issue #{issue})", issue=issue)
-            return {"verdict": "applied", "cause": p["text"], "comment": ledger_comment(base, row, now),
+            # saved: from here the entry stands, whatever its comment does
+            try:
+                comment = ledger_comment(base, row, now)
+            except Exception as e:                       # noqa: BLE001 -- the entry is saved
+                comment = (f"**Applied:** ledger entry {row['id']}: `{row['text']}`.\n\n(The full "
+                           f"comment could not be written: {type(e).__name__}: {e}.) The hub "
+                           "refreshes now; its effect follows in a second comment.")
+            return {"verdict": "applied", "cause": p["text"], "comment": comment,
                     "facts_only": False}
         if p["kind"] == "block":
             ch = tb.apply(base, p, issue=issue, created_at=created_at, now=now)
-            return {"verdict": "applied", "cause": ch["cause"], "comment": block_comment(ch),
+            try:
+                comment = block_comment(ch)
+            except Exception as e:                       # noqa: BLE001 -- the entry is saved
+                comment = (f"**Applied:** trade block, {ch.get('manager')} ({ch['cause']}).\n\n(The "
+                           f"full comment could not be written: {type(e).__name__}: {e}.)")
+            return {"verdict": "applied", "cause": ch["cause"], "comment": comment,
                     "facts_only": True}
         sched = json.loads((base / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
         f = p["form"]
@@ -153,11 +177,20 @@ def apply_one(base: Path, title: str, issue: int, created_at: datetime, now: dat
         return {"verdict": "refused", "cause": None, "facts_only": False,
                 "comment": f"**Refused** (nothing was changed): {text}\n\nEdit the title to fix it, "
                            "or close this issue."}
-    cause = pe.cause_of(ch["action"], ch["player"], ch["after"])
-    comment = (f"**Applied:** {ch['action']} {ch['player']} (`config/INJURY_OVERRIDES.json`).\n\n"
-               f"Before:\n{_json_block(ch['before'])}\n\nAfter:\n{_json_block(ch['after'])}\n\n"
-               + "".join(f"- {s}\n" for s in ch["shown"])
-               + f"\nThe hub refreshes now ({cause}); its effect follows in a second comment.")
+    # saved: from here the entry stands, whatever its comment does (5f)
+    try:
+        cause = pe.cause_of(ch["action"], ch["player"], ch["after"])
+    except Exception:                                    # noqa: BLE001 -- the entry is saved
+        cause = f"injury entry: {ch.get('action')} {ch.get('player')}"
+    try:
+        comment = (f"**Applied:** {ch['action']} {ch['player']} (`config/INJURY_OVERRIDES.json`).\n\n"
+                   f"Before:\n{_json_block(ch['before'])}\n\nAfter:\n{_json_block(ch['after'])}\n\n"
+                   + "".join(f"- {s}\n" for s in ch["shown"])
+                   + f"\nThe hub refreshes now ({cause}); its effect follows in a second comment.")
+    except Exception as e:                               # noqa: BLE001 -- the entry is saved
+        comment = (f"**Applied:** {ch.get('action')} {ch.get('player')} (`config/INJURY_OVERRIDES.json`)."
+                   f"\n\n(The full comment could not be written: {type(e).__name__}: {e}.) The hub "
+                   f"refreshes now ({cause}); its effect follows in a second comment.")
     return {"verdict": "applied", "cause": cause, "comment": comment, "facts_only": False}
 
 
@@ -285,13 +318,15 @@ def _gh_output(**kv) -> None:
 def queue(event: dict, open_issues: list) -> list:
     """[(issue dict, is_event)] in issue order: the event's issue, then every
     other open issue of Nick's never answered (no entry-refused label, no bot
-    label)."""
-    ev = event["issue"]
-    items = {int(ev["number"]): ({"number": int(ev["number"]), "title": ev["title"],
-                                  "author": (ev.get("user") or {}).get("login"),
-                                  "created_at": ev["created_at"],
-                                  "labels": [x["name"] for x in ev.get("labels") or []],
-                                  "state": ev.get("state")}, True)}
+    label). An event with no issue (a push, a schedule: the catch-up of a run
+    that is not an entry's) gives the open issues only."""
+    ev = event.get("issue")
+    items = {} if not ev else {
+        int(ev["number"]): ({"number": int(ev["number"]), "title": ev["title"],
+                             "author": (ev.get("user") or {}).get("login"),
+                             "created_at": ev["created_at"],
+                             "labels": [x["name"] for x in ev.get("labels") or []],
+                             "state": ev.get("state")}, True)}
     for i in open_issues or []:
         n = int(i["number"])
         labels = [x["name"] for x in i.get("labels") or []]
@@ -304,17 +339,42 @@ def queue(event: dict, open_issues: list) -> list:
     return [items[n] for n in sorted(items)]
 
 
+ERROR_TEXT = ("**Not applied** (nothing was saved): the engine failed while checking this entry "
+              "({err}). It is not a problem with the title as far as the engine knows. Edit the title "
+              "to retry it (an unchanged edit is enough once the cause is fixed), or enter it from "
+              "the desk.")
+
+
+def apply_guarded(base: Path, title: str, issue: int, created_at: datetime, now: datetime) -> dict:
+    """apply_one, never raising: anything but a refusal is an "error" verdict
+    with a comment. Nothing is undone here, and nothing needs to be: every
+    writer apply_one calls (move_ledger.add, overrides.apply,
+    trade_block.apply) writes last, after its checks, and everything apply_one
+    does after a write is guarded (an "applied" with a short comment). So an
+    exception that reaches this point was raised before anything was saved."""
+    try:
+        return apply_one(base, title, issue, created_at, now)
+    except Exception as e:                               # noqa: BLE001 -- answered, never silent
+        return {"verdict": "error", "cause": None, "facts_only": False,
+                "comment": ERROR_TEXT.format(err=f"{type(e).__name__}: {e}")}
+
+
 def cmd_apply(a) -> int:
     from modules.league_clock import league_now
     base = Path(a.base_path)
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     now = _league_time(a.now) if a.now else league_now()
-    event = json.loads(Path(a.event).read_text(encoding="utf-8"))
+    event = json.loads(Path(a.event).read_text(encoding="utf-8")) if a.event else {}
     open_issues = json.loads(Path(a.open_issues).read_text(encoding="utf-8")) if a.open_issues else []
     sender = (event.get("sender") or {}).get("login")
     action = event.get("action")
-    (out / "before.json").write_text(json.dumps(snapshot(base, now), indent=1), encoding="utf-8")
+    try:
+        snap = snapshot(base, now)
+    except Exception as e:                               # noqa: BLE001 -- the effect says so; entries go on
+        snap = {"week": None, "lines": None, "title_odds": None,
+                "error": f"{type(e).__name__}: {e}"}
+    (out / "before.json").write_text(json.dumps(snap, indent=1), encoding="utf-8")
     actions, causes = [], []
     for item, is_event in queue(event, open_issues):
         n = item["number"]
@@ -327,7 +387,7 @@ def cmd_apply(a) -> int:
                        comment=(f"Already applied as {done}; open a new issue to change it."
                                 if is_event and action == "edited" else None))
         else:
-            res = apply_one(base, item["title"], n, _league_time(item["created_at"]), now)
+            res = apply_guarded(base, item["title"], n, _league_time(item["created_at"]), now)
             act["verdict"] = res["verdict"]
             act["comment"] = res["comment"]
             if res["verdict"] == "applied":
@@ -363,11 +423,42 @@ def cmd_effect(a) -> int:
     p = Path(a.runs_file)
     if p.is_file():
         rows = [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines()[a.skip:] if x.strip()]
-    runs = [r for r in rows if r.get("mode") == "refresh"]
-    after = snapshot(base, league_now())
+    # the rows after --skip are this run's: a refresh's, or (the catch-up, 5f)
+    # the nightly's that applied a missed entry
+    runs = [r for r in rows if r.get("mode")]
+    try:
+        after = snapshot(base, league_now())
+    except Exception as e:                               # noqa: BLE001 -- still answered
+        after = {"week": None, "lines": None, "title_odds": None, "error": f"{type(e).__name__}: {e}"}
     text = effect_text(before, after, runs[-1] if runs else None)
     (out / "effect.md").write_text(text + "\n", encoding="utf-8")
     print(text)
+    return 0
+
+
+def unsaved_text(log_tail: str) -> str:
+    return ("**Checked, but NOT saved** to the league's state: committing it failed "
+            f"({log_tail or 'see the run log'}). Nothing changed in the private repo. This issue "
+            "stays open, and the next run applies it again.")
+
+
+def cmd_unsaved(a) -> int:
+    """The entry's commit failed: no applied issue may read "Applied" or be closed."""
+    out = Path(a.out_dir)
+    p = out / "actions.json"
+    actions = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else []
+    tail = ""
+    if a.log and Path(a.log).is_file():
+        lines = [x.strip() for x in Path(a.log).read_text(encoding="utf-8").splitlines() if x.strip()]
+        tail = lines[-1] if lines else ""
+    for act in actions:
+        if act["verdict"] != "applied":
+            continue
+        act.update(verdict="unsaved", close=False, label=None, comment=unsaved_text(tail),
+                   comment_file=f"{act['issue']}.md")
+        (out / act["comment_file"]).write_text(act["comment"] + "\n", encoding="utf-8")
+        print(f"issue #{act['issue']}: unsaved")
+    p.write_text(json.dumps(actions, indent=1), encoding="utf-8")
     return 0
 
 
@@ -388,7 +479,8 @@ def main(argv=None) -> int:
     ap.add_argument("--base-path", default=str(ROOT))
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("apply")
-    p.add_argument("--event", required=True, help="the workflow's event payload ($GITHUB_EVENT_PATH)")
+    p.add_argument("--event", help="the workflow's event payload ($GITHUB_EVENT_PATH); an event "
+                   "with no issue, or none, applies the open issues only (the catch-up)")
     p.add_argument("--open-issues", help="gh issue list --json number,title,createdAt,author,labels")
     p.add_argument("--out-dir", required=True)
     p.add_argument("--now", help="ISO time (tests)")
@@ -396,10 +488,14 @@ def main(argv=None) -> int:
     p.add_argument("--out-dir", required=True)
     p.add_argument("--runs-file", default="output/nightly_runs.jsonl")
     p.add_argument("--skip", type=int, default=0)
+    p = sub.add_parser("unsaved")
+    p.add_argument("--out-dir", required=True)
+    p.add_argument("--log", help="the commit step's log; its last line is the reason")
     p = sub.add_parser("check")
     p.add_argument("title")
     a = ap.parse_args(argv)
-    return {"apply": cmd_apply, "effect": cmd_effect, "check": cmd_check}[a.cmd](a)
+    return {"apply": cmd_apply, "effect": cmd_effect, "unsaved": cmd_unsaved,
+            "check": cmd_check}[a.cmd](a)
 
 
 if __name__ == "__main__":

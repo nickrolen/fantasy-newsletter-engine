@@ -481,6 +481,7 @@ def real():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_payload_has_its_headroom_and_the_new_hub_publishes_whole(real, tmp_path, monkeypatch):
     from modules import hub_cards, team_pictures, hub_state as hs
     p, po, pub, size = real

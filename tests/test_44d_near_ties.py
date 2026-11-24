@@ -184,6 +184,7 @@ def _decisions(plan):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_escalation_is_deterministic_on_the_real_state():
     """Today's real plan, rebuilt from fresh contexts (the base LongRun and the
     escalated one, the same seed): every decision and record identical,

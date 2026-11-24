@@ -601,6 +601,7 @@ def real():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_teams_matchups_preview_and_publish(real, tmp_path):
     from modules import hub_publish
     from modules.hub_v2 import publish as v2pub

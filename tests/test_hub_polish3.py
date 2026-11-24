@@ -401,6 +401,7 @@ def test_the_game_flow_chart_ends_at_the_inputs_and_checks_its_days():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_a_real_priced_line_carries_days_that_add_up_and_prices_do_not_move():
     _real("data/LINEUPS.xlsx", "output/live_lines_week4.state.json")
     import refresh_lines as rl
@@ -484,6 +485,7 @@ def test_the_manager_colours_are_readable_on_the_card():
 # =============================================================================
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_the_hubs_pf_is_cup_seeding_points_and_get_cup_seeds(real_payload):
     from modules.simulator_cup_odds import cup_seeding_points, get_cup_seeds
     p, data = real_payload
@@ -606,6 +608,7 @@ def test_one_voided_add_cancels_one_drop_and_a_real_drop_after_a_voided_readd_st
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_round_trip_drops_are_the_six_listed_in_the_result():
     _real("data/transaction_log.jsonl", "config/TRANSACTION_RULINGS.json")
     from modules import transaction_log as tlog, transaction_rulings as tr
@@ -695,6 +698,7 @@ def real_payload():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_views_for_every_card_this_week_and_last(real_payload):
     p, _data = real_payload
     ids = {v["id"] for v in p["matchup_views"]}

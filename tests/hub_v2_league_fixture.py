@@ -12,6 +12,44 @@ from datetime import date, datetime, timedelta, timezone
 
 TZ = timezone(timedelta(hours=-8))
 MGRS = ["Marcus", "Tyler", "Dana", "Jordan"]
+
+
+def _m(a, ap, b, bp):
+    return {"a": a, "a_pts": ap, "b": b, "b_pts": bp}
+
+
+def PRE_ERA():
+    """5f: the made-up league's two pre-Yahoo seasons, in full (standings and
+    brackets), consistent the way league.pre_era_season(s) checks them."""
+    def st(rows):
+        return [{"finish": i + 1, "manager": m, "team": t, "w": w, "l": 21 - w, "pts": p}
+                for i, (m, t, w, p) in enumerate(rows)]
+    return {"titles_won": {"Marcus": 1, "Tyler": 1}, "playoff_championships": {"Dana": 1, "Jordan": 1},
+            "seasons": {
+                "2014-15": {"league_champion": "Marcus", "league_runner_up": "Dana",
+                            "playoff_champion": "Dana", "playoff_runner_up": "Marcus", "regular_season_games": 21,
+                            "standings": st([("Marcus", "Old Cannons", 14, 22100.5), ("Dana", "Early Dana", 12, 22400.0),
+                                             ("Tyler", "First Zone", 9, 21000.25), ("Jordan", "Jordan One", 7, 19500.0)]),
+                            "bracket": {"semifinals": [_m("Marcus", 1100.5, "Jordan", 950.0),
+                                                       _m("Dana", 1200.0, "Tyler", 1150.75)],
+                                        "final": _m("Dana", 1300.25, "Marcus", 1250.0),
+                                        "third_place": _m("Tyler", 1000.0, "Jordan", 900.5)}},
+                "2016-17": {"league_champion": "Tyler", "league_runner_up": "Marcus",
+                            "playoff_champion": "Jordan", "playoff_runner_up": "Tyler", "regular_season_games": 21,
+                            "standings": st([("Tyler", "Tyler's Team", 16, 28000.0), ("Marcus", "Cannons Two", 11, 26000.0),
+                                             ("Jordan", "Jordan Two", 9, 26500.5), ("Dana", "Dana Again", 6, 22000.0)]),
+                            "bracket": {"semifinals": [_m("Tyler", 1400.0, "Dana", 1300.0),
+                                                       _m("Jordan", 1350.0, "Marcus", 1200.0)],
+                                        "final": _m("Jordan", 1500.0, "Tyler", 1400.25),
+                                        "third_place": _m("Marcus", 1300.0, "Dana", 1100.0)}}}}
+
+
+def _career(m, standings_rows, i):
+    """LEAGUEHISTORY's career W-L: the pre-Yahoo seasons plus the Yahoo seasons."""
+    pre = [x for v in PRE_ERA()["seasons"].values() for x in v["standings"] if x["manager"] == m]
+    w = sum(x["w"] for x in pre) + sum(r["reg_wins"] for r in standings_rows if r["manager"] == m)
+    l = sum(x["l"] for x in pre) + sum(r["reg_losses"] for r in standings_rows if r["manager"] == m)
+    return f"({w}-{l})"
 WEEK1 = date(2026, 10, 5)
 # a week's pairings, rotating
 PAIRS = [[("Marcus", "Tyler"), ("Dana", "Jordan")], [("Marcus", "Dana"), ("Tyler", "Jordan")],
@@ -200,14 +238,12 @@ def inputs(p: dict) -> dict:
         "season_structure": {"2023-24": {"regular_through": 19, "bracket": False, "note": "a made-up stoppage"},
                              "2024-25": {"regular_through": 21, "bracket": True},
                              "2025-26": {"regular_through": 21, "bracket": True}},
-        "pre_data_era": {"titles_won": {"Marcus": 1, "Tyler": 1}, "playoff_championships": {"Dana": 1, "Jordan": 1},
-                         "seasons": {"2014-15": {"league_champion": "Marcus", "league_runner_up": "Dana",
-                                                 "playoff_champion": "Dana", "playoff_runner_up": "Marcus"},
-                                     "2016-17": {"league_champion": "Tyler", "league_runner_up": "Marcus",
-                                                 "playoff_champion": "Jordan", "playoff_runner_up": "Tyler"}}},
+        "pre_data_era": PRE_ERA(),
         "cup_winners": {"2026-27": None},
         "leaguehistory": [{"manager_name": m, "seasons_completed": 11,
-                           "regular_season_record": f"({100 + 3 * i}-{90 - 2 * i})", "playoff_record": f"({8 + i}-{9 - i})",
+                           # 5f: careers = the made-up pre-Yahoo seasons + the Yahoo seasons below
+                           # (league.check_pre_era_careers), plus a made-up remainder
+                           "regular_season_record": _career(m, standings_rows, i), "playoff_record": f"({8 + i}-{9 - i})",
                            "titles_won": i, "playoff_championships": 3 - i,
                            "total_points_scored_to_date": 330000.5 + 1000 * i + sum(SCORES[w][m] for w in SCORES),
                            "total_points_current_season": sum(SCORES[w][m] for w in SCORES)}

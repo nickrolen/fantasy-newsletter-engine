@@ -277,8 +277,15 @@ def test_champions_per_season_without_2015_16_and_the_records_only_seasons():
     assert "2015-16" not in rows                     # Nick, 11-23: no row for the season not played
     assert "2015-16 was not played" in h["champions"]["note"]
     assert rows["2016-17"]["kind"] == "records" and rows["2016-17"]["who"] == "Tyler"
-    assert rows["2016-17"]["lines"][0]["t"] == "Marcus" and rows["2016-17"]["lines"][1]["t"] == "Jordan, over Tyler"
+    # 5f (Nick, 11-23): the full results -- the champion's team, the final's score
+    r16 = rows["2016-17"]
+    assert r16["team"] == "Tyler's Team"
+    assert r16["lines"][0]["t"] == "Marcus (Cannons Two)"
+    assert r16["lines"][1]["t"] == "Jordan (Jordan Two), over Tyler, 1,500.00\u20131,400.25"
+    assert r16["lines"][2] == {"k": "Standings and brackets only", "t": "no weekly scores or stats"}
+    assert not any("Records only" in x["k"] for x in r16["lines"])
     assert rows["2014-15"]["kind"] == "records" and rows["2014-15"]["who"] == "Marcus"
+    assert rows["2014-15"]["team"] == "Old Cannons"
     seasons = [r["season"] for r in h["champions"]["rows"]]
     assert seasons.index("2016-17") < seasons.index("2014-15")
     assert seasons[-2:] == ["2016-17", "2014-15"]   # the records-only seasons last, and nothing invented between
@@ -616,6 +623,7 @@ def test_league_soft_adds_v2_keys_only_and_fails_softly():
 # =============================================================================
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_league_in_every_segment_and_chip_the_preview_and_publish(tmp_path):
     """Today's state, unstubbed: the hub build's League, the v2 preview's every
     segment and chip, and publish mode to a temp folder (a throwaway passphrase

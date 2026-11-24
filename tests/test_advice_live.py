@@ -291,6 +291,7 @@ REAL = [ROOT / "output" / "tag_records.jsonl", ROOT / "output" / "stakes.json", 
 
 @pytest.mark.slow
 @pytest.mark.skipif(not all(p.is_file() for p in REAL), reason="needs the league's real state")
+@pytest.mark.real
 def test_a_nightly_runs_advice_step_on_the_real_state_writes_both_outputs(tmp_path, monkeypatch):
     """The real step, nothing stubbed in it: nightly.Run.step_advice ->
     advice_live.run_step -> build (the live files, read in place) ->

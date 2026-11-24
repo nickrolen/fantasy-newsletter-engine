@@ -648,6 +648,7 @@ def real():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_ratings_players_cards_compare_and_publish(real, tmp_path):
     from modules import hub_publish
     p, rt, cards = real

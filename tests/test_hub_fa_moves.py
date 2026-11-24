@@ -434,6 +434,7 @@ def real_moves():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_every_transaction_lands_in_one_week_by_add_budget_week(real_moves):
     sched = real_moves["schedule"]
     txs = tlog.transactions(ROOT)
@@ -459,6 +460,7 @@ def test_real_every_transaction_lands_in_one_week_by_add_budget_week(real_moves)
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_adds_used_equal_adds_by_budget_week(real_moves):
     counts = tr.adds_by_budget_week(ROOT, real_moves["schedule"])
     for t in real_moves["feed"]["weeks"]:
@@ -471,6 +473,7 @@ def test_real_adds_used_equal_adds_by_budget_week(real_moves):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_pre_season_and_voided_moves(real_moves):
     tabs = {t["key"]: t for t in real_moves["feed"]["weeks"]}
     pre = [x["what"] for x in tabs["pre"]["items"]]

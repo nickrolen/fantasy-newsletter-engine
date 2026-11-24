@@ -282,6 +282,7 @@ def test_market_ranges_count_the_range_days_and_carry_the_sorts():
 
 # ----------------------------------------------------------------- real (skips without state)
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_the_same_range_gives_the_same_numbers_everywhere():
     import league_state
     from pathlib import Path

@@ -517,6 +517,7 @@ def _have_state() -> bool:
 
 @pytest.mark.slow
 @pytest.mark.skipif(not _have_state(), reason="needs the league's state (python scripts\\state.py pull)")
+@pytest.mark.real
 def test_real_market_in_every_segment_the_preview_and_publish(tmp_path):
     """Today's state, unstubbed: the hub build's Market, the v2 preview's
     every segment, and publish mode to a temp folder (a throwaway passphrase

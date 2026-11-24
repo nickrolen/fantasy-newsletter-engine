@@ -339,6 +339,8 @@ def _standings(lg: dict, ids, info, mono, chart) -> str:
     pw = lg["power"]
     o.append('<section class="lh-card v2-gap8" data-section="power-history"><div class="lh-sechead">'
              '<h2 class="lh-eyebrow">Power rankings by week</h2></div>')
+    if pw.get("pending"):                            # 5f: a finished week not published yet
+        o.append(f'<p class="lh-sub" data-power-pending>{clean(pw["pending"])}</p>')
     if not pw["weeks"]:
         o.append(f'<p class="v2-p">{clean(pw["empty"])}</p>')
     for w in pw["weeks"]:
@@ -638,8 +640,8 @@ def _champions(c: dict, mono) -> str:
     for r in c["rows"]:
         t = r["team"]
         head = (f'{mono(t, "28")}' if t else '<span></span>')
-        # 5c: the season's team name (a string); a season before the Yahoo
-        # data has no team name on record, so the manager is the title alone
+        # 5c: the season's team name (a string); since 5f the two seasons before
+        # the Yahoo data carry theirs too (config pre_data_era, Nick 11-23)
         title = ("" if not t else
                  f'<b class="v2-name14">{clean(r["season_team"])}</b><span class="lh-sub">{clean(r["who"])}</span>'
                  if r["season_team"] else f'<b class="v2-name14">{clean(r["who"])}</b>')

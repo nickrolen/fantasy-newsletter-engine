@@ -30,6 +30,7 @@ def _data(weekly_scores=None, weeks=None, current_week=99):
         records={"weekly_scores": weekly_scores or {}},
         current_week=current_week,
         get_manager_record=lambda m: Record(),
+        known_moves={},             # 5f item 4: an empty ledger, stated (never the real one)
     )
 
 

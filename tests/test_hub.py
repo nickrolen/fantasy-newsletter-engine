@@ -562,11 +562,13 @@ def real():
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_build_wrote_nothing_to_keepability(real):
     assert real["keep_before"] == real["keep_after"]
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_power_order_is_build_power_rankings_and_odds_the_latest_run(real):
     """Invariant 6 of step 1c: the hub reads output/title_odds_latest.json, and
     its power-rankings order equals build_power_rankings' on that run."""
@@ -588,6 +590,7 @@ def test_real_power_order_is_build_power_rankings_and_odds_the_latest_run(real):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_injury_status_equals_team_health(real):
     from modules.data_loader import load_all_data
     from modules.report_builder import build_current_team_health
@@ -610,6 +613,7 @@ def test_real_injury_status_equals_team_health(real):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_grid_tabs_are_the_rest_of_this_week_and_next_week(real):
     from modules.data_loader import load_all_data
     from modules.simulator_betting import schedule_week_dates
@@ -625,6 +629,7 @@ def test_real_grid_tabs_are_the_rest_of_this_week_and_next_week(real):
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_real_payload_advice_follows_the_switch_and_sizes_count_apart(real):
     from modules import advice_live as al
     p = real["payload"]

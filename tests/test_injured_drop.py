@@ -517,6 +517,7 @@ def test_a_third_long_injury_dropped_moves_that_teams_title_odds_up(monkeypatch,
 
 
 @pytest.mark.slow
+@pytest.mark.real
 def test_todays_real_plan_reads_decision_inputs_only_where_it_decides():
     """The real plan reads an 18b decision's own inputs -- the stakes, the
     games, the availability -- only at a window where a team has more injured

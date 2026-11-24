@@ -52,6 +52,7 @@ def _world(seed=0):
     data = FantasyData(schedule={"weeks": weeks}, nba_schedule={"games": games},
                        records={"weekly_scores": scores}, current_week=15)
     data.il_slots = roster_plan.no_il(16)       # this world's IL state: nobody in a slot
+    data.known_moves = {}           # 5f item 4: an empty ledger, stated (never the real one)
     return data, teams
 
 

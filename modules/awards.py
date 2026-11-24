@@ -211,13 +211,19 @@ def gather(root=ROOT, *, live=None, actuals: Optional[dict] = None, cfg: Optiona
         "week_of": week_of, "days": sorted({r["date"] for r in rows}), "cfg": acfg,
         "quantile": replacement_quantile(cfg),
         "lp": M.level_config(params),
-        "transactions": tl.transactions(root),
+        # a voided drop (5f) is no move: never paired with an add here
+        "transactions": _without_voided_drops(root, tl.transactions(root)),
         "ledger": json.loads(ledger_p.read_text(encoding="utf-8")).get("rows") or [],
         "rookies": json.loads((root / "config" / "ROOKIE_SEASONS.json").read_text(encoding="utf-8")),
         "preseason": _preseason(root / snap_rel), "preseason_rel": snap_rel,
         "actuals_first": actuals.get("first_day"), "act_by_id": by_id, "act_by_name": by_name,
         "tie_value": None,
     }
+
+
+def _without_voided_drops(root, transactions):
+    from . import transaction_rulings as tr
+    return tr.without_voided_drops(transactions, tr.load_all(root))
 
 
 # =============================================================================

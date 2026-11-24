@@ -79,3 +79,76 @@ def pytest_runtest_makereport(item, call):
     if msg:
         rep.outcome = "failed"
         rep.longrepr = msg
+
+
+# ---------------------------------------------------------------------------
+# The live move ledger (5f item 4). A test whose league is made up must not
+# read the league's REAL move ledger (config/MOVE_LEDGER.json,
+# data/move_ledger_states.jsonl): with a real entry pending (Hayden's entry 8,
+# 11-23 -> 11-30) such tests failed against their made-up rosters ("week 7:
+# ledger -Day'Ron Sharpe for Hayden, who is not on his roster"), and they pass
+# or fail with the calendar and the state pulled. move_ledger's two readers
+# raise when they are pointed at the project root from a test that is not a
+# real-data test: one marked `real`, or skipped by league_state.needs_state
+# when the state is absent. Give a made-up league an empty or fixture ledger
+# (data.known_moves / data.start_adds_used, or a base_path under tmp_path).
+# Set at configure time, not as a fixture, so a module-scoped fixture that
+# builds a world is caught too (it is set up inside the first test's setup).
+# ---------------------------------------------------------------------------
+class LiveStateInTest(RuntimeError):
+    """A made-up league read the real league's state."""
+
+
+_CURRENT_TEST = {"item": None}
+STATE_SKIP_REASON = "league state not in this checkout"
+
+
+def real_data_test(item) -> bool:
+    if item is None:
+        return True                     # collection / import time: not a test's league
+    if item.get_closest_marker("real") is not None:
+        return True
+    return any(STATE_SKIP_REASON in str(m.kwargs.get("reason", ""))
+               for m in item.iter_markers("skipif"))
+
+
+def _guard_live_ledger():
+    from modules import move_ledger as ml
+    root = PROJECT_ROOT.resolve()
+
+    def guard(fn, rel):
+        if getattr(fn, "_live_guard", False):
+            return fn
+
+        def reader(base_path=".", *a, **k):
+            item = _CURRENT_TEST["item"]
+            if Path(base_path).resolve() == root and not real_data_test(item):
+                raise LiveStateInTest(
+                    f"{item.nodeid if item else '?'} read the REAL {rel} (base {base_path!r}). A "
+                    "made-up league gets an empty or fixture ledger (data.known_moves = {}, "
+                    "data.start_adds_used = {}, or a base_path under tmp_path); a test of the real "
+                    "league is marked @pytest.mark.real (tests/conftest.py, 5f item 4)")
+            return fn(base_path, *a, **k)
+        reader._live_guard = True
+        reader.__wrapped__ = fn
+        return reader
+    ml.read_rows = guard(ml.read_rows, ml.LEDGER_FILE.as_posix())
+    ml.read_states = guard(ml.read_states, ml.STATES_FILE.as_posix())
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    _CURRENT_TEST["item"] = item
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item, nextitem):
+    _CURRENT_TEST["item"] = item
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionstart(session):
+    session.config.addinivalue_line(
+        "markers", "real: reads the league's real state on purpose (the live move ledger and "
+                   "the like; 5f item 4)")
+    _guard_live_ledger()

@@ -503,7 +503,31 @@ def power_history(inp: dict) -> dict:
     weeks.reverse()
     return {"weeks": weeks, "note": ("Each week's published power rankings: title odds first, then the projected "
                                      "finish. The change is against the week before."),
-            "empty": "" if weeks else "No week published yet."}
+            "empty": "" if weeks else "No week published yet.",
+            "pending": power_pending(inp)}
+
+
+def power_pending(inp: dict) -> str:
+    """5f item 6: one muted line when a FINISHED week has no published report
+    yet (power_history reads each published stats_report_weekN.json, and the
+    weekly build publishes it): "Week 5 appears when its report is
+    published." "" when every finished week is published. Finished: the
+    week's last day is before today (the league clock)."""
+    from ..league_clock import league_tz
+    now = inp.get("now")
+    if now is None:
+        return ""
+    today = (now.astimezone(league_tz()) if now.tzinfo else now).date()
+    done = sorted(int(w["week"]) for w in inp.get("weeks") or []
+                  if date.fromisoformat(str(w["end_date"])[:10]) < today)
+    have = {int(w) for w in inp.get("reports") or {}}
+    last = max(have) if have else 0
+    missing = [w for w in done if w > last and w not in have]
+    if not missing:
+        return ""
+    if len(missing) == 1:
+        return f"Week {missing[0]} appears when its report is published."
+    return f"Weeks {missing[0]}{NDASH}{missing[-1]} appear when their reports are published."
 
 
 # =============================================================================
@@ -776,6 +800,185 @@ def _season_team(inp: dict, season: str, m: str) -> str:
     return m
 
 
+# =============================================================================
+# The two seasons before the Yahoo data (5f; Nick, 11-23): standings and brackets
+# =============================================================================
+
+PRE_ERA_KEYS = ("league_champion", "league_runner_up", "playoff_champion", "playoff_runner_up")
+
+
+def _pts(x, where: str) -> float:
+    if isinstance(x, bool) or not isinstance(x, (int, float)) or x < 0:
+        raise LeagueError(f"{where}: points {x!r} are not a number")
+    return float(x)
+
+
+def _match(x, where: str, managers) -> dict:
+    """One single matchup: {"a", "a_pts", "b", "b_pts"} -> with winner and loser."""
+    if not isinstance(x, dict) or set(x) != {"a", "a_pts", "b", "b_pts"}:
+        raise LeagueError(f"{where} needs exactly a, a_pts, b, b_pts")
+    a, b = x["a"], x["b"]
+    for m in (a, b):
+        if m not in managers:
+            raise LeagueError(f"{where}: {m!r} is not one of the season's managers")
+    if a == b:
+        raise LeagueError(f"{where}: {a} plays himself")
+    pa, pb = _pts(x["a_pts"], where), _pts(x["b_pts"], where)
+    if pa == pb:
+        raise LeagueError(f"{where}: {a} and {b} tie at {pa:,.2f}; no rule on file settles it here")
+    w, l = (a, b) if pa > pb else (b, a)
+    return {"a": a, "a_pts": pa, "b": b, "b_pts": pb, "winner": w, "loser": l,
+            "score": f"{max(pa, pb):,.2f}" + NDASH + f"{min(pa, pb):,.2f}"}
+
+
+def _pre_era_one(season: str, v: dict) -> dict:
+    """One season's full results, validated (pre_era_season's work)."""
+    where = f"league_config pre_data_era.seasons {season}"
+    if not isinstance(v, dict) or any(k not in v for k in PRE_ERA_KEYS):
+        raise LeagueError(f"{where} needs {PRE_ERA_KEYS}")
+    for k in ("regular_season_games", "standings", "bracket"):
+        if k not in v:
+            raise LeagueError(f"{where} lacks {k!r}: the full results (Nick, 11-23) are required")
+    games = v["regular_season_games"]
+    if isinstance(games, bool) or not isinstance(games, int) or games < 1:
+        raise LeagueError(f"{where}: regular_season_games {games!r} is not a number of games")
+    rows = v["standings"]
+    if not isinstance(rows, list) or not rows:
+        raise LeagueError(f"{where}: standings is not a list")
+    need = {"finish", "manager", "team", "w", "l", "pts"}
+    out_rows, seen = [], set()
+    for r in rows:
+        if not isinstance(r, dict) or set(r) != need:
+            raise LeagueError(f"{where}: a standings row needs exactly {sorted(need)}: {r!r}")
+        m = r["manager"]
+        if m in seen:
+            raise LeagueError(f"{where}: {m} has two standings rows")
+        seen.add(m)
+        if not str(r["team"] or "").strip():
+            raise LeagueError(f"{where}: {m} has no team name")
+        for k in ("w", "l", "finish"):
+            if isinstance(r[k], bool) or not isinstance(r[k], int) or r[k] < 0:
+                raise LeagueError(f"{where}: {m}'s {k} {r[k]!r} is not a count")
+        if r["w"] + r["l"] != games:
+            raise LeagueError(f"{where}: {m} is {r['w']}-{r['l']}, {r['w'] + r['l']} games, not {games}")
+        out_rows.append({"finish": r["finish"], "manager": m, "team": str(r["team"]).strip(),
+                         "w": r["w"], "l": r["l"], "record": f"{r['w']}-{r['l']}",
+                         "pts": _pts(r["pts"], f"{where} {m}")})
+    if sorted(x["finish"] for x in out_rows) != list(range(1, len(out_rows) + 1)):
+        raise LeagueError(f"{where}: the finishes are not 1 to {len(out_rows)} once each")
+    out_rows.sort(key=lambda x: x["finish"])
+    if sum(x["w"] for x in out_rows) != sum(x["l"] for x in out_rows):
+        raise LeagueError(f"{where}: the wins and losses do not balance (every game has a winner)")
+    for hi, lo in zip(out_rows, out_rows[1:]):
+        if hi["w"] < lo["w"]:
+            raise LeagueError(f"{where}: {hi['manager']} finished {hi['finish']} at {hi['record']} above "
+                              f"{lo['manager']} at {lo['record']}: the finish follows the records")
+        if hi["w"] == lo["w"]:
+            raise LeagueError(f"{where}: {hi['manager']} and {lo['manager']} are both {hi['record']}; the "
+                              "tiebreak that ordered them is not on file")
+    by_finish = {x["finish"]: x["manager"] for x in out_rows}
+    if by_finish[1] != v["league_champion"] or by_finish.get(2) != v["league_runner_up"]:
+        raise LeagueError(f"{where}: the regular season's 1st and 2nd ({by_finish[1]}, {by_finish.get(2)}) "
+                          f"are not league_champion / league_runner_up ({v['league_champion']}, "
+                          f"{v['league_runner_up']})")
+    br = v["bracket"]
+    if not isinstance(br, dict) or set(br) != {"semifinals", "final", "third_place"}:
+        raise LeagueError(f"{where}: bracket needs exactly semifinals, final, third_place")
+    mgrs = set(by_finish.values())
+    if len(out_rows) != 4:
+        raise LeagueError(f"{where}: a four-team bracket needs four managers, not {len(out_rows)}")
+    if not isinstance(br["semifinals"], list) or len(br["semifinals"]) != 2:
+        raise LeagueError(f"{where}: two semifinals")
+    semis = [_match(x, f"{where} semifinal", mgrs) for x in br["semifinals"]]
+    seed = {m: f for f, m in by_finish.items()}
+    pairs = sorted(tuple(sorted((seed[x["a"]], seed[x["b"]]))) for x in semis)
+    if pairs != [(1, 4), (2, 3)]:
+        raise LeagueError(f"{where}: the semifinals pair seeds {pairs}, not 1 v 4 and 2 v 3")
+    final = _match(br["final"], f"{where} final", mgrs)
+    third = _match(br["third_place"], f"{where} 3rd place", mgrs)
+    if {final["a"], final["b"]} != {x["winner"] for x in semis}:
+        raise LeagueError(f"{where}: the final is not the semifinals' winners")
+    if {third["a"], third["b"]} != {x["loser"] for x in semis}:
+        raise LeagueError(f"{where}: the 3rd-place game is not the semifinals' losers")
+    if (final["winner"], final["loser"]) != (v["playoff_champion"], v["playoff_runner_up"]):
+        raise LeagueError(f"{where}: the final's winner and loser ({final['winner']}, {final['loser']}) are "
+                          f"not playoff_champion / playoff_runner_up ({v['playoff_champion']}, "
+                          f"{v['playoff_runner_up']})")
+    for x in semis:
+        x["seeds"] = (seed[x["a"]], seed[x["b"]])
+    return {"season": season, **{k: v[k] for k in PRE_ERA_KEYS}, "regular_season_games": games,
+            "standings": out_rows, "teams": {x["manager"]: x["team"] for x in out_rows},
+            "bracket": {"semifinals": semis, "final": final, "third_place": third}}
+
+
+def pre_era_seasons(pre: dict = None) -> dict:
+    """{season: its full results} for the seasons before the Yahoo data
+    (config pre_data_era.seasons: 2014-15 and 2016-17; 2015-16 was not played),
+    each validated by _pre_era_one, and the seasons' winners against the
+    config's titles_won / playoff_championships totals. THE ONE READER of these
+    facts: Champions here and the manager card (MC2) call it. RAISES
+    (LeagueError) on a missing or contradictory fact. pre: the config's
+    pre_data_era (default: config/league_config.json's)."""
+    if pre is None:
+        from ..data_loader import _LEAGUE_CONFIG
+        pre = _LEAGUE_CONFIG.get("pre_data_era")
+    pre = pre or {}
+    pc, tw, ps = pre.get("playoff_championships") or {}, pre.get("titles_won") or {}, pre.get("seasons") or {}
+    if not pc or not tw or not ps:
+        raise LeagueError("league_config pre_data_era lacks playoff_championships, titles_won or seasons")
+    for s, v in ps.items():
+        old = sorted(set(v) & {"champion", "runner_up", "regular_season", "regular_season_runner_up"})
+        if old or any(k not in v for k in PRE_ERA_KEYS):
+            raise LeagueError(f"league_config pre_data_era.seasons {s} needs exactly {PRE_ERA_KEYS}"
+                              + (f"; it uses the old key(s) {old}" if old else ""))
+    for key, total, field in (("playoff_champion", pc, "playoff_championships"), ("league_champion", tw, "titles_won")):
+        counted: dict = {}
+        for s, v in ps.items():
+            counted[v[key]] = counted.get(v[key], 0) + 1
+        if {m: n for m, n in counted.items() if n} != {m: n for m, n in total.items() if n}:
+            raise LeagueError(f"league_config pre_data_era.seasons' {key}s {counted} disagree with its {field} {total}")
+    return {s: _pre_era_one(s, ps[s]) for s in sorted(ps)}
+
+
+def pre_era_season(season: str, pre: dict = None) -> dict:
+    """One pre-Yahoo season's full results (pre_era_seasons); RAISES for a
+    season that is not one of them (2015-16 was not played)."""
+    seasons = pre_era_seasons(pre)
+    if season not in seasons:
+        raise LeagueError(f"{season} is not a pre-Yahoo season on file ({', '.join(seasons)})")
+    return seasons[season]
+
+
+def check_pre_era_careers(seasons: dict, leaguehistory: list, all_standings: list, managers) -> None:
+    """The pre-Yahoo seasons' W-L, summed, must equal LEAGUEHISTORY's career
+    regular-season records minus the Yahoo seasons' (all_standings reg_wins /
+    reg_losses): Nick 27-15, Hayden 22-20, Benton 20-22, Garrett 15-27
+    (LEAGUE_RULES 'Season numbering'). RAISES on any difference."""
+    by = {r["manager_name"]: r for r in leaguehistory}
+    yahoo: dict = {}
+    for r in all_standings:
+        if r.get("reg_wins") is None or r.get("reg_losses") is None:
+            raise LeagueError(f"all_standings {r.get('season')} {r.get('manager')} lacks reg_wins / reg_losses")
+        y = yahoo.setdefault(r["manager"], [0, 0])
+        y[0] += int(r["reg_wins"])
+        y[1] += int(r["reg_losses"])
+    diffs = []
+    for m in managers:
+        if m not in by:
+            raise LeagueError(f"LEAGUEHISTORY has no row for {m}")
+        w, l, t = _wl(by[m]["regular_season_record"])
+        y = yahoo.get(m, [0, 0])
+        want = (w - y[0], l - y[1])
+        got = (sum(x["w"] for v in seasons.values() for x in v["standings"] if x["manager"] == m),
+               sum(x["l"] for v in seasons.values() for x in v["standings"] if x["manager"] == m))
+        if t or got != want:
+            diffs.append(f"{m}: the pre-Yahoo seasons say {got[0]}-{got[1]}, LEAGUEHISTORY minus the Yahoo "
+                         f"seasons says {want[0]}-{want[1]}" + (f" (and {t} ties)" if t else ""))
+    if diffs:
+        raise LeagueError("league_config pre_data_era.seasons' records disagree with LEAGUEHISTORY: "
+                          + "; ".join(diffs))
+
+
 def champions(inp: dict) -> dict:
     """Each season's LEAGUE CHAMPION, then its Playoff Champion (and from
     2026-27 its Cup winner).
@@ -831,29 +1034,21 @@ def champions(inp: dict) -> dict:
     # Keys renamed 11-20 so none of them says "champion" for the bracket alone:
     # league_champion / league_runner_up (regular season), playoff_champion /
     # playoff_runner_up. The old names RAISE rather than being read.
-    pre = inp["pre_data_era"] or {}
-    pc = pre.get("playoff_championships") or {}
-    tw = pre.get("titles_won") or {}
-    ps = pre.get("seasons") or {}
-    if not pc or not tw or not ps:
-        raise LeagueError("league_config pre_data_era lacks playoff_championships, titles_won or seasons")
-    keys = ("league_champion", "league_runner_up", "playoff_champion", "playoff_runner_up")
-    for s, v in ps.items():
-        old = sorted(set(v) & {"champion", "runner_up", "regular_season", "regular_season_runner_up"})
-        if old or any(k not in v for k in keys):
-            raise LeagueError(f"league_config pre_data_era.seasons {s} needs exactly {keys}"
-                              + (f"; it uses the old key(s) {old}" if old else ""))
-    for key, total, field in (("playoff_champion", pc, "playoff_championships"), ("league_champion", tw, "titles_won")):
-        counted: dict = {}
-        for s, v in ps.items():
-            counted[v[key]] = counted.get(v[key], 0) + 1
-        if {m: n for m, n in counted.items() if n} != {m: n for m, n in total.items() if n}:
-            raise LeagueError(f"league_config pre_data_era.seasons' {key}s {counted} disagree with its {field} {total}")
-    pre_rows = {s: {"season": s, "kind": "records", "m": v["league_champion"], "team": "", "who": v["league_champion"],
-                    "lines": [{"k": "Runner-up", "t": v["league_runner_up"]},
-                              {"k": "Playoff champion", "t": f"{v['playoff_champion']}, over {v['playoff_runner_up']}"},
-                              {"k": "Records only", "t": "before the Yahoo data: no scores or stats"}]}
-                for s, v in ps.items()}
+    # 5f (Nick, 11-23): their full results, through the one reader (pre_era_season(s)),
+    # checked against LEAGUEHISTORY's careers minus the Yahoo seasons.
+    pre_all = pre_era_seasons(inp["pre_data_era"] or {})
+    check_pre_era_careers(pre_all, inp["leaguehistory"], inp["all_standings"], inp["managers"])
+    ps = pre_all
+    pre_rows = {}
+    for s_, v in ps.items():
+        fin, t = v["bracket"]["final"], v["teams"]
+        pre_rows[s_] = {"season": s_, "kind": "records", "m": v["league_champion"],
+                        "team": t[v["league_champion"]], "who": v["league_champion"],
+                        "lines": [{"k": "Runner-up", "t": f"{v['league_runner_up']} ({t[v['league_runner_up']]})"},
+                                  {"k": "Playoff champion",
+                                   "t": f"{v['playoff_champion']} ({t[v['playoff_champion']]}), over "
+                                        f"{v['playoff_runner_up']}, {fin['score']}"},
+                                  {"k": "Standings and brackets only", "t": "no weekly scores or stats"}]}
     # newest first: the pre-data-era seasons that were played. A season the league
     # did not play (2015-16) gets NO row (Nick, 11-23: "just get rid of 2015-16
     # entirely from this list, no point in having it there"); the note says it.
@@ -864,8 +1059,8 @@ def champions(inp: dict) -> dict:
             "note": ("The champion is the League Champion: first in the regular season (weeks 1" + NDASH + "15 this "
                      "season, $180). The playoff bracket (weeks 16" + NDASH + "21) crowns the Playoff Champion ($90); "
                      "the Cup (weeks 22" + NDASH + "23, from 2026-27) earns a 6th keeper. "
-                     "2014-15 and 2016-17 predate the Yahoo data: records only, from LEAGUEHISTORY and the "
-                     "league's own account. 2015-16 was not played.")}
+                     "2014-15 and 2016-17 predate the Yahoo data: standings and brackets only (Yahoo's final "
+                     "standings and brackets, Nick 11-23), no weekly scores or stats. 2015-16 was not played.")}
 
 
 # =============================================================================
@@ -926,7 +1121,7 @@ def alltime(inp: dict, results: dict) -> dict:
     cur_through = max([w for w in results if w <= reg], default=0)
     return {"rows": rows,
             "meta": "every season with records",
-            "note": (f"Scope: every season with records: 2014-15 and 2016-17 (records only, from LEAGUEHISTORY), "
+            "note": (f"Scope: every season with records: 2014-15 and 2016-17 (standings and brackets only), "
                      f"2017-18 to 2025-26, and this season live through week {cur_through}. 2015-16 was not "
                      "played. W-L-T and win % are the regular season (a T counts half); the playoffs are the "
                      "second line. Titles = League Championships (first in the regular season, the league's "

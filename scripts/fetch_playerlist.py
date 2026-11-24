@@ -279,6 +279,138 @@ def collect(league_id: str, status: str, limit: int, label: str) -> dict:
     return found
 
 
+# --- OVERRIDE ROWS OUTSIDE THE POOL (5f, 11-24) ------------------------------
+# The pool is Yahoo's top N by Yahoo's OWN projection, so a player whose row
+# Yahoo has wrong upstream (0 GP, 0 FP: the reason the override exists) sorts
+# out of it the moment he is not rostered. Evan Mobley, a free agent from
+# 11-18, was invisible: not on Market, never in Advice, his injury entry inert.
+# So every player with a live override is fetched by id, even outside the pool:
+#   1. Yahoo's own row, from the same players table searched by his name and
+#      kept only if the row's Yahoo id is his ("search");
+#   2. failing that, a row BUILT from his last known row in a PLAYERLIST
+#      snapshot (team, positions), with the override supplying FPPG and GP --
+#      marked "built" in the stamp, never silently ("built").
+# The override then applies exactly as it does to a rostered player.
+SNAPSHOT_DIR = PROJECT_ROOT / "config" / "snapshots"
+
+
+def fetch_search_page(league_id: str, name: str) -> str:
+    """The same S_PSR table, filtered by Yahoo's player search."""
+    from urllib.parse import quote
+    url = (f"{BASE.format(league_id=league_id)}?status=ALL&pos=P"
+           f"&cut_type=33&stat1={STAT_VIEW}&myteam=0&sort=PTS&sdir=1"
+           f"&search={quote(name)}")
+    request = urllib.request.Request(url, headers=BROWSER_HEADERS)
+    with urllib.request.urlopen(request, timeout=45) as response:
+        return response.read().decode("utf-8", "replace")
+
+
+def search_row(league_id: str, entry: dict, fetch=None):
+    """(row, note): Yahoo's own row for the override's id, or (None, why).
+    Never raises: a failed search falls through to the built row."""
+    try:
+        doc = (fetch or fetch_search_page)(league_id, entry["player_name"])
+    except Exception as e:
+        return None, f"Yahoo search failed ({type(e).__name__}: {e})"
+    columns = find_columns(doc)
+    if columns is None:
+        return None, "Yahoo search page has no recognisable GP / Fan Pts columns"
+    for r in parse_rows(doc, set(MANAGER_TO_TEAM.values()), columns):
+        if r["yahoo_id"] == entry["yahoo_id"]:
+            if to_number(r["proj_gp"]) is None or to_number(r["total_fp"]) is None:
+                return None, "Yahoo search row has unreadable GP/FP"
+            return r, "Yahoo search"
+    return None, f"Yahoo search for {entry['player_name']!r} returned no row with id {entry['yahoo_id']}"
+
+
+def snapshot_sources(root: Path = None) -> list:
+    """PLAYERLIST copies to look a player up in, newest first: the live file
+    (last run's fetch, about to be replaced), the dated snapshots, the pre-tip
+    copies, the point-in-time copies."""
+    root = Path(root or PROJECT_ROOT)
+    snaps = root / "config" / "snapshots"
+    out = [root / "data" / "PLAYERLIST.xlsx"]
+    out += sorted(snaps.glob("PLAYERLIST_*.xlsx"), reverse=True)
+    out += sorted(snaps.glob("pretip/PLAYERLIST_*.xlsx"), reverse=True)
+    out += sorted(snaps.glob("point_in_time/*/PLAYERLIST.xlsx"), reverse=True)
+    return [p for p in out if p.is_file()]
+
+
+def last_known_row(entry: dict, sources: list):
+    """(row, source) from the newest PLAYERLIST that has him -- by yahoo_id
+    where the file carries ids, else by name through PlayerIndex -- or
+    (None, None)."""
+    for src in sources:
+        try:
+            frame = pd.read_excel(src)
+        except Exception:
+            continue
+        if "player_name" not in frame.columns or frame.empty:
+            continue
+        hit = None
+        if "yahoo_id" in frame.columns:
+            ids = frame["yahoo_id"].apply(lambda v: str(int(v)) if pd.notna(v) else "")
+            rows = frame[ids == entry["yahoo_id"]]
+            if not rows.empty:
+                hit = rows.iloc[0]
+        if hit is None:
+            match = PlayerIndex({n: i for i, n in enumerate(frame["player_name"])}).get(entry["player_name"])
+            if match is not None:
+                cand = frame.iloc[int(match)]
+                cid = cand.get("yahoo_id") if "yahoo_id" in frame.columns else None
+                if cid is None or pd.isna(cid) or str(int(cid)) == entry["yahoo_id"]:
+                    hit = cand
+        if hit is None:
+            continue
+        team, pos = str(hit.get("player_nba_team") or ""), str(hit.get("player_position(s)") or "")
+        if not team or team == "nan" or not pos or pos == "nan":
+            continue
+        try:
+            rel = src.relative_to(PROJECT_ROOT).as_posix()
+        except ValueError:
+            rel = src.name
+        return {"yahoo_id": entry["yahoo_id"], "player_name": str(hit["player_name"]),
+                "nba_team": team, "positions": pos, "proj_gp": None, "total_fp": None,
+                "owner": None, "_built": True}, rel
+    return None, None
+
+
+def override_rows(league_id: str, entries: list, have: dict, search=None, sources=None) -> tuple:
+    """Rows to add for live overrides whose player is not in this fetch.
+    ([row], [extra record for the stamp], [why not, for the log])."""
+    rows, extra, missed = [], [], []
+    names = PlayerIndex({r["player_name"]: r["yahoo_id"] for r in have.values()})
+    for e in entries:
+        if e["yahoo_id"] in have:
+            continue
+        other = names.get(e["player_name"])
+        if other is not None:
+            missed.append(f"{e['player_name']}: not added -- the name is already in this "
+                          f"fetch under Yahoo id {other}, not {e['yahoo_id']}")
+            continue
+        row, how = search_row(league_id, e, fetch=search)
+        src = None
+        if row is None:
+            searched = how
+            set_ = e.get("set", {})
+            if "projectedFPPG" not in set_ or "player_proj_GP" not in set_:
+                missed.append(f"{e['player_name']}: {searched}; and a row cannot be built "
+                              "because the override does not set both projectedFPPG and "
+                              "player_proj_GP")
+                continue
+            row, src = last_known_row(e, sources if sources is not None else snapshot_sources())
+            if row is None:
+                missed.append(f"{e['player_name']}: {searched}; and no PLAYERLIST snapshot has him")
+                continue
+            how = "built"
+            row["_searched"] = searched
+        rows.append(row)
+        extra.append({"yahoo_id": e["yahoo_id"], "player_name": row["player_name"],
+                      "how": "built" if row.get("_built") else "search",
+                      **({"from": src, "search": row["_searched"]} if row.get("_built") else {})})
+    return rows, extra, missed
+
+
 def load_ages() -> dict:
     if not AGES.is_file():
         return {}
@@ -602,6 +734,23 @@ def main():
     if args.recheck_ages:
         return recheck_ages(rows, execute=args.execute, players=args.player)
 
+    # Every live projection override reaches the file, even for a player
+    # outside the pool (5f): see override_rows().
+    entries = projection_overrides.load(PROJECT_ROOT / "config" / "PROJECTION_OVERRIDES.json")
+    extra_rows, extra_info, extra_missed = override_rows(league_id, entries, merged)
+    if extra_rows or extra_missed:
+        print(f"\n  Override rows outside Yahoo's {args.limit} ({len(extra_rows)} added):")
+        for r, x in zip(extra_rows, extra_info):
+            print(f"    {r['player_name']} (id {r['yahoo_id']}): "
+                  + ("Yahoo's row, by search" if x["how"] == "search"
+                     else f"BUILT from {x['from']} ({r['nba_team']}, {r['positions']}); "
+                          f"{x['search']}"))
+        for m in extra_missed:
+            print(f"    NOT ADDED -- {m}")
+    for r in extra_rows:
+        merged[r["yahoo_id"]] = r
+    rows = list(merged.values())
+
     cached = {} if args.refresh_ages else load_ages()
     if args.refresh_ages:
         print("\n  Ages (--refresh-ages: cache ignored, rebuilding from source):")
@@ -619,13 +768,20 @@ def main():
 
     records, bad, ageless = [], [], []
     for r in rows:
-        gp, fp = to_number(r["proj_gp"]), to_number(r["total_fp"])
-        if gp is None or fp is None:
-            bad.append(r["player_name"])
-            continue
-        # Derived here, never parsed. The manual step had an LLM doing this
-        # division, which is an error class with no upside.
-        fppg = round(fp / gp, 2) if gp else 0.0
+        built = bool(r.get("_built"))
+        if built:
+            # No Yahoo numbers exist for a built row; the override sets both
+            # (override_rows refuses one that doesn't), and a built row the
+            # override does not reach is removed below.
+            gp = fp = fppg = float("nan")
+        else:
+            gp, fp = to_number(r["proj_gp"]), to_number(r["total_fp"])
+            if gp is None or fp is None:
+                bad.append(r["player_name"])
+                continue
+            # Derived here, never parsed. The manual step had an LLM doing this
+            # division, which is an error class with no upside.
+            fppg = round(fp / gp, 2) if gp else 0.0
         age = cached.get(r["yahoo_id"])
         if age is None:
             ageless.append(r["player_name"])
@@ -640,20 +796,30 @@ def main():
             "yahoo_id": int(r["yahoo_id"]),
             "_yahoo_id": r["yahoo_id"],
             "_owner": r["owner"],
+            **({"_built": True} if built else {}),
         })
 
     # Patches on rows Yahoo has wrong upstream (config/PROJECTION_OVERRIDES.json).
     # Applied here, after parsing and before anything is written, so a
     # refetch cannot silently undo them; what Yahoo actually said goes into
     # the stamp, so the file still records the upstream row.
-    entries = projection_overrides.load(PROJECT_ROOT / "config" / "PROJECTION_OVERRIDES.json")
     applied, unapplied = projection_overrides.apply(records, entries)
+    # A built row the override did not reach has no numbers at all: out.
+    reached = {a["yahoo_id"] for a in applied}
+    for r in [r for r in records if r.get("_built") and r["_yahoo_id"] not in reached]:
+        records.remove(r)
+        extra_info = [x for x in extra_info if x["yahoo_id"] != r["_yahoo_id"]]
+        print(f"    BUILT ROW DROPPED -- {r['player_name']}: the override did not apply")
+    for r in records:
+        r.pop("_built", None)
     if entries:
         print(f"\n  Projection overrides ({len(applied)} applied, {len(unapplied)} not):")
         for a in applied:
             y, n = a["yahoo"], a["now"]
             flag = "" if a["replaces_matches"] else "   <-- Yahoo's row has CHANGED since this was written"
-            print(f"    {a['player_name']}: Yahoo {y['player_proj_GP']:g} GP / {y['projectedFPPG']:.2f} FPPG"
+            was = ("a BUILT row (no Yahoo values)" if a.get("built") else
+                   f"Yahoo {y['player_proj_GP']:g} GP / {y['projectedFPPG']:.2f} FPPG")
+            print(f"    {a['player_name']}: {was}"
                   f" -> {n['player_proj_GP']:g} GP / {n['projectedFPPG']:.2f} FPPG"
                   f" (review by {a['review_by']}){flag}")
         for u in unapplied:
@@ -706,7 +872,9 @@ def main():
     st = playerlist_freshness.write(
         frame[COLUMNS], target, source=f"yahoo:{league_id}",
         extra={projection_overrides.STAMP_KEY:
-               projection_overrides.stamp_value(applied, unapplied)})
+               projection_overrides.stamp_value(applied, unapplied),
+               projection_overrides.EXTRA_KEY:
+               projection_overrides.extra_value(extra_info, args.limit)})
     print(f"\n  Wrote {target} ({len(frame)} rows), fetched_at {st['fetched_at']}")
     if target != PLAYERLIST:
         print(f"\n  --out: data/PLAYERLIST.xlsx and {AGES.name} were not touched.")
