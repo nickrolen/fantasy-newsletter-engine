@@ -418,3 +418,20 @@ def test_2019_20_rookie_of_the_year_has_no_winner():
     a = b["seasons"]["2019-20"]["awards"]["roy"]
     assert a["winner"] is None and a["none"] == "No winner: no rookie reached 10 starts"
     assert {r["label"] for r in a["ineligible"]} >= {"Ja Morant", "Zion Williamson"}
+
+
+def test_draft_of_the_year_alltime_list_is_the_keeper_era_only():
+    """5E decision 5 (Nick, 11-23): the 13-pick full-pool snake drafts before the
+    keeper era are a different game, so Records' all-time Draft of the year list
+    starts at league_structure keeper_era_start (2021-22). Each season's own
+    winner is still listed for every season."""
+    import json
+    from pathlib import Path
+    from modules.data_loader import KEEPER_ERA_START
+    blob = json.loads((Path(__file__).parent.parent / "data" / "historical" / "AWARDS_PAST.json")
+                      .read_text(encoding="utf-8"))
+    rows = blob["alltime"]["draft"]
+    assert rows and all(r["season"] >= KEEPER_ERA_START for r in rows)
+    assert any(s < KEEPER_ERA_START for s in blob["seasons"])       # earlier seasons still have their awards
+    src = (Path(__file__).parent.parent / "modules" / "awards_past.py").read_text(encoding="utf-8")
+    assert "if s < KEEPER_ERA_START:" in src

@@ -854,14 +854,11 @@ def champions(inp: dict) -> dict:
                               {"k": "Playoff champion", "t": f"{v['playoff_champion']}, over {v['playoff_runner_up']}"},
                               {"k": "Records only", "t": "before the Yahoo data: no scores or stats"}]}
                 for s, v in ps.items()}
-    # newest first: every season from the first data-era one back to the first
-    # pre-data-era one; a season in neither is one the league did not play
-    first_era = min(int(r["season"][:4]) for r in inp["all_standings"])
-    for y in range(first_era - 1, min(int(s[:4]) for s in ps) - 1, -1):
-        s = f"{y}-{(y + 1) % 100:02d}"
-        rows.append(pre_rows[s] if s in ps else
-                    {"season": s, "kind": "off", "m": None, "team": "", "who": "",
-                     "lines": [{"k": "Not played", "t": "the league took the season off"}]})
+    # newest first: the pre-data-era seasons that were played. A season the league
+    # did not play (2015-16) gets NO row (Nick, 11-23: "just get rid of 2015-16
+    # entirely from this list, no point in having it there"); the note says it.
+    for s in sorted(ps, reverse=True):
+        rows.append(pre_rows[s])
     n_played = len([r for r in rows if r["kind"] in ("played", "nobracket", "records")])
     return {"rows": rows, "meta": f"{n_played} seasons with results",
             "note": ("The champion is the League Champion: first in the regular season (weeks 1" + NDASH + "15 this "

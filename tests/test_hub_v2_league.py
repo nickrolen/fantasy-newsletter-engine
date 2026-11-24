@@ -256,7 +256,7 @@ def test_an_unpublished_report_raises():
 # D. History
 # =============================================================================
 
-def test_champions_per_season_with_2015_16_named_and_the_records_only_seasons():
+def test_champions_per_season_without_2015_16_and_the_records_only_seasons():
     """Nick, 11-19: the record-only seasons are 2014-15 and 2016-17; 2015-16 was
     not played (the earlier record had them the other way round).
     Nick, 11-20: each season's CHAMPION is the regular-season winner (the
@@ -274,12 +274,14 @@ def test_champions_per_season_with_2015_16_named_and_the_records_only_seasons():
     rank1 = next(x["manager"] for x in inp["all_standings"] if x["season"] == "2023-24" and x["regular_season_rank"] == 1)
     assert nb["kind"] == "nobracket" and nb["who"] == rank1
     assert nb["lines"][1]["k"] == "Playoffs" and "a made-up stoppage" in nb["lines"][1]["t"]
-    assert rows["2015-16"]["kind"] == "off" and rows["2015-16"]["lines"][0]["k"] == "Not played"
+    assert "2015-16" not in rows                     # Nick, 11-23: no row for the season not played
+    assert "2015-16 was not played" in h["champions"]["note"]
     assert rows["2016-17"]["kind"] == "records" and rows["2016-17"]["who"] == "Tyler"
     assert rows["2016-17"]["lines"][0]["t"] == "Marcus" and rows["2016-17"]["lines"][1]["t"] == "Jordan, over Tyler"
     assert rows["2014-15"]["kind"] == "records" and rows["2014-15"]["who"] == "Marcus"
     seasons = [r["season"] for r in h["champions"]["rows"]]
-    assert seasons.index("2017-18") < seasons.index("2016-17") < seasons.index("2015-16") < seasons.index("2014-15")
+    assert seasons.index("2016-17") < seasons.index("2014-15")
+    assert seasons[-2:] == ["2016-17", "2014-15"]   # the records-only seasons last, and nothing invented between
 
 
 def test_every_seasons_headline_is_the_league_champion_never_the_bracket():

@@ -405,9 +405,16 @@ def alltime(blob: dict) -> dict:
         rows.sort(key=lambda r: (-r["value"], r["season"], r["label"]))
         out[k] = rows[:ALLTIME_TOP]
     # 5e (4C7 decision 6): Draft of the year replaces best_draft_class: every manager's draft class
-    # every season, ranked as the Records tile ranks it (PAR per regular-season week)
+    # every season, ranked as the Records tile ranks it (PAR per regular-season week).
+    # 5E decision 5 (Nick, 11-23): the all-time list is the KEEPER ERA only (league_structure
+    # keeper_era_start, 2021-22 on): the 13-pick full-pool snake drafts before it are a different
+    # game (LEAGUE_RULES "Drafts and keepers by season") and filled the whole top 10. Each
+    # season's own winner is still listed for every season.
+    from .data_loader import KEEPER_ERA_START
     rows = []
     for s, v in sorted(blob["seasons"].items()):
+        if s < KEEPER_ERA_START:
+            continue
         wk = int(v["regular_weeks"])
         for r in v["managers"]["draft"]["top"]:
             rows.append({"m": r["m"], "season": s, "value": r["value"], "per_week": round(r["value"] / wk, 3),
