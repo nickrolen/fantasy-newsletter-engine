@@ -576,6 +576,35 @@ def test_round_trip_drops_rule_a_and_b_and_the_buzelis_drop_stays():
     assert hub_moves.round_trip_drops(txs, rulings) == {"k1": ["Anthony Davis"], "k3": ["Ty Jerome"]}
 
 
+def test_one_voided_add_cancels_one_drop_and_a_real_drop_after_a_voided_readd_stays():
+    """Nick's 11-23 test moves (week 6, 1:18-1:43 AM): every test add voided, the
+    1:43 AM Durant-for-Daniels add/drop real. Daniels: dropped 1:19 (test), re-
+    added 1:33 (void), dropped 1:43 (real). The voided re-add cancels the 1:19
+    drop (b) and NOT the 1:43 one, which Market > Moves hid before (Nick: "I want
+    the moves ledger to make sense"). Garland (drop, voided re-add) and Quickley
+    and Edgecombe (voided add, drop) lose their test drops."""
+    from modules.transaction_rulings import Ruling
+    d = "2026-11-23"
+    rulings = [Ruling(d, "Nick", "add", p, "void", "Nick", d, "")
+               for p in ("VJ Edgecombe", "Immanuel Quickley", "Dyson Daniels", "Darius Garland")]
+    txs = [tx("g1", 1180, d, ("drop", "Nick", "Darius Garland")),
+           tx("v1", 1190, d, ("add", "Nick", "VJ Edgecombe")),
+           tx("q1", 1191, d, ("add", "Nick", "Immanuel Quickley"), ("drop", "Nick", "Dyson Daniels")),
+           tx("q2", 1290, d, ("drop", "Nick", "Immanuel Quickley")),
+           tx("v2", 1330, d, ("drop", "Nick", "VJ Edgecombe")),
+           tx("d1", 1331, d, ("add", "Nick", "Dyson Daniels")),
+           tx("g2", 1332, d, ("add", "Nick", "Darius Garland")),
+           tx("kd", 1430, d, ("add", "Nick", "Kevin Durant"), ("drop", "Nick", "Dyson Daniels"))]
+    h = hub_moves.round_trip_drops(txs, rulings)
+    assert h == {"g1": ["Darius Garland"], "q1": ["Dyson Daniels"], "q2": ["Immanuel Quickley"],
+                 "v2": ["VJ Edgecombe"]}
+    assert "kd" not in h                         # the real Daniels drop is shown with Durant
+    # a drop on an EARLIER day is real: a voided re-add weeks later doesn't undo it
+    old = [tx("q0", 900, "2026-11-09", ("drop", "Nick", "Immanuel Quickley"))]
+    h2 = hub_moves.round_trip_drops(old + txs, rulings)
+    assert "q0" not in h2 and h2["q2"] == ["Immanuel Quickley"]
+
+
 @pytest.mark.slow
 def test_real_round_trip_drops_are_the_six_listed_in_the_result():
     _real("data/transaction_log.jsonl", "config/TRANSACTION_RULINGS.json")

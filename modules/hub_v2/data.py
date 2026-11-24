@@ -238,11 +238,18 @@ def starters_on(av, m: str, d: date) -> tuple:
 # the title-odds sparkline
 # =============================================================================
 
-def odds_points(base: Path, data, key: str) -> dict:
+def odds_points(base: Path, data, key: str, upto: str = None) -> dict:
     """{league day: {manager: odds}} the season chart's points (hub_charts.
-    title_points, the same inputs hub_state.title_chart gathers)."""
+    title_points, the same inputs hub_state.title_chart gathers). upto: an
+    ISO time; history rows after it are left out (the sparkline stops at the
+    run the power rows read, title_odds_latest: Monday's closing run appends
+    a "closing" row to the history but does not write title_odds_latest, and
+    on 11-23 the closing run's hub refused on 31.3% vs 30.2%)."""
     from .. import title_odds_history as toh, hub_charts as hc
     rows = toh.read(base)
+    if upto is not None:
+        cut = datetime.fromisoformat(upto)
+        rows = [r for r in rows if datetime.fromisoformat(r["as_of"]) <= cut]
     sched = data.schedule
     starts = {int(w["week"]): date.fromisoformat(str(w["start_date"])[:10]) for w in sched["weeks"]}
     first_hist = min((datetime.fromisoformat(r["as_of"]).date() for r in rows if r.get(key)), default=None)
@@ -773,7 +780,8 @@ def build(base, ctx: dict) -> dict:
 
     # --- the sparkline: the odds the power rows show (title odds: weeks 1-15)
     key = ODDS_KEY[power["kind"]]
-    pts = odds_points(base, data, key)
+    from .. import title_odds_run as _tor
+    pts = odds_points(base, data, key, upto=_tor.load_latest(base)["as_of"])
     spark, scale = sparks(pts, wk_dates, today, managers, power["label"])
     for m in managers:
         if spark[m]["texts"][-1] != by_rank[m]["odds"]:

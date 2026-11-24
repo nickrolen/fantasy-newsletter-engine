@@ -435,3 +435,30 @@ def test_draft_of_the_year_alltime_list_is_the_keeper_era_only():
     assert any(s < KEEPER_ERA_START for s in blob["seasons"])       # earlier seasons still have their awards
     src = (Path(__file__).parent.parent / "modules" / "awards_past.py").read_text(encoding="utf-8")
     assert "if s < KEEPER_ERA_START:" in src
+
+
+def test_the_sparkline_stops_at_the_run_the_power_rows_read(monkeypatch, tmp_path):
+    """11-23: Monday's closing run appends a "closing" row to title_odds_history
+    but does not write title_odds_latest, so the closing run's hub refused
+    (Nick's sparkline 31.3%, his power row 30.2%). The sparkline now leaves out
+    every history row after title_odds_latest's as_of."""
+    from modules import title_odds_history as toh, hub_charts as hc
+    from modules.hub_v2 import data as D
+    rows = [{"as_of": "2026-11-23T15:45:31-08:00", "title_odds": {"A": 30.2}},
+            {"as_of": "2026-11-23T18:55:00-08:00", "title_odds": {"A": 31.3}, "kind": "closing"}]
+    monkeypatch.setattr(toh, "read", lambda base: list(rows))
+    seen = {}
+
+    def fake_points(rs, reports, sched, key):
+        seen["rows"] = rs
+        return {r["as_of"][:10]: {"values": r[key]} for r in rs}
+    monkeypatch.setattr(hc, "title_points", fake_points)
+
+    class Data:
+        schedule = {"weeks": []}
+    D.odds_points(tmp_path, Data(), "title_odds", upto="2026-11-23T15:45:31-08:00")
+    assert [r["as_of"] for r in seen["rows"]] == ["2026-11-23T15:45:31-08:00"]
+    D.odds_points(tmp_path, Data(), "title_odds")
+    assert len(seen["rows"]) == 2                          # no cut-off: every row, as before
+    import inspect
+    assert 'upto=_tor.load_latest(base)["as_of"]' in inspect.getsource(D)

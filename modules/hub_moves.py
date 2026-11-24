@@ -23,11 +23,12 @@ counts in (LEAGUE_RULES rules 6-7, 14; Nick, 11-05):
     flagged for Nick in claude/HUB_POLISH3_RESULT_2026-11-10.md);
   - a ROUND-TRIP DROP is hidden too (task 48h; Nick, 11-10), display only:
     counts, logs and scoring are unchanged. A drop of player P by manager M
-    is hidden when (a) P joined M's roster through a voided add -- the
-    latest add of P by M before the drop is voided, so the drop removes a
-    player who never really arrived (Benton's 11-09 Ty Jerome drop); or
-    (b) M's next add of P after the drop is a voided add, so the drop was
-    undone (Benton's 11-09 Anthony Davis drop). NOT "the same transaction as
+    is hidden when a voided add of P by M cancels it, one drop per voided
+    add: (b) the drop just before the voided add, so the drop was undone
+    (Benton's 11-09 Anthony Davis drop); otherwise (a) the drop just after
+    it, so the drop removes a player who never really arrived (Benton's
+    11-09 Ty Jerome drop). A real drop after a voided re-add stays (Nick's
+    11-23 Daniels drop for Durant). NOT "the same transaction as
     a voided add": that would hide Hayden's 10-25 Buzelis drop, a real drop
     Nick kept on 11-05 (pinned by a test). A move that loses every part this
     way is not shown at all (round_trip_drops);
@@ -97,11 +98,22 @@ def _voided(rulings, day: str, manager: str, player: str) -> bool:
 
 
 def round_trip_drops(transactions: list, rulings) -> dict:
-    """Task 48h: {transaction key: [players whose drop is hidden]} -- every
-    drop of player P by manager M where (a) the latest add of P by M before
-    it is voided, or (b) M's next add of P after it is voided. Adds and
-    drops are ordered by Yahoo's timestamp; a player is matched as
-    transaction_rulings matches him (accents, suffixes)."""
+    """Task 48h: {transaction key: [players whose drop is hidden]}. Each voided
+    add of player P by manager M cancels exactly ONE drop of P by M:
+      (b) the drop just before it, when that is M's latest move of P and on
+          the same league day -- the drop was undone by the voided re-add
+          (Benton's 11-09 Anthony Davis);
+      (a) otherwise the drop just after it -- the drop removes a player who
+          never really arrived (Benton's 11-09 Ty Jerome; Garrett's Paul
+          George, Hayden's Wagner).
+    One voided add, one hidden drop (Nick, 11-23: "I want the moves ledger to
+    make sense"). Before, rule (a) also hid a REAL drop that followed a
+    voided re-add: Nick's 11-23 test dropped Daniels (1:19), re-added him
+    (1:33, void) and then dropped him for Durant (1:43, real); the voided
+    re-add paired with the 1:19 drop AND the 1:43 one, and the real drop
+    vanished from Market > Moves. Adds and drops are ordered by Yahoo's
+    timestamp; a player is matched as transaction_rulings matches him
+    (accents, suffixes)."""
     from .transaction_rulings import _same_player
     moves = []                              # (ts, key, action, manager, player, day)
     for t in transactions:
@@ -116,16 +128,23 @@ def round_trip_drops(transactions: list, rulings) -> dict:
                               t["league_day"]))
     moves.sort(key=lambda x: (x[0], x[1], x[2] != "add"))
     hidden: dict = {}
-    for i, (ts, key, act, m, n, _day) in enumerate(moves):
-        if act != "drop":
+    done = set()                            # indexes of drops already cancelled
+    for i, (ts, key, act, m, n, day) in enumerate(moves):
+        if act != "add" or not _voided(rulings, day, m, n):
             continue
-        adds = [(j, x) for j, x in enumerate(moves) if x[2] == "add" and x[3] == m and _same_player(x[4], n)]
-        before = [x for j, x in adds if j < i]
-        after = [x for j, x in adds if j > i]
-        a = bool(before) and _voided(rulings, before[-1][5], m, before[-1][4])
-        b = bool(after) and _voided(rulings, after[0][5], m, after[0][4])
-        if a or b:
-            hidden.setdefault(key, []).append(n)
+        seq = [j for j, x in enumerate(moves) if x[3] == m and _same_player(x[4], n)]
+        k = seq.index(i)
+        prev = seq[k - 1] if k > 0 else None
+        nxt = seq[k + 1] if k + 1 < len(seq) else None
+        if prev is not None and moves[prev][2] == "drop" and prev not in done and moves[prev][5] == day:
+            pick = prev                     # (b) the voided re-add undid this drop (the same league day:
+            #                                 a drop weeks earlier was real -- Nick's 11-09 Quickley drop)
+        elif nxt is not None and moves[nxt][2] == "drop" and nxt not in done:
+            pick = nxt                      # (a) he never really arrived
+        else:
+            continue
+        done.add(pick)
+        hidden.setdefault(moves[pick][1], []).append(moves[pick][4])
     return hidden
 
 
