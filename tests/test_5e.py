@@ -171,7 +171,7 @@ def test_advice_names_its_weeks_and_labels_its_starts_expected():
     assert "win week 15" in market.intro([15, None])
     from modules import advice_live as al
     t = al.v2_tiles({"dstarts": [1.0, 0.5], "dpts": [10, 5]}, show_title=False)
-    assert t[0]["label"] == "Exp. starts"
+    assert [x["label"] for x in t] == ["Points", "Exp. starts"]          # Part B (advice goals): points first
     assert "expected lineup starts" in al.v2_why({"dstarts": [1.0, 0.5]}, {"weeks": [6, 7]})
     title, body = infotips.tip("advice")
     assert "Expected starts" in body and "Schedule" in body                  # why the two numbers differ

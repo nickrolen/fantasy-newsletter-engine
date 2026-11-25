@@ -382,11 +382,114 @@ def _move_lines(d: dict, key_of) -> list:
     return out
 
 
-def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, show_title: bool) -> dict:
-    """The Advice segment's cards from advice_latest.json (every string the
-    engine's; see the module docstring)."""
+def _exact_tiles(tiles: list, m: str, earlier: list, mv: dict, starts) -> list:
+    """Part B: the step's tiles with the Starts tile counted like Team >
+    Schedule (starts(m, earlier, mv) -> ranges.move_starts' dict). Without a
+    range source (a preview fixture with none) the simulated tile stays,
+    labelled "Exp. starts"."""
     from .. import advice_live as al
-    view = {"intro": INTRO, "cards": [], "foot": "", "error": "", "empty": ""}
+    if starts is None:
+        return tiles
+    ex = starts(m, earlier, mv)
+    if ex is None:
+        return tiles
+    out = []
+    for t in tiles:
+        if t.get("kind") == "starts" or t.get("label") == "Exp. starts":
+            sim = t.get("sim")
+            if sim is None:
+                sim = float(str(t["value"]).replace("\u2212", "-"))
+            t = al.starts_tile(float(sim), ex)
+        out.append(t)
+    return out
+
+
+def _mv(d: dict) -> dict:
+    return {"add": d.get("add"), "drop": d.get("drop"), "to_il": d.get("to_il")}
+
+
+def goals_view(latest: dict, order: list, team_of: dict, key_of, *, show_title: bool, starts=None) -> Optional[dict]:
+    """Advice goals (Part D): the picker's public chips and each goal's cards
+    (every string the engine's: advice_live.goals_payload's texts). None when
+    the goals are off, failed, or nothing but Balanced is public."""
+    from .. import advice_live as al
+    g = latest.get("goals")
+    if not g or g.get("error") or not al.goals_on():
+        return None
+    picker = [x for x in g.get("goals") or [] if x.get("public")]
+    if len(picker) <= 1:
+        return None
+    panes = {}
+    hz = latest["horizon"]
+    for x in picker:
+        if x["key"] == "balanced":
+            continue
+        cards = []
+        for m in order:
+            e = (g["managers"].get(m) or {}).get(x["key"]) or {}
+            base = latest["managers"][m]
+            card = {"m": m, "vs": x["sub"], "adds": _plural(int(base["adds_left"]), "add left", "adds left"),
+                    "rows": [], "line": "", "costs": [], "caveat": None, "as_of": None}
+            if e.get("opponent"):
+                card["vs"] = f"{x['sub']} vs {team_of[e['opponent']]}"
+            if e.get("pending"):
+                card["line"] = e["pending"]
+            elif e.get("error") or e.get("not_priced") or not e.get("texts"):
+                card["line"] = GOAL_UNPRICED
+            else:
+                t = e["texts"]
+                card["line"] = t.get("line") or ""
+                if e.get("vs_balanced") == "different":
+                    earlier = []
+                    act = base.get("activation")
+                    if act and (base.get("il_choice") or {}).get("choice") != "hold":
+                        earlier.append({"activate": list(act.get("back") or []), "drop": None})
+                        earlier += [{"drop": n} for n in act.get("drops") or []]
+                    for k, d in enumerate(e.get("plan") or [], 1):
+                        tx = (d.get("text") or {}).get("v2") or al.v2_texts(d, hz, base["opponents"],
+                                                                            show_title=show_title)
+                        tv = float(d.get("target") or 0.0)
+                        if x["target"] == "wins" and len(x["weeks"]) > 1:
+                            val = f"{tv:+.2f} wins".replace("-", "\u2212")
+                            lab = f"Wks {x['weeks'][0]}\u2013{x['weeks'][-1]}"
+                        elif x["target"] == "rs_title":
+                            val, lab = al._pct(tv), "Title odds"
+                        else:
+                            val, lab = al._pct(tv), f"Wk {x['weeks'][0]}"
+                        card["rows"].append({"kind": "step", "n": str(k), "label": "",
+                                             "adds": [_who(d["add"], key_of)], "lines": _move_lines(d, key_of),
+                                             "weeks": [{"label": lab, "value": val,
+                                                        "dir": "up" if tv > 0 else "down" if tv < 0 else "flat"}],
+                                             "why": al.goal_step_why(x, d, tx["why"]),
+                                             "tiles": _exact_tiles(tx["tiles"], m, list(earlier), _mv(d), starts),
+                                             "followup": "", "also": [], "flag": False})
+                        earlier.append(_mv(d))
+                    card["costs"] = t.get("costs") or []
+                    if t.get("caveat"):
+                        card["caveat"] = t["caveat"] + (f" Priced against {team_of[e['opponent']]}\u2019s roster today."
+                                                        if e.get("opponent") else "")
+                if not x["near"]:
+                    card["as_of"] = t.get("as_of")
+            cards.append(card)
+        panes[x["key"]] = {"intro": x.get("intro") or "", "cards": cards, "near": x["near"]}
+    return {"picker": [{"key": x["key"], "chip": x["chip"]} for x in picker if x["key"] == "balanced" or
+                       not x["key"].startswith("week:")],
+            "weeks": [{"key": x["key"], "chip": x["chip"], "label": f"{x['chip']}"} for x in picker
+                      if x["key"].startswith("week:")],
+            "panes": panes}
+
+
+GOAL_UNPRICED = "This goal could not be priced for this team tonight. Balanced\u2019s advice stands."
+
+
+def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, show_title: bool,
+                starts=None) -> dict:
+    """The Advice segment's cards from advice_latest.json (every string the
+    engine's; see the module docstring). starts (Part B): m, earlier moves,
+    the move -> ranges.move_starts' dict, for the Starts tile's exact count.
+    view["goals"] (Part D): the picker and each goal's cards, or None."""
+    from .. import advice_live as al
+    view = {"intro": INTRO, "cards": [], "foot": "", "error": "", "empty": "", "goals": None}
     if latest is None:
         view["empty"] = "Advice is being rebuilt; it returns here once it is ready."
         return view
@@ -427,12 +530,18 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
                                  "lines": [{"sign": MINUS, "kind": "down", **_who(n, key_of)} for n in act["drops"]],
                                  "weeks": tx["weeks"], "why": tx["why"], "tiles": tx["tiles"],
                                  "followup": "", "also": [], "flag": False})
+        earlier = []
+        if act and hold is None:
+            earlier.append({"activate": list(act.get("back") or []), "drop": None})
+            earlier += [{"drop": n} for n in act.get("drops") or []]
         for k, d in enumerate(plan, 1):
             tx = d["text"].get("v2") or al.v2_texts(d, hz, opps, show_title=show_title)
             also = list(d.get("also_wanted_by") or (e["also_wanted_by"] if k == 1 else []))
+            tiles = _exact_tiles(tx["tiles"], m, list(earlier), _mv(d), starts)
+            earlier.append(_mv(d))
             card["rows"].append({"kind": "step", "n": str(d.get("step", k)), "label": "",
                                  "adds": [_who(d["add"], key_of)], "lines": _move_lines(d, key_of),
-                                 "weeks": tx["weeks"], "why": tx["why"], "tiles": tx["tiles"],
+                                 "weeks": tx["weeks"], "why": tx["why"], "tiles": tiles,
                                  "followup": d["text"].get("followup") or "",
                                  "also": [{"m": o, "team": team_of[o]} for o in also], "flag": bool(also)})
         t = e.get("plan_total")
@@ -470,12 +579,35 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
                     "bar" if (e.get("note") or "").startswith("nothing clears") else "pat")
             card["empty"] = e.get("v2_empty") or al.EMPTY_V2[code]
         view["cards"].append(card)
+    view["goals"] = goals_view(latest, order, team_of, key_of, show_title=show_title, starts=starts)
     return view
 
 
 # =============================================================================
 # the block
 # =============================================================================
+
+def _starts_fn(ctx: dict):
+    """Part B: the Starts tile's exact count, from the one range source
+    (ctx["ranges"], Team > Schedule's) and the free agents' Availability;
+    None without them. The horizon's days from the move's effective day."""
+    from datetime import date as _date
+    from . import ranges
+    src, fa_av, wk = ctx.get("ranges"), ctx.get("fa_av"), ctx.get("wk_dates")
+    adv = ctx.get("advice") or {}
+    hz = adv.get("horizon")
+    if src is None or fa_av is None or not wk or not hz:
+        return None
+    eff = _date.fromisoformat(hz["effective"])
+    days = [d for w in hz["weeks"] if w is not None for d in (wk.get(int(w)) or wk.get(str(w)) or []) if d >= eff]
+
+    def starts(m, earlier, mv):
+        try:
+            return ranges.move_starts(src, fa_av, m, earlier, mv, days)
+        except ranges.RangeError:
+            return None              # his games can't be counted here: the simulated tile, labelled so
+    return starts
+
 
 def build(payload: dict, ctx: dict) -> dict:
     """v2["market"]. ctx: "fa_av", "col_specs",
@@ -495,7 +627,8 @@ def build(payload: dict, ctx: dict) -> dict:
     adv = None
     if ctx["advice_on"]:
         segs.append(["advice", "Advice"])
-        adv = advice_view(ctx["advice"], order, team_of, key_of, show_title=ctx["show_title"])
+        adv = advice_view(ctx["advice"], order, team_of, key_of, show_title=ctx["show_title"],
+                          starts=_starts_fn(ctx))
     segs += [["block", "Block"], ["moves", "Moves"]]
     return {"segs": segs,
             "available": available(payload["free_agents"], ctx["fa_av"], ctx["col_specs"], prow),

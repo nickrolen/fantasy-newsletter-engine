@@ -378,3 +378,82 @@ class Source:
         only push out one of m's own starters and ignored the drop a pickup
         needs. Value to a team stays with Advice and Market."""
         return len(av.playable(name, self.empty_days(m, days)))
+
+
+# =============================================================================
+# Part B (Advice goals handoff; 5F_NOTES item 7): a move's starts, counted
+# like Team > Schedule -- the same day_fill on a roster with the move applied
+# =============================================================================
+
+class _IL:
+    def __init__(self, base, extra, out=()):
+        self.base, self.extra, self.out = base, set(extra), set(out)
+
+    def __contains__(self, n):
+        return n not in self.out and (n in self.extra or n in self.base)
+
+
+class Moved:
+    """An Availability (`av`) with team `m`'s roster changed by advice's moves
+    ({"add", "drop", "to_il", "activate"} dicts, in order): each activation
+    out of its IL slot (the plan's activation step), each add in (his games and
+    tags from `fa_av`, the free agents' Availability), each drop out, each IL
+    placement into an IL slot (an IL slot does not score). Everything else is
+    av's own, so day_fill counts it exactly as Team > Schedule does."""
+
+    def __init__(self, av, fa_av, m: str, moves: Sequence[dict]):
+        from ..hub_state import Availability
+        self._av, self._fa = av, fa_av
+        ros = list(av.rosters.get(m, []))
+        adds, to_il, back = [], [], []
+        for mv in moves:
+            back += list(mv.get("activate") or [])
+            if mv.get("drop") and mv["drop"] in ros:
+                ros.remove(mv["drop"])
+            if mv.get("to_il"):
+                to_il.append(mv["to_il"])
+            if mv.get("add") and mv["add"] not in ros:
+                if fa_av is None or (fa_av.info.get(mv["add"]) or {}).get("nba_team") is None:
+                    raise RangeError(f"{mv['add']} (an advice add) is not among the free agents' "
+                                     "Availability: his games cannot be counted")
+                ros.append(mv["add"])
+                adds.append(mv["add"])
+        self.rosters = {**av.rosters, m: ros}
+        self.il = {**av.il, m: _IL(av.il.get(m) or {}, to_il, back)}
+        # the info keeps the hub's name rules (PlayerIndex: an accent, a suffix, Yahoo's
+        # initial): a roster's "Luka Doncic" is info's "Luka Don\u010di\u0107" (11-25: a plain
+        # dict here raised KeyError on the real state)
+        from ..data_loader import PlayerIndex
+        self.info = PlayerIndex({**(dict(fa_av.info) if fa_av is not None else {}), **dict(av.info)})
+        self.team_dates = av.team_dates
+        self._adds = set(adds)
+        self._grid = Availability.grid_players
+
+    def grid_status(self, n, d):
+        if n in self._adds:
+            return self._fa.grid_status(n, d)
+        return self._av.grid_status(n, d)
+
+    def grid_players(self, manager, d):
+        return self._grid(self, manager, d)
+
+
+def move_starts(src: "Source", fa_av, m: str, earlier: Sequence[dict], move: dict,
+                days: Sequence[date]) -> dict:
+    """Part B: the move's starts on `days`, counted like Team > Schedule (the
+    sure players' exact fill, day_fill): with `earlier` steps and the move,
+    minus with the earlier steps alone. {"delta", "gained": [days], "lost":
+    [days]}. One source: the Starts tile reads this, never a second fill."""
+    delta, gained, lost = 0, [], []
+    for d in days:
+        av = src.av_on(d)
+        a = (day_fill(Moved(av, fa_av, m, earlier), m, d, src.light_max, src.standins, src.nba(d))
+             if earlier else src.day(m, d))
+        b = day_fill(Moved(av, fa_av, m, list(earlier) + [move]), m, d, src.light_max, src.standins, src.nba(d))
+        x = b.starts[0] - a.starts[0]
+        delta += x
+        if x > 0:
+            gained.append(d)
+        elif x < 0:
+            lost.append(d)
+    return {"delta": delta, "gained": gained, "lost": lost}

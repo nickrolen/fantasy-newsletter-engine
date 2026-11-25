@@ -172,3 +172,57 @@ def add_market(p: dict, *, advice=None, advice_on: bool = True, show_title: bool
         "range_list": _ranges.ranges(WEEKS[9][0], 9, WEEKS), "wk_dates": WEEKS, "ranges": None,
         "proj": {FA_NAME: {"projectedFPPG": 31.0}, "Stash Guy": {"projectedFPPG": 28.0}}})
     return p
+
+
+def goals_block(*, far_public: bool = True, error: str = None) -> dict:
+    """advice_latest.json's "goals" for the made-up league (Advice goals, Part
+    D): the picker's goals and each manager's entry, every string from
+    advice_live's own functions (goal_intro, goal_texts). Marcus: Wk 10 picks a
+    different move and week 11 a stash; Tyler: same as Balanced; Dana: the
+    noise line; Jordan: no adds left."""
+    from modules import advice_goals as ag
+    g_next = ag.Goal("next", "Wk 10", "Week 10", (10,), ag.NEAR, "wins")
+    g_next2 = ag.Goal("next2", "Wks 10\u201311", "Weeks 10\u201311", (10, 11), ag.NEAR, "wins")
+    g_w11 = ag.Goal("week:11", "Wk 11", "Week 11", (11,), ag.NIGHTLY, "wins")
+    goals = [ag.Goal("balanced", "Balanced", "Weeks 10\u201311", (10, 11), ag.NEAR, "balanced"), g_next, g_next2, g_w11]
+    as_of = "2026-12-02T00:04:00-08:00"
+    opps = {"Marcus": "Dana", "Tyler": "Jordan", "Dana": "Marcus", "Jordan": "Tyler"}
+
+    def entry(g, m, vs, plan=None, cost=None):
+        e = {"key": g.key, "target": g.target, "vs_balanced": vs, "plan": plan or [], "stop": "pat", "note": "",
+             "gain": 0.05 if vs == "different" else 0.0, "se": 0.01, "bar": 0.02, "cost": cost,
+             "as_of": as_of, "refresh": "move" if g.near else "nightly"}
+        e["texts"] = al.goal_texts(e, g)
+        if not g.near:
+            e["texts"]["as_of"] = "As of 12:04 AM."
+            e["opponent"] = opps[m]
+        return e
+
+    def step(add, drop, target, weeks):
+        d = _texts(_move(add, drop, (0.03, -0.01), (25.0, 4.0), (0.4, 0.1), -0.002), {"10": "Tyler", "11": "Dana"},
+                   1, 1, True)
+        d.update(step=1, target=target, target_pts=40.0, weeks=weeks)
+        return d
+    cost_near = {"weeks": [{"week": 10, "dwp": 0.024, "dpts": 20.0, "in_goal": True, "days": 7},
+                           {"week": 11, "dwp": -0.013, "dpts": -8.0, "in_goal": False, "days": 7}],
+                 "title_odds": -0.004, "adds": 1, "adds_balanced": 2, "holds_weeks": None}
+    cost_far = {"weeks": [{"week": 10, "dwp": -0.021, "dpts": -15.0, "in_goal": False, "days": 7},
+                          {"week": 11, "dwp": 0.062, "dpts": 48.0, "in_goal": True, "days": 7}],
+                "title_odds": -0.012, "adds": 1, "adds_balanced": 2, "holds_weeks": 1}
+    mans = {"Marcus": {"next": entry(g_next, "Marcus", "different", [step("Streak Guy", "Marcus Wing", 0.094, {"10": 0.094})], cost_near),
+                       "next2": entry(g_next2, "Marcus", "same"),
+                       "week:11": entry(g_w11, "Marcus", "different", [step("Stash Guy", "Marcus Bench Two", 0.062, {"11": 0.062})], cost_far)},
+            "Tyler": {k: entry(g, "Tyler", "same") for k, g in (("next", g_next), ("next2", g_next2), ("week:11", g_w11))},
+            "Dana": {k: entry(g, "Dana", "noise") for k, g in (("next", g_next), ("next2", g_next2), ("week:11", g_w11))},
+            "Jordan": {k: entry(g, "Jordan", "no_adds") for k, g in (("next", g_next), ("next2", g_next2), ("week:11", g_w11))}}
+    picker = [{"key": g.key, "chip": g.chip, "sub": g.sub, "weeks": list(g.weeks), "near": g.near, "refresh": g.refresh,
+               "target": g.target, "long_weeks": [], "public": g.near or far_public,
+               "intro": al.goal_intro(g, None if g.near else "As of 12:04 AM.")} for g in goals]
+    return {"as_of": as_of, "mode": "nightly", "first_week": 10, "error": error, "far_public": far_public,
+            "goals": picker, "managers": mans, "carried": False}
+
+
+def advice_with_goals(**kw) -> dict:
+    a = advice_latest()
+    a["goals"] = goals_block(**kw)
+    return a

@@ -251,7 +251,25 @@ def market_files(vm: dict, root_key: bytes, terms=()) -> tuple:
         rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
         files[rel] = blob
         refs.setdefault("ranges", {})[t["key"]] = {"file": rel, "key": hub_crypto.b64(k)}
+    # Advice goals (Part C.6): each goal's cards but Balanced's, one encrypted part (opened on its
+    # chip's first tap); Balanced stays in the first load
+    gv = (((vm.get("market") or {}).get("advice")) or {}).get("goals")
+    if gv:
+        mark = _goal_mark()
+        for key, pane in gv["panes"].items():
+            k, blob = hub_crypto.seal_by_content(K, hub_cards._gz({"html": page_market.goal_pane_html(key, pane, mark)}),
+                                                 terms)
+            rel = f"{PART_DIR}/{hashlib.sha256(blob).hexdigest()[:16]}.enc"
+            files[rel] = blob
+            refs.setdefault("goals", {})[key] = {"file": rel, "key": hub_crypto.b64(k)}
     return files, refs
+
+
+def _goal_mark():
+    """The goal cards' TeamMark: the page's own (page._mono), so a part's card
+    looks like the page's."""
+    from . import page
+    return lambda t: page._mono(t)
 
 
 def players_files(vm: dict, root_key: bytes, terms=()) -> tuple:
@@ -433,8 +451,9 @@ def build(base, payload: dict, passphrase: str, *, salt: bytes, out_dir=None, it
     return {"dir": str(out), "files": scan["files"], "sizes": sizes, "terms": len(terms), "reseals": attempt - 1,
             "gzip": gz, "live": live, "card_files": crep, "league_parts": lrep, "players_parts": plsizes,
             "picture_parts": {m: (out / r["file"]).stat().st_size for m, r in prefs.items()},
-            "market_parts": {k: (out / r["file"]).stat().st_size for k, r in mrefs.items() if k != "ranges"},
+            "market_parts": {k: (out / r["file"]).stat().st_size for k, r in mrefs.items() if k not in ("ranges", "goals")},
             "market_range_parts": {k: (out / r["file"]).stat().st_size for k, r in (mrefs.get("ranges") or {}).items()},
+            "advice_goal_parts": {k: (out / r["file"]).stat().st_size for k, r in (mrefs.get("goals") or {}).items()},
             "screen_parts": ssizes,
             "iterations": bundle["iter"], "bundle_salt": bundle["salt"],
             "budget_bytes": budget, "over_budget": len(sh) > budget, "lazy_cap_bytes": LAZY_CAP_BYTES,

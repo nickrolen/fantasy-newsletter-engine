@@ -24,7 +24,7 @@ import json
 
 from .text import clean, colh, colh_btn
 
-TAP_CLASSES = ("adv-row", "adv-bk", "v2-mkcell", "v2-mvchip")
+TAP_CLASSES = ("adv-row", "adv-bk", "adv-crow", "v2-mkcell", "v2-mvchip")
 DOT = " \u00b7 "
 
 CSS = """
@@ -108,6 +108,30 @@ CSS = """
 .adv-bk[aria-expanded="true"] .adv-chev{transform:rotate(90deg)}
 .adv-empty{padding:0 var(--space-14) var(--space-14) calc(var(--space-14) + var(--mono-36) + var(--space-6));font-size:var(--type-body-size);color:var(--ink-3)}
 .adv-err{padding:var(--space-12) var(--space-14);font-size:var(--type-body-size);color:var(--ink-2)}
+.adv-tl{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.adv-tinfo button{min-width:var(--tap-min);min-height:var(--tap-min);margin:calc(-1 * var(--space-12)) calc(-1 * var(--space-12)) calc(-1 * var(--space-12)) 0}
+.adv-tsub{font-size:var(--type-small-size);color:var(--ink-3);line-height:1.25;overflow-wrap:anywhere}
+.adv-pick{display:flex;flex-direction:column;gap:var(--space-6);min-width:0}
+.adv-pick-h{display:flex;align-items:center;justify-content:space-between;padding:0 var(--space-2)}
+.adv-chips{display:flex;gap:var(--space-8);overflow-x:auto;scrollbar-width:none;padding:var(--space-2);margin:0 calc(-1 * var(--space-2));min-width:0}
+.adv-chips::-webkit-scrollbar{display:none}
+.adv-chip{flex:0 0 auto;white-space:nowrap;cursor:pointer;min-width:var(--tap-min);justify-content:center}
+.adv-wk[data-on]{background:var(--dark);border-color:var(--dark);color:var(--ink-on-dark)}
+.adv-wk[data-on] select{color:var(--ink-on-dark)}
+[data-goal-pane]{display:flex;flex-direction:column;gap:var(--space-20);min-width:0}
+[data-goal-pane][hidden]{display:none}
+.adv-gfoot{display:flex;flex-direction:column;gap:var(--space-6);padding:var(--space-8) var(--space-14) var(--space-14)}
+.adv-cost{background:var(--surface);border:var(--hairline) solid var(--line-soft);border-radius:var(--radius-12);overflow:hidden}
+.adv-cost-h{display:flex;align-items:baseline;gap:var(--space-8);padding:var(--space-8) var(--space-10) var(--space-4)}
+.adv-crow{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) var(--space-14);gap:var(--space-12);align-items:center;min-height:var(--tap-min);padding:var(--space-6) var(--space-10);border-top:var(--hairline) solid var(--line-soft);font-size:var(--type-body-size);color:var(--ink)}
+.adv-crow--btn{cursor:pointer}
+.adv-crow--btn[aria-expanded="true"] .adv-chev{transform:rotate(90deg)}
+.adv-cv{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.adv-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--space-4);padding:var(--space-6) var(--space-10) var(--space-10)}
+.adv-strip[hidden]{display:none}
+.adv-sc{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);background:var(--surface-subtle);border-radius:var(--radius-9);padding:var(--space-6) var(--space-2)}
+.adv-ssub{font-size:var(--type-label-size);color:var(--ink-3)}
+.adv-asof{font-size:var(--type-small-size);font-weight:700;color:var(--ink-3)}
 """
 
 JS = r"""
@@ -175,8 +199,46 @@ function mvFilter(m){
   var it=document.querySelectorAll('#mk-moves [data-ms]');
   for(var j=0;j<it.length;j++){it[j].hidden=!!m&&(' '+it[j].getAttribute('data-ms')+' ').indexOf(' '+m+' ')<0;}
 }
+// Advice goals (Part D): one picker for the page (Nick, 11-25: every card
+// switches together); the goal is in the route (#/market?goal=week:12) and
+// remembered for the session, like Market's range. A goal's cards are an
+// encrypted part when published, opened on its chip's first tap.
+MK.goal='';
+function advGoal(key,push){
+  var panes=document.querySelectorAll('[data-route="market"] [data-goal-pane]');if(!panes.length){return;}
+  var has=false;for(var i=0;i<panes.length;i++){if(panes[i].getAttribute('data-goal-pane')===key){has=true;}}
+  if(!key||!has){key='balanced';}
+  MK.goal=key;
+  for(var j=0;j<panes.length;j++){var b=panes[j],on=b.getAttribute('data-goal-pane')===key;b.hidden=!on;
+    if(on&&b.getAttribute('data-part')&&!b.getAttribute('data-loaded')&&window.HUB&&window.HUB.part){advLoad(b);}}
+  var cs=document.querySelectorAll('[data-goal]');for(var k=0;k<cs.length;k++){
+    cs[k].setAttribute('aria-pressed',String(cs[k].getAttribute('data-goal')===key));}
+  var wk=key.indexOf('week:')===0,sel=document.querySelector('[data-goalweek]');
+  if(sel){sel.value=wk?key:'';var lab=sel.parentNode;
+    if(wk){lab.setAttribute('data-on','');}else{lab.removeAttribute('data-on');}
+    var l=lab.querySelector('[data-goalwk-l]');if(l){l.textContent=wk?'Wk '+key.slice(5):'A week';}}
+  try{sessionStorage.setItem('hub.goal',key);}catch(e){}
+  if(push){try{history.replaceState(null,'','#/market?goal='+encodeURIComponent(key));}catch(e){}}
+}
+function advLoad(b){b.setAttribute('data-loaded','1');b.innerHTML='<p class="v2-card-load v2-pad">Opening\u2026</p>';
+  window.HUB.part(JSON.parse(b.getAttribute('data-part'))).then(function(p){b.innerHTML=p.html;},
+    function(){b.innerHTML='<p class="v2-card-load v2-pad">This goal could not be opened. Reload the page.</p>';});}
+function advRoute(){
+  var h=location.hash;if(h.indexOf('#/market')!==0){return;}
+  var qi=h.indexOf('?'),q={};
+  if(qi>=0){h.slice(qi+1).split('&').forEach(function(kv){var p=kv.split('=');q[p[0]]=decodeURIComponent(p[1]||'');});}
+  var g=q.goal;if(!g){try{g=sessionStorage.getItem('hub.goal')||'';}catch(e){g='';}}
+  if(g){advGoal(g,false);}
+}
+window.addEventListener('hashchange',advRoute);
+setTimeout(advRoute,0);
 document.addEventListener('click',function(e){
-  var t=e.target.closest('.adv-row[aria-controls],.adv-bk[aria-controls]');
+  var t=e.target.closest('[data-goal]');
+  if(t){advGoal(t.getAttribute('data-goal'),true);return;}
+  t=e.target.closest('.adv-crow--btn[aria-controls]');
+  if(t){var o=t.getAttribute('aria-expanded')==='true';t.setAttribute('aria-expanded',String(!o));
+    document.getElementById(t.getAttribute('aria-controls')).hidden=o;return;}
+  t=e.target.closest('.adv-row[aria-controls],.adv-bk[aria-controls]');
   if(t&&!e.target.closest('[data-card]')&&!e.target.closest('a')){
     var open=t.getAttribute('aria-expanded')==='true';t.setAttribute('aria-expanded',String(!open));
     document.getElementById(t.getAttribute('aria-controls')).hidden=open;return;}
@@ -198,6 +260,7 @@ document.addEventListener('change',function(e){
   if(t.matches&&t.matches('[data-mksort]')){var tb=mkTable();if(!tb){return;}
     tb.setAttribute('data-sort','');sortTable(tb,t.value);return;}
   if(t.matches&&t.matches('[data-mkr]')){mkRange(t.value,true);return;}
+  if(t.matches&&t.matches('[data-goalweek]')){if(t.value){advGoal(t.value,true);}return;}
 });
 """
 
@@ -462,14 +525,30 @@ def _weeks(weeks: list) -> str:
     return "".join(o)
 
 
-def _tiles(tiles: list) -> str:
+INFO_SVG = ('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            'aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>')
+
+
+def _tip(ids, title: str, body: str) -> str:
+    """An InfoTip with the engine's own text (a tile's: Part B's Starts)."""
+    pid = ids.next("tip")
+    return (f'<span class="lh-info adv-tinfo"><button type="button" aria-expanded="false" aria-controls="{pid}" '
+            f'aria-label="What {clean(title)} means">{INFO_SVG}</button><span class="lh-info__pop" id="{pid}" '
+            f'role="note" hidden><b>{clean(title)}</b>{clean(body)}</span></span>')
+
+
+def _tiles(tiles: list, ids=None) -> str:
+    """Part B: Points, Starts (the days under the number, the simulated mean in
+    its InfoTip), Title odds -- in the engine's order."""
     if not tiles:
         return ""
     o = ['<div class="adv-mini">']
     for t in tiles:
         d = {"up": " adv-up", "down": " adv-down"}.get(t["dir"], "")
-        o.append(f'<div class="lh-kpi lh-kpi--nested"><span class="lh-label">{clean(t["label"])}</span>'
-                 f'<span class="lh-kpi__value{d}">{clean(t["value"])}</span></div>')
+        tip = _tip(ids, t["label"], t["tip"]) if (t.get("tip") and ids is not None) else ""
+        sub = f'<span class="adv-tsub">{clean(t["sub"])}</span>' if t.get("sub") else ""
+        o.append(f'<div class="lh-kpi lh-kpi--nested"><span class="adv-tl"><span class="lh-label">{clean(t["label"])}'
+                 f'</span>{tip}</span><span class="lh-kpi__value{d}">{clean(t["value"])}</span>{sub}</div>')
     o.append("</div>")
     return "".join(o)
 
@@ -515,7 +594,7 @@ def _adv_row(r: dict, ids) -> str:
     det = [f'<div class="adv-det" id="{did}" hidden><div class="adv-why">{clean(r["why"])}</div>']
     if r.get("followup"):
         det.append(f'<div class="adv-why">{clean(r["followup"])}</div>')
-    det.append(_tiles(r["tiles"]))
+    det.append(_tiles(r["tiles"], ids))
     if r["also"]:
         det.append('<div class="adv-tag">Also wanted by ' + "".join(_team_link(t) for t in r["also"]) + "</div>")
     det.append(_cards(r["adds"] + r["lines"]))
@@ -523,8 +602,94 @@ def _adv_row(r: dict, ids) -> str:
     return head + "".join(det)
 
 
-def _advice(av: dict, ids, info, mark_of) -> str:
-    o = [f'<div class="adv-intro"><span>{clean(av["intro"])}</span>{info}</div>']
+class PaneIds:
+    """Unique ids inside a goal's pane, which may be its own encrypted part
+    (rendered apart from the page): every id carries the goal's prefix."""
+
+    def __init__(self, key: str):
+        self.p = "g" + "".join(ch if ch.isalnum() else "-" for ch in key) + "-"
+        self.n = 0
+
+    def next(self, p: str = "") -> str:
+        self.n += 1
+        return f"{self.p}{p}{self.n}"
+
+
+def _goal_costs(costs: list, ids) -> str:
+    if not costs:
+        return ""
+    o = ['<div class="adv-cost"><div class="adv-cost-h"><span class="lh-label">What it costs</span>'
+         '<span class="lh-sub">against Balanced\u2019s advice</span></div>']
+    for c in costs:
+        d = {"up": " adv-up", "down": " adv-down"}.get(c.get("dir"), "")
+        if c.get("strip"):
+            sid = ids.next("strip")
+            o.append(f'<button type="button" class="adv-crow adv-crow--btn" aria-expanded="false" aria-controls="{sid}">'
+                     f'<span>{clean(c["label"])}</span><span class="adv-cv{d}">{clean(c["value"])}</span>'
+                     f'<span class="adv-chev" aria-hidden="true">&rsaquo;</span></button>'
+                     f'<div class="adv-strip" id="{sid}" hidden>'
+                     + "".join(f'<span class="adv-sc"><span class="adv-l">Wk {clean(str(x["week"]))}</span>'
+                               f'<span class="adv-v{"" if x["dir"] == "up" else " adv-v--down" if x["dir"] == "down" else " adv-v--flat"}">'
+                               f'{clean(x["value"])}</span>'
+                               + (f'<span class="adv-ssub">{clean(x["sub"])}</span>' if x.get("sub") else "") + "</span>"
+                               for x in c["strip"]) + "</div>")
+        else:
+            o.append(f'<div class="adv-crow"><span>{clean(c["label"])}</span><span class="adv-cv{d}">'
+                     f'{clean(c["value"])}</span><span></span></div>')
+    o.append("</div>")
+    return "".join(o)
+
+
+def goal_pane_html(key: str, pane: dict, mark_of) -> str:
+    """One goal's cards (Part D): rendered into the page (the preview) or as
+    its own encrypted part, opened on the chip's first tap (publish)."""
+    ids = PaneIds(key)
+    o = [f'<div class="adv-intro"><span>{clean(pane["intro"])}</span></div>']
+    for c in pane["cards"]:
+        t = c["team"]
+        o.append(f'<section class="lh-card adv {t["cls"]}" data-manager="{clean(t["manager"])}"><div class="adv-head">'
+                 f'{mark_of(t)}<span class="v2-minw"><a class="adv-team v2-tap" href="{t["href"]}">{clean(t["team"])}</a>'
+                 f'<span class="lh-sub">{clean(c["vs"])}</span></span><span class="adv-adds">{clean(c["adds"])}</span></div>')
+        if c["rows"]:
+            o.append('<div class="adv-hrow"><span></span><span></span><span class="adv-colh">Win % change</span>'
+                     "<span></span></div>")
+            for k, r in enumerate(c["rows"]):
+                if k:
+                    o.append('<div class="adv-then" aria-hidden="true">then</div>')
+                o.append(_adv_row(r, ids))
+            if c["costs"] or c["caveat"] or c["as_of"]:
+                o.append('<div class="adv-gfoot">' + _goal_costs(c["costs"], ids)
+                         + (f'<span class="adv-asof">{clean(c["as_of"])}</span>' if c["as_of"] else "")
+                         + (f'<span class="lh-sub">{clean(c["caveat"])}</span>' if c["caveat"] else "") + "</div>")
+        else:
+            o.append(f'<div class="adv-empty">{clean(c["line"])}</div>')
+        o.append("</section>")
+    return "".join(o)
+
+
+def _goal_picker(g: dict, ids, info) -> str:
+    o = ['<div class="adv-pick" role="group" aria-label="Play for"><span class="adv-pick-h">'
+         f'<span class="lh-label">Play for</span>{info}</span><div class="adv-chips" data-goalchips>']
+    for x in g["picker"]:
+        o.append(f'<button type="button" class="v2-fchip adv-chip" data-goal="{clean(x["key"])}" '
+                 f'aria-pressed="{"true" if x["key"] == "balanced" else "false"}">{clean(x["chip"])}</button>')
+    if g["weeks"]:
+        # Market's own pattern (the Range chip): a visible select is the chip's content
+        o.append('<label class="v2-fchip adv-chip adv-wk"><select data-goalweek aria-label="A week">'
+                 '<option value="" selected>A week \u25be</option>'
+                 + "".join(f'<option value="{clean(x["key"])}">{clean(x["label"])}</option>' for x in g["weeks"])
+                 + "</select></label>")
+    o.append("</div></div>")
+    return "".join(o)
+
+
+def _advice(av: dict, ids, info, mark_of, gparts: dict = None, ginfo: str = "") -> str:
+    g = av.get("goals")
+    o = []
+    if g and not (av["error"] or av["empty"]):
+        o.append(_goal_picker(g, ids, ginfo))
+        o.append('<div data-goal-pane="balanced">')
+    o.append(f'<div class="adv-intro"><span>{clean(av["intro"])}</span>{info}</div>')
     if av["error"] or av["empty"]:
         o.append(f'<section class="lh-card adv"><div class="adv-err">{clean(av["error"] or av["empty"])}</div></section>')
     for c in av["cards"]:
@@ -556,10 +721,19 @@ def _advice(av: dict, ids, info, mark_of) -> str:
                      + "".join(f' {clean(x["sign"])} {clean(x["name"])}' for x in b["lines"])
                      + '</b></span><span class="adv-chev" aria-hidden="true">&rsaquo;</span></button>'
                      f'<div class="adv-det" id="{did}" hidden>{_weeks(b["weeks"])}<div class="adv-why">{clean(b["why"])}</div>'
-                     f'{_tiles(b["tiles"])}{_cards([b["add"]] + b["lines"])}</div>')
+                     f'{_tiles(b["tiles"], ids)}{_cards([b["add"]] + b["lines"])}</div>')
         if c["empty"]:
             o.append(f'<div class="adv-empty">{clean(c["empty"])}</div>')
         o.append("</section>")
+    if g and not (av["error"] or av["empty"]):
+        o.append("</div>")
+        for k, pane in g["panes"].items():
+            ref = (gparts or {}).get(k)
+            if ref:                                   # publish: its own part, opened on the first tap
+                o.append(f'<div data-goal-pane="{clean(k)}" hidden data-part=\'{clean(json.dumps(ref, separators=(",", ":")))}\'>'
+                         "</div>")
+            else:                                     # the preview: inline
+                o.append(f'<div data-goal-pane="{clean(k)}" hidden>{goal_pane_html(k, pane, mark_of)}</div>')
     if av["foot"]:
         o.append(f'<span class="lh-sub">{clean(av["foot"])}</span>')
     return "".join(o)
@@ -580,7 +754,9 @@ def market_screen(vm: dict, ids, info_of, mark_of) -> str:
         elif k == "stash":
             o.append(_stash(mk["stash"]))
         elif k == "advice":
-            o.append(_advice(mk["advice"], ids, info_of(ids, "advice"), mark_of))
+            gp = (mk.get("parts") or {}).get("goals")
+            o.append(_advice(mk["advice"], ids, info_of(ids, "advice"), mark_of, gp,
+                             info_of(ids, "advice_goals") if (mk["advice"] or {}).get("goals") else ""))
         elif k == "block":
             o.append(_block(mk["block"]))
         elif k == "moves":

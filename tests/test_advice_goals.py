@@ -48,7 +48,7 @@ def test_goals_follow_the_ranges_and_week_7_says_14_days():
     assert keys[:8] == ["balanced", "next", "next2", "next3", "ros", "semis", "finals", "cup"]
     assert keys[8:] == [f"week:{k}" for k in range(8, 16)]          # first week + 1 through week 15
     by = {g.key: g for g in gs}
-    assert by["next"].chip == "Wk 7" and by["next2"].chip == "Wks 7–8"
+    assert by["next"].chip == "Wk 7" and by["next2"].chip == "Wks 7\u20138"
     assert by["next"].long_weeks == (7,) and "14 days" in by["next"].sub
     assert by["week:8"].long_weeks == ()
     rr = {r.key: r.weeks for r in rg.ranges(wk[7][0], 7, wk)}        # one definition: Market's ranges

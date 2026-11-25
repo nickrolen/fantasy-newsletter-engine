@@ -121,7 +121,7 @@ class Goal:
 
 
 def _chip_weeks(a: int, b: int) -> str:
-    return f"Wk {a}" if a == b else f"Wks {a}–{b}"
+    return f"Wk {a}" if a == b else f"Wks {a}\u2013{b}"
 
 
 def goals_for(first_week: int, wk_dates: Mapping[int, Sequence], league_config: dict = None,

@@ -523,6 +523,17 @@ def market(payload: dict, teams: dict) -> dict:
                 bk = dict(bk, add=who(bk["add"]), lines=[who(x) for x in bk["lines"]])
             cards.append(dict(c, team=teams[c["m"]], rows=rows, backup=bk))
         adv = dict(a2, cards=cards)
+        gv = a2.get("goals")
+        if gv:                                    # Advice goals (Part D): the same, per goal
+            panes = {}
+            for k, pane in gv["panes"].items():
+                gc = []
+                for c in pane["cards"]:
+                    rows = [dict(r, adds=[who(p) for p in r["adds"]], lines=[who(x) for x in r["lines"]], also=[])
+                            for r in c["rows"]]
+                    gc.append(dict(c, team=teams[c["m"]], rows=rows))
+                panes[k] = dict(pane, cards=gc)
+            adv["goals"] = dict(gv, panes=panes)
     return {"segs": mk["segs"], "available": av, "stash": st, "advice": adv, "block": bl, "moves": mv}
 
 

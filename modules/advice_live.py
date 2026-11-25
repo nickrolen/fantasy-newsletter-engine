@@ -734,12 +734,17 @@ def v2_weeks(m: dict, horizon: dict, opponents: dict) -> list:
 
 
 def v2_tiles(m: dict, *, show_title: bool) -> list:
-    """The tap-open tiles: Starts, Points and (advice.show_title_odds) Title odds."""
+    """The tap-open tiles, POINTS FIRST (Part B, 5F_NOTES item 7; Nick, 11-23):
+    Points, Starts, then (advice.show_title_odds) Title odds. The Starts tile
+    here is the simulated mean ("Exp. starts", decimals); the hub replaces it
+    with the exact count on today's tags and names the days (hub_v2.market,
+    ranges.move_starts: Team > Schedule's own fill), keeping this mean in the
+    tile's InfoTip ("sim")."""
     st = m["dstarts"][0] + m["dstarts"][1]
     pts = m["dpts"][0] + m["dpts"][1]
-    # 5e (5D2 decision 3): a simulated mean, labelled so beside Schedule's exact counts
-    out = [{"label": "Exp. starts", "value": f"{st:+.1f}".replace("-", "\u2212"), "dir": _dir(st, 1, 1.0)},
-           {"label": "Points", "value": f"{pts:+.0f}".replace("-", "\u2212"), "dir": _dir(pts, 0, 1.0)}]
+    out = [{"label": "Points", "value": f"{pts:+.0f}".replace("-", "\u2212"), "dir": _dir(pts, 0, 1.0)},
+           {"label": "Exp. starts", "value": f"{st:+.1f}".replace("-", "\u2212"), "dir": _dir(st, 1, 1.0),
+            "sim": round(st, 3), "kind": "starts"}]
     if show_title:
         t = m.get("title_odds")
         out.append({"label": "Title odds" if m.get("title_label") != "playoff title odds" else "Playoff odds",
@@ -747,15 +752,55 @@ def v2_tiles(m: dict, *, show_title: bool) -> list:
     return out
 
 
+STARTS_DISAGREE = ("The simulation's average goes the other way: it also counts injury chances, which "
+                   "today's tags leave out.")
+
+
+def _day_list(days, limit: int = 3) -> str:
+    ds = [f"{d:%a} {d:%m-%d}" for d in sorted(days)]
+    return ", ".join(ds[:limit]) + (f", +{len(ds) - limit} more" if len(ds) > limit else "")
+
+
+def starts_tile(sim: float, exact: dict) -> dict:
+    """Part B: the Starts tile from the exact fill (ranges.move_starts): the
+    count, the days under it (up to 3, then "+N more"), and the InfoTip --
+    infotips "advice_starts", the simulated mean, and one sentence when the two
+    disagree in sign."""
+    from .hub_v2 import infotips
+    n = int(exact["delta"])
+    days = exact["gained"] if n > 0 else exact["lost"] if n < 0 else []
+    sub = _day_list(days) if days else ("same days" if not exact["gained"] and not exact["lost"]
+                                        else "gains and losses cancel")
+    tip = infotips.tip("advice_starts")[1] + f" Simulated: {sim:+.1f} starts.".replace("-", "\u2212")
+    if (n > 0 and sim < 0) or (n < 0 and sim > 0):
+        tip += " " + STARTS_DISAGREE
+    return {"label": "Starts", "value": (f"{n:+d}" if n else "0").replace("-", "\u2212"),
+            "dir": "up" if n > 0 else "down" if n < 0 else "flat", "sub": sub, "tip": tip, "kind": "starts"}
+
+
+# Part B: below one extra start (simulated), the gain is a better player in the same slots
+POINTS_FIRST_STARTS = 1.0
+
+
 def v2_why(m: dict, horizon: dict) -> str:
-    """One plain sentence: the lineup starts it adds, by week, named as the
-    view's columns name them ("in week 6")."""
+    """One plain sentence. Part B: it LEADS WITH POINTS when most of the gain
+    is a better player in the same slots (under POINTS_FIRST_STARTS expected
+    extra starts); otherwise with the lineup starts it adds, by week, named as
+    the view's columns name them ("in week 6"), and their points."""
     ws = horizon["weeks"]
     st = m["dstarts"]
     tot = st[0] + st[1]
-    word = "start" if abs(round(tot, 1)) == 1.0 else "starts"
-    by = ", ".join(f"{st[k]:+.1f} in week {w}" for k, w in enumerate(ws) if w is not None)
-    s = (f"{tot:+.1f} expected lineup {word}: {by}.").replace("-", "\u2212")
+    pts = (m["dpts"][0] + m["dpts"][1]) if m.get("dpts") else None
+    span = [w for w in ws if w is not None]
+    wtxt = f"week {span[0]}" if len(span) == 1 else f"weeks {span[0]}\u2013{span[-1]}"
+    if pts is not None and pts > 0 and abs(tot) < POINTS_FIRST_STARTS:
+        s = f"{pts:+.0f} points over {wtxt}, mostly a better player in the same slots."
+    else:
+        word = "start" if abs(round(tot, 1)) == 1.0 else "starts"
+        by = ", ".join(f"{st[k]:+.1f} in week {w}" for k, w in enumerate(ws) if w is not None)
+        s = f"{tot:+.1f} expected lineup {word}: {by}"
+        s += f", worth {pts:+.0f} points." if pts is not None else "."
+    s = s.replace("-", "\u2212")
     if m.get("flat"):
         s += " The matchups are as good as decided, so it is ranked on points."
     return s
@@ -1255,6 +1300,19 @@ def goal_cost_lines(e: dict, goal) -> list:
     if c.get("holds_weeks"):
         out.append({"label": "Roster spot", "value": f"held until week {first_goal}", "dir": "flat", "strip": None})
     return out
+
+
+def goal_step_why(goal: dict, d: dict, base_why: str) -> str:
+    """A goal step's sentence: for a far goal, its own week's points (the
+    horizon's sentence would describe weeks the goal doesn't play for)."""
+    pts = d.get("target_pts")
+    if goal.get("near") or pts is None or goal.get("target") != "wins":
+        return base_why
+    ws = goal["weeks"]
+    span = f"week {ws[0]}" if len(ws) == 1 else f"weeks {ws[0]}\u2013{ws[-1]}"
+    return (f"{pts:+.0f} points in {span}, against the scheduled opponent. "
+            "He stays on your roster until then.").replace("-", "\u2212", 1) if pts < 0 else \
+        f"{pts:+.0f} points in {span}, against the scheduled opponent. He stays on your roster until then."
 
 
 def goal_texts(e: dict, goal) -> dict:

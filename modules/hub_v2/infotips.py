@@ -103,6 +103,18 @@ TIPS = {
                "player joins the next Monday. A drop in the chat frees the player for the coming week at once. "
                "A team with a player in an IL slot who no longer has an O, OFS, Q or D tag can make no moves "
                "until he leaves it."),
+    # Part B (5F_NOTES item 7; Advice goals handoff): the Advice tiles' Starts
+    "advice_starts": ("Starts",
+                      "Starts here are counted like Team \u203a Schedule: today's injury tags, filled day by day. "
+                      "Advice's win chances use a simulation that also includes injury chances, so its average "
+                      "can differ."),
+    # Advice goals (Part D): the picker
+    "advice_goals": ("Play for",
+                     "Balanced is the default: your chance to win the next two matchups, with a veto on any move "
+                     "that costs title odds. Each other goal looks for the move that does most for that goal "
+                     "alone, and shows what it costs against Balanced's advice. A different move shows only when "
+                     "it beats Balanced's on the goal by more than the noise. The near goals are re-priced after "
+                     "every Monday move; the far ones each night at 12:01 AM."),
     # 5e: the "I'm..." team picker (5D2 decision 1)
     "me": ("I'm\u2026",
            "Pick your team and the hub shows what's yours: Value to you on Players and Market, and Market's "

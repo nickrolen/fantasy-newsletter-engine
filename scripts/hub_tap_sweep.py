@@ -211,6 +211,11 @@ def states_for(page, route):
         if(s.querySelector('[data-pgroup="box"]')) out.push(['boxv','tot']);
         const r=s.querySelector('[data-section="available"]')?s.querySelector('select[data-mkr]'):null;
         if(r){[...r.options].forEach(o=>out.push(['mkr', o.value]));}
+        // Advice goals (Part D): each goal chip, each week of "A week", a far goal's cost strip opened
+        s.querySelectorAll('[data-goal]').forEach(b=>out.push(['goal', b.getAttribute('data-goal')]));
+        const gw=s.querySelector('select[data-goalweek]');
+        if(gw){[...gw.options].filter(o=>o.value).forEach(o=>out.push(['goal', o.value]));
+          const f=[...gw.options].find(o=>o.value); if(f) out.push(['goalstrip', f.value]);}
         // 5e: the "I'm..." picker opened, and a team picked (Value to you, the light-days chip)
         if(document.getElementById('me-btn')&&['home','players','market'].includes(s.getAttribute('data-route'))){
           out.push(['me','open']); out.push(['me','pick']);
@@ -228,6 +233,12 @@ APPLY_5D2 = """([k,p]) => { const s=[...document.querySelectorAll('.v2-screen')]
     setTimeout(()=>{const b=s.querySelector('[data-pgroup="box"] [data-boxv="tot"]'); if(b) b.click();},300);}
   else if(k==='mkr'){seg('market','available'); const x=s.querySelector('select[data-mkr]'); x.value=p;
     x.dispatchEvent(new Event('change',{bubbles:true}));}
+  else if(k==='goal'||k==='goalstrip'){seg('market','advice');
+    if(p.indexOf('week:')===0){const x=s.querySelector('select[data-goalweek]'); x.value=p;
+      x.dispatchEvent(new Event('change',{bubbles:true}));}
+    else{const b=s.querySelector('[data-goal="'+p+'"]'); if(b) b.click();}
+    if(k==='goalstrip'){setTimeout(()=>{const c=s.querySelector('[data-goal-pane]:not([hidden]) .adv-crow--btn');
+      if(c) c.click(); const r=s.querySelector('[data-goal-pane]:not([hidden]) .adv-row'); if(r) r.click();},400);}}
   else if(k==='me'){const sh=document.getElementById('me-sheet');
     if(p==='open'){if(sh.hidden) document.getElementById('me-btn').click();}
     else{const b=document.querySelector('[data-me-pick]:not([data-me-pick=""])'); if(b) b.click();
@@ -291,7 +302,7 @@ def run(url: str, passphrase: str, sizes=SIZES, chrome: str = None) -> dict:
                             page.evaluate("(kv) => { const [k,v]=kv.split('|'); const x=document.querySelector("
                                           "'select[data-spick=\"'+k+'\"]'); x.value=v; x.dispatchEvent(new Event('change',{bubbles:true})); }",
                                           p)
-                        elif k in ("swk", "sday", "pgrp", "boxv", "mkr", "me"):    # 5d2, 5e
+                        elif k in ("swk", "sday", "pgrp", "boxv", "mkr", "me", "goal", "goalstrip"):    # 5d2, 5e, goals
                             page.evaluate(APPLY_5D2, [k, p])
                             page.wait_for_timeout(500)
                         elif k == "toggle":
