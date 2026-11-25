@@ -628,7 +628,8 @@ def write(blob: dict, path, root=ROOT) -> Path:
         raise AwardsPastError(f"refused: {p} is not inside {allowed} (AWARDS_PAST is public history)")
     validate(blob)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(blob, indent=1, ensure_ascii=True, sort_keys=False) + "\n", encoding="utf-8")
+    p.write_text(json.dumps(blob, indent=1, ensure_ascii=True, sort_keys=False) + "\n", encoding="utf-8",
+                 newline="\n")      # LF on every platform: the committed file is LF (11-25)
     return p
 
 

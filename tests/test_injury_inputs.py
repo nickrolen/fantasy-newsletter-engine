@@ -106,7 +106,7 @@ def test_the_build_records_the_outcome_in_metadata_and_capture():
 def test_the_build_refuses_end_to_end_without_tags():
     """A real simulating run with no fetch exits 1 before building anything."""
     r = subprocess.run([sys.executable, "scripts/generate_stats_report.py", "--week", "1",
-                        "--no-fetch-injuries", "--dry-run", "--no-freshness"],
+                        "--no-fetch-injuries", "--dry-run", "--no-freshness", "--own-line"],   # 5g: past week 2's close the closing-line choice comes first
                        cwd=ROOT, capture_output=True, text=True, timeout=170)
     assert r.returncode == 1, r.stdout[-2000:]
     assert "REFUSED: no injury statuses: not fetched (--no-fetch-injuries)" in r.stdout
