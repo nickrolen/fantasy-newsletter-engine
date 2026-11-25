@@ -74,6 +74,19 @@ def band(rows: list, weeks: Iterable[int] = HISTORY_WEEKS) -> tuple:
     return min(rates), max(rates)
 
 
+def band_by_week(rows: list, weeks: Iterable[int] = HISTORY_WEEKS) -> dict:
+    """{week: (lowest, highest)}: the per-season miss rate in that week alone,
+    over the seasons that played it -- the range real seasons produced, week
+    by week (handoff 32: the per-week check). Measured, never typed in."""
+    out = {}
+    for w in weeks:
+        rates = [m / g for m, g in historical(rows, [w]).values() if g]
+        if not rates:
+            raise ValueError(f"no season in the log plays week {w}: no band to check it against")
+        out[int(w)] = (min(rates), max(rates))
+    return out
+
+
 def pooled(rows: list, weeks: Optional[Iterable[int]] = None) -> tuple:
     by = historical(rows, weeks).values()
     m, g = sum(v[0] for v in by), sum(v[1] for v in by)
@@ -81,6 +94,27 @@ def pooled(rows: list, weeks: Optional[Iterable[int]] = None) -> tuple:
 
 
 # ---------------------------------------------------------------- this season
+def played_weeks(lineups) -> list:
+    """The weeks LINEUPS has any day of: played, or in progress."""
+    if lineups is None or len(lineups) == 0:
+        return []
+    return sorted(int(w) for w in lineups["week"].unique())
+
+
+def check_by_week(engine: dict, bands: dict, played: Iterable[int]) -> list:
+    """[(week, engine rate, lo, hi, gated, inside)] for every week in
+    `engine`. Only weeks NOT yet played are gated (Nick, 11-25, handoff 32
+    decision 5): a played week is run with today's rosters and today's
+    INJURY_OVERRIDES read back over it, so it is reported, not gated."""
+    played = {int(w) for w in played}
+    out = []
+    for w in sorted(engine):
+        lo, hi = bands[int(w)]
+        r = engine[w]
+        out.append((int(w), r, lo, hi, int(w) not in played, lo <= r <= hi))
+    return out
+
+
 def realized(lineups, weeks: Optional[Iterable[int]] = None) -> tuple:
     """(missed, team games, rate) this season from LINEUPS. A team game is a
     row with an NBA opponent; a miss is one where he scored 0.0."""
@@ -138,6 +172,15 @@ def simulated(data, team_projections, weeks, injury_statuses, draws,
     return {"games": games, "missed": missed, "rate": missed / games if games else float("nan"),
             "by_manager": {m: (v[0] / v[1] if v[1] else float("nan")) for m, v in by.items()},
             "unprojected_games": unprojected}
+
+
+def simulated_by_week(data, team_projections, weeks, injury_statuses, draws,
+                      tag_anchor: Optional[date] = None, managers=None) -> dict:
+    """{week: the engine's miss rate in that week}, from the same draws
+    (simulated, one week at a time; the season chain is memoised on draws,
+    so every week reads one chain)."""
+    return {int(w): simulated(data, team_projections, [w], injury_statuses, draws, tag_anchor,
+                              managers)["rate"] for w in weeks}
 
 
 # ---------------------------------------------------------------- reporting

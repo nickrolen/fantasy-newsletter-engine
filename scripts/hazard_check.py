@@ -7,6 +7,11 @@ misses, simulated over weeks 1-15, against the range real seasons of this
 league produced over the same weeks (HISTORICAL_PLAYERLOG). An engine where
 nobody is hurt sits near zero; an over-charging one sits above every season.
 
+THE PER-WEEK CHECK (handoff 32, 11-25): the engine's miss rate in each week
+1-15 against the range real seasons produced in THAT week. Gated only for the
+weeks not yet played; a played week (today's rosters, today's overrides read
+back over it) is reported.
+
 STARTED GAMES is printed, never gated. 2026-27 runs five bench slots and depth
 absorbs absences, so it can no longer see the hazard (modules/miss_rate.py,
 HANDOFF_HAZARD_CHECK_2026-10-27). It still belongs in every before/after -- it
@@ -16,11 +21,12 @@ Both are also shown like for like on the weeks already played: this season's
 realized numbers (LINEUPS / PLAYERLOG) against the engine on those same weeks.
 
 USAGE
-    py scripts/hazard_check.py
-    py scripts/hazard_check.py --sims 2000 --seed 20262027
+    python scripts/hazard_check.py
+    python scripts/hazard_check.py --sims 2000 --seed 20262027
 
 EXIT CODES
-    0 = the simulated miss rate is inside the range real seasons produced
+    0 = the simulated miss rate is inside the range real seasons produced,
+        over weeks 1-15 and in every week not yet played
     1 = it is not
 """
 import argparse
@@ -99,6 +105,17 @@ def main():
         print(f"    this season so far (weeks {played[0]}-{played[-1]}), realized: {rate:.2%} "
               f"({m}/{g})  |  engine, same weeks: {sim_played:.2%}  |  "
               f"history, week 1 only: {w1lo:.2%} - {w1hi:.2%}")
+        # handoff 32: the weekly line's own view -- each week priced at its own
+        # first day, where the chain starts (reported; the gate above is the
+        # season's shape from week 1)
+        lm = lg = 0.0
+        for w in played:
+            wa = date.fromisoformat(sb.schedule_week(data, w)["start_date"])
+            r = mr.simulated(data, teams, [w], {}, sb.KeyedDraws(args.seed, args.sims), wa, MANAGERS)
+            lm += r["missed"]
+            lg += r["games"]
+        print(f"    the same weeks, each priced at its own first day (the weekly line's view): "
+              f"engine {lm / lg:.2%} against realized {rate:.2%}")
 
     history = mr.started_per_manager_day(rows)
     realized_day = None
@@ -117,10 +134,26 @@ def main():
         print(f"    weeks played so far: actual {realized_day:.3f} | engine {p_on:.3f} | "
               f"engine with no hazard {p_off:.3f}  (today's rosters, not the ones that played)")
 
+    # the per-week check (handoff 32): same seed, same anchor, one chain
+    from modules.absence import baseline_params
+    params = baseline_params()
+    draws = sb.KeyedDraws(args.seed, args.sims)
+    by_week = mr.simulated_by_week(data, teams, season, {}, draws, anchor, MANAGERS)
+    rows_w = mr.check_by_week(by_week, mr.band_by_week(rows, season), played)
+    print(f"\n  BY WEEK (chain start: {params.start_rule}, season total held: "
+          f"{params.hold_season_total}); gated: the weeks not yet played")
+    for w, r, wlo, whi, gated, inside in rows_w:
+        verdict = ("PASS" if inside else "FAIL") if gated else ("inside" if inside else "outside") + ", reported"
+        print(f"    week {w:>2}: engine {r:6.2%}   real seasons {wlo:6.2%} - {whi:6.2%}   {verdict}")
+    week_fail = [w for w, r, wlo, whi, gated, inside in rows_w if gated and not inside]
+
     ok = lo <= on_miss <= hi
     print(f"\n  RESULT: {'PASS' if ok else 'FAIL'} -- the simulated miss rate {on_miss:.2%} is "
           f"{'inside' if ok else 'OUTSIDE'} the {lo:.2%}-{hi:.2%} real seasons produced.")
-    return 0 if ok else 1
+    print(f"  BY WEEK: {'PASS' if not week_fail else 'FAIL'} -- "
+          + ("every week not yet played is inside its range." if not week_fail else
+             f"week(s) {week_fail} outside the range real seasons produced in that week."))
+    return 0 if ok and not week_fail else 1
 
 
 if __name__ == "__main__":

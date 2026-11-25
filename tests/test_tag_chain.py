@@ -186,17 +186,27 @@ def test_a_monday_fetch_prices_exactly_as_before():
     anchors offered. Since task 50 the hash is of a platform-neutral form
     (_pass_hash): the raw bytes differed on Nick's Windows run (626773368830a4ab
     on 11-16); 92a0e7f0105588f8 is the neutral hash of the same pass, computed
-    in the VM at 275a532, where the raw hash was still 0eb18da9fa773399."""
+    in the VM at 275a532, where the raw hash was still 0eb18da9fa773399.
+
+    Handoff 32 (11-25) moved where the baseline chain starts
+    (config absence_chain_start): under rule "stationary" -- the chain as it
+    was -- the pass is still 92a0e7f0105588f8, so s.3's guarantee is
+    untouched; under the config's rule "healthy_at_anchor" it is
+    8eab30a88ba43e3a (computed in the VM on 11-25, both with and without
+    anchors offered)."""
     import test_season_sim as T
+    from modules import data_loader
     mp = pytest.MonkeyPatch()
     mp.setattr(spo, "resolve_completed_week", lambda d, w: None)
     try:
-        for kw in ({}, {"tag_anchors": {}}):
-            data, teams = T._world(recorded_through=8)
-            sp = ss.run_season(data, num_simulations=300, seed=11, team_projections=teams,
-                               injury_statuses={"Nick3": "O", "Hayden5": "Q", "Benton1": "D"},
-                               through="playoffs", **kw)
-            assert _pass_hash(sp) == "92a0e7f0105588f8", kw
+        for rule, want in (("stationary", "92a0e7f0105588f8"), ("healthy_at_anchor", "8eab30a88ba43e3a")):
+            mp.setitem(data_loader._LEAGUE_CONFIG["absence_chain_start"], "rule", rule)
+            for kw in ({}, {"tag_anchors": {}}):
+                data, teams = T._world(recorded_through=8)
+                sp = ss.run_season(data, num_simulations=300, seed=11, team_projections=teams,
+                                   injury_statuses={"Nick3": "O", "Hayden5": "Q", "Benton1": "D"},
+                                   through="playoffs", **kw)
+                assert _pass_hash(sp) == want, (rule, kw)
     finally:
         mp.undo()
 

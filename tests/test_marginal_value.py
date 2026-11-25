@@ -124,9 +124,15 @@ def test_on_an_empty_roster_value_is_projection_times_games_times_availability()
     ctx = mv.build_context(projs, {"Nick": ["Solo"]}, nba, weeks, "this_week", 1,
                            extra_players=["New"], sims=4000)
     r = mv.marginal_value(ctx, "Nick", adds=["New"])
-    expected = 30.0 * 3 * (60.0 / 80.0)          # rate relative to max rostered GP
+    # availability is his own durability, (82 - 60) / 82 a game, from the
+    # chain started healthy at the anchor (no tag, no override: handoff 32) --
+    # his three games are the first three of its ramp, exactly
+    from modules import absence
+    params = absence.baseline_params()
+    played = 1.0 - absence.absent_probabilities(absence.durability_miss_rate(60.0, params), 3, params, True)
+    expected = 30.0 * played.sum()
     assert abs(r.points - expected) < 4 * r.se + 1e-6, (r.points, expected, r.se)
-    assert abs(r.starts - 3 * 0.75) < 0.1
+    assert abs(r.starts - played.sum()) < 0.1
 
 
 def test_injury_override_weeks_are_hard_outs():

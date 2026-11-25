@@ -441,7 +441,9 @@ def baseline(ctx: MVContext, p: MVPlayer):
     given no hazard). Anchored at the window's first day -- the week the
     projections were fetched for, the week engine's anchor too. The durability
     comes from ctx.durability_prior (a pre-season snapshot) and an OFS tag
-    zeroes it, exactly as in the week engine."""
+    zeroes it, exactly as in the week engine. The chain starts at the same
+    anchor, healthy for a player with no tag and no override (absence.py,
+    WHERE THE CHAIN STARTS), as the week engine's does."""
     if p.projected_gp is None or not ctx.days:
         return None
     hit = ctx._baseline.get(p.name)
@@ -460,7 +462,8 @@ def baseline(ctx: MVContext, p: MVPlayer):
             ctx.seed, ctx.season, p.name, team_dates, anchor,
             absence.durability_miss_rate(
                 absence.effective_projected_gp(p.status, prior_gp), _baseline_params()),
-            ctx.sims, _baseline_params(), override, absence.season_out(p.status))
+            ctx.sims, _baseline_params(), override, absence.season_out(p.status),
+            start=anchor, tagged=absence.tagged(p.status))
     return hit
 
 

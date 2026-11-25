@@ -8,6 +8,7 @@ checks it against nine seasons of what actually happened, and checks that it
 FAILS with the hazard switched off.
 """
 import ast
+import dataclasses
 import inspect
 import json
 from datetime import date, timedelta
@@ -26,6 +27,9 @@ from modules.projections import PlayerProjection, TeamProjections
 ROOT = Path(__file__).parent.parent
 HIST = ROOT / "data" / "historical" / "HISTORICAL_PLAYERLOG.json"
 P = absence.baseline_params()
+# the chain as it was before 11-25 (stationary start for everyone): what the
+# tests of the rate arithmetic compare against, unchanged by where it starts
+P_STAT = dataclasses.replace(P, start_rule="stationary")
 SEED = 20262027
 
 
@@ -197,6 +201,29 @@ def test_reality_miss_rate_inside_the_range_real_seasons_produced(seasons, histo
 
 
 @pytest.mark.slow
+def test_reality_miss_rate_by_week_inside_history_for_the_weeks_not_yet_played(live):
+    """Handoff 32: the engine's miss rate in EACH week 1-15 against the range
+    real seasons produced in that week. Gated only for the weeks not yet
+    played (Nick, 11-25): a played week runs today's rosters with today's
+    INJURY_OVERRIDES read back over it, so it is reported (printed), not
+    gated. scripts/hazard_check.py prints the same table."""
+    data, teams = live
+    rows = json.loads(HIST.read_text(encoding="utf-8"))
+    import pandas as pd
+    lu = ROOT / "data" / "LINEUPS.xlsx"
+    played = mr.played_weeks(pd.read_excel(lu)) if lu.is_file() else []
+    anchor = date.fromisoformat(sb.schedule_week(data, 1)["start_date"])
+    by_week = mr.simulated_by_week(data, teams, range(1, 16), {}, sb.KeyedDraws(SEED, 500), anchor,
+                                   MANAGERS)
+    rows_w = mr.check_by_week(by_week, mr.band_by_week(rows, range(1, 16)), played)
+    for w, r, lo, hi, gated, inside in rows_w:
+        print(f"week {w:>2}: {r:.4f} in [{lo:.4f}, {hi:.4f}] {'GATED' if gated else 'reported'} "
+              f"{'inside' if inside else 'OUTSIDE'}")
+    bad = [(w, r, lo, hi) for w, r, lo, hi, gated, inside in rows_w if gated and not inside]
+    assert not bad, bad
+
+
+@pytest.mark.slow
 @pytest.mark.xfail(strict=False, reason=(
     "11-17: on the live state the hazard-off miss rate (0.0737) no longer clears this test's "
     "margin below the history band's low end: this season's real injury entries (Edwards, "
@@ -252,10 +279,13 @@ def test_durability_is_rewarded(monkeypatch):
     on = _durability_league(True, monkeypatch)
     # without the hazard, durability is worth nothing: identical rosters
     assert max(off.values()) / min(off.values()) - 1 < 0.01, off
-    # with it, each roster keeps the share of games its players play
+    # with it, each roster keeps the share of games its players play: the
+    # chain's own, started healthy at the anchor (handoff 32) -- weeks 2-4 are
+    # the anchor week's games 7..27, part of the way up its ramp
     for m, gp in DURABILITY_GP.items():
         rate = absence.durability_miss_rate(gp, P)
-        assert 1 - on[m] / off[m] == pytest.approx(rate, abs=0.015), (m, on, off)
+        share = absence.absent_probabilities(rate, 28, P, True)[7:28].mean()
+        assert 1 - on[m] / off[m] == pytest.approx(share, abs=0.015), (m, on, off, share)
     # so the durable roster gains on the fragile one, in order
     assert on["Hayden"] / on["Nick"] > off["Hayden"] / off["Nick"] + 0.10
     assert on["Hayden"] > on["Benton"] > on["Nick"]
@@ -269,11 +299,16 @@ def _season_dates(n_games, start=date(2026, 10, 20), every=2):
     return [start + timedelta(days=every * k) for k in range(n_games)]
 
 
-def _blocks(gp, n_games=82, n=4000, anchor=None, player="X", seed=SEED):
-    """Blocks for a player whose PRE-SEASON projected GP is `gp`."""
+def _blocks(gp, n_games=82, n=4000, anchor=None, player="X", seed=SEED, params=P, start=None,
+            tagged=False):
+    """Blocks for a player whose PRE-SEASON projected GP is `gp` (no tag, no
+    override: under the config's rule his chain starts healthy at `start`,
+    default the anchor)."""
     dates = _season_dates(n_games)
-    return absence.BaselineBlocks(seed, "2026-27", player, dates, anchor or dates[0],
-                                  absence.durability_miss_rate(gp, P), n, P)
+    anchor = anchor or dates[0]
+    return absence.BaselineBlocks(seed, "2026-27", player, dates, anchor,
+                                  absence.durability_miss_rate(gp, params), n, params,
+                                  start=start or anchor, tagged=tagged)
 
 
 def test_parameters_live_in_config_and_missing_raises():
@@ -283,6 +318,20 @@ def test_parameters_live_in_config_and_missing_raises():
         c["short_share"], c["short_mean_games"], c["long_mean_games"], c["nba_games_per_team"])
     with pytest.raises(KeyError, match="absence_baseline"):
         absence.baseline_params({})
+    # where the chain starts: its own block, required (handoff 32)
+    st = cfg["absence_chain_start"]
+    assert (P.start_rule, P.hold_season_total) == (st["rule"], st["hold_season_total"])
+    assert P.start_rule == "healthy_at_anchor" and P.hold_season_total is True
+    with pytest.raises(KeyError, match="absence_chain_start"):
+        absence.baseline_params({"absence_baseline": c})
+    with pytest.raises(KeyError, match="absence_chain_start is missing 'hold_season_total'"):
+        absence.baseline_params({"absence_baseline": c, "absence_chain_start": {"rule": st["rule"]}})
+    with pytest.raises(ValueError, match="not one of"):
+        absence.baseline_params({"absence_baseline": c,
+                                 "absence_chain_start": {"rule": "stationry", "hold_season_total": True}})
+    with pytest.raises(ValueError, match="true or false"):
+        absence.baseline_params({"absence_baseline": c,
+                                 "absence_chain_start": {"rule": st["rule"], "hold_season_total": "yes"}})
     src = inspect.getsource(absence)
     for v in ("0.75", "1.24", "9.5"):
         assert v not in src.split("class BaselineParams")[1], v
@@ -303,12 +352,17 @@ def test_the_window_counts_the_unscheduled_cup_games():
     scheduled yet and still count in the window the rate is applied over."""
     dates = _season_dates(80)
     anchor = dates[30]
-    b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, anchor,
-                               absence.durability_miss_rate(40, P), 4000, P)
-    assert b.remaining == 50 + 2
-    assert b.rate == pytest.approx((82 - 40) / 82)
-    rest = b.season_mask()[:, 30:].sum(axis=1)
-    assert rest.mean() == pytest.approx(50 * (82 - 40) / 82, abs=0.5)
+    for params in (P_STAT, P):
+        b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, anchor,
+                                   absence.durability_miss_rate(40, params), 4000, params,
+                                   start=anchor, tagged=False)
+        assert b.remaining == 50 + 2
+        assert b.rate == pytest.approx((82 - 40) / 82)
+        rest = b.season_mask()[:, 30:].sum(axis=1)
+        if params is P_STAT:
+            assert rest.mean() == pytest.approx(50 * (82 - 40) / 82, abs=0.5)
+        else:       # from a healthy start at the anchor: the chain's own ramp, exactly
+            assert rest.mean() == pytest.approx(b.expected_missed()[30:].sum(), abs=0.5)
 
 
 def test_a_mid_season_anchor_keeps_the_prior_s_rate():
@@ -316,13 +370,17 @@ def test_a_mid_season_anchor_keeps_the_prior_s_rate():
     the All-Star break a 69-GP player is still missing ~16% of his games, not
     zero (which is what (remaining - 69) / remaining would have given)."""
     dates = _season_dates(82)
-    for anchor_i, remaining in ((0, 82), (42, 40), (72, 10)):
-        b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[anchor_i],
-                                   absence.durability_miss_rate(69, P), 4000, P)
-        assert b.remaining == remaining
-        assert b.rate == pytest.approx((82 - 69) / 82, abs=1e-12)
-        window = b.season_mask()[:, anchor_i:].sum(axis=1)
-        assert window.mean() == pytest.approx(remaining * 13 / 82, abs=0.6)
+    for params in (P_STAT, P):
+        for anchor_i, remaining in ((0, 82), (42, 40), (72, 10)):
+            b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[anchor_i],
+                                       absence.durability_miss_rate(69, params), 4000, params,
+                                       start=dates[anchor_i], tagged=False)
+            assert b.remaining == remaining
+            assert b.rate == pytest.approx((82 - 69) / 82, abs=1e-12)
+            window = b.season_mask()[:, anchor_i:].sum(axis=1)
+            want = (remaining * 13 / 82 if params is P_STAT
+                    else b.expected_missed()[anchor_i:].sum())
+            assert window.mean() == pytest.approx(want, abs=0.6), (params.start_rule, anchor_i)
 
 
 def test_marginal_value_no_longer_divides_by_the_roster_max():
@@ -365,8 +423,11 @@ def test_absences_come_in_blocks_not_coin_flips():
     # complete-run games are in runs <= 3; under coin flips it would be ~99%)
     in_long = runs[runs >= 4].sum() / runs.sum()
     assert in_long > 0.5
-    # and the chain is stationary: every game is missed at the rate
-    assert np.abs(mask.mean(axis=0) - rate).max() < 0.03
+    # and every game is missed at the chain's exact probability: from a
+    # healthy start, its ramp (handoff 32); stationary, the rate (below)
+    assert np.abs(mask.mean(axis=0) - b.expected_missed()).max() < 0.03
+    s = _blocks(82 - 82 * rate, n=4000, params=P_STAT).season_mask()
+    assert np.abs(s.mean(axis=0) - rate).max() < 0.03
 
 
 @pytest.mark.slow
@@ -376,6 +437,150 @@ def test_the_chain_is_exactly_stationary_at_any_rate():
         m = absence.baseline_mask(u, rate, 82, P)
         assert m.mean() == pytest.approx(rate, abs=0.01)
         assert m[:, 0].mean() == pytest.approx(rate, abs=0.015)
+
+
+# 3b -- where the chain starts (handoff 32, 11-25)
+#
+# Nine seasons: a player who PLAYED his last game before the week misses
+# 5.9% / 8.6% / 11.5% of his next games, against 17.6% for everyone; this
+# season 4.3% / 6.1% / 8.8% (claude/32_PHASE1_2026-11-25.md s.2c). Starting
+# the chain stationary charged every untagged player the long absences that
+# would, in reality, already carry a tag: the engine's weeks 1-6 miss rate
+# was 21.2% against a realized 14.1%, and the published totals ran +6% low.
+@pytest.mark.parametrize("gp", [75, 69, 60, 40])
+def test_a_healthy_start_relaxes_to_the_chain_and_holds_the_season_total(gp):
+    rate = absence.durability_miss_rate(gp, P)
+    exact = absence.absent_probabilities(rate, 82, P, True)
+    # the season total is held: a season started healthy misses (82 - GP)
+    assert exact.sum() == pytest.approx(82 - gp, abs=1e-6)
+    # it opens low -- a fresh absence starting is all the first game can be --
+    h = absence._chain(rate, P)[0] * absence.healthy_start_scale(rate, P)
+    assert exact[0] == pytest.approx(h, rel=1e-12)
+    assert exact[0] < 0.7 * rate
+    if gp >= 60:                                   # this league's players (rates under ~0.27)
+        assert exact[0] < 0.5 * rate
+    # rises without a dip, and settles above the rate (the hold), within ~20 games
+    assert (np.diff(exact) >= -1e-12).all()
+    assert exact[30:].min() > rate and exact[30:].max() < 1.12 * rate
+    hl = absence._chain(rate, P)[0] * absence.healthy_start_scale(rate, P) * P.mean_length
+    assert exact[60] == pytest.approx(hl / (1 + hl), rel=0.005)       # the scaled chain's own plateau
+    # and the mask draws exactly that
+    b = _blocks(gp, n=20000)
+    assert b.healthy
+    m = b.season_mask()
+    assert np.abs(m.mean(axis=0) - exact).max() < 0.015
+    assert m.sum(axis=1).mean() == pytest.approx(82 - gp, abs=0.25)
+
+
+def test_the_hold_is_off_when_the_config_says_so():
+    rate = absence.durability_miss_rate(69, P)
+    off = dataclasses.replace(P, hold_season_total=False)
+    assert absence.healthy_start_scale(rate, off) == 1.0
+    exact = absence.absent_probabilities(rate, 82, off, True)
+    assert exact[0] == pytest.approx(absence._chain(rate, P)[0])
+    assert exact.sum() < rate * 82                                # a healthy start loses misses
+    assert exact[60] == pytest.approx(rate, rel=0.01)             # and settles at the rate
+
+
+def test_tagged_overridden_and_season_out_players_keep_the_stationary_start():
+    dates = _season_dates(82)
+    rate = absence.durability_miss_rate(69, P)
+    def mask(params, **kw):
+        args = dict(override=(0, 0.0), season_out=False, tagged=False)
+        args.update(kw)
+        return absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[0], rate, 2000, params,
+                                      args["override"], args["season_out"], start=dates[0],
+                                      tagged=args["tagged"])
+    stationary = mask(P_STAT).season_mask()
+    for kw in ({"tagged": True}, {"override": (7, 3.0)}):
+        b = mask(P, **kw)
+        assert not b.healthy, kw
+        if "override" not in kw:
+            assert np.array_equal(b.season_mask(), stationary), kw
+    assert mask(P).healthy
+    assert not np.array_equal(mask(P).season_mask(), stationary)
+    ofs = absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[0], 1.0, 200, P,
+                                 season_out=True, start=dates[0], tagged=False)
+    assert not ofs.healthy and ofs.season_mask().all()
+
+
+def test_the_stationary_rule_is_the_chain_before_11_25():
+    """Rule "stationary" is baseline_mask over the whole season, for everyone:
+    the pre-11-25 chain, draw for draw."""
+    dates = _season_dates(80)
+    rate = absence.durability_miss_rate(66, P)
+    b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[20], rate, 3000, P_STAT,
+                               start=dates[40], tagged=False)
+    from modules import crn
+    u = crn.keyed_rng(SEED, "baseline", "2026-27", "X").random((3000, P.games_per_team + 1))
+    assert not b.healthy
+    assert np.array_equal(b.season_mask(), absence.baseline_mask(u, b.rate, 80, P_STAT))
+
+
+def test_the_chain_starts_at_its_start_and_reads_the_same_uniforms():
+    """A start after the anchor (a mid-week refresh): games before it keep the
+    stationary chain's draws; from it, the healthy chain, on the same keyed
+    uniforms -- so the draws do not depend on who asks."""
+    dates = _season_dates(82)
+    rate = absence.durability_miss_rate(70, P)
+    stat = absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[0], rate, 4000, P_STAT,
+                                  start=dates[0], tagged=False).season_mask()
+    b = absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[0], rate, 4000, P,
+                               start=dates[30] - timedelta(days=1), tagged=False)
+    assert b.start_index == 30
+    m = b.season_mask()
+    assert np.array_equal(m[:, :30], stat[:, :30])
+    exact = absence.absent_probabilities(rate, 52, P, True)
+    assert np.abs(m[:, 30:].mean(axis=0) - exact).max() < 0.025
+    assert m[:, 30].mean() < 0.5 * rate < stat[:, 30].mean()
+    with pytest.raises(TypeError, match="must be a date"):
+        absence.BaselineBlocks(SEED, "2026-27", "X", dates, dates[0], rate, 10, P,
+                               start="2026-10-20", tagged=False)
+
+
+def test_chain_start_precedence():
+    a, f, c = date(2026, 11, 23), date(2026, 11, 25), date(2026, 11, 24)
+    assert sb.chain_start_for(a) == a
+    assert sb.chain_start_for(a, from_date=a) == a                 # a full week: bit-identical
+    assert sb.chain_start_for(a, from_date=f) == f                 # a mid-week refresh: its own time
+    assert sb.chain_start_for(f, from_date=a) == f                 # never before the anchor from a remainder
+    tc = sb.TagChain(anchors={}, week_info=(6, []), observed={}, as_of=c)
+    assert sb.chain_start_for(date(2026, 11, 30), tag_chain=tc) == c
+    assert sb.chain_start_for(a, from_date=f, tag_chain=tc, chain_start=a) == a   # explicit wins
+
+
+def test_a_mid_week_season_pass_starts_every_week_s_chain_at_its_as_of():
+    """season_sim passes its week in progress's as_of to week_score_matrices,
+    so the remainder and every later week read one chain (a long absence
+    that starts tonight is still there next week)."""
+    src = inspect.getsource(__import__("modules.season_sim", fromlist=["run_season"]).run_season)
+    assert "chain_start = min(states[w][0] for w in pending) if pending else None" in src
+    assert '"chain_start": chain_start' in src
+    data, teams, weeks = _week_world()
+    draws = sb.KeyedDraws(SEED, 500)
+    asof = sb.get_dates_in_week(weeks[2])[3]
+    rem = sb.baseline_blocks(data, teams, draws, date.fromisoformat(weeks[2]["start_date"]),
+                             ["Nick"], start=asof)["P0Nick"]
+    later = sb.baseline_blocks(data, teams, draws, date.fromisoformat(weeks[3]["start_date"]),
+                               ["Nick"], start=asof)["P0Nick"]
+    assert rem.healthy and later.healthy
+    assert np.array_equal(rem.season_mask()[:, rem.start_index:],
+                          later.season_mask()[:, later.start_index:])
+
+
+def test_marginal_value_starts_the_chain_where_the_week_engine_does():
+    """One availability model (both seams): an untagged player starts healthy
+    in both, a Q-tagged one stationary in both, and the draws agree."""
+    sched = [{"week": 1, "start_date": "2026-10-20", "end_date": "2026-10-26"}]
+    games = {"games": [{"date": d.isoformat() + "T00:00:00Z", "home": "BOS", "away": "MIA"}
+                       for d in _season_dates(80)]}
+    def proj(n):
+        return PlayerProjection(player_name=n, nba_team="BOS", positions=["PG"], projected_fppg=30.0,
+                                projected_gp=66.0)
+    ctx = mv.build_context({"A": proj("A"), "B": proj("B")}, {"Nick": ["A", "B"]}, games, sched,
+                           "this_week", 0, injury_statuses={"B": "Q"}, sims=500, seed=3)
+    a, q = mv.baseline(ctx, ctx.player("A")), mv.baseline(ctx, ctx.player("B"))
+    assert a.healthy and not q.healthy and a.start == mv.anchor_of(ctx) == q.start
 
 
 # 4 -- persistence within an iteration

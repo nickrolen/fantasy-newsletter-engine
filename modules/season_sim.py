@@ -462,8 +462,14 @@ def run_season(data: FantasyData, num_simulations: int = SEASON_SIMS, seed: int 
     chain, chain_anchors = _tag_chain(states, reg_entries, injury_statuses, team_projections,
                                       tag_anchors)
     started = {} if mvp else None
+    # handoff 32: a mid-week pass starts the baseline chain where its week in
+    # progress's remainder does (the first day not banked), so that week and
+    # every later week read one chain -- a long absence that starts tonight
+    # is still there next week
+    chain_start = min(states[w][0] for w in pending) if pending else None
     mats = (week_score_matrices(data, team_projections, to_sim, injury_statuses, seed, n, plan=plan,
                                 **({"tag_chain": chain} if chain is not None else {}),
+                                **({"chain_start": chain_start} if chain_start is not None else {}),
                                 **({"started": started, "started_weeks": tuple(future)} if mvp else {}))
             if to_sim else {})
 

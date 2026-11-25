@@ -411,9 +411,27 @@ def hazard_anchor(data: FantasyData, tag_anchor: date = None, tag_week_info: tup
     return tw[1][0]
 
 
+def chain_start_for(anchor: date, from_date: date = None, tag_chain=None,
+                    chain_start: date = None) -> date:
+    """The day the baseline chain starts (absence.py, WHERE THE CHAIN STARTS):
+    an explicit chain_start (a mid-week season pass: its week in progress's
+    as_of, so the remainder and every later week read ONE chain); else a
+    TagChain's as_of; else a remainder's from_date when it is after the
+    anchor (a mid-week live refresh starts it at its own time, Nick 11-25);
+    else the anchor. A full week from its first day is the anchor itself, so
+    from_date = the week's first day stays bit-identical to the full week."""
+    if chain_start is not None:
+        return chain_start
+    if tag_chain is not None and getattr(tag_chain, "as_of", None) is not None:
+        return tag_chain.as_of
+    if from_date is not None and from_date > anchor:
+        return from_date
+    return anchor
+
+
 def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
                     managers=None, season: str = None, injury_statuses=None,
-                    prior=None) -> dict:
+                    prior=None, start: date = None) -> dict:
     """player -> absence.BaselineBlocks for every rostered player with a
     projection. Memoised on `draws` (one season chain per player per run).
 
@@ -424,9 +442,13 @@ def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
     own projected_gp is the prior, which is what a synthetic world and a
     retro-sim harness want.
 
-    injury_statuses is read for OFS only: it zeroes the player's projected GP
+    injury_statuses is read for OFS: it zeroes the player's projected GP
     (absence.effective_projected_gp), which is how a season-long out is
-    applied. The chain tags do not reach here."""
+    applied; and for whether he carries a chain tag (absence.tagged), which
+    keeps his chain's stationary start (absence.py, WHERE THE CHAIN STARTS).
+    The tags' own blocks are tag_blocks'.
+
+    start: the day the chain starts (chain_start_for); None is the anchor."""
     params = data.__dict__.get("_baseline_params")
     if params is None:
         params = data.__dict__["_baseline_params"] = absence.baseline_params()
@@ -435,6 +457,7 @@ def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
     if prior is None:
         prior = getattr(data, "durability_prior", None) or DurabilityPrior({}, "")
     season = season or CURRENT_SEASON
+    start = anchor if start is None else start
     dates = team_season_dates(data)
     weeks = schedule_week_dates(data)
     out = {}
@@ -453,15 +476,17 @@ def baseline_blocks(data: FantasyData, team_projections, draws, anchor: date,
             gp = absence.effective_projected_gp(status, prior_gp)
             miss_rate = absence.durability_miss_rate(gp, params)
             out_for_season = absence.season_out(status)
+            is_tagged = absence.tagged(status)
             override = absence.override_absence(
                 weeks, dates.get(team, []), anchor, p.out_weeks, p.return_week, p.return_date,
                 p.out_from, p.return_games, p.total_week_games, player=name)
-            key = ("baseline", season, name, team, miss_rate, anchor, override, out_for_season)
+            key = ("baseline", season, name, team, miss_rate, anchor, override, out_for_season,
+                   start, is_tagged)
             hit = draws._memo.get(key)
             if hit is None:
                 hit = absence.BaselineBlocks(draws.seed, season, name, dates.get(team, []),
                                              anchor, miss_rate, draws.n, params, override,
-                                             out_for_season)
+                                             out_for_season, start=start, tagged=is_tagged)
                 draws._memo[key] = hit
             out[name] = hit
     return out
@@ -883,9 +908,16 @@ def simulate_week_matrix(
     nba_outs: dict = None,
     tag_chain: TagChain = None,
     started: dict = None,
+    chain_start: date = None,
 ) -> dict[str, dict]:
     """
     Simulate one fantasy week, all `draws.n` simulations at once.
+
+    chain_start (handoff 32): the day the baseline chain starts
+    (chain_start_for: given, else tag_chain's as_of, else a from_date after
+    the anchor, else the anchor). A mid-week season pass passes its week in
+    progress's as_of so that week's remainder and every later week read one
+    chain.
 
     started (4c6, the MVP odds): when a dict is given, it is filled with
     {roster key: [points[n], games[n], manager]} -- each player's STARTED fantasy
@@ -953,9 +985,10 @@ def simulate_week_matrix(
         blocks = tag_blocks(data, team_projections, injury_statuses, draws, tag_anchor,
                             anchors, tag_week_info, observed, from_date, nba_outs)
     plan = _week_plan(data, team_projections, week_data, managers)
-    base = baseline_blocks(data, team_projections, draws,
-                           hazard_anchor(data, tag_anchor, tag_week_info), managers,
-                           injury_statuses=injury_statuses)
+    h_anchor = hazard_anchor(data, tag_anchor, tag_week_info)
+    base = baseline_blocks(data, team_projections, draws, h_anchor, managers,
+                           injury_statuses=injury_statuses,
+                           start=chain_start_for(h_anchor, from_date, tag_chain, chain_start))
     noise_scale = remaining_noise_scale(data, dates, from_date)
     fills = data.__dict__.setdefault("_lineup_fills", {})
 
@@ -1076,6 +1109,7 @@ def week_score_matrices(
     tag_chain: TagChain = None,
     started: dict = None,
     started_weeks=(),
+    chain_start: date = None,
 ) -> dict[int, dict[str, np.ndarray]]:
     """{week: {manager: scores[n]}} -- one keyed simulation of each week.
 
@@ -1086,6 +1120,9 @@ def week_score_matrices(
     tag_chain: a mid-week season pass's one chain per tag (TagChain), passed
     to every week; None: tags anchored at tag_anchor (default: next week's
     first day), as before.
+
+    chain_start: the baseline chain's start for every week (handoff 32; a
+    mid-week pass passes its week in progress's as_of), else the anchor.
 
     plan: a roster_plan.Run. Each week is then played with that week's
     rosters (IL moves, pickups, activations) and its IL slots masked; without
@@ -1115,6 +1152,7 @@ def week_score_matrices(
         res = simulate_week_matrix(data, tp, wd, injury_statuses, draws,
                                    tag_anchor, managers=MANAGERS, il_mask=mask,
                                    **({"tag_chain": tag_chain} if tag_chain is not None else {}),
+                                   **({"chain_start": chain_start} if chain_start is not None else {}),
                                    **({"started": started} if started is not None and int(w) in
                                       {int(x) for x in started_weeks} else {}))
         out[int(w)] = {m: res[m]["score"] for m in MANAGERS}

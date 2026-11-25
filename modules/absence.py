@@ -591,9 +591,33 @@ def override_governs(week, week_dates: Sequence[date], out_weeks=(), return_week
 #   healthy -> absent with probability h per game, the absence short or long
 #   (short_share), each game of a short/long absence ends it with
 #   1/short_mean_games / 1/long_mean_games. h is solved so the stationary
-#   share of games missed is exactly the rate; the chain starts in its
-#   stationary distribution, so every game -- the first included -- is
-#   missed with probability `rate`.
+#   share of games missed is exactly the rate.
+#
+# WHERE THE CHAIN STARTS (handoff 32, 11-25; config absence_chain_start)
+# A player with NO TAG and NO OVERRIDE at the run's anchor is known to be
+# available then: anything longer than a rest night would carry a tag or an
+# override. So his chain starts HEALTHY at the anchor (rule
+# "healthy_at_anchor"): the step into his first game on or after the chain's
+# start is a fresh absence starting (probability h), and the chain relaxes to
+# its stationary rate over his next ~20 games, by its own block shape. Nine
+# seasons of the log show exactly that ramp: a player who played his last
+# game before the week misses 5.9% / 8.6% / 11.5% of his next games against
+# 17.6% for everyone (claude/32_PHASE1_2026-11-25.md s.2c). Starting him in
+# the stationary state charged him the long absences that, in reality, would
+# already carry a tag -- the +6% totals bias on the published lines.
+#   hold_season_total: h is multiplied by the factor that makes a season
+#   started healthy total exactly (82 - GP) expected misses
+#   (healthy_start_scale; about 1.08 at this league's rates). Yahoo's GP is a
+#   whole season, healthy start included, so its plateau sits above
+#   (82 - GP) / 82. Computed from the chain; not a configured number.
+# A tagged player, an override's player and OFS keep the stationary start:
+# his tag or override already says what his state is. Rule "stationary" is
+# the chain as it was before 11-25, for every player (what tests use to
+# compare against).
+# The chain's START is the run's anchor, or later: a mid-week live refresh
+# and a mid-week season pass start it at the first day not banked (as_of),
+# the refresh's own time (Nick, 11-25). The rate arithmetic (remaining
+# games, override_absence) keeps the anchor.
 #
 # ONE SEASON PER ITERATION
 # The chain runs over the player's whole season, keyed by
@@ -618,14 +642,24 @@ def override_governs(week, week_dates: Sequence[date], out_weeks=(), return_week
 #     (override_absence).
 
 
+START_RULES = ("healthy_at_anchor", "stationary")
+
+
 @dataclass(frozen=True)
 class BaselineParams:
     games_per_team: int
     short_share: float
     short_mean: float
     long_mean: float
+    start_rule: str                 # config absence_chain_start.rule (START_RULES)
+    hold_season_total: bool         # config absence_chain_start.hold_season_total
 
     def __post_init__(self):
+        if self.start_rule not in START_RULES:
+            raise ValueError(f"absence_chain_start.rule {self.start_rule!r} is not one of {START_RULES}")
+        if not isinstance(self.hold_season_total, bool):
+            raise ValueError(f"absence_chain_start.hold_season_total must be true or false, "
+                             f"not {self.hold_season_total!r}")
         if not (0.0 < self.short_share < 1.0):
             raise ValueError(f"absence_baseline.short_share {self.short_share} not in (0, 1)")
         if self.short_mean < 1.0 or self.long_mean < 1.0:
@@ -639,16 +673,24 @@ class BaselineParams:
 
 
 def baseline_params(config: dict = None) -> BaselineParams:
-    """league_config's absence_baseline. Missing raises: there is no default."""
+    """league_config's absence_baseline and absence_chain_start. Missing
+    raises: there is no default."""
     if config is None:
         from .data_loader import _LEAGUE_CONFIG as config
     try:
         c = config["absence_baseline"]
-        return BaselineParams(int(c["nba_games_per_team"]), float(c["short_share"]),
-                              float(c["short_mean_games"]), float(c["long_mean_games"]))
+        shape = (int(c["nba_games_per_team"]), float(c["short_share"]),
+                 float(c["short_mean_games"]), float(c["long_mean_games"]))
     except KeyError as e:
         raise KeyError(f"config/league_config.json absence_baseline is missing {e}; "
                        "the baseline hazard has no built-in default") from None
+    try:
+        st = config["absence_chain_start"]
+        start = (st["rule"], st["hold_season_total"])
+    except KeyError as e:
+        raise KeyError(f"config/league_config.json absence_chain_start is missing {e}; "
+                       "where the absence chain starts has no built-in default") from None
+    return BaselineParams(*shape, str(start[0]), start[1])
 
 
 def remaining_team_games(team_dates: Iterable[date], anchor: date, params: BaselineParams) -> int:
@@ -778,6 +820,107 @@ def baseline_mask(u: np.ndarray, rate: float, n_games: int, params: BaselinePara
     return out.T
 
 
+def _transition(h: float, w: float, q_s: float, q_l: float) -> np.ndarray:
+    """The chain's one-game step over (healthy, short absence, long absence),
+    exactly as baseline_mask and healthy_mask take it."""
+    return np.array([[1.0 - h, h * w, h * (1.0 - w)],
+                     [q_s, 1.0 - q_s, 0.0],
+                     [q_l, 0.0, 1.0 - q_l]])
+
+
+def _absent_after_healthy(T: np.ndarray, n_games: int) -> np.ndarray:
+    """P(absent) at each of the n games after a game he played."""
+    out = np.empty(n_games)
+    v = np.array([1.0, 0.0, 0.0])
+    for k in range(n_games):
+        v = v @ T
+        out[k] = 1.0 - v[0]
+    return out
+
+
+_HOLD_CACHE: dict = {}
+
+
+def healthy_start_scale(rate: float, params: BaselineParams) -> float:
+    """The factor on h that makes a season STARTED HEALTHY miss exactly
+    rate x games_per_team in expectation (absence_chain_start.
+    hold_season_total). Exact, from the chain's own step, by bisection; 1.0
+    when the hold is off. Where even h = 1 cannot reach the total (a rate
+    near the chain's ceiling) h is 1: the season falls short by the first
+    step's healthy game, and nothing else."""
+    if not params.hold_season_total or rate <= 0.0 or rate >= 1.0:
+        return 1.0
+    key = (float(rate), params)
+    hit = _HOLD_CACHE.get(key)
+    if hit is not None:
+        return hit
+    h, w, q_s, q_l, _p_h, _p_s = _chain(rate, params)
+    n = params.games_per_team
+    target = rate * n
+    lo, hi = 1.0, max(1.0, 1.0 / h)          # h x hi = 1: the most a scale can do
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        if _absent_after_healthy(_transition(min(1.0, h * mid), w, q_s, q_l), n).sum() < target:
+            lo = mid
+        else:
+            hi = mid
+    _HOLD_CACHE[key] = out = 0.5 * (lo + hi)
+    return out
+
+
+def absent_probabilities(rate: float, n_games: int, params: BaselineParams,
+                         healthy: bool) -> np.ndarray:
+    """Exact per-game miss probability over n games of one chain: `rate`
+    everywhere from the stationary start; from a healthy start, the chain's
+    relaxation (with the hold's scale on h). What the masks draw, in
+    expectation -- for checks and reports, never sampled from."""
+    if rate <= 0.0:
+        return np.zeros(n_games)
+    if rate >= 1.0:
+        return np.ones(n_games)
+    if not healthy:
+        return np.full(n_games, float(rate))
+    h, w, q_s, q_l, _p_h, _p_s = _chain(rate, params)
+    h = min(1.0, h * healthy_start_scale(rate, params))
+    return _absent_after_healthy(_transition(h, w, q_s, q_l), n_games)
+
+
+def healthy_mask(u: np.ndarray, rate: float, n_games: int, params: BaselineParams) -> np.ndarray:
+    """[n, n_games] bool: baseline_mask, but the chain is HEALTHY the game
+    before game 0. Column 0 steps it into game 0, column g + 1 from game g to
+    g + 1: the same columns, in the same roles, as baseline_mask (whose
+    column 0 places the stationary state instead). h carries
+    healthy_start_scale."""
+    n = u.shape[0]
+    if u.shape[1] < n_games + 1:
+        raise ValueError(f"{u.shape[1]} uniform columns for {n_games} games")
+    if rate <= 0.0 or n_games == 0:
+        return np.zeros((n, n_games), dtype=bool)
+    if rate >= 1.0:
+        return np.ones((n, n_games), dtype=bool)
+    h, w, q_s, q_l, _p_h, _p_s = _chain(rate, params)
+    h = min(1.0, h * healthy_start_scale(rate, params))
+    hw = h * w
+    uT = np.ascontiguousarray(u[:, :n_games + 1].T)
+    q_end = np.array([0.0, q_s, q_l])
+    state = np.zeros(n, dtype=np.int8)
+    out = np.empty((n_games, n), dtype=bool)
+    for g in range(n_games):
+        ug = uT[g]
+        start = np.where(ug < hw, 1, np.where(ug < h, 2, 0)).astype(np.int8)
+        stay = np.where(ug < q_end[state], 0, state).astype(np.int8)
+        state = np.where(state == 0, start, stay)
+        out[g] = state > 0
+    return out.T
+
+
+def tagged(status) -> bool:
+    """A chain tag (Q, D, O) at the anchor: his state is the tag's, so his
+    baseline keeps the stationary start. P and the note tags are no tag here,
+    as everywhere; an unmodelled tag raises (chain_tag)."""
+    return status is not None and chain_tag(status) is not None
+
+
 class BaselineBlocks:
     """One player's untagged absences over a season, all n simulations.
 
@@ -794,11 +937,24 @@ class BaselineBlocks:
     override gate as well, because "out for season" is not a week an
     INJURY_OVERRIDES entry can hand back (check_season_out_override raises if
     one tries).
+
+    start (required): the day the chain starts -- the anchor, or the first
+    day not banked for a mid-week refresh or pass. tagged (required): a chain
+    tag at the anchor (absence.tagged). Under rule "healthy_at_anchor" a
+    player with no tag, no override governing a game from the anchor, and no
+    OFS starts HEALTHY at his first game on or after `start` (self.healthy);
+    his games before it keep the stationary chain's draws (no simulator reads
+    them: every reader starts at or after `start`). Everyone else, and every
+    player under rule "stationary", runs the stationary chain over the whole
+    season, as before 11-25.
     """
 
     def __init__(self, seed, season: str, player: str, team_dates: Iterable[date],
                  anchor: date, miss_rate: float, n: int, params: BaselineParams,
-                 override: tuple = (0, 0.0), season_out: bool = False):
+                 override: tuple = (0, 0.0), season_out: bool = False, *,
+                 start: date, tagged: bool):
+        if not isinstance(start, date):
+            raise TypeError(f"BaselineBlocks start must be a date, not {start!r}")
         self.player = player
         self.season_out = bool(season_out)
         self.dates = sorted(set(team_dates))
@@ -807,10 +963,32 @@ class BaselineBlocks:
         self.override = override
         self.miss_rate = float(miss_rate)
         self.rate = baseline_rate(miss_rate, self.remaining, override)
+        self.start = start
+        self.tagged = bool(tagged)
+        self.healthy = (params.start_rule == "healthy_at_anchor" and not self.tagged
+                        and not self.season_out and not override[0])
+        self.start_index = next((i for i, d in enumerate(self.dates) if d >= start), len(self.dates))
         u = crn.keyed_rng(seed, "baseline", season, player).random((int(n), params.games_per_team + 1))
-        mask = baseline_mask(u, self.rate, len(self.dates), params)
+        if self.healthy:
+            first = self.start_index
+            mask = np.empty((int(n), len(self.dates)), dtype=bool)
+            mask[:, :first] = baseline_mask(u, self.rate, first, params)
+            mask[:, first:] = healthy_mask(u[:, first:], self.rate, len(self.dates) - first, params)
+        else:
+            mask = baseline_mask(u, self.rate, len(self.dates), params)
         self._packed = np.packbits(mask, axis=1)
         self.n = int(n)
+        self._params = params
+
+    def expected_missed(self) -> np.ndarray:
+        """Exact P(missed) per season game, in date order: what the mask
+        draws in expectation (absent_probabilities from the start for a
+        healthy start; the stationary rate everywhere else)."""
+        out = absent_probabilities(self.rate, len(self.dates), self._params, False)
+        if self.healthy:
+            k = len(self.dates) - self.start_index
+            out[self.start_index:] = absent_probabilities(self.rate, k, self._params, True)
+        return out
 
     def missed(self, d: date):
         """bool over simulations, or None if his team does not play on d."""

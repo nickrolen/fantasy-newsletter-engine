@@ -137,7 +137,10 @@ def test_an_added_player_never_enters_the_pool():
 # 4 -- the season list is unchanged
 @pytest.mark.slow
 def test_the_season_list_does_not_read_the_pool():
-    w = _world(seed=4)
+    # seed 3, not 4 (handoff 32, 11-25): with the baseline chain started healthy
+    # at the anchor, seed 4's season list drops only its pool-of-one player, so
+    # the scenario stopped showing drops past the pool; seed 3 still does
+    w = _world(seed=3)
     ctxs = _ctxs(w, season=True)
     a = adv.waiver_plan("Hayden", ctxs, w[4], protected=[], adds_remaining=3,
                         protected_week=1, stream_pool_size=1)

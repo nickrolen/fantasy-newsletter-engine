@@ -93,3 +93,23 @@ def test_the_history_band_is_measured_per_season():
             for s, fps in (("A", [0, 10, 10, 10]), ("B", [0, 0, 10, 10])) for fp in fps]
     assert mr.band(rows, [1]) == (0.25, 0.5)
     assert mr.pooled(rows)[2] == pytest.approx(3 / 8)
+
+
+# handoff 32: the per-week check -- measured per week, gated only where unplayed
+def test_the_band_by_week_is_each_week_s_own_range():
+    rows = [{"season_key": s, "week": w, "had_game": True, "fantasy_points": fp}
+            for s, w, fp in [("A", 1, 0.0), ("A", 1, 10.0), ("A", 2, 10.0),
+                             ("B", 1, 10.0), ("B", 1, 10.0), ("B", 2, 0.0), ("B", 2, 0.0)]]
+    assert mr.band_by_week(rows, [1, 2]) == {1: (0.0, 0.5), 2: (0.0, 1.0)}
+    with pytest.raises(ValueError, match="no season in the log plays week 3"):
+        mr.band_by_week(rows, [3])
+
+
+def test_the_per_week_check_gates_only_the_weeks_not_yet_played():
+    import pandas as pd
+    played = mr.played_weeks(pd.DataFrame({"week": [1, 1, 2]}))
+    assert played == [1, 2] and mr.played_weeks(None) == []
+    rows = mr.check_by_week({1: 0.30, 2: 0.10, 3: 0.12, 4: 0.40},
+                            {1: (0.05, 0.20), 2: (0.05, 0.20), 3: (0.05, 0.20), 4: (0.05, 0.20)}, played)
+    assert [(w, gated, inside) for w, _r, _lo, _hi, gated, inside in rows] == [
+        (1, False, False), (2, False, True), (3, True, True), (4, True, False)]

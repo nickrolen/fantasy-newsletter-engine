@@ -439,6 +439,13 @@
         "long_mean_games": 9.5,
         "_measured": "Fitted 2026-10-21 by maximum likelihood to every absence run in HISTORICAL_PLAYERLOG 2017-18..2025-26 (a team game with zero fantasy points while rostered; 2,805 complete runs plus 375 runs cut off by a roster move, treated as at-least-that-long). Two geometric components: 75% of absences average 1.24 games, 25% average 9.5. Mean absence 3.3 games. Re-fit with the same procedure; do not hand-tune these to hit the calibration bands."
     },
+    "absence_chain_start": {
+        "_comment": "Where the baseline hazard's absence chain starts (modules/absence.py, WHERE THE CHAIN STARTS; handoff 32, Nick 11-25). A player with no tag and no INJURY_OVERRIDES entry governing a game from the run's anchor is known to be available then, so his chain starts HEALTHY at his first game on or after the chain's start (the anchor, or a mid-week refresh's or season pass's first day not banked) and relaxes to its stationary rate by its own block shape (absence_baseline). Tagged, overridden and OFS players keep the stationary start. Measured: claude/32_PHASE1_2026-11-25.md. Both keys are required; a missing one raises.",
+        "rule": "healthy_at_anchor",
+        "_rule": "healthy_at_anchor (Nick, 11-25) or stationary (the chain before 11-25: every player starts in the stationary state, so the first game is missed at the full rate -- it charged untagged players the long absences that would already carry a tag; kept for comparison runs). Anything else raises.",
+        "hold_season_total": true,
+        "_hold_season_total": "true (Nick, 11-25): h is scaled so that a season started healthy misses exactly (82 - pre-season GP) games in expectation (Yahoo's GP is a whole season, its healthy start included); the factor is computed from the chain (absence.healthy_start_scale, about 1.08 at this league's rates), not configured. false: h unscaled, the plateau is (82 - GP) / 82 and a healthy start loses about 6% of the projection's misses."
+    },
     "keeper_rules": {
         "_comment": "Keeper counts are per-season and need NOT be uniform across managers. A manager's live picks = league_structure.total_rounds minus their keeper count, and keepers always occupy the LAST rounds. Any season after the last one listed in `seasons` inherits `default`.",
         "seasons": {
