@@ -444,7 +444,7 @@ def test_week_2_adds_left_before_and_after_the_rulings(tmp_path, monkeypatch):
 
     class D:
         schedule = SCHEDULE
-    out = rb.build_add_budget(D(), 1)
+    out = rb.build_add_budget(D(), 1, ledger_view={"claimed": {}, "dropped": {}, "pending_adds": {}, "live_claims": []})
     assert {m: (v["used"], v["remaining"]) for m, v in out["managers"].items()} == {
         "Hayden": (0, 3), "Garrett": (2, 1), "Benton": (0, 3), "Nick": (0, 3)}
     assert out["over_budget_weeks"] == []
@@ -509,7 +509,8 @@ def test_every_reader_of_a_waivers_file_goes_through_a_parser_that_strips_the_ma
 
 BUDGET_NAMES = {"add_budget_for", "WEEKLY_ADD_BUDGET", "weekly_add_budget"}
 FILE_READERS = {"load_waiver_adds", "parse_waiver_file", "load_all_waivers", "waiver_lines"}
-DECIDERS = {"add_budget_week", "adds_by_budget_week"}
+DECIDERS = {"add_budget_week", "adds_by_budget_week",
+            "counted_adds_by_week"}     # 5g: adds_by_budget_week plus the live claims (pinned)
 
 
 def _names(fn) -> set:
@@ -568,13 +569,21 @@ def test_no_module_counts_adds_by_week_but_through_add_budget_week():
     # the hub's moves by budget week (task 43, 11-05): its adds-used totals are
     # adds_by_budget_week's, and it places every logged add with add_budget_week
     # and the same ledger argument (ledger_by_mode), checked below
+    # 5g s.1: the hub's count and the weekly report's are one function,
+    # move_ledger.counted_adds_by_week (through adds_by_budget_week, pinned below)
     assert set(counters) == {"report_builder.py:build_add_budget", "advice_runner.py:build_advice",
-                             "hub_state.py:build", "move_ledger.py:from_base",
+                             "move_ledger.py:counted_adds_by_week", "move_ledger.py:from_base",
                              "move_ledger.py:yahoo_adds", "move_ledger.py:shadow_compare",
                              "hub_moves.py:build",
                              # H51 (FIXES item 2): LEAGUEHISTORY's total_moves_current_season,
                              # set from adds_by_budget_week
                              "update_leaguehistory.py:current_season_values"}
+    ml_fns = {fn.name: fn for fn in _functions(ROOT / "modules" / "move_ledger.py")}
+    assert "adds_by_budget_week" in _calls(ml_fns["counted_adds_by_week"])
+    assert "counted_adds_by_week" in _calls({fn.name: fn for fn in _functions(
+        ROOT / "modules" / "report_builder.py")}["build_add_budget"])
+    assert "counted_adds" in _calls({fn.name: fn for fn in _functions(
+        ROOT / "modules" / "hub_state.py")}["build"])
     hm = {fn.name: fn for fn in _functions(ROOT / "modules" / "hub_moves.py")}
     assert "add_budget_week" in _calls(hm["place"])
     assert {"ledger_by_mode", "adds_by_budget_week"} <= _calls(hm["build"])

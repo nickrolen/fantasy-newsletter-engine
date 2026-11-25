@@ -3158,25 +3158,35 @@ def _pick_is_keeper(pick: dict, round_num: int) -> bool:
     return round_num > drafted_rounds
 
 
-def build_add_budget(data: FantasyData, week: int) -> dict:
+def build_add_budget(data: FantasyData, week: int, *, ledger_view: dict) -> dict:
     """Adds used and remaining for the week that is currently open.
 
-    The newsletter is written on the Monday morning after a week closes,
-    which is inside the NEXT week's free-add window and before any game
-    has tipped. So the live question is not how many adds were used in the
-    week just finished -- it is how many each team has left in the one
-    that just opened.
+    The newsletter is written after a week closes, inside the NEXT week (on
+    Monday night, after its window, since 11-30: Nick, 11-25). So the live
+    question is not how many adds were used in the week just finished -- it is
+    how many each team has left in the one that just opened.
 
-    Counted by transaction_rulings.add_budget_week over every synced waivers
-    file (rule 7): a group-chat claim from week N applied in week N+1's
-    window is LISTED in week N+1's file, marked "(week N claim)", and counted
-    in week N -- not here. Before 2026-27 there was no add budget, and this
-    returns None rather than reporting everyone as unlimited or everyone as
-    over.
+    Counted the way the hub counts them (move_ledger.counted_adds_by_week; 5g
+    s.1): every synced waivers file placed by transaction_rulings.
+    add_budget_week (rule 7: a group-chat claim from week N applied in week
+    N+1's window is LISTED in week N+1's file, marked "(week N claim)", and
+    counted in week N), plus, in the ledger's "on" mode, every live chat claim
+    not yet in Yahoo in its claim week: a claim uses an add the moment it is
+    posted (rules 10 and 12). On 11-24 the report read the waivers files alone
+    and showed Hayden 2 left with Daniels claimed (ledger entry 8).
+
+    ledger_view: move_ledger.hub_view at the build's clock (required: Yahoo's
+    files alone miss every pending claim). Before 2026-27 there was no add
+    budget, and this returns None rather than reporting everyone as unlimited
+    or everyone as over.
     """
     budget = add_budget_for(CURRENT_SEASON)
     if budget is None:
         return None
+    if ledger_view is None:
+        raise ValueError("build_add_budget needs the move ledger (move_ledger.hub_view): a group-chat "
+                         "claim uses an add the moment it is posted (rules 10 and 12), and Yahoo's "
+                         "synced adds alone miss it")
 
     upcoming = week + 1
     root = Path(__file__).resolve().parent.parent
@@ -3185,24 +3195,38 @@ def build_add_budget(data: FantasyData, week: int) -> dict:
     # The commissioner's rulings (config/TRANSACTION_RULINGS.json) apply:
     # a voided add counts nowhere (Garrett's 10-26 Paul George), a claim
     # counts in its claim week. A ruling that matches no line raises.
-    from . import transaction_rulings as _tr
+    from . import transaction_rulings as _tr, move_ledger as _ml
     schedule = getattr(data, "schedule", None) or _tr._schedule(root)
     applied = []
     if path.is_file():
         _, applied = _tr.waiver_lines(path, root, upcoming, schedule)
-    counts = _tr.adds_by_budget_week(root, schedule)
+    ledger_mode = _ml.mode()
+    counts = _ml.counted_adds_by_week(root, schedule, ledger_view, ledger_mode=ledger_mode)
     used = counts.get(upcoming, {})
     over = _tr.over_budget(counts, budget)
     for wk, mgr, n in over:
         print(f"  WARNING: {mgr} used {n} adds in week {wk}, over the budget of {budget} "
               "(rule 6; Nick's call what that means)")
+    # the live claims counted in the upcoming week, shown as such
+    claims = {}
+    if ledger_mode == "on":
+        for c in ledger_view.get("live_claims") or []:
+            if int(c["claim_week"]) == upcoming:
+                wday = date.fromisoformat(str(c["window"])[:10])
+                claims.setdefault(c["manager"], []).append(
+                    {"player": c["player"], "window": c["window"], "entry": c["entry"],
+                     "label": f"{c['player']} (chat claim, joins {wday:%m-%d})"})
     managers = {}
     for manager in MANAGERS:
         players = used.get(manager, []) or []
+        mine = claims.get(manager, [])
+        claimed = {c["player"] for c in mine}
         managers[manager] = {
             "used": len(players),
             "remaining": max(budget - len(players), 0),
             "players": list(players),
+            "claims": mine,
+            "shown": [p for p in players if p not in claimed] + [c["label"] for c in mine],
             "over_budget": len(players) > budget,
         }
     return {
@@ -3212,9 +3236,12 @@ def build_add_budget(data: FantasyData, week: int) -> dict:
         "source_exists": path.is_file(),
         "rulings_applied": [r.label() for r in applied],
         "over_budget_weeks": [{"week": wk, "manager": m, "used": n} for wk, m, n in over],
+        "ledger": {"mode": ledger_mode,
+                   "live_claims": sum(len(v) for v in claims.values())},
         "_note": (f"Adds used so far in week {upcoming}, which opened at "
                   f"12:01 AM on its first day. Trades do not count; a group-chat claim "
-                  f"counts in the week it was claimed in (rule 7). "
+                  f"counts in the week it was claimed in (rule 7), from the moment it is "
+                  f"posted (rules 10 and 12). "
                   f"{'No add data synced yet for this week.' if not path.is_file() else ''}"),
     }
 
@@ -3475,6 +3502,52 @@ def _advice_off(week) -> dict:
                               "(claude/ADVICE_V2_DESIGN.md)"}
 
 
+CLOSING_SIDED = ("spread", "win_prob", "moneyline", "std_dev", "banked", "remaining_mean",
+                 "projected_final", "team_name")
+
+
+def apply_closing_line(betting_lines, payload: dict) -> None:
+    """5g s.7: put Monday's closing line (closing_line.for_weekly_build's
+    payload, output/closing_line_week<N+1>.json) into the report's previews,
+    in place: spread, moneyline, over/under, win chances, projected finals
+    (avg_score is the projected final, as in a pre-week line). Everything else
+    in a preview (positions, starts, health, key players, series) stays the
+    report's own. Matched by the pair of managers, either way round; a preview
+    with no closing matchup, or a closing matchup with no preview, raises."""
+    if int(payload.get("week", -1)) != int(betting_lines.week):
+        raise ValueError(f"the closing line is for week {payload.get('week')}, the report's lines for "
+                         f"week {betting_lines.week}")
+    by = {}
+    for ln in payload.get("lines") or []:
+        by[frozenset((ln["manager_a"], ln["manager_b"]))] = ln
+    used = set()
+    for pv in betting_lines.matchup_previews:
+        bl = pv.betting_line
+        key = frozenset((bl.manager_a, bl.manager_b))
+        ln = by.get(key)
+        if ln is None:
+            raise ValueError(f"the week {betting_lines.week} closing line has no {bl.manager_a} v "
+                             f"{bl.manager_b} matchup")
+        used.add(key)
+        flip = ln["manager_a"] != bl.manager_a
+        try:
+            for f in CLOSING_SIDED:
+                a, b = ln[f"{f}_a"], ln[f"{f}_b"]
+                if flip:
+                    a, b = b, a
+                setattr(bl, f"{f}_a", a)
+                setattr(bl, f"{f}_b", b)
+            bl.over_under = ln["over_under"]
+        except KeyError as e:
+            raise ValueError(f"the week {betting_lines.week} closing line's {ln.get('matchup')} has no "
+                             f"{e.args[0]}") from None
+        bl.avg_score_a, bl.avg_score_b = bl.projected_final_a, bl.projected_final_b
+    extra = [" v ".join(sorted(k)) for k in by if k not in used]
+    if extra:
+        raise ValueError(f"the week {betting_lines.week} closing line has matchups the report does not: "
+                         + ", ".join(extra))
+
+
 def _published_line_records(data, betting_lines, seed, num_betting_sims,
                            injury_statuses) -> list:
     """calibration_log records for the lines this build publishes."""
@@ -3491,7 +3564,12 @@ def _published_line_records(data, betting_lines, seed, num_betting_sims,
     governing = cal.overrides_governing(
         week, week_dates, rosters, (data.injury_overrides or {}).get("players") or [])
     engine = cal.engine_version(data.base_path)
-    stamp = datetime.now().isoformat(timespec="seconds")
+    # 5g s.2b: the stamp on the league clock with its offset (it was naive
+    # local time), and the mark: published after the week's first tip
+    from .league_clock import league_now
+    now = league_now()
+    stamp = now.isoformat(timespec="seconds")
+    after_tip = now >= cal.week_first_tip(week, data.schedule, data.nba_schedule)
     # The record's identity: the same line key B3's refresh service caches on
     # (week_state.line_cache_key), over the inputs this pre-week line was
     # priced from. A pre-week line has no played state, so state_hash is None.
@@ -3514,12 +3592,37 @@ def _published_line_records(data, betting_lines, seed, num_betting_sims,
         seed=seed, num_simulations=num_betting_sims, engine=engine,
         il={m: sorted(v) for m, v in sorted((il_mask or {}).items())})
     return [
-        cal.line_record(preview.betting_line, week=week, season=CURRENT_SEASON,
-                        seed=seed, num_simulations=num_betting_sims, engine=engine,
-                        line_key=key["key"], as_of=stamp, source=cal.WEEKLY_BUILD,
-                        tags=injury_statuses, overrides_governing=governing)
+        dict(cal.line_record(preview.betting_line, week=week, season=CURRENT_SEASON,
+                             seed=seed, num_simulations=num_betting_sims, engine=engine,
+                             line_key=key["key"], as_of=stamp, source=cal.WEEKLY_BUILD,
+                             tags=injury_statuses, overrides_governing=governing),
+             **{cal.AFTER_FIRST_TIP: after_tip})
         for preview in betting_lines.matchup_previews
     ]
+
+
+def _lines_metadata(line_source, week: int, priced: bool, now: datetime) -> dict:
+    """metadata.lines (5g s.7): which parts of week N+1's preview come from where."""
+    nxt = int(week) + 1
+    title = f"this report's own season pass, after week {week}"
+    if not priced:
+        return {"source": None, "week": nxt, "title_odds": title,
+                "note": "no betting lines in this report (no simulations, or no week after it)"}
+    ls = line_source or {}
+    if ls.get("kind") == "closing":
+        from .closing_line import LINE_PARTS_CLOSING
+        return {"source": "closing", "week": nxt, "file": ls["path"], "close": ls["close"],
+                "priced_at": ls["payload"].get("generated_at"),
+                "parts": dict(LINE_PARTS_CLOSING), "title_odds": title, "logged": "already (source closing)"}
+    return {"source": "own", "week": nxt, "after_close": bool(ls.get("after_close")),
+            "close": ls.get("close"), "why": ls.get("why") or "no line source given",
+            "priced_at": now.isoformat(timespec="seconds"),
+            "parts": {"lines": f"this report: priced from the end of week {week}",
+                      "previews": LINE_PARTS_OWN_PREVIEWS},
+            "title_odds": title}
+
+
+LINE_PARTS_OWN_PREVIEWS = "this report: positions, starts, health and key players, from today's rosters and tags"
 
 
 def build_stats_report(
@@ -3534,6 +3637,8 @@ def build_stats_report(
     freshness_tracker: "FreshnessTracker" = None,
     season_performers: dict = None,
     season_pass_out: list = None,
+    now: datetime = None,
+    line_source: dict = None,
 ) -> dict:
     """
     Build complete stats report for a week.
@@ -3554,6 +3659,15 @@ def build_stats_report(
         season_pass_out: a list the season pass is appended to, so the caller
               can record the run through modules/title_odds_run (step 1c: one
               path for the weekly build's title odds and the nightly run's)
+        now: the build's clock (the league clock; default league_now()). The
+              move ledger is read as of it (5g s.1): a live group-chat claim
+              counts in the add budget and reserves its player in every free-
+              agent list; a live chat drop frees his player for the coming week.
+        line_source: closing_line.for_weekly_build's answer (5g s.7). "closing":
+              week N+1's lines are Monday's closing line, put into the report's
+              own previews (apply_closing_line), and the report publishes no
+              line records (the closing line is in the calibration log already).
+              "own" (or None): the report prices its own line, as before.
     
     Returns:
         Complete stats report as dict (JSON-serializable)
@@ -3568,6 +3682,13 @@ def build_stats_report(
     # free_agents_assumed_healthy, and `or {}` would drop it.
     if injury_statuses is None:
         injury_statuses = {}
+    # 5g s.1: the move ledger, as the hub reads it, before anything lists a
+    # free agent or counts an add. Raises when it cannot be read: never
+    # Yahoo's synced files alone.
+    from .league_clock import league_now as _league_now
+    from . import move_ledger as _ml
+    now = now or _league_now()
+    data.ledger_view = _ml.hub_view(data.base_path, now, data.nba_schedule)
     
     # Which stage of the season this week belongs to.
     #
@@ -3663,12 +3784,17 @@ def build_stats_report(
             data, num_simulations=num_betting_sims, seed=seed,
             injury_statuses=injury_statuses
         )
-        # E1: the calibration record of what went on the page, built HERE,
-        # where the lines are produced, and written by the caller -- a dry
-        # run must not append to an append-only log
-        # (modules/calibration_log.py, scripts/generate_stats_report.py).
-        published_lines = _published_line_records(
-            data, betting_lines, seed, num_betting_sims, injury_statuses)
+        if (line_source or {}).get("kind") == "closing" and betting_lines is not None:
+            # 5g s.7: Monday's closing line goes on the page; it is already in
+            # the calibration log (source "closing"), so nothing new is logged
+            apply_closing_line(betting_lines, line_source["payload"])
+        else:
+            # E1: the calibration record of what went on the page, built HERE,
+            # where the lines are produced, and written by the caller -- a dry
+            # run must not append to an append-only log
+            # (modules/calibration_log.py, scripts/generate_stats_report.py).
+            published_lines = _published_line_records(
+                data, betting_lines, seed, num_betting_sims, injury_statuses)
 
     # What-if analysis
     matchup_results = {}
@@ -3771,6 +3897,14 @@ def build_stats_report(
             },
             "generated_at": datetime.now().isoformat(),
             "seed": seed,
+            # 5g s.7: where each part of the week N+1 preview comes from
+            "lines": _lines_metadata(line_source, week, betting_lines is not None, now),
+            # title odds are this report's own season pass, after week N
+            "title_odds_as_of": f"after week {week}",
+            # 5g s.1: the move ledger the free-agent lists and the add budget read
+            "move_ledger": {"as_of": now.isoformat(timespec="seconds"),
+                            "reserved": sorted(data.ledger_view["claimed"]),
+                            "freed": sorted(data.ledger_view["dropped"])},
             # E1: what the betting section published, for the calibration log.
             # The caller appends these (never a dry run) and settles the weeks
             # that have closed -- modules/calibration_log.py.
@@ -3865,7 +3999,7 @@ def build_stats_report(
         # Bound here and reused two lines down so the grid's "Recoverable"
         # column spends each manager's REMAINING adds, not the league rule.
         # Dict literals evaluate in source order, so _ab is set first.
-        "add_budget": (_ab := build_add_budget(data, week)),
+        "add_budget": (_ab := build_add_budget(data, week, ledger_view=data.ledger_view)),
 
         # IL slots from the same roster plan the betting lines use.
         "schedule_strength": build_schedule_strength(data, week, add_budget=_ab,

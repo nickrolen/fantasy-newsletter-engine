@@ -837,11 +837,15 @@ def report_card_findings(draft: str, cards: list) -> list[Finding]:
 # plus last week's claims applied in this window); week 4's drafting chat
 # turned Nick's "6 joined" into "made six adds" (he made 3). joined_week_adds
 # is the ADD BUDGET table's own count of this week's adds (adff247).
+# 5g (week 5's five false positives): a number joined to "week" by a hyphen or
+# a space is a week label, not a count -- "all three week-6 adds", "his one
+# week-5 add", "week 6 adds" -- so the bare "N adds" form never starts at one.
 _ADD_NUM = r"(\d+|one|" + "|".join(sorted(WORD_NUMS, key=len, reverse=True)) + r")"
+_NOT_A_WEEK = r"(?<!week-)(?<!week )(?<!wk-)(?<!wk )"
 ADDS_CLAIM = re.compile(
     r"\b(?:made|making|makes|make|had|has|used|burned|spent)\s+" + _ADD_NUM +
     r"\s+(?:waiver(?:-wire)?\s+|free[- ]agent\s+)?adds?\b"
-    r"|\b" + _ADD_NUM + r"\s+(?:waiver(?:-wire)?\s+|free[- ]agent\s+)?adds?\b"
+    r"|" + _NOT_A_WEEK + r"\b" + _ADD_NUM + r"\s+(?:waiver(?:-wire)?\s+|free[- ]agent\s+)?adds?\b"
     r"(?!\s+(?:left|remaining|to spare|in the bank|available))"
     r"|\badded\s+" + _ADD_NUM + r"\s+(?:new\s+)?players?\b", re.I)
 

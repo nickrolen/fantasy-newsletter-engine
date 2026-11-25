@@ -293,6 +293,7 @@ def augment_player_info_from_lineups(
 def build_free_agent_pool(
     player_info: dict[str, dict],
     rosters: dict[str, list[str]],
+    ledger_view: Optional[dict] = None,
 ) -> list[tuple[str, str, set[str], float]]:
     """(name, nba_team, positions, proj_fppg) for every PLAYERLIST player on
     no roster.
@@ -300,11 +301,21 @@ def build_free_agent_pool(
     Matched through PlayerIndex, not a normalised-name set: on 2026-10-05
     Yahoo started spelling rostered players "S. Gilgeous-Alexander", and a
     plain normalisation would list him as a free agent.
+
+    ledger_view (5g s.1; move_ledger.hub_view): a player a live group-chat
+    claim reserves is not a free agent (rule 10); one a live chat drop frees
+    is (rule 11), as in data_loader.free_agents.
     """
     rostered = roster_index(rosters)
+    reserved = freed = {}
+    if ledger_view is not None:
+        from .move_ledger import coming_pool
+        reserved, freed = coming_pool(ledger_view)
     pool = []
     for name, info in player_info.items():
-        if name in rostered:
+        if name in reserved:
+            continue
+        if name in rostered and name not in freed:
             continue
         pool.append((name, info["nba_team"], set(info["positions"]),
                      float(info.get("proj_fppg", 0.0))))
@@ -836,7 +847,7 @@ def build_schedule_strength(
     from_lineups = augment_player_info_from_lineups(
         player_info, rosters, getattr(data, "lineups", None))
     player_team_map = build_player_team_map(data.playerlist)
-    free_agents = build_free_agent_pool(player_info, rosters)
+    free_agents = build_free_agent_pool(player_info, rosters, getattr(data, "ledger_view", None))
     schedule_weeks = data.schedule.get("weeks", [])
     # From config, not SCHEDULE.json (stale all preseason) and not the old
     # literal 21, which was never the total -- it was the regular season.

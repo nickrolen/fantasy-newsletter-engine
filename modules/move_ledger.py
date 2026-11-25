@@ -1460,6 +1460,37 @@ def hub_view(base_path, now: datetime, nba_schedule, *, feed_days: int = 7) -> d
     return out
 
 
+def counted_adds_by_week(base_path, schedule: dict, view: dict, *, ledger_mode: str = None) -> dict:
+    """{budget week: {manager: [player]}}: the hub's add count and the weekly
+    report's (5g s.1), one rule. Yahoo's synced adds placed by
+    transaction_rulings.add_budget_week (the ledger's claim weeks in "on"
+    mode), plus, in "on" mode, every live claim not yet in Yahoo in its claim
+    week (hub_view's pending_adds): a claim is used the moment it is posted
+    (rules 10 and 12). `view` is hub_view's."""
+    from . import transaction_rulings as tr
+    out = {w: {m: list(v) for m, v in by.items()} for w, by in tr.adds_by_budget_week(base_path, schedule).items()}
+    if (ledger_mode or mode()) == "on":
+        for w, by in (view["pending_adds"] or {}).items():
+            for m, v in by.items():
+                out.setdefault(int(w), {}).setdefault(m, []).extend(v)
+    return out
+
+
+def counted_adds(base_path, schedule: dict, week: int, view: dict, *, ledger_mode: str = None) -> dict:
+    """{manager: [player]} counted against budget week `week`
+    (counted_adds_by_week)."""
+    return counted_adds_by_week(base_path, schedule, view, ledger_mode=ledger_mode).get(int(week), {})
+
+
+def coming_pool(view: dict) -> tuple:
+    """(reserved, freed) for the coming week's free-agent pool, from hub_view:
+    every player a live claim reserves (rule 10) and every player a live chat
+    drop frees (rule 11), each a PlayerIndex {name: {"manager", "window",
+    "entry"}} so spellings match. data_loader.free_agents applies it."""
+    from .data_loader import PlayerIndex
+    return PlayerIndex(dict(view["claimed"])), PlayerIndex(dict(view["dropped"]))
+
+
 def feed_item(e: dict, st: str, claimed: datetime, wday: date) -> dict:
     """One ledger entry as the hub's moves feed shows it, beside Yahoo's
     transactions (transaction_log.feed_item's shape)."""

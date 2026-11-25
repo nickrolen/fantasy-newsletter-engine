@@ -132,6 +132,7 @@ PH_ROSTERS = ("[FILL IN: every manager's roster from config/ROSTERS.json, all pl
 PH_BLOCK = ("[FILL IN: the trade block from config/TRADE_BLOCK.json, one line per team with its mode "
             "and listed players and the day each was set]")
 # placeholders inside the trade block, which the script rewrites whole
+PH_LINES = "[FILL IN: where this issue's betting lines come from]"     # 5g s.4
 PH_TRADE_INNER = ("[FILL IN: Manager A]", "[FILL IN: Manager B]", "[FILL IN: players/picks sent]")
 
 ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
@@ -315,6 +316,26 @@ def read_report(base, week: int, start: date, end: date, season_long: str) -> tu
                              f"{js_rel.as_posix()} (generated {gen.group(1) if gen else '?'} vs "
                              f"{meta.get('generated_at')}): rerun Step 6.5")
     return md, data
+
+
+def lines_sentence(data: dict, week: int) -> str:
+    """Part 1's line on where the Betting Lines come from (5g s.4): Monday's
+    closing line, or the report's own (closing_line.lines_text). A report that
+    does not say (metadata.lines; from before 5g) refuses."""
+    from .closing_line import lines_text, LinesUnknown
+    try:
+        return lines_text((data.get("metadata") or {}).get("lines"), week)["prompt"]
+    except LinesUnknown as e:
+        raise PromptsRefused(str(e)) from None
+
+
+def lines_note(data: dict, week: int) -> str:
+    """The pre-flight's line on the lines' source (closing_line.lines_text's note)."""
+    from .closing_line import lines_text, LinesUnknown
+    try:
+        return lines_text((data.get("metadata") or {}).get("lines"), week)["note"].strip("*")
+    except LinesUnknown as e:
+        raise PromptsRefused(str(e)) from None
 
 
 def angles_block(md: str) -> str:
@@ -756,6 +777,7 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
         PH_MANAGERS: "\n".join(f"| {m} | {team} | {', '.join(stars)} |" for m, team, stars in rows),
         PH_ANGLES: block, PH_S9_START: s1, PH_S9_END: s2, PH_ROSTERS: "\n".join(rlines),
         PH_BLOCK: "\n".join(blines),
+        PH_LINES: lines_sentence(data, week),
     }
     conditions = {
         IF_WCTI: True if wcti else None,
@@ -804,6 +826,7 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
         "- **Storylines:** the report's ANGLES block, verbatim, in Part 1.",
         "- **Star players:** each manager's top three in the report's keeper watch, by keep chance.",
         f"- **Trades in week {week}:** {trade_note}.",
+        f"- **Betting lines:** {lines_note(data, week)} (Part 1 says where they come from.)",
         f"- **Rosters:** {rnote}.",
         f"- **Trade block:** {bnote} (Part 3, Section 10).",
         f"- **Magic numbers:** none before the week {mfrom} report "

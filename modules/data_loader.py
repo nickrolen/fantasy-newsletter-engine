@@ -535,6 +535,13 @@ class FantasyData:
     # is the prior, which is right only for a file whose GP column is still
     # pre-season. load_all_data always sets it.
     durability_prior: Optional["DurabilityPrior"] = None
+    # The move ledger as the weekly report reads it (5g s.1): move_ledger.
+    # hub_view at the build's clock. When set, get_free_agents() leaves out a
+    # player a live group-chat claim reserves (rule 10) and puts back one a
+    # live chat drop frees (rule 11), as the hub does. build_stats_report sets
+    # it, and raises when the ledger cannot be read. None: Yahoo's rosters only
+    # (every caller other than the report).
+    ledger_view: Optional[dict] = None
 
     def regular_season_results(self, include_playoffs: bool = False):
         """(records, h2h, points) for the current season so far -- see
@@ -719,7 +726,7 @@ class FantasyData:
         retro-sim) passes rosters in.
         """
         if rosters is None:
-            rosters = self.get_current_rosters()
+            return free_agents(self.playerlist, self.get_current_rosters(), ledger_view=self.ledger_view)
         return free_agents(self.playerlist, rosters)
 
     def get_current_rosters(self) -> dict[str, list[str]]:
@@ -1031,8 +1038,14 @@ def roster_index(rosters: dict) -> "PlayerIndex":
     return idx
 
 
-def free_agents(playerlist: pd.DataFrame, rosters: dict) -> pd.DataFrame:
+def free_agents(playerlist: pd.DataFrame, rosters: dict, ledger_view: Optional[dict] = None) -> pd.DataFrame:
     """PLAYERLIST rows for players on no roster.
+
+    ledger_view (5g s.1; move_ledger.hub_view): the coming week's pool, as
+    the hub has it -- a player a live group-chat claim reserves is left out
+    (rule 10) and a player a live chat drop frees is in (rule 11), though he
+    is still on his roster this week. A freed player missing from PLAYERLIST
+    raises, naming the ledger entry.
 
     Membership goes through PlayerIndex. The version this replaced compared
     normalised names, which collapses accents but not Yahoo's respellings:
@@ -1042,7 +1055,17 @@ def free_agents(playerlist: pd.DataFrame, rosters: dict) -> pd.DataFrame:
     are now an argument.
     """
     rostered = roster_index(rosters)
-    mask = [name not in rostered for name in playerlist["player_name"]]
+    names = list(playerlist["player_name"])
+    if ledger_view is None:
+        mask = [name not in rostered for name in names]
+        return playerlist[mask].copy()
+    from .move_ledger import coming_pool
+    reserved, freed = coming_pool(ledger_view)
+    listed = PlayerIndex({n: True for n in names})
+    missing = [f"{n} (ledger entry {info['entry']})" for n, info in freed.items() if n not in listed]
+    if missing:
+        raise ValueError("dropped in the chat but not in data/PLAYERLIST.xlsx: " + ", ".join(missing))
+    mask = [(name not in rostered or name in freed) and name not in reserved for name in names]
     return playerlist[mask].copy()
 
 

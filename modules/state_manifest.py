@@ -21,6 +21,11 @@ ENTRY KINDS
                it, minus "except" (exact names). A pattern may not contain a
                "/", so it cannot reach outside the directory it names.
 
+    a file entry's "merge" (5g s.5, 11-25): how `state.py pull` merges the
+               file when it changed here AND in the private repo since the
+               last sync: "append_jsonl", "calibration_log" or "cloud_wins"
+               (modules/state_merge.py). A file without one refuses, as before.
+
     excluded           paths the engine touches that are deliberately NOT
                        state (credentials, caches, the dry-run packets), each
                        with its reason. Never copied.
@@ -47,6 +52,10 @@ FORBIDDEN = ("oauth", "token", "secret", ".pem", "private.json", "credential")
 FORBIDDEN_PREFIXES = (".state", ".state_sync.json", ".git", "output/dryrun")
 # Files that exist only in the private repo; no manifest path may be one.
 PRIVATE_REPO_ONLY = ("ENGINE_COMMIT", "README.md", ".gitattributes")
+
+
+# the merge rules a file entry may name (modules/state_merge.RULES; a test pins them equal)
+MERGE_RULES = ("append_jsonl", "calibration_log", "cloud_wins")
 
 
 class ManifestError(ValueError):
@@ -78,6 +87,12 @@ class Manifest:
     public_exceptions: tuple
     private_repo: str
     raw: dict = field(compare=False, repr=False, default_factory=dict)
+    merges: tuple = ()   # ((file path, rule), ...)
+
+    def merge_rule(self, rel: str):
+        """The file's merge rule (5g s.5), or None: refuse a clash as before."""
+        r = str(rel).replace("\\", "/").strip("/")
+        return dict(self.merges).get(r)
 
     # ---------------------------------------------------------------- matching
     def contains(self, rel: str) -> bool:
@@ -156,13 +171,17 @@ def parse(blob: dict) -> Manifest:
         if not isinstance(e, dict) or not str(e.get("what", "")).strip():
             raise ManifestError(f"{where}: every entry needs a 'what' saying what it is")
 
-    files = []
+    files, merges = [], []
     for i, e in enumerate(blob.get("files", [])):
         where = f"{MANIFEST_FILE} files[{i}]"
         need_what(e, where)
-        if set(e) - {"path", "what"}:
-            raise ManifestError(f"{where}: unknown field(s) {sorted(set(e) - {'path', 'what'})}")
+        if set(e) - {"path", "what", "merge"}:
+            raise ManifestError(f"{where}: unknown field(s) {sorted(set(e) - {'path', 'what', 'merge'})}")
         files.append(_clean(e["path"], where))
+        if "merge" in e:
+            if e["merge"] not in MERGE_RULES:
+                raise ManifestError(f"{where}: merge {e['merge']!r} is not one of {', '.join(MERGE_RULES)}")
+            merges.append((files[-1], e["merge"]))
     dirs = []
     for i, e in enumerate(blob.get("dirs", [])):
         where = f"{MANIFEST_FILE} dirs[{i}]"
@@ -209,4 +228,4 @@ def parse(blob: dict) -> Manifest:
             raise ManifestError(f"{MANIFEST_FILE}: {p} is listed as a file and also lies "
                                 "inside a listed dir -- list it once")
     return Manifest(tuple(files), tuple(dirs), tuple(patterns), tuple(excluded),
-                    tuple(public), repo, raw=blob)
+                    tuple(public), repo, raw=blob, merges=tuple(merges))

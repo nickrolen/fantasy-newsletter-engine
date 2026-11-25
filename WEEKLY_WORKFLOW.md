@@ -23,15 +23,16 @@ The league's state lives in the private repo `nickrolen/newsletter-state`, and *
 |---|---|---|
 | **Nightly** | just after 12:00 AM Pacific: the first firing after midnight that finds the night not yet run (12:05 AM on 11-08) [about 1:05 AM Phoenix until 3-14-2027] | pulls the day's box scores, syncs Yahoo (rosters, IL, the transaction log), checks the league settings, refreshes projections and tags, re-prices the line and title odds, updates player stats, publishes the hub. **On Tuesdays it first prices the closing line** if Monday evening's closing run didn't (the fallback). |
 | **Pre-tip** | Monday, in the 45 minutes before the first tip. cron-job.org fires every 15 minutes, 7:00 AM-7:45 PM Pacific; the guard admits only `[first tip - 45 min, first tip)`, so usually three runs (3:15, 3:30, 3:45 PM Pacific [4:15-4:45 PM Phoenix] for a 4:00 PM tip) | the last unlocked price of the week, player actuals for anyone added that day, the hub, and the tag record the closing line uses. A refused run is simply retried by the next firing in the window |
+| **Afternoon** (step 3b, `nightly.py` mode `afternoon`) | every game day that is not a window day, about an hour before the day's first tip: the fixed firing that falls 30-90 minutes before it (`python scripts\run_guard.py afternoon` names today's) [e.g. 3:30 PM Pacific, 4:30 PM Phoenix, for a 4:30 PM tip] | the afternoon tag check: fresh Yahoo tags and the NBA report; when something changed it re-prices the live line and title odds and rewrites the hub, **writing the same state files a local Step 6 writes** (title-odds history and latest, stakes). On a window Monday the pre-tip run does this instead |
 | **Closing** (H52, from Mon 11-23) | Monday, the first pre-tip firing at or after the window close (the last tip - 5 minutes: 5:55-7:25 PM Pacific this season [6:55-8:25 PM Phoenix]); the next firing, 15 minutes later, retries a refusal once. The same cron-job.org job, nothing to set up | syncs Yahoo after the close, **prices the closing line**, then rebuilds and publishes the hub (the win-% charts gain the closing line that evening). Once the line is on file, later firings do nothing |
 
 The hub is **https://nickrolen.github.io/newsletter-hub/** (encrypted; the passphrase is the `HUB_PASSPHRASE` secret). A run that refuses opens **one** issue in `newsletter-state` ("Nightly run failed: ..."); the next good run closes it. GitHub notifies your phone.
 
 **The rules for anything you run on this machine:**
 
-1. **Start with `python scripts\state.py pull`. End with `python scripts\state.py push`.** Every time, Monday's newsletter included. `pull` merges when the cloud and you changed different files, and refuses (naming them) when you both changed the same one.
+1. **Start with `python scripts\state.py pull`. End with `python scripts\state.py push`.** Every time, Monday's newsletter included. `pull` merges when the cloud and you changed different files. When you both changed the same file it merges it only if the file has a merge rule (5g, `config\STATE_MANIFEST.json`): both sides' appends to `output\title_odds_history.jsonl` and `data\calibration\published_lines.json` are kept, and the cloud's version of a derived "latest" file (`title_odds_latest.json`, `stakes.json`, `mvp_odds.json`, `hub_state.json`, `night_paragraph.json`, `nightly_last.json`) is taken. Every merge is printed, and your versions are kept in `.state-merge\<time>\`. Any other file changed on both sides still refuses, naming it.
 2. **Don't run `nightly.py` by hand.** The cloud does the nightly run, Monday's pre-tip run and the closing line.
-3. **Monday: push your newsletter's state before the pre-tip window opens: first tip - 45 minutes, league time** (for a 4:00 PM Pacific tip, 3:15 PM Pacific [4:15 PM Phoenix]). The first tip moves (MLK Day and Presidents' Day tip at 9:00 AM Pacific), so check it: `python scripts\run_guard.py pretip` prints the day's window, e.g. `outside the pre-tip window 15:15-16:00 PST`. Your build and the pre-tip run write some of the same files (rosters, title odds), and those can't be merged. This rule goes away when the newsletter build moves into the cloud (Step 4 of the self-running build).
+3. **On any game day, a local run that writes state collides with the cloud's runs: the afternoon run (every game day), Monday's pre-tip runs and Monday's closing run.** They write the same files a local Step 6 writes (title-odds history and latest, stakes) and more. **Pull right before Step 6, and push as soon as the build is done.** Since 5g `pull` merges the title-odds history, the calibration log and the derived "latest" files (rule 1), so a collision on those no longer refuses; a collision on anything else still does. `python scripts\run_guard.py pretip` prints Monday's windows (the pre-tip window, the add window and its close); `python scripts\run_guard.py afternoon` names the day's afternoon firing.
 3b. **Monday after the first tip, before the closing line (the closing run, within about 20 minutes of the window close; 12:05 AM Tuesday as the fallback): what's safe to push.** The closing line prices rosters and IL as at the close (its run re-syncs them and keeps the IL slots) and everything else as at the first tip, so the order of your Monday steps doesn't matter to it (H51, H52; it holds if the issue moves to Tuesday mornings too):
    - **`data\PLAYERLIST.xlsx` (Step 4.75): safe.** Every cloud run on the Monday before the tip keeps a copy, `config\snapshots\pretip\PLAYERLIST_weekNN.xlsx`, and the closing line reads it when your file was fetched after the tip. (11-16: the 6:28 PM refetch refused the close; it no longer would.) The one case it still refuses: no Monday run before the tip recorded tags, so there is no copy. Then don't refetch after the tip until the closing line has run.
    - **`config\INJURY_OVERRIDES.json` (Step 5): safe through `scripts\overrides.py`** (or a phone entry): every change goes into the history, and the closing line undoes it back to the tip. A **hand edit** of the file after the tip refuses the close.
@@ -52,16 +53,29 @@ The hub is **https://nickrolen.github.io/newsletter-hub/** (encrypted; the passp
 
 **Two things that live in the public engine repo, not in state:** the NBA schedule file (Step 0) and the code. If Step 0's refetch changes the schedule, tell the reviewing session: it commits the file, then `git push` and `python scripts\state.py set-engine` so the cloud uses the new schedule.
 
-**The Monday order, in one place:**
+**The Monday-night build (Nick, 11-25; from 11-30 on).** The newsletter is built and published on Monday night, after the add window closes. The issue's Betting Lines are **Monday's closing line**, already priced by the closing run; Step 6 prints it and prices no line of its own (5g). The cloud has already done the data steps by then.
+
+1. **Wait for the closing run.** The window closes 5 minutes before the last tip (`python scripts\run_guard.py pretip` prints the close, e.g. `the Monday window closed 18:55 PST`). The closing run prices the line within about 20 minutes of the close: its run row in Actions (`newsletter-state` -> Actions -> the pre-tip workflow) says **Closing line priced**. Locally: after step 2's pull, `output\closing_line_weekN+1.json` is there (`dir output\closing_line_week*.json`). If it isn't, Step 6 refuses and says so.
+2. `python scripts\state.py pull`
+3. **Skip Steps 0, 1, 3, 4 and 4.75: the cloud has done them.** The nightly refetches the schedule and pulls the box scores; the closing run syncs Yahoo right after the close (rosters, IL slots, the transaction log) and the pre-tip runs refetch PLAYERLIST. **Step 3 in particular must not run:** `generate_rosters.py --week N` rebuilds `config\ROSTERS.json` from week N's lineups, which drops every move made in Monday's window (it now refuses after the close; `--force` overrides).
+4. **Steps 2, 5, 5.75, 6, 6.5, 7, 7.5, 8, 9**, in that order. Step 6 prints `Lines: week N+1's lines are Monday's closing line (...)`; Step 9 prints `calibration log: the issue printed week N+1's closing line (already logged)`.
+5. `python scripts\state.py push` **before the 12:05 AM nightly** (12:05 AM Pacific, about 1:05 AM Phoenix), and not while it runs (a few minutes after midnight Pacific).
+6. Send the issue, `python scripts\archive_issue.py --week N`, Step 10 (the recap), then `python scripts\state.py push`.
+
 ```cmd
+:: after the closing run (its run row says "Closing line priced")
 python scripts\state.py pull
-:: Steps 0-9 below (the newsletter)
-python scripts\state.py push            :: before first tip - 45 min, league time (python scripts\run_guard.py pretip)
+:: Steps 2, 5, 5.75, 6, 6.5, 7, 7.5, 8, 9 (not 0, 1, 3, 4, 4.75)
+python scripts\state.py push            :: before the 12:05 AM nightly, not during it
 :: send the issue, then:
 python scripts\archive_issue.py --week N
 :: Step 10 (recap), then:
 python scripts\state.py push
 ```
+
+**Fallback: the old Monday-morning build** (a week Nick needs it). Before the window closes, Step 6 prices its own line from the end of week N, as it always did: `python scripts\state.py pull`, Steps 0-9, and push as soon as the build is done (rule 3: the pre-tip runs start at the first tip - 45 minutes). The issue's lines are then the morning's, not the closing line; Part 1 of the prompts says so.
+
+**A build after the new week's games have started (the Tuesday case, as on 11-24).** The same steps as the Monday-night build: the closing line still applies (Step 6 prints it, whatever day you run it). If the closing line is missing (refused, or not priced yet), Step 6 refuses; wait for it (the 12:05 AM nightly retries it), or run Step 6 with `--own-line` to price its own line from the end of week N. That line does not count the games played since Monday; the prompts say so, and the calibration log marks it published after the first tip, so the curve leaves it out.
 
 ---
 
@@ -243,6 +257,8 @@ python scripts\generate_rosters.py --week WEEK --show-diff
 **Why this matters:** ROSTERS.json is the source of truth for all roster-dependent analysis (Slump Watch, Hot Streaks, Betting Lines, Title Odds, etc.).
 
 **Note:** If a player was traded mid-week, both the pre-trade and post-trade rosters may appear, inflating player counts. Step 4 fixes this.
+
+**After week N+1's Monday window has closed it refuses (5g):** rebuilding from week N's lineups would drop every move made in the window. The cloud keeps `ROSTERS.json` current then (the closing run syncs it right after the close, and the nightly every night), so skip this step on the Monday-night build. `--force` rebuilds anyway, with a warning.
 
 ---
 
@@ -679,6 +695,9 @@ python scripts\generate_stats_report.py --week WEEK
    drafting needs: a line nobody saw never enters the record. It still settles
    last week's published lines against RECORDS.json and prints the curve.
 
+9. **Where week N+1's lines come from (5g, Nick 11-25).** After week N+1's Monday window has closed, the report's lines (spread, moneyline, over/under, win chances, projected scores) are **Monday's closing line**, `output\closing_line_weekN+1.json`; the rest of each matchup preview (positions, starts, health, key players) is the report's own, from today's rosters and tags, and the title odds are its own season pass, "after week N". The report's `metadata.lines` says which part came from where. Nothing new goes to the calibration log (the closing line is already there). **With no closing line on file it refuses**, naming the file: wait for the closing run and pull, or run with `--own-line` to price its own line (the fallback; the calibration log marks it published after the first tip). Before the close it prices its own line, as before.
+10. **Counts the move ledger** (5g): a group-chat claim uses its add the moment it is posted and reserves the player, so the ADD BUDGET table counts it ("Dyson Daniels (chat claim, joins 11-30)") and no free-agent list names him; a chat drop puts the player back in the pool. Same count as the hub's.
+
 **Runtime:** ~30-60 seconds with sims, ~5-10 seconds with `--fast`
 
 **Rerunning it for the same week is safe by itself** (since 11-10). The week's first run saves `config\snapshots\RECENT_CONTENT_pre_weekN.json`; a rerun reads freshness from that snapshot and says so (`Rerun of week N: reading freshness from the pre-week snapshot ...`), so the week's own fun facts are not treated as repeats. Do not copy the snapshot over `config\RECENT_CONTENT.json` any more.
@@ -697,6 +716,7 @@ python scripts\generate_stats_report.py --week WEEK
 | `--allow-stale-schedule` | Run on an NBA schedule older than 8 days in season (recorded in the capture) |
 | `--allow-no-injury-statuses` | Run with no Yahoo injury tags: a failed or skipped fetch would otherwise refuse, because every line and odds figure would be priced with nobody hurt (recorded in the capture) |
 | `--allow-incomplete-season-performers` | Run with an incomplete or failed season-performers section (recorded in the report metadata and the capture; Stats Corner says the tables are incomplete) |
+| `--own-line` | After week N+1's window has closed: price this report's own line instead of printing the closing line (the fallback when the closing line is missing; marked in the calibration log). No effect before the close |
 | `--allow-season-out-conflict` | Run with a player tagged `OFS` whom this file returns: the **override wins** and the tag is dropped for the run (recorded in the capture) |
 
 ---
@@ -1006,6 +1026,8 @@ The old Windows Task Scheduler refresh (B3, `schtasks`) is **retired**: the clou
 ---
 
 ## Quick Reference: Complete Command Sequence
+
+The full sequence, for the Monday-morning fallback. **On the normal Monday-night build** (after the closing run) skip Steps 0, 1, 3, 4 and 4.75 ("The Monday-night build" at the top), and push before the 12:05 AM nightly.
 
 ```cmd
 cd <project_root>

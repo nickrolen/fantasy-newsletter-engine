@@ -1072,7 +1072,7 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
                               free_agents as dl_free_agents, add_budget_for, CURRENT_SEASON,
                               _LEAGUE_CONFIG)
     from . import week_state as ws, price_lock, live_lines_page as llp, player_actuals as pa
-    from . import keepability_v3 as kv3, transaction_rulings as tr
+    from . import keepability_v3 as kv3
     from .report_builder import build_current_team_health
     from .simulator_betting import schedule_week_dates
     from .schedule_strength import build_player_info_map, augment_player_info_from_lineups
@@ -1156,11 +1156,9 @@ def build(base_path=".", *, now: datetime = None, data=None, allow_engine_mismat
     from . import move_ledger as ml
     ledger_mode = ml.mode()
     lv = ml.hub_view(base, now, data.nba_schedule, feed_days=MOVES_DAYS)
-    adds = {m: list(v) for m, v in tr.adds_by_budget_week(base, sched).get(week, {}).items()}
-    if ledger_mode == "on":
-        # the ledger's count: a claim is used the moment it is posted (rule 12)
-        for m, v in (lv["pending_adds"].get(week) or {}).items():
-            adds.setdefault(m, []).extend(v)
+    # the ledger's count: a claim is used the moment it is posted (rule 12);
+    # one function for the hub and the weekly report (5g s.1)
+    adds = ml.counted_adds(base, sched, week, lv, ledger_mode=ledger_mode)
     power, ranked = build_power(base, data, managers, kw, week, adds, budget,
                                 _LEAGUE_CONFIG["season"], cup_weeks())
     actuals = pa.load(base)

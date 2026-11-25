@@ -101,6 +101,10 @@ def builder(monkeypatch, tmp_path):
     return rb, tmp_path
 
 
+# 5g: build_add_budget reads the move ledger (move_ledger.hub_view); none here
+NO_LEDGER = {"claimed": {}, "dropped": {}, "pending_adds": {}, "live_claims": []}
+
+
 def _write(tmp_path, week, lines):
     (tmp_path / "data").mkdir(parents=True, exist_ok=True)
     (tmp_path / "data" / f"waivers_week{week}.txt").write_text(
@@ -120,13 +124,14 @@ def test_it_counts_the_week_that_just_opened(builder):
     class D:
         schedule = {"weeks": [{"week": 1, "start_date": "2026-10-20", "end_date": "2026-10-25"},
                               {"week": 2, "start_date": "2026-10-26", "end_date": "2026-11-01"}]}
-    out = rb.build_add_budget(D(), 1)
+    out = rb.build_add_budget(D(), 1, ledger_view=NO_LEDGER)
     assert out["week"] == 2, "the budget is for the week that opened, not the one that closed"
     assert out["budget"] == 3
-    assert out["managers"]["Garrett"] == {
+    assert {k: out["managers"]["Garrett"][k] for k in ("used", "remaining", "players", "over_budget")} == {
         "used": 3, "remaining": 0,
         "players": ["Jalen Duren", "Tari Eason", "Kevin Porter Jr."],
         "over_budget": False}
+    assert out["managers"]["Garrett"]["claims"] == []
     assert out["managers"]["Nick"]["remaining"] == 2
     assert out["managers"]["Hayden"]["used"] == 0, "a trade must not cost an add"
     assert out["managers"]["Benton"]["remaining"] == 3
@@ -137,7 +142,7 @@ def test_a_missing_file_shows_full_budgets_and_says_so(builder):
 
     class D:
         pass
-    out = rb.build_add_budget(D(), 1)
+    out = rb.build_add_budget(D(), 1, ledger_view=NO_LEDGER)
     assert out["source_exists"] is False
     assert all(m["remaining"] == 3 for m in out["managers"].values())
     assert "No add data synced yet" in out["_note"]
@@ -149,4 +154,4 @@ def test_no_budget_block_before_the_rule_existed(monkeypatch):
 
     class D:
         pass
-    assert rb.build_add_budget(D(), 1) is None
+    assert rb.build_add_budget(D(), 1, ledger_view=NO_LEDGER) is None

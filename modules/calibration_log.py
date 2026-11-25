@@ -152,6 +152,95 @@ class EngineVersionMix(ValueError):
 
 
 # =============================================================================
+# a weekly build published after its week's first tip (5g s.2b, 11-25)
+# =============================================================================
+#
+# On 11-24 Step 6 ran after week 6 had begun, and the week-5 issue's two lines
+# went into this log stamped Tuesday: priced from the end of week 5, published
+# after week 6's first tip. They are not pre-week lines. From 5g a weekly-build
+# record carries AFTER_FIRST_TIP (true when its as_of, or its published_at at
+# Step 9, is at or after the week's first tip; the stored tip times, the same
+# source as price_lock). The curve leaves every such record out and says how
+# many. Records written before 5g carry no mark; the curve applies the same
+# rule to them by their as_of (source weekly_build). The log is never edited.
+#
+# THE STAMPS: before 5g the weekly build wrote as_of and published_at as NAIVE
+# local times on Nick's machine (2026-11-24T16:42:36 is Phoenix: the history
+# row of the same build reads 15:43 Pacific). From 5g they are written on the
+# league clock with the offset. as_of_instant reads both: aware as written,
+# naive as LEGACY_NAIVE_TZ.
+AFTER_FIRST_TIP = "published_after_first_tip"
+LEGACY_NAIVE_TZ = "America/Phoenix"
+
+
+def as_of_instant(raw, what: str = "as_of") -> datetime:
+    """A record's as_of or published_at as an aware time: one with an offset
+    as written; a naive one (a weekly build's stamp before 5g) in
+    LEGACY_NAIVE_TZ. A bare date or anything else raises CalibrationConflict."""
+    from zoneinfo import ZoneInfo
+    text = str(raw or "")
+    if len(text) <= 10:
+        raise CalibrationConflict(f"{what} {raw!r} is not a time: whether it is after the week's "
+                                  "first tip cannot be told")
+    try:
+        when = datetime.fromisoformat(text)
+    except ValueError:
+        raise CalibrationConflict(f"{what} {raw!r} is not an ISO time") from None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=ZoneInfo(LEGACY_NAIVE_TZ))
+    return when
+
+
+def week_first_tip(week: int, schedule: dict, nba_schedule) -> datetime:
+    """Week `week`'s first tip: price_lock.first_tip on its first day (SCHEDULE.json
+    weeks; the NBA schedule's stored tip times). Raises CalibrationConflict when
+    the week is not in the schedule or its first day has no games."""
+    from . import price_lock
+    entry = next((w for w in (schedule or {}).get("weeks", []) if int(w["week"]) == int(week)), None)
+    if entry is None:
+        raise CalibrationConflict(f"week {week} is not in config/SCHEDULE.json: its first tip is unknown")
+    day = date.fromisoformat(str(entry["start_date"])[:10])
+    tip = price_lock.first_tip(day, nba_schedule)
+    if tip is None:
+        raise CalibrationConflict(f"week {week} opens {day}, a day with no NBA games: no first tip")
+    return tip
+
+
+def tip_resolver(base_path="."):
+    """first_tip(season, week) for the curve, from base_path's SCHEDULE.json and
+    NBA schedule, read once and only when needed. The current season only:
+    another season's tips are not on file, and that raises."""
+    cache: dict = {}
+
+    def first_tip(season, week):
+        if str(season) != str(CURRENT_SEASON):
+            raise CalibrationConflict(f"a {season} weekly-build record: only {CURRENT_SEASON}'s tip "
+                                      "times are on file, so whether it was published after its "
+                                      "week's first tip cannot be told")
+        if "sched" not in cache:
+            from .data_loader import load_nba_schedule
+            from .nba_schedule import schedule_path
+            base = Path(base_path)
+            cache["sched"] = json.loads((base / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))
+            cache["nba"] = load_nba_schedule(schedule_path(base))
+        return week_first_tip(int(week), cache["sched"], cache["nba"])
+    return first_tip
+
+
+def is_after_first_tip(record: dict, first_tip) -> bool:
+    """A weekly-build record published after its week's first tip: its mark
+    when it carries one (5g on); else, for a record from before the mark, its
+    as_of at or after the tip. Any other source: False (the rule is about the
+    weekly build; live re-prices are history and the closing line is priced at
+    the close by design). first_tip: callable(season, week) -> aware time."""
+    if str(record.get("source")) != WEEKLY_BUILD:
+        return False
+    if AFTER_FIRST_TIP in record:
+        return bool(record[AFTER_FIRST_TIP])
+    return as_of_instant(record.get("as_of")) >= first_tip(record.get("season"), int(record["week"]))
+
+
+# =============================================================================
 # the engine that produced a line
 # =============================================================================
 
@@ -303,7 +392,7 @@ def line_record(line, *, week: int, season: str = None, seed: int,
         "num_simulations": int(num_simulations),
         "state_hash": state_hash,
         "line_key": str(line_key),
-        "as_of": as_of or datetime.now().isoformat(timespec="seconds"),
+        "as_of": as_of or _league_stamp(),
         "source": source,
         # the inputs that move a line
         "tags": {k: str(v) for k, v in sorted(tags.items()) if str(v).upper() != "HEALTHY"},
@@ -314,6 +403,12 @@ def line_record(line, *, week: int, season: str = None, seed: int,
         "actual_source": None,
         "settled_at": None,
     }
+
+
+def _league_stamp() -> str:
+    """Now on the league clock, with its offset, to the second (5g s.2b)."""
+    from .league_clock import league_now
+    return league_now().isoformat(timespec="seconds")
 
 
 def overrides_governing(week: int, week_dates: Sequence[date], rosters: dict,
@@ -512,7 +607,12 @@ def _as_of_key(record: dict, position: int) -> tuple:
     except ValueError:
         raise CalibrationConflict(f"week {record.get('week')} {record.get('matchup_id')}: "
                                   f"as_of {raw!r} is not an ISO date or time") from None
-    if when.tzinfo is not None:
+    if len(raw) > 10:
+        # 5g: one clock for both forms (a naive stamp is a pre-5g weekly build's
+        # Phoenix time), compared as naive UTC
+        from datetime import timezone as _tz
+        when = as_of_instant(raw).astimezone(_tz.utc).replace(tzinfo=None)
+    elif when.tzinfo is not None:
         when = when.replace(tzinfo=None)
     return (when, position)
 
@@ -546,7 +646,7 @@ def latest_per_matchup_week(rows: Sequence[dict]) -> tuple:
 
 
 def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
-          mix_versions: bool = False) -> dict:
+          mix_versions: bool = False, first_tip=None) -> dict:
     """Calibration of the settled lines, BY ENGINE VERSION AND BY SOURCE.
 
     Returns {"groups": {group label: metrics}, "history": {group label:
@@ -559,8 +659,23 @@ def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
     the engine changed under the lines (see the module docstring). Asking for
     one named `engine` is exact, still split by source. Sources are never
     pooled: two products' lines on one matchup-week share one outcome.
+
+    5g: a weekly-build record published after its week's first tip
+    (is_after_first_tip) is left out of everything here, and counted in
+    "after_first_tip". first_tip: callable(season, week) -> aware time, for
+    the records from before the mark; default tip_resolver(base_path).
     """
     rows = list(lines if lines is not None else load_log(base_path)["lines"])
+    first_tip = first_tip or tip_resolver(base_path)
+    late = [r for r in rows if is_after_first_tip(r, first_tip)]
+    if late:
+        late_ids = {id(r) for r in late}
+        rows = [r for r in rows if id(r) not in late_ids]
+    after = {"left_out": len(late), "settled_left_out": len(settled(late)),
+             "weeks": sorted({int(r["week"]) for r in late}),
+             "marked": sum(1 for r in late if AFTER_FIRST_TIP in r),
+             "note": "weekly-build lines published after their week's first tip are not pre-week "
+                     "lines, and are not scored (5g, 11-25)"}
     done = settled(rows)
     engines = sorted({engine_key(r) for r in done})
     sources = sorted({str(r.get("source")) for r in done})
@@ -592,6 +707,8 @@ def curve(base_path=".", lines: Sequence[dict] = None, engine: str = None,
         "sources": sources,
         "settled": len(done),
         "unsettled": len(rows) - len(done),
+        "records": len(rows) + len(late),
+        "after_first_tip": after,
     }
 
 
@@ -678,10 +795,19 @@ def format_curve(result: dict) -> list:
     never the newsletter."""
     out = []
     total = result["settled"] + result["unsettled"]
-    if not total:
+    late = result.get("after_first_tip") or {}
+    late_line = (f"    left out: {late['left_out']} weekly-build record(s) published after their "
+                 f"week's first tip (week{'s' if len(late['weeks']) > 1 else ''} "
+                 f"{', '.join(str(w) for w in late['weeks'])}; {late['settled_left_out']} settled) "
+                 f"-- not pre-week lines, not scored" if late.get("left_out") else None)
+    if not total and not late_line:
         return ["  Calibration log: empty -- no line has been published yet."]
-    out.append(f"  Calibration log: {total} record(s), {result['settled']} settled, "
+    if not total:
+        return [f"  Calibration log: {result.get('records', 0)} record(s), none scored", late_line]
+    out.append(f"  Calibration log: {result.get('records', total)} record(s), {result['settled']} settled, "
                f"{result['unsettled']} awaiting a result")
+    if late_line:
+        out.append(late_line)
     if not result["settled"]:
         out.append("    (no settled line yet, so there is no curve: the first "
                    "week's lines settle on next week's build)")

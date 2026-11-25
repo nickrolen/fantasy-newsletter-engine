@@ -53,7 +53,12 @@ def _rec(base_kwargs=None, **over):
         commit=kwargs["engine"].get("commit"), dirty=kwargs["engine"].get("dirty"),
         w=kwargs["week"], s=kwargs["seed"], n=kwargs["num_simulations"],
         h=kwargs.get("state_hash")))
-    return cal.line_record(line, **kwargs)
+    r = cal.line_record(line, **kwargs)
+    # 5g: these stand for pre-week lines (published before the week's first
+    # tip); test_5g_late_build covers the records published after it
+    if r["source"] == cal.WEEKLY_BUILD:
+        r[cal.AFTER_FIRST_TIP] = False
+    return r
 
 
 def _week_scores(week, a, b, manager_a="Nick", manager_b="Benton"):

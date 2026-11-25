@@ -157,7 +157,11 @@ def _league_day(as_of: str) -> date:
 
 def title_points(history_rows: list, reports: list, schedule: dict, key: str = "title_odds") -> dict:
     """{league day: {"values": {manager: odds}, "source": text}}: one point
-    per league day. A day with history rows takes its LAST row (by as_of).
+    per league day. A day with history rows takes its LAST row (by as_of),
+    except that a weekly build's row (kind "weekly_build") never displaces
+    another kind's row on the same league day: it fills a day only when no
+    other run wrote one (5g, 11-25: Tuesday 11-24's Step 6 row, priced from the
+    end of week 5, took that day's point from the afternoon run's).
     Before the history's first day, a published stats report fills its day:
     the day its data describe, the Monday after its week (the first day of
     week N+1 in the schedule; Nick, 11-10). RAISES when a report's week or
@@ -165,9 +169,17 @@ def title_points(history_rows: list, reports: list, schedule: dict, key: str = "
     weeks = {int(w["week"]): date.fromisoformat(str(w["start_date"])[:10]) for w in schedule.get("weeks", [])}
     out: Dict[date, dict] = {}
     rows = sorted((r for r in history_rows if r.get(key)), key=lambda r: r["as_of"])
+    builds = {}                                               # a day's weekly-build row, held back
     for r in rows:                                            # the day's last row wins
-        out[_league_day(r["as_of"])] = {"values": {m: float(v) for m, v in r[key].items()},
-                                        "source": f"{(r.get('kind') or 'run')} run"}
+        day = _league_day(r["as_of"])
+        point = {"values": {m: float(v) for m, v in r[key].items()},
+                 "source": f"{(r.get('kind') or 'run')} run"}
+        if r.get("kind") == "weekly_build":
+            builds[day] = point
+        else:
+            out[day] = point
+    for day, point in builds.items():                         # only where no other run wrote
+        out.setdefault(day, point)
     first_hist = min(out) if out else None
     for rep in reports:
         meta = rep.get("metadata") or {}

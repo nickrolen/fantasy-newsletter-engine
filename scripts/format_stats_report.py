@@ -1557,6 +1557,13 @@ def format_section_3_betting_lines(data: dict, lookups: dict, player_projs: Opti
     preview_week = la.get("week", "?")
     preview_week_int = int(preview_week) if isinstance(preview_week, (int, float)) else 0
     lines = [f"## SECTION 3: BETTING LINES (Week {preview_week} Preview)\n"]
+    # 5g s.7: where the lines come from (the closing line on a Monday-night
+    # build). A report from before 5g does not say, and gets no line.
+    _meta = data.get("metadata") or {}
+    if "lines" in _meta:
+        from modules.closing_line import lines_text as _lines_text
+        lines.append(_lines_text(_meta["lines"], int(_meta.get("week", preview_week_int - 1)))["note"])
+        lines.append("")
     
     # Schedule strength data (if available) -- build_schedule_strength() can return None.
     sched_str = data.get("schedule_strength") or {}
@@ -2392,6 +2399,11 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
     # Power rankings table
     has_keeper_quality = any(pr.get("keeper_quality") is not None for pr in rankings)
     lines.append("**Power Rankings:**")
+    # 5g s.7: the title odds are this report's own season pass, after week N
+    # (a Monday-night issue's lines are the closing line; its odds are not)
+    _to_as_of = (data.get("metadata") or {}).get("title_odds_as_of")
+    if _to_as_of:
+        lines.append(f"_Title odds: this report's own season pass, {_to_as_of}._")
     if has_keeper_quality:
         lines.append("Keeper Quality (FPPG) = the expected level of each team's likely keepers: the sum over the roster of keep chance (5 keepers) x the player's level in FPPG, divided by 5. It breaks ties only. Top 5 Keepers = his five likeliest keepers.")
         lines.append("| Rank | Manager | Team | Record | Title Odds | Trend | Keeper Quality (FPPG) | Top 5 Keepers | Expected Record | Career Record | Career Win % | Championships |")
@@ -3023,10 +3035,12 @@ def format_section_10_rumor_mill(data: dict, lookups: dict, trades_context: Opti
         lines.append("|---------|------|-----------|--------------|")
         for mgr in MANAGERS:
             entry = budget.get("managers", {}).get(mgr, {})
-            players = entry.get("players", [])
+            # 5g: "shown" names a pending group-chat claim as such ("Dyson
+            # Daniels (chat claim, joins 11-30)"); older reports have only players
+            players = entry.get("shown", entry.get("players", []))
             lines.append(
                 f"| {mgr} | {entry.get('used', 0)} | {entry.get('remaining', cap)} "
-                f"| {', '.join(players) if players else '-'} |")
+                f"| {'; '.join(players) if players else '-'} |")
         lines.append("")
         exhausted = [m for m in MANAGERS
                      if budget.get("managers", {}).get(m, {}).get("remaining", cap) == 0]
@@ -3039,7 +3053,9 @@ def format_section_10_rumor_mill(data: dict, lookups: dict, trades_context: Opti
         lines.append("*Trades do not cost an add. Mid-week adds are posted in "
                      "the group chat and applied the following Monday; each "
                      "counts against the week it was claimed in, not the "
-                     "week it is applied in.*")
+                     "week it is applied in, from the moment it is posted. A "
+                     "player claimed in the chat is reserved: he is in no "
+                     "free-agent list here.*")
         lines.append("")
     
     # === DRAFT PICK OWNERSHIP CONTEXT (for realistic trade ideas) ===

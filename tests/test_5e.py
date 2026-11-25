@@ -378,7 +378,8 @@ def test_moves_window_counts_adds_through_the_hubs_own_count():
     src = (ROOT / "modules" / "hub_state.py").read_text(encoding="utf-8")
     i = src.index("v2data.home_soft(")
     assert '"adds_left": {m: max(0, int(budget) - len((adds or {}).get(m, []))) for m in managers}' in src[i:i + 900]
-    assert "adds = {m: list(v) for m, v in tr.adds_by_budget_week(base, sched).get(week, {}).items()}" in src
+    # 5g: the hub's count and the weekly report's are one function (move_ledger.counted_adds)
+    assert "adds = ml.counted_adds(base, sched, week, lv, ledger_mode=ledger_mode)" in src
 
 
 def test_a_pending_claim_a_drop_and_a_blocked_team(syn):

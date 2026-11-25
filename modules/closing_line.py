@@ -103,6 +103,130 @@ def run_id_for(week: int) -> str:
 
 
 # =============================================================================
+# the weekly build prints the closing line (5g s.7; Nick, 11-25)
+# =============================================================================
+#
+# From 11-30 the newsletter is built on Monday night, after the add window
+# closes. Week N's issue then prints week N+1's lines from Monday's closing
+# line (output/closing_line_week<N+1>.json, already priced by the closing run
+# and already in the calibration log as source "closing"); Step 6 prices no
+# line of its own. Before the close it prices its own, as before (the Monday-
+# morning fallback). After the close with no closing line it RAISES, unless
+# --own-line asks for its own line (then marked published after the first tip,
+# calibration_log.AFTER_FIRST_TIP).
+
+class ClosingLineMissing(RuntimeError):
+    """Step 6 after week N+1's close, with no closing line on file and no --own-line."""
+
+
+LINE_PARTS_CLOSING = {
+    "lines": "the closing line: spread, moneyline, over/under, win chances and projected finals",
+    "previews": "this report: positions, starts, health and key players, from today's rosters and tags",
+}
+
+
+def for_weekly_build(base_path, report_week: int, schedule_weeks, nba_schedule, *, now: datetime,
+                     own_line: bool = False) -> dict:
+    """Where week `report_week`'s issue takes its week N+1 lines from.
+
+    {"kind": "closing", "week": N+1, "close": ..., "path": rel path, "payload": the file}
+        after week N+1's window has closed, the closing line on file;
+    {"kind": "own", "week": N+1, "close": ..., "after_close": bool, "why": text}
+        before the close (today's behaviour), or after it with own_line;
+    None when week N+1 is not in the schedule (no lines to print).
+    Raises ClosingLineMissing after the close with no closing line and no
+    own_line, naming the file and the way out."""
+    from . import price_lock
+    if now.tzinfo is None:
+        raise ValueError("for_weekly_build needs the league clock (an aware time)")
+    nxt = int(report_week) + 1
+    entry = next((w for w in schedule_weeks if int(w["week"]) == nxt), None)
+    if entry is None:
+        return None
+    monday = date.fromisoformat(str(entry["start_date"])[:10])
+    close = price_lock.window_close(monday, nba_schedule)
+    out = {"week": nxt, "close": close.isoformat(timespec="seconds")}
+    if now < close:
+        return dict(out, kind="own", after_close=False,
+                    why=f"built before week {nxt}'s window closed ({close.isoformat(timespec='minutes')}): "
+                        "the report prices its own line (the Monday-morning fallback)")
+    path = closing_path(base_path, nxt)
+    rel = path.relative_to(Path(base_path)).as_posix() if path.is_absolute() else path.as_posix()
+    if own_line:
+        return dict(out, kind="own", after_close=True,
+                    why=f"--own-line after week {nxt}'s window closed: the report prices its own line "
+                        f"from the end of week {report_week}; it does not count the games played since")
+    if not path.is_file():
+        none = none_path(base_path, nxt)
+        extra = (f" ({none.name} records that week {nxt} has no closing line)" if none.is_file()
+                 else "")
+        raise ClosingLineMissing(
+            f"{rel} is missing{extra}: week {nxt}'s window closed {close.isoformat(timespec='minutes')}, "
+            f"so week {report_week}'s issue prints Monday's closing line. Wait for the closing run "
+            f"(about 20 minutes after the close; its run row says \"Closing line priced\") and "
+            f"python scripts\\state.py pull, then run Step 6 again. Or run Step 6 with --own-line "
+            f"to price its own line from the end of week {report_week} (it will not count the games "
+            f"played since, and the calibration log marks it published after the first tip).")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if int(payload.get("week", -1)) != nxt or payload.get("kind") != "closing":
+        raise ClosingLineMissing(f"{rel} is not week {nxt}'s closing line (week {payload.get('week')!r}, "
+                                 f"kind {payload.get('kind')!r})")
+    return dict(out, kind="closing", path=rel, payload=payload)
+
+
+class LinesUnknown(ValueError):
+    """A stats report that does not say where its lines come from (pre-5g)."""
+
+
+def _day(iso: str) -> str:
+    d = datetime.fromisoformat(str(iso))
+    return f"{d:%A} {d:%m-%d}"
+
+
+def lines_text(meta_lines: dict, report_week: int) -> dict:
+    """What the drafting prompt (Part 1) and the formatted report say about
+    where week N+1's Betting Lines come from (5g s.4, s.7), from the report's
+    metadata.lines. {"prompt": one instruction for Part 1, "note": one line
+    for the formatted report's Betting Lines block}. Raises LinesUnknown for a
+    report with no metadata.lines (built before 5g: rerun Step 6)."""
+    if not isinstance(meta_lines, dict) or "source" not in meta_lines:
+        raise LinesUnknown(f"the week {report_week} stats report does not say where its betting lines "
+                           "come from (metadata.lines; a report from before 5g): rerun Step 6")
+    nxt, src = int(meta_lines.get("week", report_week + 1)), meta_lines["source"]
+    if src is None:
+        return {"prompt": f"This report has no week-{nxt} betting lines; Section 3 has no lines to quote.",
+                "note": f"*No week-{nxt} betting lines in this report.*"}
+    if src == "closing":
+        return {"prompt": (f"These week-{nxt} lines are Monday's closing line, set when the add window "
+                           "closed. Say so in one sentence in the Betting Lines section; the hub carries "
+                           "the live line from here."),
+                "note": (f"*Lines: Monday's closing line for week {nxt} ({meta_lines.get('file')}, priced at "
+                         f"the window's close, {meta_lines.get('close')}). The rest of each preview "
+                         "(positions, starts, health, key players) is this report's own, from today's "
+                         f"rosters and tags. Title odds: {meta_lines.get('title_odds')}.*")}
+    if src != "own":
+        raise LinesUnknown(f"metadata.lines.source {src!r} is neither closing nor own")
+    priced = meta_lines.get("priced_at")
+    if not priced or not meta_lines.get("close"):
+        raise LinesUnknown("metadata.lines has no priced_at or close: rerun Step 6")
+    monday = date.fromisoformat(str(meta_lines["close"])[:10])
+    mon = f"Monday {monday:%m-%d}"
+    if meta_lines.get("after_close"):
+        p_day = datetime.fromisoformat(str(priced)).date()
+        games = (f"{mon}'s games" if (p_day - monday).days <= 1
+                 else f"the games played from {mon} on")
+        what = (f"These week-{nxt} lines were priced {_day(priced)} from the end of week {report_week}: "
+                f"they do not count {games}.")
+        return {"prompt": what + (" Say so in one sentence in the Betting Lines section, and point "
+                                  "readers to the hub for the live line."),
+                "note": f"*Lines: this report's own (--own-line). {what} The hub carries the live line.*"}
+    what = (f"These week-{nxt} lines were priced {_day(priced)}, before the add window closed, from the "
+            f"end of week {report_week}; they are this issue's own line, not the closing line.")
+    return {"prompt": what + " No sentence about where they come from is needed.",
+            "note": f"*Lines: {what}*"}
+
+
+# =============================================================================
 # when is a closing line due? (step 1c-ii, HANDOFF_STEP1C2 s.3)
 # =============================================================================
 #

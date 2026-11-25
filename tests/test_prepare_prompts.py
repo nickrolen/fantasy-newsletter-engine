@@ -91,7 +91,12 @@ def league(tmp_path, *, week=2, sel=LEAD_SEL, cfg_extra=None, il_week=3, il=None
     _w(b / f"output/stats_report_week{week}.json", {
         "metadata": {"week": week, "season_year": "2026-2027",
                      "date_range": {"start": s, "end": e},
-                     "generated_at": "2026-11-02T08:13:15.844342"},
+                     "generated_at": "2026-11-02T08:13:15.844342",
+                     # 5g: where the week N+1 lines come from (Monday's closing line)
+                     "lines": {"source": "closing", "week": week + 1,
+                               "file": f"output/closing_line_week{week + 1}.json",
+                               "close": "2026-11-09T18:55:00-08:00",
+                               "title_odds": f"this report's own season pass, after week {week}"}},
         "keeper_watch": {"week": week, "players": keeper or keeper_players()}})
     _w(b / "config/ROSTERS.json", {"rosters": ROSTERS, "_last_sync": "2026-11-05T08:27:59-08:00"})
     _w(b / "data/IL_SLOTS.json", {"fetched_at": "2026-11-05T08:27:57-08:00", "fantasy_week": il_week,

@@ -22,6 +22,15 @@ sys.path.insert(0, str(ROOT / "tests"))
 from test_calibration_log import _rec  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _tips_long_after(monkeypatch):
+    """5g: Step 9 marks a weekly-build line published after its week's first
+    tip; these reports' lines are published long before theirs."""
+    from datetime import datetime, timezone
+    monkeypatch.setattr(cal, "tip_resolver",
+                        lambda root: (lambda season, week: datetime(2099, 1, 1, tzinfo=timezone.utc)))
+
+
 def _gen():
     spec = importlib.util.spec_from_file_location(
         "newsletter_html_generator", ROOT / "scripts" / "newsletter_html_generator.py")

@@ -15,6 +15,13 @@ Usage:
 week 1, so there was no path to opening-day rosters: on 2026-10-12 they were
 built from DRAFT_PICKS_CURRENT.json by hand. It refuses once LINEUPS has any
 rows -- by then waivers and trades have moved the rosters past the draft.
+
+AFTER THE NEXT WINDOW HAS CLOSED, IT REFUSES (5g, 11-25). --week N rebuilds
+ROSTERS.json from week N's lineups. Run after week N+1's Monday window has
+closed (price_lock.window_close), that drops every move made in the window
+(on 11-24 it would have removed Nick's Durant-for-Daniels move). The cloud
+keeps ROSTERS.json current then: the closing run syncs it right after the
+close, and the nightly every night. --force rebuilds anyway, with a warning.
 """
 
 import argparse
@@ -29,6 +36,50 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from modules.data_loader import (
     CURRENT_SEASON, LEAGUE_STRUCTURE, MANAGERS, load_all_data,
 )
+from modules.league_clock import league_now
+from modules.price_lock import window_close as _window_close
+
+
+class RostersAfterClose(RuntimeError):
+    """--week N after week N+1's Monday window has closed (5g s.3)."""
+
+
+def check_not_after_close(week: int, weeks: list, nba_schedule, *, now, window_close=_window_close):
+    """Raise RostersAfterClose when `now` (the league clock) is at or past the
+    close of week `week`+1's Monday window: rebuilding ROSTERS.json from week
+    `week`'s lineups then drops every move made in that window. None when
+    there is no week N+1 in the schedule, or it has not closed yet.
+    weeks: SCHEDULE.json's week entries; nba_schedule: the tip times."""
+    if now.tzinfo is None:
+        raise ValueError("check_not_after_close needs the league clock (an aware time)")
+    nxt = next((w for w in weeks if int(w["week"]) == int(week) + 1), None)
+    if nxt is None:
+        return None
+    from datetime import date as _date
+    monday = _date.fromisoformat(str(nxt["start_date"])[:10])
+    if now.date() < monday:
+        return None
+    close = window_close(monday, nba_schedule)
+    if now < close:
+        return None
+    raise RostersAfterClose(
+        f"week {int(week) + 1}'s window closed {close.isoformat(timespec='minutes')} (it is "
+        f"{now.isoformat(timespec='minutes')}): rebuilding config/ROSTERS.json from week {week}'s "
+        f"lineups would drop every move made in that window. The cloud keeps ROSTERS.json current: "
+        f"the closing run syncs it right after the close, and the nightly every night, so after a "
+        f"pull it is already right (python scripts\\state.py pull). Skip Step 3. To rebuild "
+        f"anyway: --force.")
+
+
+def _guard_inputs(base_path: Path):
+    """(SCHEDULE.json's weeks, the NBA schedule with tip times) for the guard."""
+    from modules.data_loader import NBA_SCHEDULE_FILE, load_nba_schedule
+    from modules.nba_schedule import schedule_path
+    weeks = json.loads((base_path / "config" / "SCHEDULE.json").read_text(encoding="utf-8"))["weeks"]
+    if not NBA_SCHEDULE_FILE:
+        raise RostersAfterClose("league_config season.nba_schedule_file is not set: the window's "
+                                "close cannot be placed")
+    return weeks, load_nba_schedule(schedule_path(base_path))
 
 
 class DraftRosterError(ValueError):
@@ -143,7 +194,7 @@ def build_from_draft(base_path: Path, show_diff: bool) -> int:
     return 0
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Generate config/ROSTERS.json from LINEUPS data"
     )
@@ -170,27 +221,49 @@ def main():
         action="store_true",
         help="Show differences from existing ROSTERS.json (if it exists)",
     )
-    
-    args = parser.parse_args()
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild even after week N+1's Monday window has closed (drops every move "
+             "made in that window; the cloud keeps ROSTERS.json current, 5g)",
+    )
+
+    args = parser.parse_args(argv)
     base_path = Path(args.base_path)
 
     if args.from_draft:
         return build_from_draft(base_path, args.show_diff)
 
-    # Load data
-    print("Loading LINEUPS data...")
-    data = load_all_data(base_path)
-    
-    # Determine which week to use
+    data = None
     if args.week:
         target_week = args.week
-    elif data.lineups.empty:
-        print("ERROR: LINEUPS is empty, so there is no week to build from.")
-        print("  Before week 1: python scripts/generate_rosters.py --from-draft")
-        sys.exit(1)
     else:
+        print("Loading LINEUPS data...")
+        data = load_all_data(base_path)
+        if data.lineups.empty:
+            print("ERROR: LINEUPS is empty, so there is no week to build from.")
+            print("  Before week 1: python scripts/generate_rosters.py --from-draft")
+            return 1
         target_week = int(data.lineups['week'].max())
-    
+
+    # 5g s.3: never after week N+1's window has closed, unless --force
+    weeks, nba = _guard_inputs(base_path)
+    try:
+        check_not_after_close(target_week, weeks, nba, now=league_now(), window_close=_window_close)
+    except RostersAfterClose as e:
+        if not args.force:
+            print(f"REFUSED: {e}")
+            return 1
+        print(f"WARNING (--force): {e}")
+        print("  Rebuilding anyway: re-enter the window's moves (or pull) before Step 6.")
+    return generate_rosters(base_path, target_week, args.show_diff, data=data)
+
+
+def generate_rosters(base_path: Path, target_week: int, show_diff: bool, data=None) -> int:
+    """Rebuild config/ROSTERS.json from week `target_week`'s lineups."""
+    if data is None:
+        print("Loading LINEUPS data...")
+        data = load_all_data(base_path)
     print(f"Using lineups from week {target_week}")
     
     # Filter to target week
@@ -198,7 +271,7 @@ def main():
     
     if week_lineups.empty:
         print(f"ERROR: No lineups found for week {target_week}")
-        sys.exit(1)
+        return 1
     
     # Build rosters
     #
@@ -222,7 +295,7 @@ def main():
         for manager, token in dropped:
             print(f"    {manager}: {token!r}")
     
-    write_rosters(base_path, new_rosters, args.show_diff, {
+    write_rosters(base_path, new_rosters, show_diff, {
         "_comment": f"Edit this file to reflect current rosters before running simulations. Auto-generated from LINEUPS week {target_week}",
         "_generated_from_week": target_week,
     })

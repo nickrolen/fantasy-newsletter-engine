@@ -2543,13 +2543,31 @@ def log_published_lines(stats_report_path, *, sendable: bool, preview: bool = Fa
         return no(f"the stats report is not publishable (Step 6 run mode: {mode}); "
                   "regenerate it with a normal Step 6 run")
     lines = list(meta.get("published_lines") or [])
+    src = (meta.get("lines") or {})
+    if src.get("source") == "closing":
+        # 5g s.7: the issue printed Monday's closing line, which the closing
+        # run already logged (source "closing"): nothing new to log
+        if lines:
+            return no(f"the report prints week {src.get('week')}'s closing line but carries "
+                      f"{len(lines)} line record(s) of its own: rebuild it with Step 6")
+        print(f"calibration log: the issue printed week {src.get('week')}'s closing line (already logged)")
+        return {"logged": 0, "skipped": 0, "why_not": None, "closing": True}
     if not lines:
         return no("the stats report carries no published lines")
     from modules import calibration_log as cal
-    stamp = datetime.now().isoformat(timespec="seconds")
+    from modules.league_clock import league_now
+    # 5g s.2b: published_at on the league clock with its offset (it was naive
+    # local time); a weekly-build line published at or after its week's first
+    # tip is marked so (calibration_log.AFTER_FIRST_TIP): the curve leaves it out
+    now = league_now()
+    stamp = now.isoformat(timespec="seconds")
+    root = sr_path.parent.parent
+    tip_of = cal.tip_resolver(root)
     for r in lines:
         r.setdefault("published_at", stamp)
-    root = sr_path.parent.parent
+        if r.get("source") == cal.WEEKLY_BUILD and not r.get(cal.AFTER_FIRST_TIP):
+            r[cal.AFTER_FIRST_TIP] = (cal.as_of_instant(r["published_at"], "published_at")
+                                      >= tip_of(r.get("season"), int(r["week"])))
     wrote = cal.append(lines, root)
     print(f"calibration log: {wrote['added']} line(s) logged to {wrote['path']}"
           + (f" ({wrote['skipped']} already there)" if wrote["skipped"] else ""))

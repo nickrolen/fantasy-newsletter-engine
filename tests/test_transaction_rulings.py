@@ -180,14 +180,15 @@ def test_garretts_week_2_on_the_10_26_file_is_2_used_1_left(tmp_path, monkeypatc
 
     class D:
         schedule = SCHEDULE
-    out = rb.build_add_budget(D(), 1)
-    assert out["managers"]["Garrett"] == {"used": 2, "remaining": 1,
+    out = rb.build_add_budget(D(), 1, ledger_view={"claimed": {}, "dropped": {}, "pending_adds": {}, "live_claims": []})
+    core = ("used", "remaining", "players", "over_budget")       # 5g added claims and shown
+    assert {k: out["managers"]["Garrett"][k] for k in core} == {"used": 2, "remaining": 1,
                                           "players": ["Aaron Wiggins", "Toumani Camara"],
                                           "over_budget": False}
     # Benton's three are week 1 claims (rule 7, Nick 10-31): listed in week
     # 2's file, counted in week 1, so week 2 is untouched. His Paul George
     # claim still stands over Garrett's voided add.
-    assert out["managers"]["Benton"] == {"used": 0, "remaining": 3, "players": [],
+    assert {k: out["managers"]["Benton"][k] for k in core} == {"used": 0, "remaining": 3, "players": [],
                                          "over_budget": False}
     # LaVine: listed in week 2's file, counted in week 1, the week he was
     # added in (Nick, 11-01)

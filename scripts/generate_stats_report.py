@@ -191,6 +191,14 @@ def main():
              "for this run (recorded in the report metadata and the capture)",
     )
     parser.add_argument(
+        "--own-line",
+        action="store_true",
+        help="after week N+1's Monday window has closed, price this report's own week N+1 "
+             "line instead of printing Monday's closing line (the fallback when the closing "
+             "line is not on file; marked in the calibration log as published after the "
+             "week's first tip). Before the close the report always prices its own (5g)",
+    )
+    parser.add_argument(
         "--repro",
         action="store_true",
         help="Repro run for the given week: use pre-week RECENT_CONTENT snapshot, do not save freshness, "
@@ -270,6 +278,32 @@ def main():
     if stale:
         print(f"WARNING (overridden): {stale}")
         print()
+
+    # 5g s.7 (Nick, 11-25): after week N+1's window has closed, week N's issue
+    # prints Monday's closing line; with no closing line on file this refuses
+    # unless --own-line. Decided here, before the long build, on the build's
+    # clock (the move ledger is read as of the same moment).
+    from modules.league_clock import league_now as _league_now
+    from modules import closing_line as _cl
+    build_now = _league_now()
+    line_source = None
+    if not args.fast and not args.repro:
+        try:
+            line_source = _cl.for_weekly_build(base_path, week, data.schedule.get("weeks", []),
+                                               data.nba_schedule, now=build_now, own_line=args.own_line)
+        except _cl.ClosingLineMissing as e:
+            print(f"REFUSED: {e}")
+            sys.exit(1)
+        if line_source is None:
+            print(f"Lines: week {week + 1} is not in the schedule; no lines to print")
+        elif line_source["kind"] == "closing":
+            print(f"Lines: week {week + 1}'s lines are Monday's closing line ({line_source['path']}, "
+                  f"priced at the close {line_source['close']}); the previews are this report's own")
+        else:
+            print(f"Lines: {line_source['why']}")
+        print()
+    elif args.own_line:
+        print("Note: --own-line has no effect with --fast or --repro")
 
     if data.durability_prior is not None:
         _dp = data.durability_prior.record()
@@ -478,6 +512,8 @@ def main():
             freshness_tracker=freshness_tracker,
             season_performers=season_performers,
             season_pass_out=season_passes,
+            now=build_now,
+            line_source=line_source,
         )
     except Exception as e:
         print(f"ERROR building report: {e}")
@@ -509,6 +545,9 @@ def main():
                 with open(prior_report_path, "r", encoding="utf-8") as f:
                     prior_report = json.load(f)
                 frozen_looking_ahead = prior_report.get("looking_ahead")
+                # 5g: the frozen lines keep their source (closing or own)
+                if "lines" in (prior_report.get("metadata") or {}):
+                    report["metadata"]["lines"] = prior_report["metadata"]["lines"]
                 print(f"Repro mode: froze looking_ahead from {prior_report_path}")
             except Exception as e:
                 print(f"Warning: could not load prior report for looking_ahead freeze: {e}")
@@ -604,8 +643,12 @@ def main():
               f"{len(_lines)} line(s) in this report, which Step 9 will refuse to log")
         print()
     else:
-        print(f"{len(_lines)} line(s) ready for the calibration log -- Step 9 logs them "
-              "when it builds the page (newsletter_html_generator.py --stats-report)")
+        if (report.get("metadata") or {}).get("lines", {}).get("source") == "closing":
+            print(f"The issue prints week {week + 1}'s closing line, already in the calibration log "
+                  "(source closing): Step 9 logs no new line")
+        else:
+            print(f"{len(_lines)} line(s) ready for the calibration log -- Step 9 logs them "
+                  "when it builds the page (newsletter_html_generator.py --stats-report)")
         try:
             done = cal.settle(data.records, base_path)
             if done["settled"]:

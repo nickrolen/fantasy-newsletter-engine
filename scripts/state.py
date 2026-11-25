@@ -36,9 +36,19 @@ overlap only where both sides hold the same bytes -- pull takes the private
 repo's changes and keeps the local ones, which the next push sends. A real
 overlap refuses, naming the files, and changes nothing here or in .state/.
 
+MERGING WHAT CAN BE MERGED (5g s.5, 11-25). A real overlap on a file whose
+manifest entry names a "merge" rule is merged instead of refused
+(modules/state_merge.py): append_jsonl (both sides only appended: base, then
+both sides' new lines in as_of order), calibration_log (settle fields and
+appends; a settle conflict refuses), cloud_wins (a derived "latest" file: the
+private repo's version). Every merge is printed by file with its counts, and
+this folder's versions of the merged files are kept in .state-merge\\<time>\\
+(gitignored) first, so nothing is lost. An overlap on a file with no rule, or
+a merge its rule refuses, still refuses the whole pull and changes nothing.
+
 Every refusal names the file(s) and what to do, and exits 1. Standard library
 plus `git` on PATH. Nothing here reads a file's contents except to hash and
-copy it.
+copy it, and to merge the files whose rule says how.
 """
 
 from __future__ import annotations
@@ -61,6 +71,7 @@ from modules import state_manifest as sm   # noqa: E402
 
 CLONE_DIR = ".state"
 SYNC_FILE = ".state_sync.json"
+MERGE_DIR = ".state-merge"          # this folder's versions of merged files (5g; gitignored)
 README = ("# newsletter-state\n\n"
           "State for the newsletter engine (nickrolen/fantasy-newsletter-engine): the league's\n"
           "logs, rosters, overrides, rulings, lore and issues. Private. The engine's\n"
@@ -193,6 +204,13 @@ def blob_sha(clone: Path, ref: str, rel: str):
     return hashlib.sha256(r.stdout).hexdigest()
 
 
+def blob_bytes(clone: Path, ref: str, rel: str):
+    """`rel`'s bytes at `ref` in the clone, or None if absent there."""
+    r = subprocess.run(["git", "cat-file", "blob", f"{ref}:{rel}"], cwd=str(clone),
+                       capture_output=True)
+    return r.stdout if r.returncode == 0 else None
+
+
 def changed_between(clone: Path, man, old: str, new: str) -> list:
     """State paths that differ between two commits of the private repo."""
     if old == new:
@@ -290,11 +308,28 @@ def cmd_pull(root: Path, man, out=print) -> int:
     theirs = changed_between(clone, man, rec["commit"], remote)
     both = sorted(set(changed) & set(theirs))
     clash = [p for p in both if local.get(p) != blob_sha(clone, remote, p)]
-    if clash:
+    no_rule = [p for p in clash if man.merge_rule(p) is None]
+    if no_rule:
         raise Refusal("the same state file(s) changed here AND in the private repo since the last "
-                      "sync:\n" + _list(clash)
+                      "sync:\n" + _list(no_rule)
                       + "\nnothing was changed, here or in .state\\. Ask before going on: one "
                         "side's version of each has to be chosen by hand")
+    # 5g s.5: every clash has a merge rule. Merge them all in memory first:
+    # one that its rule refuses refuses the whole pull, and nothing changes.
+    merged = {}
+    if clash:
+        from modules import state_merge as smg
+        for rel in clash:
+            rule = man.merge_rule(rel)
+            ours = (root / rel).read_bytes() if (root / rel).is_file() else None
+            try:
+                merged[rel] = (rule, *smg.merge(rule, blob_bytes(clone, rec["commit"], rel),
+                                                blob_bytes(clone, remote, rel), ours, rel))
+            except smg.MergeRefused as e:
+                raise Refusal(f"the same state file changed here AND in the private repo, and its "
+                              f"merge rule ({rule}) refuses: {e}\nnothing was changed, here or in "
+                              ".state\\. Ask before going on: one side's version has to be chosen by "
+                              "hand") from None
     git("pull", "-q", "--ff-only", cwd=clone)
     if head(clone) != remote:
         raise Refusal(f"{CLONE_DIR}\\ did not fast-forward to {remote[:12]}: ask before going on")
@@ -311,6 +346,19 @@ def cmd_pull(root: Path, man, out=print) -> int:
         elif dst.is_file():
             dst.unlink()
             removed.append(rel)
+    backup = None
+    if merged:
+        from modules.league_clock import league_now
+        backup = root / MERGE_DIR / league_now().strftime("%Y%m%d-%H%M%S")
+        for rel in merged:                         # this folder's versions first: nothing is lost
+            if (root / rel).is_file():
+                (backup / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(root / rel, backup / rel)
+        for rel, (_rule, data, _summary) in merged.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            tmp = (root / rel).with_name((root / rel).name + ".merge-tmp")
+            tmp.write_bytes(data)
+            tmp.replace(root / rel)
     save_record(root, head(clone), hashes(clone, man), "pull (kept local changes)")
     kept = sorted(set(changed) - set(both))
     out(f"pulled {head(clone)[:12]}: {len(took)} file(s) updated, {len(removed)} removed from the "
@@ -321,6 +369,12 @@ def cmd_pull(root: Path, man, out=print) -> int:
         out(f"  removed  {p}")
     for p in kept:
         out(f"  kept     {p}  (changed here)")
+    for p, (rule, data, summary) in sorted(merged.items()):
+        out(f"  merged   {p}  ({rule}: {summary})"
+            + ("" if data == blob_bytes(clone, head(clone), p) else " -- push it next"))
+    if backup is not None:
+        out(f"  this folder's versions of the merged file(s) are kept in "
+            f"{backup.relative_to(root).as_posix().replace('/', chr(92))}{chr(92)}")
     return 0
 
 

@@ -77,6 +77,8 @@ Write Sections 1-4 of the newsletter following the template's instructions for e
 3. Betting Lines
 4. Player of the Week
 
+**Betting Lines:** [FILL IN: where this issue's betting lines come from]
+
 Follow the extract -> cite -> write -> clean workflow internally, but **output ONLY the final cleaned prose.** No extraction blocks, no citations, no working notes. Every number must come directly from the stats report -- no rounding, no inventing.
 
 Start with:

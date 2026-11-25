@@ -232,6 +232,8 @@ output/keeper_backtest.json
 # the private clone and the per-machine sync record
 .state/
 .state_sync.json
+# state.py pull's copies of this folder's versions of the files it merged (5g)
+.state-merge/
 config/INJURY_OVERRIDES.json
 config/TRANSACTION_RULINGS.json
 config/TRADES.json
