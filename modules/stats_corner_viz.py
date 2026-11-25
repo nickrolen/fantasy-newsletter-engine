@@ -1276,7 +1276,7 @@ def _format_career_points(pts: float) -> str:
 
 
 def render_stats_corner_visualizations(stats_report: dict, position: str = "all", player_cards: list = None,
-                                       keeper_summary_html: str = "") -> str:
+                                       keeper_summary_html: str = "", include_keeper_watch: bool = True) -> str:
     """Render Stats Corner visualizations from a stats report dict.
 
     Args:
@@ -1287,6 +1287,8 @@ def render_stats_corner_visualizations(stats_report: dict, position: str = "all"
             "all"    -- Everything (legacy default)
         player_cards: Optional list of player card dicts (from player_card_builder).
             If provided, keeper watch chips include rank, archetype, career stats.
+        include_keeper_watch: False leaves the Keeper Watch panel out (4d: the
+            newsletter passes newsletter_shape.KEEPER_WATCH_IN_ISSUE).
     """
     top_blocks = []
     bottom_blocks = []
@@ -1308,7 +1310,7 @@ def render_stats_corner_visualizations(stats_report: dict, position: str = "all"
 
     # 4. Keeper Watch
     kw = stats_report.get("keeper_watch")
-    if kw:
+    if kw and include_keeper_watch:
         top_blocks.append(render_keeper_watch(kw, player_cards=player_cards,
                                               summary_html=keeper_summary_html))
 

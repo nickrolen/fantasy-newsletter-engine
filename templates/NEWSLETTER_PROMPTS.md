@@ -15,13 +15,15 @@ Before opening the drafting chat, pull these from the **stats report markdown** 
 
 1. **Week number, dates, and season** -- e.g., Week 16, Feb 2-8, 2025-26. Dates from `config\SCHEDULE.json`; the season from `config\league_config.json` (`season.current`).
 2. **The league line** -- the number of teams (`managers` in the config) and the league's season as an ordinal word from `season.league_season_number` (12 is "twelfth"), never `data_era_season_number`.
-3. **The manager table** -- every manager and his team name from the config (`manager_to_team`); his three star players are his top three in the stats report's keeper watch by keep chance (the report's own per-team rank).
+3. **The manager table** -- every manager and his team name from the config (`manager_to_team`); his three star players are his top three in the stats report JSON's `keeper_watch` by keep chance (the report's own per-team rank; the .md no longer prints Keeper Watch).
 4. **Key storylines** -- the stats report's ANGLES block, verbatim and in its order: the lead, the secondary angles, the standing threads, and the "Money this week" line. If it says NO LEAD THIS WEEK, that goes in as is. What the block ranks, for reference:
    - Matchup results (upsets? streaks extended/snapped? blowouts?)
    - Title odds shifts / magic number changes (magic numbers from the week 8 report on only)
    - POTW winner and notable stat lines
    - Milestones (career wins, records, first-time achievements)
    - Running threads from `LAST_WEEK_RECAP.md` that resolved or continued
+
+   **The award races** -- the stats report's AWARD MOVES block (right after the ANGLES), verbatim. It lists only the races that moved this week, or says "No award race moved this week."
 
    **Storyline templates (for reference, fill with specific numbers):**
    - **Upset/decisive win:** "[Manager] [beats/upsets] [Manager] [score]-[score] [as a +X underdog / covering the X-point spread]. [Key stat or streak implication]."
@@ -68,13 +70,18 @@ I've attached these files. **Read `newsletter_template.md` thoroughly before wri
 ### KEY STORYLINES (reference throughout)
 [FILL IN: the stats report's ANGLES block, verbatim]
 
-**Money (template rule 23):** the block above ends with its "Money this week" line. If it says nothing was decided, the newsletter quotes no dollar figures except where that line allows. If it names what was decided, dollar figures belong to those lines only.
+**Money (template rule 23):** the block above ends with its "Money this week" line. If it says nothing was decided, the newsletter quotes no dollar figures. If it names what was decided, dollar figures belong to those lines only, and each one names its pot and window, in any section.
+
+### AWARD MOVES (template rule 24)
+[FILL IN: the stats report's AWARD MOVES block, verbatim]
+
+There is no awards section. Mention an award race only for a move listed above, where it fits (Power Rankings, Fun Facts, or the matchup it happened in), with the block's numbers.
 
 ### YOUR TASK -- SECTIONS 1-4 ONLY
 Write Sections 1-4 of the newsletter following the template's instructions for each section:
 1. Matchup Summaries
 2. Report Cards (ordered by `overall_score` descending, ties by `weekly_fp` -- the order `report_cards` arrives in; NOT by letter grade. Template, Section 2)
-3. Betting Lines
+3. Betting Lines -- the issue's whole look-ahead: per matchup, the line block, then 2 or 3 sentences on what decides it, then the template's "On the hub:" line exactly (template, Section 3). No position-by-position paragraph.
 4. Player of the Week
 
 **Betting Lines:** [FILL IN: where this issue's betting lines come from]
@@ -105,21 +112,13 @@ Continue the Week [FILL IN: N] Newsletter. Write **Sections 5-8** following the 
 
 6. **What If** -- Use what_if_analysis data. If no costly decisions >= 25 points, note clean lineup management.
 
-7. **Power Rankings** -- TWO tables required:
-   - Table 1: Projected Finish Distribution (Team | 1st | 2nd | 3rd | 4th)
-   - Table 2: Power Rankings (Rank | Team | Record | Title Odds | Trend)
-   - Then 3-4 paragraphs of narrative.
+7. **Power Rankings** -- ONE table: Power Rankings (Rank | Team | Record | Title Odds | Trend), then 3-4 paragraphs of narrative. No projected finish distribution and no Money and Exposure: they are on the hub.
 
-8. **Stats Corner** -- EIGHT tables required, in this order:
+8. **Stats Corner** -- THREE tables, in this order:
    1. Top Performances
    2. Worst Performances
-   3. Best Performers -- Total FP, This Season
-   4. Best Performers -- FPPG, This Season
-   5. Worst Performers -- Total FP, This Season
-   6. Worst Performers -- FPPG, This Season
-   7. Waiver Pickups
-   8. Top Available Free Agents
-   - Additional tables (Positional Breakdown, Waiver ROI, Bench Report, Record Book, Keeper Watch, Draft Value Tracker) are rendered as interactive visualizations by the HTML generator, do NOT include them in the draft.
+   3. Waiver Pickups
+   - No season tables, no free agents and no Keeper Watch (cut). Positional Breakdown, Waiver ROI, Bench Report, Record Book and Draft Value Tracker are rendered by the HTML generator: do NOT include them in the draft.
    - Then 3 or 4 sentences of commentary.
 
 Same rules as Part 1: cleaned prose only, every number from the stats report. Present sections 5-8 as a downloadable file.
@@ -162,7 +161,7 @@ Finish the Week [FILL IN: N] Newsletter. Write **Sections 9-10** and the closing
 
 The Rumor Mill may cite the trade block as what that manager has said, with its date. It is the managers' own word, not a rumor and not advice.
 
-Use the rumor_mill data from the stats report. Cover trade ideas, free agent targets, hot streaks, and slump watch per the template's instructions. Cover only what the stats report has: an empty list gets no subsection.
+Use the rumor_mill data from the stats report. Cover trade ideas, hot streaks and slump watch per the template's instructions. Cover only what the stats report has: an empty list gets no subsection. **No free agent targets:** they are on the hub's Advice page; Rumor Mill may end with the template's "On the hub:" line for it, exactly.
 
 **The advice is off** until the new engine ships: the stats report's Section 10 says only "The advice returns with the new engine." The page prints that line itself; don't retype it and write no advice (trade finder, waiver plans) of your own. If you mention the advice, use that sentence word for word.
 

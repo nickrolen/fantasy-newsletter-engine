@@ -167,6 +167,22 @@ AFTER reading the grade narrative:
 - [ ] Prose uses American odds and point spreads
 - [ ] Win-probability percentages appear only in stat blocks, never in prose
 
+### Money lines (Rule 23, LEAGUE_RULES "Language rule")
+
+- [ ] A dollar figure appears only in a week the ANGLES block's "Money this
+      week" line names something decided
+- [ ] Every dollar figure names its pot (regular-season or playoff) and its
+      window (weeks 1-15, the regular season, the semifinals), in ANY section:
+      there is no Money and Exposure block any more (4d)
+- [ ] Never "safe" or "certain" about paying without the pot and the window
+
+### Award races (Rule 24)
+
+- [ ] An award race appears only for a move the stats report's AWARD MOVES
+      block lists, and its numbers are that block's
+- [ ] When the block says "No award race moved this week." (or is
+      unavailable), no award race is mentioned
+
 ### Repetition (Rule 6)
 
 - [ ] Detailed injury breakdowns appear once, not repeated across sections
@@ -199,14 +215,14 @@ A final pass, one section at a time. Each has a characteristic failure:
 |---|---------|-----------|
 | 1 | Matchup Summaries | Score/margin arithmetic; injury glossary misuse |
 | 2 | Report Cards | Grades inconsistent with the numbers cited; blunder attribution |
-| 3 | Betting Lines | Spread direction and cover math; probability language in prose |
+| 3 | Betting Lines | The line block matches the report's closing line exactly; 2-3 sentences per matchup, no position-by-position paragraph; each ends with the "On the hub:" line; probability language in prose |
 | 4 | Player of the Week | FP/games/FPPG all from the same player row; POTW count history |
 | 5 | Fun Facts | Superlatives -- highest concentration of unverified claims |
 | 6 | What If? | Counterfactual uses real bench numbers, not invented lineups |
-| 7 | Power Rankings | Movement claims match last week's actual positions |
-| 8 | Stats Corner | Table count matches the template; figures match the report. 2026-27: Draft Value Tracker should cover rounds 1-9, not 1-7 |
+| 7 | Power Rankings | ONE table (Power Rankings); no finish distribution and no Money and Exposure (on the hub); movement claims match last week's actual positions |
+| 8 | Stats Corner | THREE tables (Top Performances, Worst Performances, Waiver Pickups); no season tables, free agents or Keeper Watch; figures match the report. 2026-27: the Draft Value Tracker visual should cover rounds 1-9, not 1-7 |
 | 9 | Around the NBA | Real, correctly dated Week N news; trade grade direction |
-| 10 | Rumor Mill | Speculation is clearly framed as speculation, not fact |
+| 10 | Rumor Mill | Speculation is clearly framed as speculation, not fact; no free agent targets (at most the "On the hub:" line to Advice) |
 
 ---
 

@@ -1,11 +1,12 @@
-"""The money line must not contradict the Money and Exposure rule
+"""The money line must not contradict the claim check's money rule
 (claude/HANDOFF_SECTION10_OFF_AND_BUDGET_WEEK_2026-11-02.md part 4).
 
 In a week where no money was decided, angles.money_line used to tell the
 drafter "Quote no dollar figures anywhere in the newsletter", while the claim
 check exempts Section 7's Money and Exposure block (claim_check.MONEY_BLOCK)
 and the template puts dollar figures there every week. The week 2 drafter
-caught it. The line now names the exemption from claim_check's own constants.
+caught it, and the line named the exemption. 4d moved the block to the hub:
+no exemption, and the line says "anywhere" again.
 """
 from modules import angles as A
 from modules import claim_check as cc
@@ -14,24 +15,21 @@ from modules import standing_threads as ST
 MGRS = ["Nick", "Hayden", "Benton", "Garrett"]
 
 
-def test_the_line_names_the_exemption_the_check_uses():
+def test_the_line_says_anywhere_now_there_is_no_block():
+    """4d (NEWSLETTER_REVIEW 11-25): Money and Exposure moved to the hub, so
+    the 11-02 exemption went with it and "anywhere" is true again."""
     line = A.money_line({"money_events": []})
-    where = f"Section {cc.MONEY_BLOCK_SECTION}'s {cc.MONEY_BLOCK_NAME} block"
-    assert f"Quote no dollar figures outside {where}; a pot can be named without its amount." in line
-    assert "anywhere" not in line
-    assert f"(Checked: a dollar figure outside {where} this week is a claim-check finding.)" in line
-    # one definition: the block the check exempts is the one the line names,
-    # and the one the page's section is headed with
-    assert cc.MONEY_BLOCK == cc.MONEY_BLOCK_NAME.lower()
-    assert ST.MONEY_HEADER == cc.MONEY_BLOCK_NAME
+    assert "Quote no dollar figures anywhere in the issue; a pot can be named without its amount." in line
+    assert "(Checked: a dollar figure this week is a claim-check finding.)" in line
+    assert "outside" not in line and not hasattr(cc, "MONEY_BLOCK")
 
 
 def test_the_check_does_what_the_line_says():
     vocab = cc.Vocabulary(MGRS)
-    inside = ("## **7. Power Rankings**\n\n**" + cc.MONEY_BLOCK_NAME + "**\n\n"
+    inside = ("## **7. Power Rankings**\n\n**Money and Exposure**\n\n"
               "Garrett and Hayden would each pay $150 if the season ended today.\n")
     outside = "## **1. Matchup Summaries**\n\nHayden is on the hook for $150 right now.\n"
-    assert cc.money_findings(inside, vocab, []) == []
+    assert [f.token for f in cc.money_findings(inside, vocab, [])] == ["$150"]     # 4d: no exemption
     assert [f.token for f in cc.money_findings(outside, vocab, [])] == ["$150"]
 
 

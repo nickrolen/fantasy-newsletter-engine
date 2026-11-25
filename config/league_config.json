@@ -759,6 +759,13 @@
         "bust_min_games": 10,
         "roy_min_starts": 10,
         "_roy_min_starts": "5e (4C7 decision 5, Nick 11-22): Rookie of the Year needs at least this many starts for a league team, regular season. A rookie under it is listed, marked not yet eligible, and can't lead; past seasons rebuilt with it. A missing key RAISES.",
+        "newsletter_moves": {
+            "_comment": "4d (NEWSLETTER_REVIEW 11-25, decision 3): the formatted stats report's AWARD MOVES block flags a race only when it moved against the week before (modules/awards.award_moves, from output/awards_history.jsonl, the hub's source). A new leader always counts. Both keys REQUIRED; a missing one RAISES.",
+            "lead_change_share": 0.5,
+            "_lead_change_share": "The same leader's lead over 2nd grew or shrank by at least this share of last week's lead (0.5 = half). The leader's own total is no signal: PAR only grows. On 2026-27 weeks 2-5 (measured 11-25) it flags 5 lead moves (4 grew, 1 shrank) beside 2 new leaders and 3 first leaders; week 5 flags 2 races (MVP's lead grew 19.02 to 98.91, Bust's shrank 23.51 to 9.27).",
+            "mvp_odds_swing_points": 10,
+            "_mvp_odds_swing_points": "MVP only: the leader's odds to win moved by at least this many percentage points, or the favourite changed. Compared only when both weeks' history lines carry odds."
+        },
         "mvp_odds": {
             "_comment": "4c6 (modules/mvp_odds.py): each player's chance to finish weeks 1-15 with the most PAR, from the title odds' own season pass (the nightly only). Every player is in every simulation; ties at the top split evenly.",
             "future_replacement": "current",

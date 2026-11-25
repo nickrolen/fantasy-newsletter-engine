@@ -158,14 +158,15 @@ def test_a_clinch_comes_from_races_exact_never_from_a_sampled_one():
 
 
 # ---------------------------------------------------------------------------
-# the claim check: figures in the block every week, nowhere else; "about N%"
+# 4d (NEWSLETTER_REVIEW 11-25): Money and Exposure moved to the hub. The
+# engine above is unchanged (the hub job reads it); the newsletter has no
+# block, so its exemptions went: a dollar figure is checked in every section,
+# and "about N%" is an approximate number everywhere.
 # ---------------------------------------------------------------------------
 
 def _pool(ms):
-    import format_stats_report as F
     vocab = cc.Vocabulary(MANAGERS, MANAGER_TO_TEAM, {}, [])
-    facts = "\n".join(F.format_money_facts(ms))
-    return vocab, cc.build_pool(vocab, [("report", {"money_section": ms})], [("facts", facts)])
+    return vocab, cc.build_pool(vocab, [("report", {"money_section": ms})], [])
 
 
 BLOCK = ("### **7. Power Rankings**\n\n**Money and Exposure**\n\n"
@@ -175,43 +176,28 @@ BLOCK = ("### **7. Power Rankings**\n\n**Money and Exposure**\n\n"
          "Hayden +$74, Benton -$76.\n")
 
 
-def test_a_draft_with_the_section_passes_the_claim_check():
+def test_the_old_block_is_no_longer_exempt():
     ms = _ms()
     vocab, pool = _pool(ms)
-    assert cc.check(BLOCK, pool, vocab) == []
-    assert cc.money_findings(BLOCK, vocab, []) == []          # no money event, and still fine
+    found = cc.money_findings(BLOCK, vocab, [])
+    assert {f.token.rstrip(",") for f in found} >= {"$135", "$74"} and {f.section for f in found} == {7}
+    # the pot-and-window rule: the last sentence names neither
+    assert [f.token for f in cc.money_line_findings(BLOCK, vocab)] == ["$74"]
 
 
-def test_dollar_figures_outside_the_block_are_still_findings():
+def test_about_n_percent_is_an_approximate_number_everywhere():
     ms = _ms()
     vocab, pool = _pool(ms)
-    draft = BLOCK + "\n### **5. Fun Facts**\n\nHayden could collect +$135 this year.\n"
-    found = cc.money_findings(draft, vocab, [])
-    assert [f.section for f in found] == [5] and found[0].kind == "money_without_event"
+    assert any(f.kind == "approximate_number" and f.token.startswith("48") for f in cc.check(BLOCK, pool, vocab))
 
 
-def test_about_n_percent_must_be_exact_and_only_in_the_block():
-    ms = _ms()
-    vocab, pool = _pool(ms)
-    wrong = BLOCK.replace("about 48%", "about 50%")
-    assert any(f.kind == "unsupported_number" and f.token.startswith("50")
-               for f in cc.check(wrong, pool, vocab))
-    outside = "### **7. Power Rankings**\n\nHayden is about 48% to win the regular season.\n"
-    assert any(f.kind == "approximate_number" for f in cc.check(outside, pool, vocab))
-
-
-# ---------------------------------------------------------------------------
-# the page: the block is lifted into the rendered section; its table checks
-# ---------------------------------------------------------------------------
-
-def test_the_page_lifts_the_paragraphs_and_renders_the_table():
+def test_the_money_table_still_renders_and_checks():
+    """render_money_html stays for the hub's Money view (the hub job, one
+    source moved, not rebuilt); the newsletter page no longer calls it."""
     import newsletter_html_generator as g
     from modules import published_tables as pt
     ms = _ms()
-    rest, summ = g.lift_block(BLOCK.split("\n", 1)[1], g.MONEY_HEADER)
-    assert "+$135" not in rest and summ.count("<p>") == 1
-    html = T.render_money_html(ms, summ)
-    # two tables (Nick, 10-30): a header and four managers each
+    html = T.render_money_html(ms, "<p>x</p>")
     assert html.count("<tr>") == 2 * (1 + 4) and "Cup 6th keeper %" in html
     page = f"<html><body><h2>Power Rankings</h2>{html}</body></html>"
     findings, unchecked = pt.check_document(page, {"season": None, "standings": {}})
@@ -219,6 +205,8 @@ def test_the_page_lifts_the_paragraphs_and_renders_the_table():
     broken = page.replace(">+$74<", ">+$84<")
     findings, _ = pt.check_document(broken, {"season": None, "standings": {}})
     assert any(f.check == "zero-sum" for f in findings)
+    src = (ROOT / "scripts" / "newsletter_html_generator.py").read_text(encoding="utf-8")
+    assert "render_money_html" not in src and "MONEY_HEADER" not in src
 
 
 def test_the_keeper_watch_table_is_checked_too():
@@ -233,13 +221,12 @@ def test_the_keeper_watch_table_is_checked_too():
     assert any(f.check == "5 vs 6 keepers" for f in findings)
 
 
-def test_the_drafter_is_told_the_rules():
+def test_the_drafter_is_not_told_to_write_the_block():
     import format_stats_report as F
-    facts = "\n".join(F.format_money_facts(_ms()))
-    assert "lead with the named outcome above (Hayden's +$135 finish)" in facts
-    assert "\"about N%\"" in facts and "run low by design" in facts and "a little confident" in facts
+    assert not hasattr(F, "format_money_facts")
     tmpl = (ROOT / "templates" / "newsletter_template.md").read_text(encoding="utf-8")
-    assert "**Money and Exposure**" in tmpl and "Dollar figures belong in this block only" in tmpl
+    assert "Dollar figures belong in this block only" not in tmpl
+    assert "\n**Money and Exposure**\n" not in tmpl and "MONEY AND EXPOSURE -- FACTS" not in tmpl
 
 
 # ---------------------------------------------------------------------------

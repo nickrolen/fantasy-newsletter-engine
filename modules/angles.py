@@ -1145,14 +1145,12 @@ def money_line(sel: dict) -> str:
     if ev is None:
         raise KeyError("angles selection has no money_events")
     if not ev:
-        # The exemption is claim_check's own (MONEY_BLOCK): "anywhere" here
-        # contradicted it, and the week 2 drafter caught that (11-02).
-        from modules.claim_check import MONEY_BLOCK_NAME, MONEY_BLOCK_SECTION
-        where = f"Section {MONEY_BLOCK_SECTION}'s {MONEY_BLOCK_NAME} block"
+        # 4d: the Money and Exposure block, the old exemption (11-02), moved
+        # to the hub, so "anywhere" is true again (claim_check.money_findings).
         return ("**Money this week: nothing was decided.** Quote no dollar "
-                f"figures outside {where}; a pot can be named without its "
-                f"amount. (Checked: a dollar figure outside {where} this week "
-                "is a claim-check finding.)")
+                "figures anywhere in the issue; a pot can be named without its "
+                "amount. (Checked: a dollar figure this week is a claim-check "
+                "finding.)")
     words = {"clinched_title": "clinched the regular-season title",
              "out_of_title": "out of the regular-season title race",
              "safe_from_paying": "settled out of the regular-season pot's "
@@ -1163,8 +1161,8 @@ def money_line(sel: dict) -> str:
              "playoff_title": "won the playoff championship"}
     what = "; ".join(f"{m} {words[e]}" for e, m in ev)
     return (f"**Money this week:** {what}. Dollar figures belong to these "
-            "lines only. A liability that held last week and holds this week "
-            "is not news for anyone it applies to.")
+            "lines only, each naming its pot and window. A liability that held "
+            "last week and holds this week is not news for anyone it applies to.")
 
 
 def render_markdown(sel: dict) -> str:

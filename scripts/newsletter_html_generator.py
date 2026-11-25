@@ -34,7 +34,7 @@ from modules.player_card_modal import (
     embed_player_card_data,
 )
 from modules.player_card_builder import build_player_cards
-from modules.standing_threads import render_money_html
+from modules import newsletter_shape as _shape
 from modules.advice_render import (
     render_html as render_advice_html,
     get_css as get_advice_css,
@@ -583,6 +583,14 @@ def parse_section(text: str, section_name: str) -> str:
         if skip_current_block:
             i += 1
             continue
+
+        # 4d: an "On the hub:" line (newsletter_shape) is a pointer, not a
+        # paragraph: 48a's archive parser reads a Betting Lines matchup's <p>s
+        # as Monday's preview, and the hub must not show its own pointer.
+        if line.startswith(_shape.HUB_POINTER_LEAD):
+            html_parts.append(f'<div class="hub-pointer">{strip_markdown_formatting(line)}</div>')
+            i += 1
+            continue
         
         # Check for table (header line followed by separator)
         if i + 1 < n and '|' in line and is_table_separator(lines[i + 1]):
@@ -813,7 +821,6 @@ def parse_section(text: str, section_name: str) -> str:
 
 
 KEEPER_WATCH_HEADER = re.compile(r"^\*\*\s*Keeper Watch\s*\*\*:?$", re.I)
-MONEY_HEADER = re.compile(r"^\*\*\s*Money and Exposure\s*\*\*:?$", re.I)
 BOLD_HEADER = re.compile(r"^\*\*[^*]+\*\*:?$")
 
 
@@ -1130,7 +1137,10 @@ def generate_html(
     _player_cards = None
     if stats_report:
         kw_players = stats_report.get("keeper_watch", {}).get("players", [])
-        if kw_players and data_dir and config_dir and historical_dir:
+        # 4d: the cards open only from the Keeper Watch panel, which left the
+        # issue (newsletter_shape.KEEPER_WATCH_IN_ISSUE): with it off, no
+        # cards are built (and data/player_actuals.json is not needed).
+        if kw_players and _shape.KEEPER_WATCH_IN_ISSUE and data_dir and config_dir and historical_dir:
             # the cards' season numbers are each player's NBA numbers through
             # the report week's last day (Nick, 11-12: one FPPG everywhere).
             # Outside the try: a missing or short data/player_actuals.json
@@ -1245,7 +1255,8 @@ def generate_html(
             if stats_report:
                 viz_top_html = render_stats_corner_visualizations(
                     stats_report, position="top", player_cards=_player_cards,
-                    keeper_summary_html=keeper_watch_summary_html(content)) or ""
+                    keeper_summary_html=keeper_watch_summary_html(content),
+                    include_keeper_watch=_shape.KEEPER_WATCH_IN_ISSUE) or ""
                 viz_bottom_html = render_stats_corner_visualizations(stats_report, position="bottom") or ""
             
             # Add sub-navigation for Stats Corner sections
@@ -1254,22 +1265,13 @@ def generate_html(
                 <a href="javascript:void(0)" onclick="document.querySelector('.sc-donut-grid')?.parentElement?.scrollIntoView({behavior:'smooth'})">Positional</a>
                 <a href="javascript:void(0)" onclick="document.querySelector('[data-viz=\\'draft-value\\']')?.scrollIntoView({behavior:'smooth'})">Draft Value</a>
                 <a href="javascript:void(0)" onclick="document.querySelector('[data-viz=\\'waiver-roi\\']')?.scrollIntoView({behavior:'smooth'})">Waiver ROI</a>
-                <a href="javascript:void(0)" onclick="document.querySelector('[data-viz=\\'keeper-watch\\']')?.scrollIntoView({behavior:'smooth'})">Keeper Watch</a>
                 <a href="javascript:void(0)" onclick="document.querySelector('.sc-rb-card')?.scrollIntoView({behavior:'smooth'})">Record Book</a>
-                <a href="javascript:void(0)" onclick="document.querySelector('.sc-tables-section')?.scrollIntoView({behavior:'smooth'})">Season Leaders</a>
+                <a href="javascript:void(0)" onclick="document.querySelector('.sc-tables-section')?.scrollIntoView({behavior:'smooth'})">This Week</a>
             </div>'''
             
-            # Wrap tables in a section for the shortcut. An incomplete season
-            # section (only publishable with --allow-incomplete-season-performers)
-            # says so on the page, whatever the draft says.
-            import html as _html_mod
-            from modules.season_performers import incomplete_note as _sp_note
-            _sp_banner = _sp_note((stats_report or {}).get("season_performers"))
-            _sp_banner = (f'<div class="sc-incomplete-banner" style="border:1px solid #c0392b;'
-                          f'background:#fdecea;color:#7b241c;padding:8px 12px;margin:8px 0;'
-                          f'border-radius:6px;font-size:0.9em">{_html_mod.escape(_sp_banner)}</div>'
-                          if _sp_banner else "")
-            content_html = f'{_sp_banner}<div class="sc-tables-section">{content_html}</div>'
+            # Wrap the week's tables in a section for the shortcut. (4d: the
+            # season tables, and their incomplete-season banner, left the issue.)
+            content_html = f'<div class="sc-tables-section">{content_html}</div>'
             
             section_html = f'''
         <section id="{section_id}">
@@ -1288,16 +1290,9 @@ def generate_html(
             # C5 games grid, straight from the stats report -- never retyped.
             # It closes this section rather than opening Betting Lines: it is
             # a roster-planning artifact, not a betting one.
-            # Money and Exposure (standing_threads.money_section): the drafted
-            # paragraphs are lifted out of the body and shown BELOW the
-            # section's two tables, rendered from the data (prose after the
-            # table it describes -- Nick, 10-30).
-            content, money_summary = lift_block(content, MONEY_HEADER)
+            # 4d: Money and Exposure moved to the hub; the page no longer
+            # renders it (standing_threads.money_section is still computed).
             content_html = parse_section(content, heading)
-            money_html = ""
-            if stats_report:
-                money_html = render_money_html(stats_report.get("money_section"),
-                                               summary_html=money_summary)
             grid_html = ""
             if stats_report:
                 try:
@@ -1308,7 +1303,6 @@ def generate_html(
         <section id="{section_id}">
             <h2>{heading}</h2>
             {content_html}
-            {money_html}
             {grid_html}
         </section>'''
 
@@ -1552,6 +1546,15 @@ def generate_html(
             box-shadow: 0 2px 4px rgba(0,0,0,0.04);
         }}
         
+        /* 4d: the "On the hub:" pointer under a matchup or Rumor Mill */
+        .hub-pointer {{
+            font-size: 0.88rem;
+            color: var(--medium-gray);
+            margin: 4px 0 18px 0;
+            padding-left: 10px;
+            border-left: 3px solid var(--accent-gold);
+        }}
+
         /* Stat lines */
         .stat-line {{
             font-size: 0.9rem;
@@ -2462,6 +2465,27 @@ def check_sections_complete(markdown_text: str) -> None:
         )
 
 
+CUT_HEADING = re.compile(
+    r"^\*\*\s*(" + "|".join(re.escape(h) for h in _shape.CUT_DRAFT_HEADINGS) + r")\b[^*]*\*\*:?\s*$",
+    re.M | re.I)
+
+
+def check_cut_blocks(markdown_text: str) -> None:
+    """Refuse a draft that still carries a block 4d cut (newsletter_shape.
+    CUT_DRAFT_HEADINGS): Projected Finish Distribution, Money and Exposure,
+    the four season tables, Top Available Free Agents, Keeper Watch, Free
+    Agent Targets. Like check_sections_complete, there is no override: the
+    page would render it as an ordinary heading and paragraphs."""
+    found = sorted({m.group(1) for m in CUT_HEADING.finditer(markdown_text)}, key=str.lower)
+    if found:
+        raise SystemExit(
+            "draft carries block(s) the newsletter no longer has -- refusing to build.\n"
+            f"  {', '.join(found)}\n"
+            "  4d (NEWSLETTER_REVIEW 2026-11-25): the finish table and Money and Exposure are on\n"
+            "  the hub; the season tables, free agents and free-agent targets too; Keeper Watch\n"
+            "  is cut. Delete them from the draft (templates/newsletter_template.md).")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Generate an HTML newsletter from a markdown draft.")
     ap.add_argument("--input", required=True, help="Path to the markdown draft.")
@@ -2489,6 +2513,7 @@ def main():
     # main() and not in build_newsletter_html(), which tests call with
     # deliberately partial drafts.
     check_sections_complete(markdown_text)
+    check_cut_blocks(markdown_text)
 
     out = build_newsletter_html(
         markdown_text, args.output, args.helmet, args.potw, args.podium,

@@ -373,13 +373,14 @@ def test_an_incomplete_section_is_said_in_the_stats_report_and_on_the_page(world
         world["base"], 1, allow_incomplete=True,
         lg=League({"t1": world["rosters"]["t1"], "t2": []}, world["days"]),
         bbref_fetch=Bbref(world["this"], world["last"], world["logs"]), now=NOW)
+    # 4d: the season tables left the newsletter (the hub's Players has them);
+    # the report still carries the section and says it is incomplete
+    assert (sp.incomplete_note(got) or "").startswith("The season tables through 2026-10-25 are incomplete: 1 of 3")
     import format_stats_report as fsr
     text = fsr.format_section_8_stats_corner({"season_performers": got}, {})
-    assert f"Season tables are through {WEEK_END}" in text
-    assert "**NOTE -- The season tables through 2026-10-25 are incomplete: 1 of 3" in text
+    assert "Season tables are through" not in text and "NOTE --" not in text
     gen = (ROOT / "scripts" / "newsletter_html_generator.py").read_text(encoding="utf-8")
-    assert '_sp_banner = _sp_note((stats_report or {}).get("season_performers"))' in gen
-    assert "content_html = f'{_sp_banner}<div class=\"sc-tables-section\">" in gen
+    assert "_sp_banner" not in gen
 
 
 # ------------------------------------------------- when a player joined (Part B)
@@ -444,10 +445,11 @@ def test_the_md_and_html_carry_the_since_marker(world):
     import format_stats_report as fsr
     text = fsr.format_section_8_stats_corner({"season_performers": got}, {})
     team = row(got, "Jimmy Butler")["fantasy_team"]
-    assert f"| Jimmy Butler | {team} (since 10-26) |" in text
-    assert "including games before he joined his current team" in text
+    # 4d: the .md no longer prints the season tables; the report keeps the marker
+    assert "Jimmy Butler" not in text and row(got, "Jimmy Butler")["joined"] == "2026-10-26"
+    assert sp.team_label(row(got, "Jimmy Butler")) == f"{team} (since 10-26)"
     jok_team = row(got, "Nikola Jokic")["fantasy_team"]
-    assert f"| Nikola Jokic | {jok_team} |" in text                  # day one: no marker
+    assert sp.team_label(row(got, "Nikola Jokic")) == jok_team           # day one: no marker
     import newsletter_html_generator as gen
     draft = ("**Best Performers (Total FP, This Season)**\n\n"
              "| Rank | Player | Fantasy Team | NBA Team | Total FP |\n"

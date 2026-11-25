@@ -1564,6 +1564,16 @@ def format_section_3_betting_lines(data: dict, lookups: dict, player_projs: Opti
         from modules.closing_line import lines_text as _lines_text
         lines.append(_lines_text(_meta["lines"], int(_meta.get("week", preview_week_int - 1)))["note"])
         lines.append("")
+    # 4d (NEWSLETTER_REVIEW 11-25, decisions 2 and 5): this section is the
+    # issue's whole look-ahead. The facts below are for choosing what decides
+    # each matchup; the page's detail (positions, starts, light days, health)
+    # is the hub's Next week page, so the issue doesn't walk through it.
+    from modules.newsletter_shape import NEXT_WEEK_POINTER as _ptr, BETTING_SENTENCES as _bs
+    lines.append(f"**4d shape:** per matchup, the line block (from the numbers below, as printed), "
+                 f"then {_bs[0]} or {_bs[1]} sentences on what decides it, then this line, exactly: "
+                 f"`{_ptr}` No position-by-position paragraph: pick the one or two facts below that "
+                 "decide the matchup.")
+    lines.append("")
     
     # Schedule strength data (if available) -- build_schedule_strength() can return None.
     sched_str = data.get("schedule_strength") or {}
@@ -2361,8 +2371,8 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
         cup_odds = data.get("cup_odds")
         if data.get("is_cup_week") and cup_odds:
             out = out + "\n" + _format_section_7b_cup(data, cup_odds)
-        money = format_money_facts(data.get("money_section"))
-        return out + ("\n" + "\n".join(money) if money else "")
+        # 4d: Money and Exposure moved to the hub (the report still computes it)
+        return out
     
     lines = ["## SECTION 7: POWER RANKINGS\n"]
 
@@ -2379,23 +2389,9 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
             lines.append(f"| {i} | {s['manager']} | {s['record']} |")
         lines.append("")
     
-    # Projected finish distribution
-    lines.append("**Projected Finish Distribution:**")
-    # What the title-odds numbers are conditional on (handoff 10-21 section 0):
-    # the rest of the regular season simulated on today's rosters, held as they
-    # are except the moves the league's rules force (modules/roster_plan.py).
-    lines.append("_Every remaining regular-season week simulated on today's rosters, "
-                 "held as they are except the moves the rules force: an injured player "
-                 "goes to IL with a replacement-level pickup, and comes back when healthy. "
-                 "A real pickup or drop changes these; simulated season point totals run "
-                 "low for the same reason._")
-    lines.append("| Team | 1st | 2nd | 3rd | 4th |")
-    lines.append("|------|-----|-----|-----|-----|")
-    for pr in rankings:
-        fd = pr.get("finish_distribution", {})
-        lines.append(f"| {pr['team_name']} | {fd.get('1', 0):.2f}% | {fd.get('2', 0):.2f}% | {fd.get('3', 0):.2f}% | {fd.get('4', 0):.2f}% |")
-    lines.append("")
-    
+    # 4d: the projected finish distribution moved to the hub's Money view (the
+    # report still computes it: power_rankings[].finish_distribution).
+
     # Power rankings table
     has_keeper_quality = any(pr.get("keeper_quality") is not None for pr in rankings)
     lines.append("**Power Rankings:**")
@@ -2592,53 +2588,23 @@ def format_section_7_power_rankings(data: dict, lookups: dict, prev_title_odds: 
                     )
             lines.append("")
     
-    lines.extend(format_money_facts(data.get("money_section")))
+    # 4d: Money and Exposure moved to the hub (standing_threads.money_section
+    # is still computed). A dollar figure appears in the issue only in a week
+    # that decided money (the ANGLES block's "Money this week" line).
     return "\n".join(lines)
 
 
-def format_money_facts(ms: Optional[dict]) -> list:
-    """The Money and Exposure section's facts for the drafter
-    (standing_threads.money_section, Nick 10-29). The page renders the table
-    and the section's own sentences from the stats report; the drafter writes
-    one or two paragraphs AROUND these numbers, never choosing them."""
-    if not ms or not ms.get("managers"):
-        return []
-    from modules.standing_threads import MONEY_COLUMNS, money_table_rows
-    L = ["**MONEY AND EXPOSURE -- FACTS** (the table and the sentences below are rendered "
-         "on the page from the data: do NOT reproduce the table)", ""]
-    L.append("| " + " | ".join(MONEY_COLUMNS) + " |")
-    L.append("|" + "|".join("---" for _ in MONEY_COLUMNS) + "|")
-    for row in money_table_rows(ms):
-        L.append("| " + " | ".join(row) + " |")
-    L.append("")
-    L.append("The section's sentences (printed on the page as written):")
-    L += [f"- {x}" for x in ms["lines"]]
-    L.append("")
-    top = sorted(ms["order"], key=lambda m: -ms["managers"][m]["p_win_rs_lose_semi"])[0]
-    L.append("For your paragraph(s) under **Money and Exposure**: lead with the named outcome "
-             f"above ({top}'s +${ms['win_rs_lose_semi_dollars']} finish). Title odds are "
-             "written rounded, as \"about N%\", using the rounded figures above. Say that "
-             "a manager's odds rest on replacement-level pickups wherever you cite them for a "
-             "manager the sentences say that about, and give his without-pickups figure. "
-             "If you write a season total, say that rosters are held as they stand apart from "
-             "the moves the rules force and that season totals run low by design. "
-             + ("Say once that the model runs a little confident this early in the season. "
-                if ms.get("confidence_note") else "")
-             + "Dollar figures belong in this block only.")
-    L.append("")
-    return L
-
-
 def format_section_8_stats_corner(data: dict, lookups: dict) -> str:
-    """Format Section 8: Stats Corner."""
+    """Format Section 8: Stats Corner -- the week's tables only (4d): top 5
+    and worst 5 performances, and the week's waiver pickups. The four
+    30-row season tables (the hub's Players), the Top Available Free Agents
+    table (the hub's Market) and Keeper Watch (cut, Nick 11-25) are gone;
+    the report still computes season_performers, best_free_agents and
+    keeper_watch."""
     lines = ["## SECTION 8: STATS CORNER\n"]
-    
-    bw = data.get("best_worst", {})
-    # Use `or {}` (not just a default) so a present-but-None section -- e.g.
-    # when the live season-performers pull is unavailable -- degrades to empty
-    # tables instead of crashing the entire newsletter.
-    sp = data.get("season_performers") or {}
-    
+
+    bw = data.get("best_worst") or {}
+
     # Best games
     best = bw.get("best_games", [])[:5]
     if best:
@@ -2648,7 +2614,7 @@ def format_section_8_stats_corner(data: dict, lookups: dict) -> str:
         for i, g in enumerate(best, 1):
             lines.append(f"| {i} | {g['player_name']} | {g['nba_team']} | {g['manager']} | {g['fantasy_points']:.2f} | {g['date']} | {g['nba_opponent']} |")
         lines.append("")
-    
+
     # Worst games
     worst = bw.get("worst_games", [])[:5]
     if worst:
@@ -2658,72 +2624,7 @@ def format_section_8_stats_corner(data: dict, lookups: dict) -> str:
         for i, g in enumerate(worst, 1):
             lines.append(f"| {i} | {g['player_name']} | {g['nba_team']} | {g['manager']} | {g['fantasy_points']:.2f} | {g['date']} | {g['nba_opponent']} |")
         lines.append("")
-    
-    # Season performers
-    # Cross-reference with consistency scores for CV and IQR
-    consistency = data.get("consistency_scores", {})
-    player_cv_lookup = consistency.get("player_lookup", {})
 
-    # Positional Scoring Breakdown -- REMOVED (rendered by Stats Corner viz)
-
-    def format_season_table(title: str, players: list, sort_col: str):
-        if not players:
-            return []
-        result = [f"**{title}:**"]
-        # Column order depends on sort_col: FPPG tables swap FPPG and Total FP
-        if sort_col == "fppg":
-            result.append("| Rank | Player | Fantasy Team | NBA Team | FPPG | Total FP | GP% | MPG | Eff% | CV | IQR (25-75) | Proj FP (ROS) | Proj FPPG (ROS) |")
-            result.append("|------|--------|--------------|----------|------|----------|-----|-----|------|-----|-------------|---------------|-----------------|")
-        else:
-            result.append("| Rank | Player | Fantasy Team | NBA Team | Total FP | FPPG | GP% | MPG | Eff% | CV | IQR (25-75) | Proj FP (ROS) | Proj FPPG (ROS) |")
-            result.append("|------|--------|--------------|----------|----------|------|-----|-----|------|-----|-------------|---------------|-----------------|")
-        for i, p in enumerate(players[:30], 1):
-            pname = p["player_name"]
-            pc = player_cv_lookup.get(pname, {})
-            cv_str = f"{pc['cv']:.1f}%" if pc else "-"
-            iqr_str = f"{pc['q25']:.1f}-{pc['q75']:.1f}" if pc else "-"
-            mpg_str = f"{p['mpg']:.1f}" if p.get('mpg') is not None else "-"
-            proj_fp_str = f"{p['proj_fp_ros']:.1f}" if p.get('proj_fp_ros') is not None else "-"
-            team = _sp_team_label(p)
-            if sort_col == "fppg":
-                result.append(
-                    f"| {i} | {pname} | {team} | {p['nba_team']} "
-                    f"| {p['fppg']:.2f} | {p['total_fp']:.1f} | {p['gp_pct']:.1f} "
-                    f"| {mpg_str} | {p['eff_pct']:.1f} | {cv_str} | {iqr_str} "
-                    f"| {proj_fp_str} | {p['proj_fppg_ros']:.2f} |"
-                )
-            else:
-                result.append(
-                    f"| {i} | {pname} | {team} | {p['nba_team']} "
-                    f"| {p['total_fp']:.1f} | {p['fppg']:.2f} | {p['gp_pct']:.1f} "
-                    f"| {mpg_str} | {p['eff_pct']:.1f} | {cv_str} | {iqr_str} "
-                    f"| {proj_fp_str} | {p['proj_fppg_ros']:.2f} |"
-                )
-        result.append("")
-        return result
-    
-    _sp_status = sp.get("status") or {}
-    if _sp_status.get("as_of"):
-        lines.append(f"Season tables are through {_sp_status['as_of']} (the end of this week), "
-                     "points from Yahoo, games and minutes from basketball-reference.")
-        lines.append("")
-    from modules.season_performers import incomplete_note as _sp_note
-    from modules.season_performers import team_label as _sp_team_label, SINCE_NOTE as _since
-    if any(p.get("joined") for k in ("best_total_fp", "best_fppg", "worst_total_fp", "worst_fppg")
-           for p in sp.get(k, [])):
-        lines.append(_since + " Never write that such a player's season numbers were \"for\" "
-                     "that team: say \"now on X's roster\" or name the date he joined.")
-        lines.append("")
-    _note = _sp_note(sp)
-    if _note:
-        lines.append(f"**NOTE -- {_note}** Say so in Stats Corner, in one plain sentence above "
-                     "the season tables.")
-        lines.append("")
-    lines.extend(format_season_table("Season Best -> Total FP", sp.get("best_total_fp", []), "total_fp"))
-    lines.extend(format_season_table("Season Best -> FPPG", sp.get("best_fppg", []), "fppg"))
-    lines.extend(format_season_table("Season Worst -> Total FP", sp.get("worst_total_fp", []), "total_fp"))
-    lines.extend(format_season_table("Season Worst -> FPPG", sp.get("worst_fppg", []), "fppg"))
-    
     # Waiver pickups (weekly)
     waivers = bw.get("best_waivers", [])
     if waivers:
@@ -2733,31 +2634,10 @@ def format_section_8_stats_corner(data: dict, lookups: dict) -> str:
         for w in waivers:
             lines.append(f"| {w['player_name']} | {w['nba_team']} | {w['manager']} | {w['games']} | {w['total_fp']:.2f} | {w['fppg']:.2f} |")
         lines.append("")
-    
-    # Season Waiver Wire ROI -- REMOVED (rendered by Stats Corner viz)
 
-    # Top free agents
-    fa = bw.get("best_free_agents", [])[:5]
-    if fa:
-        lines.append("**Top Available Free Agents:**")
-        lines.append("| Player | NBA Team | Position | Proj FPPG | Games This Week | Games Next Week |")
-        lines.append("|--------|----------|----------|-----------|-----------------|-----------------|")
-        for f in fa:
-            pos_raw = f.get("positions", f.get("position", "?"))
-            pos = ",".join(pos_raw) if isinstance(pos_raw, list) else str(pos_raw)
-            gtw = f.get("games_this_week", "?")
-            gnw = f.get("games_next_week", "?")
-            lines.append(f"| {f['player_name']} | {f.get('nba_team', '?')} | {pos} | {f['projected_fppg']:.2f} | {gtw} | {gnw} |")
-        lines.append("")
-    
-    # Bench Report -- REMOVED (rendered by Stats Corner viz)
-    # Record Book -- REMOVED (rendered by Stats Corner viz)
-    # Keeper Watch: the panel is rendered by Stats Corner viz; the drafter gets
-    # the summary's facts (keepability v3, HANDOFF_KEEPABILITY_C_WIRE)
-    lines.extend(format_keeper_watch_facts(data.get("keeper_watch")))
-    # Draft Value Tracker -- REMOVED (rendered by Stats Corner viz)
-
-
+    # Positional Breakdown, Draft Value Tracker, Waiver ROI and the Record
+    # Book are rendered by the Stats Corner visuals (stats_corner_viz); the
+    # Keeper Watch panel is not (4d).
     return "\n".join(lines)
 
 
@@ -2772,99 +2652,6 @@ def _keep_text(item: dict) -> str:
     if item.get("keep_rank") and item.get("keep_manager"):
         txt += f", {_ordinal(int(item['keep_rank']))} on {item['keep_manager']}'s roster"
     return txt
-
-
-def format_keeper_watch_facts(kw: Optional[dict]) -> list:
-    """The keeper watch's summary facts for the drafter (keepability v3).
-    The panel itself is rendered from the stats report by the HTML generator;
-    the drafter writes one or two paragraphs AROUND these numbers and never
-    chooses them (claim check: every number must be in this report)."""
-    from modules.keepability_v3 import pct, line_for, TOP_SHOWN, LINE_UNDECIDED
-    if not kw or not kw.get("players") or any(p.get("keep_k5") is None for p in kw["players"]):
-        return []
-    sm = kw.get("summary") or {}
-    sw = kw.get("switch_weeks") or {}
-    by: dict = {}
-    for p in kw["players"]:
-        by.setdefault(p["manager"], []).append(p)
-    cup_open = kw.get("line_k") is None
-    point_text = {"week2": "week 2", "mid": "mid-season", "end": "season's end"}
-    L = ["**KEEPER WATCH -- SUMMARY FACTS** (the panel with each team's top "
-         f"{TOP_SHOWN} is rendered from the data by the HTML generator: do NOT reproduce it)",
-         ""]
-    if cup_open:
-        L.append(f"Next offseason ({kw['decision']}): each manager keeps 5, and this season's Cup "
-                 "winner keeps 6. The Cup is undecided, so the line is drawn after each team's 5th "
-                 "and the 6th is marked \"6 if he wins the Cup\".")
-    else:
-        L.append(f"Next offseason ({kw['decision']}): {kw.get('cup_winner')} won the Cup and keeps 6; "
-                 "the others keep 5. Each team's line is drawn at its own count.")
-    L.append(f"Chances: from a model fitted on every keeper decision this league has made, as of "
-             f"{point_text.get(kw['as_of_point'], kw['as_of_point'])} (it switches to the mid-season "
-             f"fit at week {sw.get('to_mid')} and the season's-end fit at week {sw.get('to_end')}); "
-             f"games through {kw['as_of']}.")
-    L.append("")
-    L.append("| Manager | # | Player | Kept, 5 keepers | 6 keepers | Kept this season |")
-    L.append("|---------|---|--------|-----------------|-----------|------------------|")
-    for m in sorted(by):
-        for p in sorted(by[m], key=lambda p: p["rank"])[:TOP_SHOWN]:
-            L.append(f"| {m} | {p['rank']} | {p['player_name']} | {pct(p['keep_k5'])} | "
-                     f"{pct(p['keep_k6'])} | {'yes' if p.get('kept_this_season') else ''} |")
-    L.append("")
-    since = sm.get("compared_with_week")
-    if sm.get("first_time"):
-        L.append("Crossed the line: none -- this is the first published keeper watch of the season.")
-        L.append("Risers and fallers: none yet -- nothing published to compare against.")
-    else:
-        if sm.get("crossed"):
-            parts = []
-            for c in sm["crossed"]:
-                if c["manager"] is None:
-                    parts.append(f"{c['player']} out (no longer rostered; was {_ordinal(c['rank_before'])} "
-                                 f"on {c['manager_before']}'s at {pct(c['keep_k5_before'])})")
-                else:
-                    was = ("not on a roster" if c["rank_before"] is None else
-                           f"{_ordinal(c['rank_before'])} at {pct(c['keep_k5_before'])}")
-                    moved = (f", from {c['manager_before']}" if c.get("manager_before")
-                             and c["manager_before"] != c["manager"] else "")
-                    parts.append(f"{c['player']} {c['direction']} ({c['manager']}: now "
-                                 f"{_ordinal(c['rank'])} at {pct(c['keep_k5'])}, was {was}{moved})")
-            L.append(f"Crossed the line since week {since}: " + "; ".join(parts) + ".")
-        else:
-            L.append(f"Crossed the line since week {since}: nobody.")
-        for key, word in (("risers", "Biggest risers"), ("fallers", "Biggest fallers")):
-            rows = sm.get(key) or []
-            if rows:
-                L.append(f"{word} since week {since} (keep chance with 5 keepers): " + "; ".join(
-                    f"{r['player']} ({r['manager']}) {pct(r['keep_k5_before'])} to {pct(r['keep_k5'])}"
-                    for r in rows) + ".")
-            else:
-                L.append(f"{word} since week {since}: none of at least 1 point.")
-    crowded = sm.get("crowded") or []
-    if crowded:
-        def gap(c):
-            return int(pct(c["inside_k5"])[:-1]) - int(pct(c["outside_k5"])[:-1])
-        c0 = crowded[0]
-        L.append(f"Most crowded line (smallest gap between the last player inside the line and the "
-                 f"first outside, with 5 keepers): {c0['manager']} -- {c0['inside']} "
-                 f"{pct(c0['inside_k5'])} vs {c0['outside']} {pct(c0['outside_k5'])}, a "
-                 f"{gap(c0)}-point gap. The others: " + "; ".join(
-                     f"{c['manager']} {c['inside']} {pct(c['inside_k5'])} vs {c['outside']} "
-                     f"{pct(c['outside_k5'])} ({gap(c)} points)" for c in crowded[1:]) + ".")
-    kb = sm.get("keepers_below") or []
-    if kb:
-        L.append("This season's keepers below their team's line today: " + "; ".join(
-            f"{k['player']} ({k['manager']}, {_ordinal(k['rank'])}, {pct(k['keep_k5'])})" for k in kb) + ".")
-    else:
-        L.append("This season's keepers below their team's line today: none.")
-    from modules.keepability_v3 import early_note
-    en = early_note(sm)
-    if en:
-        L.append(f"Early-season note: the panel says it this week (about one in {en[0]} of next year's "
-                 f"keepers is not on a roster yet at this point, so each team's chances add up to about "
-                 f"{en[1]:.1f} of its 5). Do not repeat it.")
-    L.append("")
-    return L
 
 
 def format_section_9_around_nba(data: dict, lookups: dict, injury_timelines: Optional[dict] = None, trades: Optional[list] = None, trades_context: Optional[dict] = None) -> str:
@@ -3103,14 +2890,12 @@ def format_section_10_rumor_mill(data: dict, lookups: dict, trades_context: Opti
             lines.append(f"   - Fit score: {t.get('fit_score', 0):.2f}")
         lines.append("")
     
-    # Free agent targets
-    fa_targets = rm.get("free_agent_targets", [])
-    if fa_targets:
-        lines.append("**Free Agent Targets:**")
-        for f in fa_targets:
-            pos = ",".join(f.get("positions", []))
-            lines.append(f"- {f['player_name']} ({pos}) -> {f['target_manager']}: {f['projected_fppg']:.2f} proj FPPG. \"{f.get('reason', '')}\"")
-        lines.append("")
+    # 4d: free agent targets moved to the hub's Advice (the report still
+    # computes rumor_mill.free_agent_targets). One line may point there.
+    from modules.newsletter_shape import ADVICE_POINTER as _adv_ptr
+    lines.append("**Free agent targets: on the hub, not in the issue.** Write no free-agent "
+                 f"targets. Rumor Mill may end with this line, exactly: `{_adv_ptr}`")
+    lines.append("")
     
     # Hot streaks
     hot = rm.get("hot_streak_candidates", [])
@@ -3202,6 +2987,23 @@ def build_angles_block(base: Path, data: dict, predictions: Optional[dict],
                 "lead from the storyline alerts.\n")
 
 
+def build_award_moves_block(base: Path, data: dict, week: int) -> str:
+    """The AWARD MOVES block (4d; NEWSLETTER_REVIEW decision 3): the award
+    races that moved this week, from output/awards_history.jsonl through
+    modules/awards (the hub's Awards page source), never a second
+    calculation. RAISES on a missing threshold (awards.newsletter_moves) or a
+    history file that can't be read; a week not on file yet says so in the
+    block (the drafter then mentions no race)."""
+    from modules import awards as aw
+    rules = aw.moves_config()
+    season = _normalize_season_key(
+        (data.get("metadata") or {}).get("season_year", "")) or CURRENT_SEASON
+    res = aw.award_moves(aw.read_history(base), season, int(week), rules)
+    if res["state"] == "missing":
+        print(f"WARNING: AWARD MOVES unavailable: {res['why']}")
+    return aw.render_award_moves(res, rules)
+
+
 def compute_storyline_alerts(data: dict, lookups: dict, predictions: Optional[dict] = None) -> list[str]:
     """
     Pre-computed narrative conclusions, as the "READ FIRST" strings.
@@ -3215,7 +3017,7 @@ def compute_storyline_alerts(data: dict, lookups: dict, predictions: Optional[di
         data, predictions, CURRENT_SEASON, list(MANAGERS))]
 
 
-def format_stats_report(data: dict, predictions: Optional[dict] = None, prev_grades: Optional[dict] = None, player_projs: Optional[dict] = None, potw_history: Optional[list] = None, potw_career_stats: Optional[dict] = None, prev_title_odds: Optional[dict] = None, injury_timelines: Optional[dict] = None, trades: Optional[list] = None, trades_context: Optional[dict] = None, commissioner_notes: Optional[str] = None, angles_block: str = "") -> str:
+def format_stats_report(data: dict, predictions: Optional[dict] = None, prev_grades: Optional[dict] = None, player_projs: Optional[dict] = None, potw_history: Optional[list] = None, potw_career_stats: Optional[dict] = None, prev_title_odds: Optional[dict] = None, injury_timelines: Optional[dict] = None, trades: Optional[list] = None, trades_context: Optional[dict] = None, commissioner_notes: Optional[str] = None, angles_block: str = "", award_moves_block: str = "") -> str:
     """
     Format the complete stats report as newsletter-ready markdown.
     
@@ -3283,7 +3085,10 @@ def format_stats_report(data: dict, predictions: Optional[dict] = None, prev_gra
     
     if angles_block:
         angles_block = angles_block.rstrip("\n") + "\n\n---\n\n"
-    return header + storylines_section + angles_block + commissioner_section + "\n".join(sections)
+    if award_moves_block:
+        award_moves_block = award_moves_block.rstrip("\n") + "\n\n---\n\n"
+    return (header + storylines_section + angles_block + award_moves_block + commissioner_section
+            + "\n".join(sections))
 
 
 def main():
@@ -3456,7 +3261,8 @@ def main():
     print(f"Formatting Week {current_week} report...")
     angles_block = build_angles_block(Path(args.base_path), data, predictions,
                                       current_week, output_path)
-    markdown = format_stats_report(data, predictions, prev_grades, player_projs, potw_history, potw_career_stats, prev_title_odds, injury_timelines, trades, trades_context, commissioner_notes, angles_block)
+    award_moves_block = build_award_moves_block(Path(args.base_path), data, current_week)
+    markdown = format_stats_report(data, predictions, prev_grades, player_projs, potw_history, potw_career_stats, prev_title_odds, injury_timelines, trades, trades_context, commissioner_notes, angles_block, award_moves_block)
     
     # Save
     output_path.parent.mkdir(parents=True, exist_ok=True)

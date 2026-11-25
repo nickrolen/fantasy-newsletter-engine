@@ -1240,3 +1240,194 @@ def newsletter_facts(lines: list, season: str, week: int) -> dict:
                       for e in top[:5]],
         }
     return out
+
+
+# =============================================================================
+# 4d: the newsletter's AWARD MOVES block (NEWSLETTER_REVIEW 11-25, decision 3)
+# =============================================================================
+#
+# No weekly awards block in the newsletter: the hub's Awards page carries the
+# races. The report flags a race only when it MOVED, so the drafter never
+# guesses. The facts are newsletter_facts' (the history lines the hub's
+# Awards page reads, output/awards_history.jsonl), never a second calculation.
+# A race moved when, against the week before:
+#   - its leader changed (or it got its first leader);
+#   - the same leader's lead over 2nd changed by at least
+#     awards.newsletter_moves.lead_change_share of last week's lead (PAR and
+#     the other values only grow over a season, so the leader's own total is
+#     not a signal; the gap is the race);
+#   - MVP only: the leader's odds moved by at least
+#     awards.newsletter_moves.mvp_odds_swing_points percentage points, or the
+#     favourite (best odds) changed -- when both weeks' lines carry odds.
+# Both thresholds are REQUIRED (a missing key RAISES, never defaulted).
+
+MOVES_KEYS = ("lead_change_share", "mvp_odds_swing_points")
+GAP_UNITS = {"mvp": "PAR", "pickup": "PAR", "improved": "FPPG", "roy": "PAR", "trade": "PAR", "bust": "points"}
+MOVES_HEAD = "## -> AWARD MOVES -> "
+NO_MOVE = "No award race moved this week."
+
+
+def moves_config(cfg: Optional[dict] = None) -> dict:
+    """league_config awards.newsletter_moves; every key required, a positive
+    number. RAISES (AwardsInputError) otherwise."""
+    a = config(cfg)
+    m = a.get("newsletter_moves")
+    if not isinstance(m, dict):
+        raise AwardsInputError("league_config awards has no \"newsletter_moves\" block "
+                               "(4d: the newsletter's AWARD MOVES thresholds)")
+    out = {}
+    for k in MOVES_KEYS:
+        v = m.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not v > 0:
+            raise AwardsInputError(f"league_config awards.newsletter_moves.{k} must be a positive "
+                                   f"number, not {v!r}")
+        out[k] = float(v)
+    return out
+
+
+def _pp(p) -> float:
+    return round(100.0 * float(p), 1)
+
+
+def _odds_of(ln: Optional[dict]) -> Optional[dict]:
+    o = (ln or {}).get("odds")
+    if not isinstance(o, dict) or not o.get("p"):
+        return None
+    return {e["key"]: e for e in o["p"]}
+
+
+def award_moves(lines: list, season: str, week: int, rules: dict) -> dict:
+    """The week's award moves, from the history lines (newsletter_facts).
+    {"state": "moves" | "none" | "missing" | "final", "week", "moves": [...],
+     "notes": [...], "why"}. Each move: {"award", "name", "kind", "unit",
+    "before": {...}, "after": {...}, "text"}. kind: new_leader | first_leader
+    | lead_grew | lead_shrank | no_leader | odds_swing | new_favourite.
+    A week with some awards on file and not others RAISES."""
+    for k in MOVES_KEYS:
+        if k not in rules:
+            raise AwardsInputError(f"award_moves needs rules[{k!r}] (awards.newsletter_moves)")
+    by = _by(lines, season)
+    have = {k for (w, k) in by if w == week}
+    if have and have != set(KEYS):
+        raise AwardsError(f"{HISTORY_RELPATH.as_posix()} has week {week} for {sorted(have)} only")
+    base = {"week": week, "moves": [], "notes": [], "why": ""}
+    if not have:
+        finals = [w for (w, k), ln in by.items() if ln.get("final")]
+        if finals and week > max(finals):
+            return dict(base, state="final", why=f"the award races ended with week {max(finals)} (Final)")
+        return dict(base, state="missing",
+                    why=f"{HISTORY_RELPATH.as_posix()} has no week {week} lines yet (the nightly appends "
+                        f"them after the week's last day)")
+    facts = newsletter_facts(lines, season, week)
+    moves, notes = [], []
+    share, swing = float(rules["lead_change_share"]), float(rules["mvp_odds_swing_points"])
+    for k in KEYS:
+        f, ln, prev = facts[k], by[(week, k)], by.get((week - 1, k))
+        name, unit = NAMES[k], UNITS[k]
+        if f["error"]:
+            notes.append(f"{name}: not computed this week ({f['error']}).")
+            continue
+        top, ptop = ln["top"], (prev or {}).get("top") or []
+
+        def who(e):
+            return {"label": e["label"], "m": e["m"], "value": e["value"], "rank": int(e["rank"])}
+        cur_rank = {e["key"]: e for e in top}
+        if top and ptop and ptop[0]["key"] != top[0]["key"]:
+            was = ptop[0]
+            now_was = cur_rank.get(was["key"])
+            tail = (f"; {_short(was['label'])} is now {int(now_was['rank'])}{_th(int(now_was['rank']))} "
+                    f"at {now_was['value']:.2f}" if now_was else
+                    f"; {_short(was['label'])} is out of the top {len(top)}")
+            moves.append({"award": k, "name": name, "kind": "new_leader", "unit": unit,
+                          "before": dict(who(was), week=week - 1), "after": dict(who(top[0]), week=week),
+                          "text": f"**{name}: new leader.** {top[0]['label']} ({top[0]['m']}) leads at "
+                                  f"{top[0]['value']:.2f} {unit} after week {week}; {was['label']} "
+                                  f"({was['m']}) led after week {week - 1} at {was['value']:.2f}{tail}."})
+        elif top and not ptop:
+            moves.append({"award": k, "name": name, "kind": "first_leader", "unit": unit,
+                          "before": None, "after": dict(who(top[0]), week=week),
+                          "text": f"**{name}: first leader.** {top[0]['label']} ({top[0]['m']}) leads at "
+                                  f"{top[0]['value']:.2f} {unit} after week {week}"
+                                  + (f"; nobody qualified after week {week - 1}." if prev else ".")})
+        elif ptop and not top:
+            moves.append({"award": k, "name": name, "kind": "no_leader", "unit": unit,
+                          "before": dict(who(ptop[0]), week=week - 1), "after": None,
+                          "text": f"**{name}: no leader.** {ptop[0]['label']} ({ptop[0]['m']}) led after "
+                                  f"week {week - 1} at {ptop[0]['value']:.2f} {unit}; nobody qualifies "
+                                  f"after week {week}."})
+        elif top and len(top) > 1 and len(ptop) > 1:
+            g0 = round(ptop[0]["value"] - ptop[1]["value"], 2)
+            g1 = round(top[0]["value"] - top[1]["value"], 2)
+            moved = (abs(g1 - g0) / g0 >= share) if g0 > 0 else (g1 != g0)
+            if moved:
+                kind = "lead_grew" if g1 > g0 else "lead_shrank"
+                moves.append({"award": k, "name": name, "kind": kind, "unit": unit,
+                              "before": {"leader": ptop[0]["label"], "second": ptop[1]["label"],
+                                         "gap": g0, "week": week - 1},
+                              "after": {"leader": top[0]["label"], "second": top[1]["label"],
+                                        "gap": g1, "week": week},
+                              "text": f"**{name}: the lead {'grew' if g1 > g0 else 'shrank'}.** "
+                                      f"{top[0]['label']} ({top[0]['m']}) leads {top[1]['label']} "
+                                      f"({top[1]['m']}) by {g1:.2f} {GAP_UNITS[k]} after week {week} "
+                                      f"({top[0]['value']:.2f} to {top[1]['value']:.2f}); after week "
+                                      f"{week - 1} the lead over {ptop[1]['label']} was {g0:.2f}."})
+        if k != "mvp" or not top:
+            continue
+        o1, o0 = _odds_of(ln), _odds_of(prev)
+        if o1 is None or o0 is None:
+            miss = [f"week {w}: {(x or {}).get('odds_why') or 'no line'}"
+                    for w, x, o in ((week - 1, prev, o0), (week, ln, o1)) if o is None]
+            notes.append("MVP odds: not compared this week (" + "; ".join(miss) + "). Cite no MVP odds.")
+            continue
+        fav1 = max(o1.values(), key=lambda e: (float(e["p"]), e["key"]))
+        fav0 = max(o0.values(), key=lambda e: (float(e["p"]), e["key"]))
+        if fav1["key"] != fav0["key"]:
+            moves.append({"award": k, "name": name, "kind": "new_favourite", "unit": "%",
+                          "before": {"label": fav0["label"], "m": fav0["m"], "odds": _pp(fav0["p"]), "week": week - 1},
+                          "after": {"label": fav1["label"], "m": fav1["m"], "odds": _pp(fav1["p"]), "week": week},
+                          "text": f"**MVP odds: new favourite.** {fav1['label']} ({fav1['m']}) is the "
+                                  f"favourite at {_pp(fav1['p']):.1f}% after week {week}; {fav0['label']} "
+                                  f"({fav0['m']}) was at {_pp(fav0['p']):.1f}% after week {week - 1}."})
+        lk = top[0]["key"]
+        if lk in o1 and lk in o0:
+            a, b = _pp(o0[lk]["p"]), _pp(o1[lk]["p"])
+            if abs(b - a) >= swing:
+                moves.append({"award": k, "name": name, "kind": "odds_swing", "unit": "%",
+                              "before": {"label": top[0]["label"], "odds": a, "week": week - 1},
+                              "after": {"label": top[0]["label"], "odds": b, "week": week},
+                              "text": f"**MVP odds: a {abs(b - a):.1f}-point swing.** {top[0]['label']} "
+                                      f"({top[0]['m']}) went from {a:.1f}% after week {week - 1} to "
+                                      f"{b:.1f}% after week {week}."})
+    if any(ln.get("final") for (w, kk), ln in by.items() if w == week):
+        notes.append(f"Week {week} is the awards' last week: the races are Final.")
+    return dict(base, state="moves" if moves else "none", moves=moves, notes=notes)
+
+
+def _th(n: int) -> str:
+    return "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+
+
+def render_award_moves(res: dict, rules: dict) -> str:
+    """The formatted report's AWARD MOVES block. Never empty: no move prints
+    NO_MOVE; a week not on file or after the races ended says so."""
+    w = res["week"]
+    rule = (f"_A race moved: a new leader; the same leader's lead over 2nd changed by at least "
+            f"{int(round(100 * rules['lead_change_share']))}% of last week's lead; or the MVP leader's "
+            f"odds moved {rules['mvp_odds_swing_points']:g}+ points, or the MVP favourite changed "
+            f"(config awards.newsletter_moves). Source: {HISTORY_RELPATH.as_posix()}, the lines the "
+            f"hub's Awards page reads, week {w} against week {w - 1}._")
+    head = f"{MOVES_HEAD}WEEK {w}\n\n"
+    use = ("**For the drafter:** there is no awards block in the newsletter (the hub's Awards page "
+           "carries the races). Mention a race only for a move listed here, where it fits: Power "
+           "Rankings, Fun Facts, or the matchup it happened in. Every award number you write must be "
+           "one printed in this block.")
+    if res["state"] == "missing":
+        return (head + f"**Unavailable this week:** {res['why']}. Mention no award race this issue.\n")
+    if res["state"] == "final":
+        return (head + f"**No weekly moves:** {res['why']}. Mention no award race as moving; the hub's "
+                "Awards page has the final results.\n")
+    body = [f"- {m['text']}" for m in res["moves"]] if res["moves"] else [NO_MOVE]
+    out = [head.rstrip("\n"), "", use, "", rule, ""] + body
+    if res["notes"]:
+        out += [""] + [f"_{n}_" for n in res["notes"]]
+    return "\n".join(out) + "\n"

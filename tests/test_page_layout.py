@@ -99,8 +99,10 @@ def test_the_step_9_command_no_longer_passes_a_fixed_photo():
 # ----------------------------------------------------- 3. Money and Exposure
 
 def _money_page():
+    # 4d: the newsletter no longer lifts a drafted Money block (it moved to the
+    # hub); render_money_html stays for the hub's Money view, with its summary
     ms = M._ms()
-    rest, summ = gen.lift_block(M.BLOCK.split("\n", 1)[1], gen.MONEY_HEADER)
+    summ = "<p>Hayden's single most likely outcome is +$135.</p>"
     html = T.render_money_html(ms, summ)
     return ms, html
 

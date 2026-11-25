@@ -35,16 +35,14 @@ from __future__ import annotations
 import math
 import re
 import unicodedata
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Iterable, Optional
 
 EXEMPT_SECTIONS = {9}          # Around the NBA: web-sourced, Step 8 checks it
-# Section 7's Money and Exposure block carries dollar figures every week, so
-# money_findings exempts it. angles.money_line names the exemption from these
-# two constants (one definition: the instruction and the check can't drift).
-MONEY_BLOCK_NAME = "Money and Exposure"
-MONEY_BLOCK_SECTION = 7
-MONEY_BLOCK = MONEY_BLOCK_NAME.lower()
+# 4d (NEWSLETTER_REVIEW 11-25): Section 7's Money and Exposure block moved to
+# the hub, and with it its exemption. No section but 9 is exempt from the
+# money rules now: money_findings (whether a dollar figure may appear this
+# week) and money_line_findings (that it names its pot and window).
 APPROX_TOLERANCE = 0.10        # "nearly 60" may be 54..66
 LORE_TAG = re.compile(r"<!--\s*lore:([A-Za-z0-9_.-]+)\s*-->")
 
@@ -167,9 +165,11 @@ def extract_numbers(text: str) -> list[Num]:
     def free(a, b):
         return all(b <= x or a >= y for x, y in taken)
 
-    for m in re.finditer(r"\bweeks?\s+\d{1,2}(?:\s*(?:-|to|through|and)\s*"
+    # week labels are structure; 4d: the hyphenated form too ("these
+    # week-6 lines", 5g's Betting Lines sentence), as in ADDS_CLAIM (5g)
+    for m in re.finditer(r"\bweeks?(?:\s+|-)\d{1,2}(?:\s*(?:-|to|through|and)\s*"
                          r"\d{1,2})?", text, re.I):
-        taken.append(m.span())            # week labels are structure
+        taken.append(m.span())
     for m in _SEASON.finditer(text):
         out.append(Num(float(m.group(1)), 0, m.group(0), "season",
                        pos=m.start(),
@@ -198,7 +198,7 @@ def extract_numbers(text: str) -> list[Num]:
             continue
         sign, whole, frac, suffix = m.groups()
         before = text[max(0, m.start() - 6):m.start()].lower()
-        if re.search(r"week\s*$|weeks\s*$|wk\s*$", before):
+        if re.search(r"week\s*$|weeks\s*$|wk\s*$|week-$|wk-$", before):
             continue                      # week labels are structure
         if re.match(r":\d", text[m.end():m.end() + 2]) or \
                 text[max(0, m.start() - 1):m.start()] == ":":
@@ -482,7 +482,7 @@ def split_units(draft: str, vocab: Vocabulary) -> list[Unit]:
     para: list[tuple[int, str]] = []
     head = [frozenset()]          # entities of the last bold sub-header
     head_nums = [()]              # ... and its numbers (scores in a header)
-    block = [""]                  # ... and its text (MONEY_BLOCK reads it)
+    block = [""]                  # ... and its text (Unit.block)
 
     def flush():
         if not para:
@@ -766,14 +766,176 @@ def money_findings(draft: str, vocab: Vocabulary, money_events,
         return []
     out = []
     for u in split_units(draft, vocab):
-        if u.section in exempt_sections or u.block == MONEY_BLOCK:
-            # the Money and Exposure block carries its figures every week
-            # (by surface, Nick 10-28); everywhere else the 10-14 rule holds
+        if u.section in exempt_sections:
             continue
         m = DOLLARS.search(LORE_TAG.sub("", u.raw))
         if m:
             out.append(Finding("money_without_event", u.section, u.line,
                                m.group(0), u.text[:200]))
+    return out
+
+
+# LEAGUE_RULES "Language rule" (Nick, 10-07): every liability line names the
+# pot and the window; never "safe from paying" or "certain to pay"
+# unqualified. Until 4d the drafted money lines lived in the Money and
+# Exposure block, written around the engine's own strings; that block is on
+# the hub now, so a dollar line can appear in any section and is checked
+# here. The pot: which of the two (regular season / League Championship,
+# playoffs / semifinal). The window: when it is settled (weeks a-b, the
+# regular season, the semifinals, the playoffs, the final).
+POT_WORDS = re.compile(
+    r"\b(?:regular[- ]season|playoffs?|semifinals?|semis|league\s+champion(?:ship)?|"
+    r"playoff\s+champion(?:ship)?|title)\b", re.I)
+WINDOW_WORDS = re.compile(
+    r"\b(?:weeks?\s+\d{1,2}\s*(?:-|\u2013|\u2014|to|through)\s*\d{1,2}|regular[- ]season|"
+    r"semifinals?|semis|playoffs?|final)\b", re.I)
+SAFE_WORDS = re.compile(r"\b(?:safe|certain(?:ly)?)\b", re.I)
+PAY_WORDS = re.compile(r"\b(?:pay|pays|paying|paid|payout|owe|owes|owed|collect|collects|pot|pots)\b", re.I)
+
+
+def money_line_findings(draft: str, vocab: Vocabulary,
+                        exempt_sections=EXEMPT_SECTIONS) -> list[Finding]:
+    """A money line without its pot and window, in any section but 9
+    (finding money_unqualified): a sentence with a dollar figure, or one that
+    says "safe" or "certain" about paying, that does not name the pot
+    (POT_WORDS) and the window (WINDOW_WORDS). Every week: whether a dollar
+    figure may appear at all is money_findings'."""
+    out = []
+    for u in split_units(draft, vocab):
+        if u.section in exempt_sections:
+            continue
+        raw = LORE_TAG.sub("", u.raw)
+        d = DOLLARS.search(raw)
+        sf = SAFE_WORDS.search(u.text) if PAY_WORDS.search(u.text) or d else None
+        if not (d or sf):
+            continue
+        if POT_WORDS.search(u.text) and WINDOW_WORDS.search(u.text):
+            continue
+        out.append(Finding("money_unqualified", u.section, u.line,
+                           (d or sf).group(0).rstrip(","), u.text[:200]))
+    return out
+
+
+# 4d: the Betting Lines are the closing line (5g: report_builder.apply_closing_line
+# wrote it into the report's previews; metadata.lines names the file). Each
+# matchup's four drafted lines must equal the report's preview for that
+# matchup, at the precision written: the general number check would pass a
+# figure from last week's report, which is in its pool.
+_VS = re.compile(r"^\s*\*\*\s*(.+?)\s+vs\.?\s+(.+?)\s*\*\*\s*$", re.I)
+_LINE = re.compile(r"^\s*\*?\s*(Line|Win Prob|Moneyline|Avg Score):\s*(.+?)\s*\*?\s*$")
+
+
+def _num_at(raw: str) -> tuple:
+    """(value, decimals) of a printed number."""
+    t = raw.replace(",", "").rstrip("%")
+    return float(t), (len(t.split(".")[1]) if "." in t else 0)
+
+
+def _close(raw: str, want: float) -> bool:
+    v, d = _num_at(raw)
+    return abs(v - float(want)) <= 0.5 * 10 ** -d + 1e-9
+
+
+def _two_sides(value: str, num: str) -> list:
+    """'Team A 55.36% | Team B 44.64%' -> [(team, number)], number LAST (a team
+    name can hold digits: Blink-183)."""
+    out = []
+    for part in value.split("|"):
+        m = re.search(r"(" + num + r")\s*$", part.strip())
+        if m:
+            out.append((part.strip()[:m.start()].strip(), m.group(1)))
+    return out
+
+
+def betting_lines_findings(draft: str, report: dict, team_of: dict) -> list[Finding]:
+    """Section 3's line blocks against the report's previews (finding
+    betting_line_mismatch): every matchup present, each of its four lines
+    present and equal to the preview at the precision written. team_of:
+    {manager: team name} (the config's)."""
+    prevs = ((report.get("looking_ahead") or {}).get("matchup_previews")) or []
+    if not prevs:
+        return []
+    heads = list(SECTION_HEAD.finditer(draft))
+    start = next((h.end() for h in heads if h.group(1) == "3"), None)
+    if start is None:
+        return [Finding("betting_line_mismatch", 3, 0, "", "no Section 3 in the draft")]
+    end = next((h.start() for h in heads if h.start() > start), len(draft))
+    first = draft[:start].count("\n") + 1
+    by_teams = {}
+    for pv in prevs:
+        ta = pv.get("team_name_a") or team_of.get(pv["manager_a"])
+        tb = pv.get("team_name_b") or team_of.get(pv["manager_b"])
+        by_teams[frozenset((ta, tb))] = (pv, {ta: "a", tb: "b"})
+    out, seen, cur, got = [], set(), None, {}
+
+    def close_block():
+        if cur is None:
+            return
+        pv, side, line0, label = cur
+        for need in ("Line", "Win Prob", "Moneyline", "Avg Score"):
+            if need not in got:
+                out.append(Finding("betting_line_mismatch", 3, line0, need,
+                                   f"{label}: no {need} line (the closing line's block has four)"))
+        bl = pv["betting_line"]
+        for lab, (ln, value) in got.items():
+            bad = []
+            if lab == "Line":
+                ou = re.search(r"O/U:\s*([\d.,]+)", value)
+                if not ou or not _close(ou.group(1), bl["over_under"]):
+                    bad.append(f"O/U {ou.group(1) if ou else '?'} (report {bl['over_under']})")
+                sp = re.match(r"(.+?)\s*([+-][\d.]+)\s*\((.+?)\s*([+-][\d.]+)\)", value.split("|")[0])
+                if not sp:
+                    bad.append("spread unreadable")
+                else:
+                    for t, raw in ((sp.group(1).strip(), sp.group(2)), (sp.group(3).strip(), sp.group(4))):
+                        k = side.get(t)
+                        if k is None:
+                            bad.append(f"team {t!r} is not in this matchup")
+                        elif not _close(raw, bl["spread_" + k]):
+                            bad.append(f"spread {t} {raw} (report {bl['spread_' + k]:+.1f})")
+            else:
+                key, num = {"Win Prob": ("win_prob_", r"[\d.]+%"), "Moneyline": ("moneyline_", r"[+-]\d+"),
+                            "Avg Score": ("avg_score_", r"[\d.,]+")}[lab]
+                pairs = _two_sides(value, num)
+                if len(pairs) != 2:
+                    bad.append(f"{lab} unreadable")
+                for t, raw in pairs:
+                    k = side.get(t)
+                    if k is None:
+                        bad.append(f"team {t!r} is not in this matchup")
+                    elif not _close(raw, bl[key + k]):
+                        want = bl[key + k]
+                        bad.append(f"{lab} {t} {raw} (report "
+                                   + (f"{int(want):+d}" if lab == "Moneyline" else f"{want}") + ")")
+            for b in bad:
+                out.append(Finding("betting_line_mismatch", 3, ln, b, f"{label}: {value}"[:200]))
+
+    for i, raw in enumerate(draft[start:end].splitlines()):
+        ln = first + i
+        m = _VS.match(raw)
+        if m:
+            close_block()
+            got = {}
+            key = frozenset((m.group(1).strip(), m.group(2).strip()))
+            hit = by_teams.get(key)
+            label = f"{m.group(1).strip()} vs {m.group(2).strip()}"
+            if hit is None:
+                out.append(Finding("betting_line_mismatch", 3, ln, label,
+                                   f"{label} is not a matchup of the report's previews"))
+                cur = None
+            else:
+                seen.add(key)
+                cur = (hit[0], hit[1], ln, label)
+            continue
+        lm = _LINE.match(raw)
+        if lm and cur is not None and lm.group(1) not in got:
+            got[lm.group(1)] = (ln, lm.group(2))
+    close_block()
+    for key, (pv, side) in by_teams.items():
+        if key not in seen:
+            out.append(Finding("betting_line_mismatch", 3, first,
+                               " vs ".join(sorted(key)),
+                               f"the report previews {' vs '.join(sorted(key))}; Section 3 has no block for it"))
     return out
 
 
@@ -920,12 +1082,6 @@ def check(draft: str, pool: Pool, vocab: Vocabulary,
         support_recs: set = set()
         any_supported = False
         for n in extract_numbers(u.text):
-            if n.approx and n.kind == "pct" and u.block == MONEY_BLOCK:
-                # Nick, 10-29: the Money and Exposure block writes title
-                # odds rounded, "about 48%". Allowed there only as an EXACT
-                # match to a figure the report prints at that precision --
-                # no tolerance, so "about 50%" for 48% still fails.
-                n = replace(n, approx=False)
             if n.approx and n.kind in ("num", "pct") and \
                     not n.raw.isalpha() and not re.search(
                         r"~\s*$", u.text[max(0, n.pos - 2):n.pos]):

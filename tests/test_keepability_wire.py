@@ -291,13 +291,16 @@ def test_the_drafters_summary_is_lifted_into_the_panel():
     assert "Boozer" not in g.parse_section(md, "Stats Corner")
 
 
-def test_the_drafter_gets_the_facts_and_the_language_rule():
+def test_the_drafter_gets_no_keeper_watch():
+    """4d (Nick, 11-25: "I want to get rid of keeper watch"): the formatted
+    report has no KEEPER WATCH facts and the template asks for no paragraph.
+    The report still computes keeper_watch (Step 9 writes the snapshot)."""
     import format_stats_report as F
-    lines = "\n".join(F.format_keeper_watch_facts(_kw()))
-    assert "KEEPER WATCH -- SUMMARY FACTS" in lines and "Most crowded line" in lines
-    assert "6 if he wins the Cup" in lines
+    assert not hasattr(F, "format_keeper_watch_facts")
+    md = F.format_section_8_stats_corner({"keeper_watch": _kw(), "best_worst": {}}, {})
+    assert "KEEPER WATCH" not in md.upper()
     tmpl = (ROOT / "templates" / "newsletter_template.md").read_text(encoding="utf-8")
-    assert "**Keeper Watch**" in tmpl and "never certainty" in tmpl and "never choose" in tmpl
+    assert "\n**Keeper Watch**\n" not in tmpl and "KEEPER WATCH -- SUMMARY FACTS" not in tmpl
 
 
 # ---------------------------------------------------------------------------

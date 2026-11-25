@@ -676,7 +676,7 @@ python scripts\generate_stats_report.py --week WEEK
 1. Loads all data (PLAYERLOG, LINEUPS, PLAYERLIST, ROSTERS, SCHEDULE, RECORDS, INJURY_OVERRIDES, NBA schedule)
 2. Loads `data\waivers_weekN.txt` for waiver context
 3. Fetches live injury statuses from Yahoo API (auto-enabled if `oauth2.json` exists)
-3b. Fetches the season performers (Stats Corner's season tables) **as of the end of the report week**, whatever day you run it: points are the sum of Yahoo's daily lines through week_end; games, minutes and NBA team per game come from every rostered player's basketball-reference game log (~3.5 minutes at its rate limit, fetched fresh every run). **It refuses** when the section is incomplete -- a rostered player without a Yahoo or basketball-reference match, a failed fetch, or a day the two sources disagree a player played -- unless `--allow-incomplete-season-performers` (recorded in the report metadata and the capture; the page then says the tables are incomplete)
+3b. Fetches the season performers (the season tables; since 4d the report keeps them and the issue no longer prints them) **as of the end of the report week**, whatever day you run it: points are the sum of Yahoo's daily lines through week_end; games, minutes and NBA team per game come from every rostered player's basketball-reference game log (~3.5 minutes at its rate limit, fetched fresh every run). **It refuses** when the section is incomplete -- a rostered player without a Yahoo or basketball-reference match, a failed fetch, or a day the two sources disagree a player played -- unless `--allow-incomplete-season-performers` (recorded in the report metadata and the capture; the page then says the tables are incomplete)
 4. Builds complete stats report: matchup summaries, report cards, standings, streaks, scoring trends, title odds (Monte Carlo), betting lines, Player of the Week, What-If analysis, power rankings, rumor mill, fun facts, season performers
 5. Saves to `output\stats_report_weekN.json`
 6. Updates `config\RECORDS.json` with new standings, streaks, and records
@@ -917,9 +917,9 @@ python scripts\newsletter_html_generator.py --input assets\WEEKN_DRAFT.md --outp
 
 **Player of the Week photo:** the page uses the headshot library's `assets\headshots\<winner-slug>.webp`, the slug taken from the stats report's winner (Tyrese Maxey -> `tyrese-maxey`). The library is the one the hub's player cards and Keeper Watch use (task 40a, 11-12); `assets\potw\` is retired. To add this week's winner: `python scripts\headshots.py add <file> "<Winner Name>"`, then `python scripts\state.py push`. No photo for this week's winner: the podium alone, and the build prints one line saying so. `--potw <path>` still works, but only for a file named for the winner; anything else refuses.
 
-**Keeper Watch cards' numbers (11-12):** each card's season FPPG, GP and total are the player's NBA numbers (every game he played, from `data\player_actuals.json`) through the report week's last day, the same numbers the hub's roster table shows; the league-roster figure appears under them as one line ("On a league roster: 15.5 FPPG in 2 games") only where it differs. The build reads `data\player_actuals.json` from the state you pulled; if it lacks a day for a Keeper Watch player the build stops with `ActualsStale` naming him: `python scripts\fetch_player_actuals.py`, `python scripts\state.py push`, then build again.
+**Keeper Watch cards' numbers (11-12; not built since 4d, while the panel is out of the issue):** each card's season FPPG, GP and total are the player's NBA numbers (every game he played, from `data\player_actuals.json`) through the report week's last day, the same numbers the hub's roster table shows; the league-roster figure appears under them as one line ("On a league roster: 15.5 FPPG in 2 games") only where it differs. The build reads `data\player_actuals.json` from the state you pulled; if it lacks a day for a Keeper Watch player the build stops with `ActualsStale` naming him: `python scripts\fetch_player_actuals.py`, `python scripts\state.py push`, then build again.
 
-**What's new:** The `--stats-report` flag loads the JSON stats report and injects interactive Stats Corner visualizations (Positional Breakdown, Draft Value Tracker, Waiver ROI, Keeper Watch) into Section 8. If omitted, the newsletter renders normally without visualizations.
+**What's new:** The `--stats-report` flag loads the JSON stats report and injects interactive Stats Corner visualizations (Positional Breakdown, Draft Value Tracker, Waiver ROI, Record Book; Keeper Watch is out since 4d) into Section 8. If omitted, the newsletter renders normally without visualizations.
 
 **Output:** A single self-contained HTML file with embedded images, visualizations, professional styling, and responsive design.
 
@@ -947,28 +947,7 @@ first numbers, so find out what changed. Next week's Step 6 reads the latest ear
 line, risers and fallers; next offseason the real keeper decisions are scored
 against what was published. Commit the file with the week's other outputs.
 
-**Money and Exposure** (the last block of Section 7) is rendered from the
-stats report's `money_section` as two short tables that fit a phone: title
-odds, expected net dollars and the most likely outcome; then the pot chances
-and -- separately, never added -- the Cup's sixth keeper. The draft's one or
-two paragraphs under `**Money and Exposure**` come after the tables, the last
-thing in the block (prose always comes after the table it describes). The
-section's own sentences (what is settled, the named outcome, the odds with
-what they assume, season totals with what they are conditional on) and the
-range stay in the report and Step 6.5's md for the writer; the page does not
-print them. The paragraphs are written around Step 6.5's MONEY AND EXPOSURE -- FACTS;
-dollar figures are allowed there every week and nowhere else unless money was
-decided (the claim check). Step 6 runs one extra regular-season pass for each
-manager the roster plan gives a replacement-level stand-in (his odds without
-it), about 80 seconds each at 50,000 sims.
-
-**The keeper watch** (Stats Corner) is rendered from the stats report: each
-team's top 8 by keep chance, a line after the 5th, the 6th marked "6 if he
-wins the Cup" until `keeper_rules.cup_winners` records this season's Cup. The
-draft supplies only the one or two summary paragraphs under `**Keeper Watch**`
-(the last thing in Stats Corner), written around Step 6.5's KEEPER WATCH --
-SUMMARY FACTS; the page shows them below the panel (prose always comes after
-the table it describes), followed by the early-season note when it applies.
+**The 4d shape (11-25).** The issue is the story of the week; the hub carries the live numbers (`claude/NEWSLETTER_REVIEW_2026-11-25.md`). **Money and Exposure** and the projected finish distribution are no longer in the issue (the report still computes `money_section` and `finish_distribution`; the hub's Money view takes them over). Nor are the four season tables, Top Available Free Agents, Rumor Mill's free-agent targets, or the **Keeper Watch** panel; with the panel gone the page builds no player cards (they opened from it), so `data\player_actuals.json` is not read here. A dollar figure appears only in a week that decided money, naming its pot and window, in any section (`check_draft.py`: `money_without_event`, `money_unqualified`). Betting Lines are each matchup's closing line, two or three sentences, and an "On the hub:" line the page renders as a pointer. The build **refuses** a draft that still carries a cut block (`check_cut_blocks`), as it refuses one missing a section. **The keepability snapshot is unchanged:** Step 9 still writes it (above). Step 6 still runs one extra regular-season pass for each manager the roster plan gives a replacement-level stand-in (his odds without it), about 80 seconds each at 50,000 sims: `money_section` carries it for the hub.
 
 **After you send it: archive it** (`python scripts\archive_issue.py --week N`, then `python scripts\state.py push`). The hub shows the archived issue from its next run. An issue is archived once by its content: archiving a different file for the same week refuses, so archive only the version you actually sent.
 

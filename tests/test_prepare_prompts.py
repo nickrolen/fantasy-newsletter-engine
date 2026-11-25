@@ -60,8 +60,13 @@ def report_md(week, sel, generated="2026-11-02T08:13:15.844342", start="2026-10-
               f"# Generated: {generated}\n# \n# fixture\n\n---\n\n"
               "## -> STORYLINE ALERTS -> READ FIRST -> \n\n- an alert\n\n---\n\n")
     block = ang.render_markdown(sel)
-    # exactly how format_stats_report joins it (pinned by a test below)
-    return header + block.rstrip("\n") + "\n\n---\n\n" + "## SECTION 1: MATCHUP SUMMARIES\n\nbody\n"
+    # 4d: the AWARD MOVES block follows the ANGLES (a quiet week's)
+    from modules import awards as _aw
+    moves = _aw.render_award_moves({"state": "none", "week": week, "moves": [], "notes": [], "why": ""},
+                                   {"lead_change_share": 0.5, "mvp_odds_swing_points": 10.0})
+    # exactly how format_stats_report joins them (pinned by a test below)
+    return (header + block.rstrip("\n") + "\n\n---\n\n" + moves.rstrip("\n") + "\n\n---\n\n"
+            + "## SECTION 1: MATCHUP SUMMARIES\n\nbody\n")
 
 
 def keeper_players(order=None):
@@ -174,7 +179,7 @@ def test_the_template_keeps_its_rules_and_drops_the_stale_text():
         assert gone not in text, gone
     for kept in ("magic numbers from the week 8 report on only", "template rule 23",
                  "The advice returns with the new engine.", "NOT by letter grade",
-                 "EIGHT tables required", "TWO tables required", pp.GRADE_LINE,
+                 "THREE tables, in this order", "ONE table: Power Rankings", pp.GRADE_LINE,  # 4d
                  "Check DRAFT PICK OWNERSHIP", "## VERIFICATION CHECKLIST",
                  "Verify against `trade_partners` data", "template rule 21"):
         assert kept in text, kept
@@ -184,7 +189,7 @@ def test_the_template_is_still_fillable_by_hand():
     text = (ROOT / pp.TEMPLATE).read_text(encoding="utf-8")
     assert text.count(pp.HAND_START) == text.count(pp.HAND_END) == 1
     assert "Pre-Flight Checklist" in text.split(pp.HAND_END)[0]
-    for ph in (pp.PH_WEEK, pp.PH_MANAGERS, pp.PH_ANGLES, pp.PH_ROSTERS, pp.PH_ORDINAL,
+    for ph in (pp.PH_WEEK, pp.PH_MANAGERS, pp.PH_ANGLES, pp.PH_AWARDS, pp.PH_ROSTERS, pp.PH_ORDINAL,
                pp.PH_S9_START, pp.IF_TRADES, pp.IF_WCTI, pp.END_IF):
         assert ph in text, ph
 

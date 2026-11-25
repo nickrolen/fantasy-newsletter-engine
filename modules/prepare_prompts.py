@@ -30,6 +30,9 @@ WHAT IT FILLS, AND FROM WHERE
   KEY STORYLINES        the report's ANGLES block, byte for byte, heading
                         included ("NO LEAD THIS WEEK" passes through). An
                         "unavailable" block refuses: rerun Step 6.5.
+  AWARD MOVES           (4d) the report's AWARD MOVES block, byte for byte,
+                        heading included. A report without one (formatted
+                        before 4d) refuses: rerun Step 6.5.
   the trade block       week N's trades (below); deleted when there are none.
   THE TRADE BLOCK       (task 49) Part 3, Section 10: each team's mode,
                         untouchables and players on the block, each with
@@ -133,6 +136,7 @@ PH_BLOCK = ("[FILL IN: the trade block from config/TRADE_BLOCK.json, one line pe
             "and listed players and the day each was set]")
 # placeholders inside the trade block, which the script rewrites whole
 PH_LINES = "[FILL IN: where this issue's betting lines come from]"     # 5g s.4
+PH_AWARDS = "[FILL IN: the stats report's AWARD MOVES block, verbatim]"  # 4d
 PH_TRADE_INNER = ("[FILL IN: Manager A]", "[FILL IN: Manager B]", "[FILL IN: players/picks sent]")
 
 ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
@@ -358,6 +362,21 @@ def angles_block(md: str) -> str:
         raise PromptsRefused("the report's ANGLES block has no \"Money this week\" line "
                              "(template rule 23 needs it)")
     return block
+
+
+def award_moves_block(md: str) -> str:
+    """The report's AWARD MOVES block (4d), byte for byte: from its heading
+    to the blank line before the "---" after it. None, or two, refuses."""
+    from .awards import MOVES_HEAD
+    starts = [m.start() for m in re.finditer(r"(?m)^" + re.escape(MOVES_HEAD), md)]
+    if len(starts) != 1:
+        raise PromptsRefused(f"the stats report has {len(starts)} AWARD MOVES blocks, not one "
+                             "(a report formatted before 4d: rerun Step 6.5)")
+    s = starts[0]
+    e = md.find("\n\n---\n", s)
+    if e < 0:
+        raise PromptsRefused("the report's AWARD MOVES block has no end (the '---' after it)")
+    return md[s:e]
 
 
 def manager_rows(cfg: dict, data: dict, week: int) -> list:
@@ -738,6 +757,7 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
     start, end = week_dates(schedule, week, season_long)
     md, data = read_report(base, week, start, end, season_long)
     block = angles_block(md)
+    awards = award_moves_block(md)
     rows = manager_rows(cfg, data, week)
     rlines, rnote = roster_lines(base, cfg, schedule, today)
     blines, bnote = block_lines(base, cfg)
@@ -778,6 +798,7 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
         PH_ANGLES: block, PH_S9_START: s1, PH_S9_END: s2, PH_ROSTERS: "\n".join(rlines),
         PH_BLOCK: "\n".join(blines),
         PH_LINES: lines_sentence(data, week),
+        PH_AWARDS: awards,
     }
     conditions = {
         IF_WCTI: True if wcti else None,
@@ -824,6 +845,11 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
         f"- **Week {week}**, {t1} to {t2}, season {season} (config\\SCHEDULE.json); the league's "
         f"{ordinal} season (league_season_number).",
         "- **Storylines:** the report's ANGLES block, verbatim, in Part 1.",
+        "- **Award races:** the report's AWARD MOVES block, verbatim, in Part 1 ("
+        + ("no race moved this week" if "No award race moved this week." in awards else
+           "unavailable this week" if "**Unavailable this week:**" in awards else
+           "the races are over" if "**No weekly moves:**" in awards else
+           f"{awards.count(chr(10) + '- **')} move(s)") + ").",
         "- **Star players:** each manager's top three in the report's keeper watch, by keep chance.",
         f"- **Trades in week {week}:** {trade_note}.",
         f"- **Betting lines:** {lines_note(data, week)} (Part 1 says where they come from.)",
@@ -847,12 +873,14 @@ def build(base, week: int, *, today: date = None, now: datetime = None) -> str:
     left = leftovers(text)
     if left:
         raise PromptsRefused(f"the output still has {left}")
-    bad = mangled(text.replace(block, ""))
+    bad = mangled(text.replace(block, "").replace(awards, ""))
     if bad:
         raise PromptsRefused(f"the output has mangled characters, line {bad[0][0]}: {bad[0][1]}: "
                              f"{bad[0][2][:80]!r}")
     if block not in text:
         raise PromptsRefused("the ANGLES block did not survive the fill byte for byte")
+    if awards not in text:
+        raise PromptsRefused("the AWARD MOVES block did not survive the fill byte for byte")
     return text
 
 

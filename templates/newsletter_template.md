@@ -107,6 +107,9 @@ Remove all `[from extraction: ...]` citations to produce the final version.
 22. **OPEN WITH THE LEAD ANGLE.** The stats report's "ANGLES" block ranks this week's stories by how unusual they are times how much they moved the Cup-seeding and standings races. The newsletter's opening (the first matchup summary's first paragraph, and the subtitle if there is one) leads with the top angle; the next ones are the secondary threads. Never print the scores. If the block says angles are unavailable, choose from the storyline alerts.
 
 23. **MONEY ONLY WHEN IT MOVED.** The ANGLES block ends with a "Money this week" line, computed from what was decided this week. If it says nothing was decided, the newsletter contains **no dollar figures** -- name a pot without its amount if you need it. `scripts/check_draft.py` flags every dollar figure in such a week (finding `money_without_event`). If something was decided, state a liability only for the managers it changed or where it separates one manager from the rest; a liability true of everyone last week and this week is not news (VOICE.md, "Money only when it moved"). Rule 23 decides *whether* to mention money; the pot-and-window rule decides *how*. Both apply.
+    - **Pot and window, in every section** (LEAGUE_RULES "Language rule"). A sentence with a dollar figure names its pot (the regular-season pot or the playoff pot) and its window (weeks 1-15, the regular season, the semifinals); never "safe" or "certain" about paying without both. There is no Money and Exposure block any more (it moved to the hub, 4d), so no section is exempt: `check_draft.py` flags a dollar line without its pot and window (finding `money_unqualified`), in any section.
+
+24. **AWARD RACES ONLY WHEN THEY MOVED.** There is no awards block in the newsletter; the hub's Awards page carries the races. The stats report's **AWARD MOVES** block, right after the ANGLES, lists the races that moved this week (a new leader, a big change in the leader's lead, a big swing in the MVP odds) with the before and after. Mention a race only for a move listed there, once, where it fits: Power Rankings, Fun Facts, or the matchup it happened in. Every award number comes from that block (the claim check traces it). When the block says "No award race moved this week.", or that it is unavailable, the issue mentions no award race. Cite no MVP odds the block says were not compared.
 
 ---
 
@@ -324,45 +327,34 @@ Example: "The 9 games lost to injury limited his output, but his 83.5% season ut
 
 ## **3. Betting Lines**
 
+The issue's whole look-ahead (4d; NEWSLETTER_REVIEW 2026-11-25, decisions 2 and 5): each matchup's line, then two or three sentences on what decides it, then one line pointing to the hub's Next week page, which carries starts, light days and injuries in full. No position-by-position paragraph.
+
 ### DATA EXTRACTION (do this first)
 ```
-For each matchup in looking_ahead.matchup_previews[]:
-- Teams: [manager_a] vs [manager_b]
-- Spread: [betting_line.spread]
-- O/U: [betting_line.over_under]
-- Win prob: [betting_line.win_prob_a]% vs [betting_line.win_prob_b]%
-- Moneyline: [betting_line.moneyline_a] / [betting_line.moneyline_b]
-- Avg score: [betting_line.avg_score_a] / [betting_line.avg_score_b]
-- Season series: [series_a_wins]-[series_b_wins]
-- All-time: [all_time_a_wins]-[all_time_b_wins]
-- H2H streak: [h2h_streak_holder] has won [h2h_streak_length] straight (if applicable)
-- Notable injuries A: [notable_injuries_a[]]
-- Notable injuries B: [notable_injuries_b[]]
-- Key player A: [key_player_a] ([key_player_a_proj] proj FPPG) -- injury note: [key_player_a_injury_note] or "none"
-- Key player B: [key_player_b] ([key_player_b_proj] proj FPPG) -- injury note: [key_player_b_injury_note] or "none"
+WHERE THE LINES COME FROM (the italic note at the top of Section 3 of the stats report):
+- [Monday's closing line, or this report's own line -- as the note says]
 
-CURRENT TEAM HEALTH (from current_team_health):
-- [Manager A]: [health_pct]% healthy | Injured: [injured_players summary]
-- [Manager B]: [health_pct]% healthy | Injured: [injured_players summary]
+THE LINE, for each matchup in looking_ahead.matchup_previews[] (copy exactly as printed):
+- Teams: [team_name_a] vs [team_name_b]
+- Spread: [manager_a] [spread_a] ([manager_b] [spread_b])
+- O/U: [over_under]
+- Win prob: [win_prob_a]% vs [win_prob_b]%
+- Moneyline: [moneyline_a] / [moneyline_b]
+- Avg score (the projected final): [avg_score_a] / [avg_score_b]
 
-RETURNING PLAYERS (from current_team_health.returning_players[], if any for these managers):
-- [player] ([manager]): [return_games]/[total_week_games] games -> [return_notes]
-
-POSITIONAL MATCHUPS (from looking_ahead.matchup_previews[]):
-- Guard: [guard_matchup.a_fppg] vs [guard_matchup.b_fppg] -> Advantage: [guard_matchup.advantage] ([guard_matchup.margin])
-- Forward: [forward_matchup.a_fppg] vs [forward_matchup.b_fppg] -> Advantage: [forward_matchup.advantage] ([forward_matchup.margin])
-- Center: [center_matchup.a_fppg] vs [center_matchup.b_fppg] -> Advantage: [center_matchup.advantage] ([center_matchup.margin])
-
-IMPLICATIONS (from looking_ahead.matchup_previews[].implications):
-- [implications text -> pre-written stakes statement]
-
-SCORING TRENDS (from scoring_trends, for both managers):
-- [Manager A]: [trend] -> [trend_description]
-- [Manager B]: [trend] -> [trend_description]
+WHAT COULD DECIDE IT (read them all, then pick the one or two that matter most):
+- Key matchup: [the "Key matchup" line: two players per team, projected FPPG]
+- Health: [current_team_health health_pct] and the notable injuries / returning players
+- Schedule: the Schedule Context line (startable games, the edge)
+- Stakes: [implications]
+- Series: season series, all-time, H2H streak (only if 3 or more)
+- Form: the Scoring Trends lines
 ```
 
 ### REQUIRED OUTPUT FORMAT
 ```
+[One sentence on where the lines come from, only when the drafting prompt's Part 1 asks for it.]
+
 **[Team A] vs [Team B]**
 
 *Line: [Favorite] -[spread] ([Underdog] +[spread]) | O/U: [total]*
@@ -370,53 +362,21 @@ SCORING TRENDS (from scoring_trends, for both managers):
 *Moneyline: [Team A] [odds] | [Team B] [odds]*
 *Avg Score: [Team A] [score] | [Team B] [score]*
 
-[4-6 sentence preview -> betting angle, injury impacts, series history, stakes. The SECOND sentence of each preview paragraph MUST name the 2 key matchup players for that matchup (key_player_a and key_player_b) with a small bit of context about each -- e.g., projected FPPG, recent form, or injury status. This grounds the preview in the star players driving the matchup.]
+[2-3 sentences: what decides this matchup.]
+
+**On the hub:** starts, light days and injuries for this matchup are on the Next week page.
 ```
 
 ### KEY RULES
-- **GAMES GRID -- DO NOT REPRODUCE:** The week's games grid (Starts, Idle, and starters per day) is rendered into the HTML automatically from the stats report. Never retype it as a table. You MAY cite it in a preview -- e.g. a manager's Starts against his opponent's, or how many players he left idle -- using the exact numbers from the "Games Grid" block in Section 3 of the stats report. Do NOT name players to add: naming adds is gated advice. Do NOT claim how many starts an add could recover: that figure was withdrawn as unsound and is no longer computed.
-- **KEY MATCHUP PLAYERS -- MANDATORY SECOND SENTENCE:** Every Betting Lines preview paragraph must include a second sentence that names the two key players for that matchup (one per team) along with brief context. These come from the `key_player_a` and `key_player_b` fields in the stats report. Example:
-  - "The marquee matchup features Luka Doncic (52.7 projected FPPG, returning from a hamstring issue) squaring off against Victor Wembanyama (52.6 projected FPPG), with both stars projected nearly identically."
-  - "This one revolves around Nikola Jokic (59.7 projected FPPG, fresh off his fourth POTW award) against Tyrese Maxey (46.1 projected FPPG), two franchise cornerstones with very different supporting casts."
-  - The key players are the headliners -- always give them their moment in the second sentence before diving into the broader matchup analysis.
-- Use TEAM NAMES in betting stats, not manager names
-- Only mention H2H streaks if `h2h_streak_length` >= 3
-- Note significant injuries from `notable_injuries_a/b`
-- **SPORTSBOOK LANGUAGE:** Write Betting Lines prose like an actual sportsbook preview. Use spreads and moneylines to describe matchup dynamics, NOT win probability percentages:
-  - CORRECT: "The 177.5-point spread reflects a substantial talent gap" / "Nick is a -270 favorite"
-  - CORRECT: "Despite Garrett getting 70 points on the spread, Benton's roster quality makes him the -150 favorite"
-  - WRONG: "Nick's 72.94% win probability" / "Garrett's 40.26% chance"
-  - Win probability percentages appear in the stat block above the prose -- do not repeat them in the narrative.
-- **INJURY TIMELINES -- PROSE, NOT PARENTHESES:** When discussing injured players and return timelines, write in natural prose. Never use parenthetical shorthand like "(2/3 games)", "(3 weeks remaining)", or "(season-long)":
-  - CORRECT: "Anthony Davis is still a few weeks away from returning from his hand injury"
-  - CORRECT: "Josh Giddey could return as early as this week"
-  - CORRECT: "Giannis Antetokounmpo is still a couple weeks away"
-  - CORRECT: "Jalen Williams is expected back any day now from his knee injury"
-  - CORRECT: "both Austin Reaves and Tyler Herro are expected back after multi-week absences"
-  - WRONG: "Anthony Davis remains out with his hand injury (3 weeks remaining)"
-  - WRONG: "Josh Giddey could return (2/3 games expected)"
-  - WRONG: "Austin Reaves (2/3 games, calf) and Tyler Herro (2/3 games, rib)"
-  - WRONG: "Jayson Tatum (season-long)"
-  - The parenthetical format reads like a spreadsheet. Write it like sports journalism.
-- **INJURY TIMELINES:** When injury notes say "out ~X weeks starting week Y", calculate REMAINING weeks as: `X - (current_week + 1 - Y)`. Example: "out ~7 weeks starting week 12" in a Week 13 newsletter means 7 - (14 - 12) = **5 more weeks**. Always report remaining time, not total injury duration.
-- **CURRENT HEALTH CONTEXT:** Use `current_team_health` to frame the matchup's injury landscape:
-  - "Benton enters at 93.8% health vs Hayden's 83.8% -> a 10-point health advantage that the spread reflects"
-  - "Both teams are nearly full strength, making this a true test of roster construction"
-  - Health disparities >10% often explain betting lines and should be mentioned
-- **RETURNING PLAYERS:** If a player is returning mid-week (in `returning_players[]`), note the timing impact:
-  - "Kawhi's expected Thursday return (2/4 games) IS factored into the projection at 50% availability -> note the timing for narrative interest"
-  - Partial returns are modeled probabilistically in the projections (2/4 games = 50% daily availability). Highlight confirmed returns for narrative interest.
-- **POSITIONAL MATCHUPS:** Use `guard_matchup`, `forward_matchup`, and `center_matchup` to identify where each team has advantages:
-  - "Nick holds edges at guard (+3.2 FPPG) and forward (+5.1 FPPG), but Garrett's centers have been dominant -> expect that battle to decide this one"
-  - "Benton's forward advantage of +8.4 FPPG is the week's largest positional edge"
-  - Mention when one team sweeps all three positions ("Nick holds advantages at all three positions") or when the matchup is evenly split
-- **IMPLICATIONS:** The `implications` field contains pre-written stakes statements -> use them to add context:
-  - "A Garrett loss would put him 6 games back of Nick with 8 to play"
-  - Weave these into your preview narrative rather than quoting verbatim
-  - **ELIMINATION CHECK:** Before writing "not quite eliminated" or similar editorialization on top of implications data, DO THE MATH: if games_back > remaining_weeks, the team IS mathematically eliminated and you should say so (or omit the false hope). Do NOT write "not quite eliminated" for a team that has no path to catching up.
-- **SCORING TRENDS:** Use momentum context to frame the matchup:
-  - "Nick rides a hot streak (9% above season average) into this one, while Hayden has been ice cold"
-  - "Both teams are trending down -> this could be a low-scoring affair"
+- **TWO OR THREE SENTENCES per matchup, no more.** Say what decides it: the one or two facts from WHAT COULD DECIDE IT that the line rests on (a star's health, a schedule edge, what a loss would cost). Never walk through the positions, every injury or the full schedule: the hub's Next week page has them.
+- **THE LINE BLOCK:** copy its numbers exactly as the stats report prints them, with TEAM NAMES. They are the closing line on a Monday-night build; `check_draft.py` compares each matchup's four lines with the report's previews (finding `betting_line_mismatch`).
+- **THE HUB LINE:** end every matchup with this line, exactly: `**On the hub:** starts, light days and injuries for this matchup are on the Next week page.` The page renders it as a pointer under the matchup, and the hub's archive does not read it as the preview.
+- **SPORTSBOOK LANGUAGE:** in the sentences, use spreads and moneylines, never win probability percentages ("Nick is a -270 favorite", not "Nick's 72.94% win probability"). The percentages are in the line block only.
+- **GAMES GRID -- DO NOT REPRODUCE:** the week's games grid is rendered into the HTML from the stats report. You MAY cite a manager's Starts or Idle from the "Games Grid" block. Do NOT name players to add (that is gated advice), and do not claim how many starts an add could recover.
+- **INJURY TIMELINES -- PROSE, NOT PARENTHESES:** "Anthony Davis is still a few weeks away", never "(3 weeks remaining)" or "(2/3 games)".
+- **INJURY TIMELINES:** when injury notes say "out ~X weeks starting week Y", the REMAINING weeks are `X - (current_week + 1 - Y)`. Report remaining time, not the total.
+- **H2H streaks:** only when `h2h_streak_length` >= 3.
+- **ELIMINATION CHECK:** before writing "not quite eliminated" or similar on top of the implications, do the math: if games_back > remaining_weeks, the team IS eliminated.
 
 ---
 
@@ -569,10 +529,6 @@ From what_if.manager_analysis[].blunder_details[] (blunders -- bench games with 
 
 ### DATA EXTRACTION (do this first)
 ```
-From title_odds.finish_distribution:
-| Team | 1st | 2nd | 3rd | 4th |
-[extract all 4 teams]
-
 From power_rankings[]:
 | Rank | Manager | Team | Record | Title Odds | Trend | Expected Record | Career Record | Career Win % | Championships |
 [extract all 4 teams]
@@ -603,22 +559,10 @@ RETURNING PLAYERS (from current_team_health.returning_players[]):
 - [player] ([manager]): [return_games]/[total_week_games] games -> [return_notes]
 [Note any confirmed returns that could shift power rankings outlook]
 
-MONEY AND EXPOSURE -- FACTS (money_section): each manager's title odds, expected net
-dollars, range, most likely outcome, the win-the-regular-season-lose-the-semifinal
-case, the chance of paying into each pot, and the Cup's sixth keeper (its own
-currency); plus the section's sentences, which the page prints as written
-[the table is rendered by the HTML generator -- read the facts, do NOT copy the table]
 ```
 
 ### REQUIRED OUTPUT FORMAT
 ```
-**Projected Finish Distribution**
-
-| Team | 1st | 2nd | 3rd | 4th |
-|------|-----|-----|-----|-----|
-| [Team] | [X]% | [X]% | [X]% | [X]% |
-[4 rows]
-
 **Power Rankings**
 
 | Rank | Team | Record | Title Odds | Trend |
@@ -626,24 +570,12 @@ currency); plus the section's sentences, which the page prints as written
 | 1 | [Team] | [W-L] | [X]% | [ -> / -> / -> ] |
 [4 rows]
 
-[3-4 paragraphs -> title race narrative, each team's outlook, magic numbers (week 8 report on only), draft pick positioning implications (check the SEASON TRADE LOG and DRAFT PICK OWNERSHIP blocks in the stats report to see who actually owns whose picks -> do NOT assume last place = #1 overall pick, as picks may have been traded). EVERY stat must be from extraction.]
-
-**Money and Exposure**
-
-[1-2 short paragraphs from MONEY AND EXPOSURE -- FACTS only -- LAST in the section]
+[3-4 paragraphs -> title race narrative, each team's outlook, magic numbers (week 8 report on only), draft pick positioning implications (check the SEASON TRADE LOG and DRAFT PICK OWNERSHIP blocks in the stats report to see who actually owns whose picks -> do NOT assume last place = #1 overall pick, as picks may have been traded). An award race that moved (rule 24) may go here. EVERY stat must be from extraction.]
 ```
 
 ### KEY RULES
-- TWO tables required
-- **MONEY AND EXPOSURE** -- the last thing in Section 7, every week. The page renders its two tables from the data (title odds and money; pots and the Cup); you write one or two paragraphs under `**Money and Exposure**`, and they appear below the tables, the last thing in the block (prose always comes after the table it describes). The page shows no range column and no list of the engine's sentences, so state the range once (most lost, most won) and anything else the reader needs in your paragraphs:
-  - **Write around the numbers in MONEY AND EXPOSURE -- FACTS; never choose, compute or round your own.** Every figure must be one printed there (the claim check enforces it).
-  - **Lead with the named outcome the facts name first** (e.g. newsletter 1 of 2026-27: Hayden's +$135 finish -- win the regular-season pot, lose the semifinal).
-  - **Title odds are written rounded, "about 48%"** -- the rounded figures in the facts, never 48.2% in this block -- and say once, while the facts carry it, that the model runs a little confident this early in the season.
-  - **A manager whose odds rest on replacement-level pickups:** say so when you cite his odds, and give his without-pickups figure from the facts (e.g. newsletter 1: Hayden about 30% without them; a better real pickup raises it).
-  - **A season point total:** say that rosters are held as they stand apart from the moves the rules force, and that season totals run low by design.
-  - **Dollar figures belong in this block only.** Elsewhere in the newsletter a dollar figure appears only in a week money was decided (the ANGLES block's "Money this week" line); the claim check flags any other.
-  - **Two currencies, never added:** dollars come from the regular-season pot and the playoff pot; the Cup's prize is a sixth keeper, given as a chance, never as money.
-  - **Language:** never "safe" or "pays" without naming the pot ("pays into the regular-season pot"). No table, no bullets, and do not start a paragraph with bold text.
+- **ONE table: Power Rankings.** The projected finish distribution and Money and Exposure moved to the hub (4d); the stats report no longer prints them. Do not reproduce them or write a money paragraph.
+- **DOLLAR FIGURES:** only in a week that decided money (rule 23, the ANGLES block's "Money this week" line), each naming its pot and window. Otherwise name a pot without its amount.
 - **INJURY CONTEXT FOR OUTLIERS:** Use BOTH season burden AND current health to explain mismatched records:
   - **Season burden** tells the historical story: "Hayden has lost 116 games to injury (24.9% season burden) -> 51 more than anyone else"
   - **Current health** tells the forward-looking story: "But Hayden enters Week 14 at 83.8% health -> Jokic is his only major absence now"
@@ -676,6 +608,8 @@ currency); plus the section's sentences, which the page prints as written
 
 ## **8. Stats Corner**
 
+The week's tables only (4d): the top 5 and worst 5 performances, and the week's waiver pickups. The season tables are on the hub's Players page and the free agents on its Market page; Keeper Watch is cut.
+
 ### DATA EXTRACTION (do this first)
 ```
 TOP PERFORMANCES (best_worst.best_games[], top 5):
@@ -686,55 +620,9 @@ WORST PERFORMANCES (best_worst.worst_games[], top 5):
 | Rank | Player | NBA Team | Manager | FP | Date | Opponent |
 [5 rows]
 
-SEASON TABLES ARE AS OF THE END OF THIS WEEK (season_performers.status.as_of), not the
-day the report was built. If Section 8 carries a "NOTE -- The season tables ... are
-incomplete" line, say that in one plain sentence above the season tables; never
-present incomplete tables as complete.
-
-SEASON TOTALS COUNT EVERY GAME A PLAYER PLAYED THIS SEASON, including games before he
-joined his current team. A Fantasy Team cell reading "Team (since MM-DD)" marks a player
-who joined during the season: none of his games before that date were for that team.
-Never write that such a player's season numbers were "for" that team ("50.15 FPPG over
-2 games for Benton" is wrong when Benton added him after those games): say "now on X's
-roster" or name the date he joined. Keep the "(since MM-DD)" in the tables.
-
-SEASON BEST - TOTAL FP (season_performers.best_total_fp[], top 30):
-| Rank | Player | Fantasy Team | NBA Team | Total FP | FPPG | GP% | MPG | Eff% | Proj FP (ROS) | Proj FPPG (ROS) |
-[30 rows -> HTML newsletter paginates these 10 at a time]
-
-SEASON BEST - FPPG (season_performers.best_fppg[], top 30):
-| Rank | Player | Fantasy Team | NBA Team | FPPG | Total FP | GP% | MPG | Eff% | Proj FP (ROS) | Proj FPPG (ROS) |
-[30 rows -> HTML newsletter paginates these 10 at a time]
-
-SEASON WORST - TOTAL FP (season_performers.worst_total_fp[], top 30):
-[30 rows -> HTML newsletter paginates these 10 at a time]
-
-SEASON WORST - FPPG (season_performers.worst_fppg[], top 30):
-[30 rows -> HTML newsletter paginates these 10 at a time]
-
 WAIVER PICKUPS (best_worst.best_waivers[], ALL):
 | Player | NBA Team | Manager | GP | Total FP | FPPG |
 [all rows]
-
-SEASON WAIVER WIRE ROI (from waiver_roi):
-League Waiver Average: [league_waiver_fppg] FPPG
-| Manager | Adds | FPPG | vs Avg | Hit% | Bust% | Wvr Share |
-| [manager] | [total_adds] | [waiver_fppg] | [fppg_vs_avg] | [hit_rate]% | [bust_rate]% | [waiver_share]% |
-Per-manager transactions: Best pickup: (FP, FPPG) + Biggest regret: (FP, FPPG) for each manager
-
-Column definitions (for table comprehension, not rendered):
-- Hit%: % of adds (min 3 starts) above league waiver average
-- Bust%: % of adds below 25 FPPG
-- Wvr Share: % of total starter FP from waiver adds (high = reliant on wire)
-
-TOP FREE AGENTS (best_worst.best_free_agents[], top 5):
-| Player | NBA Team | Position | Proj FPPG | Games This Week | Games Next Week |
-[5 rows]
-
-KEEPER WATCH -- SUMMARY FACTS (keeper_watch.summary; each team's top 8 with keep chances):
-who crossed the line since the last published week, the most crowded line, the
-biggest risers and fallers, this season's keepers below the line today
-[the panel itself is rendered by the HTML generator -- read the facts, do NOT copy the table]
 ```
 
 ### REQUIRED OUTPUT FORMAT
@@ -753,56 +641,20 @@ biggest risers and fallers, this season's keepers below the line today
 |------|--------|----------|---------|----|------|----------|
 [5 rows from extraction]
 
-**Best Performers (Total FP, This Season)**
-
-| Rank | Player | Fantasy Team | NBA Team | Total FP | FPPG | GP% | MPG | Eff% | CV | IQR (25-75) | Proj FP (ROS) | Proj FPPG (ROS) |
-|------|--------|--------------|----------|----------|------|-----|-----|------|----|-------------|---------------|-----------------|
-[30 rows from extraction -> HTML newsletter paginates these 10 at a time]
-
-**Best Performers (FPPG, This Season)**
-
-| Rank | Player | Fantasy Team | NBA Team | FPPG | Total FP | GP% | MPG | Eff% | CV | IQR (25-75) | Proj FP (ROS) | Proj FPPG (ROS) |
-|------|--------|--------------|----------|------|----------|-----|-----|------|----|-------------|---------------|-----------------|
-[30 rows from extraction -> HTML newsletter paginates these 10 at a time]
-
-**Worst Performers (Total FP, This Season)**
-
-[same format, 30 rows -> HTML newsletter paginates these 10 at a time]
-
-**Worst Performers (FPPG, This Season)**
-
-[same format, 30 rows -> HTML newsletter paginates these 10 at a time]
-
 **Waiver Pickups**
 
 | Player | NBA Team | Manager | GP | Total FP | FPPG |
 |--------|----------|---------|----|----------|------|
 [all rows from extraction]
 
-**Top Available Free Agents**
-
-| Player | NBA Team | Position | Proj FPPG | Games This Week | Games Next Week |
-|--------|----------|----------|-----------|-----------------|-----------------|
-[5 rows from extraction]
-
-[3-4 sentence commentary on notable performances or records]
-
-**Keeper Watch**
-
-[1-2 short paragraphs from KEEPER WATCH -- SUMMARY FACTS only -- LAST in the section]
+[3-4 sentence commentary on notable performances]
 ```
 
 ### KEY RULES
-- **8 TABLES REQUIRED** -- do not skip any
-- **6 TABLES REMOVED** -- the following are now rendered as interactive visualizations by the HTML generator and must NOT appear in the draft: Positional Scoring Breakdown, Season Waiver Wire ROI, Bench Report, Record Book Snapshot, Keeper Watch, Draft Value Tracker
-- **KEEPER WATCH SUMMARY** -- the panel (each team's top 8 by keep chance, a line after the 5th, the 6th marked "6 if he wins the Cup") is rendered from the data. You write only the one or two paragraphs under **Keeper Watch**, the last thing in Stats Corner, and they appear below the panel (prose always comes after the table it describes):
-  - **Write around the numbers in KEEPER WATCH -- SUMMARY FACTS; never choose, compute or round your own.** Every percentage you write must be one printed there (the claim check enforces it).
-  - The kind of thing worth saying: who crossed the line since last week, the most crowded line, the biggest risers and fallers, a current keeper below the line. Pick what is interesting; you need not cover all of it.
-  - **Language: percentages and "likely", never certainty.** Never "will keep", "will be kept", "safe", "lock", "guaranteed" or "untouchable"; never tier names ("Lock", "Strong Hold", "On the Bubble") -- those are gone. "Sabonis is at 50%, fourth on Nick's roster" is the register.
-  - The early-season note (eventual keepers not yet on a roster) is printed below the panel the first week; do not repeat it.
-  - No table, no bullets, and do not start a paragraph with bold text (the page reads a bold line as the end of the summary).
+- **3 TABLES REQUIRED** -- Top Performances, Worst Performances, Waiver Pickups, in that order.
+- **CUT IN 4D -- none of these in the draft, as a table or as prose:** the four season tables (Best and Worst Performers, by Total FP and by FPPG), Top Available Free Agents, and Keeper Watch.
+- **RENDERED, NOT DRAFTED:** Positional Scoring Breakdown, Season Waiver Wire ROI, Bench Report, Record Book Snapshot and Draft Value Tracker are rendered by the HTML generator from the stats report. Do not put them in the draft.
 - **ALL COLUMNS REQUIRED** -- match the table headers exactly as shown; do not drop columns (especially NBA Team)
-- Season tables go AFTER worst performances, BEFORE waiver pickups
 - Copy data exactly from extraction -- no rounding, no approximating
 
 ---
@@ -1006,13 +858,6 @@ TRADE IDEAS (from rumor_mill.trade_ideas[]):
    Rationale: [rationale]
 [repeat for all trades]
 
-FREE AGENT TARGETS (from rumor_mill.free_agent_targets[]):
-- [player_name] ([positions]) -> [projected_fppg] Proj FPPG
-  Target: [target_manager]
-  Reason: [reason]
-[list all]
-
-
 HOT STREAKS (from rumor_mill.hot_streak_candidates[]):
 - [player_name] ([manager])
   Reason: [reason]
@@ -1059,12 +904,6 @@ TRADE HISTORY (from all_time_records.trade_partners):
 
 [4 trade ideas total]
 
-**Free Agent Targets**
-
-- **[Player]** ([Position]) -> [Target Manager]: [Proj FPPG] proj FPPG. [Reason from extraction]
-- [repeat for all targets]
-
-
 **Hot Streaks**
 
 - **[Player]** ([Manager]): [reason - includes timeframe like "X% above projection over the last 4 weeks on [team]" or "since joining [team]", plus last 14 days trend]. [If trade_value_note exists: include "Sell high candidate" or "Elevated trade value" note.]
@@ -1074,9 +913,12 @@ TRADE HISTORY (from all_time_records.trade_partners):
 
 - **[Player]** ([Manager]): [Underperformance %] below projection -> [reason]. [If better_fa_available exists: "**Replacement:** [better_fa_available] ([proj FPPG] FPPG)." If showing improvement in last 14 days: "Trending up -> hold for now." If neither: "No clear replacement available."] -> [reason]. [If better_fa_available: "Consider [player] as replacement." If showing improvement in last 14 days, note "Hold for now."]
 - [repeat for all candidates]
+
+[Optional last line, exactly:] **On the hub:** free-agent targets for every team are on the Advice page.
 ```
 
 ### KEY RULES
+- **NO FREE AGENT TARGETS (4d).** They moved to the hub's Advice page; the stats report no longer prints them. Write none. Rumor Mill may end with the line above, exactly as shown, and nothing else about free agents (Slump Watch's "Better FA" replacement stays: it is part of Slump Watch as is).
 - **THE ADVICE IS OFF until the new engine ships (Nick, 11-01).** While `season.legacy_advice` is "off", Section 10 of the stats report has no trade finder or waiver plans, only the line "The advice returns with the new engine." The page prints that line itself at the top of Rumor Mill: do not retype it, and write no advice, trade finder or waiver plans of your own. If you mention the advice anywhere, use that sentence word for word (never "Section 10 returns...": the claim check reads the 10 as an unsourced number). Hot Streaks, Slump Watch and the rest of Rumor Mill are unchanged.
 - **TRADE FINDER AND WAIVER PLANS (when the stats report has the block):** the tables are rendered into the HTML automatically -- never retype them. Write around them.
   - **Never call a trade fair, and never say both sides "win".** Gains are measured against NOT trading. Every trade has a differential: say who moves ahead of whom ("Nick gains 200, Hayden 150 -- Nick moves 50 ahead, and both pull away from Benton and Garrett"). In a four-team league a trade is a two-on-two move.
@@ -1085,11 +927,11 @@ TRADE HISTORY (from all_time_records.trade_partners):
   - A trade or add "on the table since week N" has gone unclaimed: that is a story (the model may be wrong, or there is a human reason). Use it; do not invent the reason.
   - A free agent recommended to more than one manager is a race -- the add window opens 12:01 Monday. Name everyone it was recommended to.
   - If the block says it did not run or is paused, say that in one plain sentence. Do not substitute trade ideas of your own.
-- **BULLET FORMAT IS MANDATORY** -- Every item in Trade Ideas, Free Agent Targets, Hot Streaks, and Slump Watch MUST be a bullet point (`- `) with a bold header. NEVER write these sections as flowing paragraphs. Each trade idea, each free agent, each hot/cold player gets its OWN bullet. This is critical for HTML rendering -- paragraphs break the card-style layout.
+- **BULLET FORMAT IS MANDATORY** -- Every item in Trade Ideas, Hot Streaks, and Slump Watch MUST be a bullet point (`- `) with a bold header. NEVER write these sections as flowing paragraphs. Each trade idea, each free agent, each hot/cold player gets its OWN bullet. This is critical for HTML rendering -- paragraphs break the card-style layout.
 - **WRONG FORMAT (paragraphs):** "The analytics engine flagged four deals this week. The most intriguing has Nick sending Edwards to Benton for Maxey. Two other deals to watch: Hayden could swap Bridges for Giannis..."
 - **CORRECT FORMAT (bullets):** Each trade on its own `- **bold header**` line with a paragraph underneath, each free agent on its own bullet, each hot/cold player on its own bullet. Follow the REQUIRED OUTPUT FORMAT exactly.
 - **Trade Ideas get 2-3 sentence rationales** as a continuation paragraph below each bullet header
-- **Free Agent Targets, Hot Streaks, Slump Watch** are single-bullet items (header + detail in same bullet)
+- **Hot Streaks, Slump Watch** are single-bullet items (header + detail in same bullet)
 
 ### TRADE TYPE FRAMING
 - `swap` -> "A straightforward swap..."
@@ -1150,8 +992,8 @@ Before submitting, verify:
 - [ ] Every stat in prose came from extraction (no improvised numbers)
 - [ ] Matchup headers use exact format: `**[Winner] [Score] def. [Loser] [Score]**` with TEAM NAMES, not manager names
 - [ ] All bullet points use `- ` (standard markdown dash)
-- [ ] Power Rankings has TWO tables
-- [ ] Stats Corner has EIGHT tables (6 others are rendered as interactive visualizations)
+- [ ] Power Rankings has ONE table (no projected finish distribution, no Money and Exposure: they are on the hub)
+- [ ] Stats Corner has THREE tables: Top Performances, Worst Performances, Waiver Pickups (no season tables, no free agents, no Keeper Watch)
 - [ ] Title is `## **CHS Alumni Fantasy Basketball League -> Week [X] Newsletter**`
 - [ ] Ends with `**End of Week [X] Newsletter**`
 
@@ -1160,7 +1002,8 @@ Before submitting, verify:
 - [ ] Draft pick mentions match DRAFT PICK OWNERSHIP (no suggesting picks that were traded away)
 - [ ] Around the NBA headlines only cover events from the covered week (not prior weeks)
 - [ ] Report cards ordered by `overall_score` descending (highest first), ties by `weekly_fp`; NOT alphabetical, by record or by letter grade
-- [ ] No dollar figures unless the ANGLES block's "Money this week" line names something decided this week (rule 23); every lore clause attaches to a claim, not a name (rule 21)
+- [ ] No dollar figures unless the ANGLES block's "Money this week" line names something decided this week (rule 23), and each one names its pot and window, in any section; every lore clause attaches to a claim, not a name (rule 21)
+- [ ] An award race appears only for a move the AWARD MOVES block lists, with its numbers (rule 24)
 - [ ] ALL superlative claims ("most", "worst", "best", "first ever", "in league history") verified against historical data -- especially luck index, streaks, scores
 - [ ] Magic number usage is correct: magic number of N means N total events (wins + rival losses), NOT "N wins"
 - [ ] Elimination status is correct: check if teams are mathematically eliminated before writing "not quite eliminated" or similar
@@ -1168,9 +1011,9 @@ Before submitting, verify:
 - [ ] Benton still holds his own 1st round pick in addition to any acquired picks -- don't imply otherwise
 
 **Format (commonly broken):**
-- [ ] Rumor Mill uses BULLET FORMAT for ALL subsections (Trade Ideas, Free Agent Targets, Hot Streaks, Slump Watch) -- never paragraphs
+- [ ] Rumor Mill uses BULLET FORMAT for ALL subsections (Trade Ideas, Hot Streaks, Slump Watch) -- never paragraphs; no Free Agent Targets
 - [ ] No parenthetical injury shorthand anywhere -- "(2/3 games)", "(3 weeks remaining)", "(season-long)" etc. are all written in prose instead
-- [ ] Betting Lines previews each include a second sentence naming both key matchup players with context
+- [ ] Betting Lines: each matchup is the line block, then 2-3 sentences on what decides it, then the "On the hub:" line exactly as the template gives it
 - [ ] Upset/underdog language uses moneyline and/or spread, NOT win probability percentages
 - [ ] No player-by-player injury breakdowns in matchup summaries -- just the total count (e.g., "11 games lost to injury")
 - [ ] Stats Corner table headers do NOT include row counts like "(5)", "(30)", or "(all)"
@@ -1350,8 +1193,8 @@ every postseason week.
 The section header becomes **"Playoff Championship Odds"**. Extract from the
 `playoff_odds` block, not the regular `power_rankings` block.
 
-The **Money and Exposure** block stays the last thing in this section every
-week, under the same rules as in the regular season (Section 7 KEY RULES).
+Money and Exposure is on the hub, not in this section (4d). A dollar figure
+appears only in a week that decided money (rule 23), naming its pot and window.
 
 #### DATA EXTRACTION (do this first)
 ```

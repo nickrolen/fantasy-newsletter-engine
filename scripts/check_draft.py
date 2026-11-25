@@ -33,7 +33,8 @@ LORE_FILE = "config/LEAGUE_LORE.json"
 KIND_ORDER = ["unsupported_number", "unsupported_superlative",
               "unsourced_history", "fact_as_tendency", "approximate_number",
               "bad_lore_ref", "money_without_event", "report_card_order",
-              "magic_number_early", "adds_over_card"]
+              "magic_number_early", "adds_over_card", "money_unqualified",
+              "betting_line_mismatch"]
 KIND_LABEL = {
     "unsupported_number": "Numbers with no source",
     "unsupported_superlative": "Rankings with no source",
@@ -45,6 +46,8 @@ KIND_LABEL = {
     "report_card_order": "Report cards out of overall_score order",
     "magic_number_early": f"Magic number before the week {_magic_from()} report",
     "adds_over_card": "Add counts above the card's week adds (joined_week_adds)",
+    "money_unqualified": "Money lines without their pot and window (LEAGUE_RULES Language rule)",
+    "betting_line_mismatch": "Betting Lines that are not the report's line (closing line)",
 }
 
 
@@ -85,6 +88,12 @@ def run(draft_text: str, week: int, out_dirs: list[Path], config: dict,
         findings += cc.adds_claim_findings(draft_text, vocab, cards)
     # No magic number before presentation.magic_number_from_week (Nick, 11-02)
     findings += cc.magic_number_findings(draft_text, vocab, int(week))
+    # 4d: a dollar line names its pot and window in any section (the Money
+    # and Exposure block, where those lines lived, moved to the hub), and
+    # Section 3's line blocks are the report's line, matchup by matchup.
+    findings += cc.money_line_findings(draft_text, vocab)
+    findings += cc.betting_lines_findings(draft_text, meta.get("current_report") or {},
+                                          config.get("manager_to_team") or {})
     if money_events is not None:
         findings += cc.money_findings(draft_text, vocab, money_events)
         # VOICE.md: the decomposition ships as "912 -> 1498", never as a
