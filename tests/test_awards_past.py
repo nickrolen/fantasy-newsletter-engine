@@ -300,4 +300,25 @@ def test_real_past_awards_build_into_a_temp_folder_equals_the_committed_file(tmp
     assert sorted(blob["seasons"]) == P.seasons()
     committed = ROOT / P.FILE
     if committed.is_file():
-        assert p.read_bytes() == committed.read_bytes()
+        if p.read_bytes() == committed.read_bytes():
+            return
+        # Windows' float sums can differ from Linux's (where the file is built and the cloud
+        # runs) in a rounded last digit (11-25: a 2018-19 replacement level, third decimal);
+        # anything else must be equal
+        _close(json.loads(p.read_text(encoding="utf-8")), json.loads(committed.read_text(encoding="utf-8")), "$")
+
+
+def _close(a, b, where):
+    if isinstance(a, float) or isinstance(b, float):
+        assert isinstance(a, (int, float)) and isinstance(b, (int, float)), where
+        assert abs(a - b) <= 2e-3 * max(1.0, abs(b)), (where, a, b)
+    elif isinstance(a, dict):
+        assert isinstance(b, dict) and list(a) == list(b), where
+        for k in a:
+            _close(a[k], b[k], f"{where}.{k}")
+    elif isinstance(a, list):
+        assert isinstance(b, list) and len(a) == len(b), where
+        for i, (x, y) in enumerate(zip(a, b)):
+            _close(x, y, f"{where}[{i}]")
+    else:
+        assert a == b, (where, a, b)
