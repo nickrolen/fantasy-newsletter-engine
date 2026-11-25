@@ -685,6 +685,8 @@ def merge_known(*parts) -> dict:
                     t[key] = list(t[key]) + list(e.get(key) or [])
                 if e.get("il_hold"):                       # 4c3: the do-nothing alternative only
                     t["il_hold"] = list(t.get("il_hold") or []) + list(e["il_hold"])
+                if e.get("il_keep"):                       # 11-25: a mid-week decision held fixed
+                    t["il_keep"] = list(dict.fromkeys(list(t.get("il_keep") or []) + list(e["il_keep"])))
     return out
 
 
@@ -930,16 +932,34 @@ def _totals(ctx, roster) -> tuple:
 # 1. The screen
 # =============================================================================
 
-def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> list:
-    """Every move worth pricing, best screen value first."""
+def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings,
+                    screen_weeks: Optional[Sequence[int]] = None) -> list:
+    """Every move worth pricing, best screen value first.
+
+    screen_weeks (Advice goals, modules/advice_goals): screen on the points in
+    THESE weeks (marginal_value's by_week, the context spanning the horizon's
+    first week through the last of them) instead of the horizon's -- a goal
+    for week 12 screens week 12. None (every caller before the goals): the
+    horizon, exactly as before."""
     st = inputs.managers[manager]
     prot = protected_for(inputs, manager, settings)
-    ctx = _mv_ctx(inputs, inputs.weeks(), settings.screen_sims, settings.seed)
+    ctx = _mv_ctx(inputs, inputs.weeks() if screen_weeks is None else [int(w) for w in screen_weeks],
+                  settings.screen_sims, settings.seed)
     R, IL, back = after_step(st, activation_step(inputs, manager))     # 44a: a move after the step
-    base_p, base_s, _ = _totals(ctx, R)
+
+    def _tot(roster):
+        p, s, bw = _totals(ctx, roster)
+        if screen_weeks is None:
+            return p, s
+        missing = [int(w) for w in screen_weeks if int(w) not in bw]
+        if missing:
+            raise KeyError(f"the screen's weeks {missing} are not in the valuation context")
+        return sum(bw[int(w)] for w in screen_weeks), s
+
+    base_p, base_s = _tot(R)
 
     def gain(roster):
-        p, s, _ = _totals(ctx, roster)
+        p, s = _tot(roster)
         return p - base_p, s - base_s
 
     moves: list = []
@@ -950,10 +970,10 @@ def candidate_moves(inputs: MondayInputs, manager: str, settings: Settings) -> l
     pool = [n for n in inputs.pool]
 
     def best_adds(against):
-        bp, _bs, _ = _totals(ctx, against)
+        bp, _bs = _tot(against)
         vals = {}
         for f in pool:
-            p, s, _ = _totals(ctx, list(against) + [f])
+            p, s = _tot(list(against) + [f])
             vals[f] = (p - bp, s)
         return sorted(pool, key=lambda f: (-vals[f][0], f))[:settings.adds_screen]
 
@@ -1079,6 +1099,8 @@ def _plan(inputs: MondayInputs, extra: Optional[dict] = None, *, prior: bool = T
     earlier = getattr(inputs, "prior", None) if prior else None
     if earlier:
         extra = merge_known(*[earlier[m] for m in sorted(earlier)], extra or {})
+    if extra and isinstance(extra, dict) and getattr(inputs, "horizon", None) is not None:
+        extra = _hold_midweek(inputs, extra)       # (a stub with no horizon -- a unit test -- passes through)
     P = inputs.plan.plan(extra)
     sig = lambda x: (x.nba_team, list(x.positions), x.projected_fppg, x.projected_gp)
     clash = {n: p for n, p in PlanSpec.standins(P).items()
@@ -1096,6 +1118,43 @@ def _plan(inputs: MondayInputs, extra: Optional[dict] = None, *, prior: bool = T
             raise ValueError(f"two different stand-ins named {n!r}")
         inputs._standins[n] = p
     return P
+
+
+def midweek_kept(inputs: MondayInputs, manager: str) -> list:
+    """The mid-week returners the plan AS IT STANDS keeps in IL at the advised
+    window (44b s.4: the window measures "activate now or keep him to the next
+    window", and chose keep). Read off the plan with the ledger's known moves
+    only -- no move, no plan step -- so the decision is made ONCE, on the base
+    roster (11-25, Nick's real-data failure in the goals: a move re-decided it,
+    flipped it to "activate now" and added an activation drop no step priced
+    or showed). A "activate now" decision needs no holding: activation_step
+    carries it (the step's il_activate) with every move."""
+    w1 = int(inputs.horizon[0])
+    v = (inputs.plan.plan(None).get(w1) or {}).get(manager) or {}
+    return sorted(e["player"] for e in v.get("midweek") or [] if not e.get("activate"))
+
+
+def _hold_midweek(inputs: MondayInputs, extra: dict) -> dict:
+    """extra (known moves: a move, a plan's steps, a hold) with each moving
+    manager's base mid-week decision held at the advised window: "il_keep"
+    for every returner midweek_kept names, unless the moves themselves drop or
+    activate him there. A move never re-decides it; if activating him early
+    becomes worth it after a move, that is a step of its own, not a silent
+    consequence (roster_plan's il_keep)."""
+    w1 = int(inputs.horizon[0])
+    movers = sorted({m for by_m in extra.values() for m in by_m})
+    add = {}
+    for m in movers:
+        kept = midweek_kept(inputs, m)
+        if not kept:
+            continue
+        e = (extra.get(w1) or {}).get(m) or {}
+        gone = set(e.get("drop") or []) | set(e.get("il_activate") or [])
+        keep = [n for n in kept if n not in gone]
+        if keep:
+            add.setdefault(w1, {})[m] = {"il_place": [], "drop": [], "add": [], "il_activate": [],
+                                         "il_keep": keep}
+    return merge_known(extra, add) if add else extra
 
 
 def _renamed(P: dict, names: Mapping) -> dict:

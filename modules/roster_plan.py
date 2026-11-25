@@ -828,8 +828,11 @@ def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rul
         keep[n] = float(c)
     contested = list(s["il"]) + list(out)
     cand = {n: _candidate(n, P(n), stakes, day_of, level, standin_gp, drops) for n in contested}
+    # 11-25: a known pickup joining (no keep chance yet) is valued with no keeper term and never
+    # protected -- the rule the activation rule (chance -> None) and advice already follow
+    joining = {n for n in contested if known is not None and n in s.get("joined", ()) and known.get(n) is None}
     if failed is None:
-        value = {n: idr.value_after_return(cand[n], stakes, keep, cfg) for n in contested}
+        value = {n: idr.value_after_return(cand[n], stakes, keep, cfg, n in joining) for n in contested}
     else:
         value = {n: idr.value_after_return_without_keepers(cand[n], stakes, cfg) for n in contested}
     order = sorted(sorted(contested), key=lambda n: _return_order(P(n)), reverse=True)
@@ -847,7 +850,7 @@ def _decide_window(m, week, s, out, P, drops, day_of, level_now, standin_gp, rul
                               "cost_hold": None, "cost_drop": None, "keeper_term": None, "keep_rank": None,
                               "keep_chance": None, "little_left": None, "carried_out": True, "rule": failed})
             continue
-        d = idr.decide(m, cand[n], stakes, keep, cfg)
+        d = idr.decide(m, cand[n], stakes, keep, cfg, n in joining)
         decisions.append({"player": n, "action": d.action, "reason": d.reason,
                           "cost_hold": round(d.cost_hold, 6), "cost_drop": round(d.cost_drop, 6),
                           "keeper_term": round(d.keeper_term, 6), "keep_rank": d.keep_rank,
@@ -915,6 +918,17 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                 nothing is activated, dropped, placed or added for him). Only
                 advice's do-nothing pricing of the activation step uses it; the
                 ledger never writes it. "held" in the week's entry records it.
+                Advice goals (11-25): an entry may also carry "il_keep": [names],
+                mid-week returners whose 44b s.4 decision (activate now or keep
+                in IL to the next window) was made ONCE, on the plan as it
+                stands, as "keep": a move advice prices holds that decision
+                fixed instead of re-deciding it on the roster after the move
+                (a move must not flip it and add an activation drop no step
+                priced or shows). Each must be in an IL slot there, a mid-week
+                returner the window would otherwise measure; anything else
+                RAISES. Only advice writes it; the ledger never does. The
+                week's "midweek" record marks each as {"activate": false,
+                "kept": true}.
     open_day:   44b s.2 -- the start week's window day when that window is
                 still OPEN (the window day itself, before price_lock.window_close;
                 for_run decides). The start week is then a window like any later
@@ -962,9 +976,9 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
     upto = int(start_week) - 1 if open_day is not None else int(start_week)
     for w in sorted(w for w in known if w <= upto):
         for m, mv in known[w].items():
-            if mv.get("il_hold"):
-                raise ValueError(f"week {w}: il_hold for {m} at a locked window (at or before the start "
-                                 f"week {start_week}): nothing can be held there")
+            if mv.get("il_hold") or mv.get("il_keep"):
+                raise ValueError(f"week {w}: il_hold/il_keep for {m} at a locked window (at or before the "
+                                 f"start week {start_week}): nothing can be held there")
             start_known.setdefault(m, []).extend(_apply_known(state, m, mv, w, players, rules))
     plan = {int(start_week): {m: {"active": sorted(state[m]["active"]), "il": sorted(state[m]["il"]),
                                    "added": [], "dropped": [], "waiting": 0, "standins": {},
@@ -1052,7 +1066,14 @@ def build(*, start_week: int, il_slots: dict, rosters: dict, windows: list, play
                     s["active"].remove(n)
                     dropped.append(n)
             early = []
-            for n in sorted((x for x in s["il"] if x not in just_placed
+            keep = list((known.get(week, {}).get(m) or {}).get("il_keep") or [])
+            for n in keep:
+                if n not in s["il"] or n in just_placed or not _back_midweek(P(n), week, day, week_end(week)):
+                    raise ValueError(f"week {week}: il_keep {n} for {m}, who is not a mid-week returner in "
+                                     f"an IL slot there (IL {sorted(s['il'])})")
+                early.append({"player": n, "activate": False, "kept": True,
+                              "why": "kept in IL: the decision made on the plan as it stands (il_keep)"})
+            for n in sorted((x for x in s["il"] if x not in just_placed and x not in keep
                              and _back_midweek(P(x), week, day, week_end(week))),
                             key=lambda x: (_return_date(P(x)), x)):
                 go, why, d_drops, d_detail, stats = _midweek(m, week, s, n, P, drops, managers, day_of,

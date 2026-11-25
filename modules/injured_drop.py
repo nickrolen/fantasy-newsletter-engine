@@ -254,17 +254,24 @@ def _weeks(stakes: TeamStakes, player: Candidate) -> list:
 
 
 def costs(player: Candidate, stakes: TeamStakes, keep: Mapping[str, float],
-          config: Config) -> dict:
-    """{cost_hold, cost_drop, keeper_term, keep_rank, keep_chance, by_week}."""
+          config: Config, joining: bool = False) -> dict:
+    """{cost_hold, cost_drop, keeper_term, keep_rank, keep_chance, by_week}.
+    joining (11-25): the player joins by a known pickup (the ledger's, or a
+    move advice prices) and has no keep chance yet -- no keeper term, no rank,
+    never protected (the rule advice_v2.protected and the plan's activation
+    rule already follow). Only he is exempt: every other player without a
+    keep chance still RAISES."""
     if keep is None:
         raise KeyError(f"no keep chances for {player.name}: the decision needs his team's "
                        "(on a keeper-watch failure the plan holds instead: 44d)")
-    return _costs(player, stakes, keep, config)
+    if joining and player.name in keep:
+        raise ValueError(f"{player.name} is joining but has a keep chance: he is not a new pickup")
+    return _costs(player, stakes, keep, config, joining)
 
 
-def _costs(player: Candidate, stakes: TeamStakes, keep, config: Config) -> dict:
-    """costs(); keep None (the keeper watch failed, 44c): no keeper term, no
-    rank, no chance."""
+def _costs(player: Candidate, stakes: TeamStakes, keep, config: Config, joining: bool = False) -> dict:
+    """costs(); keep None (the keeper watch failed, 44c) or joining: no keeper
+    term, no rank, no chance."""
     hold = back = 0.0
     by_week = {}
     back_week = player.back_week
@@ -280,7 +287,7 @@ def _costs(player: Candidate, stakes: TeamStakes, keep, config: Config) -> dict:
         else:
             back += s * diff
         by_week[w] = (s, diff)
-    if keep is None:
+    if keep is None or joining:
         rank, chance, kterm = None, None, 0.0
     else:
         rank, chance = keep_rank(player.name, keep)
@@ -290,9 +297,9 @@ def _costs(player: Candidate, stakes: TeamStakes, keep, config: Config) -> dict:
 
 
 def value_after_return(player: Candidate, stakes: TeamStakes, keep: Mapping[str, float],
-                       config: Config) -> float:
+                       config: Config, joining: bool = False) -> float:
     """What an IL slot is ranked by (s.3.5): the cost of dropping him."""
-    return costs(player, stakes, keep, config)["cost_drop"]
+    return costs(player, stakes, keep, config, joining)["cost_drop"]
 
 
 def value_after_return_without_keepers(player: Candidate, stakes: TeamStakes, config: Config) -> float:
@@ -303,18 +310,19 @@ def value_after_return_without_keepers(player: Candidate, stakes: TeamStakes, co
 
 
 def decide(team: str, player: Candidate, stakes: TeamStakes, keep: Mapping[str, float],
-           config: Config) -> Decision:
+           config: Config, joining: bool = False) -> Decision:
     """Hold or drop `player`, an injured player of `team` with no IL slot.
-    keep: {name: keep chance} for every real player on his team."""
-    c = costs(player, stakes, keep, config)
+    keep: {name: keep chance} for every real player on his team; joining: he
+    joins by a known pickup and has none yet (costs: never a protected keeper)."""
+    c = costs(player, stakes, keep, config, joining)
     ll = little_left(stakes, config)
     args = dict(cost_hold=c["cost_hold"], cost_drop=c["cost_drop"], keeper_term=c["keeper_term"],
                 keep_rank=c["keep_rank"], keep_chance=c["keep_chance"], little_left=ll,
                 detail={"by_week": c["by_week"]})
     rank = c["keep_rank"]
-    if rank <= config.protected_keepers:
+    if rank is not None and rank <= config.protected_keepers:
         return Decision(HOLD, f"top-{config.protected_keepers} keeper ({team}'s no. {rank})", **args)
-    if ll and rank <= config.keeper_candidates:
+    if ll and rank is not None and rank <= config.keeper_candidates:
         return Decision(HOLD, f"little left to play for; keeper candidate no. {rank}", **args)
     edge = c["cost_hold"] - c["cost_drop"]
     if c["cost_hold"] < (1.0 + config.margin) * c["cost_drop"]:

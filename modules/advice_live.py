@@ -1162,6 +1162,215 @@ def read_history(base_path=".") -> list:
 
 
 # =============================================================================
+# Advice goals (claude/HANDOFF_ADVICE_GOALS_2026-11-24.md Part C; modules/advice_goals)
+# =============================================================================
+
+GOALS_SAME = "Same move as Balanced."
+GOALS_NOISE = "No move beats standing pat for this goal by more than the noise. Balanced’s advice stands."
+GOALS_HOLD = "Keeping him in IL blocks every move this window, whatever the goal."
+GOALS_HIDDEN = "No matchup in this goal’s weeks."
+GOALS_PENDING = "Priced in the next nightly run (12:01 AM)."
+GOALS_CAVEAT = "This far out, it rests mostly on schedule, health and OVR."
+
+
+def goals_on(cfg: dict = None) -> bool:
+    """config advice.goals.on (required, true or false)."""
+    if cfg is None:
+        from .data_loader import _LEAGUE_CONFIG as cfg
+    g = ((cfg or {}).get("advice") or {}).get("goals")
+    if not isinstance(g, dict) or not isinstance(g.get("on"), bool):
+        raise AdviceInputError("config advice.goals.on is missing or not true/false")
+    return g["on"]
+
+
+def _weeks_text(weeks) -> str:
+    ws = list(weeks)
+    return f"week {ws[0]}" if len(ws) == 1 else f"weeks {ws[0]}–{ws[-1]}"
+
+
+def goal_intro(goal, as_of_text: Optional[str]) -> str:
+    """The line above the cards for a goal (an engine string); None for
+    Balanced (the Advice view's own intro)."""
+    if goal.target == "balanced":
+        return None
+    import re as _re
+    long = ""
+    if goal.long_weeks:                                   # ranges' own sub says how long (week 7: 14 days)
+        one = _re.search(r"\((\d+) days\)", goal.sub)
+        many = _re.findall(r"wk (\d+) is (\d+) days", goal.sub)
+        long = (f" ({one.group(1)} days)" if one and len(goal.weeks) == 1
+                else "".join(f" (week {w} is {n} days)" for w, n in many))
+    if goal.target == "wins" and goal.near and len(goal.weeks) == 1:
+        s = (f"Playing for week {goal.weeks[0]} only{long}: the move that most raises your chance to win it. "
+             "Its cost is shown against Balanced’s advice.")
+    elif goal.target == "wins" and goal.near:
+        s = (f"Playing for {_weeks_text(goal.weeks)}{long}: the moves that most raise the matchups you expect "
+             "to win. Their cost is shown against Balanced’s advice.")
+    elif goal.target == "wins":
+        s = (f"Playing for week {goal.weeks[0]}{long}: the move that most raises your chance to win it, against "
+             "its scheduled opponent. A pickup now stays on your roster until then.")
+    elif goal.target == "rs_title":
+        s = ("Playing for the League Championship alone: the move that most raises your title odds, "
+             "whatever it costs the next few weeks.")
+    else:
+        s = f"Playing for the {goal.chip}."
+    if not goal.near and as_of_text:
+        s += f" {as_of_text}"
+    return s
+
+
+def goal_cost_lines(e: dict, goal) -> list:
+    """'What it costs', against Balanced's advice: [{"label", "value", "dir", "strip"}] (engine strings)."""
+    c = e.get("cost")
+    if not c:
+        return []
+    out = []
+    first_goal = min(int(w) for w in goal.weeks)
+    between = [w for w in c["weeks"] if not w["in_goal"] and w["dwp"] is not None]
+    inside = [w for w in c["weeks"] if w["in_goal"] and w["dwp"] is not None]
+    if goal.near:
+        for w in c["weeks"]:
+            if w["dwp"] is None:
+                continue
+            lab = f"Week {w['week']} win chance" + (" (14 days)" if w["days"] > 7 else "")
+            out.append({"label": lab, "value": _pct(w["dwp"]) + (" more" if w["in_goal"] and w["dwp"] > 0 else ""),
+                        "dir": "up" if w["dwp"] > 0 else "down" if w["dwp"] < 0 else "flat", "strip": None})
+    else:
+        if between:
+            lo = min(w["dwp"] for w in between)
+            hi = max(w["dwp"] for w in between)
+            ws = [w["week"] for w in between]
+            val = (_pct(lo) + " a week") if lo == hi else f"{_pct(hi)} to {_pct(lo)} a week"
+            out.append({"label": f"Weeks {ws[0]}–{ws[-1]}" if len(ws) > 1 else f"Week {ws[0]}",
+                        "value": val, "dir": "down" if hi <= 0 else "up" if lo >= 0 else "flat",
+                        "strip": [{"week": w["week"], "value": _pct(w["dwp"]),
+                                   "sub": "14 days" if w["days"] > 7 else "",
+                                   "dir": "up" if w["dwp"] > 0 else "down" if w["dwp"] < 0 else "flat"}
+                                  for w in between]})
+    if c.get("title_odds") is not None:
+        out.append({"label": "Title odds", "value": _pct(c["title_odds"]),
+                    "dir": "up" if c["title_odds"] > 0 else "down" if c["title_odds"] < 0 else "flat", "strip": None})
+    out.append({"label": "Adds", "value": f"{c['adds']} (Balanced uses {c['adds_balanced']})", "dir": "flat",
+                "strip": None})
+    if c.get("holds_weeks"):
+        out.append({"label": "Roster spot", "value": f"held until week {first_goal}", "dir": "flat", "strip": None})
+    return out
+
+
+def goal_texts(e: dict, goal) -> dict:
+    """Every string a goal's card shows (Part D: engine strings only)."""
+    vs = e.get("vs_balanced")
+    line = {"same": GOALS_SAME, "noise": GOALS_NOISE, "hold": GOALS_HOLD, "hidden": GOALS_HIDDEN,
+            "no_adds": EMPTY_V2["adds"]}.get(vs)
+    head = None
+    if vs == "different" and e.get("plan"):
+        w = e["plan"][0].get("weeks") or {}
+        if goal.target == "wins" and len(goal.weeks) == 1:
+            head = {"label": f"Wk {goal.weeks[0]}", "value": _pct(e["plan"][0]["target"] or 0.0)}
+        elif goal.target == "wins":
+            head = {"label": f"Wks {goal.weeks[0]}–{goal.weeks[-1]}",
+                    "value": f"{(e['plan'][0]['target'] or 0.0):+.2f} wins".replace("-", "−")}
+        elif goal.target == "rs_title":
+            head = {"label": "Title odds", "value": _pct(e["plan"][0]["target"] or 0.0)}
+    return {"line": line, "head": head, "costs": goal_cost_lines(e, goal) if vs == "different" else [],
+            "caveat": GOALS_CAVEAT if (vs == "different" and not goal.near) else None}
+
+
+def goals_payload(base_path, now: datetime, *, mode: str, inputs, hz, advice: dict, settings, data=None) -> dict:
+    """advice_latest.json's "goals" (Part C.1): the picker's goals, and per manager
+    each goal's plan, vs_balanced, target gain / SE / bar, cost and texts.
+    REFRESH (C.2): the near goals in every run that prices advice; the far goals
+    only in the nightly run -- any other run carries the last nightly's far goals
+    forward unchanged (with their as_of) when the move's first week is the same,
+    else marks them pending. One goal failing for one manager is recorded on
+    that entry; anything failing here raises to run_step, which records it
+    (ADVICE GOALS FAILED) and publishes Balanced as ever (C.7)."""
+    from . import advice_goals as ag
+    from .data_loader import MANAGERS, load_all_data
+    cfg = inputs.drop_config
+    first = int(hz.weeks[0])
+    wk = {int(w): list(inputs.world.dates(w)) for w in inputs.world._weeks}
+    goals = [g for g in ag.goals_for(first, wk) if g.target not in ag.BRACKET_TARGETS.values()]
+    rules = ag.NoiseRules.from_config()
+    public_far = ag.far_public()
+    nightly_run = mode == "nightly"
+    as_of = now.isoformat(timespec="seconds")
+    priced = [g for g in goals if g.key != "balanced" and (g.near or nightly_run)]
+    weeks = sorted({int(w) for g in priced for w in g.weeks} | {int(w) for w in inputs.weeks()}
+                   | set(range(first, max([first] + [int(w) for g in priced for w in g.weeks]) + 1)))
+    data = data or load_all_data(Path(base_path), current_week=None)
+    opp, ties = opponents_for(data, weeks, list(MANAGERS))
+    show = show_title_odds()
+    md = lambda p: _move_dict(p, 0.0, inputs, hz, cfg)
+    res = ag.price_all(inputs, advice, priced, settings, opp, ties, rules, md, max_steps=plan_steps_max())
+    prev = None
+    if not nightly_run:
+        try:
+            prev = (read_latest(base_path).get("goals") or None)
+        except AdviceInputError:
+            prev = None
+        if prev and (prev.get("error") or prev.get("first_week") != first):
+            prev = None
+    as_of_text = f"As of {_clock(now)}."
+    horizon = {"kind": hz.kind, "label": hz.label(), "weeks": list(hz.weeks), "effective": hz.effective.isoformat(),
+               "budget_week": hz.budget_week, "closes": hz.closes.isoformat(timespec="minutes")}
+    mans = {}
+    for m in sorted(inputs.managers):
+        mans[m] = {}
+        for g in goals:
+            if g.key == "balanced":
+                continue
+            if g in priced:
+                e = dict(res[m][g.key])
+                e["as_of"], e["refresh"] = as_of, ("move" if g.near else "nightly")
+            elif prev and (prev.get("managers") or {}).get(m, {}).get(g.key):
+                e = dict(prev["managers"][m][g.key])        # carried forward: the last nightly's
+            else:
+                e = {"key": g.key, "pending": GOALS_PENDING, "refresh": "nightly"}
+            if "error" not in e and "pending" not in e and "not_priced" not in e:
+                opps_h = {str(w): opp[m].get(w) for w in hz.weeks if w is not None}
+                for d in e.get("plan") or []:
+                    if "text" not in d:                  # (a carried-forward entry has its texts)
+                        d["text"] = {"move": move_text(d), "reason": reason_text(d, horizon),
+                                     "v2": v2_texts(d, horizon, opps_h, show_title=show)}
+                e["texts"] = goal_texts(e, g)
+                if not g.near:
+                    e["texts"]["as_of"] = ("As of " + _clock(datetime.fromisoformat(e["as_of"])) + "."
+                                           if e.get("as_of") else None)
+                    e["opponent"] = opp[m].get(int(g.weeks[0])) if g.target == "wins" else None
+            mans[m][g.key] = e
+    picker = [{"key": g.key, "chip": g.chip, "sub": g.sub, "weeks": list(g.weeks), "near": g.near,
+               "refresh": g.refresh, "target": g.target, "long_weeks": list(g.long_weeks),
+               "public": g.near or public_far, "intro": goal_intro(g, None if g.near else as_of_text)}
+              for g in goals]
+    return {"as_of": as_of, "mode": mode, "first_week": first, "error": None, "far_public": public_far,
+            "goals": picker, "managers": mans, "carried": bool(prev)}
+
+
+def goals_block(goals: Optional[dict], seconds: Optional[float]) -> dict:
+    """The run row's "goals" (C.7): the error, the time, and each failed goal."""
+    if goals is None:
+        return {"error": None, "seconds": seconds, "off": True}
+    failed = [f"{m} {k}: {e['error']}" for m, by in (goals.get("managers") or {}).items()
+              for k, e in by.items() if e.get("error")]
+    verdicts = {m: {k: e.get("vs_balanced") or ("pending" if e.get("pending") else "failed" if e.get("error")
+                                                else "not_priced") for k, e in by.items()}
+                for m, by in (goals.get("managers") or {}).items()}
+    return {"error": goals.get("error"), "seconds": seconds, "failed": failed, "verdicts": verdicts}
+
+
+def goals_lines(block: dict) -> list:
+    if block.get("off"):
+        return []
+    if block.get("error"):
+        return [f"ADVICE GOALS FAILED: {block['error'].splitlines()[0]}"]
+    if block.get("failed"):
+        return [f"ADVICE GOALS FAILED: {len(block['failed'])} goal(s): " + "; ".join(x.splitlines()[0][:160]
+                                                                               for x in block["failed"][:4])]
+    return []
+
+
+# =============================================================================
 # the run's step
 # =============================================================================
 
@@ -1242,6 +1451,20 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
                                      meta=meta, advice=advice, weighting=av.RECOMMENDED.name,
                                      settings=settings, seconds=seconds)
             published = is_published(mode, now, hz, date.fromisoformat(meta["week_first_day"]))
+            # Advice goals (Part C.7): SOFT. Balanced above is final; a failure here is recorded
+            # ("ADVICE GOALS FAILED") and never changes it, the outputs or the run's outcome.
+            t2 = time.perf_counter()
+            goals = None
+            try:
+                if goals_on():
+                    goals = goals_payload(base_path, now, mode=mode, inputs=inp, hz=hz, advice=advice,
+                                          settings=settings, data=data)
+            except Exception as ge:              # noqa: BLE001 -- soft: Balanced publishes as ever
+                goals = {"as_of": now.isoformat(timespec="seconds"), "mode": mode, "error":
+                         f"{type(ge).__name__}: {ge}", "goals": [], "managers": {}}
+            seconds["goals"] = round(time.perf_counter() - t2, 2)
+            if goals is not None:
+                payload["goals"] = goals
     except Exception as e:                       # noqa: BLE001 -- recorded loudly, never stops the run
         err = f"{type(e).__name__}: {e}"
         seconds["failed_after"] = round(time.perf_counter() - t0, 2)
@@ -1253,9 +1476,14 @@ def run_step(base_path, now: datetime, *, run_id: str, mode: str, cause: Optiona
     payload["published"] = published
     write(base_path, payload, history_row(payload, published=published))
     lines = summary_lines(payload)
+    gb = goals_block(payload.get("goals"), seconds.get("goals")) if "goals" in seconds else None
+    if gb is not None:
+        lines = list(lines) + goals_lines(gb)
     block = {"error": payload["error"], "published": published, "seconds": seconds,
              "horizon": (payload.get("horizon") or {}).get("label"),
              "top": {m: (e["move"] or {}).get("describe") for m, e in payload["managers"].items()}}
+    if gb is not None:
+        block["goals"] = gb
     if payload["error"]:
         detail = f"FAILED (recorded; the run goes on): {payload['error']}"
     elif payload.get("season_over"):
