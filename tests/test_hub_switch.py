@@ -40,10 +40,32 @@ V1_SHELL_JS_SHA16 = "654e5a0aeb0d723c"
 V1_SHELL_SHA = "a38b5e8c2554ff72a70f8b943674a981fdf5fbbd51f626724c6191c1345a2d1f"
 
 
-def _fixed_iv(monkeypatch):
+def _fixed_iv(monkeypatch, sequence: bool = False):
     """Every fresh IV and salt the same bytes: two builds of one payload are
-    then byte-comparable (index.html included)."""
-    monkeypatch.setattr(hub_crypto, "secrets", SimpleNamespace(token_bytes=lambda n: b"\x07" * n))
+    then byte-comparable (index.html included).
+
+    sequence=True (the real payload, 11-25): a fixed SEQUENCE instead, restarted
+    by the returned reset() before each build to compare. With one constant,
+    every re-seal of the shell gives the same ciphertext, so a scan term that
+    turns up in it by chance (a 4-letter one like "Nick" does in about 1.5% of
+    300 KB of base64) fails every attempt, where the real build's fresh IVs
+    re-seal past it. (The synthetic test keeps the constant: its first build
+    draws the salt, so its builds' call sequences differ.)"""
+    k = [0]
+
+    def token_bytes(n):
+        if not sequence:
+            return b"\x07" * n
+        k[0] += 1
+        out = b""
+        while len(out) < n:
+            out += hashlib.sha256(b"fixed-iv %d %d" % (k[0], len(out))).digest()
+        return out[:n]
+
+    def reset():
+        k[0] = 0
+    monkeypatch.setattr(hub_crypto, "secrets", SimpleNamespace(token_bytes=token_bytes))
+    return reset
 
 
 def _version(monkeypatch, v):
@@ -122,11 +144,12 @@ def test_build_hub_run_follows_the_switch(monkeypatch, tmp_path):
 def test_v1_to_v2_to_v1_publishes_the_old_page_byte_identical(tmp_path, monkeypatch):
     """The same publish directory, v1 -> v2 -> v1: the second v1 build is the
     first byte for byte, and nothing of the new hub's is left."""
-    _fixed_iv(monkeypatch)
+    reset = _fixed_iv(monkeypatch)
     p1 = T1.publish_world(tmp_path)
     p2 = _v2_world(tmp_path)                         # the archive holds both payloads' issues from the start
     p2["newsletter"]["archive"] = [dict(p1["newsletter"]["current"])]
     out = hub_publish.publish_dir(tmp_path)
+    reset()
     hub_publish.build(tmp_path, p1, PASS, terms=T1.TERMS + T2.TERMS, iterations=1000, now=T1.GEN)
     first = _files(out)
     # the switch to v2: the new hub, live, into the same directory
@@ -141,6 +164,7 @@ def test_v1_to_v2_to_v1_publishes_the_old_page_byte_identical(tmp_path, monkeypa
             assert mid[f] == first[f]
     # and back
     hub_publish.clear_superseded(out)
+    reset()
     hub_publish.build(tmp_path, p1, PASS, terms=T1.TERMS + T2.TERMS, iterations=1000, now=T1.GEN)
     assert _files(out) == first
 
@@ -506,10 +530,11 @@ def test_real_payload_has_its_headroom_and_the_new_hub_publishes_whole(real, tmp
     assert rep["opened"]["issues"] == len(idx["issues"])
     assert rep["first_load"] <= rep["budget"] and rep["scan"]["hits"] == {}
     # both directions on today's payload, with a fixed IV and a throwaway salt (never the hub's own)
-    _fixed_iv(monkeypatch)
+    reset = _fixed_iv(monkeypatch, sequence=True)
     monkeypatch.setattr(hub_publish, "hub_salt", lambda base, create=True: SALT)
     live = tmp_path / "live"
     terms = hub_publish.scan_terms(ROOT)
+    reset()
     hub_publish.build(ROOT, p, PASS, terms=terms, iterations=1000, cards=cards, out_dir=live)
     first = _files(live)
     v2pub.clear_superseded(live)
@@ -517,5 +542,6 @@ def test_real_payload_has_its_headroom_and_the_new_hub_publishes_whole(real, tmp
                 pictures=pics)
     assert any(f.startswith("parts/") for f in _files(live))
     hub_publish.clear_superseded(live)
+    reset()
     hub_publish.build(ROOT, p, PASS, terms=terms, iterations=1000, cards=cards, out_dir=live)
     assert _files(live) == first

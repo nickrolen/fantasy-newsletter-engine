@@ -74,7 +74,9 @@ def test_every_title_odds_place_links_to_the_chart_with_the_team_highlighted(htm
         assert f'class="v2-tc-link" href="#/teams/{m}"' in html
     assert view.odds_href("Dana") == "#/league/standings?hl=Dana"
     # the chart's series and end labels carry their manager, for the highlight
-    assert len(re.findall(r'<g class="lh-t-[a-z]+" data-m="[^"]+"><polyline', html)) == len(T2.MGRS)
+    # (MC2: each manager card draws the four lines too, so every chart carries each manager once)
+    series = re.findall(r'<g class="lh-t-[a-z]+" data-m="([^"]+)"><polyline', html)
+    assert series and len(series) % len(T2.MGRS) == 0 and sorted(set(series)) == sorted(T2.MGRS)
     js = page.script()
     assert "window.routeQ=q" in js and "window.lgHl(" in js and "history.replaceState(null,'','#/league/standings')" in js
 

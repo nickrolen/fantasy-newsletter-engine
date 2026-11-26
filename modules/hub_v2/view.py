@@ -419,7 +419,7 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "players": players(payload, teams, cards=player_cards, base=base),
         "market": market(payload, teams),
         "managers": ({"order": [m for m in mgr["order"] if m in mcards],
-                      "cards": {m: _known_cards(c, (payload.get("cards") or {}).get("players") or {})
+                      "cards": {m: _with_pic(_known_cards(c, (payload.get("cards") or {}).get("players") or {}), teams)
                                 for m, c in mcards.items()}} if mcards else None),
         "league": dict(league(payload, teams, mode, archive_href),
                        history=league_history(payload, teams) if "league_history" in v2 else None),
@@ -843,6 +843,14 @@ def awards_view(aw: dict, teams: dict, href, past: Optional[dict] = None) -> dic
                                                           team=teams.get(x["best"]["m"])))
              for x in (past or {}).get("potw") or []]
     return dict(aw, races=races, potw=potw, past=past or {}, managers=mgr, potw_past=ppast)
+
+
+def _with_pic(card: dict, teams: dict) -> dict:
+    """MC2: the card's TeamMark draws the team's picture like every other mark
+    (page._mono): its team carries the page's pic flag (reviewer, 11-25)."""
+    t = teams.get(card["m"])
+    card["team"] = dict(card["team"], pic=bool(t and t["pic"]))
+    return card
 
 
 def _known_cards(x, reg: dict):

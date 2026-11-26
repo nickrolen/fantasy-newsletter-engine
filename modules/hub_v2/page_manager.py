@@ -16,7 +16,7 @@ link's dotted underline) and the route lines in PAGE_JS are in the first load.
 """
 from __future__ import annotations
 
-from .text import clean
+from .text import clean, colh_btn
 
 TAP_CLASSES = ("mc-fin", "mc-tile")
 # in the first load: a manager's name, a link to his card (the dotted underline player names have)
@@ -121,7 +121,10 @@ button.mc-fin[aria-pressed="true"] .mc-yr{background:var(--dark);color:var(--ink
 
 
 def _mono(team: dict, cls: str, size: str) -> str:
-    return (f'<span class="lh-mono {cls} v2-mono-{size}" aria-hidden="true">{clean(team["mono"])}</span>')
+    """TeamMark as page._mono draws it: the monogram, with the team's picture
+    over it when the page has one (v2-pic-<slot>, defined once in the page)."""
+    pic = f' v2-pic v2-pic-{team["slot"]}' if team.get("pic") else ""
+    return (f'<span class="lh-mono {cls} v2-mono-{size}{pic}" aria-hidden="true">{clean(team["mono"])}</span>')
 
 
 def _sec(title: str, meta: str = "") -> str:
@@ -227,8 +230,10 @@ def _career(c: dict, cid: str, chart_fn) -> str:
     a = ['<section class="lh-card">', _sec("Points a week vs the league", "regular season"),
          _bars(k["ppw"], f"{cid}-ppw"), f'<span class="lh-sub">{clean(k["ppw_note"])}</span></section>']
     t = ['<section class="lh-card lh-card--flush">', '<div class="v2-pad">', _sec("Season by season"), "</div>",
-         '<div class="v2-scroll"><table class="lh-table mc-tbl"><thead><tr><th>Season</th><th>Finish</th><th>W-L</th><th>Pts/wk</th>'
-         '<th>Playoffs</th></tr></thead><tbody>']
+         '<div class="v2-scroll"><table class="lh-table mc-tbl"><thead><tr>'
+         + "".join(f'<th>{colh_btn("mgr_seasons", k, lab)}</th>' for k, lab in (
+             ("season", "Season"), ("fin", "Finish"), ("wl", "W-L"), ("ppw", "Pts/wk"), ("po", "Playoffs")))
+         + '</tr></thead><tbody>']
     for r in k["rows"]:
         t.append(f'<tr{" class=" + chr(34) + "mc-pre" + chr(34) if r["pre"] else ""}><td><b>{clean(r["s"])}</b>'
                  f'<span class="lh-sub">{clean(r["team"])}</span></td><td>{clean(r["fin"])}</td><td>{clean(r["wl"])}</td>'

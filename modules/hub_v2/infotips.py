@@ -325,6 +325,15 @@ COLUMNS = {
         "title": ("Title odds", "The chance this team finishes first in the regular season and is League "
                                 "Champion, with its change since the run before. Tap it for the chart."),
     },
+    "mgr_seasons": {          # MC2: the manager card's Career > Season by season (reviewer, 11-25)
+        "season": ("Season", "The league season, with his team's name that season."),
+        "fin": ("Finish", "His regular-season finish; a star marks a League Championship."),
+        "wl": ("W-L", "His regular-season weeks won and lost; a tied week counts as half a win."),
+        "ppw": ("Pts/wk", "His points a regular-season week, with the gap to the league's average under it. "
+                          "The seasons before 2017-18 have standings only, so no points."),
+        "po": ("Playoffs", ("His playoffs that season: Won, Final (lost the final), Semi (lost a semifinal), none held "
+                              "(no bracket was played) or so far (this season).")),
+    },
     "alltime": {
         "team": ("Team", "The manager and his team today, over every season with records."),
         "wl": ("W-L", "Every regular-season week, won and lost; a tied week counts as half a win."),

@@ -320,5 +320,20 @@ def _close(a, b, where):
         assert isinstance(b, list) and len(a) == len(b), where
         for i, (x, y) in enumerate(zip(a, b)):
             _close(x, y, f"{where}[{i}]")
+    elif isinstance(a, str) and isinstance(b, str) and a != b:
+        _close_text(a, b, where)
     else:
         assert a == b, (where, a, b)
+
+
+_NUM = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def _close_text(a, b, where):
+    """A formatted number may differ in its last printed digit, the same float
+    difference rounded into text (11-25: "826.4" on Windows, "826.5" on Linux);
+    every other character must be equal."""
+    assert _NUM.sub("#", a) == _NUM.sub("#", b), (where, a, b)
+    for x, y in zip(_NUM.findall(a), _NUM.findall(b)):
+        dec = len(y.split(".")[1]) if "." in y else 0
+        assert abs(float(x.replace(",", "")) - float(y.replace(",", ""))) <= 10 ** -dec + 1e-9, (where, a, b)
