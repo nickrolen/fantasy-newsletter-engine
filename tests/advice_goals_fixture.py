@@ -26,7 +26,8 @@ CFG = {"postseason_format": {"stages": {"regular_season": {"weeks": [1, 3]},
                                                                 {"name": "Final", "weeks": [5, 5]}]},
                                         "cup": {"weeks": [6, 6]}}},
        "advice": {"goals": {"noise_z": 2.0, "noise_floor": 0.01, "noise_per_week": 0.01,
-                            "noise_title_floor": 0.005, "far_public": False}}}
+                            "noise_title_floor": 0.005, "far_public": False,
+                            "ros_public": False}}}
 
 
 def fixture(stash_fppg: float = 31.0, now_games: int = 6, returner: bool = False) -> S.Fixture:

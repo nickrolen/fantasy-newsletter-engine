@@ -78,10 +78,19 @@ def test_the_config_has_nicks_numbers_and_far_goals_start_hidden():
     from modules.data_loader import _LEAGUE_CONFIG as cfg
     r = ag.NoiseRules.from_config(cfg)
     assert (r.z, r.floor, r.per_week, r.title_floor) == (2.0, 0.01, 0.01, 0.005)   # Nick, 11-25
-    assert ag.far_public(cfg) is False
+    assert ag.far_public(cfg) is False and ag.ros_public(cfg) is True               # Nick, 11-26
     wk = _league_weeks()
     shown = {g.key for g in ag.goals_for(7, wk) if ag.public(g, cfg)}
-    assert shown == {"balanced", "next", "next2", "next3"}
+    assert shown == {"balanced", "next", "next2", "next3", "ros"}
+    # the two switches are apart: Rest of season alone, or the single weeks alone
+    goals = ag.goals_for(7, wk)
+    only_weeks = {"advice": {"goals": {"far_public": True, "ros_public": False}}}
+    shown_w = {g.key for g in goals if ag.public(g, only_weeks)}
+    assert "ros" not in shown_w and any(k.startswith("week:") for k in shown_w)
+    with pytest.raises(ag.GoalError, match="ros_public"):
+        ag.ros_public({"advice": {"goals": {"far_public": False}}})
+    with pytest.raises(ag.GoalError, match="true or false"):
+        ag.ros_public({"advice": {"goals": {"ros_public": 1}}})
     with pytest.raises(ag.GoalError, match="far_public"):
         ag.far_public({"advice": {"goals": {}}})
     with pytest.raises(ag.GoalError, match="true or false"):

@@ -156,7 +156,7 @@ def test_publish_makes_each_goal_a_part_and_keeps_the_first_load():
                 html = (out / "index.html").read_text(encoding="utf-8")
                 assert "Streak Guy" not in html                    # encrypted, never plaintext
     assert sizes["without"][1] == {} and set(sizes["with"][1]) == {"next", "next2", "week:11"}
-    assert sizes["with"][0] <= 240_000                              # the first load (index.html as served)
+    assert sizes["with"][0] <= 245_000          # the target (Nick, 11-26: AC1 option B; was 240,000)                              # the first load (index.html as served)
     print("first load without / with goals:", sizes["without"][0], sizes["with"][0], sizes["with"][1])
 
 

@@ -1592,9 +1592,10 @@ def goals_payload(base_path, now: datetime, *, mode: str, inputs, hz, advice: di
             mans[m][g.key] = e
     picker = [{"key": g.key, "chip": g.chip, "sub": g.sub, "weeks": list(g.weeks), "near": g.near,
                "refresh": g.refresh, "target": g.target, "long_weeks": list(g.long_weeks),
-               "public": g.near or public_far, "intro": goal_intro(g, None if g.near else as_of_text)}
+               "public": ag.public(g), "intro": goal_intro(g, None if g.near else as_of_text)}
               for g in goals]
     return {"as_of": as_of, "mode": mode, "first_week": first, "error": None, "far_public": public_far,
+            "ros_public": ag.ros_public(),
             "goals": picker, "managers": mans, "carried": bool(prev)}
 
 

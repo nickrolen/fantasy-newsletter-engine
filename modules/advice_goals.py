@@ -188,7 +188,7 @@ class NoiseRules:
 
 def far_public(cfg: dict = None) -> bool:
     """config advice.goals.far_public (required, true or false): whether the FAR
-    goals' chips are shown on the hub. While false they are priced and kept in
+    goals' chips are shown on the hub, Rest of season apart (ros_public, 11-26). While false they are priced and kept in
     output/advice_latest.json and the run row, but hidden (Nick, 11-25: a week
     of real outputs is read first). The near goals are public either way."""
     if cfg is None:
@@ -202,10 +202,28 @@ def far_public(cfg: dict = None) -> bool:
     return v
 
 
+def ros_public(cfg: dict = None) -> bool:
+    """config advice.goals.ros_public (required, true or false): whether Rest
+    of season's chip is shown (Nick, 11-26: on, while the single weeks stay
+    behind far_public; claude/ADVICE_GOALS_FAR_DECISION_2026-11-26.md)."""
+    if cfg is None:
+        from .data_loader import _LEAGUE_CONFIG as cfg
+    g = ((cfg or {}).get("advice") or {}).get("goals")
+    if not isinstance(g, dict) or "ros_public" not in g:
+        raise GoalError("config advice.goals.ros_public is missing (true or false)")
+    v = g["ros_public"]
+    if not isinstance(v, bool):
+        raise GoalError(f"config advice.goals.ros_public must be true or false, not {v!r}")
+    return v
+
+
 def public(goal: "Goal", cfg: dict = None) -> bool:
     """Whether the hub shows the goal's chip: Balanced and the near goals
-    always; a far goal only with far_public."""
-    return goal.near or far_public(cfg)
+    always; Rest of season with ros_public; every other far goal (the single
+    weeks; Semifinals, Finals and Cup once priced) with far_public."""
+    if goal.near:
+        return True
+    return ros_public(cfg) if goal.key == "ros" else far_public(cfg)
 
 
 # =============================================================================
