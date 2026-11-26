@@ -41,6 +41,17 @@ near zero at any depth. That is the gate:
                  availability model (simulator_betting.entry_available, as
                  availability_on); a game an INJURY_OVERRIDES entry rules out is a
                  miss, as a long injury is in the log
+
+THE PER-WEEK CHECK EXCLUDES OVERRIDE WEEKS (Nick, 11-25; S1, from 32 sec. 7)
+    The weeks 1-15 gate counts an entry's games as misses, as the history
+    band does. The per-week gate (simulated_by_week) measures only games no
+    INJURY_OVERRIDES entry governs: absence.override_governs, the engine's own
+    test, per player and week (out_weeks, the return week, an out_from inside
+    the week). An entry's ruled-out games are certain misses and its return
+    week runs no baseline, so either way the week says nothing about the
+    chain -- one new entry could fail a correct engine. The history band is
+    unchanged (history has no entries), and the excluded games are counted
+    and printed.
 """
 from __future__ import annotations
 
@@ -102,16 +113,26 @@ def played_weeks(lineups) -> list:
 
 
 def check_by_week(engine: dict, bands: dict, played: Iterable[int]) -> list:
-    """[(week, engine rate, lo, hi, gated, inside)] for every week in
-    `engine`. Only weeks NOT yet played are gated (Nick, 11-25, handoff 32
-    decision 5): a played week is run with today's rosters and today's
-    INJURY_OVERRIDES read back over it, so it is reported, not gated."""
+    """[(week, engine rate, lo, hi, gated, ok)] for every week in `engine`.
+    Only weeks NOT yet played are gated (Nick, 11-25, handoff 32 decision 5):
+    a played week is run with today's rosters and today's INJURY_OVERRIDES
+    read back over it, so it is reported, not gated.
+
+    A gated week checks ONLY THE UPPER EDGE (Nick, 11-25, S1 option C): ok is
+    rate <= the highest that week produced in a real season. The per-week
+    rate leaves out the games an entry governs (simulated_by_week), while the
+    history band still holds every long injury, so a correct engine can sit
+    under the band's low edge (11-25: week 8, 15.32% against 15.94%). An
+    engine with nobody hurt is caught by the weeks 1-15 gate and by
+    test_reality_check_fails_with_nobody_ever_hurt. A reported (played) week
+    keeps the whole band: ok is lo <= rate <= hi."""
     played = {int(w) for w in played}
     out = []
     for w in sorted(engine):
         lo, hi = bands[int(w)]
         r = engine[w]
-        out.append((int(w), r, lo, hi, int(w) not in played, lo <= r <= hi))
+        gated = int(w) not in played
+        out.append((int(w), r, lo, hi, gated, r <= hi if gated else lo <= r <= hi))
     return out
 
 
@@ -132,10 +153,16 @@ def realized(lineups, weeks: Optional[Iterable[int]] = None) -> tuple:
 
 # ---------------------------------------------------------------- the engine
 def simulated(data, team_projections, weeks, injury_statuses, draws,
-              tag_anchor: Optional[date] = None, managers=None) -> dict:
+              tag_anchor: Optional[date] = None, managers=None,
+              exclude_governed: bool = False) -> dict:
     """The engine's per-game miss rate over `weeks`, from the same draws a
     week matrix reads. {"games", "missed" (expected), "rate", "by_manager",
-    "unprojected_games"} -- rate over rostered players with a projection."""
+    "unprojected_games", "excluded_games"} -- rate over rostered players with
+    a projection. exclude_governed: leave out every game in a week an
+    INJURY_OVERRIDES entry governs for that player (absence.override_governs),
+    counted in excluded_games (the per-week check; the weeks 1-15 gate counts
+    them as misses)."""
+    from modules import absence
     from modules import simulator_betting as sb
     managers = list(managers or team_projections.keys())
     statuses = injury_statuses or {}
@@ -143,14 +170,17 @@ def simulated(data, team_projections, weeks, injury_statuses, draws,
     base = sb.baseline_blocks(data, team_projections, draws,
                               sb.hazard_anchor(data, tag_anchor), managers,
                               injury_statuses=statuses or None)
-    games = missed = unprojected = 0
+    games = missed = unprojected = excluded = 0
     by = {m: [0.0, 0] for m in managers}
     for w in weeks:
         wd = sb.schedule_week(data, w)
+        dates = sb.get_dates_in_week(wd)
         plan = sb._week_plan(data, team_projections, wd, managers)
         for m in managers:
             planned = {(d, e[8]): e for d, es in plan[m] for e in es}
-            for d in sb.get_dates_in_week(wd):
+            governs = {key: absence.override_governs(int(w), dates, p.out_weeks, p.return_week, p.out_from)
+                       for key, p in team_projections[m].players.items()}
+            for d in dates:
                 playing = sb._playing_teams(data, d)
                 for key, p in team_projections[m].players.items():
                     if p.nba_team.upper() not in playing:
@@ -159,6 +189,14 @@ def simulated(data, team_projections, weeks, injury_statuses, draws,
                         unprojected += 1
                         continue
                     e = planned.get((d, key))
+                    if e is None and not governs[key]:
+                        raise ValueError(
+                            f"{key} ({m}) has no plan entry on {d} (week {w}) and no INJURY_OVERRIDES "
+                            "entry governs that week: the plan dropped him for a reason this check "
+                            "does not know")
+                    if exclude_governed and governs[key]:
+                        excluded += 1
+                        continue
                     if e is None:                     # an override rules him out
                         miss = 1.0
                     else:
@@ -171,16 +209,25 @@ def simulated(data, team_projections, weeks, injury_statuses, draws,
                     by[m][1] += 1
     return {"games": games, "missed": missed, "rate": missed / games if games else float("nan"),
             "by_manager": {m: (v[0] / v[1] if v[1] else float("nan")) for m, v in by.items()},
-            "unprojected_games": unprojected}
+            "unprojected_games": unprojected, "excluded_games": excluded}
 
 
 def simulated_by_week(data, team_projections, weeks, injury_statuses, draws,
                       tag_anchor: Optional[date] = None, managers=None) -> dict:
-    """{week: the engine's miss rate in that week}, from the same draws
-    (simulated, one week at a time; the season chain is memoised on draws,
-    so every week reads one chain)."""
+    """{week: the engine's miss rate in that week, over the games no
+    INJURY_OVERRIDES entry governs} (Nick, 11-25: the per-week check measures
+    the chain, not the entries), from the same draws (simulated, one week at
+    a time; the season chain is memoised on draws, so every week reads one
+    chain). simulated_by_week_detail gives each week's excluded_games."""
+    return {w: r["rate"] for w, r in simulated_by_week_detail(
+        data, team_projections, weeks, injury_statuses, draws, tag_anchor, managers).items()}
+
+
+def simulated_by_week_detail(data, team_projections, weeks, injury_statuses, draws,
+                             tag_anchor: Optional[date] = None, managers=None) -> dict:
+    """{week: simulated(..., exclude_governed=True) for that week alone}."""
     return {int(w): simulated(data, team_projections, [w], injury_statuses, draws, tag_anchor,
-                              managers)["rate"] for w in weeks}
+                              managers, exclude_governed=True) for w in weeks}
 
 
 # ---------------------------------------------------------------- reporting

@@ -10,7 +10,12 @@ nobody is hurt sits near zero; an over-charging one sits above every season.
 THE PER-WEEK CHECK (handoff 32, 11-25): the engine's miss rate in each week
 1-15 against the range real seasons produced in THAT week. Gated only for the
 weeks not yet played; a played week (today's rosters, today's overrides read
-back over it) is reported.
+back over it) is reported. It measures only games no INJURY_OVERRIDES entry
+governs (Nick, 11-25; modules/miss_rate.py) and prints how many it left out;
+the weeks 1-15 gate above still counts those games as misses. So a gated week
+checks only the upper edge (Nick, 11-25, S1 option C): with the entries' games
+left out a correct engine can sit under a history band that holds every long
+injury; a nobody-hurt engine is caught by the weeks 1-15 gate.
 
 STARTED GAMES is printed, never gated. 2026-27 runs five bench slots and depth
 absorbs absences, so it can no longer see the hazard (modules/miss_rate.py,
@@ -138,21 +143,27 @@ def main():
     from modules.absence import baseline_params
     params = baseline_params()
     draws = sb.KeyedDraws(args.seed, args.sims)
-    by_week = mr.simulated_by_week(data, teams, season, {}, draws, anchor, MANAGERS)
+    detail = mr.simulated_by_week_detail(data, teams, season, {}, draws, anchor, MANAGERS)
+    by_week = {w: d["rate"] for w, d in detail.items()}
     rows_w = mr.check_by_week(by_week, mr.band_by_week(rows, season), played)
     print(f"\n  BY WEEK (chain start: {params.start_rule}, season total held: "
-          f"{params.hold_season_total}); gated: the weeks not yet played")
+          f"{params.hold_season_total}); gated: the weeks not yet played, upper edge only;\n"
+          f"  engine over games no INJURY_OVERRIDES entry governs (excluded: that week's entry games)")
     for w, r, wlo, whi, gated, inside in rows_w:
-        verdict = ("PASS" if inside else "FAIL") if gated else ("inside" if inside else "outside") + ", reported"
-        print(f"    week {w:>2}: engine {r:6.2%}   real seasons {wlo:6.2%} - {whi:6.2%}   {verdict}")
+        # gated: the upper edge only (Nick, 11-25, S1 option C; miss_rate.check_by_week)
+        verdict = (("PASS" + (" (under the range: entry games left out)" if r < wlo else "")) if inside else "FAIL")\
+            if gated else ("inside" if inside else "outside") + ", reported"
+        print(f"    week {w:>2}: engine {r:6.2%}   real seasons {wlo:6.2%} - {whi:6.2%}   "
+              f"excluded {detail[w]['excluded_games']:>3} of {detail[w]['excluded_games'] + detail[w]['games']:>4}"
+              f"   {verdict}")
     week_fail = [w for w, r, wlo, whi, gated, inside in rows_w if gated and not inside]
 
     ok = lo <= on_miss <= hi
     print(f"\n  RESULT: {'PASS' if ok else 'FAIL'} -- the simulated miss rate {on_miss:.2%} is "
           f"{'inside' if ok else 'OUTSIDE'} the {lo:.2%}-{hi:.2%} real seasons produced.")
     print(f"  BY WEEK: {'PASS' if not week_fail else 'FAIL'} -- "
-          + ("every week not yet played is inside its range." if not week_fail else
-             f"week(s) {week_fail} outside the range real seasons produced in that week."))
+          + ("no week not yet played is above its range." if not week_fail else
+             f"week(s) {week_fail} above the highest real seasons produced in that week."))
     return 0 if ok and not week_fail else 1
 
 

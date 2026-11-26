@@ -109,7 +109,54 @@ def test_the_per_week_check_gates_only_the_weeks_not_yet_played():
     import pandas as pd
     played = mr.played_weeks(pd.DataFrame({"week": [1, 1, 2]}))
     assert played == [1, 2] and mr.played_weeks(None) == []
-    rows = mr.check_by_week({1: 0.30, 2: 0.10, 3: 0.12, 4: 0.40},
-                            {1: (0.05, 0.20), 2: (0.05, 0.20), 3: (0.05, 0.20), 4: (0.05, 0.20)}, played)
-    assert [(w, gated, inside) for w, _r, _lo, _hi, gated, inside in rows] == [
-        (1, False, False), (2, False, True), (3, True, True), (4, True, False)]
+    rows = mr.check_by_week({1: 0.30, 2: 0.10, 3: 0.12, 4: 0.40, 5: 0.01, 6: 0.01},
+                            {w: (0.05, 0.20) for w in range(1, 7)}, played + [6])
+    # a gated week checks only the upper edge (Nick, 11-25, S1 option C): week 5 sits under the band
+    # and passes; a played week (6) keeps the whole band
+    assert [(w, gated, ok) for w, _r, _lo, _hi, gated, ok in rows] == [
+        (1, False, False), (2, False, True), (3, True, True), (4, True, False), (5, True, True), (6, False, False)]
+
+
+# S1 (Nick, 11-25, from 32 sec. 7): the per-week check measures only games no
+# INJURY_OVERRIDES entry governs; the weeks 1-15 gate still counts them
+def test_the_per_week_check_leaves_out_the_weeks_an_override_governs():
+    data, teams, weeks = _world(gp=82.0)                 # nobody misses by durability
+    anchor = date.fromisoformat(weeks[0]["start_date"])
+    teams["Nick"].players["P0Nick"].out_weeks = [1, 2]   # out two of four weeks
+    draws = sb.KeyedDraws(SEED, 500)
+    counted = mr.simulated(data, teams, range(1, 5), {}, draws, anchor, MANAGERS)
+    assert counted["excluded_games"] == 0 and counted["by_manager"]["Nick"] == pytest.approx((14 / 28) / 3)
+    left_out = mr.simulated(data, teams, range(1, 5), {}, draws, anchor, MANAGERS, exclude_governed=True)
+    assert left_out["excluded_games"] == 14                  # his two governed weeks
+    assert left_out["games"] == counted["games"] - 14
+    assert left_out["by_manager"]["Nick"] == 0.0             # the chain's own misses only
+    detail = mr.simulated_by_week_detail(data, teams, range(1, 5), {}, draws, anchor, MANAGERS)
+    assert [detail[w]["excluded_games"] for w in range(1, 5)] == [7, 7, 0, 0]
+    assert mr.simulated_by_week(data, teams, range(1, 5), {}, draws, anchor, MANAGERS) == \
+        {w: d["rate"] for w, d in detail.items()} == {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0}
+
+
+def test_a_return_week_and_an_out_from_week_are_governed_too():
+    data, teams, weeks = _world(gp=82.0)
+    anchor = date.fromisoformat(weeks[0]["start_date"])
+    p = teams["Hayden"].players["P1Hayden"]
+    p.return_week, p.return_date = 2, weeks[1]["end_date"]       # back on week 2's last day
+    q = teams["Benton"].players["P2Benton"]
+    q.out_from = date.fromisoformat(weeks[2]["start_date"]) + timedelta(days=3)
+    detail = mr.simulated_by_week_detail(data, teams, range(1, 5), {}, sb.KeyedDraws(SEED, 300),
+                                         anchor, MANAGERS)
+    assert [detail[w]["excluded_games"] for w in range(1, 5)] == [0, 7, 7, 0]
+    assert all(detail[w]["rate"] == 0.0 for w in range(1, 5))
+
+
+def test_a_game_the_plan_drops_for_no_known_reason_raises(monkeypatch):
+    data, teams, weeks = _world(gp=82.0)
+    anchor = date.fromisoformat(weeks[0]["start_date"])
+    real = sb._week_plan
+
+    def lossy(*a, **k):                                  # the plan loses Nick's P0 on every day
+        return {m: [(d, [e for e in es if e[8] != "P0Nick"]) for d, es in days]
+                for m, days in real(*a, **k).items()}
+    monkeypatch.setattr(sb, "_week_plan", lossy)
+    with pytest.raises(ValueError, match="no INJURY_OVERRIDES entry governs"):
+        mr.simulated(data, teams, [1], {}, sb.KeyedDraws(SEED, 50), anchor, MANAGERS)
