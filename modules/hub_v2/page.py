@@ -48,6 +48,7 @@ from . import page_players as pp
 from . import page_market as pm
 from . import page_league as pl
 from . import page_sched as ps
+from . import page_manager as pmg
 
 # tap targets: an interactive element carries one of these classes (or sits
 # in one of TAP_PARENTS); each class's CSS gives it at least tap-min (or
@@ -56,7 +57,8 @@ from . import page_sched as ps
 # keyboard-reachable, as wide as the point's share of the axis.
 TAP_CLASSES = ("lh-card", "lh-rank", "lh-issuebar", "lh-back", "lh-link", "lh-iconbtn", "v2-tap", "lh-c-hit",
                "v2-fchip", "v2-btn", "v2-pick", "v2-bar", "v2-gtile", "v2-cell", "v2-dchip", "v2-ev-hit",
-               "v2-oddslink", "v2-rank-team", "v2-tc-link") + pm.TAP_CLASSES + pl.TAP_CLASSES + ps.TAP_CLASSES
+               "v2-oddslink", "v2-rank-team", "v2-tc-link") + pm.TAP_CLASSES + pl.TAP_CLASSES + ps.TAP_CLASSES \
+    + pmg.TAP_CLASSES
 # 4c2: the roster table's Detailed chip groups (roster.GROUPS, plus "all"): the
 # CSS shows a column when the table's data-group is one of its groups
 DETAIL_GROUPS = ("value", "form", "schedule", "health", "keeper", "profile", "all")
@@ -811,7 +813,9 @@ def _team_page(tp: dict, vm: dict, ids: _Ids) -> str:
     o = [f'<section class="v2-screen" data-route="{clean(tp["route"])}" data-detail="1" hidden>',
          _topbar("#/teams", "Teams", vm["age"]),
          f'<div class="v2-hdr-team">{_mono(t, "72")}<div class="v2-minw"><h1 class="v2-hdr-name">{clean(t["team"])}</h1>'
-         f'<span class="lh-meta">{clean(tp["sub"])}</span></div></div><div class="v2-stack">',
+         + (f'<span class="lh-meta">{pmg.mlink(tp["m"])} &middot; {clean(tp["msub"])}</span>' if tp.get("msub") is not None
+            else f'<span class="lh-meta">{clean(tp["sub"])}</span>')
+         + '</div></div><div class="v2-stack">',
          _seg("team", [("roster", "Roster"), ("schedule", "Schedule"), ("moves", "Moves"), ("keepers", "Keepers")])]
     # roster
     o.append('<div class="v2-pane" data-pane-of="roster"><div class="v2-cols"><div class="v2-col"><div class="lh-kpis">'
@@ -859,7 +863,8 @@ def _matchup_page(mu: dict, vm: dict, ids: _Ids) -> str:
         t = s["team"]
         o.append(f'<div class="v2-mside {t["cls"]}">{_mono(t, "36")}<span class="v2-minw">'
                  f'<a class="lh-mrow__name v2-tap" href="{t["href"]}">{clean(s["name"])}</a>'
-                 f'<span class="lh-sub">{clean(s["manager"])} &middot; {clean(s["record"])} &middot; proj {clean(s["proj"])}</span>'
+                 f'<span class="lh-sub">{pmg.mlink(s["manager"]) if t.get("mhref") else clean(s["manager"])} &middot; '
+                 f'{clean(s["record"])} &middot; proj {clean(s["proj"])}</span>'
                  f'</span><span class="v2-score">{clean(s["now"])}</span></div>')
     a, b = mu["sides"]
     o.append(f'<span class="lh-winbar" role="img" aria-label="{clean(mu["bar_aria"])}">'
@@ -979,7 +984,7 @@ def render(vm: dict, *, cards: dict = None) -> str:
     o = ["<!DOCTYPE html>", '<html lang="en"><head><meta charset="utf-8">',
          '<meta name="viewport" content="width=device-width,initial-scale=1">', '<meta name="robots" content="noindex">',
          f"<title>{clean(vm['title'])}</title>",
-         f"<style>{tokens.css(LAYOUT_CSS + pp.CSS + pm.CSS + pl.CSS + viewer_css([t['manager'] for t in vm['teams']]))}"
+         f"<style>{tokens.css(LAYOUT_CSS + pp.CSS + pm.CSS + pl.CSS + pmg.MGR_LINK_CSS + viewer_css([t['manager'] for t in vm['teams']]))}"
          "</style>",
          _pictures_style(vm.get("pictures") or []) + "</head><body>",
          f'<div class="v2-app" id="hub" data-epoch="{vm["epoch"]}" data-stale-hours="{vm["stale_hours"]}">']
@@ -1082,6 +1087,9 @@ def render(vm: dict, *, cards: dict = None) -> str:
     if vm["mode"] == "preview" and vm["league"].get("awards") is not None:    # 4c5: Awards, a template
         vm["league"]["awards_html"] = pl.awards_html(vm["league"]["awards"], _mono, _chart, INFO)
     o.append(pl.league_screen(vm, ids, _info, _mono, _chart, DOC, CHEV))
+
+    # ---------------------------------------------------------------- the manager cards (MC2)
+    o.append(pmg.screens(vm, BACK, _chart, _tip_attrs, _lazy))
 
     # ---------------------------------------------------------------- placeholders
     for ph in vm["placeholders"]:
@@ -1260,6 +1268,7 @@ function route(){
   if(r==='market'&&q.seg&&document.querySelector('.lh-seg[data-seg="market"] [data-pane="'+q.seg+'"]')){seen['market']=q.seg;}
   var parts=r.split('/'),want=r,dyn='';
   if(parts[0]==='league'&&parts.length>1&&parts[1]){want='league';dyn='league';}
+  if(parts[0]==='manager'&&parts[1]){want='manager/'+decodeURIComponent(parts[1]);seen['mgr']=parts[2]||'overview';}
   if(parts[0]==='players'&&parts.length>1&&parts[1]){
     if(parts[1]==='compare'){dyn=(parts.length>3&&parts[3])?'compare':'compare-pick';}else{dyn='player';}
     want=dyn;

@@ -336,6 +336,11 @@ def past_blob() -> dict:
         for k, unit_v in (("lineup", 0.99), ("draft", 900.0), ("waiver", 1200.0), ("unlucky", 3.0)):
             rows = [{"m": m, "value": unit_v - i * (0.01 if k == "lineup" else 1.0), "shown": f"{k} {m}",
                      "sub": "", "rank": i + 1, "pa": 30000.0} for i, m in enumerate(("Dana", "Jordan", "Marcus", "Tyler"))]
+            for i, r in enumerate(rows):                 # MC2: the fields the real file carries (the card reads them)
+                if k == "lineup":
+                    r.update(filled=1500 - 40 * i - (7 if s == "2025-26" else 0), slots=1600, days=160)
+                elif k == "waiver":
+                    r.update(n=40 - 6 * i + (3 if s == "2025-26" else 0), best=None)
             mg[k] = {"winners": ["Dana"], "top": rows, "none": ""}
         return {"season": s, "regular_weeks": 21, "through": f"{s[:2]}{s[5:]}-03-30", "R": {"1": 25.0},
                 "checks": {"team_weeks": 84, "off": 0, "max_off": 0.0, "short_weeks": [], "flips": 0}, "awards": aw,

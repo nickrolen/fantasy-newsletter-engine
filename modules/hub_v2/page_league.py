@@ -267,7 +267,14 @@ def _team(t: dict, mono, sub: str = "", size: str = "28") -> str:
 
 def _mgr(t: dict, mono, sub: str = "") -> str:
     """A table's team cell where width is short: the monogram and the manager's
-    first name (the README's rule for people), the team's name in its label."""
+    first name (the README's rule for people), the team's name in its label.
+    MC2 (Nick, 11-23): with his card built, the mark opens the team and the
+    name opens his card."""
+    if t.get("mhref"):
+        return (f'<span class="v2-lg-team"><a class="v2-tap" href="{t["href"]}" aria-label="{clean(t["team"])}">'
+                f'{mono(t, "24")}</a><span class="v2-minw"><b><a class="v2-mn v2-tap" href="{t["mhref"]}">'
+                f'{clean(t["manager"])}</a></b>' + (f'<span class="lh-sub">{clean(sub)}</span>' if sub else "")
+                + "</span></span>")
     return (f'<a class="v2-lg-team v2-tap" href="{t["href"]}" aria-label="{clean(t["team"])}, {clean(t["manager"])}">'
             f'{mono(t, "24")}<span class="v2-minw"><b>{clean(t["manager"])}</b>'
             + (f'<span class="lh-sub">{clean(sub)}</span>' if sub else "") + "</span></a>")
@@ -642,9 +649,11 @@ def _champions(c: dict, mono) -> str:
         head = (f'{mono(t, "28")}' if t else '<span></span>')
         # 5c: the season's team name (a string); since 5f the two seasons before
         # the Yahoo data carry theirs too (config pre_data_era, Nick 11-23)
+        who = (f'<a class="v2-mn v2-tap" href="{t["mhref"]}">{clean(r["who"])}</a>' if t and t.get("mhref")
+               and r["who"] == t.get("manager") else clean(r["who"]))          # MC2: the name opens his card
         title = ("" if not t else
-                 f'<b class="v2-name14">{clean(r["season_team"])}</b><span class="lh-sub">{clean(r["who"])}</span>'
-                 if r["season_team"] else f'<b class="v2-name14">{clean(r["who"])}</b>')
+                 f'<b class="v2-name14">{clean(r["season_team"])}</b><span class="lh-sub">{who}</span>'
+                 if r["season_team"] else f'<b class="v2-name14">{who}</b>')
         lines = "".join(f'<span class="v2-lg-line"><b>{clean(x["k"])}:</b> {clean(x["t"])}</span>' for x in r["lines"])
         o.append(f'<div class="v2-lg-champ">{head}<span class="v2-minw"><span class="v2-lg-season">'
                  f'{clean(r["season"])}</span>{title}{lines}</span></div>')
@@ -715,7 +724,7 @@ def _h2h(h: dict, mono) -> str:
                  + "".join(f'<span class="v2-lg-hh" role="columnheader" aria-label="{clean(t["manager"])}">'
                            f'{mono(t, "28")}</span>' for t in h["cols"]))
         for r in h["grid"][k]:
-            o.append(f'<a class="v2-lg-team v2-tap" href="{r["team"]["href"]}" role="rowheader" '
+            o.append(f'<a class="v2-lg-team v2-tap" href="{r["team"].get("mhref") or r["team"]["href"]}" role="rowheader" '
                      f'aria-label="{clean(r["team"]["manager"])}">{mono(r["team"], "28")}</a>')
             for c, t in zip(r["cells"], h["cols"]):
                 if c is None:

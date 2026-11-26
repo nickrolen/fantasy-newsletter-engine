@@ -239,8 +239,12 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         small = _tp.small_uris(pictures)
         if small is not None:
             inline_pics, big_pics = small, {m: u for m, u in pictures.items() if small.get(m) != u}
+    # MC2: a manager's name opens his card when the run built it (else it stays plain)
+    mgr = (v2.get("league") or {}).get("managers") or {}
+    mcards = mgr.get("cards") or {}
     teams = {m: {"cls": team_cls(t["slot"]), "slot": t["slot"], "mono": t["mono"], "team": t["team"],
-                 "manager": m, "href": f"#/teams/{m}", "odds_href": odds_href(m), "pic": m in pictures}
+                 "manager": m, "href": f"#/teams/{m}", "odds_href": odds_href(m), "pic": m in pictures,
+                 "mhref": f"#/manager/{m}" if m in mcards else ""}
              for m, t in teams_v2.items()}
     rosters = payload["rosters"]
     power = {r["manager"]: r for r in payload["power"]["rows"]}
@@ -334,6 +338,8 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         kpi = tv["kpi"]
         team_pages.append({
             "m": m, "team": t, "route": f"teams/{m}", "sub": tv["sub"], "kpi": kpi, "spark": sp,
+            # MC2: the header's manager name opens his card: the line after his name
+            "msub": (tv["sub"][len(m) + 3:] if t.get("mhref") and tv["sub"].startswith(m + " \u00b7 ") else None),
             "spark_aria": tv["spark"]["aria"], "record": tv["record"], "odds": tv["odds"],
             "adds_left": tv["adds_left"], "injured": tv["injured"],
             "roster": {"active": active, "il": il, "orders": orders, "default": default,
@@ -412,6 +418,9 @@ def build(payload: dict, *, mode: str, now: datetime, archive_href: str = "hub_a
         "placeholders": placeholders, "odds_label": payload["power"]["label"],
         "players": players(payload, teams, cards=player_cards, base=base),
         "market": market(payload, teams),
+        "managers": ({"order": [m for m in mgr["order"] if m in mcards],
+                      "cards": {m: _known_cards(c, (payload.get("cards") or {}).get("players") or {})
+                                for m, c in mcards.items()}} if mcards else None),
         "league": dict(league(payload, teams, mode, archive_href),
                        history=league_history(payload, teams) if "league_history" in v2 else None),
         "pictures": [{"slot": teams_v2[m]["slot"], "uri": uri} for m, uri in sorted(inline_pics.items())
@@ -834,6 +843,17 @@ def awards_view(aw: dict, teams: dict, href, past: Optional[dict] = None) -> dic
                                                           team=teams.get(x["best"]["m"])))
              for x in (past or {}).get("potw") or []]
     return dict(aw, races=races, potw=potw, past=past or {}, managers=mgr, potw_past=ppast)
+
+
+def _known_cards(x, reg: dict):
+    """MC2: a manager card with every player's card key kept only when the
+    hub has that player's card (payload cards.players): a name with no card
+    is printed plain (as the League tab's href() does)."""
+    if isinstance(x, dict):
+        return {k: (v if v in reg else None) if k == "card" else _known_cards(v, reg) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_known_cards(v, reg) for v in x]
+    return x
 
 
 def league(payload: dict, teams: dict, mode: str, archive_href: str) -> dict:

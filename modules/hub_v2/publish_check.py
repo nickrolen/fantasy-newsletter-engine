@@ -92,6 +92,8 @@ def routes(page: str) -> dict:
         if parts[0] == "players" and len(parts) > 1 and parts[1]:
             want = ("compare" if len(parts) > 3 and parts[3] else "compare-pick") if parts[1] == "compare" \
                 else "player"
+        if parts[0] == "manager" and len(parts) > 2:       # MC2: #/manager/<name>/<tab> is his card's screen
+            want = "/".join(parts[:2])
         if want not in screens:
             bad.append(r)
     return {"screens": sorted(screens), "links": links, "unresolved": bad}

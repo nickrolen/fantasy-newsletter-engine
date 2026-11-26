@@ -360,10 +360,13 @@ def dyn_route(href: str) -> str:
         if parts[1] == "compare":
             return "compare" if len(parts) > 3 and parts[3] else "compare-pick"
         return "player"
+    if parts[0] == "manager" and len(parts) > 2:          # MC2: #/manager/<name>/<tab> is his card's screen
+        return "/".join(parts[:2])
     return href
 
 
 ALL_CSS = page.LAYOUT_CSS + page.pp.CSS + page.pm.CSS + page.pl.CSS   # the renderer's own CSS (4c1: Players, the card, Compare; 4c3: Market; 4c4: League)
+ALL_CSS += page.pmg.MGR_LINK_CSS + page.pmg.CSS   # MC2: the manager card (its CSS rides in each card's lazy part)
 
 
 def visible_text(h: str) -> str:
@@ -517,7 +520,8 @@ def test_the_publish_mode_file_holds_only_ciphertext_and_round_trips(tmp_path):
     # 5a: and the archive's issues, byte for byte, as the current hub publishes them; 5b: + the
     # title-odds chart, Moves' older weeks, and the lazy screens (team pages, last week's matchups)
     n_screens = len(p["v2"]["teams"]) + len((p["v2"].get("last") or {}).get("cards") or []) \
-        + len((p["v2"].get("next_week") or {}).get("cards") or [])           # 5d2: next week's previews
+        + len((p["v2"].get("next_week") or {}).get("cards") or []) \
+        + len(((p["v2"]["league"].get("managers") or {}).get("cards")) or {})   # 5d2: next week's previews; MC2: the cards
     assert len(rep["screen_parts"]) == n_screens and "odds" in rep["league_parts"]["bytes"]
     n_seasons = sum(1 for k in rep["league_parts"]["bytes"] if ":" in k)     # 5d1 s.8: past seasons' parts
     assert rep["files"][0] == "index.html" and len(rep["files"]) == (
@@ -680,6 +684,9 @@ def test_charts_use_the_design_classes_and_no_colour():
     assert ch
     for c in ch:
         assert not re.search(r"#[0-9A-Fa-f]{6}\b", c)
+        if re.search(r'data-chart="mc-\w+-(ppw|picks)"', c):      # MC2: the manager card's BarCharts (no line)
+            assert 'class="mc-bar-' in c
+            continue
         assert "lh-c-line" in c and re.search(r'class="lh-t-(blue|teal|orange|plum)"', c)
     assert 'class="lh-c-event v2-ev--' in h and 'data-tip-b="Marcus Wing healthy' in h      # 4c2: words on tap
 

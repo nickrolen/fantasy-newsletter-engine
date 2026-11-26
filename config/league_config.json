@@ -568,6 +568,19 @@
             "_comment": "Advice goals (claude/HANDOFF_ADVICE_GOALS_2026-11-24.md; modules/advice_goals.py, not wired into any run yet). Every key required (missing or not a number >= 0 raises, advice_goals.NoiseRules.from_config). THE NOISE BAR (Part C.3): a goal shows a move different from Balanced's only when its gain over Balanced's plan on the goal's own target clears max(noise_z x SE, floor + noise_per_week x h): SE is that comparison's own paired standard error at price_sims (1,000; the per-draw win difference, the goal weeks' variances summed); h is the weeks from the move's first week to the goal's first week (0 for the near goals: Week N, Next 2 / 3 weeks); floor is noise_floor in expected matchups won (1.0 point of win chance: twice advice_v2.FLAT_WIN), noise_title_floor for Rest of season (0.5 points of League Championship odds). Proposed 2026-11-25 (claude/ADVICE_GOALS_MOCK_2026-11-25.md s.3); Nick, 11-25: noise_per_week raised from 0.005 to 0.01 (1 point of win chance per week ahead), the rest as proposed. far_public (true or false, required): while false, the FAR goals (Rest of season and the specific weeks; Semifinals, Finals and Cup once priced) are priced every night and kept in output/advice_latest.json and the run row, but their chips are not shown on the hub; the near goals (Wk N, Wks N-N+1, Wks N-N+2) are public from the start. Nick, 11-25: Nick and the reviewer read a week of real outputs before turning it on. on (true or false, required): the goals pass in every run that prices advice (advice_live.goals_payload; soft: a failure is recorded as ADVICE GOALS FAILED and Balanced publishes as ever) and the hub's picker (handoff Part D: on by default; off, no pass and today's page)."
         }
     },
+    "payouts_by_season": {
+        "_comment": "MC2 (LEAGUE_RULES 'Payouts by season', Nick 11-23): each season's money, by season range, read by modules/money.py only (the manager card's Money). Each pot's net per finish, in USD, every season summing to zero. regular_season: by regular-season finish 1-4. playoffs: the Playoff Champion, the runner-up and each semifinal loser. The Cup carries no money. 2015-16 was not played and is never asked for. A season outside every range RAISES. The 2026-27 range must equal 'payouts' below (the engine's own; tests/test_mc2_manager.py checks it).",
+        "ranges": [
+            {"from": "2014-15", "to": "2025-26",
+             "_note": "Nick, 11-23: $150 / $75 every season from 2014-15 through 2025-26; everyone except the winner paid in full, in both pots (a runner-up paid like anyone else).",
+             "regular_season": {"1": 150, "2": -50, "3": -50, "4": -50},
+             "playoffs": {"champion": 75, "runner_up": -25, "semifinal_loser": -25}},
+            {"from": "2026-27", "to": null,
+             "_note": "2026-27 on: $180 to the League Champion, $90 each from 3rd and 4th, 2nd breaks even; $90 to the Playoff Champion, $45 from each semifinal loser, the runner-up breaks even.",
+             "regular_season": {"1": 180, "2": 0, "3": -90, "4": -90},
+             "playoffs": {"champion": 90, "runner_up": 0, "semifinal_loser": -45}}
+        ]
+    },
     "payouts": {
         "_comment": "Manager-to-manager payments; the league keeps no pot. USD.",
         "currency": "USD",

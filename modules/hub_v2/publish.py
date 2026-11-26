@@ -293,7 +293,7 @@ def players_files(vm: dict, root_key: bytes, terms=()) -> tuple:
     return files, refs, sizes
 
 
-LAZY_SCREENS = ("team pages", "last week's matchup pages", "next week's matchup previews")
+LAZY_SCREENS = ("team pages", "last week's matchup pages", "next week's matchup previews", "manager cards")
 
 
 def lazy_routes(vm: dict) -> set:
@@ -301,7 +301,8 @@ def lazy_routes(vm: dict) -> set:
     every team page and last week's matchup pages."""
     return ({tp["route"] for tp in vm.get("team_pages") or []}
             | {lc["route"] for lc in ((vm.get("last") or {}).get("cards") or [])}
-            | {c["route"] for c in ((vm.get("next_week") or {}).get("cards") or [])})      # 5d2
+            | {c["route"] for c in ((vm.get("next_week") or {}).get("cards") or [])}       # 5d2
+            | {f"manager/{m}" for m in ((vm.get("managers") or {}).get("order") or [])})    # MC2
 
 
 def screen_files(vm: dict, html: str, root_key: bytes, terms=()) -> tuple:

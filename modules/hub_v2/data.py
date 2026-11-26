@@ -534,6 +534,9 @@ def soft_notes(payload: dict) -> list:
     e = (v2.get("fa_value") or {}).get("error")
     if e and e != "no window left this season":
         out.append(f"Value to you couldn't update: {e}")
+    e = ((v2.get("league") or {}).get("managers") or {}).get("error")       # MC2
+    if e:
+        out.append(f"Manager cards couldn't update: {e}")
     return out
 
 
@@ -613,6 +616,19 @@ def league_soft(base, payload: dict, ctx: dict, echo=print) -> tuple:
         v2.pop("league", None)
         v2.pop("league_history", None)
         return None, err
+    # MC2: the manager cards (hub_v2/manager.py), from the same inputs; soft on
+    # their own: a failure is {"error"} (the run row names it, data.soft_notes)
+    # and the hub's names stay plain. They ride in the side file (SIDE_KEYS).
+    from . import manager as _mg
+    try:
+        extra = _mg.manager_inputs(base, schedule=ctx["data"].schedule)
+    except Exception as e:                       # noqa: BLE001 -- the card fails softly
+        extra, v2["league"]["managers"] = None, {"error": f"{type(e).__name__}: {e}".splitlines()[0][:400],
+                                                  "order": [], "cards": {}}
+    if extra is not None:
+        v2["league"]["managers"] = _mg.build_soft(inp, base, extra)
+    if v2["league"]["managers"].get("error"):
+        echo(f"MANAGER CARDS FAILED (the hub goes on with plain names): {v2['league']['managers']['error']}")
     return v2, None
 
 
@@ -625,7 +641,8 @@ PLAYERS_SCHEMA = 1
 # pricing run) and Market's moves (one row per move). (v2 sub-block, key).
 SIDE_KEYS = (("league", "awards"), ("league", "chart"), ("market", "moves"),
              ("sched", "teams"),                 # 5d2: Team > Schedule's per-team weeks (~30 KB a team)
-             ("market", "ranges"))               # 5d2: Market's range tables (~50 KB)
+             ("market", "ranges"),               # 5d2: Market's range tables (~50 KB)
+             ("league", "managers"))             # MC2: the manager cards (~25 KB a manager)
 # 5b: each team's roster Detailed columns (v2.teams[m].roster.detail, ~9 KB a
 # team) ride in the side file too, under this name
 DETAIL_KEY = "teams.roster.detail"

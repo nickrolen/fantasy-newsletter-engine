@@ -932,6 +932,37 @@ def compute_rookie_leaderboards(games: list, rookie_seasons: dict) -> dict:
     }
 
 
+def franchise_badges_from(games: list) -> dict:
+    """THE ONE DEFINITION of a manager's franchise player (MC2; Nick, 11-23,
+    answer 7: "points in his started games, not every rostered game"): the
+    player who scored the most fantasy points FOR HIM IN HIS STARTED GAMES,
+    over every season in the league log (this season included). games:
+    build_combined_playerlog's rows, which are started games only (a bench
+    or IL game never enters them; a 0-point start is no game, a negative one
+    is). The record book (franchise_badges, manager_careers) and the hub's
+    manager card both read the result; tests/test_mc2_manager.py pins it.
+
+    {manager: {"player", "total_fp", "gp", "seasons", "first", "last"}}:
+    total_fp to one decimal; gp his started games for him; seasons how many
+    seasons he started for him; first / last the first and last of them.
+    A tie on points goes to the player with more games, then the name (no
+    tie exists on file; the order only has to be fixed)."""
+    acc = defaultdict(lambda: {"fp": 0.0, "gp": 0, "seasons": set()})
+    for g in games:
+        if g["fantasy_points"] != 0:   # a negative game is a game
+            a = acc[(g["player_name"], g["manager"])]
+            a["fp"] += g["fantasy_points"]
+            a["gp"] += 1
+            a["seasons"].add(g["season"])
+    best = {}
+    for (p, m), a in sorted(acc.items(), key=lambda kv: (-round(kv[1]["fp"], 1), -kv[1]["gp"], kv[0][0])):
+        if m not in best:
+            ss = sorted(a["seasons"])
+            best[m] = {"player": p, "total_fp": round(a["fp"], 1), "gp": a["gp"], "seasons": len(ss),
+                       "first": ss[0], "last": ss[-1]}
+    return best
+
+
 def compute_expanded_leaderboards(games: list) -> dict:
     import statistics as stats_mod
     print("\n--- Computing Expanded Record Leaderboards ---")
@@ -1124,12 +1155,8 @@ def compute_expanded_leaderboards(games: list) -> dict:
         for (p, m), s in fran.items()
     ], key=lambda x: x["total_fp"], reverse=True)
 
-    # Extract franchise player badge per manager (best player by total FP for each)
-    franchise_badges = {}
-    for entry in career_by_mgr:
-        mgr = entry["manager"]
-        if mgr not in franchise_badges:
-            franchise_badges[mgr] = {"player": entry["player_name"], "total_fp": entry["total_fp"]}
+    # Extract franchise player badge per manager (the one definition: franchise_badges)
+    franchise_badges = franchise_badges_from(games)
 
     # Career Total FP (pure player, aggregated across all managers)
     career_pure = defaultdict(lambda: {"fp": 0.0, "gp": 0, "hist_fp": 0.0, "hist_gp": 0, "seasons": set(), "managers": set()})

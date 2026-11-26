@@ -1091,6 +1091,10 @@ def alltime(inp: dict, results: dict) -> dict:
             tgt[a][ia] += 1
             tgt[b][ib] += 1
     by = {r["manager_name"]: r for r in inp["leaguehistory"]}
+    # MC2 (one source for titles): the Titles and Playoff columns are the trophy
+    # case's (modules/trophy_case.build), as the manager card's are; a case that
+    # cannot be built leaves them as dashes (its note says why), never a second source
+    tcounts = _trophy_counts(inp)
     rows = []
     for m in inp["managers"]:
         r = by.get(m)
@@ -1109,8 +1113,8 @@ def alltime(inp: dict, results: dict) -> dict:
         g = W + L + T
         pct = (W + 0.5 * T) / g if g else 0.0
         rows.append({"m": m, "record": _rec(W, L, T), "pct": f"{pct * 100:.1f}%", "_pct": pct,
-                     "pf": _int(pf), "titles": str(int(r["titles_won"])),
-                     "playoff_titles": str(int(r["playoff_championships"])), "post": _rec(PW, PL, PT),
+                     "pf": _int(pf), "titles": str(tcounts[m]["league"]) if tcounts else DASH,
+                     "playoff_titles": str(tcounts[m]["playoff"]) if tcounts else DASH, "post": _rec(PW, PL, PT),
                      "seasons": str(int(r["seasons_completed"]) + 1)})
     rows.sort(key=lambda x: (-x["_pct"], x["m"]))
     order = {}
@@ -1127,6 +1131,22 @@ def alltime(inp: dict, results: dict) -> dict:
                      "second line. Titles = League Championships (first in the regular season, the league's "
                      "champion); Playoff = playoff titles (the bracket)."),
             "seasons_note": "12 seasons", "trophy": trophy(inp)}
+
+
+def _trophy_cfg(inp: dict) -> dict:
+    return {"managers": list(inp["managers"]), "pre_data_era": inp.get("pre_data_era") or {},
+            "keeper_rules": {"cup_winners": inp.get("cup_winners") or {}}}
+
+
+def _trophy_counts(inp: dict) -> Optional[dict]:
+    """{manager: trophy_case counts}, or None when the case cannot be built."""
+    from .. import trophy_case as TC
+    try:
+        tc = TC.build(inp.get("base") or ".", past=inp.get("awards_past"), standings=inp["all_standings"],
+                      cfg=_trophy_cfg(inp), managers=inp["managers"])
+    except Exception:                                # noqa: BLE001 -- trophy() says why in its note
+        return None
+    return {r["m"]: r["counts"] for r in tc["managers"]}
 
 
 TROPHY_HEAD = {"league": "League", "playoff": "Playoff", "cup": "Cup", "mvp": "MVP", "pickup": "Pickup",

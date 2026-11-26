@@ -44,12 +44,167 @@ def PRE_ERA():
                                         "third_place": _m("Marcus", 1300.0, "Dana", 1100.0)}}}}
 
 
-def _career(m, standings_rows, i):
-    """LEAGUEHISTORY's career W-L: the pre-Yahoo seasons plus the Yahoo seasons."""
-    pre = [x for v in PRE_ERA()["seasons"].values() for x in v["standings"] if x["manager"] == m]
-    w = sum(x["w"] for x in pre) + sum(r["reg_wins"] for r in standings_rows if r["manager"] == m)
-    l = sum(x["l"] for x in pre) + sum(r["reg_losses"] for r in standings_rows if r["manager"] == m)
-    return f"({w}-{l})"
+# =============================================================================
+# MC2: the made-up league plays EVERY league season, consistently
+# =============================================================================
+# 2014-15 and 2016-17: PRE_ERA (standings and brackets). 2017-18 to 2025-26:
+# every week's result (all_matchups), and from them the standings, the
+# brackets, LEAGUEHISTORY's careers and the titles, so League > All-time,
+# Champions, the trophy case and the manager card agree by construction
+# (tests/test_mc2_manager.py checks it). 2023-24 is a made-up stoppage (19
+# weeks, no bracket); 2020-21 ran 16 regular weeks and 2021-22 20.
+YAHOO = [f"{y}-{str(y + 1)[2:]}" for y in range(2017, 2026)]
+REG_THROUGH = {s: 21 for s in YAHOO} | {"2020-21": 16, "2021-22": 20, "2023-24": 19}
+NO_BRACKET = {"2023-24": "a made-up stoppage"}
+# the regular-season finish, 1st to 4th, and the bracket: (1 v 4 winner, 2 v 3 winner, final winner, 3rd-place winner)
+WORLD_ORDER = {
+    "2017-18": ["Dana", "Marcus", "Tyler", "Jordan"], "2018-19": ["Marcus", "Jordan", "Dana", "Tyler"],
+    "2019-20": ["Tyler", "Marcus", "Jordan", "Dana"], "2020-21": ["Jordan", "Dana", "Marcus", "Tyler"],
+    "2021-22": ["Marcus", "Tyler", "Jordan", "Dana"], "2022-23": ["Dana", "Tyler", "Marcus", "Jordan"],
+    "2023-24": ["Jordan", "Marcus", "Tyler", "Dana"], "2024-25": ["Marcus", "Tyler", "Dana", "Jordan"],
+    "2025-26": ["Tyler", "Marcus", "Jordan", "Dana"]}
+WORLD_BRACKET = {
+    "2017-18": ("Dana", "Tyler", "Tyler", "Marcus"), "2018-19": ("Marcus", "Jordan", "Marcus", "Dana"),
+    "2019-20": ("Dana", "Marcus", "Marcus", "Tyler"), "2020-21": ("Jordan", "Marcus", "Jordan", "Tyler"),
+    "2021-22": ("Marcus", "Jordan", "Jordan", "Dana"), "2022-23": ("Dana", "Tyler", "Dana", "Marcus"),
+    "2024-25": ("Marcus", "Dana", "Marcus", "Jordan"), "2025-26": ("Tyler", "Jordan", "Jordan", "Marcus")}
+# each manager's team name by season (the current one is the payload's)
+OLD_NAMES = {"Marcus": {"2017-18": "Brick City", "2018-19": "Brick City", "2019-20": "Pump Fake Nation",
+                        "2020-21": "Pump Fake Nation"},
+             "Dana": {"2017-18": "Dana's Dimes", "2018-19": "Dana's Dimes"}}
+# a gap in the record book's sense: who wins a regular-season meeting (k = the pair's k-th meeting that season)
+UPSET = {1: {1, 3, 5, 8, 10}, 2: {2, 5, 9}, 3: {4, 11}}
+
+
+def _h(*xs) -> int:
+    import hashlib
+    return int(hashlib.sha256("|".join(map(str, xs)).encode()).hexdigest()[:8], 16)
+
+
+def _game(s, w, a, b, win):
+    hi = 1450.0 + 4 * w + _h(s, w, a, b, "w") % 260 + _h(s, a) % 40
+    lo = hi - 15.5 - _h(s, w, a, b, "l") % 330
+    sa, sb = (hi, round(lo, 2)) if win == a else (round(lo, 2), hi)
+    sa, sb = round(sa, 2), round(sb, 2)
+    return {"season": s, "week": w, "manager_a": a, "manager_b": b, "score_a": sa, "score_b": sb,
+            "winner": win, "loser": b if win == a else a, "margin": round(abs(sa - sb), 2)}
+
+
+def world_matchups() -> list:
+    out = []
+    for s in YAHOO:
+        order = WORLD_ORDER[s]
+        rk = {m: i for i, m in enumerate(order)}
+        met: dict = {}
+        reg = REG_THROUGH[s]
+        for w in range(1, reg + 1):
+            for a, b in PAIRS[(w - 1) % 3]:
+                key = tuple(sorted((a, b)))
+                k = met.get(key, 0)
+                met[key] = k + 1
+                good, bad = (a, b) if rk[a] < rk[b] else (b, a)
+                gap = abs(rk[a] - rk[b])
+                out.append(_game(s, w, a, b, bad if k in UPSET[gap] else good))
+        if s in NO_BRACKET:
+            continue
+        w1, w2, fin, third = WORLD_BRACKET[s]
+        o = order
+        semis = [(o[0], o[3], w1), (o[1], o[2], w2)]
+        for a, b, win in semis:
+            out.append(_game(s, reg + 1, a, b, win))
+        winners = [x[2] for x in semis]
+        losers = [a if win == b else b for a, b, win in semis]
+        out.append(_game(s, reg + 2, winners[0], winners[1], fin))
+        out.append(_game(s, reg + 2, losers[0], losers[1], third))
+    return out
+
+
+def world_standings(matchups=None) -> list:
+    """all_standings rows from the games, by the one ranking rule
+    (data_loader.standings_order) and the bracket's single games."""
+    from modules.data_loader import Record, standings_order
+    matchups = world_matchups() if matchups is None else matchups
+    rows = []
+    for s in YAHOO:
+        games = [g for g in matchups if g["season"] == s]
+        reg = REG_THROUGH[s]
+        allw = {m: [0, 0, 0] for m in MGRS}
+        regw = {m: Record() for m in MGRS}
+        h2h = {m: {} for m in MGRS}
+        pts = {m: 0.0 for m in MGRS}
+        rpts = {m: 0.0 for m in MGRS}
+        for g in games:
+            a, b = g["manager_a"], g["manager_b"]
+            pts[a] += g["score_a"]
+            pts[b] += g["score_b"]
+            allw[g["winner"]][0] += 1
+            allw[g["loser"]][1] += 1
+            if g["week"] <= reg:
+                rpts[a] += g["score_a"]
+                rpts[b] += g["score_b"]
+                regw[g["winner"]] = regw[g["winner"]].add("win")
+                regw[g["loser"]] = regw[g["loser"]].add("loss")
+                for x, y, o in ((g["winner"], g["loser"], "win"), (g["loser"], g["winner"], "loss")):
+                    h2h[x][y] = h2h[x].get(y, Record()).add(o)
+        order = standings_order(regw, h2h, rpts, list(MGRS))
+        if order != WORLD_ORDER[s]:
+            raise AssertionError(f"the made-up {s} finishes {order}, not {WORLD_ORDER[s]}")
+        place = {}
+        if s not in NO_BRACKET:
+            w1, w2, fin, third = WORLD_BRACKET[s]
+            fl = [g for g in games if g["week"] == reg + 2]
+            final = next(g for g in fl if {g["manager_a"], g["manager_b"]} == {w1, w2})
+            cons = next(g for g in fl if g is not final)
+            place = {final["winner"]: 1, final["loser"]: 2, cons["winner"]: 3, cons["loser"]: 4}
+        ag = sorted(MGRS, key=lambda m: (-allw[m][0], -pts[m], m))
+        for m in MGRS:
+            rows.append({"season": s, "manager": m, "rank": ag.index(m) + 1, "rank_basis": "all_games_record",
+                         "wins": allw[m][0], "losses": allw[m][1], "ties": 0, "points_for": round(pts[m], 1),
+                         "reg_wins": regw[m].wins, "reg_losses": regw[m].losses, "reg_ties": 0,
+                         "regular_season_rank": order.index(m) + 1, "playoff_rank": place.get(m)})
+    return rows
+
+
+def world_leaguehistory(standings, matchups, current_scores) -> list:
+    """LEAGUEHISTORY.xlsx's rows: the careers through 2025-26 (the pre-Yahoo
+    seasons + the games), the titles as the standings and PRE_ERA give them."""
+    pre = PRE_ERA()["seasons"]
+    out = []
+    for m in MGRS:
+        w = sum(x["w"] for v in pre.values() for x in v["standings"] if x["manager"] == m)
+        l = sum(x["l"] for v in pre.values() for x in v["standings"] if x["manager"] == m)
+        w += sum(r["reg_wins"] for r in standings if r["manager"] == m)
+        l += sum(r["reg_losses"] for r in standings if r["manager"] == m)
+        pw = pl = 0
+        for v in pre.values():
+            br = v["bracket"]
+            for g in br["semifinals"] + [br["final"], br["third_place"]]:
+                if m in (g["a"], g["b"]):
+                    won = (g["a_pts"] > g["b_pts"]) == (g["a"] == m)
+                    pw += won
+                    pl += not won
+        for g in matchups:
+            if g["week"] > REG_THROUGH[g["season"]] and m in (g["manager_a"], g["manager_b"]):
+                pw += g["winner"] == m
+                pl += g["loser"] == m
+        titles = sum(1 for v in pre.values() if v["league_champion"] == m) + \
+            sum(1 for r in standings if r["manager"] == m and r["regular_season_rank"] == 1)
+        ptitles = sum(1 for v in pre.values() if v["playoff_champion"] == m) + \
+            sum(1 for r in standings if r["manager"] == m and r["playoff_rank"] == 1)
+        done = sum(x["pts"] for v in pre.values() for x in v["standings"] if x["manager"] == m) + \
+            sum(r["points_for"] for r in standings if r["manager"] == m)
+        cur = sum(current_scores[w_][m] for w_ in current_scores)
+        out.append({"manager_name": m, "seasons_completed": 11, "regular_season_record": f"({w}-{l})",
+                    "playoff_record": f"({pw}-{pl})", "titles_won": titles, "playoff_championships": ptitles,
+                    "total_points_scored_to_date": round(done + cur, 2), "total_points_current_season": cur})
+    return out
+
+
+def world_teams(p) -> dict:
+    return {s: {f"t.{i}": {"manager": m, "team_name": (OLD_NAMES.get(m) or {}).get(s) or p["v2"]["teams"][m]["team"]}
+                for i, m in enumerate(MGRS)} for s in YAHOO}
+
+
 WEEK1 = date(2026, 10, 5)
 # a week's pairings, rotating
 PAIRS = [[("Marcus", "Tyler"), ("Dana", "Jordan")], [("Marcus", "Dana"), ("Tyler", "Jordan")],
@@ -142,19 +297,11 @@ def _rec_entry(i: int) -> dict:
 
 def records_alltime() -> dict:
     from modules.hub_v2 import league
-    return {f"{key}_top10": [_rec_entry(i) for i in range(3)] for key, *_rest in league.RECORD_BOOK}
-
-
-def all_matchups() -> list:
-    out = []
-    for s in ("2024-25", "2025-26"):
-        for w in range(1, 24):
-            pr = PAIRS[(w - 1) % 3]
-            for j, (a, b) in enumerate(pr):
-                sa = 1500.0 + 10 * w + 37 * j
-                sb = 1490.0 + 13 * w - 5 * j
-                out.append({"season": s, "week": w, "manager_a": a, "manager_b": b, "score_a": sa, "score_b": sb,
-                            "winner": a if sa > sb else b, "loser": b if sa > sb else a, "margin": abs(sa - sb)})
+    out = {f"{key}_top10": [_rec_entry(i) for i in range(3)] for key, *_rest in league.RECORD_BOOK}
+    # MC2: the franchise player per manager (backfill_player_records.franchise_badges_from's shape)
+    out["franchise_badges"] = {m: {"player": f"{m} Guard", "total_fp": 18402.5 - 900 * i, "gp": 512 - 30 * i,
+                                   "seasons": 7 - i, "first": "2017-18", "last": "2024-25"}
+                               for i, m in enumerate(MGRS)}
     return out
 
 
@@ -219,36 +366,21 @@ def inputs(p: dict) -> dict:
         **{f"{m} Guard": (84, None) for m in MGRS}, **{f"{m} Wing": (73, None) for m in MGRS},
         **{f"{m} Big": (None, "no earlier season of his in the league log: his opening-day level is the league "
                               "average") for m in MGRS}, "Free Guy": (61, None)}}
-    standings_rows = []
-    for s, (c, r, f1) in (("2024-25", ("Marcus", "Dana", "Marcus")), ("2025-26", ("Jordan", "Tyler", "Tyler"))):
-        for i, m in enumerate(MGRS):
-            standings_rows.append({"season": s, "manager": m, "rank": i + 1, "wins": 12, "losses": 11, "ties": 0,
-                                   "points_for": 36000.0, "reg_wins": 11, "reg_losses": 10,
-                                   "regular_season_rank": ([f1] + [x for x in MGRS if x != f1]).index(m) + 1,
-                                   "playoff_rank": 1 if m == c else 2 if m == r else 3 + (i % 2)})
-    for i, m in enumerate(MGRS):                         # a season with no bracket played
-        standings_rows.append({"season": "2023-24", "manager": m, "rank": i + 1, "wins": 10, "losses": 9, "ties": 0,
-                               "points_for": 30000.0, "reg_wins": 10, "reg_losses": 9,
-                               "regular_season_rank": i + 1, "playoff_rank": None})
+    games = world_matchups()
+    standings_rows = world_standings(games)
     return {
         "managers": list(MGRS), "teams": teams, "season": "2026-27",
         "now": datetime.fromisoformat(p["generated_at"]), "reg_weeks": 15, "weeks": weeks(),
         "weekly_scores": _scores_by_manager(), "records_week": 8, "power": power,
         "history_rows": history_rows(), "reports": reports(),
-        "season_structure": {"2023-24": {"regular_through": 19, "bracket": False, "note": "a made-up stoppage"},
-                             "2024-25": {"regular_through": 21, "bracket": True},
-                             "2025-26": {"regular_through": 21, "bracket": True}},
+        "season_structure": {s: ({"regular_through": REG_THROUGH[s], "bracket": False, "note": NO_BRACKET[s]}
+                                 if s in NO_BRACKET else {"regular_through": REG_THROUGH[s], "bracket": True})
+                             for s in YAHOO},
         "pre_data_era": PRE_ERA(),
         "cup_winners": {"2026-27": None},
-        "leaguehistory": [{"manager_name": m, "seasons_completed": 11,
-                           # 5f: careers = the made-up pre-Yahoo seasons + the Yahoo seasons below
-                           # (league.check_pre_era_careers), plus a made-up remainder
-                           "regular_season_record": _career(m, standings_rows, i), "playoff_record": f"({8 + i}-{9 - i})",
-                           "titles_won": i, "playoff_championships": 3 - i,
-                           "total_points_scored_to_date": 330000.5 + 1000 * i + sum(SCORES[w][m] for w in SCORES),
-                           "total_points_current_season": sum(SCORES[w][m] for w in SCORES)}
-                          for i, m in enumerate(MGRS)],
-        "all_standings": standings_rows, "all_matchups": all_matchups(), "all_drafts": past,
+        # MC2: careers and titles from the made-up world (consistent with the standings and PRE_ERA)
+        "leaguehistory": world_leaguehistory(standings_rows, games, SCORES),
+        "all_standings": standings_rows, "all_matchups": games, "all_drafts": past,
         "all_trades": [{"season": "2025-26", "timestamp": None, "date": "2025-12-08", "trader_team": "Glass Cannons",
                         "tradee_team": "Zone Defense", "trader_manager": "Marcus", "tradee_manager": "Tyler",
                         "players": [{"player_name": "Marcus Wing", "from_manager": "Marcus", "to_manager": "Tyler",
@@ -267,15 +399,14 @@ def inputs(p: dict) -> dict:
                         "draft_picks_reversed": [{"round": 3, "draft": "2024-25", "original_manager": "Marcus",
                                                   "from_manager": "Marcus", "to_manager": "Dana", "source": "yahoo",
                                                   "draft_how": "rule", "reversed": "made up"}]}],
-        "all_teams": {s: {f"t.{i}": {"manager": m, "team_name": p["v2"]["teams"][m]["team"]}
-                          for i, m in enumerate(MGRS)} for s in ("2023-24", "2024-25", "2025-26")},
+        "all_teams": world_teams(p),
         "season_teams": {},
         "trades_now": [{"season": "2026-27", "timestamp": None, "date": "2026-11-20", "trader_team": "Pick & Roll Call",
                         "tradee_team": "Fast Break Bros", "trader_manager": "Dana", "tradee_manager": "Jordan",
                         "players": [{"player_name": "Dana Wing", "from_manager": "Dana", "to_manager": "Jordan",
                                      "from_team": "Pick & Roll Call", "to_team": "Fast Break Bros"}]}],
         "potw": potw, "potw_fill": league.potw_from_log(potw, potw_log()),
-        "banked": {}, "cup_weeks": {"2024-25": [], "2025-26": [], "2026-27": [22, 23]},
+        "banked": {}, "cup_weeks": {**{s: [] for s in YAHOO}, "2026-27": [22, 23]},
         "awards_rec": AF.races(odds=True),
         "awards_past": AF.past_blob(), "awards_past_error": None,
         "records_alltime": records_alltime(),
@@ -300,7 +431,23 @@ def sync_power(inp: dict) -> dict:
     return inp
 
 
-def add_league(p: dict) -> dict:
-    from modules.hub_v2 import league
-    p["v2"]["league"], p["v2"]["league_history"] = league.build(inputs(p))
+# MC2: the manager card's own inputs beyond the League's (made up): no ages on
+# record but the keepers' own, this season's adds per manager, the real config
+# (its payouts_by_season)
+AGES = {"seasons": {"2023-24": {"ages": {f"{m} Big": 24 + i for i, m in enumerate(MGRS)}},
+                    "2026-27": {"ages": {f"{m} Big": 27 + i for i, m in enumerate(MGRS)}}}}
+ADDS_NOW = {"Marcus": 11, "Tyler": 7, "Dana": 4, "Jordan": 9}
+
+
+def manager_extra() -> dict:
+    from modules.data_loader import _LEAGUE_CONFIG
+    return {"bbref_ages": AGES, "adds_now": dict(ADDS_NOW), "config": _LEAGUE_CONFIG}
+
+
+def add_league(p: dict, managers: bool = True) -> dict:
+    from modules.hub_v2 import league, manager
+    inp = inputs(p)
+    p["v2"]["league"], p["v2"]["league_history"] = league.build(inp)
+    if managers:                                  # MC2: the cards, as data.league_soft adds them
+        p["v2"]["league"]["managers"] = manager.build(inp, league.week_results(inp), manager_extra())
     return p
