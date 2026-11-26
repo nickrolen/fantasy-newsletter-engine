@@ -260,7 +260,10 @@ def test_title_odds_switch_off_leaves_no_tile_and_no_plan_title():
     h = render(_payload(advice=MF.advice_latest(show_title=False), show_title=False))
     a = _pane(h, "advice")
     assert "Title odds" not in visible_text(a) and "title odds" not in visible_text(a)
-    assert visible_text(a).count("Exp. starts") >= 3
+    # AC1: no simulated Starts or Points tile; this fixture has no range source, so each card says its
+    # days can't be counted (advice_live.DAYS_MISSING) and keeps Win %
+    assert "Exp. starts" not in visible_text(a) and "Points" not in visible_text(a)
+    assert visible_text(a).count("can\u2019t be counted here") >= 3 and visible_text(a).count("Win %") >= 3
     h2 = render()
     assert "Title odds" in visible_text(_pane(h2, "advice"))
 

@@ -422,7 +422,7 @@ def test_real_first_load_and_payload_have_their_room(real, tmp_path):
     pics, _n = team_pictures.data_uris(ROOT, list(pub["v2"]["team_order"]))
     rep = pc.check(ROOT, pub, cards, tmp_path / "check" / "publish", pictures=pics)
     assert rep["ok"], rep["problems"]
-    assert rep["first_load"] <= 240_000
+    assert rep["first_load"] <= 245_000          # the target, raised from 240,000 by Nick, 11-26 (AC1 option B)
     assert rep["opened"]["screens"] >= 4 and rep["opened"]["pictures"] == len(pics)
     stored = copy.deepcopy(p)
     v2data.store_v2(stored)

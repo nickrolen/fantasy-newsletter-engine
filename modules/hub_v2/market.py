@@ -365,7 +365,11 @@ def moves(mv: dict, managers: list, first: date) -> dict:
 # =============================================================================
 
 def _who(name: str, key_of) -> dict:
-    return {"name": name, "card": key_of(name)}
+    out = {"name": name, "card": key_of(name)}
+    tags = getattr(key_of, "tags", None)
+    if tags is not None:
+        out["tags"] = tags(name)
+    return out
 
 
 def _plural(n: int, one: str, many: str) -> str:
@@ -382,33 +386,73 @@ def _move_lines(d: dict, key_of) -> list:
     return out
 
 
-def _exact_tiles(tiles: list, m: str, earlier: list, mv: dict, starts) -> list:
-    """Part B: the step's tiles with the Starts tile counted like Team >
-    Schedule (starts(m, earlier, mv) -> ranges.move_starts' dict). Without a
-    range source (a preview fixture with none) the simulated tile stays,
-    labelled "Exp. starts"."""
-    from .. import advice_live as al
-    if starts is None:
-        return tiles
-    ex = starts(m, earlier, mv)
-    if ex is None:
-        return tiles
-    out = []
-    for t in tiles:
-        if t.get("kind") == "starts" or t.get("label") == "Exp. starts":
-            sim = t.get("sim")
-            if sim is None:
-                sim = float(str(t["value"]).replace("\u2212", "-"))
-            t = al.starts_tile(float(sim), ex)
-        out.append(t)
-    return out
+def _title_tile(tiles: list) -> Optional[dict]:
+    """v2_tiles' Title odds tile (the move against standing pat, as today)."""
+    return next((t for t in tiles if t.get("label") in ("Title odds", "Playoff odds")), None)
+
+
+class DayCards:
+    """AC1: each move's card around days (claude/ADVICE_CARD_DAYS_MOCK_2026-11-25.md):
+    the day strip (Team > Schedule's own fill, ranges.move_days), the tiles
+    (Proj points, Win %, Title odds), the depth line and the footer. Every
+    string is advice_live's; numbers come from move_days and the move's own.
+    strip(m, earlier, mv, weeks) -> {week: days} or None (no range source, or
+    an add the free agents' schedule doesn't have); keep(name) -> his Players
+    row's keep chance or None."""
+
+    def __init__(self, strip, horizon: dict, keep):
+        self.strip, self.hz, self.keep = strip, horizon, keep
+
+    def card(self, m: str, earlier: list, mv, *, weeks: list, win: Optional[list], tiles: list,
+             title_gain: Optional[float], adds_left: Optional[int], drops: list,
+             far_from: Optional[list] = None, chips: bool = False, notes: list = ()) -> dict:
+        """weeks: the strip's weeks; win: [(label, change)] for the Win % tile
+        (None: Rest of season); tiles: v2_tiles' (its Title odds tile is kept);
+        adds_left: the budget week's adds left before this step (None: no add,
+        an activation); drops: the dropped players (their keep chances);
+        far_from: a far goal's weeks before its strip (the line above it);
+        chips: Rest of season's week chips in place of the strip."""
+        from .. import advice_live as al
+        title = _title_tile(tiles)
+        by = self.strip(m, earlier, mv, list(weeks) + list(far_from or [])) if self.strip else None
+        out = {"strip": None, "missing": "", "depth": "", "tiles": [], "notes": [n for n in notes if n],
+               "foot": []}
+        if by is None:
+            out["missing"] = al.DAYS_MISSING
+            out["tiles"] = al.day_tiles(None, win, title)
+        else:
+            between = None
+            if far_from:
+                bx = [x for w in far_from for x in by[w]]
+                g, l = al._gl(bx)
+                between = al.between_text(bx[0]["d"] if bx else by[weeks[0]][0]["d"], list(far_from), g - l)
+            sv = al.strip_view({w: by[w] for w in weeks}, chips=chips, between=between)
+            xs = [x for w in weeks for x in by[w]]
+            pts = al.proj_points(xs)
+            out["strip"] = sv
+            out["tiles"] = al.day_tiles(pts, win, title)
+            wg = None if win is None else sum(v for _l, v in win if v is not None)
+            if al.is_depth(sv["net"], pts, wg, title_gain if win is None else None):
+                out["depth"] = al.DEPTH_TEXT
+        if not far_from:
+            j = al.join_text(self.hz)
+            if j and adds_left is not None:
+                out["foot"].append(j)
+        if adds_left is not None:
+            out["foot"].append(al.adds_text(adds_left))
+        for n in drops:
+            k = self.keep(n) if self.keep else None
+            if k:
+                out["foot"].append(al.keep_text(n, k))
+        return out
 
 
 def _mv(d: dict) -> dict:
     return {"add": d.get("add"), "drop": d.get("drop"), "to_il": d.get("to_il")}
 
 
-def goals_view(latest: dict, order: list, team_of: dict, key_of, *, show_title: bool, starts=None) -> Optional[dict]:
+def goals_view(latest: dict, order: list, team_of: dict, key_of, *, show_title: bool,
+               dcards: "DayCards") -> Optional[dict]:
     """Advice goals (Part D): the picker's public chips and each goal's cards
     (every string the engine's: advice_live.goals_payload's texts). None when
     the goals are off, failed, or nothing but Balanced is public."""
@@ -456,12 +500,28 @@ def goals_view(latest: dict, order: list, team_of: dict, key_of, *, show_title: 
                             val, lab = al._pct(tv), "Title odds"
                         else:
                             val, lab = al._pct(tv), f"Wk {x['weeks'][0]}"
+                        gw = [int(w) for w in x["weeks"]]
+                        first = int(hz["weeks"][0])
+                        if x["target"] == "rs_title":
+                            win, far = None, None
+                        elif len(gw) == 1:
+                            win = [(f"Wk {gw[0]}", tv)]
+                            far = list(range(first, gw[0])) if not x["near"] and gw[0] > first else None
+                        else:                     # each week's own change: the step's dwp (Balanced's weeks)
+                            hw = [w for w in hz["weeks"] if w is not None]
+                            win = [(f"Wk {w}", d["dwp"][hw.index(w)] if w in hw else None) for w in gw]
+                            far = None
+                        dc = dcards.card(m, list(earlier), _mv(d), weeks=gw, win=win, tiles=tx["tiles"],
+                                        title_gain=d.get("title_odds"),
+                                        adds_left=int(base["adds_left"]) - (k - 1),
+                                        drops=[d["drop"]] if d.get("drop") else [], far_from=far,
+                                        chips=x["target"] == "rs_title",
+                                        notes=[al.FLAT_TEXT if d.get("flat") else ""])
                         card["rows"].append({"kind": "step", "n": str(k), "label": "",
                                              "adds": [_who(d["add"], key_of)], "lines": _move_lines(d, key_of),
                                              "weeks": [{"label": lab, "value": val,
                                                         "dir": "up" if tv > 0 else "down" if tv < 0 else "flat"}],
-                                             "why": al.goal_step_why(x, d, tx["why"]),
-                                             "tiles": _exact_tiles(tx["tiles"], m, list(earlier), _mv(d), starts),
+                                             "why": "", "card": dc, "tiles": dc["tiles"],
                                              "followup": "", "also": [], "flag": False})
                         earlier.append(_mv(d))
                     card["costs"] = t.get("costs") or []
@@ -483,11 +543,13 @@ GOAL_UNPRICED = "This goal could not be priced for this team tonight. Balanced\u
 
 
 def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, show_title: bool,
-                starts=None) -> dict:
+                strip=None, keep=None) -> dict:
     """The Advice segment's cards from advice_latest.json (every string the
-    engine's; see the module docstring). starts (Part B): m, earlier moves,
-    the move -> ranges.move_starts' dict, for the Starts tile's exact count.
-    view["goals"] (Part D): the picker and each goal's cards, or None."""
+    engine's; see the module docstring). AC1: each move's card is built around
+    its days (DayCards): strip(m, earlier, mv, weeks) -> ranges.move_days by
+    week (Team > Schedule's own fill), or None without a range source; keep(name)
+    -> his Players row's keep chance. view["goals"] (Part D): the picker and
+    each goal's cards, or None."""
     from .. import advice_live as al
     view = {"intro": INTRO, "cards": [], "foot": "", "error": "", "empty": "", "goals": None}
     if latest is None:
@@ -502,6 +564,12 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
         return view
     hz = latest["horizon"]
     view["intro"] = intro(hz.get("weeks") or [])
+    cards = DayCards(strip, hz, keep)
+    hweeks = [int(w) for w in hz.get("weeks") or [] if w is not None]
+
+    def bal_win(d: dict) -> list:
+        return [(f"Wk {w}", (d.get("dwp") or [None] * 2)[k] if str(w) in opps and opps.get(str(w)) else None)
+                for k, w in enumerate(hweeks)]
     for m in order:
         e = latest["managers"].get(m)
         if e is None:
@@ -525,10 +593,18 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
             if tx is None:                                       # a file from before 4c3: not priced
                 tx = {"weeks": [{"label": f"Wk {w}", "value": DASH, "dir": "flat"} for w in opps],
                       "tiles": [], "why": act["text"]}
+            why = tx["why"] if tx["why"] == al.FIRST_TEXT else ""
+            if act.get("dwp") is not None:
+                dc = cards.card(m, [], [{"activate": list(act["back"])}] + [{"drop": n} for n in act["drops"]],
+                                weeks=hweeks, win=bal_win(act), tiles=tx["tiles"], title_gain=act.get("title_odds"),
+                                adds_left=None, drops=list(act["drops"]), notes=[why])
+            else:                                                # before 4c3: not priced, no numbers to show
+                dc = None
             card["rows"].append({"kind": "act", "label": IL_LABEL,
                                  "adds": [_who(n, key_of) for n in act["back"]],
                                  "lines": [{"sign": MINUS, "kind": "down", **_who(n, key_of)} for n in act["drops"]],
-                                 "weeks": tx["weeks"], "why": tx["why"], "tiles": tx["tiles"],
+                                 "weeks": tx["weeks"], "why": "" if dc else tx["why"], "card": dc,
+                                 "tiles": dc["tiles"] if dc else tx["tiles"],
                                  "followup": "", "also": [], "flag": False})
         earlier = []
         if act and hold is None:
@@ -537,11 +613,14 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
         for k, d in enumerate(plan, 1):
             tx = d["text"].get("v2") or al.v2_texts(d, hz, opps, show_title=show_title)
             also = list(d.get("also_wanted_by") or (e["also_wanted_by"] if k == 1 else []))
-            tiles = _exact_tiles(tx["tiles"], m, list(earlier), _mv(d), starts)
+            dc = cards.card(m, list(earlier), _mv(d), weeks=hweeks, win=bal_win(d), tiles=tx["tiles"],
+                            title_gain=d.get("title_odds"), adds_left=int(e["adds_left"]) - (k - 1),
+                            drops=[d["drop"]] if d.get("drop") else [],
+                            notes=[al.FLAT_TEXT if d.get("flat") else ""])
             earlier.append(_mv(d))
             card["rows"].append({"kind": "step", "n": str(d.get("step", k)), "label": "",
                                  "adds": [_who(d["add"], key_of)], "lines": _move_lines(d, key_of),
-                                 "weeks": tx["weeks"], "why": tx["why"], "tiles": tiles,
+                                 "weeks": tx["weeks"], "why": "", "card": dc, "tiles": dc["tiles"],
                                  "followup": d["text"].get("followup") or "",
                                  "also": [{"m": o, "team": team_of[o]} for o in also], "flag": bool(also)})
         t = e.get("plan_total")
@@ -568,9 +647,14 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
         if b is not None:
             tx = b["text"].get("v2") or al.v2_texts(b, hz, opps, show_title=show_title)
             first = plan[0]["add"] if len(plan) > 1 else None
+            bearly = earlier[:1 + len((act or {}).get("drops") or [])] if (act and hold is None) else []
+            dc = cards.card(m, list(bearly), _mv(b), weeks=hweeks, win=bal_win(b), tiles=tx["tiles"],
+                            title_gain=b.get("title_odds"), adds_left=int(e["adds_left"]),
+                            drops=[b["drop"]] if b.get("drop") else [],
+                            notes=[al.FLAT_TEXT if b.get("flat") else ""])
             card["backup"] = {"if": f"If {first} is gone:" if first else "If he\u2019s gone:",
                               "add": _who(b["add"], key_of), "lines": _move_lines(b, key_of),
-                              "weeks": tx["weeks"], "tiles": tx["tiles"], "why": tx["why"]}
+                              "weeks": tx["weeks"], "tiles": dc["tiles"], "why": "", "card": dc}
         if hold is not None:                                     # H54: no steps; the adds state only
             if int(e["adds_left"]) <= 0:
                 card["empty"] = e.get("v2_empty") or al.EMPTY_V2["adds"]
@@ -579,7 +663,7 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
                     "bar" if (e.get("note") or "").startswith("nothing clears") else "pat")
             card["empty"] = e.get("v2_empty") or al.EMPTY_V2[code]
         view["cards"].append(card)
-    view["goals"] = goals_view(latest, order, team_of, key_of, show_title=show_title, starts=starts)
+    view["goals"] = goals_view(latest, order, team_of, key_of, show_title=show_title, dcards=cards)
     return view
 
 
@@ -587,10 +671,11 @@ def advice_view(latest: Optional[dict], order: list, team_of: dict, key_of, *, s
 # the block
 # =============================================================================
 
-def _starts_fn(ctx: dict):
-    """Part B: the Starts tile's exact count, from the one range source
-    (ctx["ranges"], Team > Schedule's) and the free agents' Availability;
-    None without them. The horizon's days from the move's effective day."""
+def _strip_fn(ctx: dict):
+    """AC1: a move's days by week, from the one range source (ctx["ranges"],
+    Team > Schedule's) and the free agents' Availability (ranges.move_days);
+    None without them. The days of each week from the move's effective day.
+    One memo per build: a step priced under several goals is filled once."""
     from datetime import date as _date
     from . import ranges
     src, fa_av, wk = ctx.get("ranges"), ctx.get("fa_av"), ctx.get("wk_dates")
@@ -599,14 +684,31 @@ def _starts_fn(ctx: dict):
     if src is None or fa_av is None or not wk or not hz:
         return None
     eff = _date.fromisoformat(hz["effective"])
-    days = [d for w in hz["weeks"] if w is not None for d in (wk.get(int(w)) or wk.get(str(w)) or []) if d >= eff]
+    memo = {}
 
-    def starts(m, earlier, mv):
+    def strip(m, earlier, mv, weeks):
+        out = {}
         try:
-            return ranges.move_starts(src, fa_av, m, earlier, mv, days)
+            for w in weeks:
+                ds = wk.get(int(w)) or wk.get(str(w))
+                if ds is None:
+                    raise MarketError(f"week {w} is not in the fantasy weeks (config/SCHEDULE.json)")
+                out[int(w)] = ranges.move_days(src, fa_av, m, earlier, mv, [d for d in ds if d >= eff], memo)
         except ranges.RangeError:
-            return None              # his games can't be counted here: the simulated tile, labelled so
-    return starts
+            return None              # his games can't be counted here: the card says so (DAYS_MISSING)
+        return out
+    return strip
+
+
+def _keep_fn(prow: dict):
+    """AC1: the dropped player's keep chance, as his Players row shows it
+    (rostered rows only; a dash is none)."""
+    def keep(name):
+        z = prow.get(name)
+        if not z or z.get("kind") != "rostered" or not z.get("keep") or z["keep"] == DASH:
+            return None
+        return z["keep"]
+    return keep
 
 
 def build(payload: dict, ctx: dict) -> dict:
@@ -623,12 +725,17 @@ def build(payload: dict, ctx: dict) -> dict:
     def key_of(name):
         z = prow.get(name)
         return (z.get("key") or "") if z else ""
+
+    def tags_of(name):                       # AC1: the move's tags (his Players row's status chips)
+        z = prow.get(name)
+        return [str(c["text"]) for c in (z.get("chips") or []) if c.get("kind") in ("out", "q", "il")] if z else []
+    key_of.tags = tags_of
     segs = [["available", "Available"], ["stash", "Stash"]]
     adv = None
     if ctx["advice_on"]:
         segs.append(["advice", "Advice"])
         adv = advice_view(ctx["advice"], order, team_of, key_of, show_title=ctx["show_title"],
-                          starts=_starts_fn(ctx))
+                          strip=_strip_fn(ctx), keep=_keep_fn(prow))
     segs += [["block", "Block"], ["moves", "Moves"]]
     return {"segs": segs,
             "available": available(payload["free_agents"], ctx["fa_av"], ctx["col_specs"], prow),

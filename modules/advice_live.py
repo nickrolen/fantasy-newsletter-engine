@@ -778,6 +778,199 @@ def starts_tile(sim: float, exact: dict) -> dict:
             "dir": "up" if n > 0 else "down" if n < 0 else "flat", "sub": sub, "tip": tip, "kind": "starts"}
 
 
+# =============================================================================
+# AC1: the Advice card around days (claude/ADVICE_CARD_DAYS_MOCK_2026-11-25.md,
+# claude/HANDOFF_AC1_ADVICE_CARD_DAYS_2026-11-26.md). Every string the card
+# prints; the numbers are hub_v2.ranges.move_days' (Team > Schedule's own fill,
+# the sure players) and the move's own (dwp, title odds). The renderer prints.
+# =============================================================================
+
+DAY_MARK = {"up": "+", "down": "\u2212", "full": "full", "same": "="}
+DAY_HINT = "Tap a day: who plays, and what the move does that day."
+DAYS_MISSING = "His days can\u2019t be counted here: he isn\u2019t in tonight\u2019s free-agent schedule."
+DEPTH_TEXT = "Most of this is depth: he fills in when someone sits."
+FLAT_TEXT = "The matchups are as good as decided, so it is ranked on points."
+CHIPS_HINT = "Tap a week for its days."
+# The depth rule (AC1 s.5, proposed; Nick to confirm the thresholds): a move is
+# "mostly depth" when the schedule barely moves (|net starts| <= DEPTH_MAX_NET
+# and |proj points| <= DEPTH_MAX_PTS over the strip's days) yet its verdict is
+# a real gain: the win-% changes over the card's weeks sum to DEPTH_MIN_WIN or
+# more (Rest of season, which has no win %: title odds DEPTH_MIN_TITLE or more).
+# The gain then comes from the simulation's fill-ins (injuries, rest), which the
+# strip, counting today's sure players only, cannot show.
+DEPTH_MAX_NET = 1
+DEPTH_MAX_PTS = 20.0
+DEPTH_MIN_WIN = 0.010
+DEPTH_MIN_TITLE = 0.005
+DOW1 = "MTWTFSS"
+
+
+def _signed(n: int) -> str:
+    return (f"{n:+d}" if n else "0").replace("-", "\u2212")
+
+
+def day_kind(x: dict) -> str:
+    """up (a start gained), down (lost), full (10 or more of his already play and
+    the move's player plays: no room), same (both play or neither does), off
+    (no NBA games: neither plays)."""
+    if x["delta"] > 0:
+        return "up"
+    if x["delta"] < 0:
+        return "down"
+    if x["full"]:
+        return "full"
+    return "off" if not x["nba"] else "same"
+
+
+def day_line(x: dict) -> str:
+    """The one line a tapped day opens: who plays, and what the move does."""
+    head = _md(x["d"])
+    if not x["nba"]:
+        return f"{head} \u00b7 no NBA games."
+    n = int(x["n"])
+    head += f" \u00b7 {n} of yours {'plays' if n == 1 else 'play'}"
+    on = set(x["ins"]) | set(x["outs"])
+    ins, drops = list(x["in_names"]), list(x["drop_names"])
+    shown = ins + drops
+    if len(shown) == 2 and all(p in on for p in shown):
+        who = "both play"
+    elif len(shown) == 2 and not any(p in on for p in shown):
+        who = "neither plays"
+    else:                                   # the added (or activated) player first, then the dropped one
+        bits, prev = [], None
+        for p in shown:
+            plays = p in on
+            if prev is None:
+                bits.append(p + (" plays" if plays else " doesn\u2019t play"))
+            else:
+                bits.append(p + ((" does" if plays else " doesn\u2019t") if plays != prev else
+                                 (" plays" if plays else " doesn\u2019t play")))
+            prev = plays
+        who = ", ".join(bits)
+    k = day_kind(x)
+    d = int(x["delta"])
+    if k == "up":
+        what = f"{_signed(d)} {'start' if abs(d) == 1 else 'starts'}"
+    elif k == "down":
+        what = f"{_signed(d)} {'start' if abs(d) == 1 else 'starts'}"
+    elif k == "full":
+        what = f"no room: {n} already play, so no extra start"
+    else:
+        what = "the same starts"
+    pts = float(x["pts"])
+    if round(pts, 1) != 0:
+        what += f" ({pts:+.1f} pts)".replace("-", "\u2212")
+    return f"{head} \u00b7 {who}: {what}."
+
+
+def games_text(gained: int, lost: int) -> str:
+    """'+1 \u00b7 4 gained, 3 lost' (starts, Team > Schedule's count)."""
+    if not gained and not lost:
+        return "0 \u00b7 no day changes"
+    return f"{_signed(gained - lost)} \u00b7 {gained} gained, {lost} lost"
+
+
+def _gl(xs) -> tuple:
+    return (sum(x["delta"] for x in xs if x["delta"] > 0), -sum(x["delta"] for x in xs if x["delta"] < 0))
+
+
+def week_block(w: int, xs: list) -> dict:
+    """One week's boxes: {"week", "label", "sub", "line", "net", "days": [{"k",
+    "mark", "n", "dow", "d", "line", "col"}]} (col: the first box's weekday,
+    0 = Monday, so a block lines up under M T W T F S S)."""
+    g, l = _gl(xs)
+    long = len(xs) > 7
+    lab = f"Wk {w}"
+    days = []
+    for i, x in enumerate(xs):
+        k = day_kind(x)
+        days.append({"k": k, "mark": DAY_MARK["same" if k == "off" else k], "n": str(int(x["n"])),
+                     "dow": DOW1[x["d"].weekday()], "d": str(x["d"].day), "line": day_line(x),
+                     "col": x["d"].weekday() if i == 0 else None})
+    return {"week": int(w), "label": lab, "sub": f"{len(xs)} days" if long else "",
+            "line": f"{lab}{' (' + str(len(xs)) + ' days)' if long else ''}: {games_text(g, l)}",
+            "net": g - l, "days": days}
+
+
+def strip_view(by_week: dict, *, chips: bool = False, between: Optional[str] = None) -> dict:
+    """The card's Games block. by_week {week: move_days' days}. chips (Rest of
+    season): no strip, a chip per week with its net games, its days on tap."""
+    allx = [x for w in sorted(by_week) for x in by_week[w]]
+    g, l = _gl(allx)
+    blocks = [week_block(w, by_week[w]) for w in sorted(by_week)]
+    out = {"label": "Games", "total": games_text(g, l), "net": g - l, "between": between,
+           "hint": CHIPS_HINT if chips else DAY_HINT, "weeks": [] if chips else blocks, "chips": None,
+           "per_week": len(blocks) > 1 and not chips}
+    if chips:
+        out["chips"] = [{"week": b["week"], "label": b["label"], "value": _signed(b["net"]),
+                         "dir": "up" if b["net"] > 0 else "down" if b["net"] < 0 else "flat",
+                         "aria": b["line"], "block": b} for b in blocks]
+    return out
+
+
+def between_text(effective: date, weeks: list, net: int) -> str:
+    """A far goal's line above its strip: 'Joins Mon 11-30. Weeks 7\u201310: +2 games'."""
+    span = f"Week {weeks[0]}" if len(weeks) == 1 else f"Weeks {weeks[0]}\u2013{weeks[-1]}"
+    what = (f"{_signed(net)} {'game' if abs(net) == 1 else 'games'}" if net else "no change in games")
+    return f"Joins {_md(effective)}. {span}: {what}"
+
+
+def proj_points(xs: list) -> float:
+    """The Proj points tile's number: every strip day's change in the starters'
+    projected points (Team > Schedule's fill: a gained day adds his projection,
+    a lost day takes the dropped player's off, a day both play counts the
+    difference; AC1 decision 1)."""
+    return round(sum(float(x["pts"]) for x in xs), 3)
+
+
+def day_tiles(pts: Optional[float], win: Optional[list], title: Optional[dict]) -> list:
+    """Proj points \u00b7 Win % \u00b7 Title odds. win: [(label, change)] per week the
+    strip covers (None: no Win % tile, Rest of season); a change of None is a
+    week the engine does not price per week ("\u2014"). title: v2_tiles' title tile
+    (None when advice.show_title_odds is off)."""
+    out = []
+    if pts is not None:
+        out.append({"label": "Proj points", "value": f"{pts:+.0f}".replace("-", "\u2212") if round(pts) else "0",
+                    "dir": "up" if round(pts) > 0 else "down" if round(pts) < 0 else "flat"})
+    if win:
+        out.append({"label": "Win %", "value": "", "dir": "flat",
+                    "rows": [{"label": lab, "value": "\u2014" if v is None else _pct(v),
+                              "dir": "flat" if v is None else _dir(v)} for lab, v in win]})
+    if title is not None:
+        out.append(dict(title))
+    return out
+
+
+def is_depth(net: int, pts: float, win_gain: Optional[float], title_gain: Optional[float]) -> bool:
+    """The depth exception (constants above)."""
+    if abs(int(net)) > DEPTH_MAX_NET or abs(float(pts)) > DEPTH_MAX_PTS:
+        return False
+    if win_gain is not None:
+        return float(win_gain) >= DEPTH_MIN_WIN
+    return title_gain is not None and float(title_gain) >= DEPTH_MIN_TITLE
+
+
+def join_text(horizon: dict) -> Optional[str]:
+    """'Joins Mon 11-30 (chat claim)' for a chat move; None for a window move."""
+    if horizon.get("kind") != "chat":
+        return None
+    return f"Joins {_md(date.fromisoformat(str(horizon['effective'])[:10]))} (chat claim)"
+
+
+def adds_text(left: int) -> str:
+    """'Uses 1 of your 2 adds left this week' (the budget week's adds left
+    before this step)."""
+    left = int(left)
+    if left <= 0:
+        raise AdviceInputError("a step with an add, and no adds left before it")
+    return "Uses your last add this week" if left == 1 else f"Uses 1 of your {left} adds left this week"
+
+
+def keep_text(name: str, keep: str) -> str:
+    """The dropped player's keep chance, as his Players row shows it."""
+    return f"{name}\u2019s keep chance: {keep}"
+
+
 # Part B: below one extra start (simulated), the gain is a better player in the same slots
 POINTS_FIRST_STARTS = 1.0
 

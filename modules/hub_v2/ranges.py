@@ -438,22 +438,72 @@ class Moved:
         return self._grid(self, manager, d)
 
 
+def _sig(mv: dict) -> tuple:
+    return (mv.get("add"), mv.get("drop"), mv.get("to_il"), tuple(mv.get("activate") or ()))
+
+
+def move_days(src: "Source", fa_av, m: str, earlier: Sequence[dict], move,
+              days: Sequence[date], memo: dict = None) -> List[dict]:
+    """AC1 (the Advice card around days): the move's effect on each of `days`,
+    counted like Team > Schedule (the sure players' exact fill, day_fill), with
+    `earlier` steps and the move (a dict, or a list of dicts applied together:
+    an activation with its drops) against the earlier steps alone. Numbers only
+    (advice_live makes the strings). Per day:
+        {"d", "nba": NBA games that day, "n": his players who play (before the
+         move: Team > Schedule's own count for step 1), "s": his starts before,
+         "delta": starts after - before, "pts": the starters' projected points
+         after - before (Team > Schedule's fill, each player's projection),
+         "ins": [players the move brings in, who play that day],
+         "outs": [players the move takes out, who would have played],
+         "in_names" / "out_names": every player the move brings in / takes out
+         ("drop_names": the dropped ones, without an IL placement),
+         "full": no start changes while 10 or more of his already play and a
+         player the move brings in plays (no room: his game adds no start;
+         "pts" says whether he starts over someone)}
+    memo: a dict shared across calls (one hub build) so a step priced under
+    several goals is filled once per day."""
+    memo = {} if memo is None else memo
+    mvs = list(move) if isinstance(move, (list, tuple)) else [move]
+    ins = [n for mv in mvs for n in (mv.get("activate") or [])] + [mv["add"] for mv in mvs if mv.get("add")]
+    drops = [mv["drop"] for mv in mvs if mv.get("drop")]
+    outs = drops + [mv["to_il"] for mv in mvs if mv.get("to_il")]
+    e_sig = tuple(_sig(x) for x in earlier)
+    m_sig = tuple(_sig(x) for x in mvs)
+    moved = {}
+
+    def _moved(av, steps, key):
+        k = (id(av), key)
+        if k not in moved:
+            moved[k] = Moved(av, fa_av, m, steps)
+        return moved[k]
+    out = []
+    for d in days:
+        key = (m, e_sig, m_sig, d)
+        if key in memo:
+            out.append(memo[key])
+            continue
+        av = src.av_on(d)
+        a = (day_fill(_moved(av, list(earlier), "a"), m, d, src.light_max, src.standins, src.nba(d))
+             if earlier else src.day(m, d))
+        b = day_fill(_moved(av, list(earlier) + mvs, "b"), m, d, src.light_max, src.standins, src.nba(d))
+        delta = b.starts[0] - a.starts[0]
+        ins_p = [n for n in ins if n in b.sure]
+        outs_p = [n for n in outs if n in a.sure]
+        full = delta == 0 and a.count[0] >= SEATS and bool(ins_p)
+        x = {"d": d, "nba": a.nba, "n": a.count[0], "s": a.starts[0], "delta": delta,
+             "pts": round(b.pts[0] - a.pts[0], 3), "ins": ins_p, "outs": outs_p,
+             "in_names": list(ins), "drop_names": list(drops), "out_names": list(outs), "full": bool(full)}
+        memo[key] = x
+        out.append(x)
+    return out
+
+
 def move_starts(src: "Source", fa_av, m: str, earlier: Sequence[dict], move: dict,
                 days: Sequence[date]) -> dict:
     """Part B: the move's starts on `days`, counted like Team > Schedule (the
     sure players' exact fill, day_fill): with `earlier` steps and the move,
     minus with the earlier steps alone. {"delta", "gained": [days], "lost":
-    [days]}. One source: the Starts tile reads this, never a second fill."""
-    delta, gained, lost = 0, [], []
-    for d in days:
-        av = src.av_on(d)
-        a = (day_fill(Moved(av, fa_av, m, earlier), m, d, src.light_max, src.standins, src.nba(d))
-             if earlier else src.day(m, d))
-        b = day_fill(Moved(av, fa_av, m, list(earlier) + [move]), m, d, src.light_max, src.standins, src.nba(d))
-        x = b.starts[0] - a.starts[0]
-        delta += x
-        if x > 0:
-            gained.append(d)
-        elif x < 0:
-            lost.append(d)
-    return {"delta": delta, "gained": gained, "lost": lost}
+    [days]}. One source with the AC1 strip (move_days)."""
+    xs = move_days(src, fa_av, m, earlier, move, days)
+    return {"delta": sum(x["delta"] for x in xs), "gained": [x["d"] for x in xs if x["delta"] > 0],
+            "lost": [x["d"] for x in xs if x["delta"] < 0]}

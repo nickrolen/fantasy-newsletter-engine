@@ -125,7 +125,10 @@ def test_the_tap_sweep_of_the_published_synthetic_league(tmp_path):
     e = T2._archive(base)
     p = T2.synth_payload()
     import hub_v2_market_fixture as MF                  # Advice goals (Part D): the picker and its parts too
-    MF.add_market(p, advice=MF.advice_with_goals())
+    import hub_ac1_fixture as AC1                       # AC1: the cards around days, on the real range source
+    adv = AC1.advice()
+    MF.add_market(p, advice=adv)
+    AC1.advice_view(p, adv)
     p["v2"]["issue"]["file"] = e["enc"]
     p["newsletter"]["current"]["file"] = e["enc"]
     out = tmp_path / "publish"

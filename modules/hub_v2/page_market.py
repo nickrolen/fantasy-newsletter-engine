@@ -24,7 +24,7 @@ import json
 
 from .text import clean, colh, colh_btn
 
-TAP_CLASSES = ("adv-row", "adv-bk", "adv-crow", "v2-mkcell", "v2-mvchip")
+TAP_CLASSES = ("adv-row", "adv-bk", "adv-crow", "adv-days", "adv-wchip", "v2-mkcell", "v2-mvchip")
 DOT = " \u00b7 "
 
 CSS = """
@@ -132,6 +132,45 @@ CSS = """
 .adv-sc{display:flex;flex-direction:column;align-items:center;gap:var(--space-2);background:var(--surface-subtle);border-radius:var(--radius-9);padding:var(--space-6) var(--space-2)}
 .adv-ssub{font-size:var(--type-label-size);color:var(--ink-3)}
 .adv-asof{font-size:var(--type-small-size);font-weight:700;color:var(--ink-3)}
+/* AC1: the card around days. The strip taps as ONE control (.adv-days, the
+   whole grid, 44 points and up) with its own day readout (.adv-dayl): a box is
+   too narrow for 44 points across at 360 px. Rest of season's week chips are
+   44-point buttons each. */
+.adv-games{display:flex;flex-direction:column;gap:var(--space-4)}
+.adv-gh{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-8)}
+.adv-gt{font-family:var(--font-display);font-size:var(--type-display-sm-size);font-weight:700;color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.adv-wl{font-size:var(--type-small-size);font-weight:700;color:var(--ink-2);padding-top:var(--space-4)}
+.adv-days{all:unset;box-sizing:border-box;cursor:pointer;width:100%;min-height:var(--tap-min);display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-2)}
+.adv-days:focus-visible,.adv-wchip:focus-visible{outline:var(--hairline) solid var(--accent);outline-offset:var(--space-2)}
+.adv-dh{font-size:var(--type-label-size);font-weight:800;color:var(--ink-3);text-align:center}
+.adv-dy{display:flex;flex-direction:column;align-items:center;gap:var(--hairline);border-radius:var(--radius-6);padding:var(--space-2) 0;background:var(--surface);box-shadow:inset 0 0 0 var(--hairline) var(--line);min-width:0}
+.adv-dd{font-size:var(--type-label-size);color:var(--ink-3)}
+.adv-dn{font-family:var(--font-display);font-size:var(--type-heading-size);font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+.adv-dm{font-size:var(--type-label-size);font-weight:800;color:var(--ink-3)}
+.adv-dy--up{box-shadow:inset 0 0 0 var(--space-2) var(--up)}
+.adv-dy--up .adv-dm{color:var(--up)}
+.adv-dy--down{box-shadow:inset 0 0 0 var(--space-2) var(--down)}
+.adv-dy--down .adv-dm{color:var(--down)}
+.adv-dy--full{background:var(--surface-sunken);box-shadow:none}
+.adv-dy--off{background:transparent;box-shadow:none}
+.adv-dy--off .adv-dn{color:var(--ink-3)}
+.adv-dy[data-on]{outline:var(--hairline) solid var(--ink-strong);outline-offset:var(--hairline)}
+.adv-c1{grid-column-start:2}.adv-c2{grid-column-start:3}.adv-c3{grid-column-start:4}.adv-c4{grid-column-start:5}.adv-c5{grid-column-start:6}.adv-c6{grid-column-start:7}
+.adv-dayl{margin:0;min-height:calc(var(--type-small-size) * 2.7);font-size:var(--type-small-size);line-height:1.35;color:var(--ink-2)}
+.adv-wchips{display:flex;flex-wrap:wrap;gap:var(--space-4)}
+.adv-wchip{all:unset;box-sizing:border-box;cursor:pointer;min-width:var(--tap-min);min-height:var(--tap-min);display:inline-flex;flex-direction:column;align-items:center;justify-content:center;border-radius:var(--radius-9);background:var(--surface);box-shadow:inset 0 0 0 var(--hairline) var(--line);padding:var(--space-2) var(--space-6)}
+.adv-wchip[aria-expanded="true"]{box-shadow:inset 0 0 0 var(--space-2) var(--ink-strong)}
+.adv-wchip .adv-v{font-size:var(--type-heading-size)}
+.adv-wblk{display:flex;flex-direction:column;gap:var(--space-4)}
+.adv-wblk[hidden]{display:none}
+.adv-depth{font-size:var(--type-body-size);font-weight:700;color:var(--ink)}
+.adv-foot{display:flex;flex-direction:column;gap:var(--space-2);font-size:var(--type-small-size);color:var(--ink-2)}
+.adv-tagc{display:inline-flex;align-items:center;font-size:var(--type-label-size);font-weight:800;color:var(--ink-2);background:var(--surface-sunken);border-radius:var(--radius-pill);padding:0 var(--space-4);white-space:nowrap}
+.adv-tagc--out{color:var(--status-out);background:var(--status-out-tint)}
+.adv-tagc--q{color:var(--status-q);background:var(--status-q-tint)}
+.adv-trows{display:grid;grid-template-columns:auto auto;justify-content:start;column-gap:var(--space-6);align-items:baseline}
+.adv-trows .adv-l{font-size:var(--type-small-size);font-weight:700;color:var(--ink-3)}
+.adv-trows .adv-v{font-size:var(--type-heading-size)}
 """
 
 JS = r"""
@@ -232,8 +271,29 @@ function advRoute(){
 }
 window.addEventListener('hashchange',advRoute);
 setTimeout(advRoute,0);
+// AC1: a tap on the strip shows that day's line in the card's readout (the
+// engine's line, carried on the box); a keyboard press steps to the next day.
+// A week chip (Rest of season) opens its week's days and closes the others.
+function advDay(btn,e){
+  var out=document.getElementById(btn.getAttribute('data-out'));if(!out){return;}
+  var box=e.target.closest?e.target.closest('.adv-dy'):null;
+  var ds=btn.querySelectorAll('.adv-dy');
+  if(!box||!btn.contains(box)){var cur=btn.querySelector('.adv-dy[data-on]'),i=-1;
+    for(var k=0;k<ds.length;k++){if(ds[k]===cur){i=k;}}box=ds[(i+1)%ds.length];}
+  var on=out.closest('.adv-games').querySelectorAll('.adv-dy[data-on]');
+  for(var j=0;j<on.length;j++){on[j].removeAttribute('data-on');}
+  if(box){box.setAttribute('data-on','');out.textContent=box.getAttribute('data-l');}
+}
 document.addEventListener('click',function(e){
-  var t=e.target.closest('[data-goal]');
+  var t=e.target.closest('[data-days]');
+  if(t){advDay(t,e);return;}
+  t=e.target.closest('.adv-wchip[aria-controls]');
+  if(t){var o0=t.getAttribute('aria-expanded')==='true',cs=t.parentNode.querySelectorAll('.adv-wchip');
+    for(var c=0;c<cs.length;c++){cs[c].setAttribute('aria-expanded','false');
+      var bb=document.getElementById(cs[c].getAttribute('aria-controls'));if(bb){bb.hidden=true;}}
+    if(!o0){t.setAttribute('aria-expanded','true');document.getElementById(t.getAttribute('aria-controls')).hidden=false;}
+    return;}
+  t=e.target.closest('[data-goal]');
   if(t){advGoal(t.getAttribute('data-goal'),true);return;}
   t=e.target.closest('.adv-crow--btn[aria-controls]');
   if(t){var o=t.getAttribute('aria-expanded')==='true';t.setAttribute('aria-expanded',String(!o));
@@ -547,8 +607,15 @@ def _tiles(tiles: list, ids=None) -> str:
         d = {"up": " adv-up", "down": " adv-down"}.get(t["dir"], "")
         tip = _tip(ids, t["label"], t["tip"]) if (t.get("tip") and ids is not None) else ""
         sub = f'<span class="adv-tsub">{clean(t["sub"])}</span>' if t.get("sub") else ""
+        if t.get("rows"):                                       # AC1: Win %, one row per week
+            val = ('<span class="adv-trows">' + "".join(
+                f'<span class="adv-l">{clean(r["label"])}</span><span class="adv-v'
+                f'{"" if r["dir"] == "up" else " adv-v--down" if r["dir"] == "down" else " adv-v--flat"}">'
+                f'{clean(r["value"])}</span>' for r in t["rows"]) + "</span>")
+        else:
+            val = f'<span class="lh-kpi__value{d}">{clean(t["value"])}</span>'
         o.append(f'<div class="lh-kpi lh-kpi--nested"><span class="adv-tl"><span class="lh-label">{clean(t["label"])}'
-                 f'</span>{tip}</span><span class="lh-kpi__value{d}">{clean(t["value"])}</span>{sub}</div>')
+                 f'</span>{tip}</span>{val}{sub}</div>')
     o.append("</div>")
     return "".join(o)
 
@@ -565,7 +632,7 @@ def _lines(lines: list) -> str:
                        f'<span>{clean(x["name"])}</span></span>')
         else:
             out.append(f'<span class="adv-drop"><span class="adv-sign adv-down">{clean(x["sign"])}</span>'
-                       f'<span>{clean(x["name"])}</span></span>')
+                       f'<span>{clean(x["name"])}{_tagc(x)}</span></span>')
     return "".join(out)
 
 
@@ -577,9 +644,79 @@ def _cards(players: list) -> str:
     return '<div class="adv-cards">Cards: ' + " &middot; ".join(_name(p) for p in linked) + "</div>"
 
 
+def _tagc(p: dict) -> str:
+    """AC1: the move's tags (his status chips, the Players row's text)."""
+    out = []
+    for t in p.get("tags") or []:
+        k = " adv-tagc--out" if t.startswith(("O", "OFS")) and not t.startswith("OVR") else \
+            " adv-tagc--q" if t.startswith(("Q", "D")) else ""
+        out.append(f' <span class="adv-tagc{k}">{clean(t)}</span>')
+    return "".join(out)
+
+
+def _strip_days(b: dict, out_id: str) -> str:
+    """One week's boxes: ONE tap control (the whole grid), with the weekday
+    letters over it; each box carries its engine line for the readout."""
+    o = [f'<button type="button" class="adv-days" data-days data-out="{out_id}" '
+         f'aria-label="{clean(b["line"])}. Tap a day for its line.">']
+    o.append("".join(f'<span class="adv-dh" aria-hidden="true">{ch}</span>' for ch in "MTWTFSS"))
+    for x in b["days"]:
+        col = f' adv-c{x["col"]}' if x.get("col") else ""
+        o.append(f'<span class="adv-dy adv-dy--{x["k"]}{col}" data-l="{clean(x["line"])}">'
+                 f'<span class="adv-dd">{clean(x["d"])}</span><span class="adv-dn">{clean(x["n"])}</span>'
+                 f'<span class="adv-dm">{clean(x["mark"])}</span></span>')
+    o.append("</button>")
+    return "".join(o)
+
+
+def _day_card(c: dict, ids) -> str:
+    """AC1: Games (the day strip, or Rest of season's week chips), the depth
+    line, the tiles; every string the engine's (market.DayCards)."""
+    o = []
+    for n in c.get("notes") or []:
+        o.append(f'<div class="adv-why">{clean(n)}</div>')
+    sv = c.get("strip")
+    if sv:
+        rid = ids.next("dayl")
+        o.append(f'<div class="adv-games"><div class="adv-gh"><span class="lh-label">{clean(sv["label"])}</span>'
+                 f'<span class="adv-gt">{clean(sv["total"])}</span></div>')
+        if sv.get("between"):
+            o.append(f'<span class="lh-sub">{clean(sv["between"])}</span>')
+        if sv.get("chips"):
+            o.append('<div class="adv-wchips">')
+            bids = []
+            for ch in sv["chips"]:
+                bid = ids.next("wk")
+                bids.append((bid, ch))
+                d = {"up": "", "down": " adv-v--down"}.get(ch["dir"], " adv-v--flat")
+                o.append(f'<button type="button" class="adv-wchip" aria-expanded="false" aria-controls="{bid}" '
+                         f'aria-label="{clean(ch["aria"])}"><span class="adv-l">{clean(ch["label"])}</span>'
+                         f'<span class="adv-v{d}">{clean(ch["value"])}</span></button>')
+            o.append("</div>")
+            for bid, ch in bids:
+                o.append(f'<div class="adv-wblk" id="{bid}" hidden><span class="adv-wl">{clean(ch["block"]["line"])}</span>'
+                         + _strip_days(ch["block"], rid) + "</div>")
+        else:
+            for b in sv["weeks"]:
+                if sv.get("per_week"):
+                    o.append(f'<span class="adv-wl">{clean(b["line"])}</span>')
+                o.append(_strip_days(b, rid))
+        o.append(f'<p class="adv-dayl" id="{rid}" aria-live="polite">{clean(sv["hint"])}</p></div>')
+    elif c.get("missing"):
+        o.append(f'<div class="adv-why">{clean(c["missing"])}</div>')
+    if c.get("depth"):
+        o.append(f'<div class="adv-depth">{clean(c["depth"])}</div>')
+    o.append(_tiles(c["tiles"], ids))
+    return "".join(o)
+
+
+def _foot(lines: list) -> str:
+    return '<div class="adv-foot">' + "".join(f"<span>{clean(x)}</span>" for x in lines) + "</div>"
+
+
 def _adv_row(r: dict, ids) -> str:
     did = ids.next("adv")
-    adds = ", ".join(f"<b>{clean(p['name'])}</b>" for p in r["adds"])
+    adds = ", ".join(f"<b>{clean(p['name'])}</b>{_tagc(p)}" for p in r["adds"])
     flag = ' <span class="adv-flag" title="Also in another team\u2019s plan" aria-label="Another team wants him too">&#9873;</span>' \
         if r["flag"] else ""
     if r["kind"] == "act":
@@ -591,10 +728,17 @@ def _adv_row(r: dict, ids) -> str:
                 f'<span class="adv-n" aria-label="Step {clean(r["n"])}">{clean(r["n"])}</span><span class="adv-mv">'
                 f'<span class="adv-add"><span class="adv-sign adv-up">+</span>{adds}{flag}</span>{_lines(r["lines"])}</span>')
     head += f'{_weeks(r["weeks"])}<span class="adv-chev" aria-hidden="true">&rsaquo;</span></button>'
-    det = [f'<div class="adv-det" id="{did}" hidden><div class="adv-why">{clean(r["why"])}</div>']
+    det = [f'<div class="adv-det" id="{did}" hidden>']
+    if r.get("why"):
+        det.append(f'<div class="adv-why">{clean(r["why"])}</div>')
     if r.get("followup"):
         det.append(f'<div class="adv-why">{clean(r["followup"])}</div>')
-    det.append(_tiles(r["tiles"], ids))
+    if r.get("card"):
+        det.append(_day_card(r["card"], ids))
+    else:
+        det.append(_tiles(r["tiles"], ids))
+    if r.get("card") and r["card"]["foot"]:
+        det.append(_foot(r["card"]["foot"]))
     if r["also"]:
         det.append('<div class="adv-tag">Also wanted by ' + "".join(_team_link(t) for t in r["also"]) + "</div>")
     det.append(_cards(r["adds"] + r["lines"]))
@@ -720,8 +864,11 @@ def _advice(av: dict, ids, info, mark_of, gparts: dict = None, ginfo: str = "") 
                      f'{clean(b["if"])} <b>+ {clean(b["add"]["name"])}'
                      + "".join(f' {clean(x["sign"])} {clean(x["name"])}' for x in b["lines"])
                      + '</b></span><span class="adv-chev" aria-hidden="true">&rsaquo;</span></button>'
-                     f'<div class="adv-det" id="{did}" hidden>{_weeks(b["weeks"])}<div class="adv-why">{clean(b["why"])}</div>'
-                     f'{_tiles(b["tiles"], ids)}{_cards([b["add"]] + b["lines"])}</div>')
+                     f'<div class="adv-det" id="{did}" hidden>{_weeks(b["weeks"])}'
+                     + (f'<div class="adv-why">{clean(b["why"])}</div>' if b.get("why") else "")
+                     + (_day_card(b["card"], ids) + (_foot(b["card"]["foot"]) if b["card"]["foot"] else "")
+                        if b.get("card") else _tiles(b["tiles"], ids))
+                     + f'{_cards([b["add"]] + b["lines"])}</div>')
         if c["empty"]:
             o.append(f'<div class="adv-empty">{clean(c["empty"])}</div>')
         o.append("</section>")
