@@ -15,22 +15,37 @@ from modules import simulator_betting as sb
 from modules.data_loader import MANAGERS
 from test_season_sim import _world
 
-TAU0 = 0.35 / math.sqrt(20)
+TAU0 = 0.35 / math.sqrt(20)      # the derived width at scale 1.0
+LIVE_SCALE = 1.5                  # T1 (Nick, 11-26): claude/T1_DECISIONS_2026-11-26.md
 
 
 def _cfg(monkeypatch, **pe):
     monkeypatch.setattr(dl, "_LEAGUE_CONFIG", dict(dl._LEAGUE_CONFIG, projection_error=pe))
 
 
-# 5 -- the width, derived
-def test_tau_at_zero_is_derived_from_the_curve_constants():
+# 5 -- the width, derived (at scale 1.0), then scaled
+def test_tau_at_zero_is_derived_from_the_curve_constants(monkeypatch):
+    _cfg(monkeypatch, scale=1.0)
     assert pj.projection_error_sd(0) == pytest.approx(TAU0)
     assert pj.projection_error_sd(0) == pytest.approx(0.0783, abs=1e-4)
 
 
 @pytest.mark.parametrize("k, expect", [(0, 1.0), (20, math.sqrt(0.5)), (60, 0.5), (5, math.sqrt(0.8))])
-def test_tau_narrows_with_appearances_exactly(k, expect):
+def test_tau_narrows_with_appearances_exactly(monkeypatch, k, expect):
+    _cfg(monkeypatch, scale=1.0)
     assert pj.projection_error_sd(k) == pytest.approx(TAU0 * expect)
+
+
+def test_the_live_scale_is_t1s_measured_1_5():
+    """T1 (Nick, 11-26): each player's error measured about 1.3-1.4 times
+    wider in sd than the derived tau (eight past seasons, and Yahoo's real
+    2025-11-10 projection), so the config scale is 1.5 -- no team factor.
+    11.7% at zero games, 8.3% at 20, 5.9% at 60; still one curve with k0."""
+    assert dl.league_rule("projection_error", "scale") == LIVE_SCALE
+    assert pj.projection_error_sd(0) == pytest.approx(LIVE_SCALE * TAU0)
+    assert pj.projection_error_sd(0) == pytest.approx(0.1174, abs=1e-4)
+    assert pj.projection_error_sd(20) == pytest.approx(0.0830, abs=1e-4)
+    assert pj.projection_error_sd(60) == pytest.approx(0.0587, abs=1e-4)
 
 
 def test_tau_follows_the_scale_and_k0(monkeypatch):
@@ -65,7 +80,7 @@ def test_the_multiplier_has_mean_one_and_the_derived_spread():
     allm = np.concatenate(list(m.values()))
     se = allm.std() / math.sqrt(len(allm))
     assert abs(allm.mean() - 1.0) < 4 * se
-    assert np.log(allm).std() == pytest.approx(TAU0, rel=0.01)
+    assert np.log(allm).std() == pytest.approx(LIVE_SCALE * TAU0, rel=0.01)   # the live width
 
 
 def _week(data, teams, seed=3, n=4000, week=9):

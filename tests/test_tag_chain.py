@@ -193,11 +193,17 @@ def test_a_monday_fetch_prices_exactly_as_before():
     was -- the pass is still 92a0e7f0105588f8, so s.3's guarantee is
     untouched; under the config's rule "healthy_at_anchor" it is
     8eab30a88ba43e3a (computed in the VM on 11-25, both with and without
-    anchors offered)."""
+    anchors offered).
+
+    T1 (11-26) set projection_error.scale to 1.5. Both hashes were computed
+    at 1.0, and this test pins the tag chain, not the width of the persistent
+    error, so it holds the scale at 1.0 (at 1.5 the pass is a different, equally
+    deterministic one)."""
     import test_season_sim as T
     from modules import data_loader
     mp = pytest.MonkeyPatch()
     mp.setattr(spo, "resolve_completed_week", lambda d, w: None)
+    mp.setitem(data_loader._LEAGUE_CONFIG["projection_error"], "scale", 1.0)
     try:
         for rule, want in (("stationary", "92a0e7f0105588f8"), ("healthy_at_anchor", "8eab30a88ba43e3a")):
             mp.setitem(data_loader._LEAGUE_CONFIG["absence_chain_start"], "rule", rule)

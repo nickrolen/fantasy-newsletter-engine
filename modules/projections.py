@@ -58,10 +58,18 @@ def projection_error_sd(actual_games) -> float:
     Derived from the shrinkage curve, not chosen: in the normal model behind
     k/(k+k0), k0 = sigma_game^2 / tau^2, so the persistent error and the
     curve are ONE model and cannot drift apart -- change k0 and the width
-    follows. 7.8% at k=0 with the engine's constants (0.35, k0 = 20); 5.5% at
-    20 games, 3.9% at 60. The routes measured so far: CV 0.35 / k0 24.5
-    (against Yahoo) 7.1%; CV 0.337 (measured) / k0 20, 7.5%; the 10-21
+    follows. 7.8% at k=0 with the engine's constants (0.35, k0 = 20) at scale
+    1.0; 5.5% at 20 games, 3.9% at 60. The routes measured so far: CV 0.35 /
+    k0 24.5 (against Yahoo) 7.1%; CV 0.337 (measured) / k0 20, 7.5%; the 10-21
     illustration, 7% (HANDOFF_PERSISTENT_ERROR_2026-10-28).
+
+    T1 (Nick, 11-26): the scale is 1.5, so 11.7% at k=0, 8.3% at 20 games and
+    5.9% at 60. Measured: against eight past seasons and Yahoo's real
+    2025-11-10 projection, each player's error is about 1.3-1.4 times wider in
+    sd than this tau, and the roster-level persistent error about 2.5% against
+    the 1.6% scale 1.0 gave; no correlated team component was found, so there
+    is no team factor (claude/T1_PHASE1_2026-11-26.md). Still one curve: k0
+    stays 20, though a tau 1.5 times wider implies k0 near 9 (for the audit).
 
     Same tau for everyone, rookies included -- a rookie's error is surely
     wider; deferred. Raises if projection_error.scale is missing."""
