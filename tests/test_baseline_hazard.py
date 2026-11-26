@@ -224,15 +224,16 @@ def test_reality_miss_rate_by_week_inside_history_for_the_weeks_not_yet_played(l
 
 
 @pytest.mark.slow
-@pytest.mark.xfail(strict=False, reason=(
-    "11-17: on the live state the hazard-off miss rate (0.0737) no longer clears this test's "
-    "margin below the history band's low end: this season's real injury entries (Edwards, "
-    "Banchero, Haliburton, Markkanen, Curry, Murphy III, Knueppel) carry misses on their own. "
-    "'Nobody ever hurt' should clear the entries too, or run on a frozen league: follow-up, "
-    "FIXES_FOUND item 9."))
 def test_reality_check_fails_with_nobody_ever_hurt(seasons, history_bands):
     """The check bites, at any bench depth: with the hazard off the only
-    misses left are INJURY_OVERRIDES entries, far below any real season."""
+    misses left are INJURY_OVERRIDES entries, far below any real season.
+
+    A real gate again (Nick, 11-25; S1). It was xfail(strict=False) from 11-17,
+    when the entries' own misses read 0.0737 with the hazard off. On 11-25's
+    state it bites on both: miss 0.0402 against a third of the floor, 0.0452;
+    rel_cv 0.0683 against the band's low end, 0.0699 (a thin margin). If a
+    long entry list breaks it again, the repair is FIXES_FOUND item 9 (clear
+    the entries too, or a frozen league), never the xfail back."""
     m = _metrics(*seasons[1])
     assert m["miss"] < history_bands["miss"][0] / 3, (m["miss"], history_bands["miss"])
     assert m["rel_cv"] < history_bands["rel_cv"][0]

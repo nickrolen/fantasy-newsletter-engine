@@ -17,7 +17,9 @@ add-folder   the same for every image in a folder, each named after its player
              ("Victor Wembanyama.png", "victor-wembanyama.jpg"): one line per
              file -- added, already there, unknown name, ambiguous, not an image.
 missing      who has no photo: rostered players by team, then the free agents
-             the hub lists.
+             the hub lists, then every other player the hub builds a card
+             for (an Advice add, a moves-feed or trade-block name), with a
+             count; the last line totals every card, as the publish check does.
 
 Adding needs Pillow (python -m pip install pillow); nothing else here does.
 This script never pushes: after adding, run  python scripts\\state.py push
@@ -96,6 +98,10 @@ def main(argv=None, out=print) -> int:
                 + (", ".join(t["missing"]) if t["missing"] else "none"))
         out("Free agents the hub lists, missing: "
             + (", ".join(m["free_agents_missing"]) if m["free_agents_missing"] else "none"))
+        out(f"Other players the hub builds a card for, missing, {len(m['other_cards_missing'])} of "
+            f"{len(m['other_cards'])}: "
+            + (", ".join(m["other_cards_missing"]) if m["other_cards_missing"] else "none"))
+        out(f"Every card the hub builds: {m['cards_with']} of {m['cards']} have a photo.")
         return 0
     except hs.HeadshotError as e:
         out(f"REFUSED: {e}")

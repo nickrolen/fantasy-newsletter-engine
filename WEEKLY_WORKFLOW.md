@@ -61,6 +61,7 @@ The hub is **https://nickrolen.github.io/newsletter-hub/** (encrypted; the passp
 4. **Steps 2, 5, 5.75, 6, 6.5, 7, 7.5, 8, 9**, in that order. Step 6 prints `Lines: week N+1's lines are Monday's closing line (...)`; Step 9 prints `calibration log: the issue printed week N+1's closing line (already logged)`.
 5. `python scripts\state.py push` **before the 12:05 AM nightly** (12:05 AM Pacific, about 1:05 AM Phoenix), and not while it runs (a few minutes after midnight Pacific).
 6. Send the issue, `python scripts\archive_issue.py --week N`, Step 10 (the recap), then `python scripts\state.py push`.
+7. **Headshots, last:** `python scripts\headshots.py missing`. It lists every player the hub builds a card for with no photo: rostered by team, then the free agents the hub lists, then every other carded player (an Advice add, a moves-feed or trade-block name), and totals every card as the publish check does. Add any missing photos (`python scripts\headshots.py add <file> "<Player Name>"`, or `add-folder <folder>`), then `python scripts\state.py push`. Not during the 12:05 AM nightly.
 
 ```cmd
 :: after the closing run (its run row says "Closing line priced")
@@ -70,6 +71,10 @@ python scripts\state.py push            :: before the 12:05 AM nightly, not duri
 :: send the issue, then:
 python scripts\archive_issue.py --week N
 :: Step 10 (recap), then:
+python scripts\state.py push
+:: last: headshots
+python scripts\headshots.py missing
+:: add any missing photos (headshots.py add / add-folder), then:
 python scripts\state.py push
 ```
 

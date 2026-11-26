@@ -228,10 +228,47 @@ def test_missing_lists_rostered_by_team_then_the_hubs_free_agents(desk):
     assert m["teams"][1]["missing"] == ["Lonzo Ball"]                         # Jokic has one
     assert m["free_agents"] == ["Free Agent Two", "Free Agent One", "S. Gilgeous-Alexander"]
     assert (m["rostered"], m["rostered_with"]) == (6, 1)
+    # S1: every other player the hub builds a card for, from the payload's card list
+    assert m["other_cards"] == m["other_cards_missing"] == ["Moves Only Guy"]
     rc, out = _run(desk, "missing")
     assert rc == 0
     assert out.index("Rostered, missing:") < out.index(MANAGER_TO_TEAM[MANAGERS[0]]) < \
-        out.index("Free agents the hub lists, missing:")
+        out.index("Free agents the hub lists, missing:") < \
+        out.index("Other players the hub builds a card for, missing, 1 of 1: Moves Only Guy") < \
+        out.index("Every card the hub builds: 0 of 1 have a photo.")
+
+
+def test_missing_counts_every_card_once_and_matches_the_publish_count(desk):
+    """S1 (11-25): the publish built 103 cards, 92 with a photo, while missing
+    said none were missing -- it read only the rosters and the listed free
+    agents. The third group is every other card in payload["cards"]["players"];
+    a card for a rostered or listed player (any spelling) is not listed again."""
+    _lib(desk, "nikola-jokic", "moves-only-guy")
+    hp = desk / "output" / "hub_state.json"
+    payload = json.loads(hp.read_text(encoding="utf-8"))
+    payload["cards"]["players"] = {
+        "nikola-jokic": {"name": "Nikola Joki\u0107"},                 # rostered, another spelling
+        "free-agent-one": {"name": "Free Agent One"},                 # listed free agent
+        "moves-only-guy": {"name": "Moves Only Guy"},                 # has a photo
+        "advice-add": {"name": "Advice Add"}}                         # no photo
+    hp.write_text(json.dumps(payload), encoding="utf-8")
+    m = hs.missing(desk)
+    assert m["other_cards"] == ["Moves Only Guy", "Advice Add"]
+    assert m["other_cards_missing"] == ["Advice Add"]
+    assert (m["cards"], m["cards_with"]) == (4, 2)
+    rc, out = _run(desk, "missing")
+    assert "Other players the hub builds a card for, missing, 1 of 2: Advice Add" in out
+
+
+def test_missing_refuses_a_payload_without_its_card_list(desk):
+    hp = desk / "output" / "hub_state.json"
+    payload = json.loads(hp.read_text(encoding="utf-8"))
+    payload["cards"] = None                                           # hub_cards.strip after a failure
+    hp.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(hs.HeadshotError, match="lists no player cards"):
+        hs.missing(desk)
+    rc, out = _run(desk, "missing")
+    assert rc == 1 and "REFUSED" in out
 
 
 def test_pillow_is_needed_only_to_add():

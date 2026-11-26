@@ -321,8 +321,14 @@ def add_folder(base_path, folder, *, replace: bool = False) -> List[dict]:
 def missing(base_path=".") -> dict:
     """Who has no photo: rostered players first, by team (the config's manager
     order), then the free agents the hub lists (its free-agent and stash
-    tables, in that order). Rosters from config/ROSTERS.json; the hub's lists
-    from output/hub_state.json (RAISES if missing: python scripts\\state.py pull)."""
+    tables, in that order), then every other player the hub builds a card for
+    (S1, 11-25: an Advice add outside the listed free agents, a name in the
+    moves feed or the trade block). Rosters from config/ROSTERS.json; the
+    hub's lists from output/hub_state.json (RAISES if missing: python
+    scripts\\state.py pull). The cards are the payload's card list,
+    payload["cards"]["players"] (hub_cards.annotate writes it, hub_cards.build
+    builds exactly those cards and the publish checks the two agree); a
+    payload without one RAISES: its card step failed (hub_cards.strip)."""
     from .data_loader import MANAGERS, MANAGER_TO_TEAM
     base = Path(base_path)
     lib = library(base)
@@ -349,8 +355,22 @@ def missing(base_path=".") -> dict:
         if r["name"] not in fa and r["name"] not in rostered:
             fa.append(r["name"])
     fa_miss = [n for n in fa if find(n, lib) is None]
+    reg = (payload.get("cards") or {}).get("players")
+    if reg is None:
+        raise HeadshotError("output/hub_state.json lists no player cards (its run's card step failed, "
+                            "hub_cards.strip): rebuild it with python scripts\\build_hub_state.py")
+    seen = {player_slug(n) for n in rostered} | {player_slug(n) for n in fa}
+    other = []
+    for v in reg.values():
+        if player_slug(v["name"]) not in seen:
+            seen.add(player_slug(v["name"]))
+            other.append(v["name"])
+    other_miss = [n for n in other if find(n, lib) is None]
     return {"teams": teams, "rostered": n_ro, "rostered_with": have_ro,
-            "free_agents": fa, "free_agents_missing": fa_miss, "library": len(lib)}
+            "free_agents": fa, "free_agents_missing": fa_miss,
+            "other_cards": other, "other_cards_missing": other_miss,
+            "cards": len(reg), "cards_with": sum(find(v["name"], lib) is not None for v in reg.values()),
+            "library": len(lib)}
 
 
 def attach_data_uris(cards: list, base_path=".") -> int:
